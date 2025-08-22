@@ -1,0 +1,113 @@
+---
+title: Contributing
+description: Learn how you can contribute to the proxywhirl project.
+icon: fa/FaUsers
+---
+
+# Contributing to proxywhirl
+
+Thank you for your interest in contributing to proxywhirl! We welcome contributions from everyone. By participating in this project, you agree to abide by our code of conduct.
+
+## How to Contribute
+
+There are many ways to contribute, from writing tutorials or improving documentation to submitting bug reports and feature requests or writing code which can be incorporated into proxywhirl itself.
+
+### Reporting Bugs
+
+If you find a bug, please open an issue on our GitHub repository. Please include as much detail as possible, including:
+
+- A clear and descriptive title.
+- Steps to reproduce the bug.
+- The expected behavior and what actually happened.
+- Your environment details (OS, Python version, proxywhirl version).
+
+### Suggesting Enhancements
+
+If you have an idea for a new feature or an improvement to an existing one, please open an issue to discuss it. This allows us to coordinate our efforts and avoid duplicating work.
+
+### Pull Requests
+
+We actively welcome your pull requests.
+
+1.  **Fork the repository** and create your branch from `main`.
+2.  If you've added code that should be tested, **add tests**.
+3.  If you've changed APIs, **update the documentation**.
+4.  Ensure the test suite passes (`make test`).
+5.  Make sure your code lints (`make lint`).
+6.  **Issue that pull request!**
+
+## Development Workflow
+
+Set up your development environment:
+
+```bash
+# Clone your fork and navigate to the directory
+git clone https://github.com/your-username/proxywhirl.git
+cd proxywhirl
+
+# Set up the development environment
+make setup
+
+# Run the complete quality pipeline
+make quality
+```
+
+### Available Make Targets
+
+- `make help` - Show all available commands
+- `make setup` - Create virtual environment and sync all dependencies  
+- `make test` - Run all tests with coverage
+- `make format` - Format code with black and isort
+- `make lint` - Run all linters (ruff, pylint, mypy)
+- `make quality` - Complete pipeline: format → lint → test
+- `make docs-dev` - Start documentation development server
+- `make clean` - Clean up build artifacts and cache
+
+## CI/CD Pipeline
+
+proxywhirl uses GitHub Actions for continuous integration and deployment. Here's what happens automatically:
+
+### Automated Testing
+When you create a pull request or push to `main`/`dev` branches:
+
+1. **Quality Checks** - Runs `make quality` pipeline:
+   - Code formatting (black + isort)
+   - Linting (ruff + pylint + mypy)
+   - Full test suite with coverage
+2. **Security Scanning** - Checks dependencies for vulnerabilities
+3. **Integration Tests** - Optional comprehensive testing (add `run-integration` label)
+
+### Branch Strategy
+- **`main`** - Production-ready code, protected branch
+- **`dev`** - Integration branch for feature development
+- **Feature branches** - Created from `dev`, merged via pull request
+
+### Release Process
+Releases are fully automated:
+
+1. Update version in `pyproject.toml`
+2. Create version tag (e.g., `v1.0.0`) 
+3. GitHub Actions automatically:
+   - Runs full test suite
+   - Publishes to PyPI
+   - Creates GitHub release
+   - Updates documentation
+
+### Status Checks
+Your PR must pass these checks before merging:
+- ✅ Code formatting and linting
+- ✅ All tests passing
+- ✅ Security audit clean
+- ✅ Documentation builds successfully
+
+<Callout type="tip">
+  **Pro Tip**: Run `make quality` locally before pushing to catch issues early and save CI time.
+</Callout>
+
+## Code of Conduct
+
+We have a Code of Conduct in place to ensure that our community is welcoming and inclusive for everyone. Please read it before you start contributing.
+
+<Callout type="info">
+  We are committed to providing a friendly, safe and welcoming environment for all, regardless of gender, sexual orientation, disability, ethnicity, or religion.
+</Callout> 

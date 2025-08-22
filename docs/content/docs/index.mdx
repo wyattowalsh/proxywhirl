@@ -1,0 +1,152 @@
+---
+title: Overview
+icon: fa/FaHome
+---
+
+`proxywhirl` is an advanced rotating proxy service for efficient web data collection with Python SDK and CLI interfaces, several cache formats for proxy data, advanced proxy validation, and a robust multitude of proxy providers and varieties.
+
+## Features
+
+<Cards>
+  <Card
+    title="Python SDK"
+    description="Comprehensive Python library with async/sync support, type hints, and intuitive API design"
+    icon="🐍"
+  />
+  <Card
+    title="Command Line Interface"
+    description="Powerful CLI for fetching, listing, validating, and getting proxies with rich terminal output"
+    icon="⚡"
+  />
+  <Card
+    title="Smart Caching"
+    description="Efficient proxy storage with memory and JSON backends for optimal performance"
+    icon="💾"
+  />
+</Cards>
+
+### Cache Formats
+
+<Tabs items={['In-Memory', 'JSON']}>
+  <Tab value="In-Memory">
+    **Lightning Fast Performance**
+    
+    Store proxy data directly in memory for maximum speed and minimal latency. Perfect for high-throughput applications where performance is critical.
+    
+    ```python
+    from proxywhirl import proxywhirl
+    
+    proxy_whirl = proxywhirl(cache_type="memory")
+    ```
+  </Tab>
+  <Tab value="JSON">
+    **Human-Readable Storage**
+    
+    Persist proxy configurations and state in JSON format for easy debugging, backup, and manual editing when needed.
+    
+    ```python
+    proxy_whirl = proxywhirl(
+        cache_type="json",
+        cache_path="proxies.json"
+    )
+    ```
+  </Tab>
+</Tabs>
+
+### Advanced Validation
+
+<Callout type="info">
+  **Smart Proxy Health Checks**
+  
+  proxywhirl automatically validates proxy health, response times, and geographic location to ensure optimal performance.
+</Callout>
+
+- **Real-time Health Monitoring** - Continuous proxy availability checking
+- **Response Time Tracking** - Latency measurement and optimization
+- **Geographic Validation** - IP location verification and filtering
+- **Protocol Support** - HTTP, HTTPS, SOCKS4, and SOCKS5 validation
+- **Custom Validation Rules** - Define your own proxy quality criteria
+
+### Intelligent Rotation Strategies
+
+<Tabs items={['Round Robin', 'Random', 'Weighted', 'Health-Based']}>
+  <Tab value="Round Robin">
+    **Sequential Distribution**
+    
+    Distribute requests evenly across all available proxies in a predictable order.
+    
+    ```python
+    proxy_whirl = proxywhirl(rotation_strategy="round_robin")
+    
+    # Each request uses the next proxy in sequence
+    for i in range(5):
+        proxy = await proxy_whirl.get_proxy()
+        print(f"Request {i}: {proxy.host}:{proxy.port}")
+    ```
+  </Tab>
+  <Tab value="Random">
+    **Unpredictable Selection**
+    
+    Randomly select proxies to avoid detection patterns and distribute load unpredictably.
+    
+    ```python
+    proxy_whirl = proxywhirl(rotation_strategy="random")
+    
+    # Random proxy selection for each request
+    proxy = await proxy_whirl.get_proxy()
+    ```
+  </Tab>
+  <Tab value="Weighted">
+    **Performance-Based Priority**
+    
+    Prioritize faster, more reliable proxies while still utilizing the entire pool.
+    
+  ```python
+  # Weighted prefers faster proxies (lower response_time)
+  proxy_whirl = proxywhirl(rotation_strategy="weighted")
+  ```
+  </Tab>
+  <Tab value="Health-Based">
+    **Adaptive Selection**
+    
+    Automatically avoid unhealthy proxies and favor high-performing ones.
+    
+    ```python
+    proxy_whirl = proxywhirl(
+        rotation_strategy="health_based",
+        health_check_interval=30
+    )
+    ```
+  </Tab>
+</Tabs>
+
+### Multi-Provider Support
+
+<Cards>
+  <Card
+    title="Free Providers"
+    description="Integrate with popular free proxy sources like ProxyList, FreeProxyList, and more"
+    icon="🆓"
+  />
+  <Card
+    title="Premium Services"
+    description="Support for paid proxy services with authentication and dedicated IPs"
+    icon="💎"
+  />
+  <Card
+    title="Custom Sources"
+    description="Easy integration with your own proxy sources and APIs"
+    icon="🔧"
+  />
+  <Card
+    title="Provider Failover"
+    description="Automatic fallback between providers for maximum uptime"
+    icon="🔄"
+  />
+</Cards>
+
+<Callout type="tip">
+  **Provider Configuration**
+  
+  Configure multiple providers with different priorities and fallback strategies.
+</Callout>

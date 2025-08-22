@@ -1,0 +1,796 @@
+@import 'fumadocs-ui/css/shadcn.css';
+@import 'fumadocs-ui/css/preset.css';
+@import "tw-animate-css";
+@import "tailwindcss";
+@import 'fumadocs-python/preset.css';
+
+/* ====================================
+   🎨 proxywhirl ENHANCED THEME SYSTEM
+   ==================================== */
+
+@layer theme {
+  :root {
+    /* Core Color Palette */
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 222.2 84% 4.9%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+
+    /* proxywhirl Brand Colors */
+    --pw-blue: 214 100% 59%;
+    --pw-purple: 249 58% 71%;
+    --pw-cyan: 188 100% 44%;
+    --pw-gradient: linear-gradient(135deg, hsl(var(--pw-blue)), hsl(var(--pw-purple)), hsl(var(--pw-cyan)));
+    
+    /* Enhanced Semantic Colors */
+    --success: 142 76% 36%;
+    --success-foreground: 355 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 48 96% 89%;
+    --info: 199 89% 48%;
+    --info-foreground: 210 40% 98%;
+    
+    /* Elevated Surface Colors */
+    --surface-elevated: 0 0% 98%;
+    --surface-glass: 0 0% 100% / 0.8;
+    --surface-overlay: 240 10% 3.9% / 0.02;
+    
+    /* Shadow System */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-glow: 0 0 20px rgb(59 130 246 / 0.15);
+    
+    /* Animation Timing */
+    --motion-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --motion-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+    --motion-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .dark {
+    /* Dark Mode Color Palette */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    
+    /* Enhanced Dark Surfaces */
+    --surface-elevated: 240 5.9% 10%;
+    --surface-glass: 240 10% 3.9% / 0.9;
+    --surface-overlay: 0 0% 100% / 0.05;
+    
+    /* Dark Mode Shadows */
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.3);
+    --shadow-glow: 0 0 20px rgb(96 165 250 / 0.2);
+  }
+}
+
+/* ====================================
+   🎯 ENHANCED BASE STYLES
+   ==================================== */
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+    transition: border-color 200ms var(--motion-ease-out);
+  }
+  
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  
+  html {
+    font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+  }
+  
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "rlig" 1, "calt" 1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 300ms var(--motion-ease-out), color 300ms var(--motion-ease-out);
+  }
+
+  /* Enhanced Typography */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.25;
+  }
+  
+  p {
+    line-height: 1.7;
+  }
+  
+  /* Enhanced Focus Styles */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: calc(var(--radius) * 0.5);
+  }
+  
+  /* Selection Styles */
+  ::selection {
+    background: hsl(var(--pw-blue) / 0.2);
+    color: hsl(var(--foreground));
+  }
+}
+
+/* ====================================
+   ✨ proxywhirl BRAND ELEMENTS
+   ==================================== */
+
+/* Enhanced proxywhirl Brand Text */
+.pw {
+  background: var(--pw-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  position: relative;
+  display: inline-block;
+  transition: all 300ms var(--motion-ease-out);
+}
+
+.pw:hover {
+  transform: translateY(-1px);
+  filter: drop-shadow(0 4px 8px hsl(var(--pw-blue) / 0.25));
+}
+
+.pw::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--pw-gradient);
+  border-radius: 1px;
+  opacity: 0;
+  transform: scaleX(0);
+  transition: all 300ms var(--motion-ease-out);
+}
+
+.pw:hover::after {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+/* ====================================
+   🎨 PAGE ICON SYSTEM (ENHANCED)
+   ==================================== */
+
+.page-header-with-icon {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  border-radius: calc(var(--radius) * 2);
+  background: 
+    radial-gradient(ellipse at top left, hsl(var(--pw-blue) / 0.03), transparent 50%),
+    radial-gradient(ellipse at bottom right, hsl(var(--pw-purple) / 0.03), transparent 50%),
+    hsl(var(--surface-elevated));
+  border: 1px solid hsl(var(--border) / 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.dark .page-header-with-icon {
+  background: 
+    radial-gradient(ellipse at top left, hsl(var(--pw-blue) / 0.05), transparent 50%),
+    radial-gradient(ellipse at bottom right, hsl(var(--pw-purple) / 0.05), transparent 50%),
+    hsl(var(--surface-elevated));
+}
+
+.page-header-with-icon::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--pw-gradient);
+  opacity: 0.3;
+}
+
+.page-icon-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 4rem;
+  height: 4rem;
+  border-radius: calc(var(--radius) * 1.5);
+  background: 
+    radial-gradient(circle at 30% 30%, hsl(var(--pw-blue) / 0.1), transparent 60%),
+    radial-gradient(circle at 70% 70%, hsl(var(--pw-purple) / 0.08), transparent 60%),
+    linear-gradient(135deg, hsl(var(--surface-elevated)), hsl(var(--background)));
+  border: 1px solid hsl(var(--border) / 0.8);
+  box-shadow: 
+    var(--shadow-md),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05),
+    0 0 0 1px hsl(var(--pw-blue) / 0.05);
+  transition: all 400ms var(--motion-spring);
+  flex-shrink: 0;
+}
+
+.page-icon-container:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 
+    var(--shadow-xl),
+    var(--shadow-glow),
+    inset 0 1px 0 hsl(var(--foreground) / 0.1),
+    0 0 0 1px hsl(var(--pw-blue) / 0.1);
+}
+
+.page-icon-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--pw-gradient);
+  opacity: 0;
+  transition: opacity 300ms var(--motion-ease-out);
+  mask: radial-gradient(circle at center, transparent 60%, black 100%);
+  -webkit-mask: radial-gradient(circle at center, transparent 60%, black 100%);
+}
+
+.page-icon-container:hover::after {
+  opacity: 0.05;
+}
+
+.page-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  color: hsl(var(--pw-blue));
+  transition: all 400ms var(--motion-spring);
+  filter: drop-shadow(0 1px 2px hsl(var(--pw-blue) / 0.2));
+  z-index: 1;
+  position: relative;
+}
+
+.page-icon-container:hover .page-icon {
+  transform: scale(1.1) rotate(5deg);
+  color: hsl(var(--pw-purple));
+  filter: drop-shadow(0 2px 4px hsl(var(--pw-purple) / 0.3));
+}
+
+.dark .page-icon {
+  color: hsl(var(--pw-cyan));
+  filter: drop-shadow(0 1px 2px hsl(var(--pw-cyan) / 0.3));
+}
+
+.dark .page-icon-container:hover .page-icon {
+  color: hsl(var(--pw-blue));
+  filter: drop-shadow(0 2px 4px hsl(var(--pw-blue) / 0.4));
+}
+
+/* ====================================
+   🎨 SPECIALIZED ICON VARIANTS
+   ==================================== */
+
+.page-icon-container.guide {
+  background: 
+    radial-gradient(circle at 30% 30%, hsl(var(--success) / 0.08), transparent 60%),
+    linear-gradient(135deg, hsl(var(--surface-elevated)), hsl(var(--background)));
+  border-color: hsl(var(--success) / 0.2);
+  box-shadow: 
+    var(--shadow-md),
+    inset 0 1px 0 hsl(var(--success) / 0.05),
+    0 0 0 1px hsl(var(--success) / 0.05);
+}
+
+.page-icon-container.guide:hover {
+  box-shadow: 
+    var(--shadow-xl),
+    0 0 20px hsl(var(--success) / 0.15),
+    inset 0 1px 0 hsl(var(--success) / 0.1),
+    0 0 0 1px hsl(var(--success) / 0.1);
+}
+
+.page-icon-container.guide .page-icon {
+  color: hsl(var(--success));
+  filter: drop-shadow(0 1px 2px hsl(var(--success) / 0.2));
+}
+
+.page-icon-container.guide:hover .page-icon {
+  color: hsl(var(--success));
+  filter: drop-shadow(0 2px 4px hsl(var(--success) / 0.3));
+}
+
+.page-icon-container.api {
+  background: 
+    radial-gradient(circle at 30% 30%, hsl(var(--pw-purple) / 0.08), transparent 60%),
+    linear-gradient(135deg, hsl(var(--surface-elevated)), hsl(var(--background)));
+  border-color: hsl(var(--pw-purple) / 0.2);
+  box-shadow: 
+    var(--shadow-md),
+    inset 0 1px 0 hsl(var(--pw-purple) / 0.05),
+    0 0 0 1px hsl(var(--pw-purple) / 0.05);
+}
+
+.page-icon-container.api:hover {
+  box-shadow: 
+    var(--shadow-xl),
+    0 0 20px hsl(var(--pw-purple) / 0.15),
+    inset 0 1px 0 hsl(var(--pw-purple) / 0.1),
+    0 0 0 1px hsl(var(--pw-purple) / 0.1);
+}
+
+.page-icon-container.api .page-icon {
+  color: hsl(var(--pw-purple));
+  filter: drop-shadow(0 1px 2px hsl(var(--pw-purple) / 0.2));
+}
+
+.page-icon-container.api:hover .page-icon {
+  color: hsl(var(--pw-purple));
+  filter: drop-shadow(0 2px 4px hsl(var(--pw-purple) / 0.3));
+}
+
+.page-icon-container.config {
+  background: 
+    radial-gradient(circle at 30% 30%, hsl(var(--warning) / 0.08), transparent 60%),
+    linear-gradient(135deg, hsl(var(--surface-elevated)), hsl(var(--background)));
+  border-color: hsl(var(--warning) / 0.2);
+  box-shadow: 
+    var(--shadow-md),
+    inset 0 1px 0 hsl(var(--warning) / 0.05),
+    0 0 0 1px hsl(var(--warning) / 0.05);
+}
+
+.page-icon-container.config:hover {
+  box-shadow: 
+    var(--shadow-xl),
+    0 0 20px hsl(var(--warning) / 0.15),
+    inset 0 1px 0 hsl(var(--warning) / 0.1),
+    0 0 0 1px hsl(var(--warning) / 0.1);
+}
+
+.page-icon-container.config .page-icon {
+  color: hsl(var(--warning));
+  filter: drop-shadow(0 1px 2px hsl(var(--warning) / 0.2));
+}
+
+.page-icon-container.config:hover .page-icon {
+  color: hsl(var(--warning));
+  filter: drop-shadow(0 2px 4px hsl(var(--warning) / 0.3));
+}
+
+/* ====================================
+   📱 ENHANCED RESPONSIVE DESIGN
+   ==================================== */
+
+@media (min-width: 640px) {
+  .page-header-with-icon {
+    padding: 2rem;
+    gap: 2rem;
+  }
+  
+  .page-icon-container {
+    width: 4.5rem;
+    height: 4.5rem;
+  }
+  
+  .page-icon {
+    width: 2rem;
+    height: 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .page-header-with-icon {
+    padding: 2.5rem;
+    gap: 2.5rem;
+  }
+  
+  .page-icon-container {
+    width: 5rem;
+    height: 5rem;
+  }
+  
+  .page-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+}
+
+/* ====================================
+   ♿ ACCESSIBILITY ENHANCEMENTS
+   ==================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .page-icon-container,
+  .page-icon,
+  .page-icon-container::after,
+  .pw,
+  .pw::after {
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  .page-icon-container:hover .page-icon {
+    transform: none !important;
+  }
+  
+  .page-icon-container:hover {
+    transform: none !important;
+  }
+  
+  .pw:hover {
+    transform: none !important;
+  }
+}
+
+/* Enhanced Focus States */
+.page-icon-container:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
+  box-shadow: 
+    var(--shadow-xl),
+    0 0 0 3px hsl(var(--ring) / 0.2);
+}
+
+.dark .page-icon-container:focus-visible {
+  outline-color: hsl(var(--pw-cyan));
+  box-shadow: 
+    var(--shadow-xl),
+    0 0 0 3px hsl(var(--pw-cyan) / 0.2);
+}
+
+/* ====================================
+   🎨 HIGH CONTRAST MODE SUPPORT
+   ==================================== */
+
+@media (prefers-contrast: high) {
+  .page-icon-container {
+    border: 2px solid hsl(var(--foreground));
+    background: hsl(var(--background));
+    box-shadow: none;
+  }
+  
+  .page-icon {
+    color: hsl(var(--foreground));
+    filter: none;
+  }
+  
+  .pw {
+    background: hsl(var(--foreground));
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: hsl(var(--foreground));
+  }
+  
+  .pw::after {
+    background: hsl(var(--foreground));
+  }
+}
+
+/* ====================================
+   ✨ ENHANCED COMPONENT STYLES
+   ==================================== */
+
+/* Landing Page - No Scroll */
+.landing-page-container {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Ensure FumaDocs components don't cause overflow ONLY on landing page */
+body:has(.landing-page-container) {
+  overflow: hidden !important;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* Only apply height constraints when landing page is present */
+body:has(.landing-page-container) > div[data-fumadocs-provider] {
+  height: 100vh !important;
+  height: 100dvh !important;
+  overflow: hidden !important;
+}
+
+/* Reset these styles when NOT on landing page */
+body:not(:has(.landing-page-container)) {
+  overflow: auto !important;
+  height: auto !important;
+}
+
+/* Responsive adjustments for landing page */
+@media (max-height: 700px) {
+  .landing-page-container .space-y-8 {
+    gap: 1.5rem;
+  }
+  
+  .landing-page-container .space-y-12 {
+    gap: 2rem;
+  }
+  
+  .landing-page-container .mt-12 {
+    margin-top: 2rem;
+  }
+  
+  .landing-page-container .mt-16 {
+    margin-top: 2.5rem;
+  }
+}
+
+@media (max-height: 600px) {
+  .landing-page-container .space-y-8 {
+    gap: 1rem;
+  }
+  
+  .landing-page-container .space-y-12 {
+    gap: 1.5rem;
+  }
+  
+  .landing-page-container .mt-12,
+  .landing-page-container .mt-16 {
+    margin-top: 1.5rem;
+  }
+}
+
+/* Enhanced Code Blocks */
+pre[data-theme*="github"] {
+  border-radius: calc(var(--radius) * 1.5);
+  border: 1px solid hsl(var(--border) / 0.5);
+  box-shadow: var(--shadow-sm);
+  transition: all 200ms var(--motion-ease-out);
+}
+
+pre[data-theme*="github"]:hover {
+  box-shadow: var(--shadow-md);
+  border-color: hsl(var(--border));
+}
+
+/* Enhanced Tables */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid hsl(var(--border) / 0.5);
+}
+
+thead tr {
+  background: hsl(var(--muted) / 0.5);
+}
+
+tbody tr:hover {
+  background: hsl(var(--muted) / 0.3);
+  transition: background-color 150ms var(--motion-ease-out);
+}
+
+/* Enhanced Blockquotes */
+blockquote {
+  border-left: 4px solid hsl(var(--pw-blue));
+  background: 
+    linear-gradient(90deg, hsl(var(--pw-blue) / 0.03), transparent 20%),
+    hsl(var(--muted) / 0.3);
+  border-radius: 0 calc(var(--radius)) calc(var(--radius)) 0;
+  position: relative;
+}
+
+blockquote::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--pw-gradient);
+  border-radius: 2px 0 0 2px;
+}
+
+/* Enhanced Inline Code */
+:not(pre) > code {
+  background: hsl(var(--muted) / 0.6);
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: calc(var(--radius) * 0.5);
+  padding: 0.125rem 0.375rem;
+  font-size: 0.875em;
+  font-weight: 500;
+  transition: all 150ms var(--motion-ease-out);
+}
+
+:not(pre) > code:hover {
+  background: hsl(var(--muted));
+  border-color: hsl(var(--border));
+}
+
+/* ====================================
+   🎯 UTILITY CLASSES
+   ==================================== */
+
+.glass-effect {
+  background: hsl(var(--surface-glass));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid hsl(var(--border) / 0.3);
+}
+
+.glow-blue {
+  box-shadow: 0 0 20px hsl(var(--pw-blue) / 0.2);
+}
+
+.glow-purple {
+  box-shadow: 0 0 20px hsl(var(--pw-purple) / 0.2);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 20px hsl(var(--pw-cyan) / 0.2);
+}
+
+.gradient-border {
+  position: relative;
+  border: 1px solid transparent;
+  background: linear-gradient(hsl(var(--background)), hsl(var(--background))) padding-box,
+              var(--pw-gradient) border-box;
+}
+
+.text-gradient {
+  background: var(--pw-gradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* ====================================
+   🎬 ENHANCED ANIMATIONS
+   ==================================== */
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px hsl(var(--pw-blue) / 0.1); }
+  50% { box-shadow: 0 0 30px hsl(var(--pw-blue) / 0.2); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--foreground) / 0.04),
+    transparent
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* ====================================
+   📊 PRINT STYLES
+   ==================================== */
+
+@media print {
+  .page-icon-container,
+  .pw::after {
+    background: none !important;
+    box-shadow: none !important;
+    border: 1px solid #000 !important;
+  }
+  
+  .pw {
+    background: none !important;
+    color: #000 !important;
+  }
+  
+  .page-icon {
+    color: #000 !important;
+    filter: none !important;
+  }
+}
+
+/* ====================================
+   ✨ FEATURE ICON STYLES
+   ==================================== */
+
+.feature-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: calc(var(--radius) * 1.5);
+  background:
+    radial-gradient(circle at 30% 30%, hsl(var(--pw-blue) / 0.06), transparent 60%),
+    linear-gradient(135deg, hsl(var(--surface-elevated)), hsl(var(--background)));
+  border: 1px solid hsl(var(--border) / 0.7);
+  box-shadow:
+    var(--shadow-md),
+    inset 0 1px 0 hsl(var(--foreground) / 0.05);
+  transition: all 300ms var(--motion-ease-out);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.feature-icon-wrap:hover {
+  box-shadow:
+    var(--shadow-lg),
+    var(--shadow-glow),
+    inset 0 1px 0 hsl(var(--foreground) / 0.08);
+}
+
+.feature-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  color: hsl(var(--pw-blue));
+  filter: drop-shadow(0 1px 2px hsl(var(--pw-blue) / 0.25));
+  transition: all 300ms var(--motion-ease-out);
+}
+
+.feature-icon-wrap:hover .feature-icon {
+  color: hsl(var(--pw-purple));
+  filter: drop-shadow(0 2px 4px hsl(var(--pw-purple) / 0.35));
+  transform: scale(1.05);
+}
+
+.dark .feature-icon {
+  color: hsl(var(--pw-cyan));
+  filter: drop-shadow(0 1px 2px hsl(var(--pw-cyan) / 0.3));
+}
+
+.dark .feature-icon-wrap:hover .feature-icon {
+  color: hsl(var(--pw-blue));
+  filter: drop-shadow(0 2px 4px hsl(var(--pw-blue) / 0.4));
+}

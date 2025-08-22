@@ -1,0 +1,179 @@
+name: ⚡ Performance Issue
+description: Report performance problems, memory leaks, or speed issues
+title: "[Performance]: "
+labels: ["performance", "needs-investigation"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Performance Issue Report ⚡
+        
+        ProxyWhirl is designed for high-performance proxy management. Help us identify and fix performance bottlenecks!
+        
+        **Before reporting:**
+        - Test with the latest version of ProxyWhirl
+        - Run `make test` to ensure your environment is optimal
+        - Consider if this might be related to network conditions or proxy sources
+
+  - type: input
+    id: version
+    attributes:
+      label: ProxyWhirl Version
+      description: What version are you using?
+      placeholder: "e.g., 0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: performance-type
+    attributes:
+      label: Performance Issue Type
+      description: What kind of performance problem are you experiencing?
+      options:
+        - Slow proxy fetching/loading
+        - High memory usage
+        - Memory leaks
+        - Slow proxy validation
+        - Cache performance issues
+        - CPU usage spikes
+        - Slow CLI response
+        - Network timeout issues
+        - Other performance degradation
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Performance Issue Description
+      description: Describe the performance problem you're experiencing.
+      placeholder: "ProxyWhirl is taking unusually long to... or using excessive memory when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: metrics
+    attributes:
+      label: Performance Metrics
+      description: |
+        Please provide specific metrics if available:
+        - Execution time (expected vs actual)
+        - Memory usage (MB/GB)
+        - CPU usage percentage
+        - Number of proxies being processed
+        - Network latency
+      placeholder: |
+        Expected: ~2 seconds
+        Actual: ~30 seconds
+        Memory usage: 2GB+ (expected <500MB)
+        Processing: 10,000 proxies
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction Steps
+      description: How can we reproduce this performance issue?
+      placeholder: |
+        1. Run `proxywhirl fetch --loader all --validate`
+        2. Monitor memory usage with `top` or Task Manager
+        3. Notice memory climbing to 2GB+
+        4. Process takes 5+ minutes instead of expected 30 seconds
+      value: |
+        1. 
+        2. 
+        3. 
+        4. 
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Details
+      description: |
+        Please provide detailed environment information:
+      placeholder: |
+        OS: Ubuntu 22.04 / macOS 14 / Windows 11
+        Python: 3.13.1
+        RAM: 16GB
+        CPU: Intel i7 / Apple M2 / AMD Ryzen
+        Storage: SSD / HDD
+        Network: 100Mbps / 1Gbps / Corporate network
+        Proxy count: ~50,000 proxies
+        Cache type: Memory / JSON / SQLite
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scale
+    attributes:
+      label: Scale of Operation
+      description: What scale are you operating at?
+      options:
+        - Small scale (<1,000 proxies)
+        - Medium scale (1,000-10,000 proxies)
+        - Large scale (10,000-100,000 proxies)
+        - Enterprise scale (100,000+ proxies)
+        - Unsure
+    validations:
+      required: true
+
+  - type: textarea
+    id: profiling
+    attributes:
+      label: Profiling Data
+      description: |
+        If you've run any profiling tools, please share the results:
+        - Python profiler output
+        - Memory profiler results
+        - System monitoring data
+      render: shell
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Configuration
+      description: |
+        Share your ProxyWhirl configuration (remove sensitive data):
+        - Cache settings
+        - Loader configurations
+        - Validation settings
+        - Concurrent processing settings
+      render: yaml
+
+  - type: checkboxes
+    id: troubleshooting
+    attributes:
+      label: Troubleshooting Done
+      description: What troubleshooting steps have you already tried?
+      options:
+        - label: Tested with latest ProxyWhirl version
+        - label: Tested with different cache backends
+        - label: Tested with fewer proxy sources
+        - label: Monitored system resources during execution
+        - label: Tested on different hardware/environment
+        - label: Compared performance with previous versions
+
+  - type: textarea
+    id: workarounds
+    attributes:
+      label: Current Workarounds
+      description: |
+        Are you using any workarounds to mitigate this performance issue?
+      placeholder: |
+        I'm currently limiting to 5,000 proxies at a time...
+        Using memory cache instead of SQLite...
+        Running with reduced concurrency...
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: |
+        Any other relevant information:
+        - Comparison with other tools
+        - Business impact of the performance issue
+        - Specific performance requirements

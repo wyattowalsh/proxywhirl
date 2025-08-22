@@ -1,0 +1,409 @@
+---
+title: API Reference
+description: Complete API reference for proxywhirl Python SDK
+icon: fa/FaCode
+---
+
+# API Reference
+
+This page provides complete API documentation for the proxywhirl Python SDK.
+
+## proxywhirl
+
+The main async class for proxy management.
+
+```python
+from proxywhirl import proxywhirl
+```
+
+### Constructor
+
+```python
+proxywhirl(
+    cache_type: Union[CacheType, str] = CacheType.MEMORY,
+    cache_path: Optional[Union[str, Path]] = None,
+    rotation_strategy: Union[RotationStrategy, str] = RotationStrategy.ROUND_ROBIN,
+    health_check_interval: int = 30,
+    auto_validate: bool = True
+)
+```
+
+**Parameters:**
+
+- `cache_type`: Storage backend for proxies (`"memory"`, `"json"`, or `"sqlite"`)
+- `cache_path`: File path for JSON cache (required if `cache_type="json"`)
+- `rotation_strategy`: How to select proxies (`"round_robin"`, `"random"`, `"weighted"`, `"health_based"`, `"least_used"`)
+- `health_check_interval`: Seconds between health checks
+- `auto_validate`: Whether to validate proxies when fetching
+
+**Example:**
+
+```python
+# Memory cache with random rotation
+proxy_whirl = proxywhirl(
+    cache_type="memory",
+    rotation_strategy="random"
+)
+
+# JSON cache with health-based rotation
+proxy_whirl = proxywhirl(
+    cache_type="json",
+    cache_path="proxies.json",
+    rotation_strategy="health_based",
+    auto_validate=True
+)
+```
+
+### Methods
+
+#### `fetch_proxies(validate: Optional[bool] = None) -> int`
+
+Fetch proxies from all configured providers.
+
+**Parameters:**
+- `validate`: Override auto_validate setting
+
+**Returns:** Number of proxies loaded
+
+**Example:**
+
+```python
+# Fetch and validate proxies
+count = await proxy_whirl.fetch_proxies(validate=True)
+print(f"Loaded {count} proxies")
+```
+
+#### `get_proxy() -> Optional[Proxy]`
+
+Get next proxy using rotation strategy.
+
+**Returns:** Proxy object or None if no proxies available
+
+**Example:**
+
+```python
+proxy = await proxy_whirl.get_proxy()
+if proxy:
+    print(f"Using {proxy.host}:{proxy.port}")
+```
+
+#### `list_proxies() -> List[Proxy]`
+
+Get all cached proxies.
+
+**Returns:** List of all cached proxies
+
+**Example:**
+
+```python
+proxies = proxy_whirl.list_proxies()
+print(f"Found {len(proxies)} cached proxies")
+```
+
+#### `validate_proxies() -> int`
+
+Validate all cached proxies and remove invalid ones.
+
+**Returns:** Number of valid proxies remaining
+
+**Example:**
+
+```python
+valid_count = await proxy_whirl.validate_proxies()
+print(f"{valid_count} proxies are working")
+```
+
+#### `update_proxy_health(proxy: Proxy, success: bool, response_time: Optional[float] = None) -> None`
+
+Update health score for a proxy after use.
+
+**Parameters:**
+- `proxy`: The proxy that was used
+- `success`: Whether the request succeeded
+- `response_time`: Response time in seconds
+
+**Example:**
+
+```python
+import time
+start = time.time()
+# ... use proxy for request ...
+success = True  # based on request result
+response_time = time.time() - start
+
+proxy_whirl.update_proxy_health(proxy, success, response_time)
+```
+
+#### `get_proxy_count() -> int`
+
+Get count of cached proxies.
+
+**Returns:** Number of proxies in cache
+
+#### `clear_cache() -> None`
+
+Clear all cached proxies.
+
+## proxywhirlClient
+
+Synchronous wrapper for proxywhirl. Same methods as proxywhirl but without async/await.
+
+```python
+from proxywhirl import proxywhirlClient
+
+# Same constructor parameters
+client = proxywhirlClient(cache_type="json", cache_path="proxies.json")
+
+# Synchronous methods
+count = client.fetch_proxies()
+proxy = client.get_proxy()
+proxies = client.list_proxies()
+```
+
+## Models
+
+### Proxy
+
+Represents a proxy server with all metadata.
+
+```python
+from proxywhirl import Proxy
+```
+
+**Fields:**
+
+- `host: str` - Hostname or IP address
+- `ip: Union[IPv4Address, IPv6Address]` - IP address
+- `port: int` - TCP port (1-65535)
+- `schemes: List[Scheme]` - Supported protocols
+- `country_code: Optional[str]` - ISO 3166-1 alpha-2 country code
+- `country: Optional[str]` - Country name
+- `city: Optional[str]` - City or region
+- `anonymity: AnonymityLevel` - Anonymity classification
+- `last_checked: datetime` - UTC timestamp of last health check
+- `response_time: Optional[float]` - Last response time in seconds
+- `source: Optional[str]` - Provider identifier
+- `metadata: Dict[str, Any]` - Provider-specific fields
+
+**Properties:**
+
+- `uris: Dict[str, str]` - Proxy URIs for each scheme
+
+**Example:**
+
+```python
+proxy = Proxy(
+    host="192.168.1.1",
+    port=8080,
+    schemes=["http", "https"],
+    country_code="US",
+    anonymity="elite"
+)
+
+print(proxy.uris)
+# {'http': 'http://192.168.1.1:8080', 'https': 'https://192.168.1.1:8080'}
+```
+
+### Enums
+
+#### AnonymityLevel
+
+```python
+from proxywhirl import AnonymityLevel
+
+AnonymityLevel.TRANSPARENT  # IP visible
+AnonymityLevel.ANONYMOUS    # IP hidden, proxy detected
+AnonymityLevel.ELITE        # IP hidden, proxy not detected
+AnonymityLevel.UNKNOWN      # Anonymity level unknown
+```
+
+#### Scheme
+
+```python
+from proxywhirl import Scheme
+
+Scheme.HTTP     # HTTP proxy
+Scheme.HTTPS    # HTTPS proxy
+Scheme.SOCKS4   # SOCKS4 proxy
+Scheme.SOCKS5   # SOCKS5 proxy
+```
+
+#### CacheType
+
+```python
+from proxywhirl import CacheType
+
+CacheType.MEMORY   # In-memory storage
+CacheType.JSON     # JSON file storage
+CacheType.SQLITE   # SQLite persistent storage
+```
+
+#### RotationStrategy
+
+```python
+from proxywhirl import RotationStrategy
+
+RotationStrategy.ROUND_ROBIN   # Sequential rotation
+RotationStrategy.RANDOM        # Random selection
+RotationStrategy.WEIGHTED      # Response time inverse weighted (faster preferred)
+RotationStrategy.HEALTH_BASED  # Health score based (penalizes recent failures)
+RotationStrategy.LEAST_USED    # Chooses proxy with fewest uses (ties broken by response time)
+```
+
+## Usage Examples
+
+### Basic Usage
+
+```python
+import asyncio
+import httpx
+from proxywhirl import proxywhirl
+
+async def main():
+    # Initialize proxywhirl
+    proxy_whirl = proxywhirl()
+    
+    # Fetch proxies
+    await proxy_whirl.fetch_proxies()
+    
+    # Get a proxy
+    proxy = await proxy_whirl.get_proxy()
+    
+    if proxy:
+        # Use with httpx
+        proxy_url = f"http://{proxy.host}:{proxy.port}"
+        async with httpx.AsyncClient(proxies=proxy_url) as client:
+            response = await client.get("https://httpbin.org/ip")
+            print(response.json())
+
+asyncio.run(main())
+```
+
+### Health Monitoring
+
+```python
+import asyncio
+import time
+import httpx
+from proxywhirl import proxywhirl
+
+async def make_request_with_health_tracking(proxy_whirl):
+    proxy = await proxy_whirl.get_proxy()
+    if not proxy:
+        return None
+    
+    start_time = time.time()
+    success = False
+    
+    try:
+        proxy_url = f"http://{proxy.host}:{proxy.port}"
+        async with httpx.AsyncClient(
+            proxies=proxy_url, 
+            timeout=10.0
+        ) as client:
+            response = await client.get("https://httpbin.org/ip")
+            response.raise_for_status()
+            success = True
+            return response.json()
+    
+    except Exception as e:
+        print(f"Request failed: {e}")
+        return None
+    
+    finally:
+        response_time = time.time() - start_time
+        proxy_whirl.update_proxy_health(proxy, success, response_time)
+
+async def main():
+    proxy_whirl = proxywhirl(rotation_strategy="health_based")
+    await proxy_whirl.fetch_proxies()
+    
+    # Make several requests
+    for i in range(5):
+        result = await make_request_with_health_tracking(proxy_whirl)
+        if result:
+            print(f"Request {i+1}: {result}")
+
+asyncio.run(main())
+```
+
+### JSON Cache Persistence
+
+```python
+from proxywhirl import proxywhirl
+
+async def main():
+    # Initialize with JSON cache
+    proxy_whirl = proxywhirl(
+        cache_type="json",
+        cache_path="my_proxies.json"
+    )
+    
+    # Fetch proxies (saved to file automatically)
+    await proxy_whirl.fetch_proxies()
+    
+    # Later, in another session...
+    proxy_whirl2 = proxywhirl(
+        cache_type="json",
+        cache_path="my_proxies.json"
+    )
+    
+    # Proxies are loaded from file
+    cached_proxies = proxy_whirl2.list_proxies()
+    print(f"Loaded {len(cached_proxies)} proxies from cache")
+
+asyncio.run(main())
+```
+
+### Different Rotation Strategies
+
+```python
+from proxywhirl import proxywhirl
+
+async def test_strategies():
+    strategies = ["round_robin", "random", "weighted", "health_based"]
+    
+    for strategy in strategies:
+        print(f"\nTesting {strategy} strategy:")
+        
+        proxy_whirl = proxywhirl(rotation_strategy=strategy)
+        await proxy_whirl.fetch_proxies()
+        
+        # Get 3 proxies to see the pattern
+        for i in range(3):
+            proxy = await proxy_whirl.get_proxy()
+            if proxy:
+                print(f"  {i+1}: {proxy.host}:{proxy.port}")
+
+asyncio.run(test_strategies())
+```
+
+## Error Handling
+
+proxywhirl uses standard Python exceptions. Common patterns:
+
+```python
+import asyncio
+from proxywhirl import proxywhirl
+
+async def safe_proxy_usage():
+    try:
+        proxy_whirl = proxywhirl()
+        count = await proxy_whirl.fetch_proxies()
+        
+        if count == 0:
+            print("No proxies available")
+            return
+        
+        proxy = await proxy_whirl.get_proxy()
+        if proxy is None:
+            print("No proxy returned")
+            return
+            
+        # Use proxy...
+        
+    except Exception as e:
+        print(f"Error: {e}")
+
+asyncio.run(safe_proxy_usage())
+```

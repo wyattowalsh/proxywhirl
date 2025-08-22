@@ -1,0 +1,126 @@
+name: 🚀 Feature Request
+description: Suggest a new feature or enhancement for ProxyWhirl
+title: "[Feature]: "
+labels: ["enhancement", "needs-discussion"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Thanks for suggesting a new feature! 🚀
+        
+        Feature requests help make ProxyWhirl better for everyone. Please provide as much detail as possible to help us understand your use case and implement the best solution.
+
+  - type: dropdown
+    id: feature-type
+    attributes:
+      label: Feature Type
+      description: What type of feature are you requesting?
+      options:
+        - New Proxy Source/Loader
+        - CLI Enhancement
+        - Core Engine Improvement
+        - Caching Enhancement
+        - Performance Optimization
+        - Configuration Option
+        - API/Integration Feature
+        - Documentation Improvement
+        - Developer Experience
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature Summary
+      description: A clear and concise description of the feature you'd like to see.
+      placeholder: "I would like ProxyWhirl to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation and Use Case
+      description: |
+        Why do you need this feature? What problem does it solve?
+        Describe your specific use case and how this feature would help.
+      placeholder: |
+        I'm trying to accomplish... but currently ProxyWhirl doesn't support...
+        This feature would help me/others by...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: |
+        Describe how you'd like this feature to work.
+        Include specific examples of commands, configurations, or API calls if relevant.
+      placeholder: |
+        I propose adding a new CLI command:
+        `proxywhirl feature-name --option value`
+        
+        Or a new configuration option:
+        ```yaml
+        feature:
+          enabled: true
+          setting: value
+        ```
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: |
+        Describe any alternative solutions or features you've considered.
+        Are there workarounds you're currently using?
+      placeholder: |
+        I've considered:
+        - Alternative approach A, but it has limitations...
+        - Using tool X, but it doesn't integrate well...
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority Level
+      description: How important is this feature to your workflow?
+      options:
+        - Critical (blocking my work)
+        - High (significant impact)
+        - Medium (nice to have)
+        - Low (minor improvement)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: implementation
+    attributes:
+      label: Implementation Considerations
+      description: Please check any that apply to your feature request
+      options:
+        - label: This would be a breaking change
+        - label: This requires new dependencies
+        - label: This affects performance-critical code
+        - label: This needs new documentation
+        - label: I'm willing to help implement this feature
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Code Examples
+      description: |
+        If applicable, provide code examples showing how this feature would be used.
+      render: python
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: |
+        Add any other context, screenshots, links, or references about the feature request here.
+        - Links to similar features in other tools
+        - Research or documentation supporting the request
+        - Community discussion threads

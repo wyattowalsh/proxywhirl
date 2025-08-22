@@ -1,0 +1,55 @@
+version: 2
+
+updates:
+  # Python dependencies
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    assignees:
+      - "wyattowalsh"
+    commit-message:
+      prefix: "deps"
+      prefix-development: "deps-dev"
+    labels:
+      - "dependencies"
+      - "python"
+    open-pull-requests-limit: 5
+    target-branch: "dev"
+    versioning-strategy: "increase"
+
+  # Documentation dependencies (Node.js/npm)
+  - package-ecosystem: "npm"
+    directory: "/docs"
+    schedule:
+      interval: "weekly" 
+      day: "monday"
+      time: "06:00"
+    assignees:
+      - "wyattowalsh"
+    commit-message:
+      prefix: "docs-deps"
+    labels:
+      - "dependencies"
+      - "documentation"
+      - "javascript"
+    open-pull-requests-limit: 5
+    target-branch: "dev"
+    versioning-strategy: "increase"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    assignees:
+      - "wyattowalsh"
+    commit-message:
+      prefix: "ci"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    open-pull-requests-limit: 3
+    target-branch: "dev"

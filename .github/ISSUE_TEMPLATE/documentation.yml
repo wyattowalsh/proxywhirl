@@ -1,0 +1,156 @@
+name: 📚 Documentation Improvement
+description: Suggest improvements to documentation, tutorials, or examples
+title: "[Docs]: "
+labels: ["documentation", "good first issue"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Documentation Improvement 📚
+        
+        Great documentation is essential for ProxyWhirl's success. Thank you for helping make our docs better!
+        
+        **Our documentation includes:**
+        - Main documentation site (Fumadocs/Next.js)
+        - API documentation (auto-generated from code)
+        - README files and inline code comments
+        - Contributing guidelines
+
+  - type: dropdown
+    id: doc-type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation needs improvement?
+      options:
+        - API Documentation
+        - Getting Started Guide
+        - Installation Instructions
+        - CLI Reference
+        - Configuration Guide
+        - Tutorial/How-to Guide
+        - Code Examples
+        - Contributing Guidelines
+        - README Files
+        - Inline Code Comments
+        - Error Messages
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Documentation Location
+      description: Where is the documentation that needs improvement?
+      placeholder: "e.g., docs/content/docs/installation.mdx, CLI help text, API docstring in core.py"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: Type of Issue
+      description: What kind of documentation issue is this?
+      options:
+        - Missing information
+        - Incorrect/outdated information
+        - Unclear explanation
+        - Missing examples
+        - Poor organization
+        - Typos/grammar issues
+        - Broken links
+        - Missing cross-references
+        - Accessibility issues
+        - Translation needed
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Issue Description
+      description: Describe the documentation problem or improvement needed.
+      placeholder: "The installation guide doesn't mention... or The API documentation for X function is unclear because..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-content
+    attributes:
+      label: Current Content (if applicable)
+      description: |
+        If you're reporting incorrect or unclear content, please quote the current text here.
+      render: markdown
+
+  - type: textarea
+    id: suggested-improvement
+    attributes:
+      label: Suggested Improvement
+      description: |
+        How would you improve this documentation? 
+        Provide specific suggestions for new or revised content.
+      placeholder: |
+        I suggest adding:
+        - A clear example showing...
+        - A troubleshooting section for...
+        - Better explanation of...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: user-level
+    attributes:
+      label: Target User Level
+      description: Who would benefit most from this documentation improvement?
+      options:
+        - Beginners (new to ProxyWhirl)
+        - Intermediate users
+        - Advanced users/developers
+        - Contributors/maintainers
+        - All users
+    validations:
+      required: true
+
+  - type: textarea
+    id: user-story
+    attributes:
+      label: User Story
+      description: |
+        Describe the user scenario this documentation improvement would help with.
+      placeholder: |
+        As a new user trying to set up ProxyWhirl for the first time...
+        As a developer integrating ProxyWhirl into my application...
+        As an operations team member deploying ProxyWhirl in production...
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution Interest
+      description: How would you like to help with this improvement?
+      options:
+        - label: I can write the improved content
+        - label: I can review proposed changes
+        - label: I can provide examples/use cases
+        - label: I can test the improved documentation
+        - label: I prefer to just report the issue
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Examples or References
+      description: |
+        If you have examples of good documentation for similar features, please share links or describe them.
+      placeholder: |
+        Similar tools like X have great documentation for this at...
+        The Python requests library documents this feature well at...
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: |
+        Any other relevant information:
+        - Screenshots of confusing sections
+        - Links to related discussions
+        - User feedback you've received

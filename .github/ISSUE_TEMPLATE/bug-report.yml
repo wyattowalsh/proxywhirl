@@ -1,0 +1,148 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior in ProxyWhirl
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Thanks for reporting a bug! 🐛
+        
+        Please fill out the following information to help us reproduce and fix the issue.
+        
+        **Before you continue:**
+        - Make sure you're using the latest version of ProxyWhirl
+        - Check if this issue has already been reported
+        - Try running `make quality` to ensure your environment is set up correctly
+
+  - type: input
+    id: version
+    attributes:
+      label: ProxyWhirl Version
+      description: What version of ProxyWhirl are you using?
+      placeholder: "e.g., 0.1.0 (run `proxywhirl --version` or check pyproject.toml)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: What environment are you running ProxyWhirl in?
+      options:
+        - Local Development
+        - Production Server
+        - Docker Container
+        - GitHub Actions / CI
+        - Other (please specify)
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python Version
+      description: What version of Python are you using?
+      placeholder: "e.g., 3.13.1 (run `python --version`)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of what the bug is.
+      placeholder: "ProxyWhirl fails to... when I try to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Please provide detailed steps to reproduce the issue
+      placeholder: |
+        1. Run `proxywhirl fetch --verbose`
+        2. Execute `proxywhirl get --format json`
+        3. See error...
+      value: |
+        1. 
+        2. 
+        3. 
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: "ProxyWhirl should have..."
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened? Include any error messages.
+      placeholder: "Instead, ProxyWhirl..."
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected Component
+      description: Which part of ProxyWhirl is affected?
+      options:
+        - Core Engine (proxy management)
+        - CLI Interface
+        - Proxy Loaders (data sources)
+        - Caching System
+        - Validation Pipeline
+        - Configuration
+        - Documentation
+        - Other / Unsure
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and Error Messages
+      description: |
+        Please include relevant logs, error messages, or stack traces.
+        **Tip**: Run with `--verbose` flag for more detailed output.
+      render: shell
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: |
+        If relevant, please share your ProxyWhirl configuration (remove any sensitive data).
+        You can also include the command you ran that caused the issue.
+      render: yaml
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please confirm you've completed these steps
+      options:
+        - label: I've updated to the latest version of ProxyWhirl
+          required: true
+        - label: I've searched existing issues and this hasn't been reported
+          required: true
+        - label: I've included all relevant information above
+          required: true
+        - label: I've tested this issue is reproducible
+          required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: |
+        Add any other context about the problem here.
+        - Are you behind a corporate firewall?
+        - Using specific proxy providers?
+        - Any custom loaders or configurations?

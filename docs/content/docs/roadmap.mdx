@@ -1,0 +1,146 @@
+---
+title: Roadmap
+description: Planned features and improvements for ProxyWhirl's loader system, caching backends, and validation framework.
+icon: md/MdTimeline
+---
+
+# Project Roadmap
+
+proxywhirl is an actively developed project. Here's a look at what we have planned for the future. We welcome community contributions and suggestions!
+
+<Mermaid
+  chart="
+gantt
+    title ProxyWhirl Development Roadmap 2025
+    dateFormat  YYYY-MM-DD
+    axisFormat  %b %Y
+    tickInterval 1month
+    excludes weekends
+    
+    section Loaders & Providers
+    Webshare.io Loader          :crit, webshare, 2025-01-15, 25d
+    Bright Data Loader          :crit, brightdata, after webshare, 20d
+    ProxyScrape Enhanced        :proxyscrape, 2025-02-01, 15d
+    Generic Parser v2           :parser, after brightdata, 30d
+    Provider Health Checks      :health, after parser, 20d
+    
+    section Core Framework
+    Enhanced Logging System     :crit, logging, 2025-01-10, 30d
+    Pydantic Validation v2      :validation, 2025-01-20, 25d
+    Event Notification System   :notifications, after logging, 35d
+    Analytics Framework         :analytics, after validation, 40d
+    Geographic Rotation         :geo, 2025-04-01, 45d
+    Sticky Session Management   :sticky, after geo, 30d
+    
+    section Cache & Performance
+    Redis Cache Backend         :crit, redis, 2025-03-01, 35d
+    SQLite Query Optimization   :sqlite, after redis, 25d
+    Memory Cache Improvements   :memory, 2025-03-15, 20d
+    Async I/O Enhancements      :async, after sqlite, 30d
+    
+    section CLI & Tools
+    Enhanced CLI Commands       :cli, 2025-02-01, 20d
+    Configuration Wizard        :wizard, after cli, 15d
+    Batch Operations            :batch, after wizard, 25d
+    Export/Import Tools         :export, after batch, 20d
+    
+    section Testing & Quality
+    Integration Test Suite      :tests, 2025-01-01, 60d
+    Performance Benchmarks      :bench, after tests, 30d
+    Security Audit              :security, 2025-03-01, 20d
+    Documentation Updates       :docs, 2025-01-05, 90d
+    
+    section Web Dashboard
+    FastAPI Backend             :api, 2025-04-15, 45d
+    React Frontend              :frontend, after api, 60d
+    Real-time Monitoring        :monitoring, after frontend, 35d
+    Configuration UI            :configui, after monitoring, 40d
+    Analytics Dashboard         :dashboard, after configui, 35d
+    
+    section Advanced Features
+    JavaScript/TypeScript SDK   :jssdk, 2025-06-01, 75d
+    Python Client Library       :pyclient, after jssdk, 30d
+    REST API v2                 :apiv2, 2025-07-01, 50d
+    GraphQL Interface           :graphql, after apiv2, 40d
+    
+    section Enterprise
+    Multi-tenancy Support       :multitenancy, 2025-08-01, 60d
+    RBAC & Authentication       :auth, after multitenancy, 45d
+    High Availability Mode      :ha, after auth, 55d
+    Enterprise Dashboard        :enterprise, after ha, 40d
+    
+    section Milestones
+    v1.1 Core Enhancement       :milestone, m1, 2025-03-15, 0d
+    v1.2 Performance Release    :milestone, m2, 2025-05-01, 0d
+    v2.0 Web Dashboard Beta     :milestone, m3, 2025-07-15, 0d
+    v2.1 SDK & API Release      :milestone, m4, 2025-09-01, 0d
+    v3.0 Enterprise Edition     :milestone, m5, 2025-11-15, 0d
+    
+    section Release Markers
+    Q1 2025 Release             :vert, q1, 2025-03-31, 1d
+    Q2 2025 Release             :vert, q2, 2025-06-30, 1d
+    Q3 2025 Release             :vert, q3, 2025-09-30, 1d
+    Q4 2025 Release             :vert, q4, 2025-12-31, 1d
+"
+/>
+
+## Short-Term (Next 3 Months)
+
+<Cards>
+  <Card
+    title="Expanded Provider Support"
+    description="Adding native support for at least 5 new free and premium proxy providers."
+    icon="➕"
+  />
+  <Card
+    title="Enhanced Analytics"
+    description="Introduce basic analytics for proxy performance, including success rates and average response times."
+    icon="📊"
+  />
+  <Card
+    title="Configuration Validation"
+    description="Implement stricter configuration validation on startup to catch common errors."
+    icon="✅"
+  />
+</Cards>
+
+- [ ] **Providers:**
+    - [ ] Integration with Webshare.io
+    - [ ] Integration with Bright Data
+    - [ ] Improved parser for generic proxy list websites
+- [ ] **Core:**
+    - [ ] More detailed logging options
+    - [ ] Pluggable notification system for events (e.g., provider failure)
+- [ ] **Documentation:**
+    - [ ] Add more tutorials and real-world examples
+    - [ ] Create an interactive API documentation page
+
+## Mid-Term (3-6 Months)
+
+- [ ] **Web Dashboard:**
+    - [ ] A simple web-based UI for monitoring proxy status and statistics.
+    - [ ] Basic configuration management from the UI.
+- [ ] **Advanced Rotation Strategies:**
+    - [ ] Geographically-aware rotation (e.g., "get me a proxy from Germany").
+    - [ ] Sticky sessions: get the same proxy for a defined period.
+- [ ] **Performance:**
+    - [ ] Optimize database queries for SQLite cache.
+    - [ ] Introduce a Redis cache backend option.
+
+## Long-Term (6+ Months)
+
+- [ ] **Full-Fledged UI Dashboard:**
+    - [ ] Advanced analytics and visualizations.
+    - [ ] Real-time logs viewer.
+    - [ ] Manage providers and configurations through the UI.
+- [ ] **JavaScript/TypeScript SDK:**
+    - [ ] A client library for Node.js and browser environments.
+- [ ] **Enterprise Features:**
+    - [ ] User management and API key authentication for the REST API.
+    - [ ] High availability mode for the proxy service.
+
+<Callout type="tip">
+  **Have an idea?**
+  
+  We'd love to hear it! Please open an issue on our GitHub repository to suggest a new feature.
+</Callout>

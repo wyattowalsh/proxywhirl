@@ -1,0 +1,117 @@
+[project]
+name = "proxywhirl"
+version = "0.1.0"
+description = "rotating proxy"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiocache>=0.12.3",
+    "aiohttp>=3.12.15",
+    "httpx>=0.28.1",
+    "loguru>=0.7.3",
+    "pandas>=2.3.0",
+    "pydantic>=2.11.7",
+    "pydantic-settings>=2.9.1",
+    "python-dotenv>=1.1.0",
+    "rich>=14.0.0",
+    "sqlmodel[all]>=0.0.24",
+    "tenacity>=9.1.2",
+    "typer>=0.16.0",
+    "typing-extensions>=4.12.2",
+]
+
+[dependency-groups]
+format = [
+    "autoflake>=2.3.1",
+    "autopep8>=2.3.2",
+    "black>=25.1.0",
+    "isort>=6.0.1",
+]
+lint = [
+    "mypy>=1.16.1",
+    "pandas-stubs>=2.3.0.250703",
+    "pylint>=3.3.7",
+    "ruff>=0.12.0",
+    "types-pyyaml>=6.0.12.20250809",
+]
+notebook = [
+    "ipykernel>=6.29.5",
+    "ipython-sql>=0.5.0",
+    "ipywidgets>=8.1.7",
+    "jupyter-contrib-nbextensions>=0.7.0",
+    "jupyter-nbextensions-configurator>=0.6.4",
+    "jupyterlab>=4.4.5",
+    "jupyterlab-git>=0.51.2",
+    "jupyterlab-github>=4.0.0",
+    "nbconvert>=7.16.6",
+    "nbdime>=4.0.2",
+]
+test = [
+    "hypothesis[all]>=6.137.1",
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
+    "pytest-benchmark>=5.1.0",
+    "pytest-cov>=6.2.1",
+    "pytest-emoji>=0.2.0",
+    "pytest-html>=4.1.1",
+    "pytest-icdiff>=0.9",
+    "pytest-instafail>=0.5.0",
+    "pytest-mock>=3.14.1",
+    "pytest-sugar>=1.0.0",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.7.0",
+]
+
+[tool.pytest.ini_options]
+addopts = "-n auto --verbose --hypothesis-show-statistics --html=logs/report.html --self-contained-html --emoji --instafail --cov=proxywhirl --cov-append --cov-report html:logs/coverage"
+testpaths = ["tests"]
+console_output_style = "progress"
+junit_logging = "all"
+log_cli = true
+log_cli_date_format = "%Y-%m-%d %H:%M:%S"
+log_cli_format = "%(asctime)s - [%(levelname)s] - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
+log_cli_level = "DEBUG"
+log_file = "logs/pytest-logs.txt"
+log_file_date_format = "%Y-%m-%d %H:%M:%S"
+log_file_format = "%(asctime)s - [%(levelname)s] - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
+log_file_level = "DEBUG"
+log_format = "%(asctime)s - [%(levelname)s] - %(name)s - (%(filename)s).%(funcName)s(%(lineno)d) - %(message)s"
+log_level = "DEBUG"
+required_plugins = ["pytest-sugar", "pytest-html", "pytest-emoji", "pytest-icdiff", "pytest-instafail", "pytest-timeout", "pytest-benchmark", "pytest-cov", "pytest-mock", "pytest-xdist", "pytest-asyncio"]
+timeout = 500
+markers = [
+    'integration: mark tests as integration (deselect with -m "not integration")',
+    'e2e: mark tests as end-to-end (deselect with -m "not e2e")',
+]
+
+[tool.coverage.run]
+data_file = "logs/.coverage"
+
+[tool.isort]
+profile = "black"
+src_paths = ["proxywhirl", "tests"]
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
+extend-exclude = [
+    "examples/nb.ipynb",
+]
+
+[tool.mypy]
+python_version = "3.13"
+strict = true
+
+[[tool.mypy.overrides]]
+module = [
+    "tests.*",
+]
+ignore_errors = true
+
+[tool.pylint]
+max-line-length = 100
+
+[project.scripts]
+proxywhirl = "proxywhirl.cli:main"

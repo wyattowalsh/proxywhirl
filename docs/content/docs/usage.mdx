@@ -1,0 +1,139 @@
+---
+title: Usage
+description: Complete details on how to use proxywhirl
+icon: fa/FaRocket
+---
+
+# Usage Guide
+
+proxywhirl is designed to be flexible. You can interact with it through a Python SDK or a command-line interface (CLI). Choose the method that best fits your workflow.
+
+<Tabs items={['Python SDK', 'CLI']}>
+  <Tab value="Python SDK">
+    ## Python SDK
+    
+    The Python SDK provides the most powerful and flexible way to integrate proxywhirl into your applications. It's fully typed and supports both synchronous and asynchronous operations.
+    
+    ### Installation
+    
+    Install proxywhirl using your favorite package manager. We recommend `uv` or `pip`. If you need to install `uv`, you can follow the instructions on the [official `uv` installation guide](https://docs.astral.sh/uv/getting-started/installation/).
+    
+    ```bash
+    uv pip install proxywhirl
+    ```
+    
+    ### Quick Start
+    
+    Here's a quick example of how to fetch a proxy and use it with `httpx`.
+    
+    ```python
+    import httpx
+    from proxywhirl import proxywhirl
+    
+    async def main():
+        # Initialize proxywhirl
+        proxy_whirl = proxywhirl()
+        
+        # Fetch a list of fresh proxies
+        await proxy_whirl.fetch_proxies()
+        
+        # Get a single proxy for your request
+        proxy = await proxy_whirl.get_proxy()
+        
+        if proxy:
+            print(f"Using proxy: {proxy.host}:{proxy.port}")
+            
+            # Configure httpx to use the proxy
+            transport = httpx.AsyncHTTPTransport(proxy=f"http://{proxy.host}:{proxy.port}")
+            async with httpx.AsyncClient(transport=transport) as client:
+                try:
+                    response = await client.get("https://httpbin.org/ip")
+                    response.raise_for_status()
+                    print("Request successful!")
+                    print(response.json())
+                except httpx.RequestError as e:
+                    print(f"Request failed: {e}")
+        else:
+            print("No available proxies.")
+    
+    if __name__ == "__main__":
+        import asyncio
+        asyncio.run(main())
+    ```
+    
+    <Callout type="info">
+      **Sync vs Async**
+      
+      proxywhirl provides both `async` and `sync` clients. The `proxywhirl` class is async-first. For synchronous applications, use `proxywhirlClient`.
+    </Callout>
+  </Tab>
+  <Tab value="CLI">
+    ## Command-Line Interface (CLI)
+    
+    The CLI is perfect for quick interactions, testing, and managing your proxy pool from the terminal. Run proxywhirl CLI commands via `uv run`.
+    
+    ### Fetching Proxies
+    
+    Fetch proxies from enabled providers and populate the cache.
+    
+    ```bash
+  uv run proxywhirl fetch
+    
+    # With options
+    uv run proxywhirl fetch --cache-type json \
+      --cache-path proxies.json --validate
+    ```
+    
+    ### Listing Proxies
+    
+    List the proxies currently in your cache.
+    
+    ```bash
+  uv run proxywhirl list-proxies
+    
+    # With limit
+    uv run proxywhirl list-proxies --limit 10
+    
+    # Example Output:
+    # ┏━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+    # ┃ Host           ┃ Port  ┃ Schemes  ┃ Anonymity ┃ Last Checked ┃
+    # ┡━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+    # │ 192.168.1.1    │ 8080  │ http     │ elite     │ 12:34:56     │
+    # │ 192.168.1.2    │ 3128  │ https    │ anonymous │ 12:35:01     │
+    # └────────────────┴───────┴──────────┴───────────┴──────────────┘
+    ```
+    
+    ### Validating Proxies
+    
+    Run health checks on your cached proxies.
+    
+    ```bash
+  uv run proxywhirl validate
+    ```
+    
+    ### Getting a Proxy
+    
+    Get a single proxy from the command line.
+    
+    ```bash
+  uv run proxywhirl get
+    # Output: 192.168.1.1:8080
+    
+  # With rotation strategy
+  uv run proxywhirl get --rotation random
+    
+  # Different output formats
+  uv run proxywhirl get --format uri
+  # Output: http://192.168.1.1:8080
+    
+  uv run proxywhirl get --format json
+  # Output: {"host": "192.168.1.1", "port": 8080, ...}
+    ```
+    
+    ### Cache Management
+    
+  The JSON cache is simply a file path you control via `--cache-path` when
+  using `--cache-type json`. To clear it, remove the file. In-memory cache
+  is process-local and resets between runs.
+  </Tab>
+</Tabs> 

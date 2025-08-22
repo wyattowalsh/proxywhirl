@@ -1,0 +1,109 @@
+name: ❓ Question
+description: Ask questions about ProxyWhirl usage, configuration, or best practices
+title: "[Question]: "
+labels: ["question", "needs-response"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Got a Question? ❓
+        
+        We're here to help! Before asking, please check:
+        - [📚 Documentation](https://proxywhirl.dev) - Comprehensive guides and API docs
+        - [💬 Discussions](https://github.com/wyattowalsh/proxywhirl/discussions) - Community Q&A
+        - [🔍 Existing Issues](https://github.com/wyattowalsh/proxywhirl/issues) - Your question might already be answered
+
+  - type: dropdown
+    id: question-type
+    attributes:
+      label: Question Category
+      description: What type of question do you have?
+      options:
+        - Installation and Setup
+        - Configuration
+        - CLI Usage
+        - Python API Usage
+        - Proxy Sources and Loaders
+        - Caching and Performance
+        - Troubleshooting
+        - Best Practices
+        - Integration with Other Tools
+        - Contributing to ProxyWhirl
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know about ProxyWhirl?
+      placeholder: "How do I configure ProxyWhirl to... or What's the best way to..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and Use Case
+      description: |
+        Help us understand your specific situation:
+        - What are you trying to achieve?
+        - What have you already tried?
+        - What's your current setup?
+      placeholder: |
+        I'm trying to set up ProxyWhirl for web scraping with 10,000+ proxies...
+        I've tried following the installation guide but...
+        My current setup is...
+
+  - type: textarea
+    id: attempted-solutions
+    attributes:
+      label: What You've Tried
+      description: |
+        What solutions have you already attempted?
+        Include any commands you ran or configurations you tried.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: ProxyWhirl Version
+      description: What version are you using (if applicable)?
+      placeholder: "e.g., 0.1.0 or latest"
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment (if relevant)
+      description: |
+        If your question is environment-specific, please provide details:
+      placeholder: |
+        OS: macOS 14
+        Python: 3.13.1
+        Installation method: uv / pip
+        Other relevant details...
+
+  - type: checkboxes
+    id: research
+    attributes:
+      label: Research Done
+      description: Please confirm you've done some initial research
+      options:
+        - label: I've checked the documentation
+          required: true
+        - label: I've searched existing issues and discussions
+          required: true
+        - label: I've tried basic troubleshooting steps
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Information
+      description: |
+        Any other details that might help us answer your question:
+        - Specific error messages
+        - Configuration files
+        - Expected vs actual behavior
+        - Links to relevant resources
