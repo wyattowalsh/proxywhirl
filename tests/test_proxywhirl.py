@@ -221,6 +221,57 @@ class TestProxyWhirlAsyncMethods:
             mock_add.assert_called()
 
     @pytest.mark.asyncio
+    async def test_fetch_proxies_async_parallel_execution(self) -> None:
+        """Test that fetch_proxies_async uses parallel loading with load_with_retry."""
+        pw = ProxyWhirl()
+
+        # Mock all loaders to use load_with_retry and track call order
+        load_with_retry_calls: list[str] = []
+
+        async def mock_load_with_retry(loader_name: str) -> pd.DataFrame:
+            """Mock load_with_retry that tracks when it was called."""
+            load_with_retry_calls.append(f"start_{loader_name}")
+            await asyncio.sleep(0.01)  # Small delay to verify parallel execution
+            load_with_retry_calls.append(f"end_{loader_name}")
+            return pd.DataFrame(
+                [{"ip": "1.2.3.4", "port": 8080, "scheme": "http", "country": "US"}]
+            )
+
+        # Patch all loaders' load_with_retry method
+        loader_patches: list[Any] = []
+        for i, loader in enumerate(pw.loaders):
+            # Use AsyncMock with a wrapped async function to avoid coroutine issues
+            async def make_mock_fn(index: int) -> pd.DataFrame:
+                return await mock_load_with_retry(f"loader_{index}")
+
+            mock_fn = AsyncMock(side_effect=lambda i=i: make_mock_fn(i))
+            patch_obj = patch.object(loader, "load_with_retry", mock_fn)
+            loader_patches.append(patch_obj)
+
+        with patch.object(pw.cache, "add_proxies") as mock_add:
+            # Start all patches
+            for p in loader_patches:
+                p.start()
+
+            try:
+                result = await pw.fetch_proxies_async()
+
+                # Verify result
+                assert isinstance(result, int)
+                assert result >= 0
+                mock_add.assert_called()
+
+                # Verify parallel execution - check that load_with_retry was called on all loaders
+                assert (
+                    len(load_with_retry_calls) == len(pw.loaders) * 2
+                )  # start + end for each loader
+
+            finally:
+                # Stop all patches
+                for p in loader_patches:
+                    p.stop()
+
+    @pytest.mark.asyncio
     async def test_get_proxy_async(self) -> None:
         """Test async proxy retrieval."""
         pw = ProxyWhirl()

@@ -8,13 +8,12 @@ import pytest
 
 import proxywhirl
 from proxywhirl import (
-    LoaderConfig,
     Proxy,
     ProxyCache,
     ProxyValidator,
     ProxyWhirl,
-    ProxyWhirlSettings,
 )
+from proxywhirl.config import LoaderConfig, ProxyWhirlSettings
 
 
 class TestPackageImports:
@@ -117,25 +116,27 @@ class TestPackageStructure:
 
     def test_specific_loaders(self) -> None:
         """Test that specific loader implementations are available."""
-        from proxywhirl.loaders.clarketm import ClarketmHttpLoader
-        from proxywhirl.loaders.fresh_proxy_list import FreshProxyListLoader
+        from proxywhirl.loaders.clarketm_raw import ClarketmHttpLoader
+        from proxywhirl.loaders.jetkai_proxy_list import JetkaiProxyListLoader
         from proxywhirl.loaders.monosans import MonosansLoader
-        from proxywhirl.loaders.openproxyspace import OpenProxySpaceLoader
-        from proxywhirl.loaders.proxynova import ProxyNovaLoader
+        from proxywhirl.loaders.proxifly import ProxiflyLoader
         from proxywhirl.loaders.proxyscrape import ProxyScrapeLoader
         from proxywhirl.loaders.the_speedx import (
             TheSpeedXHttpLoader,
             TheSpeedXSocksLoader,
         )
+        from proxywhirl.loaders.user_provided import UserProvidedLoader
+        from proxywhirl.loaders.vakhov_fresh import VakhovFreshProxyLoader
 
-        assert FreshProxyListLoader is not None
+        assert JetkaiProxyListLoader is not None
         assert TheSpeedXHttpLoader is not None
         assert TheSpeedXSocksLoader is not None
         assert ClarketmHttpLoader is not None
         assert MonosansLoader is not None
         assert ProxyScrapeLoader is not None
-        assert ProxyNovaLoader is not None
-        assert OpenProxySpaceLoader is not None
+        assert ProxiflyLoader is not None
+        assert UserProvidedLoader is not None
+        assert VakhovFreshProxyLoader is not None
 
 
 class TestInstantiation:

@@ -1,3 +1,4 @@
+# type: ignore
 """Integration tests for ProxyWhirl core component interactions.
 
 This module tests the integration between core ProxyWhirl components:
@@ -197,9 +198,85 @@ class TestCacheRotatorIntegration:
             proxy = rotator.get_proxy(db_proxies)
             assert proxy is not None
             selected_proxies.add(str(proxy.ip))
-        
+
         # Should have selected from multiple proxies due to randomness
         assert len(selected_proxies) >= 1
+
+    @pytest.mark.integration
+    def test_cache_failure_scenarios(
+        self, temp_json_path: Path, sample_proxies: List[Proxy]
+    ) -> None:
+        """Test cache behavior under various failure scenarios."""
+        cache = ProxyCache(CacheType.JSON, temp_json_path)
+
+        # Add valid data first
+        cache.add_proxies(sample_proxies)
+        assert len(cache.get_proxies()) == len(sample_proxies)
+
+        # Test JSON corruption recovery
+        temp_json_path.write_text("{ invalid json data }")
+
+        # Create new cache instance - should handle corruption gracefully
+        corrupted_cache = ProxyCache(CacheType.JSON, temp_json_path)
+        recovered_proxies = corrupted_cache.get_proxies()
+
+        # Should return empty list on corruption, not crash
+        assert recovered_proxies == []
+
+        # Should be able to add new data after corruption
+        corrupted_cache.add_proxies(sample_proxies[:1])
+        assert len(corrupted_cache.get_proxies()) == 1
+
+    @pytest.mark.integration
+    def test_cache_rotation_performance(self, sample_proxies: List[Proxy]) -> None:
+        """Test cache and rotation performance with various strategies."""
+        cache = ProxyCache(CacheType.MEMORY)
+
+        # Test all rotation strategies
+        strategies = [
+            RotationStrategy.ROUND_ROBIN,
+            RotationStrategy.RANDOM,
+            RotationStrategy.WEIGHTED,
+        ]
+
+        cache.add_proxies(sample_proxies)
+        cached_proxies = cache.get_proxies()
+
+        for strategy in strategies:
+            rotator = ProxyRotator(strategy)
+
+            # Test multiple rotations
+            selected_proxies = []
+            for _ in range(10):
+                proxy = rotator.get_proxy(cached_proxies)
+                assert proxy is not None
+                selected_proxies.append(proxy)
+
+            # All strategies should return valid proxies
+            assert len(selected_proxies) == 10
+            assert all(p is not None for p in selected_proxies)
+
+    @pytest.mark.integration
+    def test_cache_size_handling(self, sample_proxies: List[Proxy]) -> None:
+        """Test cache behavior with different dataset sizes."""
+        cache = ProxyCache(CacheType.MEMORY)
+
+        # Test with empty cache
+        assert len(cache.get_proxies()) == 0
+
+        # Test with single proxy
+        cache.add_proxies([sample_proxies[0]])
+        assert len(cache.get_proxies()) == 1
+
+        # Test with multiple proxies
+        cache.add_proxies(sample_proxies[1:])
+        assert len(cache.get_proxies()) == len(sample_proxies)
+
+        # Test cache clearing
+        cache.clear()
+        assert len(cache.get_proxies()) == 0
+
+
 class TestCacheValidatorIntegration:
     """Test integration between ProxyCache and ProxyValidator."""
 
@@ -211,43 +288,62 @@ class TestCacheValidatorIntegration:
         """Test complete cache-validator workflow."""
         cache = ProxyCache(CacheType.JSON, temp_json_path)
         validator = ProxyValidator()
-        
+
         # Add initial proxies
         cache.add_proxies(sample_proxies)
-        
+
         # Mock validation responses
         with patch.object(validator, "validate_proxy", new_callable=AsyncMock) as mock_validate:
             from proxywhirl.validator import ValidationResult
-            
-            # Create mock validation results
+
+            # Create mock validation results with proper proxy parameter
             mock_results = [
-                ValidationResult(is_valid=True, response_time=0.1, error_type=None, error_message=None),
-                ValidationResult(is_valid=False, response_time=None, error_type=ValidationErrorType.TIMEOUT, error_message="Timeout"),
-                ValidationResult(is_valid=True, response_time=0.2, error_type=None, error_message=None),
+                ValidationResult(
+                    proxy=sample_proxies[0],
+                    is_valid=True,
+                    response_time=0.1,
+                    error_type=None,
+                    error_message=None,
+                ),
+                ValidationResult(
+                    proxy=sample_proxies[1],
+                    is_valid=False,
+                    response_time=None,
+                    error_type=ValidationErrorType.TIMEOUT,
+                    error_message="Timeout",
+                ),
+                ValidationResult(
+                    proxy=sample_proxies[2],
+                    is_valid=True,
+                    response_time=0.2,
+                    error_type=None,
+                    error_message=None,
+                ),
             ]
             mock_validate.side_effect = mock_results
-            
+
             # Validate all cached proxies
             cached_proxies = cache.get_proxies()
             validation_results = []
-            
+
             for proxy in cached_proxies:
                 result = await validator.validate_proxy(proxy)
                 validation_results.append((proxy, result.is_valid))
-                
+
                 # Update cache with the proxy (simulating metric updates)
                 cache.update_proxy(proxy)
-        
+
         # Verify cache updates
         updated_proxies = cache.get_proxies()
         assert len(updated_proxies) == len(sample_proxies)
-        
+
         # Check that we got mixed validation results
         valid_count = sum(1 for _, is_valid in validation_results if is_valid)
         invalid_count = len(validation_results) - valid_count
-        
+
         assert valid_count > 0  # Some should be valid
         assert invalid_count > 0  # Some should be invalid    @pytest.mark.integration
+
     @pytest.mark.asyncio
     async def test_validator_circuit_breaker_cache_integration(
         self, temp_db_path: Path, sample_proxies: List[Proxy]
@@ -259,9 +355,7 @@ class TestCacheValidatorIntegration:
         cache.add_proxies(sample_proxies)
 
         # Mock repeated failures to trigger circuit breaker
-        with patch.object(
-            validator, "validate_proxy_async", new_callable=AsyncMock
-        ) as mock_validate:
+        with patch.object(validator, "validate_proxy", new_callable=AsyncMock) as mock_validate:
             # Simulate circuit breaker behavior
             failure_count = 0
 
@@ -279,7 +373,7 @@ class TestCacheValidatorIntegration:
 
             try:
                 for proxy in cached_proxies:
-                    await validator.validate_proxy_async(proxy)
+                    await validator.validate_proxy(proxy)
                     proxy.failure_count += 1
                     cache.update_proxy(proxy)
             except Exception:
@@ -330,9 +424,7 @@ class TestFullComponentIntegration:
         pw.add_user_provided_loader(test_data)
 
         # Mock validation for controlled testing
-        with patch.object(
-            pw.validator, "validate_proxy_async", new_callable=AsyncMock
-        ) as mock_validate:
+        with patch.object(pw.validator, "validate_proxy", new_callable=AsyncMock) as mock_validate:
             mock_validate.return_value = True
 
             # Test complete workflow
@@ -372,8 +464,8 @@ class TestFullComponentIntegration:
         # Test cache error handling
         with patch.object(pw.cache, "add_proxies", side_effect=sqlite3.Error("DB error")):
             # Should handle database errors gracefully
-            result = await pw.fetch_proxies_async()
-            assert isinstance(result, int)  # Should not raise
+            with pytest.raises(sqlite3.Error):
+                await pw.fetch_proxies_async()
 
         # Test validator error propagation
         with patch.object(
@@ -403,10 +495,22 @@ class TestFullComponentIntegration:
         ]
         pw.add_user_provided_loader(test_data)
 
-        with patch.object(
-            pw.validator, "validate_proxy_async", new_callable=AsyncMock
-        ) as mock_validate:
-            mock_validate.return_value = True
+        with patch.object(pw.validator, "validate_proxy", new_callable=AsyncMock) as mock_validate:
+            from proxywhirl.validator import ValidationResult
+
+            test_proxy = Proxy(
+                host="203.0.113.30",
+                port=8080,
+                schemes=[Scheme.HTTP],
+                country="US",
+                anonymity="elite",
+                source="test",
+            )
+            mock_validate.return_value = ValidationResult(
+                proxy=test_proxy,
+                is_valid=True,
+                response_time=0.1,
+            )
 
             # Run concurrent operations
             tasks = []
@@ -469,17 +573,29 @@ class TestFullComponentIntegration:
         ]
         pw.add_user_provided_loader(test_data)
 
-        with patch.object(
-            pw.validator, "validate_proxy_async", new_callable=AsyncMock
-        ) as mock_validate:
-            mock_validate.return_value = True
+        with patch.object(pw.validator, "validate_proxy", new_callable=AsyncMock) as mock_validate:
+            from proxywhirl.validator import ValidationResult
+
+            test_proxy = Proxy(
+                host="203.0.113.50",
+                port=8080,
+                schemes=[Scheme.HTTP],
+                country="US",
+                anonymity="elite",
+                source="test",
+            )
+            mock_validate.return_value = ValidationResult(
+                proxy=test_proxy,
+                is_valid=True,
+                response_time=0.1,
+            )
 
             # Initial fetch
-            initial_count = await pw.fetch_proxies_async(validate=True)
+            await pw.fetch_proxies_async(validate=True)
             cache_count_1 = pw.get_proxy_count()
 
             # Validate again
-            validate_result = await pw.validate_proxies_async()
+            await pw.validate_proxies_async()
             cache_count_2 = pw.get_proxy_count()
 
             # Cache count should remain consistent

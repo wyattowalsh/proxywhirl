@@ -16,6 +16,109 @@ import pytest
 from proxywhirl.models import AnonymityLevel, Proxy, Scheme
 
 # ============================================================================
+# ENHANCED ASYNC TESTING UTILITIES
+# ============================================================================
+
+
+@pytest.fixture
+def mock_async_httpx_client():
+    """Enhanced async httpx client mock with context manager support."""
+    mock_client = MagicMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+
+    # Default successful response
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 200
+    mock_response.text = "Success"
+    mock_response.json.return_value = {"success": True}
+    mock_response.raise_for_status.return_value = None
+
+    mock_client.get = AsyncMock(return_value=mock_response)
+    mock_client.post = AsyncMock(return_value=mock_response)
+
+    return mock_client
+
+
+@pytest.fixture
+def mock_proxy_validator():
+    """Mock ProxyValidator with configurable validation results."""
+    from proxywhirl.validator import ValidationResult
+
+    mock_validator = MagicMock()
+
+    # Default successful validation
+    mock_result = ValidationResult(
+        proxy=None,  # Will be set by test
+        is_valid=True,
+        response_time=0.5,
+        error=None,
+        timestamp=datetime.now(timezone.utc),
+    )
+
+    mock_validator.validate_proxy = AsyncMock(return_value=mock_result)
+    mock_validator.validate_proxy_async = AsyncMock(return_value=mock_result)  # For compatibility
+
+    return mock_validator
+
+
+@pytest.fixture
+def mock_proxywhirl_settings():
+    """Mock ProxyWhirl settings for configuration testing."""
+    from proxywhirl.config import ProxyWhirlSettings
+
+    return ProxyWhirlSettings(
+        timeout=30.0,
+        concurrent_limit=100,
+        max_retries=3,
+        cache_enabled=True,
+        cache_ttl=3600,
+        validation_timeout=10.0,
+        validation_enabled=True,
+    )
+
+
+@pytest.fixture
+def async_test_utilities():
+    """Utilities for async testing patterns."""
+
+    class AsyncTestUtils:
+        @staticmethod
+        async def run_with_timeout(coro, timeout=5.0):
+            """Run coroutine with timeout."""
+            return await asyncio.wait_for(coro, timeout=timeout)
+
+        @staticmethod
+        def create_mock_async_context_manager(return_value=None, side_effect=None):
+            """Create a mock async context manager."""
+            mock = MagicMock()
+            mock.__aenter__ = AsyncMock(return_value=return_value or mock)
+            mock.__aexit__ = AsyncMock(return_value=None)
+            if side_effect:
+                mock.__aenter__.side_effect = side_effect
+            return mock
+
+        @staticmethod
+        def assert_async_called_with(mock_async, *args, **kwargs):
+            """Assert async mock was called with specific arguments."""
+            mock_async.assert_called_with(*args, **kwargs)
+
+        @staticmethod
+        async def collect_async_results(async_generator, limit=None):
+            """Collect results from async generator."""
+            results = []
+            count = 0
+            async for item in async_generator:
+                results.append(item)
+                count += 1
+                if limit and count >= limit:
+                    break
+            return results
+
+    return AsyncTestUtils()
+
+
+# ============================================================================
 # MOCKING FIXTURES
 # ============================================================================
 
@@ -154,6 +257,89 @@ def large_proxy_dataset() -> List[Proxy]:
         proxies.append(proxy)
 
     return proxies
+
+
+# ============================================================================
+# ENHANCED HTTP CLIENT MOCKS
+# ============================================================================
+
+
+@pytest.fixture
+def comprehensive_httpx_mock():
+    """Comprehensive httpx mock with multiple response scenarios."""
+    mock_responses = {
+        "success": {
+            "status_code": 200,
+            "text": "Success response",
+            "json_data": {"status": "success", "data": []},
+        },
+        "not_found": {
+            "status_code": 404,
+            "text": "Not Found",
+            "json_data": {"error": "Resource not found"},
+            "raises": httpx.HTTPStatusError("404 Not Found", request=Mock(), response=Mock()),
+        },
+        "server_error": {
+            "status_code": 500,
+            "text": "Internal Server Error",
+            "json_data": {"error": "Server error"},
+            "raises": httpx.HTTPStatusError(
+                "500 Internal Server Error", request=Mock(), response=Mock()
+            ),
+        },
+        "timeout": {"raises": httpx.TimeoutException("Request timed out")},
+        "connection_error": {"raises": httpx.ConnectError("Connection failed")},
+    }
+
+    def create_mock_response(scenario="success"):
+        response_config = mock_responses.get(scenario, mock_responses["success"])
+
+        if "raises" in response_config:
+            mock_response = Mock()
+            if "status_code" in response_config:
+                mock_response.status_code = response_config["status_code"]
+                mock_response.text = response_config["text"]
+                mock_response.json.return_value = response_config["json_data"]
+                mock_response.raise_for_status.side_effect = response_config["raises"]
+            else:
+                # Network-level errors
+                mock_response = Mock()
+                mock_response.get.side_effect = response_config["raises"]
+                mock_response.post.side_effect = response_config["raises"]
+        else:
+            mock_response = Mock(spec=httpx.Response)
+            mock_response.status_code = response_config["status_code"]
+            mock_response.text = response_config["text"]
+            mock_response.json.return_value = response_config["json_data"]
+            mock_response.raise_for_status.return_value = None
+
+        return mock_response
+
+    class HttpxMockFactory:
+        def __init__(self):
+            self.scenarios = mock_responses
+
+        def create_client_mock(self, scenario="success"):
+            mock_client = MagicMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+
+            response = create_mock_response(scenario)
+            mock_client.get = AsyncMock(return_value=response)
+            mock_client.post = AsyncMock(return_value=response)
+
+            return mock_client
+
+        def create_response_sequence(self, scenarios):
+            """Create mock that returns different responses in sequence."""
+            responses = [create_mock_response(s) for s in scenarios]
+            mock_client = MagicMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client.get = AsyncMock(side_effect=responses)
+            return mock_client
+
+    return HttpxMockFactory()
 
 
 # ============================================================================
@@ -404,6 +590,248 @@ def multi_protocol_responses():
         "http": "192.168.1.1:8080\n10.0.0.1:3128\n172.16.0.1:8000\n",
         "socks4": "203.0.113.1:1080\n198.51.100.1:1080\n",
         "socks5": "192.0.2.1:1080\n192.0.2.2:1080\n192.0.2.3:1080\n",
+    }
+
+
+# ============================================================================
+# COMPREHENSIVE LOADER MOCKING FIXTURES
+# ============================================================================
+
+
+@pytest.fixture
+def loader_http_mock_factory():
+    """Comprehensive factory for creating HTTP mocks for all loader types."""
+
+    class LoaderMockFactory:
+
+        # Sample data for different loader types
+        LOADER_RESPONSES = {
+            "thespeedx_http": "192.168.1.1:8080\n10.0.0.1:3128\n172.16.0.1:8000\n",
+            "thespeedx_socks4": "203.0.113.1:1080\n198.51.100.1:1080\n",
+            "thespeedx_socks5": "192.0.2.1:1080\n192.0.2.2:1080\n192.0.2.3:1080\n",
+            "clarketm_raw": "192.168.1.100:8080\n10.0.0.100:3128\n172.16.0.100:1080\n",
+            "monosans_http": "1.1.1.1:8080\n2.2.2.2:3128\n3.3.3.3:8000\n",
+            "monosans_socks4": "4.4.4.4:1080\n5.5.5.5:1080\n",
+            "monosans_socks5": "6.6.6.6:1080\n7.7.7.7:1080\n8.8.8.8:1080\n",
+            "proxyscrape_api": """192.168.1.50:8080
+10.0.0.50:3128
+172.16.0.50:1080""",
+            "vakhov_fresh": "203.0.113.50:8080\n198.51.100.50:3128\n",
+            "proxifly_html": """<html>
+<body>
+<div class="proxy-content">
+<table>
+<tr><td>IP:PORT</td><td>Type</td><td>Country</td></tr>
+<tr><td>192.168.2.1:8080</td><td>HTTP</td><td>US</td></tr>
+<tr><td>10.0.1.1:3128</td><td>HTTP</td><td>GB</td></tr>
+</table>
+</div>
+</body>
+</html>""",
+            "jetkai_http": "11.11.11.11:8080\n22.22.22.22:3128\n33.33.33.33:8000\n",
+            "jetkai_socks": "44.44.44.44:1080\n55.55.55.55:1080\n",
+        }
+
+        ERROR_RESPONSES = {
+            "empty": "",
+            "invalid_format": "This is not proxy data!\nRandom text here",
+            "malformed_json": '{"invalid": json data}',
+            "html_no_proxies": "<html><body>No proxies found</body></html>",
+            "partial_invalid": "192.168.1.1:8080\ninvalid-line\n10.0.0.1:3128\n",
+            "unicode_chars": "192.168.1.1:8080 🚀\n10.0.0.1:3128 测试\n",
+        }
+
+        def create_success_mock(self, loader_type: str = "thespeedx_http", **kwargs):
+            """Create a successful HTTP mock for specified loader type."""
+            content = self.LOADER_RESPONSES.get(
+                loader_type, self.LOADER_RESPONSES["thespeedx_http"]
+            )
+            return self._create_http_mock(
+                content=content, status_code=200, content_type="text/plain", **kwargs
+            )
+
+        def create_error_mock(self, error_type: str = "empty", status_code: int = 404, **kwargs):
+            """Create an error HTTP mock with specified error scenario."""
+            content = self.ERROR_RESPONSES.get(error_type, "")
+            exception = None
+
+            if status_code >= 400:
+                exception = httpx.HTTPStatusError(
+                    f"{status_code} Error", request=Mock(), response=Mock(status_code=status_code)
+                )
+
+            return self._create_http_mock(
+                content=content, status_code=status_code, raises=exception, **kwargs
+            )
+
+        def create_timeout_mock(self, timeout_type: str = "connect", **kwargs):
+            """Create network timeout mock."""
+            timeout_exceptions = {
+                "connect": httpx.ConnectTimeout("Connection timed out"),
+                "read": httpx.ReadTimeout("Read timed out"),
+                "general": httpx.TimeoutException("Request timed out"),
+            }
+            exception = timeout_exceptions.get(timeout_type, timeout_exceptions["general"])
+
+            return self._create_http_mock(raises=exception, **kwargs)
+
+        def create_connection_error_mock(self, error_type: str = "connection_refused", **kwargs):
+            """Create connection error mock."""
+            connection_errors = {
+                "connection_refused": httpx.ConnectError("Connection refused"),
+                "dns_error": httpx.ConnectError("DNS resolution failed"),
+                "ssl_error": httpx.ConnectError("SSL verification failed"),
+                "network_unreachable": httpx.ConnectError("Network unreachable"),
+            }
+            exception = connection_errors.get(error_type, connection_errors["connection_refused"])
+
+            return self._create_http_mock(raises=exception, **kwargs)
+
+        def create_sequence_mock(self, response_sequence: list, **kwargs):
+            """Create mock that returns different responses in sequence."""
+            mock_client = MagicMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+
+            responses = []
+            for resp_config in response_sequence:
+                if isinstance(resp_config, str):
+                    # Simple content string
+                    responses.append(self._create_response_mock(content=resp_config))
+                elif isinstance(resp_config, dict):
+                    # Full configuration
+                    responses.append(self._create_response_mock(**resp_config))
+                else:
+                    # Exception
+                    mock_resp = Mock()
+                    mock_resp.get.side_effect = resp_config
+                    responses.append(mock_resp)
+
+            mock_client.get = AsyncMock(side_effect=responses)
+            mock_client.post = AsyncMock(side_effect=responses)
+
+            return mock_client
+
+        def _create_http_mock(
+            self,
+            content: str = "",
+            status_code: int = 200,
+            content_type: str = "text/plain",
+            raises: Exception = None,
+            **kwargs,
+        ):
+            """Internal method to create HTTP mock."""
+            mock_client = MagicMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+
+            if raises:
+                mock_client.get = AsyncMock(side_effect=raises)
+                mock_client.post = AsyncMock(side_effect=raises)
+            else:
+                mock_response = self._create_response_mock(
+                    content, status_code, content_type, **kwargs
+                )
+                mock_client.get = AsyncMock(return_value=mock_response)
+                mock_client.post = AsyncMock(return_value=mock_response)
+
+            return mock_client
+
+        def _create_response_mock(
+            self,
+            content: str = "",
+            status_code: int = 200,
+            content_type: str = "text/plain",
+            headers: dict = None,
+            **kwargs,
+        ):
+            """Internal method to create response mock."""
+            mock_response = Mock(spec=httpx.Response)
+            mock_response.status_code = status_code
+            mock_response.text = content
+            mock_response.content = content.encode("utf-8")
+            mock_response.headers = headers or {"content-type": content_type}
+
+            # Handle JSON responses
+            if content_type == "application/json":
+                try:
+                    mock_response.json.return_value = json.loads(content)
+                except json.JSONDecodeError:
+                    mock_response.json.side_effect = json.JSONDecodeError(
+                        "Invalid JSON", content, 0
+                    )
+            else:
+                mock_response.json.side_effect = json.JSONDecodeError("Not JSON", content, 0)
+
+            # Handle HTTP errors
+            if status_code >= 400:
+                mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+                    f"{status_code} Error", request=Mock(), response=mock_response
+                )
+            else:
+                mock_response.raise_for_status.return_value = None
+
+            return mock_response
+
+    return LoaderMockFactory()
+
+
+@pytest.fixture
+def all_loaders_mock_data():
+    """Complete mock data for all loader types."""
+    return {
+        # TheSpeedX loader responses
+        "thespeedx_responses": {
+            "http": "1.1.1.1:8080\n2.2.2.2:3128\n3.3.3.3:8000\n4.4.4.4:9999\n",
+            "https": "5.5.5.5:8443\n6.6.6.6:3128\n7.7.7.7:8080\n",
+            "socks4": "8.8.8.8:1080\n9.9.9.9:1080\n10.10.10.10:1080\n",
+            "socks5": "11.11.11.11:1080\n12.12.12.12:1080\n13.13.13.13:1080\n",
+        },
+        # Clarketm loader response
+        "clarketm_response": """192.168.1.1:8080
+10.0.0.1:3128
+172.16.0.1:1080
+203.0.113.1:8080
+198.51.100.1:3128""",
+        # Monosans loader responses
+        "monosans_responses": {
+            "http": "20.20.20.20:8080\n21.21.21.21:3128\n22.22.22.22:8000\n",
+            "https": "23.23.23.23:8443\n24.24.24.24:3128\n",
+            "socks4": "25.25.25.25:1080\n26.26.26.26:1080\n",
+            "socks5": "27.27.27.27:1080\n28.28.28.28:1080\n29.29.29.29:1080\n",
+        },
+        # ProxyScrape API response
+        "proxyscrape_response": """30.30.30.30:8080
+31.31.31.31:3128
+32.32.32.32:1080
+33.33.33.33:8080""",
+        # Vakhov Fresh response
+        "vakhov_response": """34.34.34.34:8080
+35.35.35.35:3128
+36.36.36.36:1080""",
+        # Proxifly HTML response
+        "proxifly_html": """<html>
+<head><title>Free Proxy List</title></head>
+<body>
+<div id="proxy-table">
+<table class="table table-striped">
+<thead>
+<tr><th>IP Address</th><th>Port</th><th>Code</th><th>Country</th><th>Type</th></tr>
+</thead>
+<tbody>
+<tr><td>40.40.40.40</td><td>8080</td><td>US</td><td>United States</td><td>HTTP</td></tr>
+<tr><td>41.41.41.41</td><td>3128</td><td>GB</td><td>United Kingdom</td><td>HTTP</td></tr>
+<tr><td>42.42.42.42</td><td>1080</td><td>DE</td><td>Germany</td><td>SOCKS5</td></tr>
+</tbody>
+</table>
+</div>
+</body>
+</html>""",
+        # JetKai proxy list responses
+        "jetkai_responses": {
+            "http": "50.50.50.50:8080\n51.51.51.51:3128\n52.52.52.52:8000\n",
+            "socks": "53.53.53.53:1080\n54.54.54.54:1080\n",
+        },
     }
 
 

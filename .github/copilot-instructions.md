@@ -2,13 +2,42 @@
 
 ProxyWhirl is a Python 3.13+ library for managing rotating proxies with pluggable proxy source loaders, flexible caching, and comprehensive validation.
 
+## Instruction File Hierarchy
+
+This file serves as the centralized manager for ProxyWhirl's GitHub Copilot instruction system. Specific development areas are managed by dedicated instruction files:
+
+### 🎯 **Specialized Instruction Files**
+- **`backend.instructions.md`** → Python backend development (`applyTo: "proxywhirl/**/*.py"`)
+- **`testing.instructions.md`** → Testing and quality assurance (`applyTo: "tests/**/*.py"`)
+- **`frontend.instructions.md`** → Next.js documentation site (`applyTo: "docs/**/*"`)
+- **`deployment.instructions.md`** → CI/CD and security operations (`applyTo: ".github/workflows/**"`)
+- **`docs.instructions.md`** → Documentation writing and maintenance
+
+### 🧠 **AI-Assisted Development Integration**
+GitHub Copilot automatically applies the appropriate instruction file based on the file being edited:
+- Editing Python files in `proxywhirl/` → Uses `backend.instructions.md`
+- Editing test files in `tests/` → Uses `testing.instructions.md`
+- Editing frontend files in `docs/` → Uses `frontend.instructions.md`
+- Editing workflow files in `.github/workflows/` → Uses `deployment.instructions.md`
+
+### 🔧 **MCP Tool Orchestration**
+All instruction files include MCP (Model Context Protocol) tool integration for:
+- **Research Pipeline**: Version validation, documentation research, community best practices
+- **Quality Assurance**: Automated testing, security scanning, performance monitoring
+- **Development Support**: Sequential thinking, code execution, tool coordination
+
 ## Architecture Overview
 
 ### Core Components
-- **ProxyWhirl**: Main orchestrator class in `proxywhirl/core.py` (lines 1-621)
-- **ProxyCache**: Multi-backend cache system (memory, JSON, SQLite) 
+- **ProxyWhirl**: Main orchestrator class in `proxywhirl/proxywhirl.py` (1186 lines) - unified interface with smart sync/async handling
+- **ProxyCache**: Multi-backend cache system in `proxywhirl/cache.py` supporting memory, JSON, and SQLite
+- **ProxyRotator**: Rotation strategy implementation in `proxywhirl/rotator.py`
+- **ProxyValidator**: Async validator in `proxywhirl/validator.py` with circuit-breaker patterns
 - **BaseLoader**: Abstract base class for proxy source loaders in `proxywhirl/loaders/base.py`
-- **Pydantic Models**: Strict data validation in `proxywhirl/models.py`
+- **Pydantic Models**: Advanced data validation in `proxywhirl/models.py`
+- **CLI Interface**: Rich terminal interface in `proxywhirl/cli.py`
+- **TUI Application**: Interactive terminal UI in `proxywhirl/tui.py`
+- **Export System**: Multi-format data export in `proxywhirl/exporter.py`
 
 ### Key Design Patterns
 
@@ -19,7 +48,7 @@ class CustomLoader(BaseLoader):
     def load(self) -> DataFrame:
         # Return DataFrame with proxy data
 ```
-Existing loaders: FreshProxyList, TheSpeedX, Clarketm, Monosans, ProxyScrape, ProxyNova, OpenProxySpace.
+Existing loaders: TheSpeedX (HTTP/SOCKS), Clarketm, Monosans, ProxyScrape, Proxifly, VakhovFresh, JetkaiProxyList, UserProvided.
 
 #### Pydantic-First Data Modeling
 - All data structures use Pydantic with strict validation
@@ -49,13 +78,13 @@ cache = ProxyCache(CacheType.SQLITE, Path("proxies.db"))
 
 ### CLI Development
 - Uses Typer with async support via `_run()` helper in `cli.py`
-- Commands: `fetch`, `list`, `validate`, `get`
+- Commands: `fetch`, `list`, `validate`, `get`, `health-report`, `export`, `tui`
 - Always add `--cache-path` validation for JSON/SQLite cache types
 
 ## Project-Specific Conventions
 
 ### Async Patterns
-- Use `httpx.AsyncClient` for HTTP requests
+- Use `httpx.AsyncClient` and `aiohttp` for HTTP requests depending on context
 - All core operations are async with sync CLI wrappers
 - Leverage `asyncio.gather()` for concurrent proxy validation
 
@@ -79,9 +108,12 @@ cache = ProxyCache(CacheType.SQLITE, Path("proxies.db"))
 ## Key Files for New Features
 
 - **New proxy source**: Add loader to `proxywhirl/loaders/`
-- **Core logic changes**: Modify `proxywhirl/core.py` (ProxyWhirl/ProxyCache classes)
+- **Core logic changes**: Modify `proxywhirl/proxywhirl.py` (ProxyWhirl main class)
+- **Cache system**: Extend `proxywhirl/cache.py`
 - **Data models**: Extend `proxywhirl/models.py`
 - **CLI commands**: Add to `proxywhirl/cli.py`
+- **TUI interface**: Extend `proxywhirl/tui.py`
+- **Export system**: Modify `proxywhirl/exporter.py`
 - **Tests**: Create corresponding test file in `tests/`
 
 ## Build System

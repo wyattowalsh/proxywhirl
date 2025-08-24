@@ -45,6 +45,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import (
+    TYPE_CHECKING,
     Any,
     AsyncIterator,
     Coroutine,
@@ -59,31 +60,40 @@ from typing import (
 )
 
 from loguru import logger
+from pandas import DataFrame
 
 from proxywhirl.cache import ProxyCache
 from proxywhirl.loaders.base import BaseLoader
 from proxywhirl.loaders.clarketm_raw import ClarketmHttpLoader
 
 # from proxywhirl.loaders.fresh_proxy_list import FreshProxyListLoader  # DISABLED: Domain dead
+from proxywhirl.loaders.jetkai_proxy_list import JetkaiProxyListLoader
 from proxywhirl.loaders.monosans import MonosansLoader
 
 # from proxywhirl.loaders.openproxyspace import OpenProxySpaceLoader  # DISABLED: 521 errors
-from proxywhirl.loaders.proxynova import ProxyNovaLoader
+from proxywhirl.loaders.proxifly import ProxiflyLoader
+
+# from proxywhirl.loaders.proxynova import ProxyNovaLoader  # DISABLED: Module missing
 from proxywhirl.loaders.proxyscrape import ProxyScrapeLoader
 from proxywhirl.loaders.the_speedx import (
     TheSpeedXHttpLoader,
     TheSpeedXSocksLoader,
 )
 from proxywhirl.loaders.user_provided import UserProvidedLoader
+from proxywhirl.loaders.vakhov_fresh import VakhovFreshProxyLoader
 from proxywhirl.models import (
     CacheType,
     Proxy,
     ProxyStatus,
     RotationStrategy,
+    TargetDefinition,
     ValidationErrorType,
 )
 from proxywhirl.rotator import ProxyRotator
 from proxywhirl.validator import ProxyValidator
+
+if TYPE_CHECKING:
+    from proxywhirl.export_models import ExportConfig
 
 T = TypeVar("T")
 
@@ -152,6 +162,8 @@ class ProxyWhirl:
         # Additional configuration options
         validator_timeout: float = 10.0,
         validator_test_url: str = "https://httpbin.org/ip",
+        # Target-based validation support
+        validation_targets: Optional[Dict[str, TargetDefinition]] = None,
         enable_metrics: bool = True,
         max_concurrent_validations: int = 10,
         # Optional cap on total number of proxies to collect during fetch across all loaders.
@@ -193,9 +205,12 @@ class ProxyWhirl:
         # Initialize rotator and validator with custom settings.
         self.rotator = ProxyRotator(rotation_strategy)
         # Validator expects a list of test URLs; adapt single URL into a list.
+        # Also pass validation targets if provided.
+        self.validation_targets = validation_targets
         self.validator = ProxyValidator(
             timeout=validator_timeout,
             test_urls=[validator_test_url],
+            targets=validation_targets,
             max_concurrent=max_concurrent_validations,
         )
 
@@ -207,8 +222,12 @@ class ProxyWhirl:
             ClarketmHttpLoader,
             MonosansLoader,
             ProxyScrapeLoader,
-            ProxyNovaLoader,
+            # ProxyNovaLoader,  # DISABLED: Module missing
             # OpenProxySpaceLoader,  # DISABLED: Returns 521 errors
+            # New working loaders based on research
+            ProxiflyLoader,
+            VakhovFreshProxyLoader,
+            JetkaiProxyListLoader,
         ]
         self.loaders: List[BaseLoader] = self._create_loaders()
 
@@ -461,10 +480,20 @@ class ProxyWhirl:
         all_proxies: List[Proxy] = []
         seen: set[tuple[str, int]] = set()
 
-        for loader in self.loaders:
+        # Use asyncio.gather for parallel loading with resilient retry logic
+        logger.info(f"Starting parallel load from {len(self.loaders)} loaders")
+        tasks = [loader.load_with_retry() for loader in self.loaders]
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for loader, result in zip(self.loaders, results):
+            if isinstance(result, Exception):
+                logger.error(f"Failed to load from {loader.name}: {result}")
+                continue
+
             try:
-                logger.info(f"Loading proxies from {loader.name}")
-                df = loader.load()
+                # Type guard: result is now guaranteed to be a DataFrame
+                df = cast(DataFrame, result)
+                logger.info(f"Processing {len(df)} rows from {loader.name}")
 
                 # Convert DataFrame to Proxy objects with minimal normalization.
                 proxies: List[Proxy] = []
@@ -492,22 +521,22 @@ class ProxyWhirl:
                 logger.info(f"Loaded {len(proxies)} proxies from {loader.name}")
                 all_proxies.extend(proxies)
 
-                # If a fetch cap is set, stop early once we have enough unique proxies.
+                # If a fetch cap is set, check if we need to truncate after all parallel loads
                 if (
                     self.max_fetch_proxies is not None
                     and len(all_proxies) >= self.max_fetch_proxies
                 ):
-                    # Truncate to exact cap to avoid minor overrun from last batch
+                    # Truncate to exact cap to avoid minor overrun
                     all_proxies = all_proxies[: self.max_fetch_proxies]
                     logger.info(
-                        "Reached fetch cap of %d proxies; stopping further loader processing",
+                        "Reached fetch cap of %d proxies after parallel loading",
                         self.max_fetch_proxies,
                     )
                     break
 
             except Exception as e:  # noqa: BLE001
-                # Loader failures are logged and processing continues.
-                logger.error(f"Failed to load from {loader.name}: {e}")
+                # Processing failures are logged and processing continues.
+                logger.error(f"Failed to process results from {loader.name}: {e}")
                 continue
 
         if validate and all_proxies:
@@ -539,12 +568,30 @@ class ProxyWhirl:
         logger.info(f"Total proxies loaded: {len(all_proxies)}")
         return len(all_proxies)
 
-    async def get_proxy_async(self) -> Optional[Proxy]:
+    async def get_proxy_async(
+        self,
+        target_id: Optional[str] = None,
+        session_id: Optional[str] = None,
+        custom_ttl: Optional[int] = None,
+    ) -> Optional[Proxy]:
         """
         Retrieve a proxy according to the configured rotation strategy.
 
         If the cache is empty, automatically fetches and validates proxies
         from configured loaders before attempting to return a proxy.
+
+        Parameters
+        ----------
+        target_id : str, optional
+            Filter proxies that are healthy for a specific target.
+            If provided, only returns proxies with good health for this target.
+            If None, uses standard proxy selection without target filtering.
+        session_id : str, optional
+            Unique identifier for session-based proxy stickiness.
+            If provided, maintains consistent proxy assignment for the same session.
+        custom_ttl : int, optional
+            Custom TTL in seconds for session-based assignments. Uses rotator's default if None.
+            Only applies when session_id is provided.
 
         Returns
         -------
@@ -555,11 +602,27 @@ class ProxyWhirl:
         -----
         - Auto-fetches proxies when cache is empty for seamless user experience
         - Uses the configured auto_validate setting for fetched proxies
+        - Target-based filtering requires validation_targets to be configured
+        - Session stickiness maintains consistent proxy assignment with TTL-based expiration
+        - Unhealthy session proxies are automatically reassigned
+
+        Examples
+        --------
+        Basic usage:
+            >>> proxy = await pw.get_proxy_async()
+
+        With target filtering:
+            >>> proxy = await pw.get_proxy_async(target_id="website1")
+
+        With session stickiness:
+            >>> proxy1 = await pw.get_proxy_async(session_id="user123")
+            >>> proxy2 = await pw.get_proxy_async(session_id="user123")  # Same proxy as proxy1
         """
         proxies = self.cache.get_proxies()
 
         if not proxies:
-            logger.info("Cache is empty, auto-fetching proxies...")
+            context = f"session {session_id}" if session_id else "proxy request"
+            logger.info(f"Cache is empty, auto-fetching proxies for {context}...")
             try:
                 # Auto-fetch proxies using the configured auto_validate setting
                 fetched_count = await self.fetch_proxies_async(validate=self.auto_validate)
@@ -578,7 +641,99 @@ class ProxyWhirl:
             logger.warning("No proxies available after auto-fetch attempt")
             return None
 
-        return self.rotator.get_proxy(proxies)
+        # Apply target-based filtering if requested
+        if target_id is not None:
+            if not self.validation_targets or target_id not in self.validation_targets:
+                logger.warning(f"Target '{target_id}' not found in validation targets")
+                return None
+
+            # Filter proxies that are healthy for the specified target
+            target_healthy_proxies = []
+            for proxy in proxies:
+                target_health = proxy.get_target_health(target_id)
+                if target_health is not None:
+                    # Consider proxy healthy if it has reasonable success rate and recent success
+                    if target_health.success_rate >= 0.5 and target_health.consecutive_failures < 3:
+                        target_healthy_proxies.append(proxy)
+
+            if not target_healthy_proxies:
+                context_msg = f" in session {session_id}" if session_id else ""
+                logger.warning(f"No healthy proxies found for target '{target_id}'{context_msg}")
+                return None
+
+            context_msg = f" in session {session_id}" if session_id else ""
+            logger.debug(
+                f"Filtered {len(target_healthy_proxies)}/{len(proxies)} proxies for target '{target_id}'{context_msg}"
+            )
+            proxies = target_healthy_proxies
+
+        # Use session-aware or regular proxy selection
+        if session_id is not None:
+            return self.rotator.get_proxy_for_session(session_id, proxies, target_id, custom_ttl)
+        else:
+            return self.rotator.get_proxy(proxies)
+
+    async def export_proxies_async(self, config: "ExportConfig") -> str:
+        """
+        Export cached proxies asynchronously in specified format.
+
+        Parameters
+        ----------
+        config : ExportConfig
+            Export configuration including format, filters, and options.
+
+        Returns
+        -------
+        str
+            Formatted export string.
+
+        Raises
+        ------
+        ProxyExportError
+            If export operation fails.
+        """
+        from .exporter import ProxyExporter
+
+        # Get cached proxies
+        proxies = self.cache.get_proxies()
+        if not proxies:
+            logger.warning("No proxies available for export")
+            return ""
+
+        # Create exporter and export
+        exporter = ProxyExporter()
+        return exporter.export(proxies, config)
+
+    async def export_to_file_async(self, config: "ExportConfig") -> tuple[str, int]:
+        """
+        Export cached proxies to file asynchronously.
+
+        Parameters
+        ----------
+        config : ExportConfig
+            Export configuration including file path.
+
+        Returns
+        -------
+        tuple[str, int]
+            File path and number of proxies exported.
+
+        Raises
+        ------
+        ProxyExportError
+            If file export operation fails.
+        """
+        from .exporter import ProxyExporter
+
+        # Get cached proxies
+        proxies = self.cache.get_proxies()
+        if not proxies:
+            logger.warning("No proxies available for export")
+            return "", 0
+
+        # Create exporter and export to file
+        exporter = ProxyExporter()
+        return exporter.export_to_file(proxies, config)
 
     async def validate_proxies_async(self, max_proxies: Optional[int] = None) -> int:
         """
@@ -706,9 +861,14 @@ class ProxyWhirl:
         """
         return self._run_async(self.fetch_proxies_async(validate))
 
-    def get_proxy(self) -> Optional[Proxy]:
+    def get_proxy(self, target_id: Optional[str] = None) -> Optional[Proxy]:
         """
         Synchronous wrapper for get_proxy_async.
+
+        Parameters
+        ----------
+        target_id : str, optional
+            Filter proxies that are healthy for a specific target.
 
         Returns
         -------
@@ -720,7 +880,7 @@ class ProxyWhirl:
         RuntimeError
             If invoked from an async context.
         """
-        return self._run_async(self.get_proxy_async())
+        return self._run_async(self.get_proxy_async(target_id))
 
     def validate_proxies(self) -> int:
         """
@@ -737,6 +897,48 @@ class ProxyWhirl:
             If invoked from an async context.
         """
         return self._run_async(self.validate_proxies_async())
+
+    def export_proxies(self, config: "ExportConfig") -> str:
+        """
+        Synchronous wrapper for export_proxies_async.
+
+        Parameters
+        ----------
+        config : ExportConfig
+            Export configuration including format, filters, and options.
+
+        Returns
+        -------
+        str
+            Formatted export string.
+
+        Raises
+        ------
+        RuntimeError
+            If invoked from an async context.
+        """
+        return self._run_async(self.export_proxies_async(config))
+
+    def export_to_file(self, config: "ExportConfig") -> tuple[str, int]:
+        """
+        Synchronous wrapper for export_to_file_async.
+
+        Parameters
+        ----------
+        config : ExportConfig
+            Export configuration including file path.
+
+        Returns
+        -------
+        tuple[str, int]
+            File path and number of proxies exported.
+
+        Raises
+        ------
+        RuntimeError
+            If invoked from an async context.
+        """
+        return self._run_async(self.export_to_file_async(config))
 
     # === Sync methods that don't require async ===
 

@@ -6,7 +6,9 @@ Unit tests for logger configuration and functionality.
 from unittest.mock import Mock, patch
 
 from proxywhirl.logger import (
+    InterceptHandler,
     configure_rich_logging,
+    console,
     custom_theme,
     get_logger,
     setup_logger,
@@ -58,7 +60,7 @@ class TestLogger:
 
         # Verify logger was configured
         mock_logger.remove.assert_called()
-        mock_logger.add.assert_called()
+        mock_logger.configure.assert_called()
 
     @patch("proxywhirl.logger.logger")
     def test_setup_logger_with_level(self, mock_logger):
@@ -67,7 +69,7 @@ class TestLogger:
 
         mock_logger.remove.assert_called()
         # Should have been called with DEBUG level
-        mock_logger.add.assert_called()
+        mock_logger.configure.assert_called()
 
     @patch("proxywhirl.logger.logger")
     def test_setup_logger_with_file(self, mock_logger):

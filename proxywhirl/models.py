@@ -152,12 +152,12 @@ class AnonymityLevel(StrEnum):
 
 
 class Scheme(StrEnum):
-    """Standardized proxy schemes."""
+    """Standardized proxy schemes (lowercase values for I/O and URIs)."""
 
-    HTTP = auto()
-    HTTPS = auto()
-    SOCKS4 = auto()
-    SOCKS5 = auto()
+    HTTP = "http"
+    HTTPS = "https"
+    SOCKS4 = "socks4"
+    SOCKS5 = "socks5"
 
 
 class CacheType(StrEnum):
@@ -211,6 +211,136 @@ class ErrorHandlingPolicy(StrEnum):
     COOLDOWN_MEDIUM = "cooldown_medium"  # Rate limiting (1-5 minutes)
     COOLDOWN_LONG = "cooldown_long"  # Severe issues (10-30 minutes)
     BLACKLIST = "blacklist"  # Permanently ban proxy
+
+
+# === Target-Based Validation Models ===
+
+
+class TargetDefinition(BaseModel):
+    """Definition of a validation target with its configuration."""
+
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
+
+    target_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=50,
+        pattern=r"^[a-zA-Z0-9_-]+$",
+        description="Unique identifier for this target (alphanumeric, _, - only)",
+    )
+    url: str = Field(..., min_length=1, description="Target URL to validate against")
+    name: Optional[str] = Field(
+        None, max_length=100, description="Human-readable name for this target"
+    )
+    timeout: Optional[float] = Field(
+        None, ge=0.1, le=60.0, description="Custom timeout for this target (seconds)"
+    )
+    weight: float = Field(
+        1.0, ge=0.0, le=10.0, description="Weight for quality scoring (higher = more important)"
+    )
+    expected_status_codes: Optional[List[int]] = Field(
+        None, description="Expected HTTP status codes (default: [200])"
+    )
+
+    @field_validator("url")
+    @classmethod
+    def validate_url(cls, v: str) -> str:
+        """Basic URL validation."""
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("URL must start with http:// or https://")
+        return v
+
+    @property
+    def display_name(self) -> str:
+        """Get display name or fallback to target_id."""
+        return self.name or self.target_id
+
+
+class TargetHealthStatus(BaseModel):
+    """Health status for a specific target."""
+
+    model_config = ConfigDict(
+        validate_assignment=True,
+        extra="forbid",
+    )
+
+    target_id: str = Field(..., description="Target identifier")
+    success_rate: SuccessRate = Field(default=0.0, description="Success rate for this target")
+    avg_response_time: Optional[ResponseTimeSeconds] = Field(
+        default=None, description="Average response time for this target"
+    )
+    last_success: Optional[datetime] = Field(
+        default=None, description="Timestamp of last successful validation"
+    )
+    last_failure: Optional[datetime] = Field(
+        default=None, description="Timestamp of last failed validation"
+    )
+    consecutive_failures: int = Field(default=0, ge=0, description="Count of consecutive failures")
+    consecutive_successes: int = Field(
+        default=0, ge=0, description="Count of consecutive successes"
+    )
+    total_attempts: int = Field(default=0, ge=0, description="Total validation attempts")
+    total_successes: int = Field(default=0, ge=0, description="Total successful validations")
+
+    # Computed quality score for this specific target
+    @computed_field
+    @property
+    def target_quality_score(self) -> float:
+        """Quality score specific to this target."""
+        if self.total_attempts == 0:
+            return 0.5  # Neutral score for untested targets
+
+        base_score = float(self.success_rate)
+
+        # Speed bonus/penalty
+        speed_adjustment = 0.0
+        if self.avg_response_time is not None:
+            if self.avg_response_time < 1.0:
+                speed_adjustment = 0.1  # Fast bonus
+            elif self.avg_response_time > 5.0:
+                speed_adjustment = -0.1  # Slow penalty
+
+        # Stability bonus for consistent successes
+        stability_bonus = 0.0
+        if self.consecutive_successes >= 5:
+            stability_bonus = 0.05
+        elif self.consecutive_failures >= 3:
+            stability_bonus = -0.1
+
+        return max(0.0, min(1.0, base_score + speed_adjustment + stability_bonus))
+
+    def record_success(self, response_time: Optional[float] = None) -> None:
+        """Record a successful validation."""
+        self.total_attempts += 1
+        self.total_successes += 1
+        self.consecutive_successes += 1
+        self.consecutive_failures = 0
+        self.last_success = datetime.now(timezone.utc)
+
+        # Update success rate
+        self.success_rate = self.total_successes / self.total_attempts
+
+        # Update average response time (simple moving average)
+        if response_time is not None:
+            if self.avg_response_time is None:
+                self.avg_response_time = response_time
+            else:
+                # Weighted average favoring recent measurements
+                self.avg_response_time = (self.avg_response_time * 0.7) + (response_time * 0.3)
+
+    def record_failure(self) -> None:
+        """Record a failed validation."""
+        self.total_attempts += 1
+        self.consecutive_failures += 1
+        self.consecutive_successes = 0
+        self.last_failure = datetime.now(timezone.utc)
+
+        # Update success rate
+        self.success_rate = self.total_successes / self.total_attempts
 
 
 # === Lightweight Models ===
@@ -407,20 +537,20 @@ class ProxyPerformanceMetrics(BaseModel):
     @computed_field
     @property
     def success_rate(self) -> SuccessRate:
-        """Calculate success rate percentage with precision."""
+        """Fractional success rate in [0,1]."""
         if self.total_requests == 0:
             return 0.0
-        rate = (self.success_count / self.total_requests) * 100
-        return min(100.0, max(0.0, round(rate, 2)))
+        rate = self.success_count / self.total_requests
+        return min(1.0, max(0.0, round(rate, 3)))
 
     @computed_field
     @property
     def failure_rate(self) -> SuccessRate:
-        """Calculate failure rate percentage with precision."""
+        """Fractional failure rate in [0,1]."""
         if self.total_requests == 0:
             return 0.0
-        rate = (self.failure_count / self.total_requests) * 100
-        return min(100.0, max(0.0, round(rate, 2)))
+        rate = self.failure_count / self.total_requests
+        return min(1.0, max(0.0, round(rate, 3)))
 
     @computed_field
     @property
@@ -430,7 +560,7 @@ class ProxyPerformanceMetrics(BaseModel):
             return 0.5  # Insufficient data baseline
 
         # Base score from success rate (60% weight)
-        base_score = self.success_rate / 100.0 * 0.6
+        base_score = self.success_rate * 0.6
 
         # Response time factor (20% weight) - penalize high response times
         response_factor = 0.2
@@ -617,6 +747,12 @@ class Proxy(BaseModel):
         None, max_length=500, description="Reason for blacklisting"
     )
 
+    # Target-based health tracking
+    target_health: Dict[str, TargetHealthStatus] = Field(
+        default_factory=dict,
+        description="Per-target health status mapping target_id -> TargetHealthStatus",
+    )
+
     @model_validator(mode="before")
     @classmethod
     def _resolve_ip_from_host(cls, data: Any) -> Any:
@@ -756,6 +892,40 @@ class Proxy(BaseModel):
     @property
     def intelligent_quality_score(self) -> float:
         """Computed quality score based on multiple performance factors."""
+        # Check for target-based health data first
+        if self.target_health:
+            return self._compute_target_weighted_score()
+
+        # Fallback to legacy single-target scoring
+        return self._compute_legacy_quality_score()
+
+    def _compute_target_weighted_score(self) -> float:
+        """Compute quality score based on target-weighted performance."""
+        if not self.target_health:
+            return 0.5
+
+        total_weight = 0.0
+        weighted_score = 0.0
+
+        # TODO: Get target definitions from somewhere (maybe context or global registry)
+        # For now, treat all targets with equal weight
+        for health_status in self.target_health.values():
+            target_weight = 1.0  # Default weight, should come from TargetDefinition
+            target_score = health_status.target_quality_score
+
+            weighted_score += target_score * target_weight
+            total_weight += target_weight
+
+        if total_weight == 0:
+            return 0.5
+
+        base_score = weighted_score / total_weight
+
+        # Apply global factors (anonymity, overall response time)
+        return self._apply_global_quality_factors(base_score)
+
+    def _compute_legacy_quality_score(self) -> float:
+        """Legacy single-target quality scoring for backward compatibility."""
         # Access field values using __dict__ to avoid FieldInfo issues
         metrics_value = self.__dict__.get("metrics")
         if metrics_value is None:
@@ -782,6 +952,50 @@ class Proxy(BaseModel):
         }.get(self.anonymity, 0.05)
 
         return min(1.0, success_weight + speed_weight + uptime_weight + anonymity_bonus)
+
+    def _apply_global_quality_factors(self, base_score: float) -> float:
+        """Apply global quality factors like anonymity and response time."""
+        # Anonymity bonus
+        anonymity_bonus = {
+            AnonymityLevel.ELITE: 0.1,
+            AnonymityLevel.ANONYMOUS: 0.07,
+            AnonymityLevel.TRANSPARENT: 0.03,
+            AnonymityLevel.UNKNOWN: 0.05,
+        }.get(self.anonymity, 0.05)
+
+        # Global response time factor (if available)
+        speed_factor = 0.0
+        if self.response_time is not None and self.response_time > 0:
+            if self.response_time < 1.0:
+                speed_factor = 0.05  # Small global bonus for fast proxies
+            elif self.response_time > 10.0:
+                speed_factor = -0.05  # Small global penalty for very slow proxies
+
+        return max(0.0, min(1.0, base_score + anonymity_bonus + speed_factor))
+
+    def get_target_health(self, target_id: str) -> Optional[TargetHealthStatus]:
+        """Get health status for a specific target."""
+        return self.target_health.get(target_id)
+
+    def update_target_health(
+        self, target_id: str, success: bool, response_time: Optional[float] = None
+    ) -> None:
+        """Update health status for a specific target."""
+        if target_id not in self.target_health:
+            self.target_health[target_id] = TargetHealthStatus(target_id=target_id)
+
+        health_status = self.target_health[target_id]
+        if success:
+            health_status.record_success(response_time)
+        else:
+            health_status.record_failure()
+
+    def get_target_quality_score(self, target_id: str) -> float:
+        """Get quality score for a specific target."""
+        health_status = self.target_health.get(target_id)
+        if health_status is None:
+            return 0.5  # Neutral score for unknown targets
+        return health_status.target_quality_score
 
     @computed_field
     @property
@@ -831,14 +1045,19 @@ class Proxy(BaseModel):
         # Format host with IPv6 brackets if needed per RFC 2732
         # Use IP field for proper type detection, fallback to host string
         host_formatted = f"[{self.ip}]" if isinstance(self.ip, IPv6Address) else str(self.host)
-        return {scheme: f"{scheme}://{host_formatted}:{self.port}" for scheme in self.schemes}
+        return {
+            (
+                scheme.value if hasattr(scheme, "value") else str(scheme)
+            ): f"{scheme.value if hasattr(scheme, 'value') else str(scheme)}://{host_formatted}:{self.port}"
+            for scheme in self.schemes
+        }
 
     @property
     def authenticated_uri(self) -> str:
         """Primary proxy URI with authentication if available and RFC 2732 IPv6 compliance."""
         scheme = self.schemes[0]
         # Schemes are validated as Scheme enum values, extract string value
-        scheme_str = scheme.value
+        scheme_str = scheme.value if hasattr(scheme, "value") else str(scheme)
 
         # Format host with IPv6 brackets if needed per RFC 2732
         # Use IP field for proper type detection, fallback to host string
@@ -921,3 +1140,105 @@ class StrictProxy(BaseModel):
             and self.response_time < 2.0
             and self.anonymity in [AnonymityLevel.ANONYMOUS, AnonymityLevel.ELITE]
         )
+
+
+# === Session Management Models ===
+
+
+class SessionProxy(BaseModel):
+    """Session-to-proxy mapping with TTL for state-aware proxy stickiness.
+
+    This model tracks the assignment of proxies to specific session IDs,
+    enabling consistent proxy usage across multiple requests while handling
+    proxy health changes and session expiration gracefully.
+
+    Attributes
+    ----------
+    session_id : str
+        Unique identifier for the session.
+    proxy : Proxy
+        The assigned proxy instance.
+    assigned_at : datetime
+        When the proxy was assigned to this session.
+    expires_at : datetime
+        When this session assignment expires.
+    target_id : str, optional
+        Target ID for target-specific session stickiness.
+
+    Examples
+    --------
+    Create a session with 30-minute TTL:
+        >>> from datetime import datetime, timedelta, timezone
+        >>> expires = datetime.now(timezone.utc) + timedelta(minutes=30)
+        >>> session = SessionProxy(
+        ...     session_id="user123",
+        ...     proxy=proxy_instance,
+        ...     expires_at=expires
+        ... )
+        >>> print(session.ttl_remaining)
+        1800.0
+    """
+
+    session_id: str = Field(..., description="Unique session identifier")
+    proxy: Proxy = Field(..., description="Assigned proxy instance")
+    assigned_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), description="Assignment timestamp"
+    )
+    expires_at: datetime = Field(..., description="Session expiration time")
+    target_id: Optional[str] = Field(None, description="Target ID for target-specific sessions")
+
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        frozen=False,  # Allow updates for proxy health changes
+    )
+
+    @computed_field
+    @property
+    def is_expired(self) -> bool:
+        """Check if session has expired."""
+        return datetime.now(timezone.utc) >= self.expires_at
+
+    @computed_field
+    @property
+    def ttl_remaining(self) -> float:
+        """Get remaining TTL in seconds."""
+        delta = self.expires_at - datetime.now(timezone.utc)
+        return max(0.0, delta.total_seconds())
+
+    @computed_field
+    @property
+    def is_proxy_healthy(self) -> bool:
+        """Check if assigned proxy is currently healthy."""
+        return self.proxy.status == ProxyStatus.ACTIVE and self.proxy.error_state.is_available()
+
+    @computed_field
+    @property
+    def should_reassign(self) -> bool:
+        """Determine if session should be reassigned a new proxy."""
+        return self.is_expired or not self.is_proxy_healthy
+
+    def extend_ttl(self, additional_seconds: int) -> None:
+        """Extend session TTL by specified seconds.
+
+        Parameters
+        ----------
+        additional_seconds : int
+            Seconds to add to current expiration time.
+        """
+        self.expires_at += timedelta(seconds=additional_seconds)
+
+    def update_proxy(self, new_proxy: Proxy) -> None:
+        """Update assigned proxy and reset assignment time.
+
+        Parameters
+        ----------
+        new_proxy : Proxy
+            New proxy to assign to this session.
+        """
+        self.proxy = new_proxy
+        self.assigned_at = datetime.now(timezone.utc)
+
+
+# Legacy alias for backward compatibility
+ProxyScheme = Scheme

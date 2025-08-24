@@ -1,0 +1,184 @@
+name: Daily Loader Health Report
+
+on:
+  schedule:
+    # Run daily at 6:00 AM UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  health-report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Generate health report
+        run: |
+          # Create assets directory
+          mkdir -p .github/assets
+          
+          # Generate health report and save to assets directory
+          uv run proxywhirl health-report --output .github/assets/health_report.md
+          
+          # Add compact status badge for README
+          echo "**Loader Status:** $(date '+%Y-%m-%d %H:%M UTC')" > /tmp/health_badge.md
+          
+      - name: Update README.md
+        run: |
+          # Create updated README with health report section
+          cat > /tmp/readme_updated.md << 'EOF'
+          # ProxyWhirl
+          
+          An advanced rotating proxy service for efficient web data collection with Python SDK and CLI interfaces.
+          
+          ## 📊 Loader Health Status
+          
+          EOF
+          
+          # Append the health report
+          cat .github/assets/health_report.md >> /tmp/readme_updated.md
+          
+          cat >> /tmp/readme_updated.md << 'EOF'
+          
+          ## Features
+          
+          - **Python SDK**: Comprehensive async/sync library with type hints
+          - **Command Line Interface**: Powerful CLI with rich terminal output  
+          - **Smart Caching**: Memory, JSON, and SQLite backends
+          - **Advanced Validation**: Real-time health monitoring and response time tracking
+          - **Intelligent Rotation**: Round-robin, random, weighted, and health-based strategies
+          - **Multi-Provider Support**: Free and premium proxy services with failover
+          
+          ## Quick Start
+          
+          ```python
+          from proxywhirl import ProxyWhirl
+          
+          # Create instance with auto-validation
+          proxy_whirl = ProxyWhirl(auto_validate=True)
+          
+          # Fetch proxies from all sources
+          await proxy_whirl.fetch_proxies()
+          
+          # Get a working proxy
+          proxy = await proxy_whirl.get_proxy()
+          print(f"Using proxy: {proxy.host}:{proxy.port}")
+          ```
+          
+          ## Installation
+          
+          ```bash
+          pip install proxywhirl
+          ```
+          
+          ## Documentation
+          
+          Visit our [documentation site](https://proxywhirl.readthedocs.io) for detailed guides and API reference.
+          
+          ## Contributing
+          
+          Contributions are welcome! Please read our contributing guidelines and submit pull requests.
+          
+          ## License
+          
+          This project is licensed under the MIT License - see the LICENSE file for details.
+          EOF
+          
+          # Replace the current README
+          mv /tmp/readme_updated.md README.md
+
+      - name: Update docs index.mdx
+        run: |
+          # Read current index.mdx content up to the health status section
+          python3 << 'EOF'
+          import re
+          
+          # Read current index.mdx
+          with open('docs/content/docs/index.mdx', 'r') as f:
+              content = f.read()
+          
+          # Read health report
+          with open('.github/assets/health_report.md', 'r') as f:
+              health_report = f.read()
+          
+          # Convert markdown headers to MDX format and adjust for insertion
+          health_report_mdx = health_report.replace('# ProxyWhirl Health Report', '## 📊 Loader Health Status')
+          health_report_mdx = re.sub(r'^## ', '### ', health_report_mdx, flags=re.MULTILINE)
+          health_report_mdx = re.sub(r'^### ', '#### ', health_report_mdx, flags=re.MULTILINE)
+          
+          # Find insertion point (after the initial features cards)
+          insertion_pattern = r'(</Cards>\s*\n)'
+          
+          if re.search(insertion_pattern, content):
+              # Insert health report after the features cards
+              new_content = re.sub(
+                  insertion_pattern,
+                  r'\1\n' + health_report_mdx + '\n',
+                  content,
+                  count=1
+              )
+          else:
+              # Fallback: insert after title section
+              title_pattern = r'(---\s*\n)'
+              new_content = re.sub(
+                  title_pattern + r'(.*?)(\n## Features)',
+                  r'\1\2\n\n' + health_report_mdx + r'\3',
+                  content,
+                  count=1,
+                  flags=re.DOTALL
+              )
+          
+          # Write updated content
+          with open('docs/content/docs/index.mdx', 'w') as f:
+              f.write(new_content)
+          EOF
+
+      - name: Check for changes
+        id: changes
+        run: |
+          if git diff --quiet HEAD -- README.md docs/content/docs/index.mdx .github/assets/health_report.md; then
+            echo "changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "changes=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit and push changes
+        if: steps.changes.outputs.changes == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add README.md docs/content/docs/index.mdx .github/assets/health_report.md
+          git commit -m "🤖 Update daily loader health report
+
+          Auto-generated health report for proxy loaders
+          - Updated: $(date '+%Y-%m-%d %H:%M UTC')
+          - Workflow: Daily Loader Health Report"
+          git push
+
+      - name: Create summary
+        run: |
+          echo "## 📊 Health Report Generated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Timestamp:** $(date '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "**Files Updated:** README.md, docs/content/docs/index.mdx, .github/assets/health_report.md" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Report Preview" >> $GITHUB_STEP_SUMMARY
+          head -20 .github/assets/health_report.md >> $GITHUB_STEP_SUMMARY

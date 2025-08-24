@@ -30,12 +30,11 @@ help: ## Show this help message
 # Environment Management
 setup: ## Create virtual environment and sync all dependencies
 	@echo "$(CYAN)Setting up Python environment...$(RESET)"
-	$(UV) venv
+	$(UV) venv && source $(VENV)/bin/activate
 	@echo "$(CYAN)Syncing all dependencies...$(RESET)"
 	$(UV) sync --all-groups
 	@echo "$(GREEN)✓ Environment setup complete$(RESET)"
-	@echo "$(YELLOW)Activate with: source $(VENV)/bin/activate$(RESET)"
-
+	
 sync-dev: ## Sync development dependencies only
 	@echo "$(CYAN)Syncing development dependencies...$(RESET)"
 	$(UV) sync --group dev --group test --group lint --group format

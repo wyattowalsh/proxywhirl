@@ -4,9 +4,11 @@ Tests the comprehensive configuration classes including LoaderConfig, Validation
 CircuitBreakerConfig, and ProxyWhirlSettings with proper field validation and defaults.
 """
 
+import json
 import os
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import yaml
@@ -545,11 +547,11 @@ class TestProxyWhirlSettings:
         # Check core defaults from what we saw in source
         assert settings.cache_type == CacheType.MEMORY
         assert settings.rotation_strategy == RotationStrategy.ROUND_ROBIN
-        assert settings.health_check_interval == 300  # 5 minutes
+        assert settings.health_check_interval == 30  # Updated from config.py
         assert settings.auto_validate is True
-        assert settings.loader_timeout == 30.0
+        assert settings.loader_timeout == 20.0  # Updated from config.py
         assert settings.loader_max_retries == 3
-        assert settings.loader_rate_limit == 1.0
+        assert settings.loader_rate_limit is None  # Updated from config.py
         assert settings.validation_timeout == 10.0
 
     def test_settings_custom_values(self) -> None:

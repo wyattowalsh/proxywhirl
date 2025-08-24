@@ -466,6 +466,90 @@ class TestProxyModel:
         assert not hasattr(proxy, "extra_field")
         assert not hasattr(proxy, "unknown_field")
 
+    def test_acceptance_criteria_uris_lowercase_schemes(self):
+        """Test REC-001 acceptance criteria: Proxy.uris returns lowercase scheme keys."""
+        proxy = Proxy(
+            host="example.com", ip=ip_address("1.2.3.4"), port=8080, schemes=[Scheme.HTTP]
+        )
+        uris = proxy.uris
+        expected = {"http": "http://example.com:8080"}
+        assert uris == expected, f"Expected lowercase scheme keys, got {uris}"
+
+    def test_acceptance_criteria_multiple_schemes_uris(self):
+        """Test REC-001 acceptance criteria: Multiple schemes all use lowercase keys."""
+        proxy = Proxy(
+            host="proxy.test",
+            ip=ip_address("10.0.0.1"),
+            port=3128,
+            schemes=[Scheme.HTTP, Scheme.HTTPS, Scheme.SOCKS5],
+        )
+        uris = proxy.uris
+        expected = {
+            "http": "http://proxy.test:3128",
+            "https": "https://proxy.test:3128",
+            "socks5": "socks5://proxy.test:3128",
+        }
+        # Check all keys are lowercase
+        for key in uris.keys():
+            assert key.islower(), f"Scheme key '{key}' is not lowercase"
+        assert uris == expected, f"Expected {expected}, got {uris}"
+
+
+class TestProxyPerformanceMetrics:
+    """Tests for ProxyPerformanceMetrics model - REC-001 acceptance criteria."""
+
+    def test_success_rate_returns_fraction(self):
+        """Test REC-001 acceptance criteria: success_rate returns fraction (0-1), not percentage."""
+        from proxywhirl.models import ProxyPerformanceMetrics
+
+        # Test case from acceptance criteria
+        metrics = ProxyPerformanceMetrics(success_count=9, total_requests=10)
+        success_rate = metrics.success_rate
+
+        assert success_rate == 0.9, f"Expected 0.9 (fraction), got {success_rate}"
+        assert (
+            0.0 <= success_rate <= 1.0
+        ), f"Success rate must be fraction in [0,1], got {success_rate}"
+
+    def test_failure_rate_returns_fraction(self):
+        """Test failure_rate also returns fraction (0-1)."""
+        from proxywhirl.models import ProxyPerformanceMetrics
+
+        metrics = ProxyPerformanceMetrics(success_count=7, failure_count=3, total_requests=10)
+        failure_rate = metrics.failure_rate
+
+        assert failure_rate == 0.3, f"Expected 0.3 (fraction), got {failure_rate}"
+        assert (
+            0.0 <= failure_rate <= 1.0
+        ), f"Failure rate must be fraction in [0,1], got {failure_rate}"
+
+    def test_reliability_score_uses_fractional_success_rate(self):
+        """Test reliability_score calculation works with fractional success_rate."""
+        from proxywhirl.models import ProxyPerformanceMetrics
+
+        metrics = ProxyPerformanceMetrics(
+            success_count=8, total_requests=10, avg_response_time=1.5, uptime_percentage=98.0
+        )
+        reliability_score = metrics.reliability_score
+
+        # Should be a valid score using fractional success_rate
+        assert (
+            0.0 <= reliability_score <= 1.0
+        ), f"Reliability score must be in [0,1], got {reliability_score}"
+
+        # With 80% success rate, good response time, and high uptime, should be decent
+        assert (
+            reliability_score > 0.5
+        ), f"Expected decent reliability score, got {reliability_score}"
+
+    def test_zero_requests_edge_case(self):
+        """Test success_rate with zero requests returns 0.0."""
+        from proxywhirl.models import ProxyPerformanceMetrics
+
+        metrics = ProxyPerformanceMetrics(success_count=0, total_requests=0)
+        assert metrics.success_rate == 0.0
+        assert metrics.failure_rate == 0.0
+
 
 class TestAnonymityLevel:
     """Tests for AnonymityLevel enum."""

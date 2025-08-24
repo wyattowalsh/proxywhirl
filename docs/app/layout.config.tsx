@@ -1,6 +1,7 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
 import Icon from 'public/img/icon.svg';
 import Image from 'next/image';
+import { ThemeToggle } from '@/components/layout/theme-toggle';
 
 /**
  * Shared layout configurations
@@ -13,7 +14,7 @@ export const baseOptions: BaseLayoutProps = {
 	nav: {
 		title: (
 			<>
-				<Image src={Icon} alt="Logo" width={30} height={30} />
+				<Image src={Icon} alt="proxwhirl project icon" width={36} height={36} />
 				<span className="pw animated">proxywhirl</span>
 			</>
 		),
@@ -21,5 +22,10 @@ export const baseOptions: BaseLayoutProps = {
 	// see https://fumadocs.dev/docs/ui/navigation/links
 	links: [
 	],
-	githubUrl: "https://github.com/wyattowalsh/proxywhirl"
+	githubUrl: "https://github.com/wyattowalsh/proxywhirl",
+	themeSwitch: {
+		enabled: true,
+		component: <ThemeToggle />,
+		mode: 'light-dark-system'
+	},
 };

@@ -2805,6 +2805,285 @@ graph TB
 
 ---
 
+## GitHub Actions Workflows
+
+<Callout title="Automated CI/CD Pipeline" type="success">
+proxywhirl uses a **comprehensive CI/CD system** with 5 specialized GitHub Actions workflows that handle continuous integration, documentation deployment, health monitoring, proxy list generation, and automated releases.
+</Callout>
+
+### Workflow Architecture
+
+<Cards>
+  <Card title="CI Pipeline" icon="🔄">
+    **Quality gates, security scanning, and integration tests**
+  </Card>
+  <Card title="Documentation" icon="📚">
+    **Automated docs generation and GitHub Pages deployment**
+  </Card>
+  <Card title="Health Monitoring" icon="📊">
+    **Daily loader health reports and status updates**
+  </Card>
+  <Card title="Proxy Lists" icon="🌐">
+    **Automated proxy validation and distribution**
+  </Card>
+</Cards>
+
+### CI/CD Workflows
+
+<Tabs items={["CI Pipeline", "Documentation", "Health Reports", "Proxy Lists", "Release Management"]}>
+
+<Tab value="CI Pipeline">
+
+```yaml title=".github/workflows/ci.yml"
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+```
+
+**Key Features:**
+- **Quality Pipeline**: Black formatting → isort → ruff → pylint → mypy → pytest
+- **Matrix Testing**: Python 3.13+ with parallel execution
+- **Security Scanning**: pip-audit for vulnerability detection
+- **Integration Tests**: Optional deep testing with PR label trigger
+- **Artifact Management**: Coverage reports, test results, security audits
+- **Performance**: 15-minute timeout with intelligent caching
+
+**Jobs:**
+1. **Quality Check**: Complete quality pipeline with artifact uploads
+2. **Security Scan**: Automated vulnerability scanning with pip-audit
+3. **Integration Tests**: Conditional deep testing for thorough validation
+
+</Tab>
+
+<Tab value="Documentation">
+
+```yaml title=".github/workflows/docs.yml"
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    paths: ['docs/**', 'proxywhirl/**', '.github/workflows/docs.yml']
+  pull_request:
+    branches: [main]
+    paths: ['docs/**']
+```
+
+**Key Features:**
+- **Next.js 15**: Modern documentation site with Fumadocs
+- **API Generation**: Automated Python docstring extraction
+- **GitHub Pages**: Seamless deployment with proper permissions
+- **Link Checking**: Automated link validation on PRs
+- **Smart Caching**: pnpm and Node.js dependency caching
+- **Multi-Stage**: Build → Deploy → Link Check workflow
+
+**Jobs:**
+1. **Build**: Next.js compilation with API docs generation
+2. **Deploy**: GitHub Pages deployment (main branch only)
+3. **Link Check**: Automated link validation (PRs only)
+
+</Tab>
+
+<Tab value="Health Reports">
+
+```yaml title=".github/workflows/health-report.yml"
+name: Daily Loader Health Report
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6:00 AM UTC
+  workflow_dispatch:
+```
+
+**Key Features:**
+- **Daily Automation**: Scheduled health monitoring at 6:00 AM UTC
+- **CLI Integration**: Uses existing `proxywhirl health-report` command
+- **Multi-Target Updates**: README.md and docs/index.mdx injection
+- **Asset Organization**: Reports stored in `.github/assets/`
+- **Git Automation**: Automated commits with descriptive messages
+- **Manual Triggers**: On-demand execution via workflow_dispatch
+
+**Workflow Steps:**
+1. **Environment Setup**: UV package manager and Python 3.13+
+2. **Report Generation**: CLI-based health report creation
+3. **Documentation Updates**: README and docs file injection
+4. **Version Control**: Automated git commits and pushes
+5. **Summary Creation**: GitHub Actions step summary with preview
+
+</Tab>
+
+<Tab value="Proxy Lists">
+
+```yaml title=".github/workflows/proxy-lists.yml"
+name: Generate Validated Proxy Lists
+
+on:
+  schedule:
+    - cron: '0 0,6,12,18 * * *'  # Every 6 hours
+  workflow_dispatch:
+    inputs:
+      max_proxies: '1000'
+      include_formats: 'json,csv,txt_hostport,txt_uri'
+```
+
+**Key Features:**
+- **High-Frequency Updates**: Every 6 hours (0:00, 6:00, 12:00, 18:00 UTC)
+- **Multi-Format Export**: JSON, CSV, TXT (host:port), TXT (URI), XML, YAML
+- **Intelligent Filtering**: Premium, fast, geo-filtered, protocol-specific lists
+- **Quality Sorting**: Automated sorting by quality score and performance
+- **GitHub Releases**: Automated release creation with all formats
+- **Cleanup Management**: Automatic cleanup of old releases (keeps last 10)
+
+**Export Formats:**
+- **Main Lists**: Complete collections in all formats
+- **Filtered Lists**: Premium (top 25%), fast (&lt;2s), geo-specific
+- **Protocol Lists**: HTTP/HTTPS only, SOCKS only
+- **Checksums**: SHA256 verification for all files
+
+**Validation Pipeline:**
+- **Concurrent Validation**: Up to 20 simultaneous proxy tests
+- **Timeout Control**: 10-second validation timeout per proxy
+- **Health Filtering**: Only verified, working proxies in filtered lists
+- **Performance Metrics**: Response time and success rate tracking
+
+</Tab>
+
+<Tab value="Release Management">
+
+```yaml title=".github/workflows/release.yml"
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version: 'Version to release (e.g., 1.0.0)'
+```
+
+**Key Features:**
+- **Automated Publishing**: PyPI release with trusted publishing
+- **Version Validation**: Strict semver format checking
+- **Pre-release Testing**: Complete quality pipeline before release
+- **Multi-stage Pipeline**: Validate → Test → Build → Publish → Release
+- **Artifact Management**: Wheel and source distribution uploads
+- **Documentation Updates**: Automatic API docs regeneration
+
+**Pipeline Stages:**
+1. **Validate**: Version format and pyproject.toml consistency checks
+2. **Test**: Full quality pipeline and package installation testing
+3. **Build**: Package building with artifact uploads
+4. **PyPI**: Automated PyPI publishing with verification
+5. **GitHub Release**: Release creation with changelog generation
+6. **Post-release**: Documentation updates and completion notifications
+
+**Quality Gates:**
+- **Version Consistency**: pyproject.toml version must match release tag
+- **Test Coverage**: All tests must pass before release
+- **Package Validation**: Installation and import verification
+- **Security Check**: No known vulnerabilities in dependencies
+
+</Tab>
+
+</Tabs>
+
+### Workflow Orchestration
+
+<Steps>
+
+<Step>
+### Development Workflow
+
+```mermaid
+graph LR
+    A[Push to dev] --> B[CI Pipeline]
+    B --> C{Tests Pass?}
+    C -->|Yes| D[Merge to main]
+    C -->|No| E[Fix Issues]
+    E --> A
+```
+
+**Continuous Integration:**
+- Every push triggers quality checks
+- PR validation with optional integration tests
+- Security scanning on all changes
+- Automated artifact collection
+
+</Step>
+
+<Step>
+### Release Workflow
+
+```mermaid
+graph TD
+    A[Create Version Tag] --> B[Validate Release]
+    B --> C[Run Full Tests]
+    C --> D[Build Package]
+    D --> E[Publish to PyPI]
+    E --> F[Create GitHub Release]
+    F --> G[Update Documentation]
+```
+
+**Release Pipeline:**
+- Tag-triggered automated releases
+- Multi-stage validation and testing
+- Simultaneous PyPI and GitHub releases
+- Post-release documentation updates
+
+</Step>
+
+<Step>
+### Monitoring & Maintenance
+
+```mermaid
+graph TB
+    A[Daily Health Check] --> B[Generate Report]
+    B --> C[Update Documentation]
+    C --> D[Commit Changes]
+    
+    E[6-Hour Proxy Refresh] --> F[Validate Proxies]
+    F --> G[Export Multiple Formats]
+    G --> H[Create Release]
+    H --> I[Cleanup Old Releases]
+```
+
+**Automated Maintenance:**
+- Daily health monitoring at 6:00 AM UTC
+- Proxy list updates every 6 hours
+- Automatic cleanup of old releases
+- Real-time documentation updates
+
+</Step>
+
+</Steps>
+
+### Performance Characteristics
+
+<Cards>
+  <Card title="CI Speed" icon="⚡">
+    **15-minute timeout** with intelligent caching and parallel execution
+  </Card>
+  <Card title="Proxy Validation" icon="🔍">
+    **20 concurrent validations** with 10-second timeout per proxy
+  </Card>
+  <Card title="Release Frequency" icon="📦">
+    **Automated releases** on version tags with complete quality validation
+  </Card>
+  <Card title="Data Freshness" icon="🔄">
+    **6-hour proxy refresh** cycle with health monitoring every 24 hours
+  </Card>
+</Cards>
+
+---
+
 ## Key Performance Characteristics
 
 <Cards>

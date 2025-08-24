@@ -70,7 +70,7 @@ class ProxyWhirlSettings(BaseSettings):
 
     # Health and monitoring
     health_check_interval: int = Field(
-        30, ge=10, le=3600, description="Health check interval in seconds"
+        300, ge=60, le=3600, description="Health check interval in seconds"
     )
     auto_validate: bool = Field(True, description="Auto-validate proxies on fetch")
 
@@ -120,12 +120,14 @@ class ProxyWhirlSettings(BaseSettings):
     def get_loader_config(self, loader_name: str) -> LoaderConfig:
         """Get configuration for a specific loader, falling back to default."""
         # Create a default LoaderConfig since we flattened the structure
-        default_config = LoaderConfig(
+        return LoaderConfig(
             timeout=self.loader_timeout,
             max_retries=self.loader_max_retries,
             rate_limit=self.loader_rate_limit,
+            retry_delay=1.0,
+            max_retry_delay=15.0,
+            enabled=True,
         )
-        return default_config
 
     def is_loader_enabled(self, loader_name: str) -> bool:
         """Check if a loader is enabled."""
@@ -156,21 +158,9 @@ class ProxyWhirlSettings(BaseSettings):
 
     def merge(self, other: ProxyWhirlSettings) -> ProxyWhirlSettings:
         """Merge with another settings instance, with other taking precedence."""
-        merged_data = self.to_dict()
-        other_data = other.to_dict()
-
-        # Deep merge dictionaries
-        def deep_merge(base: Dict, override: Dict) -> Dict:
-            result = base.copy()
-            for key, value in override.items():
-                if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-                    result[key] = deep_merge(result[key], value)
-                else:
-                    result[key] = value
-            return result
-
-        merged_data = deep_merge(merged_data, other_data)
-        return ProxyWhirlSettings(**merged_data)
+        # Use model_copy with update to preserve base values while applying overrides
+        other_data = other.model_dump(exclude_unset=True, exclude_none=True)
+        return self.model_copy(update=other_data)
 
 
 # Convenience functions
@@ -193,8 +183,11 @@ def create_development_config() -> ProxyWhirlSettings:
     """Create a development-friendly configuration."""
     return ProxyWhirlSettings(
         cache_type=CacheType.MEMORY,
-        validation=ValidationConfig(timeout=5.0, concurrent_limit=20),
-        default_loader_config=LoaderConfig(timeout=10.0, max_retries=2, rate_limit=5.0),
+        validation_timeout=5.0,
+        validation_concurrent_limit=20,
+        loader_timeout=10.0,
+        loader_max_retries=2,
+        loader_rate_limit=5.0,
         enable_debug_metrics=True,
         log_level="DEBUG",
     )
@@ -204,11 +197,15 @@ def create_production_config() -> ProxyWhirlSettings:
     """Create a production-ready configuration."""
     return ProxyWhirlSettings(
         cache_type=CacheType.SQLITE,
-        validation=ValidationConfig(timeout=15.0, concurrent_limit=10, min_success_rate=0.8),
-        default_loader_config=LoaderConfig(timeout=20.0, max_retries=3, rate_limit=2.0),
-        circuit_breaker=CircuitBreakerConfig(
-            enabled=True, failure_threshold=3, recovery_timeout_seconds=600
-        ),
+        validation_timeout=15.0,
+        validation_concurrent_limit=10,
+        validation_min_success_rate=0.8,
+        loader_timeout=20.0,
+        loader_max_retries=3,
+        loader_rate_limit=2.0,
+        circuit_breaker_enabled=True,
+        circuit_breaker_failure_threshold=3,
+        circuit_breaker_recovery_timeout=600,
         enable_metrics=True,
         log_level="INFO",
     )

@@ -10,9 +10,23 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional, TypeVar
 import httpx
 from loguru import logger
 
-from proxywhirl.models import AnonymityLevel, Proxy, ProxyError, ValidationErrorType
+from proxywhirl.models import (
+    AnonymityLevel,
+    Proxy,
+    ProxyError,
+    TargetDefinition,
+    ValidationErrorType,
+)
 
 T = TypeVar("T")
+
+
+class QualityLevel(Enum):
+    """Quality levels for proxy validation."""
+
+    BASIC = "basic"  # Simple connectivity test
+    STANDARD = "standard"  # Connectivity + response validation
+    THOROUGH = "thorough"  # Full feature validation including anonymity
 
 
 class CircuitState(Enum):
@@ -150,6 +164,8 @@ class ValidationResult:
     response_headers: Optional[Dict[str, str]] = field(default_factory=dict)
     ip_detected: Optional[str] = None
     anonymity_detected: Optional[AnonymityLevel] = None
+    # Target-based validation results
+    target_results: Optional[Dict[str, "TargetValidationResult"]] = None
 
     @property
     def health_score(self) -> float:
@@ -177,6 +193,20 @@ class ValidationResult:
             score *= 0.8
 
         return min(score, 1.0)
+
+
+@dataclass
+class TargetValidationResult:
+    """Validation result for a specific target."""
+
+    target_id: str
+    target_url: str
+    is_valid: bool
+    response_time: Optional[float] = None
+    status_code: Optional[int] = None
+    error_type: Optional[ValidationErrorType] = None
+    error_message: Optional[str] = None
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -231,6 +261,8 @@ class ProxyValidator:
         test_urls: Optional[List[str]] = None,
         # Back-compat alias accepted by tests
         test_url: Optional[str] = None,
+        # Target-based validation support
+        targets: Optional[Dict[str, TargetDefinition]] = None,
         max_concurrent: int = 10,
         circuit_breaker_threshold: int = 10,
         retry_attempts: int = 2,
@@ -247,6 +279,10 @@ class ProxyValidator:
             "https://api.ipify.org?format=json",
         ]
         self.primary_test_url = self.test_urls[0]
+
+        # Target-based validation support
+        self.targets = targets or {}
+
         self.retry_attempts = retry_attempts
         self.enable_anonymity_detection = enable_anonymity_detection
         self.enable_geolocation_detection = enable_geolocation_detection
@@ -267,8 +303,9 @@ class ProxyValidator:
         self._validation_history: List[ValidationResult] = []
 
         logger.info(
-            "Enhanced ProxyValidator initialized with %d test URLs",
+            "Enhanced ProxyValidator initialized with %d test URLs and %d targets",
             len(self.test_urls),
+            len(self.targets),
         )
 
     # Back-compat convenience property expected by tests
@@ -298,10 +335,17 @@ class ProxyValidator:
             )
 
             try:
-                # Use circuit breaker for resilient validation
-                is_valid = await self.circuit_breaker.call(
-                    self._validate_single_proxy, proxy, result
-                )
+                # If targets are defined, use target-based validation
+                if self.targets:
+                    is_valid = await self.circuit_breaker.call(
+                        self._validate_proxy_for_targets, proxy, result
+                    )
+                else:
+                    # Use legacy single-URL validation for backward compatibility
+                    is_valid = await self.circuit_breaker.call(
+                        self._validate_single_proxy, proxy, result
+                    )
+
                 result.is_valid = is_valid
 
                 if is_valid:
@@ -309,9 +353,6 @@ class ProxyValidator:
                     # Update proxy object with validation results
                     proxy.last_checked = result.timestamp
                     proxy.response_time = result.response_time
-                    # if hasattr(proxy, "health_score"):
-                    #     # mypy: dynamic attribute for optional health metric
-                    #     proxy.health_score = result.health_score  # type: ignore[attr-defined]
 
             except CircuitBreakerOpenError as e:
                 result.error_type = ValidationErrorType.CIRCUIT_BREAKER_OPEN
@@ -329,6 +370,91 @@ class ProxyValidator:
                 self._validation_history.append(result)
 
             return result
+
+    async def _validate_proxy_for_targets(self, proxy: Proxy, result: ValidationResult) -> bool:
+        """Validate a proxy against all defined targets."""
+        proxy_url = self._build_proxy_url(proxy)
+        target_results: Dict[str, TargetValidationResult] = {}
+        overall_success = False
+
+        async with httpx.AsyncClient(
+            proxy=proxy_url,
+            timeout=httpx.Timeout(self.timeout),
+            follow_redirects=True,
+            headers={
+                "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+            },
+        ) as client:
+
+            # Test each target
+            for target_id, target_def in self.targets.items():
+                target_start_time = time.time()
+                target_result = TargetValidationResult(
+                    target_id=target_id,
+                    target_url=target_def.url,
+                    is_valid=False,
+                )
+
+                try:
+                    # Use target-specific timeout if defined
+                    target_timeout = target_def.timeout or self.timeout
+                    response = await client.get(
+                        target_def.url, timeout=httpx.Timeout(target_timeout)
+                    )
+
+                    # Check if status code is expected
+                    expected_codes = target_def.expected_status_codes or [200]
+                    if response.status_code in expected_codes:
+                        target_result.is_valid = True
+                        overall_success = True  # At least one target succeeded
+
+                        # Update proxy target health
+                        target_response_time = time.time() - target_start_time
+                        proxy.update_target_health(target_id, True, target_response_time)
+
+                        # Use first successful target for overall anonymity detection
+                        if (
+                            not result.ip_detected
+                            and self.enable_anonymity_detection
+                            and target_id == next(iter(self.targets))
+                        ):  # First target
+                            await self._detect_anonymity(response, result, proxy)
+                    else:
+                        proxy.update_target_health(target_id, False)
+                        target_result.error_message = (
+                            f"Unexpected status code: {response.status_code}"
+                        )
+
+                    target_result.status_code = response.status_code
+                    target_result.response_time = time.time() - target_start_time
+
+                except Exception as e:
+                    proxy.update_target_health(target_id, False)
+                    target_result.error_type = self._categorize_error(e)
+                    target_result.error_message = str(e)
+                    target_result.response_time = time.time() - target_start_time
+                    logger.debug(
+                        "Target %s validation failed for proxy %s:%s: %s",
+                        target_id,
+                        proxy.host,
+                        proxy.port,
+                        e,
+                    )
+
+                target_results[target_id] = target_result
+
+            result.target_results = target_results
+
+        if overall_success:
+            logger.debug(
+                "Proxy %s:%s validated successfully for %d/%d targets",
+                proxy.host,
+                proxy.port,
+                sum(1 for tr in target_results.values() if tr.is_valid),
+                len(target_results),
+            )
+
+        return overall_success
 
     async def _validate_single_proxy(self, proxy: Proxy, result: ValidationResult) -> bool:
         """Internal validation logic with enhanced testing."""

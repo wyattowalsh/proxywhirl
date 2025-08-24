@@ -1,0 +1,386 @@
+name: Generate Validated Proxy Lists
+
+on:
+  schedule:
+    # Run every 6 hours for fresh proxy lists
+    - cron: '0 0,6,12,18 * * *'
+  workflow_dispatch:  # Allow manual trigger
+    inputs:
+      max_proxies:
+        description: 'Maximum proxies to validate (0 for no limit)'
+        required: false
+        default: '1000'
+        type: string
+      include_formats:
+        description: 'Export formats (comma-separated: json,csv,txt)'
+        required: false
+        default: 'json,csv,txt_hostport,txt_uri'
+        type: string
+
+env:
+  PROXY_VALIDATION_TIMEOUT: 10
+  MAX_CONCURRENT_VALIDATIONS: 20
+
+jobs:
+  generate-proxy-lists:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    outputs:
+      proxy_count: ${{ steps.count.outputs.proxy_count }}
+      release_tag: ${{ steps.setup.outputs.release_tag }}
+      timestamp: ${{ steps.setup.outputs.timestamp }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Set up export parameters
+        id: setup
+        run: |
+          # Set validation limit
+          MAX_PROXIES="${{ github.event.inputs.max_proxies || '1000' }}"
+          if [ "$MAX_PROXIES" = "0" ]; then
+            echo "validation_args=" >> $GITHUB_OUTPUT
+          else
+            echo "validation_args=--max-validate-on-fetch $MAX_PROXIES" >> $GITHUB_OUTPUT
+          fi
+          
+          # Set export formats
+          FORMATS="${{ github.event.inputs.include_formats || 'json,csv,txt_hostport,txt_uri' }}"
+          echo "formats=$FORMATS" >> $GITHUB_OUTPUT
+          
+          # Create timestamp for release
+          TIMESTAMP=$(date '+%Y-%m-%d-%H%M')
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "release_tag=proxies-$TIMESTAMP" >> $GITHUB_OUTPUT
+          
+          # Create export directories
+          mkdir -p lists
+          mkdir -p .github/assets
+
+      - name: Fetch and validate proxies
+        id: count
+        run: |
+          echo "🔄 Fetching proxies from all sources..."
+          uv run proxywhirl fetch --validate ${{ steps.setup.outputs.validation_args }}
+          
+          # Get proxy count
+          PROXY_COUNT=$(uv run proxywhirl list --json | jq '. | length')
+          echo "✅ Successfully validated $PROXY_COUNT proxies"
+          echo "proxy_count=$PROXY_COUNT" >> $GITHUB_OUTPUT
+
+      - name: Generate health report
+        run: |
+          echo "📊 Generating health report..."
+          uv run proxywhirl health-report --output .github/assets/health-report.md
+
+      - name: Export proxy lists in multiple formats
+        run: |
+          IFS=',' read -ra FORMATS <<< "${{ steps.setup.outputs.formats }}"
+          
+          echo "📤 Exporting proxy lists in ${#FORMATS[@]} formats..."
+          
+          for format in "${FORMATS[@]}"; do
+            format=$(echo "$format" | tr -d ' ')
+            echo "  → Exporting in $format format..."
+            
+            case $format in
+              json)
+                uv run proxywhirl export --format json_pretty --output "lists/proxies.json" \
+                  --sort-by quality_score --sort-order desc
+                ;;
+              json_compact)
+                uv run proxywhirl export --format json_compact --output "lists/proxies-compact.json" \
+                  --sort-by quality_score --sort-order desc
+                ;;
+              csv)
+                uv run proxywhirl export --format csv_headers --output "lists/proxies.csv" \
+                  --sort-by quality_score --sort-order desc
+                ;;
+              txt_hostport)
+                uv run proxywhirl export --format txt_hostport --output "lists/proxies-hostport.txt" \
+                  --sort-by quality_score --sort-order desc --healthy-only
+                ;;
+              txt_uri)
+                uv run proxywhirl export --format txt_uri --output "lists/proxies-uri.txt" \
+                  --sort-by quality_score --sort-order desc --healthy-only
+                ;;
+              xml)
+                uv run proxywhirl export --format xml --output "lists/proxies.xml" \
+                  --sort-by quality_score --sort-order desc
+                ;;
+              yaml)
+                uv run proxywhirl export --format yaml --output "lists/proxies.yml" \
+                  --sort-by quality_score --sort-order desc
+                ;;
+              *)
+                echo "⚠️  Unknown format: $format"
+                ;;
+            esac
+          done
+
+      - name: Generate filtered proxy lists
+        run: |
+          echo "🌍 Creating geo-filtered proxy lists..."
+          
+          # High-quality proxies (top 25% by quality score)
+          uv run proxywhirl export --format json_pretty --output "lists/proxies-premium.json" \
+            --sampling top_quality --sample-percentage 25 --healthy-only
+          
+          uv run proxywhirl export --format txt_hostport --output "lists/proxies-premium.txt" \
+            --sampling top_quality --sample-percentage 25 --healthy-only
+          
+          # Fast proxies (response time < 2s)
+          uv run proxywhirl export --format txt_hostport --output "lists/proxies-fast.txt" \
+            --max-response-time 2.0 --healthy-only --sort-by response_time
+          
+          # US proxies only
+          uv run proxywhirl export --format txt_hostport --output "lists/proxies-us.txt" \
+            --countries US --healthy-only --sort-by quality_score --sort-order desc
+          
+          # HTTP/HTTPS only
+          uv run proxywhirl export --format txt_hostport --output "lists/proxies-http.txt" \
+            --schemes http,https --healthy-only --sort-by quality_score --sort-order desc
+          
+          # SOCKS proxies only
+          uv run proxywhirl export --format txt_hostport --output "lists/proxies-socks.txt" \
+            --schemes socks4,socks5 --healthy-only --sort-by quality_score --sort-order desc
+
+      - name: Generate statistics and summary
+        run: |
+          echo "📈 Generating proxy statistics..."
+          
+          cat > lists/README.md << 'EOF'
+          # ProxyWhirl Validated Proxy Lists
+          
+          Automatically generated and validated proxy lists updated every 6 hours.
+          
+          ## 📊 Statistics
+          
+          - **Generated:** $(date '+%Y-%m-%d %H:%M UTC')
+          - **Total Proxies:** ${{ steps.count.outputs.proxy_count }}
+          - **Validation Timeout:** ${{ env.PROXY_VALIDATION_TIMEOUT }}s
+          - **Max Concurrent:** ${{ env.MAX_CONCURRENT_VALIDATIONS }}
+          
+          ## 📁 Available Files
+          
+          ### Main Lists
+          - `proxies.json` - Complete list in JSON format (pretty-printed)
+          - `proxies.csv` - Complete list in CSV format with headers
+          - `proxies-hostport.txt` - Simple host:port format (healthy only)
+          - `proxies-uri.txt` - Full URI format (scheme://host:port)
+          
+          ### Filtered Lists
+          - `proxies-premium.txt` - Top 25% quality proxies (healthy only)
+          - `proxies-fast.txt` - Fast proxies (response time < 2s)
+          - `proxies-us.txt` - US proxies only (healthy only)
+          - `proxies-http.txt` - HTTP/HTTPS proxies only
+          - `proxies-socks.txt` - SOCKS4/5 proxies only
+          
+          ### Reports
+          - `health-report.md` - Comprehensive loader health status
+          
+          ## 🔄 Update Schedule
+          
+          These lists are automatically updated every 6 hours (00:00, 06:00, 12:00, 18:00 UTC).
+          
+          ## ⚠️ Important Notes
+          
+          1. **Validation**: All proxies are validated before inclusion
+          2. **Quality Scoring**: Proxies are sorted by quality score (response time, success rate)
+          3. **Health Status**: Only healthy proxies are included in filtered lists
+          4. **Geographic Data**: Country detection may not be 100% accurate
+          5. **Availability**: Proxy availability can change rapidly
+          
+          ## 📊 Formats Explained
+          
+          - **JSON**: Machine-readable with full metadata
+          - **CSV**: Spreadsheet-friendly format
+          - **TXT (host:port)**: Simple format for scripts
+          - **TXT (URI)**: Full URIs ready for use
+          - **Premium**: Highest quality proxies only
+          - **Fast**: Sub-2-second response times
+          
+          ## 🚀 Usage Examples
+          
+          ### Python
+          ```python
+          import requests
+          
+          # Load proxy list
+          with open('proxies-premium.txt', 'r') as f:
+              proxies = f.read().strip().split('\n')
+          
+          # Use proxy
+          proxy = proxies[0]
+          response = requests.get('http://example.com', 
+                                proxies={'http': f'http://{proxy}'})
+          ```
+          
+          ### cURL
+          ```bash
+          # Use first proxy from list
+          PROXY=$(head -1 proxies-fast.txt)
+          curl --proxy "$PROXY" http://example.com
+          ```
+          
+          ### Node.js
+          ```javascript
+          const fs = require('fs');
+          const proxies = fs.readFileSync('proxies-premium.txt', 'utf8').trim().split('\n');
+          // Use proxies[0] with your HTTP client
+          ```
+          EOF
+
+      - name: Generate file checksums
+        run: |
+          echo "🔒 Generating checksums..."
+          cd lists
+          find . -name "*.json" -o -name "*.csv" -o -name "*.txt" -o -name "*.xml" -o -name "*.yml" | \
+            xargs sha256sum > checksums.sha256
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.setup.outputs.release_tag }}
+          release_name: "Validated Proxy Lists - ${{ steps.setup.outputs.timestamp }}"
+          body: |
+            ## 📦 Validated Proxy Lists
+            
+            **Generated:** ${{ steps.setup.outputs.timestamp }} UTC
+            **Total Proxies:** ${{ steps.count.outputs.proxy_count }}
+            
+            ### 📁 Download Files
+            
+            - **Main Lists**: Complete proxy collections in various formats
+            - **Filtered Lists**: Pre-filtered by quality, geography, and protocol
+            - **Health Report**: Loader status and validation metrics
+            
+            ### 🔒 Verification
+            
+            All files include SHA256 checksums for integrity verification.
+            
+            ### ⚠️ Usage Notes
+            
+            - All proxies are validated before inclusion
+            - Lists are sorted by quality score (best first)  
+            - Proxy availability can change rapidly
+            - Always validate proxies before production use
+            
+            ---
+            *Generated automatically by ProxyWhirl*
+          draft: false
+          prerelease: false
+
+      - name: Upload release assets
+        run: |
+          echo "📤 Uploading release assets..."
+          
+          # Function to upload file
+          upload_file() {
+            local file="$1"
+            local name=$(basename "$file")
+            echo "  → Uploading $name..."
+            
+            gh release upload "${{ steps.setup.outputs.release_tag }}" "$file" \
+              --clobber || echo "Failed to upload $name"
+          }
+          
+          # Upload proxy lists
+          cd lists
+          for file in *.json *.csv *.txt *.xml *.yml *.md *.sha256; do
+            if [ -f "$file" ]; then
+              upload_file "$file"
+            fi
+          done
+          
+          # Upload health report
+          cd ../.github/assets
+          for file in *.md; do
+            if [ -f "$file" ]; then
+              upload_file "$file"
+            fi
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update latest release info
+        run: |
+          # Create/update a latest.json file with release info
+          cat > latest.json << EOF
+          {
+            "release_tag": "${{ steps.setup.outputs.release_tag }}",
+            "timestamp": "${{ steps.setup.outputs.timestamp }}",
+            "proxy_count": ${{ steps.count.outputs.proxy_count }},
+            "download_url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.setup.outputs.release_tag }}",
+            "formats": $(echo '${{ steps.setup.outputs.formats }}' | sed 's/,/","/g' | sed 's/^/["/' | sed 's/$/"]/')
+          }
+          EOF
+          
+          # Commit the latest release info
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add latest.json
+          git commit -m "🤖 Update latest proxy list release info
+
+          Release: ${{ steps.setup.outputs.release_tag }}
+          Proxies: ${{ steps.count.outputs.proxy_count }}
+          Timestamp: ${{ steps.setup.outputs.timestamp }}"
+          git push
+
+      - name: Create summary
+        run: |
+          echo "## 📦 Proxy Lists Generated Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release Tag:** \`${{ steps.setup.outputs.release_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Total Proxies:** ${{ steps.count.outputs.proxy_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Formats:** ${{ steps.setup.outputs.formats }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📁 Generated Files" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "Proxy Lists (./lists/):" >> $GITHUB_STEP_SUMMARY
+          ls -la lists/ >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Health Report (./.github/assets/):" >> $GITHUB_STEP_SUMMARY
+          ls -la .github/assets/ >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔗 Download" >> $GITHUB_STEP_SUMMARY
+          echo "[View Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.setup.outputs.release_tag }})" >> $GITHUB_STEP_SUMMARY
+
+      - name: Cleanup old releases (keep last 10)
+        run: |
+          echo "🧹 Cleaning up old releases..."
+          
+          # Get list of proxy list releases (sorted by date, newest first)
+          RELEASES=$(gh release list --limit 50 | grep "Validated Proxy Lists" | tail -n +11 | cut -f3)
+          
+          if [ -n "$RELEASES" ]; then
+            echo "Deleting old releases:"
+            echo "$RELEASES" | while read -r tag; do
+              echo "  → Deleting $tag"
+              gh release delete "$tag" --yes || echo "Failed to delete $tag"
+            done
+          else
+            echo "No old releases to clean up"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

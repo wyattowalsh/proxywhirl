@@ -1,6 +1,8 @@
 """proxywhirl/utils.py -- utility functions for proxywhirl"""
 
 import asyncio
+import ipaddress
+from urllib.parse import urlparse
 
 import httpx
 from tenacity import (
@@ -9,6 +11,27 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+
+
+def normalize_proxy_url(proxy_url: str, scheme: str = "http") -> str:
+    """Normalize a proxy URL with the given scheme."""
+    if not proxy_url.startswith(("http://", "https://", "socks4://", "socks5://")):
+        proxy_url = f"{scheme}://{proxy_url}"
+
+    parsed = urlparse(proxy_url)
+    if not parsed.scheme:
+        proxy_url = f"{scheme}://{proxy_url}"
+
+    return proxy_url
+
+
+def validate_ip(ip: str) -> bool:
+    """Validate an IP address (IPv4 or IPv6)."""
+    try:
+        ipaddress.ip_address(ip)
+        return True
+    except ValueError:
+        return False
 
 
 @retry(
