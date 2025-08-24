@@ -1,0 +1,49 @@
+# ProxyWhirl Development Configuration
+# Optimized for local development with faster timeouts and more logging
+
+# Core proxy settings
+cache_type: memory  # Options: memory, json, sqlite
+rotation_strategy: round_robin  # Options: round_robin, random, weighted, health_based, least_used
+
+# Cache and persistence (optional, defaults to in-memory)
+# cache_path: ./cache/dev_proxies.db  # Uncomment to use persistent cache
+
+# Health monitoring and validation
+health_check_interval: 180  # seconds (default: 300)
+auto_validate: true
+
+# Validation settings - fast settings for development
+validation_timeout: 5.0
+validation_test_url: "https://httpbin.org/ip"
+validation_concurrent_limit: 20  # Higher for faster testing
+validation_min_success_rate: 0.6  # Lower threshold for dev
+validation_max_response_time: 15.0
+
+# Default loader settings - fast but less reliable
+loader_timeout: 10.0
+loader_max_retries: 2
+loader_rate_limit: 5.0  # requests per second
+
+# Circuit breaker - more forgiving in dev
+circuit_breaker_enabled: true
+circuit_breaker_failure_threshold: 8
+circuit_breaker_recovery_timeout: 180  # 3 minutes
+
+# Advanced features
+enable_metrics: true
+enable_proxy_auth: false
+enable_rate_limiting: true
+enable_geolocation: false
+
+# Performance tuning - faster refresh for development
+max_concurrent_validations: 50
+cache_refresh_interval: 1800  # 30 minutes
+
+# Logging and debugging - verbose for development
+log_level: "DEBUG"
+enable_debug_metrics: true
+
+# Quality thresholds - development-friendly
+premium_success_rate: 0.9
+standard_success_rate: 0.75
+basic_success_rate: 0.5

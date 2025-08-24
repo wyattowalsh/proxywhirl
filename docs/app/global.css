@@ -32,11 +32,43 @@
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
 
-    /* proxywhirl Brand Colors */
-    --pw-blue: 214 100% 59%;
-    --pw-purple: 249 58% 71%;
-    --pw-cyan: 188 100% 44%;
-    --pw-gradient: linear-gradient(135deg, hsl(var(--pw-blue)), hsl(var(--pw-purple)), hsl(var(--pw-cyan)));
+    /* proxywhirl Enhanced Brand Colors - Terminal/Data Extraction Theme */
+    --pw-terminal-bg: 250 251 252;
+    --pw-terminal-fg: 31 41 55;
+    --pw-terminal-border: 209 213 219;
+    --pw-console-green: 34 197 94;
+    --pw-console-cyan: 6 182 212;
+    --pw-console-amber: 245 158 11;
+    --pw-console-red: 239 68 68;
+    --pw-console-purple: 147 51 234;
+    --pw-proxy-healthy: 34 197 94;
+    --pw-proxy-warning: 245 158 11;
+    --pw-proxy-error: 239 68 68;
+    --pw-proxy-elite: 147 51 234;
+    --pw-network-primary: 59 130 246;
+    --pw-network-secondary: 16 185 129;
+    --pw-data-stream: 6 182 212;
+    --pw-validation-success: 34 197 94;
+    --pw-validation-pending: 245 158 11;
+    --pw-validation-failed: 239 68 68;
+    
+    /* Data Extraction Themed Colors */
+    --pw-extraction-primary: 99 102 241;
+    --pw-extraction-secondary: 16 185 129;
+    --pw-reconnaissance: 168 85 247;
+    --pw-intelligence: 6 182 212;
+    --pw-stealth: 75 85 99;
+    --pw-payload: 239 68 68;
+
+    /* Enhanced Brand Gradients for Clean Terminal Aesthetic */
+    --pw-gradient: linear-gradient(135deg, hsl(var(--pw-console-green)), hsl(var(--pw-console-cyan)));
+    --pw-gradient-terminal: linear-gradient(135deg, hsl(var(--pw-terminal-fg)), hsl(var(--pw-console-green)));
+    --pw-gradient-data: linear-gradient(45deg, hsl(var(--pw-data-stream)), hsl(var(--pw-network-secondary)));
+    --pw-gradient-elite: linear-gradient(135deg, hsl(var(--pw-proxy-elite)), hsl(var(--pw-reconnaissance)));
+    
+    /* Typography System */
+    --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    --font-terminal: 'JetBrains Mono', monospace;
     
     /* Enhanced Semantic Colors */
     --success: 142 76% 36%;
@@ -65,38 +97,72 @@
   }
 
   .dark {
-    /* Dark Mode Color Palette */
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+    /* Dark Mode Color Palette - Cyberpunk Matrix Theme */
+    --background: 5 5 5;
+    --foreground: 0 255 65;
+    --card: 10 10 10;
+    --card-foreground: 0 255 65;
+    --popover: 5 5 5;
+    --popover-foreground: 0 255 65;
+    --primary: 0 255 65;
+    --primary-foreground: 5 5 5;
+    --secondary: 15 15 15;
+    --secondary-foreground: 0 255 65;
+    --muted: 20 20 20;
+    --muted-foreground: 120 120 120;
+    --accent: 15 15 15;
+    --accent-foreground: 0 255 65;
+    --destructive: 255 20 20;
+    --destructive-foreground: 0 0 0;
+    --border: 0 255 65;
+    --input: 15 15 15;
+    --ring: 0 255 65;
+    
+    /* Cyberpunk Hacker Theme - Matrix Aesthetic */
+    --pw-terminal-bg: 5 5 5;
+    --pw-terminal-fg: 0 255 65;
+    --pw-terminal-border: 0 255 65;
+    --pw-console-green: 0 255 65;
+    --pw-console-cyan: 0 255 255;
+    --pw-console-amber: 255 165 0;
+    --pw-console-red: 255 20 20;
+    --pw-console-purple: 200 100 255;
+    --pw-proxy-healthy: 0 255 65;
+    --pw-proxy-warning: 255 165 0;
+    --pw-proxy-error: 255 20 20;
+    --pw-proxy-elite: 200 100 255;
+    --pw-network-primary: 0 200 255;
+    --pw-network-secondary: 0 255 128;
+    --pw-data-stream: 0 255 255;
+    --pw-validation-success: 0 255 65;
+    --pw-validation-pending: 255 165 0;
+    --pw-validation-failed: 255 20 20;
+    
+    /* Cyberpunk Data Extraction Colors */
+    --pw-extraction-primary: 0 200 255;
+    --pw-extraction-secondary: 0 255 128;
+    --pw-reconnaissance: 200 100 255;
+    --pw-intelligence: 0 255 255;
+    --pw-stealth: 60 60 60;
+    --pw-payload: 255 20 20;
+
+    /* Matrix-Style Gradients */
+    --pw-gradient: linear-gradient(135deg, hsl(var(--pw-console-green)), hsl(var(--pw-console-cyan)));
+    --pw-gradient-terminal: linear-gradient(135deg, hsl(var(--pw-terminal-fg)), hsl(var(--pw-console-cyan)));
+    --pw-gradient-data: linear-gradient(45deg, hsl(var(--pw-data-stream)), hsl(var(--pw-network-primary)));
+    --pw-gradient-elite: linear-gradient(135deg, hsl(var(--pw-proxy-elite)), hsl(var(--pw-reconnaissance)));
     
     /* Enhanced Dark Surfaces */
-    --surface-elevated: 240 5.9% 10%;
-    --surface-glass: 240 10% 3.9% / 0.9;
-    --surface-overlay: 0 0% 100% / 0.05;
+    --surface-elevated: 15 15 15;
+    --surface-glass: 10 10 10 / 0.9;
+    --surface-overlay: 0 255 65 / 0.05;
     
-    /* Dark Mode Shadows */
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.3);
-    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.3);
-    --shadow-glow: 0 0 20px rgb(96 165 250 / 0.2);
+    /* Matrix-Style Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(var(--pw-console-green) / 0.3);
+    --shadow-md: 0 4px 6px -1px hsl(var(--pw-console-green) / 0.3), 0 2px 4px -2px hsl(var(--pw-console-green) / 0.3);
+    --shadow-lg: 0 10px 15px -3px hsl(var(--pw-console-green) / 0.3), 0 4px 6px -4px hsl(var(--pw-console-green) / 0.3);
+    --shadow-xl: 0 20px 25px -5px hsl(var(--pw-console-green) / 0.3), 0 8px 10px -6px hsl(var(--pw-console-green) / 0.3);
+    --shadow-glow: 0 0 20px hsl(var(--pw-console-green) / 0.4);
   }
 }
 
@@ -2148,6 +2214,283 @@ blockquote::before {
   .nav-link-enhanced {
     padding: 0.5rem;
   }
+}
+
+/* ====================================
+   🔧 PROXYWHIRL SPECIALIZED COMPONENTS
+   ==================================== */
+
+/* Advanced Hacker-themed Animations */
+@keyframes proxy-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes data-stream {
+  0% { transform: translateY(-100%); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+@keyframes network-ping {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes circuit-breaker {
+  0%, 100% { border-color: hsl(var(--pw-proxy-error)); }
+  50% { border-color: hsl(var(--pw-console-amber)); }
+}
+
+@keyframes validation-progress {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+@keyframes elite-glow {
+  0%, 100% { 
+    box-shadow: 0 0 10px hsl(var(--pw-proxy-elite) / 0.5);
+    text-shadow: 0 0 5px hsl(var(--pw-proxy-elite) / 0.8);
+  }
+  50% { 
+    box-shadow: 0 0 20px hsl(var(--pw-proxy-elite) / 0.8);
+    text-shadow: 0 0 10px hsl(var(--pw-proxy-elite) / 1);
+  }
+}
+
+@keyframes stealth-scan {
+  0% { transform: scaleX(0); }
+  50% { transform: scaleX(1); }
+  100% { transform: scaleX(0); }
+}
+
+.animate-proxy-pulse {
+  animation: proxy-pulse 2s ease-in-out infinite;
+}
+
+.animate-data-stream {
+  animation: data-stream 4s linear infinite;
+}
+
+.animate-network-ping {
+  animation: network-ping 1.5s ease-in-out infinite;
+}
+
+.animate-circuit-breaker {
+  animation: circuit-breaker 1s ease-in-out infinite;
+}
+
+.animate-validation-progress {
+  animation: validation-progress 2s ease-out forwards;
+}
+
+.animate-elite-glow {
+  animation: elite-glow 2s ease-in-out infinite;
+}
+
+.animate-stealth-scan {
+  animation: stealth-scan 3s ease-in-out infinite;
+}
+
+/* Proxy Health Indicators */
+.proxy-status-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid;
+  transition: all 0.3s ease;
+}
+
+.proxy-status-healthy {
+  background: hsl(var(--pw-proxy-healthy) / 0.1);
+  border-color: hsl(var(--pw-proxy-healthy) / 0.3);
+  color: hsl(var(--pw-proxy-healthy));
+}
+
+.proxy-status-warning {
+  background: hsl(var(--pw-proxy-warning) / 0.1);
+  border-color: hsl(var(--pw-proxy-warning) / 0.3);
+  color: hsl(var(--pw-proxy-warning));
+}
+
+.proxy-status-error {
+  background: hsl(var(--pw-proxy-error) / 0.1);
+  border-color: hsl(var(--pw-proxy-error) / 0.3);
+  color: hsl(var(--pw-proxy-error));
+}
+
+.proxy-status-elite {
+  background: hsl(var(--pw-proxy-elite) / 0.1);
+  border-color: hsl(var(--pw-proxy-elite) / 0.3);
+  color: hsl(var(--pw-proxy-elite));
+}
+
+/* Validation Pipeline Visuals */
+.validation-pipeline {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem;
+  background: hsl(var(--surface-elevated));
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) * 2);
+  font-family: var(--font-mono);
+}
+
+.validation-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.validation-stage::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  width: 1rem;
+  height: 2px;
+  background: hsl(var(--border));
+  transform: translateY(-50%);
+}
+
+.validation-stage:last-child::after {
+  display: none;
+}
+
+.validation-icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.validation-success .validation-icon {
+  background: hsl(var(--pw-validation-success) / 0.2);
+  color: hsl(var(--pw-validation-success));
+  border: 2px solid hsl(var(--pw-validation-success));
+}
+
+.validation-pending .validation-icon {
+  background: hsl(var(--pw-validation-pending) / 0.2);
+  color: hsl(var(--pw-validation-pending));
+  border: 2px solid hsl(var(--pw-validation-pending));
+}
+
+.validation-failed .validation-icon {
+  background: hsl(var(--pw-validation-failed) / 0.2);
+  color: hsl(var(--pw-validation-failed));
+  border: 2px solid hsl(var(--pw-validation-failed));
+}
+
+/* Terminal/Console Styling */
+.terminal-interface {
+  background: hsl(var(--pw-terminal-bg));
+  color: hsl(var(--pw-terminal-fg));
+  border: 1px solid hsl(var(--pw-terminal-border));
+  border-radius: var(--radius);
+  padding: 1rem;
+  font-family: var(--font-terminal);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+.terminal-prompt {
+  color: hsl(var(--pw-console-green));
+  font-weight: 600;
+}
+
+.terminal-command {
+  color: hsl(var(--pw-console-cyan));
+}
+
+.terminal-output {
+  color: hsl(var(--pw-terminal-fg));
+  margin: 0.5rem 0;
+}
+
+.terminal-error {
+  color: hsl(var(--pw-console-red));
+}
+
+.terminal-success {
+  color: hsl(var(--pw-console-green));
+}
+
+/* Intelligence Dashboard Components */
+.intel-dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+}
+
+.intel-panel {
+  background: hsl(var(--surface-elevated));
+  border: 1px solid hsl(var(--border));
+  border-radius: calc(var(--radius) * 2);
+  padding: 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.intel-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--pw-gradient);
+}
+
+.intel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.875rem;
+}
+
+.intel-metric {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+.intel-metric:last-child {
+  border-bottom: none;
+}
+
+.intel-value {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.intel-label {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.875rem;
 }
 
 .dark [data-theme-toggle]:focus-visible {

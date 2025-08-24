@@ -1,0 +1,53 @@
+# ProxyWhirl Advanced Configuration
+# Showcasing advanced features including YAML anchors and references
+
+# Define common validation settings using YAML anchors
+validation_defaults: &validation_defaults
+  validation_timeout: 12.0
+  validation_test_url: "https://httpbin.org/ip"
+  validation_concurrent_limit: 15
+  validation_min_success_rate: 0.75
+  validation_max_response_time: 25.0
+
+# Define loader defaults
+loader_defaults: &loader_defaults
+  loader_timeout: 15.0
+  loader_max_retries: 3
+  loader_rate_limit: 3.0
+
+# Main configuration inheriting from anchors
+<<: *validation_defaults
+<<: *loader_defaults
+
+# Core settings
+cache_type: json
+cache_path: ./cache/advanced_proxies.json
+rotation_strategy: weighted
+
+# Health monitoring
+health_check_interval: 240
+auto_validate: true
+
+# Circuit breaker configuration
+circuit_breaker_enabled: true
+circuit_breaker_failure_threshold: 5
+circuit_breaker_recovery_timeout: 300
+
+# Advanced features showcase
+enable_metrics: true
+enable_proxy_auth: true
+enable_rate_limiting: true
+enable_geolocation: true
+
+# Performance tuning
+max_concurrent_validations: 30
+cache_refresh_interval: 2700  # 45 minutes
+
+# Logging
+log_level: "INFO"
+enable_debug_metrics: false
+
+# Custom quality thresholds
+premium_success_rate: 0.92
+standard_success_rate: 0.78
+basic_success_rate: 0.65

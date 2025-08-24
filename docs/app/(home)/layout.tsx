@@ -16,7 +16,7 @@ const NAVIGATION_ITEMS = [
   {
     href: '/docs',
     icon: RiBookOpenLine,
-    label: 'Documentation',
+    label: 'Docs',
     description: 'Complete guides and API reference',
     accent: 'blue',
   },
@@ -37,7 +37,7 @@ const NAVIGATION_ITEMS = [
   {
     href: '/dev-notes',
     icon: RiFileCodeLine,
-    label: 'Developer Notes',
+    label: 'Dev Notes',
     description: 'Technical insights and updates',
     accent: 'orange',
   },

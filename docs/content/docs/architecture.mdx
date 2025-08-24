@@ -1,15 +1,4 @@
----
-title: Overview
-icon: fa/FaHome
----
-
-`proxywhirl` is a web data extraction rotating proxy system. It loads and validates proxies from online sources, and serves them via a smart rotator. The rotator has a few extras including proxy list output and loader health reporting. `proxywhirl` can be used via [Python API](docs/usage#python-api), [CLI](docs/usage#command-line-interface-cli), or [TUI](docs/usage#terminal-user-interface-tui)
-
----
-
 ## Architecture
-
-ProxyWhirl follows a modular, layered architecture built around a central orchestrator that coordinates specialized components for proxy loading, validation, caching, rotation, and export. The system provides multiple interfaces (CLI, TUI, API) and supports pluggable components with robust error handling, circuit breaker patterns, and comprehensive monitoring.
 
 <Mermaid
   chart="flowchart TB
@@ -178,55 +167,3 @@ ProxyWhirl follows a modular, layered architecture built around a central orches
 />
 
 ---
-
-## Features
-
-### Loaders
-
-Plugin-based proxy source system with 8+ built-in implementations including TheSpeedX (HTTP/SOCKS), Clarketm, Monosans, ProxyScrape, Proxifly, JetkaiProxy, VakhovFresh, and UserProvided. Features rate limiting, health monitoring, automatic retries, and response caching through the unified [`BaseLoader`](../../../proxywhirl/loaders/base.py) interface.
-
-<details>
-<summary>Loader Health Summary</summary>
-<include>../../../.github/assets/health_report.md</include>
-</details>
-
-### Validator
-
-Async proxy validation engine with circuit breaker pattern to prevent cascading failures. Supports three quality levels (BASIC/STANDARD/THOROUGH) with connectivity testing, response validation, and anonymity detection. Automatically recovers from failures and tracks proxy health metrics.
-
-### Caches
-
-Multi-backend caching system supporting memory, JSON file, and SQLite storage. Provides performance metrics, health tracking, and advanced filtering capabilities. Configurable cache backends through the unified [`CacheBase`](../../../proxywhirl/caches/base.py) interface with automatic fallback handling.
-
-### Rotator
-
-Intelligent proxy rotation with five strategies: round-robin, random, weighted, health-based, and least-used. Features error handling policies, automatic cooldown management, and session persistence. Tracks proxy performance and adapts rotation behavior based on real-time health metrics.
-
-### Exporter
-
-Comprehensive export system supporting 7+ formats: JSON, CSV, XML, TXT, YAML, SQL, and PAC files. Advanced filtering by geography, performance, and status with volume controls including sampling, limits, and distribution strategies. Async-optimized with extensible format handlers.
-
-### Interfaces
-
-#### Application Programming Interface (API)
-
-Native Python library with both async and sync support. Provides complete access to all ProxyWhirl functionality through the main [`ProxyWhirl`](../../../proxywhirl/proxywhirl.py) class with intelligent method routing and comprehensive error handling.
-
-#### Command Line Interface (CLI)
-
-Rich terminal interface built with Typer featuring commands for fetching, listing, validating, and exporting proxies. Includes health reporting, configuration management, and beautiful output formatting with progress indicators and colored status displays.
-
-#### Text User Interface (TUI)
-
-Interactive dashboard built with Textual providing real-time proxy management, live statistics, and visual health monitoring. Features dark/light themes, tabbed navigation, advanced filtering, and export capabilities with responsive design.
-
-### Configuration
-
-Flexible settings management through Pydantic models with environment variable support, configuration file loading, and runtime validation. Supports per-component configuration including cache backends, rotation strategies, and validation quality levels.
-
-### Utilities
-
-Helper functions for proxy validation, data conversion, and health checking. Includes structured logging with Loguru, async utilities, and performance optimization tools for high-throughput proxy operations.
-
----
-

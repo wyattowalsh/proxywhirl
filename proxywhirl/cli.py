@@ -19,7 +19,15 @@ import pandas as pd
 import typer
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 from rich.table import Table
 from rich.theme import Theme
 from typing_extensions import Annotated
@@ -27,6 +35,7 @@ from typing_extensions import Annotated
 from proxywhirl.loaders.base import BaseLoader
 from proxywhirl.models import Proxy
 
+from .config import ProxyWhirlSettings, load_config
 from .export_models import (
     ExportConfig,
     ExportFormat,
@@ -63,6 +72,38 @@ class ProxyWhirlState:
         self.quiet = False
         self.cache_type = CacheType.MEMORY
         self.cache_path: Optional[Path] = None
+        self.config: Optional[ProxyWhirlSettings] = None
+
+    def load_config_file(self, config_path: Optional[Path]) -> None:
+        """Load configuration from file."""
+        try:
+            if config_path and config_path.exists():
+                self.config = ProxyWhirlSettings.from_file(config_path)
+                if not self.quiet:
+                    self.console.print(
+                        f"✅ [success]Configuration loaded from {config_path}[/success]"
+                    )
+            elif config_path:
+                raise ProxyWhirlError(
+                    f"Configuration file not found: {config_path}",
+                    "Check the file path and ensure the file exists.",
+                )
+            else:
+                # Use default configuration
+                self.config = ProxyWhirlSettings()
+        except Exception as e:
+            if isinstance(e, ProxyWhirlError):
+                raise
+            raise ProxyWhirlError(
+                f"Failed to load configuration: {e}",
+                "Ensure the YAML file is valid and properly formatted.",
+            )
+
+    def get_config_value(self, key: str, default=None):
+        """Get a configuration value with fallback to default."""
+        if self.config is None:
+            return default
+        return getattr(self.config, key, default)
 
 
 class ProxyWhirlError(Exception):
@@ -83,6 +124,62 @@ app = typer.Typer(
 )
 
 T = TypeVar("T")
+
+# Global state instance
+cli_state = ProxyWhirlState()
+
+
+@app.callback()
+def main_callback(
+    ctx: typer.Context,
+    config: Annotated[
+        Optional[Path],
+        typer.Option(
+            None,
+            "--config",
+            "-c",
+            help="[accent]Path to YAML configuration file[/accent]",
+            exists=False,
+            file_okay=True,
+            dir_okay=False,
+            readable=True,
+            resolve_path=True,
+        ),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option(
+            False,
+            "--verbose",
+            "-v",
+            help="[info]Enable verbose output[/info]",
+        ),
+    ] = False,
+    quiet: Annotated[
+        bool,
+        typer.Option(
+            False,
+            "--quiet",
+            "-q",
+            help="[dim]Suppress non-essential output[/dim]",
+        ),
+    ] = False,
+) -> None:
+    """ProxyWhirl CLI - Advanced proxy management toolkit with YAML configuration support."""
+    if verbose and quiet:
+        raise typer.BadParameter("Cannot use --verbose and --quiet together")
+
+    cli_state.debug = verbose
+    cli_state.quiet = quiet
+
+    # Load configuration file if provided
+    try:
+        cli_state.load_config_file(config)
+    except ProxyWhirlError as e:
+        cli_state.console.print(f"[error]Configuration Error:[/error] {e.message}")
+        if e.suggestion:
+            cli_state.console.print(f"[warning]Suggestion:[/warning] {e.suggestion}")
+        raise typer.Exit(1)
 
 
 def handle_error(error: Exception, console: Console) -> None:
@@ -116,8 +213,133 @@ def _run(coro: Coroutine[Any, Any, T]) -> T:
     return loop.run_until_complete(coro)
 
 
+class EnhancedProgressContext:
+    """Enhanced progress context with ETA, throughput, and health indicators"""
+
+    def __init__(self, console: Console, description: str, total: Optional[int] = None):
+        self.console = console
+        self.description = description
+        self.total = total
+        self.progress: Optional[Progress] = None
+        self.task_id = None
+        self.start_time: Optional[float] = None
+        self.current_count = 0
+
+    def __enter__(self):
+        import time
+
+        self.start_time = time.time()
+
+        # Create progress with enhanced columns
+        if self.total:
+            # For determinate progress with ETA
+            self.progress = Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(bar_width=None),
+                MofNCompleteColumn(),
+                TimeElapsedColumn(),
+                TimeRemainingColumn(),
+                console=self.console,
+                transient=False,
+            )
+        else:
+            # For indeterminate progress with elapsed time only
+            self.progress = Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                TimeElapsedColumn(),
+                console=self.console,
+                transient=False,
+            )
+
+        self.progress.__enter__()
+
+        self.task_id = self.progress.add_task(f"[cyan]{self.description}...", total=self.total)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.progress and self.task_id is not None:
+            self.progress.update(self.task_id, completed=True)
+            self.progress.__exit__(exc_type, exc_val, exc_tb)
+
+    def update(
+        self,
+        count: Optional[int] = None,
+        description: Optional[str] = None,
+        health_status: str = "🟢",
+    ):
+        """Update progress with optional health indicator"""
+        if not self.progress or self.task_id is None:
+            return
+
+        update_kwargs = {}
+
+        if count is not None:
+            self.current_count = count
+            update_kwargs["completed"] = count
+
+        if description:
+            # Add health status emoji to description
+            update_kwargs["description"] = f"[cyan]{description} {health_status}[/cyan]"
+        elif count is not None and self.total and self.start_time:
+            # Calculate throughput for progress updates
+            import time
+
+            elapsed = time.time() - self.start_time
+            throughput = count / elapsed if elapsed > 0 else 0
+            update_kwargs["description"] = (
+                f"[cyan]{self.description} {health_status} ({throughput:.1f}/s)[/cyan]"
+            )
+
+        self.progress.update(self.task_id, **update_kwargs)
+
+    def complete_with_stats(self, final_count: int, success_rate: Optional[float] = None):
+        """Complete progress with final statistics"""
+        if not self.progress or self.task_id is None or self.start_time is None:
+            return
+
+        import time
+
+        elapsed = time.time() - self.start_time
+        throughput = final_count / elapsed if elapsed > 0 else 0
+
+        if success_rate is not None:
+            health_emoji = "🟢" if success_rate > 0.8 else "🟡" if success_rate > 0.5 else "🔴"
+            description = f"[cyan]✅ Complete: {final_count} items ({success_rate:.1%} success) @ {throughput:.1f}/s {health_emoji}[/cyan]"
+        else:
+            description = f"[cyan]✅ Complete: {final_count} items @ {throughput:.1f}/s 🟢[/cyan]"
+
+        self.progress.update(self.task_id, description=description, completed=True)
+
+
+def get_health_status_emoji(success_rate: float) -> str:
+    """Get health status emoji based on success rate"""
+    if success_rate >= 0.9:
+        return "🟢"  # Excellent
+    elif success_rate >= 0.7:
+        return "🟡"  # Good
+    elif success_rate >= 0.5:
+        return "🟠"  # Fair
+    else:
+        return "🔴"  # Poor
+
+
+def get_health_trend_arrow(current: float, previous: float = None) -> str:
+    """Get trend arrow for health metrics"""
+    if previous is None:
+        return ""
+
+    if current > previous + 0.05:  # 5% improvement threshold
+        return "↗️"
+    elif current < previous - 0.05:  # 5% degradation threshold
+        return "↘️"
+    else:
+        return "➡️"  # Stable
+
+
 @app.callback()
-def main(
+def root_callback(
     ctx: typer.Context,
     debug: Annotated[
         bool,
@@ -403,14 +625,118 @@ def _print_table(pw: ProxyWhirl, console: Console, limit: Optional[int] = None) 
 
     console.print(table)
 
-    # Add helpful summary information
+    # Add helpful summary information with enhanced health status
     active_count = sum(1 for p in proxies if getattr(p, "status", None) == "active")
     if active_count > 0:
+        success_rate = active_count / len(proxies)
+        health_emoji = "🟢" if success_rate > 0.8 else "🟡" if success_rate > 0.5 else "🔴"
         console.print(
-            f"[success]🎯 {active_count} of {len(proxies)} proxies are currently active[/success]"
+            f"[success]{health_emoji} {active_count} of {len(proxies)} proxies are currently active ({success_rate:.1%})[/success]"
         )
     else:
         console.print("[warning]⚠️  No active proxies found. Consider running validation.[/warning]")
+
+
+def _print_table_filtered(
+    proxies: List[Proxy], console: Console, limit: Optional[int] = None, healthy_only: bool = False
+) -> None:
+    """Print filtered proxy list as a beautifully formatted Rich table."""
+    if limit is not None:
+        proxies = proxies[: max(0, limit)]
+
+    if not proxies:
+        if healthy_only:
+            console.print(
+                Panel(
+                    "[warning]No healthy proxies found in cache.[/warning]\n\n"
+                    "[info]💡 Try running:[/info] [accent]proxywhirl validate[/accent] to check proxy health\n"
+                    "[info]or use:[/info] [accent]--include-unhealthy[/accent] to see all proxies",
+                    title="No Healthy Proxies",
+                    border_style="yellow",
+                )
+            )
+        else:
+            console.print(
+                Panel(
+                    "[warning]No proxies found in cache.[/warning]\n\n"
+                    "[info]💡 Try running:[/info] [accent]proxywhirl fetch[/accent]",
+                    title="Empty Cache",
+                    border_style="yellow",
+                )
+            )
+        return
+
+    # Enhanced Rich table with health indicators
+    filter_info = " (healthy only)" if healthy_only else ""
+    table = Table(
+        title=f"[proxy]ProxyWhirl Proxy Cache[/proxy] [dim]({len(proxies)} proxies{filter_info})[/dim]",
+        show_header=True,
+        header_style="bold magenta",
+        border_style="blue",
+        row_styles=["none", "dim"],
+    )
+
+    table.add_column("Host", style="cyan", no_wrap=True)
+    table.add_column("Port", justify="right", style="magenta", width=6)
+    table.add_column("Schemes", style="green", width=12)
+    table.add_column("Anonymity", style="blue", width=10)
+    table.add_column("Response (s)", justify="right", style="yellow", width=12)
+    table.add_column("Last Checked", style="dim", width=12)
+    table.add_column("Country", style="red", width=8, justify="center")
+    table.add_column("Status", style="bold", width=8, justify="center")
+
+    for p in proxies:
+        schemes_str = ",".join((getattr(s, "value", str(s))).lower() for s in p.schemes)
+        anonymity = (
+            getattr(p.anonymity, "value", str(p.anonymity))
+            if hasattr(p, "anonymity")
+            else "unknown"
+        )
+        resp = f"{p.response_time:.3f}" if hasattr(p, "response_time") and p.response_time else "-"
+        last_checked = (
+            p.last_checked.strftime("%m-%d %H:%M")
+            if hasattr(p, "last_checked") and hasattr(p.last_checked, "strftime")
+            else "never"
+        )
+        country = getattr(p, "country_code", "-") or "-"
+        status = getattr(p, "status", "unknown")
+
+        # Enhanced color-coded status with more emojis for better health visualization
+        if status == "active":
+            status_display = "[green]🟢 active[/green]"
+        elif status == "inactive":
+            status_display = "[red]🔴 inactive[/red]"
+        elif status == "timeout":
+            status_display = "[yellow]🟡 timeout[/yellow]"
+        elif status == "testing":
+            status_display = "[blue]🔄 testing[/blue]"
+        else:
+            status_display = "[dim]❓ unknown[/dim]"
+
+        table.add_row(
+            p.host,
+            str(p.port),
+            schemes_str,
+            anonymity,
+            resp,
+            last_checked,
+            country,
+            status_display,
+        )
+
+    console.print(table)
+
+    # Enhanced summary with health metrics
+    active_count = sum(1 for p in proxies if getattr(p, "status", None) == "active")
+    if active_count > 0:
+        success_rate = active_count / len(proxies)
+        health_emoji = "🟢" if success_rate > 0.8 else "🟡" if success_rate > 0.5 else "🔴"
+        trend_arrow = "↗️" if success_rate > 0.7 else "↘️" if success_rate < 0.3 else "➡️"
+        console.print(
+            f"[success]{health_emoji} {active_count} of {len(proxies)} proxies are currently active ({success_rate:.1%}) {trend_arrow}[/success]"
+        )
+    else:
+        console.print("[warning]🔴 No active proxies found. Consider running validation.[/warning]")
 
 
 @app.command(name="list", rich_help_panel="📋 Data Display")
@@ -453,6 +779,15 @@ def list_cmd(
             rich_help_panel="📤 Output Options",
         ),
     ] = None,
+    healthy_only: Annotated[
+        bool,
+        typer.Option(
+            True,  # Default to healthy only for better user experience
+            "--healthy-only/--include-unhealthy",
+            help="[success]🟢 Only show healthy proxies (default: True for cleaner output)[/success]",
+            rich_help_panel="✅ Quality Filters",
+        ),
+    ] = True,
 ) -> None:
     """[bold]📋 List cached proxies with beautiful formatting[/bold]
 
@@ -476,13 +811,38 @@ def list_cmd(
             cache_path=str(cache_path) if cache_path else None,
         )
 
-        if json_out:
-            proxies = [p.model_dump(mode="json") for p in pw.list_proxies()]
-            if limit:
-                proxies = proxies[:limit]
-            console.print_json(data=proxies)
+        # Get all proxies and filter them
+        all_proxies = pw.list_proxies()
+
+        # Apply healthy filter if requested
+        if healthy_only:
+            filtered_proxies = [
+                p for p in all_proxies if getattr(p, "status", "unknown") == "active"
+            ]
+
+            # Inform user about filtering
+            total_count = len(all_proxies)
+            healthy_count = len(filtered_proxies)
+            unhealthy_count = total_count - healthy_count
+
+            if not ctx.obj.quiet and total_count > 0:
+                console.print(
+                    f"[info]🟢 Showing {healthy_count} healthy proxies (filtered out {unhealthy_count} unhealthy)[/info]"
+                )
+                if unhealthy_count > 0:
+                    console.print(
+                        f"[dim]💡 Use --include-unhealthy to see all {total_count} proxies[/dim]"
+                    )
         else:
-            _print_table(pw, console, limit)
+            filtered_proxies = all_proxies
+
+        if json_out:
+            proxies_data = [p.model_dump(mode="json") for p in filtered_proxies]
+            if limit:
+                proxies_data = proxies_data[:limit]
+            console.print_json(data=proxies_data)
+        else:
+            _print_table_filtered(filtered_proxies, console, limit, healthy_only)
 
     except FileNotFoundError:
         handle_error(
@@ -725,16 +1085,16 @@ def export(
             rich_help_panel="⚡ Performance Filters",
         ),
     ] = None,
-    # Status filters
+    # Enhanced status filters with improved defaults
     healthy_only: Annotated[
         bool,
         typer.Option(
-            False,
-            "--healthy-only",
-            help="[success]Only include healthy proxies[/success]",
+            True,  # Default to healthy only for better UX
+            "--healthy-only/--include-unhealthy",
+            help="[success]🟢 Only include healthy proxies (default: True for better results)[/success]",
             rich_help_panel="✅ Status Filters",
         ),
-    ] = False,
+    ] = True,
     # Source filters
     sources: Annotated[
         Optional[str],
@@ -1677,6 +2037,11 @@ def launch_tui() -> None:
     except Exception as e:
         typer.echo(f"❌ TUI error: {e}", err=True)
         raise typer.Exit(1)
+
+
+def main() -> None:  # Entry point for console_scripts
+    """Main entry point for the CLI application."""
+    app()
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -1,0 +1,47 @@
+# ProxyWhirl Production Configuration
+# Optimized for high reliability and performance in production environments
+
+# Core proxy settings
+cache_type: sqlite  # Persistent storage for production
+rotation_strategy: health_based  # Use health-based rotation for reliability
+cache_path: /var/lib/proxywhirl/proxies.db
+
+# Health monitoring and validation
+health_check_interval: 300  # 5 minutes
+auto_validate: true
+
+# Validation settings - production-grade reliability
+validation_timeout: 15.0
+validation_test_url: "https://httpbin.org/ip"
+validation_concurrent_limit: 10  # Conservative for stability
+validation_min_success_rate: 0.8  # High quality threshold
+validation_max_response_time: 30.0
+
+# Default loader settings - reliable with retries
+loader_timeout: 20.0
+loader_max_retries: 3
+loader_rate_limit: 2.0  # Conservative rate limiting
+
+# Circuit breaker - strict for production reliability
+circuit_breaker_enabled: true
+circuit_breaker_failure_threshold: 3
+circuit_breaker_recovery_timeout: 600  # 10 minutes
+
+# Advanced features
+enable_metrics: true
+enable_proxy_auth: true
+enable_rate_limiting: true
+enable_geolocation: true
+
+# Performance tuning - production optimized
+max_concurrent_validations: 25
+cache_refresh_interval: 3600  # 1 hour
+
+# Logging - production appropriate
+log_level: "INFO"
+enable_debug_metrics: false
+
+# Quality thresholds - strict production standards
+premium_success_rate: 0.95
+standard_success_rate: 0.85
+basic_success_rate: 0.7

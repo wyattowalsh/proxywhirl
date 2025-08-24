@@ -1,0 +1,10 @@
+# ProxyWhirl Minimal Configuration
+# Simplest configuration with mostly default values
+
+cache_type: memory
+rotation_strategy: round_robin
+
+# Only override essentials
+validation_timeout: 10.0
+loader_timeout: 20.0
+log_level: "INFO"

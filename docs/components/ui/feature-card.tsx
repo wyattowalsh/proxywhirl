@@ -106,12 +106,14 @@ export function FeatureCard({ feature, index }: FeatureCardProps) {
         style={{
           background: `radial-gradient(circle at ${gradientX}% ${gradientY}%, ${
             feature.accentColor === 'green' 
-              ? 'rgba(34, 197, 94, 0.15)' 
+              ? 'hsl(var(--pw-proxy-healthy) / 0.15)' 
               : feature.accentColor === 'cyan'
-              ? 'rgba(6, 182, 212, 0.15)'
+              ? 'hsl(var(--pw-console-cyan) / 0.15)'
               : feature.accentColor === 'red'
-              ? 'rgba(239, 68, 68, 0.15)'
-              : 'rgba(59, 130, 246, 0.15)' // fallback
+              ? 'hsl(var(--pw-proxy-error) / 0.15)'
+              : feature.accentColor === 'purple'
+              ? 'hsl(var(--pw-proxy-elite) / 0.15)'
+              : 'hsl(var(--pw-proxy-healthy) / 0.15)' // fallback to healthy green
           } 0%, transparent 70%)`
         }}
         animate={{ 
@@ -127,12 +129,14 @@ export function FeatureCard({ feature, index }: FeatureCardProps) {
             key={i}
             className={`absolute w-1 h-1 rounded-full opacity-0 ${
               feature.accentColor === 'green' 
-                ? 'bg-green-400' 
+                ? 'bg-[hsl(var(--pw-proxy-healthy))]' 
                 : feature.accentColor === 'cyan'
-                ? 'bg-cyan-400'
+                ? 'bg-[hsl(var(--pw-console-cyan))]'
                 : feature.accentColor === 'red'
-                ? 'bg-red-400'
-                : 'bg-blue-400' // fallback
+                ? 'bg-[hsl(var(--pw-proxy-error))]'
+                : feature.accentColor === 'purple'
+                ? 'bg-[hsl(var(--pw-proxy-elite))]'
+                : 'bg-[hsl(var(--pw-proxy-healthy))]' // fallback to healthy green
             }`}
             style={{
               left: `${20 + i * 12}%`,
@@ -164,20 +168,24 @@ export function FeatureCard({ feature, index }: FeatureCardProps) {
           background: isHovered 
             ? `linear-gradient(135deg, ${
                 feature.accentColor === 'green' 
-                  ? 'rgba(34, 197, 94, 0.3)' 
+                  ? 'hsl(var(--pw-proxy-healthy) / 0.3)' 
                   : feature.accentColor === 'cyan'
-                  ? 'rgba(6, 182, 212, 0.3)'
+                  ? 'hsl(var(--pw-console-cyan) / 0.3)'
                   : feature.accentColor === 'red'
-                  ? 'rgba(239, 68, 68, 0.3)'
-                  : 'rgba(59, 130, 246, 0.3)' // fallback
+                  ? 'hsl(var(--pw-proxy-error) / 0.3)'
+                  : feature.accentColor === 'purple'
+                  ? 'hsl(var(--pw-proxy-elite) / 0.3)'
+                  : 'hsl(var(--pw-proxy-healthy) / 0.3)' // fallback to healthy green
               }, transparent 50%, ${
                 feature.accentColor === 'green' 
-                  ? 'rgba(34, 197, 94, 0.2)' 
+                  ? 'hsl(var(--pw-proxy-healthy) / 0.2)' 
                   : feature.accentColor === 'cyan'
-                  ? 'rgba(6, 182, 212, 0.2)'
+                  ? 'hsl(var(--pw-console-cyan) / 0.2)'
                   : feature.accentColor === 'red'
-                  ? 'rgba(239, 68, 68, 0.2)'
-                  : 'rgba(59, 130, 246, 0.2)' // fallback
+                  ? 'hsl(var(--pw-proxy-error) / 0.2)'
+                  : feature.accentColor === 'purple'
+                  ? 'hsl(var(--pw-proxy-elite) / 0.2)'
+                  : 'hsl(var(--pw-proxy-healthy) / 0.2)' // fallback to healthy green
               })` 
             : 'transparent'
         }}
@@ -185,12 +193,14 @@ export function FeatureCard({ feature, index }: FeatureCardProps) {
           boxShadow: isHovered 
             ? `0 0 40px ${
                 feature.accentColor === 'green' 
-                  ? 'rgba(34, 197, 94, 0.25)' 
+                  ? 'hsl(var(--pw-proxy-healthy) / 0.25)' 
                   : feature.accentColor === 'cyan'
-                  ? 'rgba(6, 182, 212, 0.25)'
+                  ? 'hsl(var(--pw-console-cyan) / 0.25)'
                   : feature.accentColor === 'red'
-                  ? 'rgba(239, 68, 68, 0.25)'
-                  : 'rgba(59, 130, 246, 0.25)' // fallback
+                  ? 'hsl(var(--pw-proxy-error) / 0.25)'
+                  : feature.accentColor === 'purple'
+                  ? 'hsl(var(--pw-proxy-elite) / 0.25)'
+                  : 'hsl(var(--pw-proxy-healthy) / 0.25)' // fallback to healthy green
               }` 
             : '0 0 0 rgba(0, 0, 0, 0)'
         }}
@@ -210,12 +220,14 @@ export function FeatureCard({ feature, index }: FeatureCardProps) {
           <motion.div 
             className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${
               feature.accentColor === 'green' 
-                ? 'from-green-500/20 via-emerald-500/15 to-green-400/20' 
+                ? 'from-[hsl(var(--pw-proxy-healthy)_/_20%)] via-[hsl(var(--pw-console-green)_/_15%)] to-[hsl(var(--pw-proxy-healthy)_/_20%)]' 
                 : feature.accentColor === 'cyan'
-                ? 'from-cyan-500/20 via-blue-500/15 to-cyan-400/20'
+                ? 'from-[hsl(var(--pw-console-cyan)_/_20%)] via-[hsl(var(--pw-network-primary)_/_15%)] to-[hsl(var(--pw-console-cyan)_/_20%)]'
                 : feature.accentColor === 'red'
-                ? 'from-red-500/20 via-orange-500/15 to-red-400/20'
-                : 'from-blue-500/20 via-indigo-500/15 to-purple-500/20' // fallback
+                ? 'from-[hsl(var(--pw-proxy-error)_/_20%)] via-[hsl(var(--pw-proxy-warning)_/_15%)] to-[hsl(var(--pw-proxy-error)_/_20%)]'
+                : feature.accentColor === 'purple'
+                ? 'from-[hsl(var(--pw-proxy-elite)_/_20%)] via-[hsl(var(--pw-reconnaissance)_/_15%)] to-[hsl(var(--pw-proxy-elite)_/_20%)]'
+                : 'from-[hsl(var(--pw-proxy-healthy)_/_20%)] via-[hsl(var(--pw-console-green)_/_15%)] to-[hsl(var(--pw-proxy-healthy)_/_20%)]' // fallback to healthy green
             } backdrop-blur-sm border border-white/10`}
             animate={isHovered ? {
               scale: [1, 1.1, 1],
@@ -238,12 +250,14 @@ export function FeatureCard({ feature, index }: FeatureCardProps) {
           <motion.div
             className={`absolute inset-0 rounded-2xl ${
               feature.accentColor === 'green' 
-                ? 'bg-green-500' 
+                ? 'bg-[hsl(var(--pw-proxy-healthy))]' 
                 : feature.accentColor === 'cyan'
-                ? 'bg-cyan-500'
+                ? 'bg-[hsl(var(--pw-console-cyan))]'
                 : feature.accentColor === 'red'
-                ? 'bg-red-500'
-                : 'bg-blue-500' // fallback
+                ? 'bg-[hsl(var(--pw-proxy-error))]'
+                : feature.accentColor === 'purple'
+                ? 'bg-[hsl(var(--pw-proxy-elite))]'
+                : 'bg-[hsl(var(--pw-proxy-healthy))]' // fallback to healthy green
             }`}
             animate={isHovered ? {
               opacity: [0, 0.3, 0],
@@ -359,12 +373,14 @@ export function FeatureCard({ feature, index }: FeatureCardProps) {
         >
           <LuZap className={`w-4 h-4 ${
             feature.accentColor === 'green' 
-              ? 'text-green-400' 
+              ? 'text-[hsl(var(--pw-proxy-healthy))]' 
               : feature.accentColor === 'cyan'
-              ? 'text-cyan-400'
+              ? 'text-[hsl(var(--pw-console-cyan))]'
               : feature.accentColor === 'red'
-              ? 'text-red-400'
-              : 'text-blue-400' // fallback
+              ? 'text-[hsl(var(--pw-proxy-error))]'
+              : feature.accentColor === 'purple'
+              ? 'text-[hsl(var(--pw-proxy-elite))]'
+              : 'text-[hsl(var(--pw-proxy-healthy))]' // fallback to healthy green
           }`} />
         </motion.div>
       </div>

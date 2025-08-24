@@ -123,6 +123,9 @@ class ProxyWhirl:
         Per-request timeout used by the validator in seconds.
     validator_test_url : str, default="https://httpbin.org/ip"
         Test URL used by the validator. Wrapped internally as a single-item list.
+    validator_circuit_breaker_threshold : int, default=100
+        Number of consecutive validation failures before the circuit breaker opens.
+        Prevents cascading failures during bulk validation operations.
     enable_metrics : bool, default=True
         Reserved flag to toggle metrics collection. Does not alter behavior here.
     max_concurrent_validations : int, default=10
@@ -162,6 +165,7 @@ class ProxyWhirl:
         # Additional configuration options
         validator_timeout: float = 10.0,
         validator_test_url: str = "https://httpbin.org/ip",
+        validator_circuit_breaker_threshold: int = 100,
         # Target-based validation support
         validation_targets: Optional[Dict[str, TargetDefinition]] = None,
         enable_metrics: bool = True,
@@ -212,6 +216,7 @@ class ProxyWhirl:
             test_urls=[validator_test_url],
             targets=validation_targets,
             max_concurrent=max_concurrent_validations,
+            circuit_breaker_threshold=validator_circuit_breaker_threshold,
         )
 
         # Initialize default loaders. UserProvidedLoader is added on-demand.

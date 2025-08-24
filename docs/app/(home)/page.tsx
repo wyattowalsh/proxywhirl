@@ -8,12 +8,10 @@ import { HeroSection, FeatureGrid, CTASection } from '@/components/ui/animated-s
 import type { ReactNode } from 'react';
 import { LuZap, LuShieldCheck, LuLayers, LuArrowRight, LuGithub, LuSparkles, LuTerminal, LuBrainCircuit, LuDatabase } from 'react-icons/lu';
 
-// Enhanced data configuration with hacker-inspired approach
+// Enhanced data configuration with elite hacker approach
 const BRAND_CONFIG = {
   name: 'proxywhirl',
-  tagline: 'Data Extraction Arsenal',
-  description: 'Elite-grade Python proxy rotation system engineered for high-stakes web data extraction, reconnaissance, and intelligence gathering operations.',
-  version: '2.0',
+  tagline: 'collect, validate, and rotate proxies',
 } as const;
 
 type Feature = {
@@ -29,25 +27,25 @@ const FEATURES: Feature[] = [
   {
     icon: <LuTerminal className="feature-icon" />,
     title: 'Multiple Interfaces',
-    description: 'Command-line interface, Python API, and interactive terminal UI for seamless proxy management across all environments.',
+    description: 'Use it from the command line, import it in Python, or fire up the interactive TUI. Whatever floats your boat.',
     gradient: 'from-green-500/25 via-emerald-500/20 to-green-400/25',
     accentColor: 'green',
     href: '/docs/cli',
   },
   {
     icon: <LuBrainCircuit className="feature-icon" />,
-    title: 'Smart Operations',
-    description: 'Intelligent collection, comprehensive validation, and adaptive rotation with health scoring and circuit breaker protection.',
+    title: 'Smart Collection, Validation, Rotation',
+    description: 'Finds proxies, checks if they actually work, and rotates them when they inevitably break. Like a responsible adult.',
     gradient: 'from-cyan-500/25 via-blue-500/20 to-cyan-400/25',
     accentColor: 'cyan',
     href: '/docs/usage#validation',
   },
   {
     icon: <LuDatabase className="feature-icon" />,
-    title: 'Data Management',
-    description: 'Multiple cache backends, flexible list exports, and comprehensive health reports for production monitoring.',
-    gradient: 'from-red-500/25 via-orange-500/20 to-red-400/25',
-    accentColor: 'red',
+    title: 'Multiple Caches, List Exports, Health Reports',
+    description: 'Save your proxies to memory, files, or SQLite. Export them however you want. Get reports on which ones are actually worth using.',
+    gradient: 'from-purple-500/25 via-violet-500/20 to-purple-400/25',
+    accentColor: 'purple',
     href: '/docs/usage#caching',
   },
 ];
@@ -89,63 +87,68 @@ export default function HomePage() {
       
       {/* Cyber-themed hacker background effects */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {/* Matrix-style grid overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,255,0,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(0,255,0,0.03)_1px,transparent_1px)] bg-[size:50px_50px] animate-pulse" />
+        {/* Enhanced cyber-themed data extraction background effects */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,255,65,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(0,255,65,0.04)_1px,transparent_1px)] bg-[size:40px_40px] animate-pulse" />
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(0,210,239,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(0,210,239,0.02)_1px,transparent_1px)] bg-[size:80px_80px] animate-pulse" style={{animationDelay: '1s'}} />
         
-        {/* Neon glow orbs with hacker colors */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-green-500/8 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/8 rounded-full blur-3xl animate-pulse" style={{animationDelay: '1s'}} />
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-radial from-red-500/5 to-transparent rounded-full blur-2xl" />
+        {/* Proxy network visualization orbs */}
+        <div className="absolute top-1/6 left-1/5 w-80 h-80 bg-[hsl(var(--pw-proxy-healthy)_/_6%)] rounded-full blur-3xl animate-proxy-pulse" />
+        <div className="absolute bottom-1/6 right-1/5 w-80 h-80 bg-[hsl(var(--pw-console-cyan)_/_6%)] rounded-full blur-3xl animate-proxy-pulse" style={{animationDelay: '1.5s'}} />
+        <div className="absolute top-1/3 right-1/6 w-64 h-64 bg-[hsl(var(--pw-proxy-elite)_/_8%)] rounded-full blur-3xl animate-elite-glow" />
+        <div className="absolute bottom-1/3 left-1/6 w-96 h-96 bg-[hsl(var(--pw-proxy-error)_/_4%)] rounded-full blur-3xl animate-proxy-pulse" style={{animationDelay: '2.5s'}} />
         
-        {/* Digital scanning lines */}
-        <div className="absolute inset-0">
-          <div className="absolute w-full h-0.5 bg-gradient-to-r from-transparent via-green-400/20 to-transparent animate-scan-line" />
-          <div className="absolute w-full h-0.5 bg-gradient-to-r from-transparent via-cyan-400/15 to-transparent animate-scan-line-slow" style={{animationDelay: '2s'}} />
+        {/* Data extraction scanning lines with proxy status colors */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute w-full h-px bg-gradient-to-r from-transparent via-[hsl(var(--pw-proxy-healthy)_/_25%)] to-transparent animate-scan-line" />
+          <div className="absolute w-full h-px bg-gradient-to-r from-transparent via-[hsl(var(--pw-console-cyan)_/_20%)] to-transparent animate-scan-line-slow top-1/3" style={{animationDelay: '1s'}} />
+          <div className="absolute w-full h-px bg-gradient-to-r from-transparent via-[hsl(var(--pw-proxy-elite)_/_30%)] to-transparent animate-scan-line-elite top-2/3" style={{animationDelay: '3s'}} />
         </div>
         
-        {/* Matrix rain effect */}
-        <div className="absolute inset-0 overflow-hidden">
-          {Array.from({length: 20}).map((_, i) => (
+        {/* Enhanced matrix rain with proxy data simulation */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {Array.from({length: 16}).map((_, i) => (
             <div
               key={i}
-              className="absolute text-green-400/20 text-xs terminal-text animate-matrix-rain"
+              className="absolute text-[hsl(var(--pw-console-green)_/_20%)] text-xs terminal-text animate-matrix-rain"
               style={{
-                left: `${i * 5}%`,
-                animationDelay: `${i * 0.5}s`,
-                animationDuration: `${8 + i * 2}s`
+                left: `${i * 6.25}%`,
+                animationDelay: `${i * 0.7}s`,
+                animationDuration: `${10 + i * 1.5}s`
               }}
             >
-              {Array.from({length: 30}).map((_, j) => (
+              {Array.from({length: 25}).map((_, j) => (
                 <div key={j} className="h-4">
-                  {Math.random() > 0.5 ? '1' : '0'}
+                  {j % 4 === 0 ? 'ELITE' : j % 4 === 1 ? '200' : j % 4 === 2 ? 'OK' : Math.random() > 0.7 ? '1' : '0'}
                 </div>
               ))}
             </div>
           ))}
         </div>
         
-        {/* Corner brackets for terminal feel */}
-        <div className="absolute top-4 left-4 w-12 h-12 border-l-2 border-t-2 border-green-400/30" />
-        <div className="absolute top-4 right-4 w-12 h-12 border-r-2 border-t-2 border-green-400/30" />
-        <div className="absolute bottom-4 left-4 w-12 h-12 border-l-2 border-b-2 border-green-400/30" />
-        <div className="absolute bottom-4 right-4 w-12 h-12 border-r-2 border-b-2 border-green-400/30" />
+        {/* Terminal status indicators */}
+        <div className="absolute top-4 left-4 w-12 h-12 border-l-2 border-t-2 border-[hsl(var(--pw-proxy-healthy)_/_40%)] animate-proxy-pulse" />
+        <div className="absolute top-4 right-4 w-12 h-12 border-r-2 border-t-2 border-[hsl(var(--pw-console-cyan)_/_40%)] animate-proxy-pulse" style={{animationDelay: '0.5s'}} />
+        <div className="absolute bottom-4 left-4 w-12 h-12 border-l-2 border-b-2 border-[hsl(var(--pw-proxy-elite)_/_40%)] animate-elite-glow" />
+        <div className="absolute bottom-4 right-4 w-12 h-12 border-r-2 border-b-2 border-[hsl(var(--pw-proxy-healthy)_/_40%)] animate-proxy-pulse" style={{animationDelay: '1.5s'}} />
       </div>
 
       {/* Enhanced Content with Sophisticated Layout */}
       <main className="relative z-10 flex flex-col justify-center items-center text-center px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto py-4 sm:py-6 md:py-8 md:min-h-0 md:flex-1 md:overflow-hidden">
         
-        {/* Terminal-style header */}
-        <div className="absolute top-4 left-4 text-green-400/60 text-xs terminal-text hidden md:block">
+        {/* Enhanced terminal-style header with proxy status */}
+        <div className="absolute top-4 left-4 text-[hsl(var(--pw-console-green))] text-xs terminal-text hidden md:block">
           <div className="flex items-center gap-2">
-            <span className="text-green-400">root@proxywhirl:~#</span>
+            <span className="text-[hsl(var(--pw-console-green))]">root@proxywhirl:~#</span>
             <span className="animate-pulse">_</span>
           </div>
         </div>
         
-        {/* Status indicator */}
-        <div className="absolute top-4 right-20 md:right-24 text-green-400/60 text-xs terminal-text hidden md:flex items-center gap-2">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-          <span>SYSTEM ONLINE</span>
+        {/* Enhanced proxy status indicator */}
+        <div className="absolute top-4 right-20 md:right-24 text-[hsl(var(--pw-console-green)_/_80%)] text-xs terminal-text hidden md:flex items-center gap-2">
+          <div className="w-2 h-2 bg-[hsl(var(--pw-proxy-healthy))] rounded-full animate-proxy-pulse"></div>
+          <span>PROXIES ONLINE</span>
+          <div className="w-2 h-2 bg-[hsl(var(--pw-proxy-elite))] rounded-full animate-elite-glow ml-2"></div>
+          <span>ELITE</span>
         </div>
         
         {/* Hero Section with Advanced Motion Typography */}
@@ -162,7 +165,6 @@ export default function HomePage() {
           <AnimatedTitle
             title={BRAND_CONFIG.name}
             subtitle={BRAND_CONFIG.tagline}
-            description={BRAND_CONFIG.description}
           />
         </HeroSection>
 

@@ -5,10 +5,9 @@ import { motion } from 'motion/react';
 interface AnimatedTitleProps {
   title: string;
   subtitle: string;
-  description: string;
 }
 
-export function AnimatedTitle({ title, subtitle, description }: AnimatedTitleProps) {
+export function AnimatedTitle({ title, subtitle }: AnimatedTitleProps) {
   return (
     <motion.div 
       className="space-y-6"
@@ -35,22 +34,12 @@ export function AnimatedTitle({ title, subtitle, description }: AnimatedTitlePro
 
       {/* Enhanced tagline with better typography */}
       <motion.p 
-        className="text-lg sm:text-xl lg:text-2xl xl:text-3xl text-fd-muted-foreground max-w-4xl leading-relaxed font-light tracking-wide"
+        className="text-md sm:text-lg lg:text-xl xl:text-2xl text-fd-muted-foreground max-w-4xl leading-relaxed font-light tracking-wide"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8, delay: 0.6 }}
       >
         {subtitle}
-      </motion.p>
-
-      {/* New description */}
-      <motion.p 
-        className="text-base sm:text-lg lg:text-xl text-fd-muted-foreground/80 max-w-3xl leading-relaxed font-normal"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.8, delay: 0.8 }}
-      >
-        {description}
       </motion.p>
     </motion.div>
   );

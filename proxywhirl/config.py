@@ -136,21 +136,87 @@ class ProxyWhirlSettings(BaseSettings):
 
     @classmethod
     def from_file(cls, config_path: Path) -> ProxyWhirlSettings:
-        """Load settings from a configuration file."""
-        if config_path.suffix.lower() == ".json":
-            import json
+        """Load settings from a configuration file with enhanced YAML support.
 
-            with open(config_path) as f:
-                data = json.load(f)
-        elif config_path.suffix.lower() in (".yaml", ".yml"):
-            import yaml
+        Args:
+            config_path: Path to the configuration file (.json, .yaml, or .yml)
 
-            with open(config_path) as f:
+        Returns:
+            ProxyWhirlSettings instance with loaded configuration
+
+        Raises:
+            ValueError: For unsupported file formats or invalid configuration
+            FileNotFoundError: If the configuration file doesn't exist
+        """
+        if not config_path.exists():
+            raise FileNotFoundError(f"Configuration file not found: {config_path}")
+
+        try:
+            if config_path.suffix.lower() == ".json":
+                data = cls._load_json_config(config_path)
+            elif config_path.suffix.lower() in (".yaml", ".yml"):
+                data = cls._load_yaml_config(config_path)
+            else:
+                raise ValueError(
+                    f"Unsupported config file format: {config_path.suffix}. "
+                    "Supported formats: .json, .yaml, .yml"
+                )
+
+            # Validate that we have valid configuration structure
+            # Note: data is already validated as Dict[str, Any] by return type of _load_yaml_config
+
+            return cls(**data)
+
+        except Exception as e:
+            if isinstance(e, (ValueError, FileNotFoundError)):
+                raise
+            raise ValueError(f"Failed to load configuration from {config_path}: {e}") from e
+
+    @classmethod
+    def _load_json_config(cls, config_path: Path) -> Dict[str, Any]:
+        """Load JSON configuration with error handling."""
+        import json
+
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(
+                f"Invalid JSON in {config_path} at line {e.lineno}, column {e.colno}: {e.msg}"
+            ) from e
+
+    @classmethod
+    def _load_yaml_config(cls, config_path: Path) -> Dict[str, Any]:
+        """Load YAML configuration with enhanced error handling and validation."""
+        import yaml
+        from yaml.constructor import ConstructorError
+        from yaml.parser import ParserError
+        from yaml.scanner import ScannerError
+
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                # Use safe_load to prevent arbitrary code execution
                 data = yaml.safe_load(f)
-        else:
-            raise ValueError(f"Unsupported config file format: {config_path.suffix}")
+                return data if data is not None else {}
 
-        return cls(**data)
+        except (ParserError, ScannerError) as e:
+            # YAML syntax errors
+            line_info = ""
+            if hasattr(e, "problem_mark") and e.problem_mark is not None:
+                line_info = f" at line {e.problem_mark.line + 1}"
+            raise ValueError(f"YAML syntax error in {config_path}{line_info}: {e.problem}") from e
+        except ConstructorError as e:
+            # YAML construction errors (e.g., duplicate keys, invalid references)
+            line_info = ""
+            if hasattr(e, "problem_mark") and e.problem_mark is not None:
+                line_info = f" at line {e.problem_mark.line + 1}"
+            raise ValueError(
+                f"YAML structure error in {config_path}{line_info}: {e.problem}"
+            ) from e
+        except UnicodeDecodeError as e:
+            raise ValueError(
+                f"File encoding error in {config_path}: {e}. " "Ensure the file is UTF-8 encoded."
+            ) from e
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert settings to dictionary."""
@@ -164,7 +230,7 @@ class ProxyWhirlSettings(BaseSettings):
 
 
 # Convenience functions
-def load_config(config_file: Optional[Path] = None, **overrides) -> ProxyWhirlSettings:
+def load_config(config_file: Optional[Path] = None, **overrides: Any) -> ProxyWhirlSettings:
     """Load configuration from file and environment with optional overrides."""
     if config_file and config_file.exists():
         settings = ProxyWhirlSettings.from_file(config_file)
