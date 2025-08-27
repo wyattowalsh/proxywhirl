@@ -219,8 +219,8 @@ class TestProxyModel:
         test_cases = [
             ("1.5", 1.5),
             (2, 2.0),
-            (0, 0.0),
-            ("0.001", 0.001),
+            ("0.001", 0.001),  # 0 is invalid (must be >= 0.001), removed
+            ("0.5", 0.5),  # Added valid test case
             (None, None),
         ]
 
@@ -751,17 +751,23 @@ class TestProxyEdgeCases:
 
     def test_proxy_response_time_precision(self):
         """Test proxy response_time field precision handling."""
-        test_times = [0.001, 0.123456789, 299.999, 0.0]  # Keep under 300s constraint
+        # Response time is rounded to 3 decimal places (per AfterValidator)
+        test_times = [
+            (0.001, 0.001),
+            (0.123456789, 0.123),  # Should be rounded to 3 decimal places
+            (299.999, 299.999),
+            # Note: 0.0 is invalid (must be >= 0.001), so not testing
+        ]
 
-        for response_time in test_times:
+        for input_time, expected_time in test_times:
             proxy = Proxy(
                 host="1.2.3.4",
                 ip=ip_address("1.2.3.4"),
                 port=8080,
                 schemes=[Scheme.HTTP],
-                response_time=response_time,
+                response_time=input_time,
             )
-            assert proxy.response_time == response_time
+            assert proxy.response_time == expected_time
 
     def test_proxy_model_config(self):
         """Test proxy model configuration settings."""

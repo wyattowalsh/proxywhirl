@@ -407,6 +407,7 @@ class TestConfigurationIntegration:
         assert loader_config.rate_limit == 2.5
         assert loader_config.enabled is True  # Default value
 
+
 class TestYAMLConfigurationSupport:
     """Test enhanced YAML configuration support."""
 
@@ -645,19 +646,19 @@ validation_timeout: 10.0
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             f.write(config_content)
             config_path = Path(f.name)
-        
+
         try:
             # Test environment variable precedence
             with patch.dict("os.environ", {"PROXYWHIRL_LOG_LEVEL": "ERROR"}):
                 settings = ProxyWhirlSettings.from_file(config_path)
-                
+
                 assert settings.cache_type == CacheType.MEMORY  # From YAML
                 # Note: Environment variables work with BaseSettings() constructor but
                 # from_file() loads data directly, bypassing env var precedence
                 # This is expected behavior for file-based loading
                 assert settings.log_level == "INFO"  # From YAML file
                 assert settings.validation_timeout == 10.0  # From YAML
-                
+
         finally:
             config_path.unlink()
 

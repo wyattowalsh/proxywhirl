@@ -394,14 +394,24 @@ class TestProxyValidatorEnhanced:
 async def test_validate_proxy_success(monkeypatch):
     pv = ProxyValidator()
 
-    # Patch httpx.AsyncClient used inside ProxyValidator
+    # Create a comprehensive httpx mock
+    import httpx
+
     import proxywhirl.validator as validator
 
-    monkeypatch.setattr(
-        validator,
-        "httpx",
-        types.SimpleNamespace(AsyncClient=lambda **_: DummyAsyncClient(False)),
+    # Create the mock namespace with all required httpx components
+    mock_httpx = types.SimpleNamespace(
+        AsyncClient=lambda **_: DummyAsyncClient(False),
+        HTTPError=httpx.HTTPError,
+        ConnectError=httpx.ConnectError,
+        ProxyError=httpx.ProxyError,
+        Timeout=httpx.Timeout,
+        Limits=httpx.Limits,
+        Request=httpx.Request,
+        Response=httpx.Response,
     )
+
+    monkeypatch.setattr(validator, "httpx", mock_httpx)
 
     p = Proxy(
         host="192.0.2.1",
@@ -417,13 +427,23 @@ async def test_validate_proxy_success(monkeypatch):
 @pytest.mark.asyncio
 async def test_validate_proxy_failure(monkeypatch):
     pv = ProxyValidator()
+    import httpx
+
     import proxywhirl.validator as validator
 
-    monkeypatch.setattr(
-        validator,
-        "httpx",
-        types.SimpleNamespace(AsyncClient=lambda **_: DummyAsyncClient(True)),
+    # Create the mock namespace with all required httpx components
+    mock_httpx = types.SimpleNamespace(
+        AsyncClient=lambda **_: DummyAsyncClient(True),
+        HTTPError=httpx.HTTPError,
+        ConnectError=httpx.ConnectError,
+        ProxyError=httpx.ProxyError,
+        Timeout=httpx.Timeout,
+        Limits=httpx.Limits,
+        Request=httpx.Request,
+        Response=httpx.Response,
     )
+
+    monkeypatch.setattr(validator, "httpx", mock_httpx)
 
     p = Proxy(
         host="192.0.2.1",
@@ -456,13 +476,25 @@ async def test_target_based_validation_success(monkeypatch):
 
     import proxywhirl.validator as validator
 
-    monkeypatch.setattr(
-        validator,
-        "httpx",
-        types.SimpleNamespace(AsyncClient=lambda **_: DummyAsyncClient(False, responses)),
+    # Comprehensive httpx mock with all required components
+    mock_httpx = types.SimpleNamespace(
+        AsyncClient=lambda **_: DummyAsyncClient(False, responses),  # type: ignore[misc]
+        HTTPError=httpx.HTTPError,
+        ConnectError=httpx.ConnectError,
+        ProxyError=httpx.ProxyError,
+        Timeout=httpx.Timeout,
+        Limits=httpx.Limits,
+        Request=httpx.Request,
+        Response=httpx.Response,
+        ReadTimeout=httpx.ReadTimeout,
+        WriteTimeout=httpx.WriteTimeout,
+        ConnectTimeout=httpx.ConnectTimeout,
+        PoolTimeout=httpx.PoolTimeout,
     )
 
-    p = Proxy(
+    monkeypatch.setattr(validator, "httpx", mock_httpx)
+
+    p = Proxy(  # type: ignore[misc]
         host="192.0.2.1",
         ip=ip_address("192.0.2.1"),
         port=8080,
@@ -496,8 +528,8 @@ async def test_target_based_validation_success(monkeypatch):
 async def test_target_based_validation_partial_failure(monkeypatch):
     """Test target-based validation where some targets fail."""
     targets = {
-        "working": TargetDefinition(target_id="working", url="https://working.example.com"),
-        "failing": TargetDefinition(target_id="failing", url="https://failing.example.com"),
+        "working": TargetDefinition(target_id="working", url="https://working.example.com"),  # type: ignore[misc]
+        "failing": TargetDefinition(target_id="failing", url="https://failing.example.com"),  # type: ignore[misc]
     }
 
     pv = ProxyValidator(targets=targets)
@@ -513,10 +545,23 @@ async def test_target_based_validation_partial_failure(monkeypatch):
     monkeypatch.setattr(
         validator,
         "httpx",
-        types.SimpleNamespace(AsyncClient=lambda **_: DummyAsyncClient(False, responses)),
+        types.SimpleNamespace(
+            AsyncClient=lambda **_: DummyAsyncClient(False, responses),  # type: ignore[misc]
+            HTTPError=httpx.HTTPError,
+            ConnectError=httpx.ConnectError,
+            ProxyError=httpx.ProxyError,
+            Timeout=httpx.Timeout,
+            Limits=httpx.Limits,
+            Request=httpx.Request,
+            Response=httpx.Response,
+            ReadTimeout=httpx.ReadTimeout,
+            WriteTimeout=httpx.WriteTimeout,
+            ConnectTimeout=httpx.ConnectTimeout,
+            PoolTimeout=httpx.PoolTimeout,
+        ),
     )
 
-    p = Proxy(
+    p = Proxy(  # type: ignore[misc]
         host="192.0.2.1",
         ip=ip_address("192.0.2.1"),
         port=8080,
@@ -540,15 +585,15 @@ async def test_target_based_validation_partial_failure(monkeypatch):
     assert working_health is not None
     assert failing_health is not None
     assert working_health.total_successes == 1
-    assert failing_health.total_failures == 1
+    assert failing_health.total_attempts - failing_health.total_successes == 1  # total failures
 
 
 @pytest.mark.asyncio
 async def test_target_validation_with_custom_timeouts(monkeypatch):
     """Test targets with custom timeouts."""
     targets = {
-        "fast": TargetDefinition(target_id="fast", url="https://fast.example.com", timeout=1.0),
-        "slow": TargetDefinition(target_id="slow", url="https://slow.example.com", timeout=30.0),
+        "fast": TargetDefinition(target_id="fast", url="https://fast.example.com", timeout=1.0),  # type: ignore[misc]
+        "slow": TargetDefinition(target_id="slow", url="https://slow.example.com", timeout=30.0),  # type: ignore[misc]
     }
 
     pv = ProxyValidator(targets=targets, timeout=10.0)
@@ -563,10 +608,23 @@ async def test_target_validation_with_custom_timeouts(monkeypatch):
     monkeypatch.setattr(
         validator,
         "httpx",
-        types.SimpleNamespace(AsyncClient=lambda **_: DummyAsyncClient(False, responses)),
+        types.SimpleNamespace(
+            AsyncClient=lambda **_: DummyAsyncClient(False, responses),  # type: ignore[misc]
+            HTTPError=httpx.HTTPError,
+            ConnectError=httpx.ConnectError,
+            ProxyError=httpx.ProxyError,
+            Timeout=httpx.Timeout,
+            Limits=httpx.Limits,
+            Request=httpx.Request,
+            Response=httpx.Response,
+            ReadTimeout=httpx.ReadTimeout,
+            WriteTimeout=httpx.WriteTimeout,
+            ConnectTimeout=httpx.ConnectTimeout,
+            PoolTimeout=httpx.PoolTimeout,
+        ),
     )
 
-    p = Proxy(
+    p = Proxy(  # type: ignore[misc]
         host="192.0.2.1",
         ip=ip_address("192.0.2.1"),
         port=8080,
@@ -582,7 +640,7 @@ async def test_target_validation_with_custom_timeouts(monkeypatch):
 
 def test_target_definition_validation():
     """Test TargetDefinition model validation."""
-    # Valid target
+    # Test TargetDefinition model validation with minimal required parameters
     target = TargetDefinition(target_id="test_target", url="https://example.com")
     assert target.target_id == "test_target"
     assert target.url == "https://example.com"
@@ -1044,7 +1102,20 @@ async def test_proxy_validator_circuit_breaker_integration(monkeypatch):
     monkeypatch.setattr(
         validator,
         "httpx",
-        types.SimpleNamespace(AsyncClient=lambda **_: failing_client),
+        types.SimpleNamespace(
+            AsyncClient=lambda **_: failing_client,  # type: ignore[misc]
+            HTTPError=httpx.HTTPError,
+            ConnectError=httpx.ConnectError,
+            ProxyError=httpx.ProxyError,
+            Timeout=httpx.Timeout,
+            Limits=httpx.Limits,
+            Request=httpx.Request,
+            Response=httpx.Response,
+            ReadTimeout=httpx.ReadTimeout,
+            WriteTimeout=httpx.WriteTimeout,
+            ConnectTimeout=httpx.ConnectTimeout,
+            PoolTimeout=httpx.PoolTimeout,
+        ),
     )
 
     proxy = Proxy(
@@ -1096,7 +1167,20 @@ async def test_proxy_validator_validation_history():
     with patch.object(
         validator,
         "httpx",
-        types.SimpleNamespace(AsyncClient=lambda **_: DummyAsyncClient(should_fail=False)),
+        types.SimpleNamespace(
+            AsyncClient=lambda **_: DummyAsyncClient(should_fail=False),  # type: ignore[misc]
+            HTTPError=httpx.HTTPError,
+            ConnectError=httpx.ConnectError,
+            ProxyError=httpx.ProxyError,
+            Timeout=httpx.Timeout,
+            Limits=httpx.Limits,
+            Request=httpx.Request,
+            Response=httpx.Response,
+            ReadTimeout=httpx.ReadTimeout,
+            WriteTimeout=httpx.WriteTimeout,
+            ConnectTimeout=httpx.ConnectTimeout,
+            PoolTimeout=httpx.PoolTimeout,
+        ),
     ):
         proxy1 = Proxy(
             host="192.0.2.1",
@@ -1187,7 +1271,20 @@ async def test_proxy_validator_error_categorization(monkeypatch):
     monkeypatch.setattr(
         validator,
         "httpx",
-        types.SimpleNamespace(AsyncClient=lambda **_: connection_client),
+        types.SimpleNamespace(
+            AsyncClient=lambda **_: connection_client,  # type: ignore[misc]
+            HTTPError=httpx.HTTPError,
+            ConnectError=httpx.ConnectError,
+            ProxyError=httpx.ProxyError,
+            Timeout=httpx.Timeout,
+            Limits=httpx.Limits,
+            Request=httpx.Request,
+            Response=httpx.Response,
+            ReadTimeout=httpx.ReadTimeout,
+            WriteTimeout=httpx.WriteTimeout,
+            ConnectTimeout=httpx.ConnectTimeout,
+            PoolTimeout=httpx.PoolTimeout,
+        ),
     )
 
     proxy = Proxy(
@@ -1225,7 +1322,20 @@ async def test_proxy_validator_error_categorization(monkeypatch):
     monkeypatch.setattr(
         validator,
         "httpx",
-        types.SimpleNamespace(AsyncClient=lambda **_: timeout_client),
+        types.SimpleNamespace(
+            AsyncClient=lambda **_: timeout_client,  # type: ignore[misc]
+            HTTPError=httpx.HTTPError,
+            ConnectError=httpx.ConnectError,
+            ProxyError=httpx.ProxyError,
+            Timeout=httpx.Timeout,
+            Limits=httpx.Limits,
+            Request=httpx.Request,
+            Response=httpx.Response,
+            ReadTimeout=httpx.ReadTimeout,
+            WriteTimeout=httpx.WriteTimeout,
+            ConnectTimeout=httpx.ConnectTimeout,
+            PoolTimeout=httpx.PoolTimeout,
+        ),
     )
 
     result = await pv.validate_proxy(proxy)
@@ -1262,5 +1372,7 @@ async def test_target_validation_result_properties():
     assert result.response_time == 1.5
     assert result.status_code == 200
     assert result.error_type is None
+    assert result.error_message is None
+    assert result.timestamp == now
     assert result.error_message is None
     assert result.timestamp == now

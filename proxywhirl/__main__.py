@@ -1,21 +1,13 @@
 """Allow running TUI with python -m proxywhirl"""
 
+try:
+    from .tui import run_tui
+except ImportError:
 
-def run_tui():
-    """Run the TUI application."""
-    try:
-        from proxywhirl.tui import ProxyWhirlTUI
-
-        app = ProxyWhirlTUI()
-        app.run()
-    except ImportError:
-        from proxywhirl.cli import main
-
-        print("TUI not available, falling back to CLI")
-        main()
+    def run_tui():
+        print("TUI not available. Please use the CLI instead:")
+        print("python -m proxywhirl.cli --help")
 
 
 if __name__ == "__main__":
-    from proxywhirl.cli import main
-
-    main()
+    run_tui()

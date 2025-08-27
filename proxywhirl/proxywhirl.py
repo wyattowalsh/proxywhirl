@@ -62,7 +62,13 @@ from typing import (
 from loguru import logger
 from pandas import DataFrame
 
-from proxywhirl.cache import ProxyCache
+from proxywhirl.caches import (
+    AsyncSQLiteProxyCache,
+    BaseProxyCache,
+    JsonProxyCache,
+    MemoryProxyCache,
+    SQLiteProxyCache,
+)
 from proxywhirl.loaders.base import BaseLoader
 from proxywhirl.loaders.clarketm_raw import ClarketmHttpLoader
 
@@ -82,10 +88,13 @@ from proxywhirl.loaders.the_speedx import (
 from proxywhirl.loaders.user_provided import UserProvidedLoader
 from proxywhirl.loaders.vakhov_fresh import VakhovFreshProxyLoader
 from proxywhirl.models import (
+    CacheConfiguration,
     CacheType,
+    JsonCacheConfig,
     Proxy,
     ProxyStatus,
     RotationStrategy,
+    SqliteCacheConfig,
     TargetDefinition,
     ValidationErrorType,
 )
@@ -202,12 +211,12 @@ class ProxyWhirl:
         self.max_fetch_proxies: Optional[int] = max_fetch_proxies
         self.max_validate_on_fetch: Optional[int] = max_validate_on_fetch
 
-        # Initialize cache (path is only meaningful for JSON/SQLite backends).
+        # Initialize modern cache system with factory pattern
         cache_path_obj = Path(cache_path) if cache_path else None
-        self.cache = ProxyCache(cache_type, cache_path_obj)
+        self.cache = self._create_cache(cache_type, cache_path_obj)
 
         # Initialize rotator and validator with custom settings.
-        self.rotator = ProxyRotator(rotation_strategy)
+        self.rotator = self._create_rotator(rotation_strategy)
         # Validator expects a list of test URLs; adapt single URL into a list.
         # Also pass validation targets if provided.
         self.validation_targets = validation_targets
@@ -239,6 +248,129 @@ class ProxyWhirl:
         logger.info(
             f"ProxyWhirl initialized with {cache_type} cache and {rotation_strategy} rotation"
         )
+
+    def _create_cache(self, cache_type: str, cache_path: Optional[Path] = None) -> BaseProxyCache:
+        """
+        Create cache instance with enterprise features enabled by default.
+
+        For production use, enables compression, backups, integrity checks,
+        and connection pooling for optimal performance and reliability.
+        """
+        from proxywhirl.caches.base import CacheType
+
+        if cache_type == "memory" or cache_type == CacheType.MEMORY:
+            return MemoryProxyCache()
+        elif cache_type == "json" or cache_type == CacheType.JSON:
+            if cache_path is None:
+                cache_path = Path(".proxywhirl_cache.json")
+
+            # Enable enterprise JSON features by default
+            return JsonProxyCache(
+                cache_path=cache_path,
+                compression=True,  # Enable compression for space efficiency
+                enable_backups=True,  # Automatic backup/recovery
+                max_backup_count=5,  # Keep 5 backup files
+                integrity_checks=True,  # Verify data integrity
+                retry_attempts=3,  # Retry failed operations
+            )
+        elif cache_type == "sqlite" or cache_type == CacheType.SQLITE:
+            if cache_path is None:
+                cache_path = Path(".proxywhirl_cache.sqlite")
+
+            # Enable enterprise SQLite features by default
+            return SQLiteProxyCache(
+                cache_path=cache_path,
+                connection_pool_size=10,  # Connection pooling
+                connection_pool_recycle=3600,  # 1-hour connection recycling
+                enable_wal=True,  # Write-Ahead Logging
+                create_tables=True,  # Auto table creation
+            )
+        else:
+            logger.warning(f"Unknown cache type: {cache_type}, defaulting to memory")
+            return MemoryProxyCache()
+
+    def _create_cache_with_config(self, cache_config: "CacheConfiguration") -> BaseProxyCache:
+        """
+        Create cache instance using advanced configuration.
+
+        This method supports full customization of enterprise features
+        through structured configuration objects.
+        """
+        from proxywhirl.models import CacheConfiguration
+
+        if cache_config.cache_type == CacheType.MEMORY:
+            return MemoryProxyCache()
+        elif cache_config.cache_type == CacheType.JSON:
+            cache_path = (
+                Path(cache_config.cache_path)
+                if cache_config.cache_path
+                else Path(".proxywhirl_cache.json")
+            )
+
+            json_config = cache_config.json_config
+            return JsonProxyCache(
+                cache_path=cache_path,
+                compression=json_config.compression,
+                enable_backups=json_config.enable_backups,
+                max_backup_count=json_config.max_backup_count,
+                integrity_checks=json_config.integrity_checks,
+                retry_attempts=json_config.retry_attempts,
+            )
+        elif cache_config.cache_type == CacheType.SQLITE:
+            cache_path = (
+                Path(cache_config.cache_path)
+                if cache_config.cache_path
+                else Path(".proxywhirl_cache.sqlite")
+            )
+
+            sqlite_config = cache_config.sqlite_config
+            return SQLiteProxyCache(
+                cache_path=cache_path,
+                connection_pool_size=sqlite_config.connection_pool_size,
+                connection_pool_recycle=sqlite_config.connection_pool_recycle,
+                enable_wal=sqlite_config.enable_wal,
+                create_tables=True,
+            )
+        else:
+            logger.warning(f"Unknown cache type: {cache_config.cache_type}, defaulting to memory")
+            return MemoryProxyCache()
+
+    def _create_rotator(self, rotation_strategy: RotationStrategy):
+        """
+        Create appropriate rotator instance based on strategy.
+
+        Enhanced strategies use async rotators for better performance.
+        """
+        # Import enhanced rotators
+        try:
+            from proxywhirl.rotator import (
+                AdaptiveMLRotator,
+                AsyncProxyRotator,
+                CircuitBreakerRotator,
+                ConsistentHashRotator,
+                GeoAwareRotator,
+                MetricsRotator,
+            )
+
+            if rotation_strategy == RotationStrategy.CIRCUIT_BREAKER:
+                return CircuitBreakerRotator(rotation_strategy)
+            elif rotation_strategy == RotationStrategy.METRICS_AWARE:
+                return MetricsRotator(rotation_strategy)
+            elif rotation_strategy == RotationStrategy.ML_ADAPTIVE:
+                return AdaptiveMLRotator(rotation_strategy)
+            elif rotation_strategy == RotationStrategy.CONSISTENT_HASH:
+                return ConsistentHashRotator(rotation_strategy)
+            elif rotation_strategy == RotationStrategy.GEO_AWARE:
+                return GeoAwareRotator(rotation_strategy)
+            elif rotation_strategy == RotationStrategy.ASYNC_ROUND_ROBIN:
+                return AsyncProxyRotator(rotation_strategy)
+            else:
+                # Default to standard rotator for basic strategies
+                return ProxyRotator(rotation_strategy)
+
+        except ImportError as e:
+            logger.warning(f"Enhanced rotator import failed: {e}. Using standard rotator.")
+            return ProxyRotator(rotation_strategy)
 
     def _create_loaders(self, enabled_loaders: Optional[List[str]] = None) -> List[BaseLoader]:
         """
@@ -568,7 +700,7 @@ class ProxyWhirl:
             )
 
         # Persist final set to cache.
-        self.cache.add_proxies(all_proxies)
+        self.cache.add_proxies_sync(all_proxies)
 
         logger.info(f"Total proxies loaded: {len(all_proxies)}")
         return len(all_proxies)
@@ -623,7 +755,7 @@ class ProxyWhirl:
             >>> proxy1 = await pw.get_proxy_async(session_id="user123")
             >>> proxy2 = await pw.get_proxy_async(session_id="user123")  # Same proxy as proxy1
         """
-        proxies = self.cache.get_proxies()
+        proxies = self.cache.get_proxies_sync()
 
         if not proxies:
             context = f"session {session_id}" if session_id else "proxy request"
@@ -634,7 +766,7 @@ class ProxyWhirl:
                 if fetched_count > 0:
                     logger.info(f"Auto-fetched {fetched_count} proxies")
                     # Get proxies from the now-populated cache
-                    proxies = self.cache.get_proxies()
+                    proxies = self.cache.get_proxies_sync()
                 else:
                     logger.warning("No proxies could be fetched from any loader")
                     return None
@@ -700,7 +832,7 @@ class ProxyWhirl:
         from .exporter import ProxyExporter
 
         # Get cached proxies
-        proxies = self.cache.get_proxies()
+        proxies = self.cache.get_proxies_sync()
         if not proxies:
             logger.warning("No proxies available for export")
             return ""
@@ -731,7 +863,7 @@ class ProxyWhirl:
         from .exporter import ProxyExporter
 
         # Get cached proxies
-        proxies = self.cache.get_proxies()
+        proxies = self.cache.get_proxies_sync()
         if not proxies:
             logger.warning("No proxies available for export")
             return "", 0
@@ -754,7 +886,7 @@ class ProxyWhirl:
         - Uses differentiated error handling instead of clearing entire cache.
         - Proxies are selectively removed, paused, or retained based on error types.
         """
-        proxies = self.cache.get_proxies()
+        proxies = self.cache.get_proxies_sync()
 
         if not proxies:
             logger.info("No proxies to validate")
@@ -824,13 +956,13 @@ class ProxyWhirl:
 
         # Apply selective removal instead of nuclear cache clear
         for proxy in proxies_to_remove:
-            self.cache.remove_proxy(proxy)
+            self.cache.remove_proxy_sync(proxy)
 
         for proxy in proxies_to_update:
-            self.cache.update_proxy(proxy)
+            self.cache.update_proxy_sync(proxy)
 
         # Count currently available (non-cooldown) proxies
-        remaining_proxies = self.cache.get_proxies()
+        remaining_proxies = self.cache.get_proxies_sync()
         available_count = sum(1 for p in remaining_proxies if p.error_state.is_available())
 
         logger.info(
@@ -956,7 +1088,7 @@ class ProxyWhirl:
         list[Proxy]
             Current snapshot of proxies in the cache.
         """
-        return self.cache.get_proxies()
+        return self.cache.get_proxies_sync()
 
     def update_proxy_health(
         self,
@@ -998,7 +1130,7 @@ class ProxyWhirl:
         if response_time is not None:
             proxy.response_time = response_time
             proxy.last_checked = datetime.now(timezone.utc)
-            self.cache.update_proxy(proxy)
+            self.cache.update_proxy_sync(proxy)
 
     def get_proxy_count(self) -> int:
         """
@@ -1009,7 +1141,7 @@ class ProxyWhirl:
         int
             Cache size.
         """
-        return len(self.cache.get_proxies())
+        return len(self.cache.get_proxies_sync())
 
     def clear_cache(self) -> None:
         """
@@ -1019,7 +1151,7 @@ class ProxyWhirl:
         -----
         - This operation is irreversible for the current process lifetime.
         """
-        self.cache.clear()
+        self.cache.clear_sync()
         logger.info("Proxy cache cleared")
 
     async def generate_health_report(self) -> str:
@@ -1037,16 +1169,17 @@ class ProxyWhirl:
 
         Notes
         -----
+        - Tests each loader's connectivity and functionality
         - May perform limited sampling validation to estimate quality.
         - Integrates validator circuit-breaker state and test endpoint status.
         """
         # Collect data from all components.
-        cache_stats = self.cache.get_stats() if hasattr(self.cache, "get_stats") else {}
+        cache_stats = await self.cache.get_health_metrics() if hasattr(self.cache, 'get_health_metrics') else None
         validator_stats = self.validator.get_validation_stats()
         validator_health = await self.validator.health_check()
 
         # Get current proxy status.
-        proxies = self.list_proxies()
+        proxies = await self.cache.get_proxies()
         total_proxies = len(proxies)
 
         # Generate validation summary if we have proxies (sampled for speed).
@@ -1067,22 +1200,123 @@ class ProxyWhirl:
             "",
         ]
 
-        # Add loader status
+        # Add loader status with actual connectivity testing
+        working_loaders: int = 0
+        broken_loaders: int = 0
+        
         if self.loaders:
             report_lines.extend(
                 [
-                    "## 🔄 Loader Status",
-                    "| Loader | Status | Last Update |",
-                    "|--------|--------|-------------|",
+                    "## 🔄 Loader Health Status",
+                    "| Loader | Status | Proxy Count | Response Time | Details |",
+                    "|--------|--------|-------------|---------------|---------|",
                 ]
             )
 
-            for loader in self.loaders:
-                status = "✅ Active" if hasattr(loader, "load") else "❌ Inactive"
-                last_update = getattr(loader, "last_update", "Never")
-                report_lines.append(f"| {loader.name} | {status} | {last_update} |")
+            # Test each loader concurrently with timeout
+            import asyncio
+            from datetime import datetime as dt, timezone as tz
+            
+            async def test_loader(loader):
+                """Test a single loader and return health metrics."""
+                start_time = dt.now(tz.utc)
+                
+                try:
+                    # Test connection with timeout
+                    can_connect = await asyncio.wait_for(loader.test_connection(), timeout=30.0)
+                    
+                    # Try to load a small sample if connection works
+                    proxy_count = 0
+                    if can_connect:
+                        try:
+                            async with loader:
+                                df = await asyncio.wait_for(loader.load_async(), timeout=30.0)
+                                proxy_count = len(df) if df is not None else 0
+                        except Exception as e:
+                            can_connect = False
+                            proxy_count = 0
+                            logger.debug(f"Load failed for {loader.name}: {e}")
+                    
+                    end_time = dt.now(tz.utc)
+                    response_time = (end_time - start_time).total_seconds()
+                    
+                    return {
+                        "name": loader.name,
+                        "working": can_connect,
+                        "proxy_count": proxy_count,
+                        "response_time": response_time,
+                        "details": "✅ Working" if can_connect else "❌ Failed to connect"
+                    }
+                    
+                except asyncio.TimeoutError:
+                    return {
+                        "name": loader.name,
+                        "working": False,
+                        "proxy_count": 0,
+                        "response_time": 30.0,
+                        "details": "❌ Timeout"
+                    }
+                except Exception as e:
+                    return {
+                        "name": loader.name,
+                        "working": False,
+                        "proxy_count": 0,
+                        "response_time": 0.0,
+                        "details": f"❌ Error: {str(e)[:50]}"
+                    }
 
-            report_lines.append("")
+            # Test all loaders concurrently
+            loader_tasks = [test_loader(loader) for loader in self.loaders]
+            loader_results = await asyncio.gather(*loader_tasks, return_exceptions=True)
+
+            # Process results and build table
+            for result in loader_results:
+                if isinstance(result, Exception):
+                    # Handle unexpected exceptions
+                    report_lines.append("| Unknown | ❌ Error | 0 | N/A | Exception occurred |")
+                    broken_loaders += 1
+                    continue
+                    
+                # Format the result
+                status_emoji = "✅" if result["working"] else "❌"
+                status = f"{status_emoji} {'Working' if result['working'] else 'Broken'}"
+                proxy_count = result["proxy_count"]
+                response_time = f"{result['response_time']:.2f}s"
+                details = result["details"]
+                
+                report_lines.append(
+                    f"| {result['name']} | {status} | {proxy_count} | {response_time} | {details} |"
+                )
+                
+                if result["working"]:
+                    working_loaders += 1
+                else:
+                    broken_loaders += 1
+
+            # Add summary statistics
+            total_loaders = working_loaders + broken_loaders
+            success_rate = (working_loaders / total_loaders * 100) if total_loaders > 0 else 0
+            
+            report_lines.extend([
+                "",
+                f"**Loader Summary:** {working_loaders}/{total_loaders} working ({success_rate:.1f}% success rate)",
+                ""
+            ])
+
+            # Add broken loader recommendations
+            if broken_loaders > 0:
+                report_lines.extend([
+                    "### ⚠️ Broken Loaders Detected",
+                    f"Found {broken_loaders} non-functional loader(s). These should be investigated or removed.",
+                    ""
+                ])
+
+        else:
+            report_lines.extend([
+                "## 🔄 Loader Health Status",
+                "No loaders configured.",
+                ""
+            ])
 
         # Add validation metrics if available
         if validation_summary:
@@ -1151,9 +1385,10 @@ class ProxyWhirl:
             report_lines.extend(
                 [
                     "## 💾 Cache Statistics",
-                    f"- **Cache Hits:** {cache_stats.get('hits', 'N/A')}",
-                    f"- **Cache Misses:** {cache_stats.get('misses', 'N/A')}",
-                    f"- **Cache Size:** {cache_stats.get('size', 'N/A')} items",
+                    f"- **Total Proxies:** {cache_stats.total_proxies}",
+                    f"- **Healthy Proxies:** {cache_stats.healthy_proxies}",
+                    f"- **Unhealthy Proxies:** {cache_stats.unhealthy_proxies}",
+                    f"- **Success Rate:** {cache_stats.success_rate:.1%}",
                     "",
                 ]
             )
@@ -1176,6 +1411,16 @@ class ProxyWhirl:
 
         if total_proxies < 10:
             recommendations.append("📊 Low proxy count - consider enabling more loader sources")
+
+        # Add loader-specific recommendations
+        if broken_loaders > 0:
+            recommendations.append(f"🔧 Fix {broken_loaders} broken loader(s) or remove them from the configuration")
+
+        if working_loaders == 0 and self.loaders:
+            recommendations.append("❌ No working loaders found - all proxy sources are currently unavailable")
+
+        if not recommendations and working_loaders == len(self.loaders):
+            recommendations.append("✅ All systems healthy - no issues detected")
 
         if recommendations:
             report_lines.extend(

@@ -161,9 +161,9 @@ class TestTheSpeedXHttpLoader:
         assert len(result) == 2
         assert all(result["protocol"] == "http")
 
-    @given(st.lists(proxy_line_strategy, min_size=1, max_size=10))
     @patch("proxywhirl.loaders.the_speedx.httpx.Client")
-    def test_property_load_with_generated_proxies(self, proxy_lines, mock_client):
+    @given(st.lists(proxy_line_strategy, min_size=1, max_size=10))
+    def test_property_load_with_generated_proxies(self, mock_client, proxy_lines):
         """Property-based test with generated proxy data."""
         proxy_text = "\n".join(proxy_lines)
 
@@ -189,9 +189,9 @@ class TestTheSpeedXHttpLoader:
             assert all(isinstance(port, int) for port in result["port"])
             assert all(1 <= port <= 65535 for port in result["port"])
 
-    @given(st.text(alphabet=st.characters(blacklist_categories=["Cc"]), min_size=0, max_size=1000))
     @patch("proxywhirl.loaders.the_speedx.httpx.Client")
-    def test_property_load_with_random_text(self, random_text, mock_client):
+    @given(st.text(alphabet=st.characters(blacklist_categories=["Cc"]), min_size=0, max_size=1000))
+    def test_property_load_with_random_text(self, mock_client, random_text):
         """Property-based test with random text input."""
         # Skip empty strings and strings that might be accidentally valid
         assume(random_text.strip() != "")

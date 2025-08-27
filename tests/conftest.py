@@ -31,6 +31,7 @@ def mock_async_httpx_client():
     mock_response = MagicMock(spec=httpx.Response)
     mock_response.status_code = 200
     mock_response.text = "Success"
+    mock_response.headers = {}  # Fix: Add missing headers attribute
     mock_response.json.return_value = {"success": True}
     mock_response.raise_for_status.return_value = None
 
@@ -52,7 +53,10 @@ def mock_proxy_validator():
         proxy=None,  # Will be set by test
         is_valid=True,
         response_time=0.5,
-        error=None,
+        error_type=None,
+        error_message=None,
+        status_code=200,
+        test_url="https://httpbin.org/ip",
         timestamp=datetime.now(timezone.utc),
     )
 
@@ -690,6 +694,9 @@ def loader_http_mock_factory():
         def create_sequence_mock(self, response_sequence: list, **kwargs):
             """Create mock that returns different responses in sequence."""
             mock_client = MagicMock()
+            # Support both sync and async context managers
+            mock_client.__enter__ = Mock(return_value=mock_client)
+            mock_client.__exit__ = Mock(return_value=None)
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
 
@@ -700,15 +707,22 @@ def loader_http_mock_factory():
                     responses.append(self._create_response_mock(content=resp_config))
                 elif isinstance(resp_config, dict):
                     # Full configuration
-                    responses.append(self._create_response_mock(**resp_config))
+                    if "raises" in resp_config:
+                        # Exception response
+                        exception = resp_config["raises"]
+                        mock_resp = Mock()
+                        mock_resp.side_effect = exception
+                        responses.append(exception)
+                    else:
+                        # Normal response
+                        responses.append(self._create_response_mock(**resp_config))
                 else:
                     # Exception
-                    mock_resp = Mock()
-                    mock_resp.get.side_effect = resp_config
-                    responses.append(mock_resp)
+                    responses.append(resp_config)
 
-            mock_client.get = AsyncMock(side_effect=responses)
-            mock_client.post = AsyncMock(side_effect=responses)
+            # Use both sync and async side effects for compatibility
+            mock_client.get = Mock(side_effect=responses)
+            mock_client.post = Mock(side_effect=responses)
 
             return mock_client
 
@@ -722,18 +736,21 @@ def loader_http_mock_factory():
         ):
             """Internal method to create HTTP mock."""
             mock_client = MagicMock()
+            # Support both sync and async context managers
+            mock_client.__enter__ = Mock(return_value=mock_client)
+            mock_client.__exit__ = Mock(return_value=None)
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
 
             if raises:
-                mock_client.get = AsyncMock(side_effect=raises)
-                mock_client.post = AsyncMock(side_effect=raises)
+                mock_client.get = Mock(side_effect=raises)
+                mock_client.post = Mock(side_effect=raises)
             else:
                 mock_response = self._create_response_mock(
                     content, status_code, content_type, **kwargs
                 )
-                mock_client.get = AsyncMock(return_value=mock_response)
-                mock_client.post = AsyncMock(return_value=mock_response)
+                mock_client.get = Mock(return_value=mock_response)
+                mock_client.post = Mock(return_value=mock_response)
 
             return mock_client
 

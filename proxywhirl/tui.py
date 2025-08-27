@@ -829,19 +829,14 @@ class ProxyWhirlTUI(App[None]):
     TITLE = "ProxyWhirl - Advanced Proxy Management TUI"
     SUB_TITLE = "Fetch • Validate • Export • Monitor"
 
+    BINDINGS = [
+        Binding("f", "refresh", "Refresh", priority=True),
+        Binding("v", "validate", "Validate", priority=True),
+        Binding("e", "export", "Export", priority=True),
+        Binding("ctrl+c", "quit", "Quit", priority=True),
+    ]
+
     CSS = """
-    /* Modern color variables */
-    :root {
-        --primary-gradient: linear-gradient(90deg, $primary, $accent);
-        --success-gradient: linear-gradient(90deg, $success, $success-lighten-2);
-        --danger-gradient: linear-gradient(90deg, $error, $error-lighten-2);
-    }
-    
-    /* Animated loading indicator */
-    LoadingIndicator {
-        color: $accent;
-    }
-    
     .status-ready {
         color: $success;
         text-style: bold;
@@ -865,7 +860,7 @@ class ProxyWhirlTUI(App[None]):
         row-span: 2;
         border: thick $primary;
         padding: 1;
-        background: linear-gradient(180deg, $surface, $surface-darken-1);
+        background: $surface;
         border-radius: 1;
     }
     
@@ -884,7 +879,7 @@ class ProxyWhirlTUI(App[None]):
         border: thick $accent;
         padding: 1;
         height: 12;
-        background: linear-gradient(90deg, $surface, $surface-lighten-1);
+        background: $surface;
         border-radius: 1;
     }
     
@@ -912,14 +907,14 @@ class ProxyWhirlTUI(App[None]):
     }
     
     ProgressBar > .bar--complete {
-        background: linear-gradient(90deg, $success, $success-lighten-2);
+        background: $success;
     }
     
     /* Sparkline styling with health color coding */
     Sparkline {
         height: 3;
         margin: 1 0;
-        border: solid $muted;
+        border: solid $text-muted;
         border-radius: 1;
     }
     
@@ -928,11 +923,11 @@ class ProxyWhirlTUI(App[None]):
     }
     
     .sparkline-health {
-        background: linear-gradient(90deg, $error-darken-1, $success-darken-1);
+        background: $success;
     }
     
     .sparkline-throughput {
-        background: linear-gradient(90deg, $accent-darken-1, $primary-darken-1);
+        background: $primary;
     }
     
     /* Health metrics row styling */
@@ -985,7 +980,7 @@ class ProxyWhirlTUI(App[None]):
     
     Button:hover {
         text-style: bold;
-        color: $text-lighten-2;
+        color: $accent;
     }
     
     Button:focus {
@@ -996,7 +991,7 @@ class ProxyWhirlTUI(App[None]):
     .export-modal, .settings-modal, .health-modal {
         width: 90;
         height: 40;
-        background: linear-gradient(180deg, $surface, $surface-lighten-1);
+        background: $surface;
         border: thick $primary;
         border-radius: 2;
         padding: 2;
@@ -1006,7 +1001,7 @@ class ProxyWhirlTUI(App[None]):
     .health-modal {
         width: 95;
         height: 45;
-        background: linear-gradient(180deg, $surface, $accent-lighten-3);
+        background: $surface;
     }
     
     .health-content {
@@ -1060,14 +1055,14 @@ class ProxyWhirlTUI(App[None]):
         width: 50%;
         margin: 0 1;
         padding: 1;
-        border: solid $muted;
+        border: solid $text-muted;
         border-radius: 1;
         background: $surface-lighten-1;
     }
     
     .settings-section {
         margin: 1 0 2 0;
-        border: solid $muted;
+        border: solid $text-muted;
         border-radius: 1;
         padding: 2;
         background: $surface-lighten-1;
@@ -1085,7 +1080,7 @@ class ProxyWhirlTUI(App[None]):
     
     /* Enhanced input styling */
     .export-input, .settings-input {
-        border: solid $muted;
+        border: solid $text-muted;
         border-radius: 1;
         padding: 1;
         margin: 1 0;
@@ -1106,7 +1101,7 @@ class ProxyWhirlTUI(App[None]):
     
     /* RadioSet styling */
     RadioSet {
-        border: solid $muted;
+        border: solid $text-muted;
         border-radius: 1;
         padding: 1;
         background: $surface;
@@ -1120,12 +1115,6 @@ class ProxyWhirlTUI(App[None]):
     
     RadioButton:hover {
         background: $surface-lighten-1;
-    }
-    
-    RadioButton:checked {
-        background: $primary-lighten-3;
-        color: $primary;
-        text-style: bold;
     }
     
     /* Tab styling enhancements */
@@ -1147,7 +1136,7 @@ class ProxyWhirlTUI(App[None]):
     }
     
     DataTable > .datatable--header {
-        background: linear-gradient(90deg, $primary-lighten-3, $accent-lighten-3);
+        background: $primary-lighten-3;
         text-style: bold;
         color: $primary;
     }
@@ -1166,7 +1155,7 @@ class ProxyWhirlTUI(App[None]):
     Log {
         height: 1fr;
         scrollbar-size-vertical: 1;
-        border: solid $muted;
+        border: solid $text-muted;
         border-radius: 1;
         background: $surface;
         padding: 1;
@@ -1174,7 +1163,7 @@ class ProxyWhirlTUI(App[None]):
     
     /* Rule styling */
     Rule {
-        color: $muted;
+        color: $text-muted;
         margin: 1 0;
     }
     
@@ -1187,7 +1176,7 @@ class ProxyWhirlTUI(App[None]):
     
     /* Collapsible enhancements */
     Collapsible {
-        border: solid $muted;
+        border: solid $text-muted;
         border-radius: 1;
         margin: 1 0;
         background: $surface-lighten-1;

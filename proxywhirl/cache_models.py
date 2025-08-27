@@ -22,6 +22,7 @@ from typing import List, Optional
 
 from sqlmodel import (
     Field,
+    Index,
     Relationship,
     SQLModel,
 )
@@ -43,6 +44,15 @@ class ProxyRecord(SQLModel, table=True):
     """
 
     __tablename__ = "proxy_records"
+    __table_args__ = (
+        # Composite indexes for performance optimization
+        Index("idx_host_port", "host", "port"),  # Primary lookup pattern
+        Index("idx_status_country", "status", "country_code"),  # Geographic filtering
+        Index("idx_source_status", "source", "status"),  # Source reliability tracking
+        Index("idx_updated_status", "updated_at", "status"),  # Recent active proxies
+        Index("idx_country_quality", "country_code", "quality_score"),  # Geographic analytics
+        Index("idx_anonymity_quality", "anonymity", "quality_score"),  # Quality filtering
+    )
 
     # Primary identification
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
@@ -78,7 +88,7 @@ class ProxyRecord(SQLModel, table=True):
     # JSON fields for complex data
     credentials: Optional[str] = Field(None, description="JSON-serialized credentials")
     capabilities: Optional[str] = Field(None, description="JSON-serialized capabilities")
-    metadata: str = Field(default="{}", description="JSON-serialized metadata")
+    proxy_metadata: str = Field(default="{}", description="JSON-serialized metadata")
     target_health: str = Field(default="{}", description="JSON-serialized target health status")
 
     # Relationships
@@ -108,6 +118,16 @@ class HealthMetric(SQLModel, table=True):
     """
 
     __tablename__ = "health_metrics"
+    __table_args__ = (
+        # Time-series optimized indexes
+        Index("idx_proxy_timestamp", "proxy_record_id", "timestamp"),  # Time-series queries
+        Index(
+            "idx_timestamp_desc", "timestamp", postgresql_ops={"timestamp": "DESC"}
+        ),  # Recent metrics first
+        Index("idx_check_type_timestamp", "check_type", "timestamp"),  # Check type analysis
+        Index("idx_target_status", "target_url", "status_code"),  # Target reliability
+        Index("idx_response_time_timestamp", "response_time", "timestamp"),  # Performance trends
+    )
 
     # Primary key and relationships
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
@@ -132,10 +152,6 @@ class HealthMetric(SQLModel, table=True):
     bytes_transferred: Optional[int] = Field(None, ge=0)
     connection_time: Optional[Decimal] = Field(None, decimal_places=6, max_digits=10)
 
-    class Config:
-        # Enable foreign key constraint checking
-        arbitrary_types_allowed = True
-
 
 class PerformanceHistory(SQLModel, table=True):
     """
@@ -149,6 +165,19 @@ class PerformanceHistory(SQLModel, table=True):
     """
 
     __tablename__ = "performance_history"
+    __table_args__ = (
+        # Performance analytics indexes
+        Index(
+            "idx_proxy_window", "proxy_record_id", "window_start", "window_end"
+        ),  # Time range queries
+        Index("idx_window_type_start", "window_type", "window_start"),  # Window type analysis
+        Index(
+            "idx_success_rate_quality", "success_rate", "quality_score"
+        ),  # Performance correlation
+        Index(
+            "idx_window_end_desc", "window_end", postgresql_ops={"window_end": "DESC"}
+        ),  # Recent windows first
+    )
 
     # Primary key and relationships
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)

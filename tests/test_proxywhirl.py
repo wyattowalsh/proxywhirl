@@ -453,6 +453,7 @@ class TestProxyWhirlIntegration:
         assert isinstance(validate_result, int)
 
     @pytest.mark.integration
+    @pytest.mark.asyncio
     async def test_multi_cache_backend_integration(self, temp_cache_paths: Dict[str, Path]) -> None:
         """Test integration across different cache backends."""
         # Test data
@@ -490,6 +491,7 @@ class TestProxyWhirlIntegration:
         assert sqlite_count == json_count  # Should have same data
 
     @pytest.mark.integration
+    @pytest.mark.asyncio
     async def test_rotation_strategy_integration(self, temp_cache_path: Path) -> None:
         """Test integration of different rotation strategies with cache and validation."""
         test_proxies: list[dict[str, Any]] = [
@@ -524,6 +526,7 @@ class TestProxyWhirlIntegration:
             pw.clear_cache()
 
     @pytest.mark.integration
+    @pytest.mark.asyncio
     async def test_loader_cache_validator_pipeline(self, temp_cache_path: Path) -> None:
         """Test complete data pipeline: loaders → cache → validator → rotator."""
         pw = ProxyWhirl(cache_type=CacheType.JSON, cache_path=temp_cache_path)
@@ -552,6 +555,7 @@ class TestProxyWhirlIntegration:
             assert final_count >= 0
 
     @pytest.mark.integration
+    @pytest.mark.asyncio
     async def test_concurrent_operations_integration(self, temp_cache_path: Path) -> None:
         """Test concurrent operations across components."""
         pw = ProxyWhirl(cache_type=CacheType.JSON, cache_path=temp_cache_path)
@@ -581,6 +585,7 @@ class TestProxyWhirlIntegration:
             assert len(exceptions) == 0
 
     @pytest.mark.integration
+    @pytest.mark.asyncio
     async def test_error_propagation_and_recovery(self, temp_cache_path: Path) -> None:
         """Test error propagation and recovery across components."""
         pw = ProxyWhirl(cache_type=CacheType.JSON, cache_path=temp_cache_path)
@@ -605,6 +610,7 @@ class TestProxyWhirlIntegration:
             assert isinstance(result, int)  # Should not raise
 
     @pytest.mark.integration
+    @pytest.mark.asyncio
     async def test_session_management_integration(self) -> None:
         """Test session management across async operations."""
         pw = ProxyWhirl()
@@ -654,6 +660,7 @@ class TestProxyWhirlIntegration:
             assert "Overview" in report
 
     @pytest.mark.integration
+    @pytest.mark.asyncio
     async def test_comprehensive_workflow_with_real_components(self, temp_cache_path: Path) -> None:
         """Test comprehensive workflow using real component interactions (with controlled mocking)."""
         pw = ProxyWhirl(

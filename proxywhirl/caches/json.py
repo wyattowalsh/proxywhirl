@@ -21,7 +21,12 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from proxywhirl.caches.base import BaseProxyCache, CacheFilters, CacheMetrics
+from proxywhirl.caches.base import (
+    BaseProxyCache,
+    CacheFilters,
+    CacheMetrics,
+    DuplicateStrategy,
+)
 from proxywhirl.models import CacheType, Proxy
 
 
@@ -36,8 +41,11 @@ class JsonProxyCache(BaseProxyCache):
         max_backup_count: int = 5,
         integrity_checks: bool = True,
         retry_attempts: int = 3,
+        duplicate_strategy: Optional[DuplicateStrategy] = None,
     ):
-        super().__init__(CacheType.JSON, cache_path)
+        if duplicate_strategy is None:
+            duplicate_strategy = DuplicateStrategy.UPDATE
+        super().__init__(CacheType.JSON, cache_path, duplicate_strategy)
 
         # Configuration
         self.compression = compression
@@ -170,9 +178,18 @@ class JsonProxyCache(BaseProxyCache):
             else:
                 raise ValueError(f"Unknown cache format: {type(data)}")
 
-            # Convert to Proxy objects
-            self._proxies = [Proxy(**item) for item in proxy_data]
-            logger.info(f"Loaded {len(self._proxies)} proxies from {file_path}")
+            # Convert to Proxy objects using Pydantic V2 performance optimization
+            if proxy_data:
+                # For performance, use model_validate instead of Proxy(**item)
+                # This provides better performance while maintaining validation
+                # Note: For max performance on trusted data, could use model_construct()
+                # but we keep validation for data integrity
+                self._proxies = [Proxy.model_validate(item) for item in proxy_data]
+            else:
+                self._proxies = []
+            logger.info(
+                f"Loaded {len(self._proxies)} proxies from {file_path} using optimized Pydantic V2 validation"
+            )
             return True
 
         except Exception as e:
@@ -288,83 +305,288 @@ class JsonProxyCache(BaseProxyCache):
         await self._update_metrics()
 
     async def get_health_metrics(self) -> CacheMetrics:
-        """Get cache health metrics."""
+        """Get comprehensive cache health metrics with advanced analytics."""
         await self._ensure_initialized()
+
+        # Enhanced metrics calculation
+        total_count = len(self._proxies)
+        healthy_count = sum(1 for p in self._proxies if p.is_healthy)
+
+        # Update basic metrics
+        self._metrics.total_proxies = total_count
+        self._metrics.healthy_proxies = healthy_count
+        self._metrics.unhealthy_proxies = total_count - healthy_count
+        self._metrics.last_updated = datetime.now(timezone.utc)
+
+        # File system metrics
+        if self.cache_path and self.cache_path.exists():
+            file_size = self.cache_path.stat().st_size / (1024 * 1024)  # MB
+            self._metrics.disk_usage_mb = file_size
+
+        # Geographic distribution
+        self._metrics.geographic_distribution = {}
+        for proxy in self._proxies:
+            country = proxy.country_code or "UNKNOWN"
+            self._metrics.geographic_distribution[country] = (
+                self._metrics.geographic_distribution.get(country, 0) + 1
+            )
+
+        # Source reliability tracking
+        source_scores: Dict[str, List[float]] = {}
+        for proxy in self._proxies:
+            source = proxy.source or "UNKNOWN"
+            if source not in source_scores:
+                source_scores[source] = []
+            # Store quality scores for averaging
+            if hasattr(proxy, "quality_score") and proxy.quality_score is not None:
+                source_scores[source].append(proxy.quality_score)
+
+        # Convert to averages
+        self._metrics.source_reliability = {}
+        for source, scores in source_scores.items():
+            if scores:
+                self._metrics.source_reliability[source] = sum(scores) / len(scores)
+            else:
+                self._metrics.source_reliability[source] = 0.0
+
+        # Quality distribution
+        quality_ranges = {"high": 0, "medium": 0, "low": 0, "unknown": 0}
+        for proxy in self._proxies:
+            if hasattr(proxy, "quality_score") and proxy.quality_score is not None:
+                score = proxy.quality_score
+                if score >= 0.8:
+                    quality_ranges["high"] += 1
+                elif score >= 0.5:
+                    quality_ranges["medium"] += 1
+                else:
+                    quality_ranges["low"] += 1
+            else:
+                quality_ranges["unknown"] += 1
+        self._metrics.quality_distribution = quality_ranges
+
+        # Response time metrics
+        response_times = [p.response_time for p in self._proxies if p.response_time is not None]
+        if response_times:
+            self._metrics.avg_response_time = sum(response_times) / len(response_times)
+
+        self._metrics.success_rate = healthy_count / total_count if total_count > 0 else 0.0
+
         return self._metrics
 
-    # === File Operations ===
+    async def get_disk_usage(self) -> float:
+        """Get disk usage in MB including backups."""
+        total_size = 0.0
 
-    async def _load_from_file(self) -> None:
-        """Load proxies from JSON file with error recovery."""
-        if not self.cache_path or not self.cache_path.exists():
-            return
+        # Main cache file
+        if self.cache_path and self.cache_path.exists():
+            total_size += self.cache_path.stat().st_size
 
-        try:
-            # Try loading main file
-            with open(self.cache_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
+        # Backup files if enabled
+        if self.enable_backups and self.cache_path:
+            backup_pattern = f"{self.cache_path.stem}_backup_*{self.cache_path.suffix}"
+            for backup_file in self.cache_path.parent.glob(backup_pattern):
+                total_size += backup_file.stat().st_size
 
-            # Convert to Proxy objects
-            self._proxies = []
-            for item in data:
-                try:
-                    proxy = Proxy.model_validate(item)
-                    self._proxies.append(proxy)
-                except Exception as e:
-                    # Log but continue with other proxies
-                    print(f"Warning: Failed to parse proxy {item}: {e}")
+        return total_size / (1024 * 1024)  # Convert to MB
 
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"Error loading cache from {self.cache_path}: {e}")
+    async def get_performance_trends(self, hours: int = 24) -> Dict[str, Any]:
+        """Get simulated performance trends for JSON cache."""
+        # JSON cache doesn't persist historical data, return current snapshot
+        current_metrics = await self.get_health_metrics()
 
-            # Try backup file
-            if self.backup_path.exists():
-                try:
-                    print(f"Attempting recovery from backup: {self.backup_path}")
-                    with open(self.backup_path, "r", encoding="utf-8") as f:
-                        data = json.load(f)
+        # Create a simple trend with current values
+        current_time = datetime.now(timezone.utc).isoformat()
+        snapshot = {
+            "timestamp": current_time,
+            "avg_success_rate": current_metrics.success_rate,
+            "avg_response_time": current_metrics.avg_response_time,
+            "measurements": current_metrics.total_proxies,
+            "successful_checks": current_metrics.healthy_proxies,
+        }
 
-                    self._proxies = [Proxy.model_validate(item) for item in data]
-                    print(f"Successfully recovered {len(self._proxies)} proxies from backup")
-
-                except Exception as backup_error:
-                    print(f"Backup recovery failed: {backup_error}")
-                    self._proxies = []
-            else:
-                self._proxies = []
+        return {"hourly_trends": [snapshot]}  # Single snapshot since no historical data
 
     async def _save_to_file(self) -> None:
-        """Atomically save proxies to JSON file with backup."""
+        """Atomically save proxies to JSON file with enterprise features."""
         if not self.cache_path:
             return
 
-        try:
-            # Create backup of current file
-            if self.cache_path.exists():
-                self.cache_path.replace(self.backup_path)
+        save_start = time.time()
 
-            # Prepare data for JSON serialization
-            data = []
+        try:
+            # Create timestamped backup if enabled
+            if self.enable_backups and self.cache_path.exists():
+                await self._create_timestamped_backup()
+
+            # Prepare data with metadata and integrity checking
+            proxy_data = []
+            serialization_errors = 0
+
             for proxy in self._proxies:
                 try:
-                    # Use Pydantic's serialization with proper datetime handling
+                    # Use Pydantic V2 model_dump with performance optimization
                     proxy_dict = proxy.model_dump(mode="json")
-                    data.append(proxy_dict)
+                    proxy_data.append(proxy_dict)
                 except Exception as e:
-                    print(f"Warning: Failed to serialize proxy {proxy.host}:{proxy.port}: {e}")
+                    logger.warning(f"Failed to serialize proxy {proxy.host}:{proxy.port}: {e}")
+                    serialization_errors += 1
 
-            # Atomic write using temporary file
-            with tempfile.NamedTemporaryFile(
-                mode="w", dir=self.cache_path.parent, delete=False, encoding="utf-8"
-            ) as temp_file:
-                json.dump(data, temp_file, indent=2, ensure_ascii=False)
-                temp_path = Path(temp_file.name)
+            # Construct cache file data with metadata
+            cache_data = {
+                "format_version": "2.0",
+                "proxies": proxy_data,
+                "metadata": {
+                    "saved_at": datetime.now(timezone.utc).isoformat(),
+                    "proxy_count": len(proxy_data),
+                    "serialization_errors": serialization_errors,
+                    "compression_enabled": self.compression,
+                    "backup_enabled": self.enable_backups,
+                    "cache_stats": dict(self._file_stats),
+                },
+            }
 
-            # Atomic move
-            temp_path.replace(self.cache_path)
+            # Add integrity checksum if enabled
+            if self.integrity_checks:
+                # Calculate checksum of the proxy data only (excluding checksum field)
+                checksum_data = {
+                    "format_version": cache_data["format_version"],
+                    "proxies": proxy_data,
+                    "metadata": cache_data["metadata"],
+                }
+                checksum = hashlib.sha256(
+                    json.dumps(checksum_data, sort_keys=True).encode()
+                ).hexdigest()
+                cache_data["checksum"] = checksum
+
+            # Serialize to JSON string
+            json_content = json.dumps(cache_data, indent=2, ensure_ascii=False)
+
+            # Atomic write with compression support
+            temp_path = await self._atomic_write_with_compression(json_content)
+
+            # Final atomic move
+            if temp_path:
+                temp_path.replace(self.cache_path)
+
+                # Update statistics
+                self._file_stats["saves"] += 1
+                save_time = time.time() - save_start
+                self._file_stats["avg_save_time"] = (
+                    self._file_stats["avg_save_time"] * (self._file_stats["saves"] - 1) + save_time
+                ) / self._file_stats["saves"]
+
+                # Calculate compression ratio if enabled
+                if self.compression:
+                    original_size = len(json_content.encode())
+                    compressed_size = self.cache_path.stat().st_size
+                    self._file_stats["compression_ratio"] = compressed_size / original_size
+
+                logger.debug(
+                    f"Cache saved to {self.cache_path} in {save_time:.3f}s ({len(proxy_data)} proxies)"
+                )
 
         except Exception as e:
-            print(f"Failed to save cache to {self.cache_path}: {e}")
+            logger.error(f"Failed to save cache to {self.cache_path}: {e}")
+            # Attempt retry if configured
+            if hasattr(self, "retry_attempts") and self.retry_attempts > 1:
+                for attempt in range(1, self.retry_attempts):
+                    try:
+                        logger.info(
+                            f"Retrying cache save (attempt {attempt + 1}/{self.retry_attempts})"
+                        )
+                        time.sleep(0.5 * attempt)  # Exponential backoff
+                        # Retry the atomic write only
+                        temp_path = await self._atomic_write_with_compression(json_content)
+                        if temp_path:
+                            temp_path.replace(self.cache_path)
+                            logger.info(f"Cache save succeeded on attempt {attempt + 1}")
+                            break
+                    except Exception as retry_e:
+                        logger.warning(f"Retry attempt {attempt + 1} failed: {retry_e}")
+                        if attempt == self.retry_attempts - 1:
+                            logger.error("All retry attempts failed")
+                            raise
+
+    async def _atomic_write_with_compression(self, content: str) -> Optional[Path]:
+        """Perform atomic write with optional compression."""
+        try:
+            if self.compression:
+                # Write compressed content
+                with tempfile.NamedTemporaryFile(
+                    mode="wb", dir=self.cache_path.parent, delete=False, suffix=".gz.tmp"
+                ) as temp_file:
+                    with gzip.open(temp_file, "wt", encoding="utf-8", compresslevel=6) as gz_file:
+                        gz_file.write(content)
+                    return Path(temp_file.name)
+            else:
+                # Write uncompressed content
+                with tempfile.NamedTemporaryFile(
+                    mode="w",
+                    dir=self.cache_path.parent,
+                    delete=False,
+                    suffix=".json.tmp",
+                    encoding="utf-8",
+                ) as temp_file:
+                    temp_file.write(content)
+                    return Path(temp_file.name)
+        except Exception as e:
+            logger.error(f"Atomic write failed: {e}")
+            return None
+
+    async def _create_timestamped_backup(self) -> bool:
+        """Create a timestamped backup file."""
+        if not self.backup_dir or not self.cache_path.exists():
+            return False
+
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_filename = f"{self.cache_path.stem}_backup_{timestamp}{self.cache_path.suffix}"
+            backup_path = self.backup_dir / backup_filename
+
+            # Copy current file to backup location
+            await self._atomic_copy(self.cache_path, backup_path)
+
+            # Clean up old backups if needed
+            await self._cleanup_old_backups()
+
+            logger.debug(f"Created backup: {backup_path}")
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to create backup: {e}")
+            return False
+
+    async def _atomic_copy(self, source: Path, destination: Path) -> None:
+        """Perform atomic file copy."""
+        with tempfile.NamedTemporaryFile(
+            dir=destination.parent, delete=False, suffix=".tmp"
+        ) as temp_file:
+            with open(source, "rb") as src:
+                temp_file.write(src.read())
+            temp_path = Path(temp_file.name)
+
+        temp_path.replace(destination)
+
+    async def _cleanup_old_backups(self) -> None:
+        """Clean up old backup files based on max_backup_count."""
+        if not self.backup_dir or self.max_backup_count <= 0:
+            return
+
+        try:
+            backup_pattern = f"{self.cache_path.stem}_backup_*.json*"
+            backup_files = sorted(
+                self.backup_dir.glob(backup_pattern), key=lambda p: p.stat().st_mtime, reverse=True
+            )
+
+            # Remove excess backups
+            for old_backup in backup_files[self.max_backup_count :]:
+                try:
+                    old_backup.unlink()
+                    logger.debug(f"Removed old backup: {old_backup}")
+                except Exception as e:
+                    logger.warning(f"Failed to remove old backup {old_backup}: {e}")
+
+        except Exception as e:
+            logger.warning(f"Backup cleanup failed: {e}")
 
     # === JSON-Specific Methods ===
 

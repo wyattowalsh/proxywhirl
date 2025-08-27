@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum, auto
 from ipaddress import IPv4Address, IPv6Address, ip_address
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union, cast
 
 from pydantic import (
@@ -187,6 +188,13 @@ class RotationStrategy(StrEnum):
     WEIGHTED = auto()
     HEALTH_BASED = "health_based"
     LEAST_USED = "least_used"
+    # Enhanced rotation strategies
+    ASYNC_ROUND_ROBIN = "async_round_robin"
+    CIRCUIT_BREAKER = "circuit_breaker"
+    METRICS_AWARE = "metrics_aware"
+    ML_ADAPTIVE = "ml_adaptive"
+    CONSISTENT_HASH = "consistent_hash"
+    GEO_AWARE = "geo_aware"
 
 
 class ValidationErrorType(StrEnum):
@@ -211,6 +219,138 @@ class ErrorHandlingPolicy(StrEnum):
     COOLDOWN_MEDIUM = "cooldown_medium"  # Rate limiting (1-5 minutes)
     COOLDOWN_LONG = "cooldown_long"  # Severe issues (10-30 minutes)
     BLACKLIST = "blacklist"  # Permanently ban proxy
+
+
+class CircuitState(StrEnum):
+    """Circuit breaker states for enhanced error handling."""
+
+    CLOSED = "closed"  # Normal operation
+    OPEN = "open"  # Circuit breaker tripped, blocking requests
+    HALF_OPEN = "half_open"  # Testing if service recovered
+
+
+class MLFeatureType(StrEnum):
+    """Types of ML features for adaptive proxy selection."""
+
+    SUCCESS_RATE = "success_rate"
+    RESPONSE_TIME = "response_time"
+    TOTAL_REQUESTS = "total_requests"
+    CONSECUTIVE_FAILURES = "consecutive_failures"
+    TIME_SINCE_LAST_CHECK = "time_since_last_check"
+    ANONYMITY_SCORE = "anonymity_score"
+    COUNTRY_RELIABILITY = "country_reliability"
+    HOUR_OF_DAY = "hour_of_day"
+    DAY_OF_WEEK = "day_of_week"
+
+
+# === Cache Configuration Models ===
+
+
+class JsonCacheConfig(BaseModel):
+    """Configuration for enterprise JSON cache features."""
+
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
+
+    # Enterprise features
+    compression: bool = Field(
+        default=True,
+        description="Enable gzip compression for JSON files (saves ~60-80% disk space)",
+    )
+    enable_backups: bool = Field(
+        default=True, description="Create automatic backups for corruption recovery"
+    )
+    max_backup_count: int = Field(
+        default=5, ge=1, le=50, description="Maximum number of backup files to retain"
+    )
+    integrity_checks: bool = Field(
+        default=True, description="Verify file integrity using checksums and validation"
+    )
+    retry_attempts: int = Field(
+        default=3, ge=1, le=10, description="Number of retry attempts for failed operations"
+    )
+
+    # Performance tuning
+    atomic_writes: bool = Field(
+        default=True, description="Use atomic write operations for data consistency"
+    )
+    flush_interval_seconds: float = Field(
+        default=30.0, ge=1.0, le=300.0, description="Automatic flush interval in seconds"
+    )
+
+
+class SqliteCacheConfig(BaseModel):
+    """Configuration for enterprise SQLite cache features."""
+
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
+
+    # Connection and performance
+    connection_pool_size: int = Field(
+        default=10, ge=1, le=100, description="Maximum connections in the pool"
+    )
+    connection_pool_recycle: int = Field(
+        default=3600, ge=300, le=86400, description="Connection recycling interval in seconds"
+    )
+    enable_wal: bool = Field(
+        default=True, description="Enable Write-Ahead Logging for better concurrency"
+    )
+
+    # Data retention
+    health_metrics_retention_days: int = Field(
+        default=30, ge=1, le=365, description="Number of days to retain health metrics"
+    )
+    auto_vacuum: bool = Field(default=True, description="Enable automatic database vacuuming")
+
+
+class CacheConfiguration(BaseModel):
+    """Unified cache configuration for all cache types."""
+
+    model_config = ConfigDict(
+        str_strip_whitespace=True,
+        validate_assignment=True,
+        extra="forbid",
+    )
+
+    cache_type: CacheType = Field(
+        default=CacheType.JSON, description="Type of cache backend to use"
+    )
+    cache_path: Optional[str] = Field(
+        default=None, description="Custom cache file path (auto-generated if None)"
+    )
+
+    # Backend-specific configurations
+    json_config: JsonCacheConfig = Field(
+        default_factory=JsonCacheConfig, description="Configuration for JSON cache backend"
+    )
+    sqlite_config: SqliteCacheConfig = Field(
+        default_factory=SqliteCacheConfig, description="Configuration for SQLite cache backend"
+    )
+
+    @field_validator("cache_path")
+    @classmethod
+    def validate_cache_path(cls, v: Optional[str]) -> Optional[str]:
+        """Validate cache path format."""
+        if v is None:
+            return v
+
+        path = Path(v)
+
+        # Ensure parent directory exists or can be created
+        parent = path.parent
+        if not parent.exists():
+            try:
+                parent.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                raise ValueError(f"Cannot create cache directory {parent}: {e}")
+
+        return str(path)
 
 
 # === Target-Based Validation Models ===

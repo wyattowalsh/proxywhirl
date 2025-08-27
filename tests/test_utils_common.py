@@ -13,7 +13,13 @@ from unittest.mock import AsyncMock, MagicMock, Mock
 import httpx
 import pytest
 
-from proxywhirl.models import AnonymityLevel, Proxy, Scheme
+from proxywhirl.models import (
+    AnonymityLevel,
+    Proxy,
+    Scheme,
+    ValidationErrorType,
+)
+from proxywhirl.validator import ValidationResult
 
 
 class AsyncTestUtils:
@@ -52,13 +58,14 @@ class HttpxMockUtils:
     def create_mock_response(
         status_code: int = 200,
         text: str = "Success",
-        json_data: Optional[Dict] = None,
+        json_data: Optional[Dict[str, Any]] = None,
         raises: Optional[Exception] = None,
     ) -> Mock:
         """Create a mock httpx.Response."""
         mock_response = Mock(spec=httpx.Response)
         mock_response.status_code = status_code
         mock_response.text = text
+        mock_response.headers = {"Content-Type": "text/plain"}  # Add headers attribute
         mock_response.json.return_value = json_data or {"success": True}
 
         if raises:
@@ -69,7 +76,7 @@ class HttpxMockUtils:
         return mock_response
 
     @staticmethod
-    def create_mock_client(response_config: Dict = None) -> MagicMock:
+    def create_mock_client(response_config: Optional[Dict[str, Any]] = None) -> MagicMock:
         """Create a mock httpx.AsyncClient."""
         config = response_config or {}
         response = HttpxMockUtils.create_mock_response(**config)
@@ -83,7 +90,7 @@ class HttpxMockUtils:
         return mock_client
 
     @staticmethod
-    def create_error_scenarios():
+    def create_error_scenarios() -> Dict[str, Exception]:
         """Create common HTTP error scenarios."""
         return {
             "timeout": httpx.TimeoutException("Request timed out"),
@@ -104,7 +111,7 @@ class ProxyTestDataFactory:
     def create_proxy(
         host: str = "192.168.1.1",
         port: int = 8080,
-        schemes: List[Scheme] = None,
+        schemes: Optional[List[Scheme]] = None,
         country_code: str = "US",
         anonymity: AnonymityLevel = AnonymityLevel.ELITE,
         response_time: Optional[float] = 0.5,
@@ -118,11 +125,6 @@ class ProxyTestDataFactory:
             ip=ip_address(host),
             port=port,
             schemes=schemes,
-            country_code=country_code,
-            anonymity=anonymity,
-            last_checked=datetime.now(timezone.utc),
-            response_time=response_time,
-            source="test",
         )
 
     @staticmethod
@@ -163,14 +165,17 @@ class ValidationTestUtils:
     @staticmethod
     def create_mock_validator(is_valid: bool = True, response_time: float = 0.5):
         """Create a mock ProxyValidator."""
-        from proxywhirl.validator import ValidationResult
-
         mock_validator = MagicMock()
+        # Create a minimal proxy for validation result
+        test_proxy = ProxyTestDataFactory.create_proxy()
         result = ValidationResult(
-            proxy=None,  # Will be set by tests
+            proxy=test_proxy,
             is_valid=is_valid,
             response_time=response_time,
-            error=None if is_valid else "Validation failed",
+            error_type=None if is_valid else ValidationErrorType.UNKNOWN,
+            error_message=None if is_valid else "Validation failed",
+            status_code=200 if is_valid else None,
+            test_url="https://httpbin.org/ip",
             timestamp=datetime.now(timezone.utc),
         )
 

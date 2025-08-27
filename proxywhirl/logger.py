@@ -1,6 +1,7 @@
 """proxywhirl/logger.py -- logger for proxywhirl"""
 
 import logging
+import sys
 from typing import Optional
 
 from loguru import logger
@@ -10,27 +11,40 @@ from rich.logging import RichHandler
 from rich.theme import Theme
 
 # 1. Create a Rich Console for consistent styling
-# Using a custom theme for log levels
-# From richuru
+# Using a custom theme for log levels with optimized compact styling
 custom_theme = Theme(
     {
         "info": "cyan",
-        "success": "green",
+        "success": "bold green",
         "warning": "yellow",
         "error": "bold red",
         "critical": "bold magenta",
-        "debug": "dim",
+        "debug": "dim cyan",
         # for rich handler
         "logging.level.info": "cyan",
-        "logging.level.success": "green",
+        "logging.level.success": "bold green",
         "logging.level.warning": "yellow",
         "logging.level.error": "bold red",
         "logging.level.critical": "bold magenta",
-        "logging.level.debug": "dim",
+        "logging.level.debug": "dim cyan",
+        # compact level styles
+        "level.info": "cyan",
+        "level.success": "bold green",
+        "level.warning": "yellow",
+        "level.error": "bold red",
+        "level.critical": "bold magenta",
+        "level.debug": "dim cyan",
     }
 )
 
-console = Console(theme=custom_theme, stderr=True)
+# Optimized console with width optimization and compact output
+console = Console(
+    theme=custom_theme,
+    stderr=True,
+    width=120,  # Optimal width for most terminals
+    force_terminal=True,  # Ensure colors in various environments
+    highlight=False,  # Reduce visual noise for compact output
+)
 
 
 # 2. Intercept standard logging
@@ -49,27 +63,24 @@ class InterceptHandler(logging.Handler):
         logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
-# 3. Configure loguru
-# Remove default handler
+# 3. Configure loguru with compact, optimized settings
 logger.remove()
-logger.configure(
-    handlers=[
-        {
-            "sink": RichHandler(
-                console=console,
-                show_time=True,
-                show_level=True,
-                show_path=True,
-                rich_tracebacks=True,
-                tracebacks_show_locals=True,
-                highlighter=ReprHighlighter(),
-                markup=True,
-            ),
-            "format": "{message}",  # Let RichHandler do the formatting
-            "level": "INFO",
-        }
-    ],
-    extra={"app_name": "proxywhirl"},  # Example extra
+logger.add(
+    RichHandler(
+        console=console,
+        show_time=False,  # Compact: Time shown in format string
+        show_level=False,  # Compact: Level shown in format string
+        show_path=False,  # Compact: Hide file paths
+        rich_tracebacks=True,
+        tracebacks_show_locals=False,  # Compact: Reduce traceback verbosity
+        highlighter=ReprHighlighter(),
+        markup=True,
+        keywords=[],  # Reduce highlighting noise
+    ),
+    # Compact format with inline time and level styling
+    format="<dim>{time:HH:mm:ss}</dim> <level>{level: <8}</level> <cyan>|</cyan> {message}",
+    level="INFO",
+    colorize=True,  # Enable loguru color support
 )
 
 # 4. Set up intercept handler
@@ -79,38 +90,36 @@ logging.basicConfig(handlers=[InterceptHandler()], level=0, force=True)
 def setup_logger(
     level: str = "INFO", file_path: Optional[str] = None, rich_enabled: bool = True
 ) -> None:
-    """Setup logger with configurable options."""
+    """Setup logger with configurable options for compact, well-styled output."""
     logger.remove()
 
-    handlers = []
     if rich_enabled:
-        handlers.append(
-            {
-                "sink": RichHandler(
-                    console=console,
-                    show_time=True,
-                    show_level=True,
-                    show_path=True,
-                    rich_tracebacks=True,
-                    tracebacks_show_locals=True,
-                    highlighter=ReprHighlighter(),
-                    markup=True,
-                ),
-                "format": "{message}",
-                "level": level,
-            }
+        logger.add(
+            RichHandler(
+                console=console,
+                show_time=False,  # Compact: Time shown in format string
+                show_level=False,  # Compact: Level shown in format string
+                show_path=False,  # Compact: Remove file paths for cleaner output
+                rich_tracebacks=True,
+                tracebacks_show_locals=False,  # Compact: Reduce local variable verbosity
+                highlighter=ReprHighlighter(),
+                markup=True,
+                keywords=[],  # Reduce highlighting noise
+            ),
+            # Compact format: short time, styled level, clean message
+            format="<dim>{time:HH:mm:ss}</dim> <level>{level: <8}</level> <cyan>|</cyan> {message}",
+            level=level,
+            colorize=True,
         )
 
     if file_path:
-        handlers.append(
-            {
-                "sink": file_path,
-                "format": "{time:YYYY-MM-DD HH:mm:ss} | {level} | {name}:{function}:{line} | {message}",
-                "level": level,
-            }
+        logger.add(
+            file_path,
+            # File format can be more verbose since it's for debugging
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} | {message}",
+            level=level,
+            colorize=False,
         )
-
-    logger.configure(handlers=handlers, extra={"app_name": "proxywhirl"})
 
 
 def get_logger(name: Optional[str] = None):
@@ -119,8 +128,15 @@ def get_logger(name: Optional[str] = None):
 
 
 def configure_rich_logging(enabled: bool = True) -> None:
-    """Configure Rich logging integration."""
+    """Configure Rich logging integration with compact styling."""
     if enabled:
         setup_logger(rich_enabled=True)
     else:
-        setup_logger(rich_enabled=False)
+        # Simple non-rich logger for compact output
+        logger.remove()
+        logger.add(
+            sys.stderr,
+            format="<dim>{time:HH:mm:ss}</dim> <level>{level: <8}</level> <cyan>|</cyan> {message}",
+            level="INFO",
+            colorize=False,
+        )

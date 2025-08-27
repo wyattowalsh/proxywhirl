@@ -47,7 +47,11 @@ class TheSpeedXHttpLoader(BaseLoader):
                     continue
                 rows.append({"host": host, "port": port, "protocol": "http"})
 
-            df = pd.DataFrame(rows)
+            # Create DataFrame with proper columns even if empty
+            if rows:
+                df = pd.DataFrame(rows)
+            else:
+                df = pd.DataFrame(columns=["host", "port", "protocol"])
             logger.info(f"Loaded {len(df)} proxies from {self.name}")
             return df
         except Exception as e:  # pragma: no cover - network variability
@@ -77,7 +81,11 @@ class TheSpeedXHttpLoader(BaseLoader):
                     continue
                 rows.append({"host": host, "port": port, "protocol": "http"})
 
-            df = pd.DataFrame(rows)
+            # Create DataFrame with proper columns even if empty
+            if rows:
+                df = pd.DataFrame(rows)
+            else:
+                df = pd.DataFrame(columns=["host", "port", "protocol"])
             logger.info(f"Loaded {len(df)} proxies from {self.name}")
             return df
         except Exception as e:  # pragma: no cover - network variability
@@ -121,7 +129,11 @@ class TheSpeedXSocksLoader(BaseLoader):
                             continue
                         rows.append({"host": host, "port": port, "protocol": proto})
 
-            df = pd.DataFrame(rows)
+            # Create DataFrame with proper columns even if empty
+            if rows:
+                df = pd.DataFrame(rows)
+            else:
+                df = pd.DataFrame(columns=["host", "port", "protocol"])
             logger.info(f"Loaded {len(df)} proxies from {self.name}")
             return df
         except Exception as e:  # pragma: no cover - network variability

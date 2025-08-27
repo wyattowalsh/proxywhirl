@@ -379,7 +379,8 @@ class TestRotatorIntegration:
         # Set up mixed states
         proxies[0].status = ProxyStatus.ACTIVE  # Healthy
         proxies[1].status = ProxyStatus.BLACKLISTED  # Should be excluded
-        proxies[2].error_state = ErrorState()  # Error state but might recover
+        from proxywhirl.models import ProxyErrorState
+        proxies[2].error_state = ProxyErrorState()  # Error state but might recover
         proxies[3].status = ProxyStatus.ACTIVE  # Healthy
         proxies[4].status = ProxyStatus.INACTIVE  # Might be used in emergency
 
@@ -440,6 +441,212 @@ class TestRotatorIntegration:
             max_usage = max(usage_counts.values())
             # Difference shouldn't be too large for least-used strategy
             assert max_usage - min_usage <= 5
+
+
+# Enhanced rotation strategies tests
+class TestEnhancedRotationStrategies:
+    """Test enhanced rotation strategies (circuit breaker, metrics-aware, ML, etc.)."""
+
+    @pytest.mark.asyncio
+    async def test_enhanced_strategy_factory_integration(self):
+        """Test that ProxyWhirl factory creates enhanced rotators correctly."""
+        from proxywhirl.proxywhirl import ProxyWhirl
+
+        # Test enhanced strategies can be created
+        enhanced_strategies = [
+            RotationStrategy.CIRCUIT_BREAKER,
+            RotationStrategy.METRICS_AWARE,
+            RotationStrategy.ML_ADAPTIVE,
+            RotationStrategy.CONSISTENT_HASH,
+            RotationStrategy.GEO_AWARE,
+            RotationStrategy.ASYNC_ROUND_ROBIN,
+        ]
+
+        for strategy in enhanced_strategies:
+            pw = ProxyWhirl(rotation_strategy=strategy)
+            rotator = pw._create_rotator(strategy)
+            assert rotator is not None
+            assert rotator.strategy == strategy
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_basic_functionality(self):
+        """Test circuit breaker rotator basic functionality."""
+        try:
+            from proxywhirl.rotator import CircuitBreakerRotator
+        except ImportError:
+            pytest.skip("Enhanced rotators not available")
+
+        rotator = CircuitBreakerRotator(RotationStrategy.CIRCUIT_BREAKER)
+        proxies = _proxies(3)
+
+        # Should work initially
+        proxy = await rotator.get_proxy_async(proxies)
+        assert proxy is not None
+        assert proxy in proxies
+
+        # Test sync fallback compatibility
+        proxy_sync = rotator.get_proxy(proxies)
+        assert proxy_sync is not None
+        assert proxy_sync in proxies
+
+        # Test health tracking
+        rotator.update_health_score(proxy, success=True, response_time=0.5)
+        rotator.update_health_score(proxy, success=False, response_time=2.0)
+
+    @pytest.mark.asyncio
+    async def test_metrics_aware_basic_functionality(self):
+        """Test metrics-aware rotator basic functionality."""
+        try:
+            from unittest.mock import patch
+
+            from proxywhirl.rotator import MetricsRotator
+        except ImportError:
+            pytest.skip("Enhanced rotators not available")
+
+        with patch("proxywhirl.rotator.CollectorRegistry") as mock_registry:
+            # Make the mock return a mock instance
+            mock_registry.return_value = mock_registry
+            rotator = MetricsRotator(RotationStrategy.METRICS_AWARE)
+            proxies = _proxies(3)
+
+            # Should work without metrics data
+            proxy = await rotator.get_proxy_async(proxies)
+            assert proxy is not None
+            assert proxy in proxies
+
+            # Test performance tracking
+            rotator.update_health_score(proxy, success=True, response_time=0.3)
+
+    @pytest.mark.asyncio
+    async def test_ml_adaptive_basic_functionality(self):
+        """Test ML adaptive rotator basic functionality."""
+        try:
+            from proxywhirl.rotator import AdaptiveMLRotator
+        except ImportError:
+            pytest.skip("Enhanced rotators not available")
+
+        rotator = AdaptiveMLRotator(RotationStrategy.ML_ADAPTIVE)
+        proxies = _proxies(3)
+
+        # Should work before training
+        proxy = await rotator.get_proxy_async(proxies)
+        assert proxy is not None
+        assert proxy in proxies
+
+        # Test learning capability
+        rotator.update_health_score(proxy, success=True, response_time=0.4)
+
+    @pytest.mark.asyncio
+    async def test_consistent_hash_session_affinity(self):
+        """Test consistent hash rotator provides session affinity."""
+        try:
+            from proxywhirl.rotator import ConsistentHashRotator
+        except ImportError:
+            pytest.skip("Enhanced rotators not available")
+
+        rotator = ConsistentHashRotator(RotationStrategy.CONSISTENT_HASH)
+        proxies = _proxies(3)
+        session_id = "test_session_123"
+
+        # Same session should get same proxy
+        proxy1 = await rotator.get_proxy_for_session_async(session_id, proxies)
+        proxy2 = await rotator.get_proxy_for_session_async(session_id, proxies)
+
+        assert proxy1 == proxy2
+        assert proxy1 is not None
+
+    @pytest.mark.asyncio
+    async def test_geo_aware_basic_functionality(self):
+        """Test geo-aware rotator basic functionality."""
+        try:
+            from proxywhirl.rotator import GeoAwareRotator
+        except ImportError:
+            pytest.skip("Enhanced rotators not available")
+
+        rotator = GeoAwareRotator(RotationStrategy.GEO_AWARE)
+        proxies = _proxies(3)
+
+        # Should work even without geolocation data
+        proxy = await rotator.get_proxy_async(proxies)
+        assert proxy is not None
+        assert proxy in proxies
+
+    @pytest.mark.asyncio
+    async def test_async_round_robin_functionality(self):
+        """Test async round robin rotator functionality."""
+        try:
+            from proxywhirl.rotator import AsyncProxyRotator
+        except ImportError:
+            pytest.skip("Enhanced rotators not available")
+
+        rotator = AsyncProxyRotator(RotationStrategy.ASYNC_ROUND_ROBIN)
+        proxies = _proxies(3)
+
+        # Should work like round robin
+        proxy1 = await rotator.get_proxy_async(proxies)
+        proxy2 = await rotator.get_proxy_async(proxies)
+
+        assert proxy1 is not None
+        assert proxy2 is not None
+        assert proxy1 in proxies
+        assert proxy2 in proxies
+
+    def test_enhanced_strategy_enums_exist(self):
+        """Test that enhanced rotation strategy enums exist."""
+        # Test new rotation strategies
+        assert hasattr(RotationStrategy, "ASYNC_ROUND_ROBIN")
+        assert hasattr(RotationStrategy, "CIRCUIT_BREAKER")
+        assert hasattr(RotationStrategy, "METRICS_AWARE")
+        assert hasattr(RotationStrategy, "ML_ADAPTIVE")
+        assert hasattr(RotationStrategy, "CONSISTENT_HASH")
+        assert hasattr(RotationStrategy, "GEO_AWARE")
+
+        # Verify they are valid enum values
+        assert RotationStrategy.ASYNC_ROUND_ROBIN in RotationStrategy
+        assert RotationStrategy.CIRCUIT_BREAKER in RotationStrategy
+        assert RotationStrategy.METRICS_AWARE in RotationStrategy
+        assert RotationStrategy.ML_ADAPTIVE in RotationStrategy
+        assert RotationStrategy.CONSISTENT_HASH in RotationStrategy
+        assert RotationStrategy.GEO_AWARE in RotationStrategy
+
+    def test_enhanced_rotator_fallback_compatibility(self):
+        """Test enhanced rotators maintain backward compatibility with standard interface."""
+        try:
+            from proxywhirl.rotator import AsyncProxyRotator
+        except ImportError:
+            pytest.skip("Enhanced rotators not available")
+
+        # Test that enhanced rotators still work with sync interface
+        rotator = AsyncProxyRotator(RotationStrategy.ASYNC_ROUND_ROBIN)
+        proxies = _proxies(3)
+
+        # Sync methods should work
+        proxy = rotator.get_proxy(proxies)
+        assert proxy is not None
+        assert proxy in proxies
+
+        # Session methods should work
+        session_proxy = rotator.get_proxy_for_session("test", proxies)
+        assert session_proxy is not None
+        assert session_proxy in proxies
+
+    @pytest.mark.asyncio
+    async def test_enhanced_rotator_error_handling(self):
+        """Test enhanced rotators handle errors gracefully."""
+        try:
+            from proxywhirl.rotator import CircuitBreakerRotator
+        except ImportError:
+            pytest.skip("Enhanced rotators not available")
+
+        rotator = CircuitBreakerRotator(RotationStrategy.CIRCUIT_BREAKER)
+
+        # Should handle empty proxy list
+        proxy = await rotator.get_proxy_async([])
+        assert proxy is None
+
+        # Should handle invalid proxy data gracefully
+        proxy = rotator.get_proxy([])
+        assert proxy is None
 
 
 # Performance benchmarks

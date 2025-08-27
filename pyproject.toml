@@ -7,22 +7,38 @@ requires-python = ">=3.13"
 dependencies = [
     "aiocache>=0.12.3",
     "aiohttp>=3.12.15",
+    "fastapi[all]>=0.116.1",
+    "gunicorn>=20.1.0",
     "httpx>=0.28.1",
     "loguru>=0.7.3",
+    "orjson>=3.10.5",
     "pandas>=2.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "prometheus-fastapi-instrumentator>=7.0.0",
+    "psutil>=6.1.0",
     "pydantic>=2.11.7",
     "pydantic-settings>=2.9.1",
     "python-dotenv>=1.1.0",
+    "python-jose[cryptography]>=3.3.0",
+    "python-multipart>=0.0.6",
     "pyyaml>=6.0.2",
     "rich>=14.0.0",
-    "sqlmodel[all]>=0.0.24",
+    "secure>=0.3.0",
+    "slowapi>=0.1.9",
+    "sqlmodel>=0.0.24",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "aiosqlite>=0.19.0",
     "tenacity>=9.1.2",
-    "textual[all,syntax]>=5.3.0",
+    "textual[syntax]>=5.3.0",
     "typer>=0.16.0",
     "typing-extensions>=4.12.2",
+    "uvicorn[standard]>=0.30.0",
 ]
 
 [dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
 format = [
     "autoflake>=2.3.1",
     "autopep8>=2.3.2",

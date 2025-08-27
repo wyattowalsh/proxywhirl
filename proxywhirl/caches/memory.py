@@ -18,7 +18,12 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
 
-from proxywhirl.caches.base import BaseProxyCache, CacheFilters, CacheMetrics
+from proxywhirl.caches.base import (
+    BaseProxyCache,
+    CacheFilters,
+    CacheMetrics,
+    DuplicateStrategy,
+)
 from proxywhirl.models import CacheType, Proxy
 
 
@@ -31,8 +36,11 @@ class MemoryProxyCache(BaseProxyCache):
         ttl_seconds: int = 3600,
         eviction_batch_size: int = 100,
         enable_stats: bool = True,
+        duplicate_strategy: Optional[DuplicateStrategy] = None,
     ):
-        super().__init__(CacheType.MEMORY, None)
+        if duplicate_strategy is None:
+            duplicate_strategy = DuplicateStrategy.UPDATE
+        super().__init__(CacheType.MEMORY, None, duplicate_strategy)
 
         # Configuration
         self.max_size = max_size
@@ -228,17 +236,106 @@ class MemoryProxyCache(BaseProxyCache):
         self._update_metrics(current_proxies)
 
     async def get_health_metrics(self) -> CacheMetrics:
-        """Get comprehensive cache health metrics."""
+        """Get comprehensive cache health metrics with enhanced analytics."""
         with self._lock:
             cache_size = len(self._cache)
+            current_proxies = [proxy for proxy, _, _, _ in self._cache.values()]
 
             # Update base metrics
             self._metrics.cache_hits = self._stats["hits"]
             self._metrics.cache_misses = self._stats["misses"]
+            self._metrics.cache_evictions = self._stats["evictions"]
             self._metrics.total_proxies = cache_size
             self._metrics.last_updated = datetime.now(timezone.utc)
 
+            # Calculate proxy health distribution
+            healthy_count = sum(1 for p in current_proxies if p.is_healthy)
+            self._metrics.healthy_proxies = healthy_count
+            self._metrics.unhealthy_proxies = cache_size - healthy_count
+
+            # Geographic distribution
+            self._metrics.geographic_distribution = {}
+            for proxy in current_proxies:
+                country = proxy.country_code or "UNKNOWN"
+                self._metrics.geographic_distribution[country] = (
+                    self._metrics.geographic_distribution.get(country, 0) + 1
+                )
+
+            # Source reliability tracking
+            source_scores: Dict[str, List[float]] = {}
+            for proxy in current_proxies:
+                source = proxy.source or "UNKNOWN"
+                if source not in source_scores:
+                    source_scores[source] = []
+                # Store quality scores for averaging
+                if hasattr(proxy, "quality_score") and proxy.quality_score is not None:
+                    source_scores[source].append(proxy.quality_score)
+
+            # Convert to averages
+            self._metrics.source_reliability = {}
+            for source, scores in source_scores.items():
+                if scores:
+                    self._metrics.source_reliability[source] = sum(scores) / len(scores)
+                else:
+                    self._metrics.source_reliability[source] = 0.0
+
+            # Quality distribution
+            quality_ranges = {"high": 0, "medium": 0, "low": 0, "unknown": 0}
+            for proxy in current_proxies:
+                if hasattr(proxy, "quality_score") and proxy.quality_score is not None:
+                    score = proxy.quality_score
+                    if score >= 0.8:
+                        quality_ranges["high"] += 1
+                    elif score >= 0.5:
+                        quality_ranges["medium"] += 1
+                    else:
+                        quality_ranges["low"] += 1
+                else:
+                    quality_ranges["unknown"] += 1
+            self._metrics.quality_distribution = quality_ranges
+
+            # Response time metrics
+            response_times = [
+                p.response_time for p in current_proxies if p.response_time is not None
+            ]
+            if response_times:
+                self._metrics.avg_response_time = sum(response_times) / len(response_times)
+                self._metrics.success_rate = healthy_count / cache_size if cache_size > 0 else 0.0
+
         return self._metrics
+
+    async def get_memory_usage(self) -> float:
+        """Calculate approximate memory usage in MB."""
+        import sys
+
+        with self._lock:
+            # Rough estimation of memory usage
+            total_size = sys.getsizeof(self._cache)
+            for key, (proxy, expiry, score, access_count) in self._cache.items():
+                total_size += sys.getsizeof(key)
+                total_size += sys.getsizeof(proxy.model_dump())  # Approximate proxy size
+                total_size += sys.getsizeof(expiry) if expiry else 0
+                total_size += sys.getsizeof(score) if score else 0
+                total_size += sys.getsizeof(access_count)
+
+        return total_size / (1024 * 1024)  # Convert to MB
+
+    async def get_performance_trends(self, hours: int = 24) -> Dict[str, Any]:
+        """Get simulated performance trends for memory cache."""
+        # Memory cache doesn't persist historical data, return current snapshot
+        current_metrics = await self.get_health_metrics()
+
+        # Create a simple trend with current values
+        current_time = datetime.now(timezone.utc).isoformat()
+        snapshot = {
+            "timestamp": current_time,
+            "avg_success_rate": current_metrics.success_rate,
+            "avg_response_time": current_metrics.avg_response_time,
+            "measurements": current_metrics.total_proxies,
+            "successful_checks": current_metrics.healthy_proxies,
+        }
+
+        return {"hourly_trends": [snapshot]}  # Single snapshot since no historical data
 
     # === Advanced Memory Cache Analytics ===
 

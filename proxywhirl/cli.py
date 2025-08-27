@@ -129,57 +129,92 @@ T = TypeVar("T")
 cli_state = ProxyWhirlState()
 
 
-@app.callback()
+# Add working callback to fix CLI parameter parsing
+@app.callback(invoke_without_command=True)
 def main_callback(
     ctx: typer.Context,
-    config: Annotated[
-        Optional[Path],
-        typer.Option(
-            None,
-            "--config",
-            "-c",
-            help="[accent]Path to YAML configuration file[/accent]",
-            exists=False,
-            file_okay=True,
-            dir_okay=False,
-            readable=True,
-            resolve_path=True,
-        ),
-    ] = None,
-    verbose: Annotated[
+    version: Annotated[
         bool,
         typer.Option(
-            False,
-            "--verbose",
-            "-v",
-            help="[info]Enable verbose output[/info]",
-        ),
-    ] = False,
-    quiet: Annotated[
-        bool,
-        typer.Option(
-            False,
-            "--quiet",
-            "-q",
-            help="[dim]Suppress non-essential output[/dim]",
+            "--version/--no-version",
+            help="[dim]Show version and exit[/dim]",
         ),
     ] = False,
 ) -> None:
-    """ProxyWhirl CLI - Advanced proxy management toolkit with YAML configuration support."""
-    if verbose and quiet:
-        raise typer.BadParameter("Cannot use --verbose and --quiet together")
+    """[bold]ProxyWhirl[/bold] - [italic]Advanced proxy management toolkit[/italic]
 
-    cli_state.debug = verbose
-    cli_state.quiet = quiet
+    A modern, high-performance proxy management system.
+    """
+    if version:
+        from . import __version__
 
-    # Load configuration file if provided
-    try:
-        cli_state.load_config_file(config)
-    except ProxyWhirlError as e:
-        cli_state.console.print(f"[error]Configuration Error:[/error] {e.message}")
-        if e.suggestion:
-            cli_state.console.print(f"[warning]Suggestion:[/warning] {e.suggestion}")
-        raise typer.Exit(1)
+        console = Console()
+        console.print(f"ProxyWhirl version {__version__}")
+        raise typer.Exit()
+
+    # Make state available to all commands
+    ctx.obj = cli_state
+
+    if ctx.invoked_subcommand is None:
+        console = Console()
+        console.print("[error]No command specified. Use --help for available commands.[/error]")
+
+
+# @app.callback()
+# def main_callback(
+#     ctx: typer.Context,
+#     config: Annotated[
+#         Optional[Path],
+#         typer.Option(
+#             None,
+#             "--config",
+#             "-c",
+#             help="[accent]Path to YAML configuration file[/accent]",
+#             exists=False,
+#             file_okay=True,
+#             dir_okay=False,
+#             readable=True,
+#             resolve_path=True,
+#         ),
+#     ] = None,
+#     verbose: Annotated[
+#         bool, typer.Option("--verbose", "-v", help="[info]Enable verbose output[/info]")
+#     ] = False,
+#     quiet: Annotated[
+#         bool, typer.Option("--quiet", "-q", help="[dim]Suppress non-essential output[/dim]")
+#     ] = False,
+# ) -> None:
+#     """[bold]ProxyWhirl[/bold] - [italic]Advanced proxy management toolkit[/italic]
+
+#     A modern, high-performance proxy management system with intelligent rotation,
+#     validation, and rich reporting capabilities. Supports YAML configuration files
+#     for streamlined workflow management.
+#     """
+#     if verbose and quiet:
+#         raise typer.BadParameter("Cannot use --verbose and --quiet together")
+
+#     cli_state.debug = verbose
+#     cli_state.quiet = quiet
+
+#     # Make state available to all commands
+#     ctx.obj = cli_state
+
+#     # Load configuration file if provided
+#     try:
+#         cli_state.load_config_file(config)
+#     except ProxyWhirlError as e:
+#         cli_state.console.print(f"[error]Configuration Error:[/error] {e.message}")
+#         if e.suggestion:
+#             cli_state.console.print(f"[warning]Suggestion:[/warning] {e.suggestion}")
+#         raise typer.Exit(1)
+
+#     # Provide feedback for verbose mode
+#     if verbose:
+#         cli_state.console.print("[info]🔧 Verbose mode enabled[/info]")
+
+#     if quiet:
+#         # Reduce console output in quiet mode
+#         cli_state.console = Console(theme=PROXYWHIRL_THEME, quiet=True)
 
 
 def handle_error(error: Exception, console: Console) -> None:
@@ -338,43 +373,27 @@ def get_health_trend_arrow(current: float, previous: float = None) -> str:
         return "➡️"  # Stable
 
 
-@app.callback()
-def root_callback(
-    ctx: typer.Context,
-    debug: Annotated[
-        bool,
-        typer.Option("--debug", help="[warning]Enable debug mode with verbose output[/warning]"),
-    ] = False,
-    quiet: Annotated[
-        bool, typer.Option("--quiet", "-q", help="[dim]Suppress non-essential output[/dim]")
-    ] = False,
-) -> None:
-    """[bold]ProxyWhirl[/bold] - [italic]Advanced proxy management toolkit[/italic]
-
-    A modern, high-performance proxy management system with intelligent rotation,
-    validation, and rich reporting capabilities.
-    """
-    state = ProxyWhirlState()
-    state.debug = debug
-    state.quiet = quiet
-    ctx.obj = state
-
-    if debug:
-        state.console.print("[info]🔧 Debug mode enabled[/info]")
-
-    if quiet:
-        # Reduce console output in quiet mode
-        state.console = Console(theme=PROXYWHIRL_THEME, quiet=True)
-
-
 def validate_cache_consistency(ctx: typer.Context, param: typer.CallbackParam, value: Any) -> Any:
     """Callback to ensure cache_type and cache_path are consistent"""
     if not value:
         return value
 
     # Access other parameters through context
-    cache_type = ctx.params.get("cache_type", CacheType.MEMORY)
-    cache_path = ctx.params.get("cache_path")
+    # Try different parameter names depending on the command
+    cache_type = (
+        ctx.params.get("cache_type") or  # For older commands
+        ctx.params.get("fetch_cache_type") or  # For fetch command
+        ctx.params.get("get_cache_type") or  # For get command
+        ctx.params.get("health_cache_type") or  # For health command
+        CacheType.MEMORY
+    )
+    
+    cache_path = (
+        ctx.params.get("cache_path") or  # For older commands
+        ctx.params.get("fetch_cache_path") or  # For fetch command
+        ctx.params.get("get_cache_path") or  # For get command
+        ctx.params.get("health_cache_path")  # For health command
+    )
 
     if cache_type in [CacheType.JSON, CacheType.SQLITE] and not cache_path:
         raise typer.BadParameter(
@@ -390,23 +409,21 @@ def fetch(
     do_validate: Annotated[
         bool,
         typer.Option(
-            True,
             "--validate/--no-validate",
             help="[cyan]Validate proxies after fetching for better quality[/cyan]",
             rich_help_panel="🔍 Validation Options",
         ),
     ] = True,
-    cache_type: Annotated[
+    fetch_cache_type: Annotated[
         CacheType,
         typer.Option(
             CacheType.MEMORY,
             case_sensitive=False,
-            callback=validate_cache_consistency,
             help="[info]Cache backend: memory, json, or sqlite[/info]",
             rich_help_panel="💾 Cache Options",
         ),
     ] = CacheType.MEMORY,
-    cache_path: Annotated[
+    fetch_cache_path: Annotated[
         Optional[Path],
         typer.Option(
             None,
@@ -419,15 +436,14 @@ def fetch(
         typer.Option(
             RotationStrategy.ROUND_ROBIN,
             case_sensitive=False,
-            help="[info]Proxy rotation strategy[/info]",
+            help="[info]Proxy rotation strategy (use 'proxywhirl strategies' to see all options)[/info]",
             rich_help_panel="🔄 Rotation Options",
         ),
     ] = RotationStrategy.ROUND_ROBIN,
     interactive: Annotated[
         bool,
         typer.Option(
-            False,
-            "--interactive",
+            "--interactive/--no-interactive",
             "-i",
             help="[success]Show beautiful progress with Rich UI[/success]",
             rich_help_panel="🎨 Display Options",
@@ -477,8 +493,8 @@ def fetch(
     try:
         # Build ProxyWhirl kwargs with enhanced error context
         pw_kwargs: Dict[str, Any] = {
-            "cache_type": cache_type,
-            "cache_path": str(cache_path) if cache_path else None,
+            "cache_type": fetch_cache_type,
+            "cache_path": str(fetch_cache_path) if fetch_cache_path else None,
             "rotation_strategy": rotation_strategy,
             "auto_validate": do_validate,
         }
@@ -504,7 +520,7 @@ def fetch(
 
                 if ctx.obj.debug:
                     console.print(
-                        f"[dim]Debug: Using {cache_type.value} cache with {rotation_strategy.value} rotation[/dim]"
+                        f"[dim]Debug: Using {fetch_cache_type.value} cache with {rotation_strategy.value} rotation[/dim]"
                     )
 
                 count = _run(pw.fetch_proxies_async(do_validate))
@@ -742,7 +758,7 @@ def _print_table_filtered(
 @app.command(name="list", rich_help_panel="📋 Data Display")
 def list_cmd(
     ctx: typer.Context,
-    cache_type: Annotated[
+    list_cache_type: Annotated[
         CacheType,
         typer.Option(
             CacheType.MEMORY,
@@ -762,8 +778,7 @@ def list_cmd(
     json_out: Annotated[
         bool,
         typer.Option(
-            False,
-            "--json",
+            "--json/--no-json",
             help="[info]Output JSON instead of a beautiful table[/info]",
             rich_help_panel="📤 Output Options",
         ),
@@ -797,17 +812,17 @@ def list_cmd(
     console = ctx.obj.console
 
     try:
-        if cache_type in [CacheType.JSON, CacheType.SQLITE] and not cache_path:
+        if list_cache_type in [CacheType.JSON, CacheType.SQLITE] and not cache_path:
             handle_error(
                 ProxyWhirlError(
-                    f"Cache path required for {cache_type.value} cache",
-                    f"Add: --cache-path ./proxies.{cache_type.value.lower()}",
+                    f"Cache path required for {list_cache_type.value} cache",
+                    f"Add: --cache-path ./proxies.{list_cache_type.value.lower()}",
                 ),
                 console,
             )
 
         pw = ProxyWhirl(
-            cache_type=cache_type,
+            cache_type=list_cache_type,
             cache_path=str(cache_path) if cache_path else None,
         )
 
@@ -856,36 +871,36 @@ def list_cmd(
 
 
 # Backward-compatible alias
-@app.command(name="list-proxies", rich_help_panel="📋 Data Display")
-def list_proxies_alias(
-    ctx: typer.Context,
-    cache_type: Annotated[
-        CacheType,
-        typer.Option(
-            CacheType.MEMORY, case_sensitive=False, help="[info]Cache backend to read from[/info]"
-        ),
-    ] = CacheType.MEMORY,
-    cache_path: Annotated[
-        Optional[Path], typer.Option(None, help="[accent]Path to cache file[/accent]")
-    ] = None,
-    json_out: Annotated[
-        bool, typer.Option(False, "--json", help="[info]Output JSON instead of table[/info]")
-    ] = False,
-    limit: Annotated[
-        Optional[int],
-        typer.Option(None, "--limit", "-l", help="[cyan]Limit number of rows[/cyan]", min=1),
-    ] = None,
-) -> None:
-    """[dim]Alias for `list` command (deprecated, use `list` instead)[/dim]"""
-    # Call the main list command with proper context
-    list_cmd(ctx, cache_type, cache_path, json_out, limit)
+# @app.command(name="list-proxies", rich_help_panel="📋 Data Display")
+# def list_proxies_alias(
+#     ctx: typer.Context,
+#     cache_type: Annotated[
+#         CacheType,
+#         typer.Option(
+#             CacheType.MEMORY, case_sensitive=False, help="[info]Cache backend to read from[/info]"
+#         ),
+#     ] = CacheType.MEMORY,
+#     cache_path: Annotated[
+#         Optional[Path], typer.Option(None, help="[accent]Path to cache file[/accent]")
+#     ] = None,
+#     json_out: Annotated[
+#         bool, typer.Option("--json", help="[info]Output JSON instead of table[/info]")
+#     ] = False,
+#     limit: Annotated[
+#         Optional[int],
+#         typer.Option(None, "--limit", "-l", help="[cyan]Limit number of rows[/cyan]", min=1),
+#     ] = None,
+# ) -> None:
+#     """[dim]Alias for `list` command (deprecated, use `list` instead)[/dim]"""
+#     # Call the main list command with proper context
+#     list_cmd(ctx, cache_type, cache_path, json_out, limit)
 
 
 @app.command(rich_help_panel="📤 Data Export")
 def export(
     ctx: typer.Context,
     # Cache options
-    cache_type: Annotated[
+    export_cache_type: Annotated[
         CacheType,
         typer.Option(
             CacheType.MEMORY,
@@ -925,8 +940,7 @@ def export(
     overwrite: Annotated[
         bool,
         typer.Option(
-            False,
-            "--overwrite",
+            "--overwrite/--no-overwrite",
             help="[error]Allow overwriting existing output files[/error]",
             rich_help_panel="📝 Format Options",
         ),
@@ -1128,8 +1142,7 @@ def export(
     json_pretty: Annotated[
         bool,
         typer.Option(
-            False,
-            "--json-pretty",
+            "--json-pretty/--no-json-pretty",
             help="[accent]Pretty-format JSON output[/accent]",
             rich_help_panel="🎨 Format Styling",
         ),
@@ -1137,8 +1150,7 @@ def export(
     csv_no_headers: Annotated[
         bool,
         typer.Option(
-            False,
-            "--csv-no-headers",
+            "--csv-no-headers/--csv-headers",
             help="[dim]Omit headers in CSV output[/dim]",
             rich_help_panel="🎨 Format Styling",
         ),
@@ -1162,11 +1174,11 @@ def export(
 
     try:
         # Validate cache path requirement
-        if cache_type in [CacheType.JSON, CacheType.SQLITE] and not cache_path:
+        if export_cache_type in [CacheType.JSON, CacheType.SQLITE] and not cache_path:
             handle_error(
                 ProxyWhirlError(
-                    f"Cache path required for {cache_type.value} cache",
-                    f"Add: --cache-path ./proxies.{cache_type.value.lower()}",
+                    f"Cache path required for {export_cache_type.value} cache",
+                    f"Add: --cache-path ./proxies.{export_cache_type.value.lower()}",
                 ),
                 console,
             )
@@ -1177,7 +1189,7 @@ def export(
 
         # Create ProxyWhirl instance
         pw = ProxyWhirl(
-            cache_type=cache_type,
+            cache_type=export_cache_type,
             cache_path=str(cache_path) if cache_path else None,
         )
 
@@ -1359,7 +1371,7 @@ def _build_proxy_filter(
 @app.command(rich_help_panel="🔍 Validation & Quality")
 def validate(
     ctx: typer.Context,
-    cache_type: Annotated[
+    validate_cache_type: Annotated[
         CacheType,
         typer.Option(
             CacheType.MEMORY,
@@ -1399,7 +1411,6 @@ def validate(
     interactive: Annotated[
         bool,
         typer.Option(
-            True,
             "--interactive/--no-interactive",
             "-i",
             help="[success]Show progress with Rich UI[/success]",
@@ -1415,11 +1426,11 @@ def validate(
     console = ctx.obj.console
 
     try:
-        if cache_type in [CacheType.JSON, CacheType.SQLITE] and not cache_path:
+        if validate_cache_type in [CacheType.JSON, CacheType.SQLITE] and not cache_path:
             handle_error(
                 ProxyWhirlError(
-                    f"Cache path required for {cache_type.value} cache",
-                    f"Add: --cache-path ./proxies.{cache_type.value.lower()}",
+                    f"Cache path required for {validate_cache_type.value} cache",
+                    f"Add: --cache-path ./proxies.{validate_cache_type.value.lower()}",
                 ),
                 console,
             )
@@ -1430,7 +1441,7 @@ def validate(
             return
 
         pw = ProxyWhirl(
-            cache_type=cache_type,
+            cache_type=validate_cache_type,
             cache_path=str(cache_path) if cache_path else None,
         )
 
@@ -1512,12 +1523,12 @@ def validate(
 
 @app.command()
 def health_report(
-    cache_type: CacheType = typer.Option(
+    health_cache_type: CacheType = typer.Option(
         CacheType.MEMORY,
         case_sensitive=False,
         help="Cache backend: memory, json, or sqlite.",
     ),
-    cache_path: Optional[Path] = typer.Option(
+    health_cache_path: Optional[Path] = typer.Option(
         None,
         help="Path to cache file (required if cache_type=json or sqlite).",
     ),
@@ -1530,17 +1541,17 @@ def health_report(
 ) -> None:
     """Generate a comprehensive health report for all proxy loaders."""
     # Validate cache path
-    if cache_type in (CacheType.JSON, CacheType.SQLITE) and not cache_path:
+    if health_cache_type in (CacheType.JSON, CacheType.SQLITE) and not health_cache_path:
         typer.echo(
-            f"Error: --cache-path required when cache_type is {cache_type.value}",
+            f"Error: --cache-path required when cache_type is {health_cache_type.value}",
             err=True,
         )
         raise typer.Exit(1)
 
     # Create ProxyWhirl instance
     pw = ProxyWhirl(
-        cache_type=cache_type,
-        cache_path=cache_path,
+        cache_type=health_cache_type,
+        cache_path=health_cache_path,
         auto_validate=False,  # Don't auto-validate for health check
     )
 
@@ -1841,7 +1852,7 @@ def _display_loader_test_results(results: List[Dict[str, Any]]) -> None:
 @app.command(rich_help_panel="🎯 Proxy Access")
 def get(
     ctx: typer.Context,
-    cache_type: Annotated[
+    get_cache_type: Annotated[
         CacheType,
         typer.Option(
             CacheType.MEMORY,
@@ -1850,7 +1861,7 @@ def get(
             rich_help_panel="💾 Cache Options",
         ),
     ] = CacheType.MEMORY,
-    cache_path: Annotated[
+    get_cache_path: Annotated[
         Optional[Path],
         typer.Option(
             None, help="[accent]Path to cache file[/accent]", rich_help_panel="💾 Cache Options"
@@ -1863,7 +1874,7 @@ def get(
             "--rotation",
             "--rotation-strategy",
             case_sensitive=False,
-            help="[info]Strategy for selecting proxy[/info]",
+            help="[info]Strategy for selecting proxy (use 'proxywhirl strategies' for all options)[/info]",
             rich_help_panel="🔄 Selection Options",
         ),
     ] = RotationStrategy.ROUND_ROBIN,
@@ -1880,8 +1891,7 @@ def get(
     show_details: Annotated[
         bool,
         typer.Option(
-            False,
-            "--details",
+            "--details/--no-details",
             "-d",
             help="[info]Show detailed proxy information[/info]",
             rich_help_panel="📤 Output Options",
@@ -1896,11 +1906,11 @@ def get(
     console = ctx.obj.console
 
     try:
-        if cache_type in [CacheType.JSON, CacheType.SQLITE] and not cache_path:
+        if get_cache_type in [CacheType.JSON, CacheType.SQLITE] and not get_cache_path:
             handle_error(
                 ProxyWhirlError(
-                    f"Cache path required for {cache_type.value} cache",
-                    f"Add: --cache-path ./proxies.{cache_type.value.lower()}",
+                    f"Cache path required for {get_cache_type.value} cache",
+                    f"Add: --cache-path ./proxies.{get_cache_type.value.lower()}",
                 ),
                 console,
             )
@@ -1923,8 +1933,8 @@ def get(
             return
 
         pw = ProxyWhirl(
-            cache_type=cache_type,
-            cache_path=str(cache_path) if cache_path else None,
+            cache_type=get_cache_type,
+            cache_path=str(get_cache_path) if get_cache_path else None,
             rotation_strategy=rotation_strategy,
         )
 
@@ -1982,7 +1992,7 @@ def get(
                 # Add metadata for detailed view
                 proxy_data["_metadata"] = {
                     "rotation_strategy": rotation_strategy.value,
-                    "cache_type": cache_type.value,
+                    "cache_type": get_cache_type.value,
                     "retrieved_at": "now",  # Could add actual timestamp
                 }
             console.print_json(data=proxy_data)
@@ -2016,6 +2026,140 @@ def tui() -> None:
         typer.echo("\nTUI closed.")
 
 
+@app.command(name="strategies", rich_help_panel="📚 Reference")
+def list_rotation_strategies() -> None:
+    """List all available proxy rotation strategies with descriptions.
+
+    Shows both standard and enhanced rotation strategies including their
+    use cases and performance characteristics.
+    """
+    console = Console(theme=PROXYWHIRL_THEME)
+
+    # Strategy descriptions
+    strategy_info = {
+        RotationStrategy.ROUND_ROBIN: {
+            "description": "Classic round-robin selection",
+            "use_case": "Even distribution, predictable selection",
+            "performance": "Fast, minimal overhead",
+        },
+        RotationStrategy.RANDOM: {
+            "description": "Random proxy selection",
+            "use_case": "Unpredictable patterns, load balancing",
+            "performance": "Fast, very low overhead",
+        },
+        RotationStrategy.WEIGHTED: {
+            "description": "Response time weighted selection",
+            "use_case": "Performance optimization",
+            "performance": "Medium overhead, adaptive",
+        },
+        RotationStrategy.HEALTH_BASED: {
+            "description": "Health score based selection",
+            "use_case": "Reliability focus, failure avoidance",
+            "performance": "Medium overhead, tracking required",
+        },
+        RotationStrategy.LEAST_USED: {
+            "description": "Select least recently used proxy",
+            "use_case": "Even usage distribution",
+            "performance": "Low overhead, usage tracking",
+        },
+        RotationStrategy.ASYNC_ROUND_ROBIN: {
+            "description": "🚀 Enhanced async round-robin",
+            "use_case": "High-performance async applications",
+            "performance": "Optimized for async I/O operations",
+        },
+        RotationStrategy.CIRCUIT_BREAKER: {
+            "description": "🛡️ Circuit breaker pattern",
+            "use_case": "Fault tolerance, graceful degradation",
+            "performance": "Smart failure handling, self-healing",
+        },
+        RotationStrategy.METRICS_AWARE: {
+            "description": "📊 Prometheus metrics optimization",
+            "use_case": "Performance monitoring, data-driven selection",
+            "performance": "Advanced metrics collection & analysis",
+        },
+        RotationStrategy.ML_ADAPTIVE: {
+            "description": "🤖 Machine learning adaptive selection",
+            "use_case": "Self-optimizing, pattern learning",
+            "performance": "Learns and adapts to usage patterns",
+        },
+        RotationStrategy.CONSISTENT_HASH: {
+            "description": "🔗 Consistent hashing for session affinity",
+            "use_case": "Session stickiness, distributed systems",
+            "performance": "Hash ring distribution, session consistency",
+        },
+        RotationStrategy.GEO_AWARE: {
+            "description": "🌍 Geographic proximity-based selection",
+            "use_case": "Latency optimization, regional routing",
+            "performance": "Geolocation-aware, proximity optimization",
+        },
+    }
+
+    # Create table
+    table = Table(
+        title="🔄 ProxyWhirl Rotation Strategies",
+        title_style="bold cyan",
+        border_style="blue",
+        header_style="bold magenta",
+        show_lines=True,
+    )
+
+    table.add_column("Strategy", style="bold cyan", width=20)
+    table.add_column("Description", style="white", width=35)
+    table.add_column("Use Case", style="yellow", width=25)
+    table.add_column("Performance", style="green", width=25)
+
+    # Add standard strategies first
+    console.print("\n[bold blue]Standard Strategies:[/bold blue]")
+    standard_strategies = [
+        RotationStrategy.ROUND_ROBIN,
+        RotationStrategy.RANDOM,
+        RotationStrategy.WEIGHTED,
+        RotationStrategy.HEALTH_BASED,
+        RotationStrategy.LEAST_USED,
+    ]
+
+    for strategy in standard_strategies:
+        if strategy in strategy_info:
+            info = strategy_info[strategy]
+            table.add_row(
+                strategy.value, info["description"], info["use_case"], info["performance"]
+            )
+
+    # Add separator
+    table.add_section()
+
+    # Add enhanced strategies
+    console.print("[bold magenta]Enhanced Strategies (New!):[/bold magenta]")
+    enhanced_strategies = [
+        RotationStrategy.ASYNC_ROUND_ROBIN,
+        RotationStrategy.CIRCUIT_BREAKER,
+        RotationStrategy.METRICS_AWARE,
+        RotationStrategy.ML_ADAPTIVE,
+        RotationStrategy.CONSISTENT_HASH,
+        RotationStrategy.GEO_AWARE,
+    ]
+
+    for strategy in enhanced_strategies:
+        if strategy in strategy_info:
+            info = strategy_info[strategy]
+            table.add_row(
+                strategy.value, info["description"], info["use_case"], info["performance"]
+            )
+
+    console.print(table)
+
+    # Usage examples
+    console.print("\n[bold yellow]📋 Usage Examples:[/bold yellow]")
+    console.print("  [cyan]proxywhirl fetch --rotation-strategy circuit_breaker[/cyan]")
+    console.print("  [cyan]proxywhirl get --rotation-strategy ml_adaptive[/cyan]")
+    console.print("  [cyan]proxywhirl fetch --rotation-strategy geo_aware --validate[/cyan]")
+
+    console.print(
+        "\n[dim]💡 Tip: Enhanced strategies provide advanced features like fault tolerance,"
+    )
+    console.print("   ML-based optimization, and geographic routing for production use.[/dim]")
+
+
 @app.command(name="tui")
 def launch_tui() -> None:
     """Launch the beautiful ProxyWhirl Terminal User Interface (TUI).
@@ -2042,6 +2186,10 @@ def launch_tui() -> None:
 def main() -> None:  # Entry point for console_scripts
     """Main entry point for the CLI application."""
     app()
+
+
+# Alias for compatibility with tests
+cli = app
 
 
 if __name__ == "__main__":  # pragma: no cover
