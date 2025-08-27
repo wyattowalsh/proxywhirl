@@ -255,8 +255,11 @@ class ProxyWhirl:
 
         For production use, enables compression, backups, integrity checks,
         and connection pooling for optimal performance and reliability.
+        
+        Falls back gracefully if advanced cache dependencies are not available.
         """
         from proxywhirl.caches.base import CacheType
+        from proxywhirl.caches import is_sqlite_available, get_sqlite_import_error
 
         if cache_type == "memory" or cache_type == CacheType.MEMORY:
             return MemoryProxyCache()
@@ -277,14 +280,40 @@ class ProxyWhirl:
             if cache_path is None:
                 cache_path = Path(".proxywhirl_cache.sqlite")
 
+            # Check if SQLite cache is available
+            if not is_sqlite_available():
+                logger.warning(
+                    f"SQLite cache requested but dependencies not available: {get_sqlite_import_error()}. "
+                    f"Falling back to JSON cache."
+                )
+                return JsonProxyCache(
+                    cache_path=cache_path.with_suffix(".json"),
+                    compression=True,
+                    enable_backups=True,
+                    max_backup_count=5,
+                    integrity_checks=True,
+                    retry_attempts=3,
+                )
+
             # Enable enterprise SQLite features by default
-            return SQLiteProxyCache(
-                cache_path=cache_path,
-                connection_pool_size=10,  # Connection pooling
-                connection_pool_recycle=3600,  # 1-hour connection recycling
-                enable_wal=True,  # Write-Ahead Logging
-                create_tables=True,  # Auto table creation
-            )
+            try:
+                return SQLiteProxyCache(
+                    cache_path=cache_path,
+                    connection_pool_size=10,  # Connection pooling
+                    connection_pool_recycle=3600,  # 1-hour connection recycling
+                    enable_wal=True,  # Write-Ahead Logging
+                    create_tables=True,  # Auto table creation
+                )
+            except ImportError as e:
+                logger.warning(f"SQLite cache creation failed: {e}. Falling back to JSON cache.")
+                return JsonProxyCache(
+                    cache_path=cache_path.with_suffix(".json"),
+                    compression=True,
+                    enable_backups=True,
+                    max_backup_count=5,
+                    integrity_checks=True,
+                    retry_attempts=3,
+                )
         else:
             logger.warning(f"Unknown cache type: {cache_type}, defaulting to memory")
             return MemoryProxyCache()
