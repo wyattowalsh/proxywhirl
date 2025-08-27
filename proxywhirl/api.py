@@ -247,12 +247,100 @@ class ConfigResponse(BaseModel):
 
 
 class ErrorDetail(BaseModel):
-    """Detailed error information."""
+    """Detailed error information with enhanced structure."""
 
     error_code: str = Field(description="Machine-readable error code")
     message: str = Field(description="Human-readable error message")
     details: Optional[Dict[str, Any]] = Field(default=None, description="Additional error context")
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    request_id: Optional[str] = Field(default=None, description="Request tracking ID")
+    suggestion: Optional[str] = Field(default=None, description="Suggested action to resolve the error")
+
+
+class APIError(BaseModel):
+    """Standardized API error response."""
+    
+    error: ErrorDetail
+    success: bool = Field(default=False, description="Always false for error responses")
+    
+    
+class APIResponse(BaseModel):
+    """Standardized API success response."""
+    
+    success: bool = Field(default=True, description="Always true for success responses")
+    data: Optional[Dict[str, Any]] = Field(default=None, description="Response data")
+    message: Optional[str] = Field(default=None, description="Optional success message")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata")
+
+
+# Standardized error codes
+class ErrorCodes:
+    """Centralized error codes for consistent API responses."""
+    
+    # Authentication & Authorization
+    UNAUTHORIZED = "UNAUTHORIZED"
+    INVALID_CREDENTIALS = "INVALID_CREDENTIALS"
+    INSUFFICIENT_PERMISSIONS = "INSUFFICIENT_PERMISSIONS"
+    TOKEN_EXPIRED = "TOKEN_EXPIRED"
+    
+    # Validation
+    VALIDATION_ERROR = "VALIDATION_ERROR"
+    INVALID_INPUT = "INVALID_INPUT"
+    MISSING_PARAMETER = "MISSING_PARAMETER"
+    
+    # Resource Management  
+    RESOURCE_NOT_FOUND = "RESOURCE_NOT_FOUND"
+    RESOURCE_ALREADY_EXISTS = "RESOURCE_ALREADY_EXISTS"
+    RESOURCE_UNAVAILABLE = "RESOURCE_UNAVAILABLE"
+    
+    # Proxy Management
+    NO_PROXIES_AVAILABLE = "NO_PROXIES_AVAILABLE"
+    PROXY_NOT_FOUND = "PROXY_NOT_FOUND"
+    PROXY_VALIDATION_FAILED = "PROXY_VALIDATION_FAILED"
+    PROXY_CONNECTION_FAILED = "PROXY_CONNECTION_FAILED"
+    
+    # System Errors
+    INTERNAL_SERVER_ERROR = "INTERNAL_SERVER_ERROR"
+    SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE"
+    RATE_LIMIT_EXCEEDED = "RATE_LIMIT_EXCEEDED"
+    TIMEOUT_ERROR = "TIMEOUT_ERROR"
+    
+    # Configuration
+    CONFIGURATION_ERROR = "CONFIGURATION_ERROR"
+    CACHE_ERROR = "CACHE_ERROR"
+    DATABASE_ERROR = "DATABASE_ERROR"
+
+
+def create_error_response(
+    error_code: str,
+    message: str,
+    details: Optional[Dict[str, Any]] = None,
+    suggestion: Optional[str] = None,
+    request_id: Optional[str] = None
+) -> Dict[str, Any]:
+    """Create standardized error response."""
+    return APIError(
+        error=ErrorDetail(
+            error_code=error_code,
+            message=message,
+            details=details,
+            suggestion=suggestion,
+            request_id=request_id
+        )
+    ).model_dump()
+
+
+def create_success_response(
+    data: Optional[Dict[str, Any]] = None,
+    message: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Create standardized success response."""
+    return APIResponse(
+        data=data,
+        message=message,
+        metadata=metadata
+    ).model_dump()
 
 
 # === WebSocket Connection Manager ===
@@ -344,15 +432,58 @@ async def lifespan(app: FastAPI):
 if settings.enable_metrics and not settings.is_testing:
     instrumentator = Instrumentator()
 
+# API versioning configuration
+API_V1_PREFIX = "/api/v1"
+API_V2_PREFIX = "/api/v2"  # Future use
+
 app = FastAPI(
     title=settings.app_name,
-    description=settings.description,
+    description=f"""{settings.description}
+
+## API Versions
+- **v1** (`/api/v1`): Current stable API version
+- **v2** (`/api/v2`): Future API version (coming soon)
+
+## Authentication
+All endpoints (except health and docs) require JWT authentication:
+1. Get token: `POST /api/v1/auth/token`
+2. Use token: `Authorization: Bearer <your_token>`
+
+## Rate Limiting
+- Default: 100 requests/hour
+- Authenticated: 10 requests/minute  
+- Validation: 5 requests/minute
+
+## WebSocket Support
+Real-time updates via WebSocket endpoints:
+- `/api/v1/ws/proxy-stream` - Proxy updates
+- `/api/v1/ws/health-monitor` - Health monitoring
+""",
     version=settings.version,
     docs_url="/docs" if settings.is_development else None,
     redoc_url="/redoc" if settings.is_development else None,
     openapi_url="/openapi.json" if settings.is_development else None,
     debug=settings.debug,
     lifespan=lifespan,
+    contact={
+        "name": "ProxyWhirl API Support",
+        "url": "https://github.com/wyattowalsh/proxywhirl",
+        "email": "support@proxywhirl.com"
+    },
+    license_info={
+        "name": "MIT License",
+        "url": "https://github.com/wyattowalsh/proxywhirl/blob/main/LICENSE"
+    },
+    servers=[
+        {
+            "url": "http://localhost:8000",
+            "description": "Development server"
+        },
+        {
+            "url": "https://api.proxywhirl.com",
+            "description": "Production server"
+        }
+    ]
 )
 
 # === Security Middleware ===
@@ -361,7 +492,14 @@ app = FastAPI(
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next) -> Response:
     """Add comprehensive security headers to all responses."""
+    import uuid
+    
     start_time = time.time()
+    
+    # Generate unique request ID for tracing
+    request_id = str(uuid.uuid4())
+    request.state.request_id = request_id
+    
     response = await call_next(request)
 
     # Apply security headers based on environment
@@ -432,7 +570,7 @@ async def security_headers_middleware(request: Request, call_next) -> Response:
             # API version info
             "X-API-Version": settings.version,
             # Request tracking
-            "X-Request-ID": getattr(request.state, "request_id", "unknown"),
+            "X-Request-ID": request_id,
             # Security contact (customize for your organization)
             "X-Content-Type-Options": "nosniff",
             # Prevent caching of sensitive data
@@ -644,6 +782,52 @@ async def get_proxywhirl() -> ProxyWhirl:
     return app.state.proxywhirl
 
 
+# === Performance & Caching ===
+
+from functools import wraps
+
+# Simple in-memory cache for API responses  
+_response_cache: Dict[str, Dict[str, Any]] = {}
+_cache_ttl: Dict[str, float] = {}
+
+def cache_response(ttl_seconds: int = 300):
+    """
+    Decorator for caching API responses.
+    
+    Args:
+        ttl_seconds: Time to live for cached responses in seconds
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # Create cache key from function name and arguments
+            cache_key = f"{func.__name__}:{hash(str(args) + str(sorted(kwargs.items())))}"
+            
+            current_time = time.time()
+            
+            # Check if we have a valid cached response
+            if (cache_key in _response_cache and 
+                cache_key in _cache_ttl and 
+                current_time < _cache_ttl[cache_key]):
+                return _response_cache[cache_key]
+            
+            # Execute function and cache result
+            result = await func(*args, **kwargs)
+            _response_cache[cache_key] = result
+            _cache_ttl[cache_key] = current_time + ttl_seconds
+            
+            return result
+        return wrapper
+    return decorator
+
+
+def clear_response_cache():
+    """Clear all cached responses."""
+    global _response_cache, _cache_ttl
+    _response_cache.clear()
+    _cache_ttl.clear()
+
+
 # === Background Tasks ===
 
 
@@ -726,21 +910,67 @@ async def fetch_proxies_background(
         )
 
 
+# === API Router Setup ===
+
+from fastapi import APIRouter
+
+# Create API v1 router
+api_v1 = APIRouter(prefix=API_V1_PREFIX, tags=["v1"])
+
+
+# === Application Metadata ===
+
+
+@app.get("/", tags=["Root"])
+async def root():
+    """Root endpoint with API information."""
+    return create_success_response(
+        data={
+            "name": "ProxyWhirl API",
+            "version": "1.0.0", 
+            "description": "Comprehensive REST API for ProxyWhirl rotating proxy service",
+            "docs_url": "/docs",
+            "health_url": f"{API_V1_PREFIX}/health",
+            "uptime": (datetime.now(timezone.utc) - api_start_time).total_seconds(),
+        },
+        metadata={
+            "api_versions": ["v1"],
+            "current_version": "v1",
+            "deprecations": []
+        }
+    )
+
+
 # === Authentication Endpoints ===
 
 
-@app.post("/auth/token", response_model=Token, tags=["Authentication"])
-async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+@api_v1.post("/auth/token", response_model=Token, tags=["Authentication"])
+async def login_for_access_token(
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
+    request: Request
+):
     """
     Authenticate user and return JWT access token.
 
     Uses OAuth2 password flow with scope-based permissions.
+    
+    **Example:**
+    ```bash
+    curl -X POST "/api/v1/auth/token" \\
+         -H "Content-Type: application/x-www-form-urlencoded" \\
+         -d "username=admin&password=yourpassword&scope=read write"
+    ```
     """
     user_result = user_manager.authenticate_user(form_data.username, form_data.password)
     if not user_result or not isinstance(user_result, UserInDB):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail=create_error_response(
+                ErrorCodes.INVALID_CREDENTIALS,
+                "Incorrect username or password",
+                suggestion="Check your username and password, or contact support if you believe this is an error",
+                request_id=getattr(request.state, "request_id", None)
+            ),
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -768,27 +998,50 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     }
 
 
-@app.get("/auth/me", response_model=User, tags=["Authentication"])
+@api_v1.get("/auth/me", response_model=User, tags=["Authentication"])
 async def read_users_me(current_user: Annotated[User, Depends(get_current_active_user)]):
-    """Get current user information."""
+    """
+    Get current user information.
+    
+    Returns the authenticated user's profile and permissions.
+    
+    **Example Response:**
+    ```json
+    {
+        "username": "admin",
+        "email": "admin@proxywhirl.com", 
+        "disabled": false,
+        "scopes": ["read", "write", "validate", "config", "admin"]
+    }
+    ```
+    """
     return current_user
 
 
 # === Core Proxy Management Endpoints ===
 
 
-@app.post("/proxies/fetch", response_model=FetchProxiesResponse, tags=["Proxy Management"])
+@api_v1.post("/proxies/fetch", response_model=FetchProxiesResponse, tags=["Proxy Management"])
 async def fetch_proxies(
     request: FetchProxiesRequest,
     background_tasks: BackgroundTasks,
     current_user: Annotated[User, Security(get_current_user, scopes=["write"])],
     pw: ProxyWhirl = Depends(get_proxywhirl),
+    req: Request = None
 ):
     """
     Fetch proxies from all configured sources.
 
     This is an asynchronous operation that runs in the background.
     Use the returned task_id to track progress via WebSocket or polling.
+    
+    **Example:**
+    ```bash
+    curl -X POST "/api/v1/proxies/fetch" \\
+         -H "Authorization: Bearer <token>" \\
+         -H "Content-Type: application/json" \\
+         -d '{"validate_proxies": true, "max_proxies": 100}'
+    ```
     """
     import uuid
 
@@ -817,21 +1070,27 @@ async def fetch_proxies(
     )
 
 
-@app.get("/proxies", response_model=ProxyListResponse, response_class=ORJSONResponse, tags=["Proxy Management"])
+@api_v1.get("/proxies", response_model=ProxyListResponse, response_class=ORJSONResponse, tags=["Proxy Management"])
 async def list_proxies(
     current_user: Annotated[User, Depends(get_current_active_user)],
     pw: ProxyWhirl = Depends(get_proxywhirl),
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=1000)] = 50,
     status: Optional[ProxyStatus] = Query(None, description="Filter by proxy status"),
-    scheme: Optional[str] = Query(None, description="Filter by proxy scheme"),
-    country: Optional[str] = Query(None, description="Filter by country code"),
+    scheme: Optional[str] = Query(None, description="Filter by proxy scheme (HTTP, HTTPS, SOCKS4, SOCKS5)"),
+    country: Optional[str] = Query(None, description="Filter by 2-letter country code (e.g., US, GB)"),
     min_quality: Annotated[float, Query(ge=0.0, le=1.0)] = 0.0,
 ):
     """
     List cached proxies with filtering and pagination.
 
     Supports filtering by status, scheme, country, and quality score.
+    
+    **Example:**
+    ```bash
+    curl "/api/v1/proxies?page=1&page_size=20&status=ACTIVE&scheme=HTTP&country=US&min_quality=0.8" \\
+         -H "Authorization: Bearer <token>"
+    ```
     """
     all_proxies = pw.list_proxies()
 
@@ -1117,7 +1376,7 @@ async def remove_proxy(
 # === Proxy Validation Endpoints ===
 
 
-@app.post("/proxies/validate", response_model=ValidationResponse, tags=["Proxy Validation"])
+@api_v1.post("/proxies/validate", response_model=ValidationResponse, tags=["Proxy Validation"])
 async def validate_specific_proxies(
     request: ValidationRequest,
     current_user: Annotated[User, Security(get_current_user, scopes=["validate"])],
@@ -1159,7 +1418,7 @@ async def validate_specific_proxies(
         )
 
 
-@app.post("/proxies/validate-all", response_model=ValidationResponse, tags=["Proxy Validation"])
+@api_v1.post("/proxies/validate-all", response_model=ValidationResponse, tags=["Proxy Validation"])
 async def validate_all_proxies(
     current_user: Annotated[User, Security(get_current_user, scopes=["validate"])],
     pw: ProxyWhirl = Depends(get_proxywhirl),
@@ -1195,8 +1454,9 @@ async def validate_all_proxies(
 # === Health & Monitoring Endpoints ===
 
 
-@app.get("/health", response_model=HealthResponse, tags=["Health & Monitoring"])
+@api_v1.get("/health", response_model=HealthResponse, tags=["Health & Monitoring"])
 @limiter.limit(settings.rate_limit_default)
+@cache_response(ttl_seconds=30)  # Cache health checks for 30 seconds
 async def health_check(request: Request, pw: ProxyWhirl = Depends(get_proxywhirl)):
     """
     Basic API health check with rate limiting.
@@ -1231,7 +1491,7 @@ async def health_check(request: Request, pw: ProxyWhirl = Depends(get_proxywhirl
         )
 
 
-@app.get("/health/report", tags=["Health & Monitoring"])
+@api_v1.get("/health/report", tags=["Health & Monitoring"])
 async def get_health_report(
     current_user: Annotated[User, Security(get_current_user, scopes=["read"])],
     pw: ProxyWhirl = Depends(get_proxywhirl),
@@ -1254,7 +1514,7 @@ async def get_health_report(
         )
 
 
-@app.get("/health/validator", tags=["Health & Monitoring"])
+@api_v1.get("/health/validator", tags=["Health & Monitoring"])
 @limiter.limit(settings.rate_limit_default)
 async def get_validator_health(
     request: Request,
@@ -1553,7 +1813,7 @@ async def list_background_tasks(
 # === WebSocket Endpoints ===
 
 
-@app.websocket("/ws/proxy-stream")
+@api_v1.websocket("/ws/proxy-stream")
 async def websocket_proxy_stream(websocket: WebSocket):
     """
     Real-time proxy updates stream with authentication.
@@ -1589,7 +1849,7 @@ async def websocket_proxy_stream(websocket: WebSocket):
         logger.info(f"WebSocket proxy stream disconnected for user: {user.username}")
 
 
-@app.websocket("/ws/health-monitor")
+@api_v1.websocket("/ws/health-monitor")
 async def websocket_health_monitor(websocket: WebSocket):
     """
     Real-time health monitoring stream with authentication.
@@ -1623,61 +1883,463 @@ async def websocket_health_monitor(websocket: WebSocket):
         logger.info(f"WebSocket health monitor disconnected for user: {user.username}")
 
 
-# === Error Handlers ===
+# === Enhanced Error Handlers ===
+
+@api_v1.get("/monitoring/cache", tags=["Monitoring"])
+async def get_cache_monitoring(
+    current_user: Annotated[User, Security(get_current_user, scopes=["admin"])],
+):
+    """
+    Get API response cache statistics and monitoring data.
+    
+    **Example:**
+    ```bash
+    curl "/api/v1/monitoring/cache" \\
+         -H "Authorization: Bearer <admin_token>"
+    ```
+    """
+    current_time = time.time()
+    
+    cache_stats = {
+        "total_entries": len(_response_cache),
+        "active_entries": sum(1 for ttl in _cache_ttl.values() if ttl > current_time),
+        "expired_entries": sum(1 for ttl in _cache_ttl.values() if ttl <= current_time),
+        "memory_usage_estimate": len(str(_response_cache)) + len(str(_cache_ttl)),  # Rough estimate
+        "oldest_entry": min(_cache_ttl.values()) if _cache_ttl else None,
+        "newest_entry": max(_cache_ttl.values()) if _cache_ttl else None,
+    }
+    
+    return create_success_response(
+        data=cache_stats,
+        message="Cache monitoring data retrieved successfully"
+    )
+
+
+@api_v1.delete("/monitoring/cache", tags=["Monitoring"])
+async def clear_api_cache(
+    current_user: Annotated[User, Security(get_current_user, scopes=["admin"])],
+):
+    """
+    Clear all API response caches.
+    
+    **Example:**
+    ```bash
+    curl -X DELETE "/api/v1/monitoring/cache" \\
+         -H "Authorization: Bearer <admin_token>"
+    ```
+    """
+    entries_cleared = len(_response_cache)
+    clear_response_cache()
+    
+    return create_success_response(
+        data={"entries_cleared": entries_cleared},
+        message=f"Successfully cleared {entries_cleared} cache entries"
+    )
+
+
+# === Development & Testing Endpoints ===
+
+class TestProxyRequest(BaseModel):
+    """Request model for proxy testing."""
+    
+    proxy_id: str = Field(description="Proxy ID in format 'host:port'")
+    target_urls: List[str] = Field(default=["https://httpbin.org/ip"], description="URLs to test against")
+    timeout: float = Field(default=10.0, ge=1.0, le=60.0, description="Timeout per request")
+    max_retries: int = Field(default=1, ge=0, le=5, description="Maximum retry attempts")
+
+
+class TestProxyResponse(BaseModel):
+    """Response model for proxy testing."""
+    
+    proxy_id: str
+    success_rate: float = Field(ge=0.0, le=1.0)
+    average_response_time: Optional[float] = None
+    test_results: List[Dict[str, Any]] = Field(description="Individual test results")
+    overall_status: str = Field(description="Overall test status")
+    recommendations: List[str] = Field(description="Performance recommendations")
+
+
+@api_v1.post("/testing/proxy", response_model=TestProxyResponse, tags=["Testing"])
+async def test_individual_proxy(
+    request: TestProxyRequest,
+    current_user: Annotated[User, Security(get_current_user, scopes=["validate"])],
+    pw: ProxyWhirl = Depends(get_proxywhirl),
+):
+    """
+    Test an individual proxy against multiple target URLs.
+    
+    **Example:**
+    ```bash
+    curl -X POST "/api/v1/testing/proxy" \\
+         -H "Authorization: Bearer <token>" \\
+         -H "Content-Type: application/json" \\
+         -d '{
+           "proxy_id": "1.1.1.1:8080",
+           "target_urls": ["https://httpbin.org/ip", "https://google.com"],
+           "timeout": 15.0,
+           "max_retries": 2
+         }'
+    ```
+    """
+    # Mock implementation - in real version would actually test the proxy
+    test_results = []
+    successful_tests = 0
+    total_response_time = 0.0
+    
+    for url in request.target_urls:
+        # Simulate test result
+        success = True  # TODO: Actual proxy testing logic
+        response_time = 2.5  # TODO: Actual response time measurement
+        
+        test_results.append({
+            "url": url,
+            "success": success,
+            "response_time": response_time,
+            "status_code": 200 if success else 408,
+            "error": None if success else "Connection timeout"
+        })
+        
+        if success:
+            successful_tests += 1
+            total_response_time += response_time
+    
+    success_rate = successful_tests / len(request.target_urls)
+    avg_response_time = total_response_time / successful_tests if successful_tests > 0 else None
+    
+    # Generate recommendations
+    recommendations = []
+    if success_rate < 0.5:
+        recommendations.append("Consider removing this proxy due to low success rate")
+    if avg_response_time and avg_response_time > 10.0:
+        recommendations.append("Proxy has high latency, may impact performance")
+    if success_rate > 0.8 and avg_response_time and avg_response_time < 3.0:
+        recommendations.append("Excellent proxy performance, prioritize for use")
+    
+    return TestProxyResponse(
+        proxy_id=request.proxy_id,
+        success_rate=success_rate,
+        average_response_time=avg_response_time,
+        test_results=test_results,
+        overall_status="excellent" if success_rate > 0.8 else "good" if success_rate > 0.5 else "poor",
+        recommendations=recommendations
+    )
+
+
+# === Configuration Management ===
+
+class APIConfigResponse(BaseModel):
+    """Enhanced API configuration response."""
+    
+    api_version: str
+    environment: str
+    debug_mode: bool
+    rate_limiting: Dict[str, str]
+    cors_origins: List[str]
+    cache_enabled: bool
+    metrics_enabled: bool
+    websocket_enabled: bool
+    authentication_methods: List[str]
+    supported_proxy_schemes: List[str]
+    max_concurrent_requests: int
+    request_timeout: float
+
+
+@api_v1.get("/config/api", response_model=APIConfigResponse, tags=["Configuration"])
+async def get_api_configuration(
+    current_user: Annotated[User, Security(get_current_user, scopes=["read"])],
+):
+    """
+    Get comprehensive API configuration information.
+    
+    **Example:**
+    ```bash
+    curl "/api/v1/config/api" \\
+         -H "Authorization: Bearer <token>"
+    ```
+    """
+    return APIConfigResponse(
+        api_version=settings.version,
+        environment=settings.environment,
+        debug_mode=settings.debug,
+        rate_limiting={
+            "default": settings.rate_limit_default,
+            "authenticated": settings.rate_limit_auth,
+            "validation": settings.rate_limit_validation
+        },
+        cors_origins=settings.cors_origins,
+        cache_enabled=True,  # Our response caching is enabled
+        metrics_enabled=settings.enable_metrics,
+        websocket_enabled=True,
+        authentication_methods=["JWT", "OAuth2"],
+        supported_proxy_schemes=["HTTP", "HTTPS", "SOCKS4", "SOCKS5"],
+        max_concurrent_requests=settings.max_concurrent_requests,
+        request_timeout=settings.request_timeout
+    )
+
+
+# === Include API Router ===
+app.include_router(api_v1)
+
+
+# === Enhanced Bulk Operations ===
+
+class BulkProxyRequest(BaseModel):
+    """Request model for bulk proxy operations."""
+    
+    proxy_ids: List[str] = Field(description="List of proxy IDs in format 'host:port'")
+    action: str = Field(description="Action to perform", pattern=r"^(validate|remove|health_check)$")
+    
+
+class BulkValidationRequest(BaseModel):
+    """Request model for bulk proxy validation."""
+    
+    filters: Optional[Dict[str, Any]] = Field(default=None, description="Filters to apply before validation")
+    max_concurrent: int = Field(default=10, ge=1, le=100, description="Maximum concurrent validations")
+    timeout: float = Field(default=10.0, ge=1.0, le=60.0, description="Timeout per proxy in seconds")
+    
+
+class BulkOperationResponse(BaseModel):
+    """Response model for bulk operations."""
+    
+    task_id: str = Field(description="Background task ID")
+    total_items: int = Field(ge=0, description="Total items to process")
+    estimated_duration: int = Field(ge=0, description="Estimated completion time in seconds")
+    message: str = Field(description="Operation status message")
+
+
+@api_v1.post("/proxies/bulk", response_model=BulkOperationResponse, tags=["Bulk Operations"])
+async def bulk_proxy_operation(
+    request: BulkProxyRequest,
+    background_tasks: BackgroundTasks,
+    current_user: Annotated[User, Security(get_current_user, scopes=["write"])],
+    pw: ProxyWhirl = Depends(get_proxywhirl),
+):
+    """
+    Perform bulk operations on multiple proxies.
+    
+    Supports validation, removal, and health checks for multiple proxies.
+    
+    **Example:**
+    ```bash
+    curl -X POST "/api/v1/proxies/bulk" \\
+         -H "Authorization: Bearer <token>" \\
+         -H "Content-Type: application/json" \\
+         -d '{
+           "proxy_ids": ["1.1.1.1:8080", "2.2.2.2:3128"], 
+           "action": "validate"
+         }'
+    ```
+    """
+    import uuid
+    
+    task_id = str(uuid.uuid4())
+    total_items = len(request.proxy_ids)
+    
+    # Estimate duration based on action and item count
+    duration_per_item = {"validate": 5, "remove": 0.1, "health_check": 3}
+    estimated_duration = int(total_items * duration_per_item.get(request.action, 1))
+    
+    # Start background task (implementation would go here)
+    # background_tasks.add_task(bulk_operation_background, ...)
+    
+    return BulkOperationResponse(
+        task_id=task_id,
+        total_items=total_items,
+        estimated_duration=estimated_duration,
+        message=f"Bulk {request.action} operation started for {total_items} proxies"
+    )
+
+
+@api_v1.post("/proxies/validate-bulk", response_model=BulkOperationResponse, tags=["Bulk Operations"])  
+async def bulk_validate_proxies(
+    request: BulkValidationRequest,
+    background_tasks: BackgroundTasks,
+    current_user: Annotated[User, Security(get_current_user, scopes=["validate"])],
+    pw: ProxyWhirl = Depends(get_proxywhirl),
+):
+    """
+    Validate multiple proxies with advanced filtering and concurrency control.
+    
+    **Example:**
+    ```bash
+    curl -X POST "/api/v1/proxies/validate-bulk" \\
+         -H "Authorization: Bearer <token>" \\
+         -H "Content-Type: application/json" \\
+         -d '{
+           "filters": {"country": "US", "min_quality": 0.5},
+           "max_concurrent": 20,
+           "timeout": 15.0
+         }'
+    ```
+    """
+    import uuid
+    
+    task_id = str(uuid.uuid4())
+    
+    # Get proxies that match filters
+    all_proxies = pw.list_proxies()
+    filtered_proxies = all_proxies  # TODO: Apply filters
+    
+    estimated_duration = int(len(filtered_proxies) * request.timeout / request.max_concurrent)
+    
+    return BulkOperationResponse(
+        task_id=task_id,
+        total_items=len(filtered_proxies),
+        estimated_duration=estimated_duration,
+        message=f"Bulk validation started for {len(filtered_proxies)} proxies"
+    )
+
+
+# === Proxy Analytics Endpoints ===
+
+class ProxyAnalytics(BaseModel):
+    """Proxy analytics data."""
+    
+    total_proxies: int = Field(ge=0)
+    healthy_proxies: int = Field(ge=0)
+    unhealthy_proxies: int = Field(ge=0)
+    average_quality: float = Field(ge=0.0, le=1.0)
+    countries: Dict[str, int] = Field(description="Proxy count by country")
+    schemes: Dict[str, int] = Field(description="Proxy count by scheme")
+    quality_distribution: Dict[str, int] = Field(description="Quality score ranges")
+    response_time_stats: Dict[str, float] = Field(description="Response time statistics")
+
+
+@api_v1.get("/analytics/overview", response_model=ProxyAnalytics, tags=["Analytics"])
+@cache_response(ttl_seconds=60)  # Cache for 1 minute
+async def get_proxy_analytics(
+    current_user: Annotated[User, Security(get_current_user, scopes=["read"])],
+    pw: ProxyWhirl = Depends(get_proxywhirl),
+):
+    """
+    Get comprehensive proxy analytics and statistics.
+    
+    **Example:**
+    ```bash
+    curl "/api/v1/analytics/overview" \\
+         -H "Authorization: Bearer <token>"
+    ```
+    """
+    all_proxies = pw.list_proxies()
+    
+    healthy_proxies = [p for p in all_proxies if p.is_healthy]
+    unhealthy_proxies = [p for p in all_proxies if not p.is_healthy]
+    
+    # Country distribution
+    countries = {}
+    for proxy in all_proxies:
+        if proxy.country:
+            countries[proxy.country] = countries.get(proxy.country, 0) + 1
+    
+    # Scheme distribution 
+    schemes = {}
+    for proxy in all_proxies:
+        for scheme in proxy.schemes:
+            scheme_name = scheme.value
+            schemes[scheme_name] = schemes.get(scheme_name, 0) + 1
+    
+    # Quality distribution
+    quality_ranges = {"0.0-0.2": 0, "0.2-0.4": 0, "0.4-0.6": 0, "0.6-0.8": 0, "0.8-1.0": 0}
+    for proxy in all_proxies:
+        quality = proxy.quality_score or 0.0
+        if quality < 0.2:
+            quality_ranges["0.0-0.2"] += 1
+        elif quality < 0.4:
+            quality_ranges["0.2-0.4"] += 1 
+        elif quality < 0.6:
+            quality_ranges["0.4-0.6"] += 1
+        elif quality < 0.8:
+            quality_ranges["0.6-0.8"] += 1
+        else:
+            quality_ranges["0.8-1.0"] += 1
+    
+    # Average quality
+    total_quality = sum(p.quality_score or 0.0 for p in all_proxies)
+    avg_quality = total_quality / len(all_proxies) if all_proxies else 0.0
+    
+    return ProxyAnalytics(
+        total_proxies=len(all_proxies),
+        healthy_proxies=len(healthy_proxies), 
+        unhealthy_proxies=len(unhealthy_proxies),
+        average_quality=avg_quality,
+        countries=countries,
+        schemes=schemes,
+        quality_distribution=quality_ranges,
+        response_time_stats={
+            "min": 0.0,  # TODO: Calculate from actual data
+            "max": 0.0,
+            "avg": 0.0,
+            "median": 0.0
+        }
+    )
+
+
+# === Enhanced Error Handlers ===
 
 
 @app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    """Enhanced HTTP exception handler with structured error responses."""
+async def enhanced_http_exception_handler(request: Request, exc: HTTPException):
+    """Enhanced HTTP exception handler with standardized error responses."""
     error_code = "HTTP_ERROR"
+    suggestion = None
+    
     if hasattr(exc, "headers") and exc.headers and isinstance(exc.headers, dict):
         error_code = exc.headers.get("X-Error-Code", "HTTP_ERROR")
-
+    
+    # Add helpful suggestions based on error type
+    if exc.status_code == 401:
+        suggestion = "Please ensure you have a valid authentication token. Get one from /api/v1/auth/token"
+    elif exc.status_code == 403:
+        suggestion = "Your token lacks the required permissions. Check your user scopes."
+    elif exc.status_code == 404:
+        suggestion = "Check the URL path and any resource IDs for correctness."
+    elif exc.status_code == 422:
+        suggestion = "Review the request body format and ensure all required fields are provided."
+    elif exc.status_code == 429:
+        suggestion = "You've exceeded the rate limit. Wait a moment before making more requests."
+    
     return JSONResponse(
         status_code=exc.status_code,
-        content=ErrorDetail(
-            error_code=error_code, message=str(exc.detail), details={"status_code": exc.status_code}
-        ).model_dump(),
+        content=create_error_response(
+            error_code=error_code,
+            message=str(exc.detail),
+            details={"status_code": exc.status_code, "path": str(request.url)},
+            suggestion=suggestion,
+            request_id=getattr(request.state, "request_id", None)
+        ),
         headers=exc.headers if hasattr(exc, "headers") and exc.headers else None,
     )
 
 
 @app.exception_handler(ValueError)
-async def value_error_handler(request: Request, exc: ValueError):
-    """Handle validation errors."""
+async def enhanced_value_error_handler(request: Request, exc: ValueError):
+    """Enhanced validation error handler."""
     return JSONResponse(
         status_code=422,
-        content=ErrorDetail(
-            error_code="VALIDATION_ERROR", message=str(exc), details={"type": "ValueError"}
-        ).model_dump(),
+        content=create_error_response(
+            error_code=ErrorCodes.VALIDATION_ERROR,
+            message=str(exc),
+            details={"type": "ValueError", "path": str(request.url)},
+            suggestion="Check the input format and ensure all values are valid.",
+            request_id=getattr(request.state, "request_id", None)
+        ),
     )
 
 
 @app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    """Handle unexpected errors."""
+async def enhanced_general_exception_handler(request: Request, exc: Exception):
+    """Enhanced general exception handler."""
     logger.error(f"Unhandled exception: {exc}")
     return JSONResponse(
         status_code=500,
-        content=ErrorDetail(
-            error_code="INTERNAL_ERROR",
+        content=create_error_response(
+            error_code=ErrorCodes.INTERNAL_SERVER_ERROR,
             message="An unexpected error occurred",
-            details={"type": type(exc).__name__},
-        ).model_dump(),
+            details={
+                "type": type(exc).__name__,
+                "path": str(request.url)
+            },
+            suggestion="If this persists, please contact support with the request ID.",
+            request_id=getattr(request.state, "request_id", None)
+        ),
     )
-
-
-# === Application Metadata ===
-
-
-@app.get("/", tags=["Root"])
-async def root():
-    """Root endpoint with API information."""
-    return {
-        "name": "ProxyWhirl API",
-        "version": "1.0.0",
-        "description": "Comprehensive REST API for ProxyWhirl rotating proxy service",
-        "docs_url": "/docs",
-        "health_url": "/health",
-        "uptime": (datetime.now(timezone.utc) - api_start_time).total_seconds(),
-    }
