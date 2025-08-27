@@ -1,0 +1,721 @@
+---
+title: Proxy Loaders
+description: Comprehensive guide to ProxyWhirl's built-in proxy loaders and how to create custom ones
+icon: fa/FaDownload
+---
+
+# Proxy Loaders
+
+ProxyWhirl uses a plugin-based loader system to fetch proxies from various sources. Each loader implements the `BaseLoader` interface and provides proxies in a standardized format.
+
+## Built-in Loaders
+
+ProxyWhirl includes 8+ production-ready loaders for different proxy sources:
+
+### TheSpeedX Loaders
+
+High-quality proxy lists maintained by TheSpeedX on GitHub.
+
+**Available Loaders:**
+- `TheSpeedXHttpLoader` - HTTP/HTTPS proxies
+- `TheSpeedXSocksLoader` - SOCKS4/SOCKS5 proxies
+
+**Features:**
+- ✅ Updated regularly (daily)
+- ✅ High success rates
+- ✅ Multiple proxy types
+- ✅ Global geographic distribution
+
+**Usage:**
+
+```python
+from proxywhirl.loaders import TheSpeedXHttpLoader, TheSpeedXSocksLoader
+from proxywhirl import ProxyWhirl
+
+# Configure ProxyWhirl to use only TheSpeedX loaders
+proxy_whirl = ProxyWhirl()
+
+# Fetch proxies (automatically uses all available loaders)
+await proxy_whirl.fetch_proxies()
+
+# Or use specific loaders manually
+http_loader = TheSpeedXHttpLoader()
+http_proxies = await http_loader.load_async()
+print(f"Loaded {len(http_proxies)} HTTP proxies from TheSpeedX")
+```
+
+### Clarketm Loader
+
+Curated proxy list from the clarketm/proxy-list repository.
+
+**Features:**
+- ✅ Raw IP:port format for simplicity
+- ✅ Daily updates
+- ✅ Quality-focused curation
+- ✅ HTTP proxy support
+
+**Usage:**
+
+```python
+from proxywhirl.loaders import ClarketmHttpLoader
+
+loader = ClarketmHttpLoader()
+proxies_df = loader.load()  # Synchronous loading
+print(f"Source: {loader.name} - {loader.description}")
+```
+
+### Monosans Loader
+
+Free proxy aggregation service with multiple sources.
+
+**Features:**
+- ✅ Multiple proxy types
+- ✅ Country information
+- ✅ Anonymity levels
+- ✅ Response time data
+
+**Usage:**
+
+```python
+from proxywhirl.loaders import MonosansLoader
+
+loader = MonosansLoader()
+proxies_df = await loader.load_async()
+print(f"Loaded {len(proxies_df)} proxies from Monosans")
+```
+
+### ProxyScrape Loader
+
+API-based proxy service with reliable endpoints.
+
+**Features:**
+- ✅ API-based (structured data)
+- ✅ Real-time proxy status
+- ✅ Multiple formats supported
+- ✅ Rate limiting support
+
+**Usage:**
+
+```python
+from proxywhirl.loaders import ProxyScrapeLoader
+
+loader = ProxyScrapeLoader()
+proxies_df = await loader.load_async()
+```
+
+### Proxifly Loader
+
+Community-maintained proxy aggregation service.
+
+**Features:**
+- ✅ Multiple proxy protocols
+- ✅ Geographic filtering
+- ✅ Active health monitoring
+- ✅ JSON-based API
+
+**Usage:**
+
+```python
+from proxywhirl.loaders import ProxiflyLoader
+
+loader = ProxiflyLoader()
+proxies_df = await loader.load_async()
+```
+
+### JetkaiProxy Loader
+
+Community proxy list with regular updates.
+
+**Features:**
+- ✅ GitHub-hosted lists
+- ✅ Multiple protocols
+- ✅ Community contributions
+- ✅ Regular maintenance
+
+**Usage:**
+
+```python
+from proxywhirl.loaders import JetkaiProxyListLoader
+
+loader = JetkaiProxyListLoader()
+proxies_df = await loader.load_async()
+```
+
+### VakhovFresh Loader
+
+Fresh proxy sources with emphasis on newly discovered proxies.
+
+**Features:**
+- ✅ Focus on fresh proxies
+- ✅ Multiple sources aggregation
+- ✅ Regular updates
+- ✅ Quality filtering
+
+**Usage:**
+
+```python
+from proxywhirl.loaders import VakhovFreshProxyLoader
+
+loader = VakhovFreshProxyLoader()
+proxies_df = await loader.load_async()
+```
+
+### UserProvided Loader
+
+Custom loader for user-provided proxy lists.
+
+**Features:**
+- ✅ Use your own proxy lists
+- ✅ Support for any format
+- ✅ Custom metadata preservation
+- ✅ Validation integration
+
+**Usage:**
+
+```python
+from proxywhirl.loaders import UserProvidedLoader
+
+# Define your proxy list
+custom_proxies = [
+    {"host": "192.168.1.100", "port": 8080, "protocol": "http", "country": "US"},
+    {"host": "10.0.0.50", "port": 3128, "protocol": "https", "country": "DE"},
+    {"host": "172.16.0.25", "port": 1080, "protocol": "socks5", "country": "JP"},
+]
+
+loader = UserProvidedLoader(custom_proxies, name="my-custom-proxies")
+proxies_df = loader.load()
+```
+
+## Loader Configuration
+
+### Global Configuration
+
+Configure loader behavior through ProxyWhirl settings:
+
+```python
+from proxywhirl import ProxyWhirl, ProxyWhirlSettings
+
+settings = ProxyWhirlSettings(
+    loader_timeout=30.0,
+    loader_max_retries=3,
+    loader_retry_delay=1.0,
+    enable_loader_caching=True,
+    loader_cache_ttl=300
+)
+
+proxy_whirl = ProxyWhirl(config=settings)
+```
+
+### Per-Loader Configuration
+
+Each loader can be configured independently:
+
+```python
+from proxywhirl.loaders.base import LoaderConfig
+from proxywhirl.loaders import TheSpeedXHttpLoader
+
+# Create custom configuration
+config = LoaderConfig(
+    timeout=20.0,
+    max_retries=5,
+    retry_delay=2.0,
+    rate_limit_calls=5,
+    rate_limit_period=60.0,
+    user_agent="MyApp/1.0",
+    headers={"X-Custom-Header": "value"}
+)
+
+# Apply configuration to loader
+loader = TheSpeedXHttpLoader()
+loader.configure(config)
+```
+
+### Environment Configuration
+
+Use environment variables for production deployments:
+
+```bash
+# Loader timeouts and retries
+export PROXYWHIRL_LOADER_TIMEOUT=30
+export PROXYWHIRL_LOADER_MAX_RETRIES=3
+
+# Rate limiting
+export PROXYWHIRL_LOADER_RATE_LIMIT_CALLS=10
+export PROXYWHIRL_LOADER_RATE_LIMIT_PERIOD=60
+
+# Caching
+export PROXYWHIRL_LOADER_ENABLE_CACHING=true
+export PROXYWHIRL_LOADER_CACHE_TTL=300
+
+# User agent
+export PROXYWHIRL_LOADER_USER_AGENT="MyApp/1.0"
+```
+
+## Creating Custom Loaders
+
+### Basic Custom Loader
+
+Create a custom loader by extending `BaseLoader`:
+
+```python
+from proxywhirl.loaders.base import BaseLoader
+import pandas as pd
+import httpx
+
+class MyCustomLoader(BaseLoader):
+    """Custom loader for my proxy API."""
+    
+    def __init__(self):
+        super().__init__(
+            name="my-custom-loader",
+            description="Load proxies from my custom API"
+        )
+        self.api_url = "https://api.myproxies.com/proxies"
+    
+    async def load_async(self) -> pd.DataFrame:
+        """Load proxies asynchronously."""
+        await self._ensure_client()
+        
+        try:
+            response = await self._client.get(self.api_url)
+            response.raise_for_status()
+            
+            data = response.json()
+            proxies = []
+            
+            for item in data['proxies']:
+                proxies.append({
+                    'host': item['ip'],
+                    'port': item['port'],
+                    'protocol': item['type'].lower(),
+                    'country_code': item.get('country', 'unknown').upper(),
+                    'anonymity': item.get('anonymity', 'unknown'),
+                    'response_time': item.get('speed', 0)
+                })
+            
+            return pd.DataFrame(proxies)
+            
+        except Exception as e:
+            self._logger.error(f"Failed to load from {self.name}: {e}")
+            return pd.DataFrame()  # Return empty DataFrame on error
+    
+    def load(self) -> pd.DataFrame:
+        """Synchronous wrapper."""
+        import asyncio
+        return asyncio.run(self.load_async())
+```
+
+### Advanced Custom Loader
+
+For more complex scenarios with authentication, filtering, and error handling:
+
+```python
+import httpx
+import pandas as pd
+from typing import Dict, List, Optional
+from proxywhirl.loaders.base import BaseLoader, LoaderConfig
+
+class AdvancedCustomLoader(BaseLoader):
+    """Advanced custom loader with authentication and filtering."""
+    
+    def __init__(self, api_key: str, country_filter: Optional[str] = None):
+        super().__init__(
+            name="advanced-custom-loader",
+            description="Advanced proxy loader with authentication"
+        )
+        self.api_key = api_key
+        self.country_filter = country_filter
+        self.base_url = "https://api.example.com/v1/proxies"
+    
+    def get_capabilities(self) -> Dict:
+        """Return loader capabilities."""
+        return {
+            'schemes': {'http', 'https', 'socks4', 'socks5'},
+            'countries': {'US', 'DE', 'FR', 'JP', 'UK'},
+            'anonymity_levels': {'transparent', 'anonymous', 'elite'},
+            'requires_auth': True,
+            'rate_limited': True,
+            'max_concurrent': 1,
+            'expected_count': 1000
+        }
+    
+    async def load_async(self) -> pd.DataFrame:
+        """Load proxies with authentication and filtering."""
+        await self._ensure_client()
+        
+        # Prepare request headers
+        headers = {
+            'Authorization': f'Bearer {self.api_key}',
+            'Accept': 'application/json',
+            'User-Agent': self.config.user_agent
+        }
+        
+        # Prepare query parameters
+        params = {
+            'format': 'json',
+            'limit': 1000,
+            'timeout': self.config.timeout
+        }
+        
+        if self.country_filter:
+            params['country'] = self.country_filter
+        
+        try:
+            response = await self._client.get(
+                self.base_url,
+                headers=headers,
+                params=params,
+                timeout=self.config.timeout
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            if not data.get('success'):
+                self._logger.error(f"API returned error: {data.get('message')}")
+                return pd.DataFrame()
+            
+            proxies = []
+            for proxy_data in data.get('proxies', []):
+                # Validate required fields
+                if not all(k in proxy_data for k in ['ip', 'port', 'type']):
+                    continue
+                
+                proxies.append({
+                    'host': proxy_data['ip'],
+                    'port': int(proxy_data['port']),
+                    'protocol': proxy_data['type'].lower(),
+                    'country_code': proxy_data.get('country', 'unknown').upper(),
+                    'anonymity': proxy_data.get('anonymity', 'unknown'),
+                    'response_time': proxy_data.get('response_time'),
+                    'last_checked': proxy_data.get('last_checked'),
+                    'uptime': proxy_data.get('uptime', 0),
+                    'source': self.name
+                })
+            
+            df = pd.DataFrame(proxies)
+            self._logger.info(f"Loaded {len(df)} proxies from {self.name}")
+            return df
+            
+        except httpx.HTTPError as e:
+            self._logger.error(f"HTTP error loading from {self.name}: {e}")
+            return pd.DataFrame()
+        except Exception as e:
+            self._logger.error(f"Unexpected error loading from {self.name}: {e}")
+            return pd.DataFrame()
+
+# Usage example
+loader = AdvancedCustomLoader(
+    api_key="your-api-key-here",
+    country_filter="US"
+)
+
+# Configure loader
+config = LoaderConfig(
+    timeout=30.0,
+    max_retries=3,
+    rate_limit_calls=10,
+    rate_limit_period=60.0
+)
+loader.configure(config)
+
+# Use with ProxyWhirl
+from proxywhirl import ProxyWhirl
+
+proxy_whirl = ProxyWhirl()
+# Add custom loader (this would require extending ProxyWhirl to accept custom loaders)
+```
+
+### File-based Custom Loader
+
+Load proxies from local files:
+
+```python
+from pathlib import Path
+import pandas as pd
+from proxywhirl.loaders.base import BaseLoader
+
+class FileLoader(BaseLoader):
+    """Load proxies from local files."""
+    
+    def __init__(self, file_path: Path, format: str = 'csv'):
+        super().__init__(
+            name=f"file-loader-{file_path.stem}",
+            description=f"Load proxies from {file_path.name}"
+        )
+        self.file_path = file_path
+        self.format = format.lower()
+    
+    def load(self) -> pd.DataFrame:
+        """Load proxies from file."""
+        try:
+            if not self.file_path.exists():
+                self._logger.error(f"File not found: {self.file_path}")
+                return pd.DataFrame()
+            
+            if self.format == 'csv':
+                df = pd.read_csv(self.file_path)
+            elif self.format == 'json':
+                df = pd.read_json(self.file_path)
+            elif self.format == 'txt':
+                # Assume ip:port format, one per line
+                with open(self.file_path, 'r') as f:
+                    lines = [line.strip() for line in f if line.strip()]
+                
+                proxies = []
+                for line in lines:
+                    if ':' in line:
+                        host, port = line.split(':', 1)
+                        try:
+                            proxies.append({
+                                'host': host.strip(),
+                                'port': int(port.strip()),
+                                'protocol': 'http'
+                            })
+                        except ValueError:
+                            continue
+                
+                df = pd.DataFrame(proxies)
+            else:
+                raise ValueError(f"Unsupported format: {self.format}")
+            
+            self._logger.info(f"Loaded {len(df)} proxies from {self.file_path}")
+            return df
+            
+        except Exception as e:
+            self._logger.error(f"Error loading from {self.file_path}: {e}")
+            return pd.DataFrame()
+
+# Usage
+loader = FileLoader(Path("my_proxies.csv"), format="csv")
+proxies = loader.load()
+```
+
+## Loader Health Monitoring
+
+### Health Metrics
+
+All loaders provide health metrics for monitoring:
+
+```python
+from proxywhirl import ProxyWhirl
+
+async def monitor_loader_health():
+    proxy_whirl = ProxyWhirl()
+    
+    # Fetch proxies and get health report
+    await proxy_whirl.fetch_proxies()
+    health_report = proxy_whirl.get_health_report()
+    
+    for loader_name, metrics in health_report.items():
+        print(f"📊 {loader_name}:")
+        print(f"  ✅ Success Rate: {metrics.get('success_rate', 0):.1%}")
+        print(f"  📊 Proxies Loaded: {metrics.get('proxies_loaded', 0)}")
+        print(f"  ⏱️  Response Time: {metrics.get('avg_response_time', 0):.2f}s")
+        print(f"  🔄 Last Updated: {metrics.get('last_update', 'Never')}")
+        print()
+
+import asyncio
+asyncio.run(monitor_loader_health())
+```
+
+### Loader Status Checking
+
+Check individual loader status:
+
+```python
+from proxywhirl.loaders import TheSpeedXHttpLoader
+
+async def check_loader_status():
+    loader = TheSpeedXHttpLoader()
+    
+    try:
+        # Test loader connectivity
+        proxies_df = await loader.load_async()
+        
+        if len(proxies_df) > 0:
+            print(f"✅ {loader.name}: Loaded {len(proxies_df)} proxies")
+        else:
+            print(f"⚠️  {loader.name}: No proxies returned")
+            
+    except Exception as e:
+        print(f"❌ {loader.name}: Failed - {e}")
+
+asyncio.run(check_loader_status())
+```
+
+## Best Practices
+
+### 1. Error Handling
+
+Always handle loader failures gracefully:
+
+```python
+from proxywhirl import ProxyWhirl
+
+async def robust_proxy_loading():
+    proxy_whirl = ProxyWhirl()
+    
+    try:
+        count = await proxy_whirl.fetch_proxies()
+        
+        if count == 0:
+            print("⚠️  No proxies loaded from any source")
+            # Implement fallback strategy
+            return
+        
+        print(f"✅ Successfully loaded {count} proxies")
+        
+    except Exception as e:
+        print(f"❌ Critical error during proxy loading: {e}")
+        # Implement error recovery
+```
+
+### 2. Rate Limiting
+
+Respect source rate limits:
+
+```python
+from proxywhirl.loaders.base import LoaderConfig
+
+# Configure conservative rate limiting
+config = LoaderConfig(
+    rate_limit_calls=5,    # 5 requests
+    rate_limit_period=60,  # per minute
+    timeout=30.0,
+    max_retries=3
+)
+```
+
+### 3. Caching
+
+Use caching to reduce load on sources:
+
+```python
+proxy_whirl = ProxyWhirl(
+    cache_type="sqlite",
+    cache_path="proxies.db"
+)
+
+# Enable loader-level caching
+settings = ProxyWhirlSettings(
+    enable_loader_caching=True,
+    loader_cache_ttl=300  # 5 minutes
+)
+```
+
+### 4. Monitoring
+
+Implement health monitoring for production:
+
+```python
+import asyncio
+import time
+from proxywhirl import ProxyWhirl
+
+async def health_monitor():
+    """Continuous health monitoring for loaders."""
+    proxy_whirl = ProxyWhirl()
+    
+    while True:
+        try:
+            # Check loader health every 5 minutes
+            health = proxy_whirl.get_health_report()
+            
+            for loader, metrics in health.items():
+                success_rate = metrics.get('success_rate', 0)
+                if success_rate < 0.7:  # Less than 70% success rate
+                    print(f"⚠️  {loader} health degraded: {success_rate:.1%}")
+            
+            await asyncio.sleep(300)  # 5 minutes
+            
+        except Exception as e:
+            print(f"❌ Health monitor error: {e}")
+            await asyncio.sleep(60)  # Retry in 1 minute
+
+# Run in background
+asyncio.create_task(health_monitor())
+```
+
+### 5. Custom Integration
+
+Integrate custom loaders with ProxyWhirl:
+
+```python
+# This would require extending ProxyWhirl to accept custom loaders
+# Future enhancement for plugin system
+
+from proxywhirl import ProxyWhirl
+from my_custom_loader import MyCustomLoader
+
+class ExtendedProxyWhirl(ProxyWhirl):
+    def __init__(self, *args, custom_loaders=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.custom_loaders = custom_loaders or []
+    
+    async def fetch_proxies(self, validate=None):
+        # Fetch from built-in loaders
+        count = await super().fetch_proxies(validate)
+        
+        # Fetch from custom loaders
+        for loader in self.custom_loaders:
+            try:
+                proxies_df = await loader.load_async()
+                # Add to cache (implementation needed)
+                count += len(proxies_df)
+            except Exception as e:
+                print(f"Custom loader {loader.name} failed: {e}")
+        
+        return count
+
+# Usage
+custom_loader = MyCustomLoader()
+proxy_whirl = ExtendedProxyWhirl(custom_loaders=[custom_loader])
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Timeout Errors**
+   ```python
+   # Increase timeout for slow sources
+   config = LoaderConfig(timeout=60.0)
+   ```
+
+2. **Rate Limiting**
+   ```python
+   # Reduce request frequency
+   config = LoaderConfig(
+       rate_limit_calls=1,
+       rate_limit_period=60
+   )
+   ```
+
+3. **Empty Results**
+   ```python
+   # Check loader health and connectivity
+   health = proxy_whirl.get_health_report()
+   print(health)
+   ```
+
+4. **Authentication Issues**
+   ```python
+   # Verify API keys and credentials
+   loader = MyCustomLoader(api_key="correct-key")
+   ```
+
+### Debug Mode
+
+Enable detailed logging for troubleshooting:
+
+```python
+import logging
+from loguru import logger
+
+# Enable debug logging
+logger.add("loader_debug.log", level="DEBUG")
+
+# Or use Python's logging
+logging.basicConfig(level=logging.DEBUG)
+```
