@@ -71,11 +71,13 @@ class MemoryProxyCache(BaseProxyCache):
     def _start_background_cleanup(self) -> None:
         """Start background cleanup task for expired entries."""
         try:
+            # Check if there's a running event loop
+            loop = asyncio.get_running_loop()
             if self._cleanup_task is None or self._cleanup_task.done():
-                self._cleanup_task = asyncio.create_task(self._background_cleanup())
+                self._cleanup_task = loop.create_task(self._background_cleanup())
         except RuntimeError:
             # No event loop running - cleanup will happen on access
-            logger.debug("No event loop available for background cleanup")
+            logger.debug("No event loop available for background cleanup, cleanup will happen on access")
 
     async def _background_cleanup(self) -> None:
         """Background task to clean up expired entries."""
@@ -159,8 +161,11 @@ class MemoryProxyCache(BaseProxyCache):
         expired_keys: List[Tuple[str, int]] = []
 
         with self._lock:
-            # Collect valid proxies and identify expired ones
-            for key, (proxy, access_time, expire_time, access_count) in self._cache.items():
+            # Collect cache items to avoid mutation during iteration
+            cache_items = list(self._cache.items())
+            
+            # Process items
+            for key, (proxy, access_time, expire_time, access_count) in cache_items:
                 if current_time > expire_time:
                     expired_keys.append(key)
                 else:
@@ -171,8 +176,9 @@ class MemoryProxyCache(BaseProxyCache):
 
             # Clean up expired entries
             for key in expired_keys:
-                del self._cache[key]
-                self._stats["expired_cleanups"] += 1
+                if key in self._cache:  # Check if key still exists
+                    del self._cache[key]
+                    self._stats["expired_cleanups"] += 1
 
             # Update statistics
             if proxies:

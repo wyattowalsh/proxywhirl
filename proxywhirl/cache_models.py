@@ -92,15 +92,15 @@ class ProxyRecord(SQLModel, table=True):
     target_health: str = Field(default="{}", description="JSON-serialized target health status")
 
     # Relationships
-    health_metrics: List[HealthMetric] = Relationship(
+    health_metrics: List["HealthMetric"] = Relationship(
         back_populates="proxy_record",
         cascade_delete=True,
     )
-    performance_history: List[PerformanceHistory] = Relationship(
+    performance_history: List["PerformanceHistory"] = Relationship(
         back_populates="proxy_record",
         cascade_delete=True,
     )
-    proxy_tags: List[ProxyTagLink] = Relationship(
+    proxy_tags: List["ProxyTagLink"] = Relationship(
         back_populates="proxy_record",
         cascade_delete=True,
     )
@@ -132,7 +132,7 @@ class HealthMetric(SQLModel, table=True):
     # Primary key and relationships
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     proxy_record_id: uuid.UUID = Field(foreign_key="proxy_records.id", index=True)
-    proxy_record: Optional[ProxyRecord] = Relationship(back_populates="health_metrics")
+    proxy_record: Optional["ProxyRecord"] = Relationship(back_populates="health_metrics")
 
     # Time-series data with proper indexing
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
@@ -182,7 +182,7 @@ class PerformanceHistory(SQLModel, table=True):
     # Primary key and relationships
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     proxy_record_id: uuid.UUID = Field(foreign_key="proxy_records.id", index=True)
-    proxy_record: Optional[ProxyRecord] = Relationship(back_populates="performance_history")
+    proxy_record: Optional["ProxyRecord"] = Relationship(back_populates="performance_history")
 
     # Time window definition
     window_start: datetime = Field(index=True)
@@ -229,11 +229,11 @@ class Tag(SQLModel, table=True):
 
     # Hierarchical organization
     parent_tag_id: Optional[uuid.UUID] = Field(None, foreign_key="tags.id")
-    parent_tag: Optional[Tag] = Relationship(
+    parent_tag: Optional["Tag"] = Relationship(
         back_populates="child_tags",
         sa_relationship_kwargs={"remote_side": "Tag.id"},
     )
-    child_tags: List[Tag] = Relationship(back_populates="parent_tag")
+    child_tags: List["Tag"] = Relationship(back_populates="parent_tag")
 
     # Display and metadata
     description: Optional[str] = Field(None, max_length=500)
@@ -245,7 +245,7 @@ class Tag(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
-    proxy_tags: List[ProxyTagLink] = Relationship(back_populates="tag")
+    proxy_tags: List["ProxyTagLink"] = Relationship(back_populates="tag")
 
 
 class ProxyTagLink(SQLModel, table=True):
@@ -265,8 +265,8 @@ class ProxyTagLink(SQLModel, table=True):
     tag_id: uuid.UUID = Field(foreign_key="tags.id", primary_key=True)
 
     # Relationships
-    proxy_record: Optional[ProxyRecord] = Relationship(back_populates="proxy_tags")
-    tag: Optional[Tag] = Relationship(back_populates="proxy_tags")
+    proxy_record: Optional["ProxyRecord"] = Relationship(back_populates="proxy_tags")
+    tag: Optional["Tag"] = Relationship(back_populates="proxy_tags")
 
     # Link metadata
     assigned_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
