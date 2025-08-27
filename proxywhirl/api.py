@@ -1032,14 +1032,20 @@ async def get_proxy_by_id(
     )
 
 
+class HealthUpdateRequest(BaseModel):
+    """Request model for proxy health updates."""
+    
+    success: bool = Field(description="Whether the proxy operation was successful")
+    response_time: Optional[float] = Field(None, ge=0.001, description="Response time in seconds")
+    error_type: Optional[ValidationErrorType] = Field(None, description="Type of error if failed")
+
+
 @app.put("/proxies/{proxy_id}/health", tags=["Proxy Management"])
 async def update_proxy_health(
     proxy_id: Annotated[str, Path(description="Proxy ID in format 'host:port'")],
+    health_update: HealthUpdateRequest,
     current_user: Annotated[User, Security(get_current_user, scopes=["write"])],
     pw: ProxyWhirl = Depends(get_proxywhirl),
-    success: bool = Field(description="Whether the proxy operation was successful"),
-    response_time: Optional[float] = Field(None, ge=0.001, description="Response time in seconds"),
-    error_type: Optional[ValidationErrorType] = Field(None, description="Type of error if failed"),
 ):
     """
     Update proxy health metrics after usage.
@@ -1062,10 +1068,10 @@ async def update_proxy_health(
     # Update health metrics
     pw.update_proxy_health(
         proxy=proxy,
-        success=success,
-        response_time=response_time,
-        error_type=error_type,
-        error_message=error_type.value if error_type else None,
+        success=health_update.success,
+        response_time=health_update.response_time,
+        error_type=health_update.error_type,
+        error_message=health_update.error_type.value if health_update.error_type else None,
     )
 
     # Broadcast update
@@ -1073,8 +1079,8 @@ async def update_proxy_health(
         {
             "type": "proxy_health_updated",
             "proxy_id": proxy_id,
-            "success": success,
-            "response_time": response_time,
+            "success": health_update.success,
+            "response_time": health_update.response_time,
             "quality_score": proxy.quality_score,
         },
         "proxy_stream",
