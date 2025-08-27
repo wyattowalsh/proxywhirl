@@ -14,7 +14,7 @@ a consistent interface through the base class abstraction.
 from .base import BaseProxyCache, CacheFilters, CacheMetrics
 from .json import JsonProxyCache
 from .memory import MemoryProxyCache
-from .sqlite import SQLiteProxyCache, AsyncSQLiteProxyCache
+from .sqlite import AsyncSQLiteProxyCache, SQLiteProxyCache
 
 __all__ = [
     # Base classes

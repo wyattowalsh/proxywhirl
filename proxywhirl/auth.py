@@ -7,7 +7,8 @@ and provides secure password hashing and user validation.
 """
 
 import os
-from typing import Optional, Union, List
+from typing import List, Optional, Union
+
 from passlib.context import CryptContext
 from pydantic import BaseModel, ConfigDict
 

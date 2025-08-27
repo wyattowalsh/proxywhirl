@@ -29,6 +29,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Set, Union
 
+import orjson
 import psutil
 from fastapi import (
     BackgroundTasks,
@@ -54,7 +55,6 @@ from fastapi.security import (
 )
 from jose import JWTError, jwt
 from loguru import logger
-import orjson
 from orjson import dumps as orjson_dumps
 from passlib.context import CryptContext
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -68,6 +68,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 from typing_extensions import Annotated
 
+from .auth import User, UserInDB, get_user_manager
 from .models import (
     CacheType,
     Proxy,
@@ -77,7 +78,6 @@ from .models import (
 )
 from .proxywhirl import ProxyWhirl
 from .settings import APISettings, get_api_settings
-from .auth import get_user_manager, User, UserInDB
 
 
 class ORJSONResponse(JSONResponse):
