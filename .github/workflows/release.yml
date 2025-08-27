@@ -96,7 +96,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install dependencies
+      - name: Install dependencies and run tests
         run: |
           uv sync --all-groups
           echo "$(pwd)/.venv/bin" >> $GITHUB_PATH
@@ -108,7 +108,7 @@ jobs:
         run: |
           # Build and install the package
           uv build
-          uv run pip install dist/*.whl
+          uv tool install dist/*.whl --force
           
           # Test CLI is available
           proxywhirl --help
@@ -252,7 +252,8 @@ jobs:
       - name: Update documentation
         run: |
           # Install dependencies
-          uv sync
+          uv sync --all-groups
+          echo "$(pwd)/.venv/bin" >> $GITHUB_PATH
           make docs-deps
           
           # Regenerate API docs with new version

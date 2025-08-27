@@ -20,15 +20,17 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
 
       - name: Set up Python
-        run: uv python install
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
 
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: uv sync --all-groups
 
       - name: Generate health report
         run: |
@@ -37,9 +39,6 @@ jobs:
           
           # Generate health report and save to assets directory
           uv run proxywhirl health-report --output .github/assets/health_report.md
-          
-          # Add compact status badge for README
-          echo "**Loader Status:** $(date '+%Y-%m-%d %H:%M UTC')" > /tmp/health_badge.md
           
       - name: Update README.md
         run: |
@@ -86,6 +85,8 @@ jobs:
           ## Installation
           
           ```bash
+          uv add proxywhirl
+          # or using pip
           pip install proxywhirl
           ```
           
