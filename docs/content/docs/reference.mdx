@@ -8,60 +8,62 @@ icon: fa/FaCode
 
 This page provides complete API documentation for the proxywhirl Python SDK.
 
-## proxywhirl
+## ProxyWhirl
 
-The main async class for proxy management.
+The main class for unified proxy management with both async and sync support.
 
 ```python
-from proxywhirl import proxywhirl
+from proxywhirl import ProxyWhirl
 ```
 
 ### Constructor
 
 ```python
-proxywhirl(
+ProxyWhirl(
     cache_type: Union[CacheType, str] = CacheType.MEMORY,
     cache_path: Optional[Union[str, Path]] = None,
     rotation_strategy: Union[RotationStrategy, str] = RotationStrategy.ROUND_ROBIN,
     health_check_interval: int = 30,
-    auto_validate: bool = True
+    auto_validate: bool = True,
+    config: Optional[ProxyWhirlSettings] = None
 )
 ```
 
 **Parameters:**
 
 - `cache_type`: Storage backend for proxies (`"memory"`, `"json"`, or `"sqlite"`)
-- `cache_path`: File path for JSON cache (required if `cache_type="json"`)
+- `cache_path`: File path for JSON/SQLite cache (required for non-memory backends)
 - `rotation_strategy`: How to select proxies (`"round_robin"`, `"random"`, `"weighted"`, `"health_based"`, `"least_used"`)
-- `health_check_interval`: Seconds between health checks
-- `auto_validate`: Whether to validate proxies when fetching
+- `health_check_interval`: Seconds between health checks (default: 30)
+- `auto_validate`: Whether to validate proxies when fetching (default: True)
+- `config`: Optional configuration object for advanced settings
 
 **Example:**
 
 ```python
 # Memory cache with random rotation
-proxy_whirl = proxywhirl(
+proxy_whirl = ProxyWhirl(
     cache_type="memory",
     rotation_strategy="random"
 )
 
-# JSON cache with health-based rotation
-proxy_whirl = proxywhirl(
-    cache_type="json",
-    cache_path="proxies.json",
+# SQLite cache with health-based rotation
+proxy_whirl = ProxyWhirl(
+    cache_type="sqlite",
+    cache_path="proxies.db",
     rotation_strategy="health_based",
     auto_validate=True
 )
 ```
 
-### Methods
+### Async Methods
 
-#### `fetch_proxies(validate: Optional[bool] = None) -> int`
+#### `async fetch_proxies(validate: Optional[bool] = None) -> int`
 
-Fetch proxies from all configured providers.
+Fetch proxies from all configured loaders asynchronously.
 
 **Parameters:**
-- `validate`: Override auto_validate setting
+- `validate`: Override auto_validate setting (optional)
 
 **Returns:** Number of proxies loaded
 
@@ -73,9 +75,9 @@ count = await proxy_whirl.fetch_proxies(validate=True)
 print(f"Loaded {count} proxies")
 ```
 
-#### `get_proxy() -> Optional[Proxy]`
+#### `async get_proxy() -> Optional[Proxy]`
 
-Get next proxy using rotation strategy.
+Get next proxy using the configured rotation strategy.
 
 **Returns:** Proxy object or None if no proxies available
 
@@ -86,6 +88,46 @@ proxy = await proxy_whirl.get_proxy()
 if proxy:
     print(f"Using {proxy.host}:{proxy.port}")
 ```
+
+#### `async validate_proxies(quality_level: Optional[QualityLevel] = None) -> int`
+
+Validate all cached proxies and remove invalid ones.
+
+**Parameters:**
+- `quality_level`: Validation depth (`BASIC`, `STANDARD`, `THOROUGH`)
+
+**Returns:** Number of valid proxies remaining
+
+**Example:**
+
+```python
+from proxywhirl import QualityLevel
+
+valid_count = await proxy_whirl.validate_proxies(
+    quality_level=QualityLevel.THOROUGH
+)
+print(f"{valid_count} proxies are working")
+```
+
+### Sync Methods
+
+All async methods have synchronous equivalents for convenience:
+
+#### `fetch_proxies(validate: Optional[bool] = None) -> int`
+
+Synchronous version of `fetch_proxies()`.
+
+#### `get_proxy() -> Optional[Proxy]`
+
+Synchronous version of `get_proxy()`.
+
+#### `validate_proxies(quality_level: Optional[QualityLevel] = None) -> int`
+
+Synchronous version of `validate_proxies()`.
+
+### Shared Methods
+
+These methods work the same in both async and sync contexts:
 
 #### `list_proxies() -> List[Proxy]`
 
@@ -100,27 +142,14 @@ proxies = proxy_whirl.list_proxies()
 print(f"Found {len(proxies)} cached proxies")
 ```
 
-#### `validate_proxies() -> int`
-
-Validate all cached proxies and remove invalid ones.
-
-**Returns:** Number of valid proxies remaining
-
-**Example:**
-
-```python
-valid_count = await proxy_whirl.validate_proxies()
-print(f"{valid_count} proxies are working")
-```
-
 #### `update_proxy_health(proxy: Proxy, success: bool, response_time: Optional[float] = None) -> None`
 
 Update health score for a proxy after use.
 
 **Parameters:**
 - `proxy`: The proxy that was used
-- `success`: Whether the request succeeded
-- `response_time`: Response time in seconds
+- `success`: Whether the request succeeded  
+- `response_time`: Response time in seconds (optional)
 
 **Example:**
 
@@ -144,27 +173,141 @@ Get count of cached proxies.
 
 Clear all cached proxies.
 
-## proxywhirlClient
+#### `get_health_report() -> Dict[str, Any]`
 
-Synchronous wrapper for proxywhirl. Same methods as proxywhirl but without async/await.
+Get comprehensive health report for all loaders.
+
+**Returns:** Dictionary with loader health statistics
+
+**Example:**
 
 ```python
-from proxywhirl import proxywhirlClient
+report = proxy_whirl.get_health_report()
+for loader_name, stats in report.items():
+    print(f"{loader_name}: {stats['success_rate']:.1%} success rate")
+```
 
-# Same constructor parameters
-client = proxywhirlClient(cache_type="json", cache_path="proxies.json")
+## ProxyCache
 
-# Synchronous methods
-count = client.fetch_proxies()
-proxy = client.get_proxy()
-proxies = client.list_proxies()
+Multi-backend caching system for proxy storage and retrieval.
+
+```python
+from proxywhirl import ProxyCache, CacheType
+```
+
+### Constructor
+
+```python
+ProxyCache(
+    cache_type: CacheType = CacheType.MEMORY,
+    cache_path: Optional[Path] = None,
+    **kwargs
+)
+```
+
+**Cache Types:**
+- `MEMORY`: In-memory storage (default, fastest)
+- `JSON`: JSON file storage (persistent, human-readable)
+- `SQLITE`: SQLite database storage (persistent, queryable)
+
+**Example:**
+
+```python
+# SQLite cache for persistence
+cache = ProxyCache(CacheType.SQLITE, Path("proxies.db"))
+
+# JSON cache for easy inspection
+cache = ProxyCache(CacheType.JSON, Path("proxies.json"))
+```
+
+## ProxyValidator
+
+Async validation engine with circuit breaker pattern.
+
+```python
+from proxywhirl import ProxyValidator, QualityLevel
+```
+
+### Quality Levels
+
+- `BASIC`: Simple connectivity test
+- `STANDARD`: Connectivity + response validation
+- `THOROUGH`: Full anonymity detection + performance testing
+
+**Example:**
+
+```python
+validator = ProxyValidator()
+
+# Validate with different quality levels
+results = await validator.validate_batch(
+    proxies, 
+    quality_level=QualityLevel.THOROUGH
+)
+```
+
+## ProxyRotator
+
+Intelligent proxy rotation with multiple strategies.
+
+```python
+from proxywhirl import ProxyRotator, RotationStrategy
+```
+
+### Rotation Strategies
+
+- `ROUND_ROBIN`: Sequential rotation through all proxies
+- `RANDOM`: Random selection from available proxies
+- `WEIGHTED`: Response time inverse weighted (faster proxies preferred)
+- `HEALTH_BASED`: Health score based (penalizes recent failures)
+- `LEAST_USED`: Chooses proxy with fewest recent uses
+
+**Example:**
+
+```python
+rotator = ProxyRotator(
+    strategy=RotationStrategy.HEALTH_BASED,
+    health_threshold=0.7  # Only use proxies with >70% success rate
+)
+```
+
+## ProxyExporter
+
+Multi-format export system with advanced filtering.
+
+```python
+from proxywhirl.exporter import ProxyExporter, ExportFormat
+```
+
+### Export Formats
+
+- `JSON`: Structured JSON with full metadata
+- `CSV`: Comma-separated values for spreadsheets
+- `XML`: XML format for system integration
+- `TXT`: Plain text, one proxy per line
+- `YAML`: YAML format for configuration files
+- `SQL`: SQL INSERT statements for databases
+- `PAC`: Proxy Auto-Configuration files for browsers
+
+**Example:**
+
+```python
+exporter = ProxyExporter()
+
+# Export to JSON with filtering
+await exporter.export_proxies(
+    proxies=proxy_list,
+    format=ExportFormat.JSON,
+    output_path="us_elite_proxies.json",
+    filters={"country_code": "US", "anonymity": "elite"}
+)
 ```
 
 ## Models
 
 ### Proxy
 
-Represents a proxy server with all metadata.
+Represents a proxy server with comprehensive metadata.
 
 ```python
 from proxywhirl import Proxy
@@ -173,21 +316,25 @@ from proxywhirl import Proxy
 **Fields:**
 
 - `host: str` - Hostname or IP address
-- `ip: Union[IPv4Address, IPv6Address]` - IP address
+- `ip: Union[IPv4Address, IPv6Address]` - Validated IP address
 - `port: int` - TCP port (1-65535)
 - `schemes: List[Scheme]` - Supported protocols
-- `country_code: Optional[str]` - ISO 3166-1 alpha-2 country code
-- `country: Optional[str]` - Country name
+- `country_code: Optional[str]` - ISO 3166-1 alpha-2 country code (auto-uppercase)
+- `country: Optional[str]` - Full country name
 - `city: Optional[str]` - City or region
 - `anonymity: AnonymityLevel` - Anonymity classification
 - `last_checked: datetime` - UTC timestamp of last health check
 - `response_time: Optional[float]` - Last response time in seconds
-- `source: Optional[str]` - Provider identifier
-- `metadata: Dict[str, Any]` - Provider-specific fields
+- `success_rate: float` - Success rate (0.0-1.0)
+- `use_count: int` - Number of times proxy has been used
+- `source: Optional[str]` - Loader that provided this proxy
+- `metadata: Dict[str, Any]` - Provider-specific additional fields
 
 **Properties:**
 
-- `uris: Dict[str, str]` - Proxy URIs for each scheme
+- `uris: Dict[str, str]` - Proxy URIs for each supported scheme
+- `is_healthy: bool` - Whether proxy is considered healthy
+- `quality_score: float` - Combined health and performance score
 
 **Example:**
 
@@ -196,12 +343,14 @@ proxy = Proxy(
     host="192.168.1.1",
     port=8080,
     schemes=["http", "https"],
-    country_code="US",
+    country_code="us",  # Automatically converted to "US"
     anonymity="elite"
 )
 
 print(proxy.uris)
 # {'http': 'http://192.168.1.1:8080', 'https': 'https://192.168.1.1:8080'}
+
+print(f"Health: {proxy.is_healthy}, Quality: {proxy.quality_score:.2f}")
 ```
 
 ### Enums
@@ -211,10 +360,10 @@ print(proxy.uris)
 ```python
 from proxywhirl import AnonymityLevel
 
-AnonymityLevel.TRANSPARENT  # IP visible
-AnonymityLevel.ANONYMOUS    # IP hidden, proxy detected
-AnonymityLevel.ELITE        # IP hidden, proxy not detected
-AnonymityLevel.UNKNOWN      # Anonymity level unknown
+AnonymityLevel.TRANSPARENT  # IP visible to target servers
+AnonymityLevel.ANONYMOUS    # IP hidden, but proxy headers detectable
+AnonymityLevel.ELITE        # IP hidden, proxy undetectable
+AnonymityLevel.UNKNOWN      # Anonymity level unknown/untested
 ```
 
 #### Scheme
@@ -222,10 +371,10 @@ AnonymityLevel.UNKNOWN      # Anonymity level unknown
 ```python
 from proxywhirl import Scheme
 
-Scheme.HTTP     # HTTP proxy
-Scheme.HTTPS    # HTTPS proxy
-Scheme.SOCKS4   # SOCKS4 proxy
-Scheme.SOCKS5   # SOCKS5 proxy
+Scheme.HTTP     # HTTP proxy protocol
+Scheme.HTTPS    # HTTPS proxy protocol  
+Scheme.SOCKS4   # SOCKS4 proxy protocol
+Scheme.SOCKS5   # SOCKS5 proxy protocol
 ```
 
 #### CacheType
@@ -233,9 +382,9 @@ Scheme.SOCKS5   # SOCKS5 proxy
 ```python
 from proxywhirl import CacheType
 
-CacheType.MEMORY   # In-memory storage
-CacheType.JSON     # JSON file storage
-CacheType.SQLITE   # SQLite persistent storage
+CacheType.MEMORY   # In-memory storage (fastest, not persistent)
+CacheType.JSON     # JSON file storage (persistent, human-readable)
+CacheType.SQLITE   # SQLite database storage (persistent, queryable)
 ```
 
 #### RotationStrategy
@@ -243,11 +392,67 @@ CacheType.SQLITE   # SQLite persistent storage
 ```python
 from proxywhirl import RotationStrategy
 
-RotationStrategy.ROUND_ROBIN   # Sequential rotation
-RotationStrategy.RANDOM        # Random selection
-RotationStrategy.WEIGHTED      # Response time inverse weighted (faster preferred)
-RotationStrategy.HEALTH_BASED  # Health score based (penalizes recent failures)
-RotationStrategy.LEAST_USED    # Chooses proxy with fewest uses (ties broken by response time)
+RotationStrategy.ROUND_ROBIN   # Sequential rotation through all proxies
+RotationStrategy.RANDOM        # Random selection from available proxies  
+RotationStrategy.WEIGHTED      # Inverse response time weighted (faster preferred)
+RotationStrategy.HEALTH_BASED  # Health score based (penalizes failures)
+RotationStrategy.LEAST_USED    # Least recently used proxy selection
+```
+
+#### QualityLevel
+
+```python
+from proxywhirl import QualityLevel
+
+QualityLevel.BASIC      # Simple connectivity test
+QualityLevel.STANDARD   # Connectivity + response validation
+QualityLevel.THOROUGH   # Full anonymity detection + performance testing
+```
+
+## Loaders
+
+ProxyWhirl includes 8 built-in proxy loaders for different sources:
+
+### Available Loaders
+
+```python
+from proxywhirl.loaders import (
+    TheSpeedXLoader,      # HTTP/HTTPS/SOCKS4/SOCKS5 proxies
+    ClarketmRawLoader,    # High-quality curated proxies
+    MonosansLoader,       # Free proxy aggregation
+    ProxiflyLoader,       # Multiple proxy types
+    JetkaiProxyLoader,    # Community-maintained lists
+    VakhovFreshLoader,    # Fresh proxy sources
+    ProxyScrapeLoader,    # API-based proxy service
+    UserProvidedLoader,   # Custom proxy lists
+)
+```
+
+### Custom Loader
+
+You can create custom loaders by extending `BaseLoader`:
+
+```python
+from proxywhirl.loaders.base import BaseLoader
+import pandas as pd
+
+class CustomLoader(BaseLoader):
+    """Custom proxy loader example."""
+    
+    name = "custom"
+    description = "Custom proxy source"
+    
+    async def load(self) -> pd.DataFrame:
+        # Your custom loading logic here
+        proxies_data = await self._fetch_custom_proxies()
+        return pd.DataFrame(proxies_data)
+    
+    async def _fetch_custom_proxies(self):
+        # Implementation for fetching proxies from your source
+        return [
+            {"host": "1.2.3.4", "port": 8080, "scheme": "http"},
+            # ... more proxies
+        ]
 ```
 
 ## Usage Examples
@@ -257,13 +462,13 @@ RotationStrategy.LEAST_USED    # Chooses proxy with fewest uses (ties broken by 
 ```python
 import asyncio
 import httpx
-from proxywhirl import proxywhirl
+from proxywhirl import ProxyWhirl
 
 async def main():
-    # Initialize proxywhirl
-    proxy_whirl = proxywhirl()
+    # Initialize ProxyWhirl
+    proxy_whirl = ProxyWhirl()
     
-    # Fetch proxies
+    # Fetch proxies from all loaders
     await proxy_whirl.fetch_proxies()
     
     # Get a proxy
@@ -272,22 +477,23 @@ async def main():
     if proxy:
         # Use with httpx
         proxy_url = f"http://{proxy.host}:{proxy.port}"
-        async with httpx.AsyncClient(proxies=proxy_url) as client:
+        async with httpx.AsyncClient(proxies=proxy_url, timeout=10.0) as client:
             response = await client.get("https://httpbin.org/ip")
             print(response.json())
 
 asyncio.run(main())
 ```
 
-### Health Monitoring
+### Health Monitoring with Automatic Tracking
 
 ```python
 import asyncio
 import time
 import httpx
-from proxywhirl import proxywhirl
+from proxywhirl import ProxyWhirl
 
 async def make_request_with_health_tracking(proxy_whirl):
+    """Make a request and automatically track proxy health."""
     proxy = await proxy_whirl.get_proxy()
     if not proxy:
         return None
@@ -307,7 +513,7 @@ async def make_request_with_health_tracking(proxy_whirl):
             return response.json()
     
     except Exception as e:
-        print(f"Request failed: {e}")
+        print(f"Request failed with {proxy.host}:{proxy.port}: {e}")
         return None
     
     finally:
@@ -315,42 +521,53 @@ async def make_request_with_health_tracking(proxy_whirl):
         proxy_whirl.update_proxy_health(proxy, success, response_time)
 
 async def main():
-    proxy_whirl = proxywhirl(rotation_strategy="health_based")
+    proxy_whirl = ProxyWhirl(rotation_strategy="health_based")
     await proxy_whirl.fetch_proxies()
     
-    # Make several requests
-    for i in range(5):
+    # Make several requests with health tracking
+    for i in range(10):
         result = await make_request_with_health_tracking(proxy_whirl)
         if result:
-            print(f"Request {i+1}: {result}")
+            print(f"Request {i+1}: {result['origin']}")
+        
+        # Small delay between requests
+        await asyncio.sleep(1)
+    
+    # Check final health report
+    report = proxy_whirl.get_health_report()
+    print(f"\n📊 Health Report:")
+    for loader, stats in report.items():
+        print(f"  {loader}: {stats.get('working_proxies', 0)} working proxies")
 
 asyncio.run(main())
 ```
 
-### JSON Cache Persistence
+### Persistent Cache with SQLite
 
 ```python
-from proxywhirl import proxywhirl
+from pathlib import Path
+from proxywhirl import ProxyWhirl, CacheType
 
 async def main():
-    # Initialize with JSON cache
-    proxy_whirl = proxywhirl(
-        cache_type="json",
-        cache_path="my_proxies.json"
+    # Initialize with SQLite cache for persistence
+    proxy_whirl = ProxyWhirl(
+        cache_type=CacheType.SQLITE,
+        cache_path=Path("my_proxies.db")
     )
     
-    # Fetch proxies (saved to file automatically)
-    await proxy_whirl.fetch_proxies()
+    # First run: fetch and cache proxies
+    if proxy_whirl.get_proxy_count() == 0:
+        print("🔄 Fetching fresh proxies...")
+        count = await proxy_whirl.fetch_proxies(validate=True)
+        print(f"✅ Cached {count} validated proxies")
+    else:
+        print(f"📋 Found {proxy_whirl.get_proxy_count()} cached proxies")
     
-    # Later, in another session...
-    proxy_whirl2 = proxywhirl(
-        cache_type="json",
-        cache_path="my_proxies.json"
-    )
-    
-    # Proxies are loaded from file
-    cached_proxies = proxy_whirl2.list_proxies()
-    print(f"Loaded {len(cached_proxies)} proxies from cache")
+    # Use cached proxies
+    for i in range(5):
+        proxy = await proxy_whirl.get_proxy()
+        if proxy:
+            print(f"Proxy {i+1}: {proxy.host}:{proxy.port} (Country: {proxy.country_code})")
 
 asyncio.run(main())
 ```
@@ -358,18 +575,24 @@ asyncio.run(main())
 ### Different Rotation Strategies
 
 ```python
-from proxywhirl import proxywhirl
+from proxywhirl import ProxyWhirl, RotationStrategy
 
 async def test_strategies():
-    strategies = ["round_robin", "random", "weighted", "health_based"]
+    strategies = [
+        RotationStrategy.ROUND_ROBIN,
+        RotationStrategy.RANDOM, 
+        RotationStrategy.WEIGHTED,
+        RotationStrategy.HEALTH_BASED,
+        RotationStrategy.LEAST_USED
+    ]
     
     for strategy in strategies:
-        print(f"\nTesting {strategy} strategy:")
+        print(f"\n🔄 Testing {strategy.value} strategy:")
         
-        proxy_whirl = proxywhirl(rotation_strategy=strategy)
+        proxy_whirl = ProxyWhirl(rotation_strategy=strategy)
         await proxy_whirl.fetch_proxies()
         
-        # Get 3 proxies to see the pattern
+        # Get several proxies to observe the pattern
         for i in range(3):
             proxy = await proxy_whirl.get_proxy()
             if proxy:
@@ -378,32 +601,100 @@ async def test_strategies():
 asyncio.run(test_strategies())
 ```
 
+### Export Proxies to Different Formats
+
+```python
+from proxywhirl import ProxyWhirl
+from proxywhirl.exporter import ProxyExporter, ExportFormat
+
+async def main():
+    # Fetch proxies
+    proxy_whirl = ProxyWhirl()
+    await proxy_whirl.fetch_proxies(validate=True)
+    proxies = proxy_whirl.list_proxies()
+    
+    # Initialize exporter
+    exporter = ProxyExporter()
+    
+    # Export to different formats
+    formats_to_try = [
+        (ExportFormat.JSON, "proxies.json"),
+        (ExportFormat.CSV, "proxies.csv"), 
+        (ExportFormat.TXT, "proxies.txt"),
+        (ExportFormat.PAC, "proxy.pac")
+    ]
+    
+    for format_type, filename in formats_to_try:
+        try:
+            await exporter.export_proxies(
+                proxies=proxies,
+                format=format_type,
+                output_path=filename,
+                filters={"country_code": "US"}  # Only US proxies
+            )
+            print(f"✅ Exported to {filename}")
+        except Exception as e:
+            print(f"❌ Failed to export {filename}: {e}")
+
+asyncio.run(main())
+```
+
+### Synchronous Usage
+
+```python
+# ProxyWhirl also supports synchronous usage
+from proxywhirl import ProxyWhirl
+
+def main():
+    proxy_whirl = ProxyWhirl()
+    
+    # Synchronous methods (no await needed)
+    count = proxy_whirl.fetch_proxies()
+    print(f"Loaded {count} proxies")
+    
+    proxy = proxy_whirl.get_proxy()
+    if proxy:
+        print(f"Using {proxy.host}:{proxy.port}")
+        
+        # Update health after use
+        proxy_whirl.update_proxy_health(proxy, success=True, response_time=0.5)
+
+# Run synchronously
+main()
+```
+
 ## Error Handling
 
-proxywhirl uses standard Python exceptions. Common patterns:
+ProxyWhirl provides comprehensive error handling for robust applications:
 
 ```python
 import asyncio
-from proxywhirl import proxywhirl
+from proxywhirl import ProxyWhirl, ProxyError, ProxyValidationError
 
 async def safe_proxy_usage():
     try:
-        proxy_whirl = proxywhirl()
-        count = await proxy_whirl.fetch_proxies()
+        proxy_whirl = ProxyWhirl()
         
+        # Handle case where no proxies are available
+        count = await proxy_whirl.fetch_proxies()
         if count == 0:
-            print("No proxies available")
+            print("⚠️  No proxies available from any loader")
             return
         
         proxy = await proxy_whirl.get_proxy()
         if proxy is None:
-            print("No proxy returned")
+            print("⚠️  No proxy returned (all may be unhealthy)")
             return
             
-        # Use proxy...
+        # Use proxy with timeout and error handling
+        # ... your proxy usage code here ...
         
+    except ProxyValidationError as e:
+        print(f"❌ Validation error: {e}")
+    except ProxyError as e:
+        print(f"❌ ProxyWhirl error: {e}")
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"❌ Unexpected error: {e}")
 
 asyncio.run(safe_proxy_usage())
 ```
