@@ -1,19 +1,627 @@
 ---
 title: Usage
-description: Complete details on how to use proxywhirl
+description: Complete guide on using proxywhirl through Python API, CLI, and TUI
 icon: fa/FaRocket
 ---
 
+# Usage Guide
+
+ProxyWhirl provides three powerful interfaces for proxy management: Python API for programmatic use, CLI for command-line operations, and TUI for interactive management.
+
 ## Python API
+
+### Quick Start
+
+```python
+import asyncio
+import httpx
+from proxywhirl import ProxyWhirl
+
+async def main():
+    # Initialize with automatic validation and health-based rotation
+    proxy_whirl = ProxyWhirl(
+        rotation_strategy="health_based",
+        auto_validate=True
+    )
+    
+    # Fetch proxies from all loaders
+    count = await proxy_whirl.fetch_proxies()
+    print(f"✅ Loaded {count} working proxies")
+    
+    # Get a proxy and use it
+    proxy = await proxy_whirl.get_proxy()
+    if proxy:
+        proxy_url = f"http://{proxy.host}:{proxy.port}"
+        async with httpx.AsyncClient(proxies=proxy_url, timeout=10) as client:
+            response = await client.get("https://httpbin.org/ip")
+            print(f"🌐 Your IP through proxy: {response.json()}")
+
+asyncio.run(main())
+```
+
+### Cache Backends
+
+ProxyWhirl supports three cache backends for different use cases:
+
+#### Memory Cache (Default)
+
+```python
+from proxywhirl import ProxyWhirl, CacheType
+
+# Fastest, but not persistent across sessions
+proxy_whirl = ProxyWhirl(cache_type=CacheType.MEMORY)
+```
+
+#### JSON File Cache
+
+```python
+from pathlib import Path
+
+# Persistent and human-readable
+proxy_whirl = ProxyWhirl(
+    cache_type=CacheType.JSON,
+    cache_path=Path("proxies.json")
+)
+```
+
+#### SQLite Database Cache
+
+```python
+# Most robust, supports advanced querying
+proxy_whirl = ProxyWhirl(
+    cache_type=CacheType.SQLITE,
+    cache_path=Path("proxies.db")
+)
+```
+
+### Rotation Strategies
+
+Choose the best rotation strategy for your use case:
+
+```python
+from proxywhirl import RotationStrategy
+
+strategies = {
+    # Sequential rotation through all proxies
+    "round_robin": RotationStrategy.ROUND_ROBIN,
+    
+    # Random selection from available proxies
+    "random": RotationStrategy.RANDOM,
+    
+    # Prefer faster proxies (inverse response time weighted)
+    "weighted": RotationStrategy.WEIGHTED,
+    
+    # Use healthiest proxies first (recommended)
+    "health_based": RotationStrategy.HEALTH_BASED,
+    
+    # Distribute load evenly across proxies
+    "least_used": RotationStrategy.LEAST_USED,
+}
+
+# Use health-based rotation (recommended for most cases)
+proxy_whirl = ProxyWhirl(rotation_strategy="health_based")
+```
+
+### Health Monitoring
+
+Track proxy performance and automatically adapt:
+
+```python
+import asyncio
+import time
+import httpx
+from proxywhirl import ProxyWhirl
+
+async def make_request_with_monitoring(proxy_whirl, url):
+    """Make a request and track proxy health automatically."""
+    proxy = await proxy_whirl.get_proxy()
+    if not proxy:
+        return None
+    
+    start_time = time.time()
+    success = False
+    result = None
+    
+    try:
+        proxy_url = f"http://{proxy.host}:{proxy.port}"
+        async with httpx.AsyncClient(proxies=proxy_url, timeout=10) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            success = True
+            result = response.json() if 'json' in response.headers.get('content-type', '') else response.text
+            
+    except Exception as e:
+        print(f"❌ Request failed with {proxy.host}:{proxy.port}: {e}")
+    
+    finally:
+        # Update proxy health based on this request
+        response_time = time.time() - start_time
+        proxy_whirl.update_proxy_health(proxy, success, response_time)
+        
+        if success:
+            print(f"✅ Success via {proxy.host}:{proxy.port} ({response_time:.2f}s)")
+    
+    return result
+
+async def main():
+    proxy_whirl = ProxyWhirl(rotation_strategy="health_based")
+    await proxy_whirl.fetch_proxies()
+    
+    # Make multiple requests with health tracking
+    urls = [
+        "https://httpbin.org/ip",
+        "https://httpbin.org/user-agent", 
+        "https://httpbin.org/headers"
+    ]
+    
+    for url in urls:
+        result = await make_request_with_monitoring(proxy_whirl, url)
+        if result:
+            print(f"📄 Response from {url}: {result}")
+        await asyncio.sleep(1)  # Small delay
+    
+    # Get health report
+    report = proxy_whirl.get_health_report()
+    print(f"\n📊 Health Report: {len(report)} loaders checked")
+
+asyncio.run(main())
+```
+
+### Synchronous Usage
+
+For non-async applications, use the synchronous methods:
+
+```python
+from proxywhirl import ProxyWhirl
+import requests
+
+def main():
+    # Same initialization
+    proxy_whirl = ProxyWhirl()
+    
+    # Synchronous methods (no await needed)
+    count = proxy_whirl.fetch_proxies()
+    print(f"Loaded {count} proxies")
+    
+    # Get and use proxy
+    proxy = proxy_whirl.get_proxy()
+    if proxy:
+        proxy_url = f"http://{proxy.host}:{proxy.port}"
+        
+        try:
+            response = requests.get(
+                "https://httpbin.org/ip",
+                proxies={"http": proxy_url, "https": proxy_url},
+                timeout=10
+            )
+            print(f"Response: {response.json()}")
+            
+            # Update health after successful use
+            proxy_whirl.update_proxy_health(proxy, success=True, response_time=response.elapsed.total_seconds())
+            
+        except Exception as e:
+            print(f"Request failed: {e}")
+            proxy_whirl.update_proxy_health(proxy, success=False)
+
+main()
+```
 
 ---
 
 ## Command Line Interface (CLI)
 
+ProxyWhirl provides a powerful CLI with rich terminal output and comprehensive proxy management commands.
+
+### Installation & Setup
+
+```bash
+# Install ProxyWhirl
+pip install proxywhirl
+
+# Verify installation
+proxywhirl --help
+```
+
+### Core Commands
+
+#### `fetch` - Load Proxies
+
+```bash
+# Fetch proxies from all loaders
+proxywhirl fetch
+
+# Fetch and validate proxies (recommended)
+proxywhirl fetch --validate
+
+# Fetch with specific cache backend
+proxywhirl fetch --cache-type sqlite --cache-path proxies.db --validate
+
+# Fetch with custom settings
+proxywhirl fetch --rotation-strategy health_based --health-check-interval 60
+```
+
+#### `list` - View Cached Proxies
+
+```bash
+# List all cached proxies
+proxywhirl list
+
+# List with limit
+proxywhirl list --limit 10
+
+# List in JSON format
+proxywhirl list --json
+
+# List with filtering
+proxywhirl list --country US --anonymity elite --limit 5
+```
+
+#### `get` - Get Single Proxy
+
+```bash
+# Get next proxy using rotation strategy
+proxywhirl get
+
+# Get proxy from specific cache
+proxywhirl get --cache-type json --cache-path my_proxies.json
+
+# Get proxy with specific rotation
+proxywhirl get --rotation-strategy random
+```
+
+#### `validate` - Test Proxy Health
+
+```bash
+# Validate all cached proxies
+proxywhirl validate
+
+# Validate with thorough quality check
+proxywhirl validate --quality thorough
+
+# Validate with custom timeout
+proxywhirl validate --timeout 15
+```
+
+#### `health-report` - Loader Statistics
+
+```bash
+# Generate comprehensive health report
+proxywhirl health-report
+
+# Save report to file
+proxywhirl health-report --output health_stats.json
+
+# Report with detailed metrics
+proxywhirl health-report --detailed
+```
+
+#### `export` - Export Proxies
+
+```bash
+# Export to JSON
+proxywhirl export --format json --output proxies.json
+
+# Export to CSV with filtering
+proxywhirl export --format csv --country US --anonymity elite --output us_elite.csv
+
+# Export to PAC file for browsers
+proxywhirl export --format pac --output proxy.pac
+
+# Export specific number of proxies
+proxywhirl export --format txt --limit 100 --output top_proxies.txt
+```
+
+#### `tui` - Interactive Dashboard
+
+```bash
+# Launch interactive Terminal User Interface
+proxywhirl tui
+
+# Launch TUI with specific cache
+proxywhirl tui --cache-type sqlite --cache-path proxies.db
+```
+
+### Configuration File
+
+Create a YAML configuration file for consistent settings:
+
+```yaml
+# proxywhirl-config.yaml
+cache:
+  type: sqlite
+  path: ./proxies.db
+
+rotation:
+  strategy: health_based
+  health_check_interval: 30
+
+validation:
+  auto_validate: true
+  quality_level: standard
+  timeout: 10
+
+loaders:
+  the_speedx:
+    enabled: true
+    timeout: 15
+  clarketm_raw:
+    enabled: true
+    timeout: 10
+```
+
+```bash
+# Use configuration file
+proxywhirl fetch --config proxywhirl-config.yaml
+```
+
+### Advanced CLI Examples
+
+#### Batch Processing Pipeline
+
+```bash
+#!/bin/bash
+# proxy_pipeline.sh - Automated proxy management pipeline
+
+echo "🔄 Starting ProxyWhirl pipeline..."
+
+# Step 1: Fetch and validate fresh proxies
+proxywhirl fetch --validate --cache-type sqlite --cache-path production.db
+
+# Step 2: Generate health report
+proxywhirl health-report --output daily_health.json
+
+# Step 3: Export working US proxies
+proxywhirl export --format json --country US --output us_proxies.json --cache-path production.db
+
+# Step 4: Export elite anonymity proxies for browser
+proxywhirl export --format pac --anonymity elite --output elite.pac --cache-path production.db
+
+echo "✅ Pipeline completed successfully!"
+```
+
+#### Quality Assurance Workflow
+
+```bash
+# High-quality proxy curation workflow
+
+# 1. Fetch from all sources
+proxywhirl fetch --cache-type memory
+
+# 2. Thorough validation (takes longer but ensures quality)
+proxywhirl validate --quality thorough
+
+# 3. Export only the best proxies
+proxywhirl export --format csv --min-success-rate 0.9 --output premium_proxies.csv
+
+# 4. Generate detailed report
+proxywhirl health-report --detailed --output quality_report.json
+```
+
 ---
 
 ## Terminal User Interface (TUI)
 
+ProxyWhirl's TUI provides a beautiful, interactive dashboard for real-time proxy management built with Textual.
+
+### Launching the TUI
+
+```bash
+# Launch with default settings
+proxywhirl tui
+
+# Launch with SQLite cache
+proxywhirl tui --cache-type sqlite --cache-path dashboard.db
+
+# Launch with specific rotation strategy
+proxywhirl tui --rotation-strategy health_based
+```
+
+### TUI Features
+
+#### 📊 **Dashboard View**
+- Real-time proxy statistics and health metrics
+- Live success rate monitoring
+- Response time graphs and trends
+- Geographic distribution visualization
+
+#### 🔄 **Proxy Management**
+- Fetch proxies from all loaders with progress indicators
+- Validate proxy health in real-time
+- View detailed proxy information and metadata
+- Remove unhealthy or problematic proxies
+
+#### 🌍 **Geographic Filtering**
+- Filter proxies by country or region
+- Visual map showing proxy distribution
+- Country-specific performance statistics
+
+#### ⚡ **Performance Monitoring**
+- Real-time response time tracking
+- Success rate trends over time
+- Loader performance comparison
+- Health score visualization
+
+#### 📤 **Export Integration**
+- Export filtered proxies directly from TUI
+- Multiple format support (JSON, CSV, TXT, PAC)
+- Custom filtering and sampling options
+
+#### ⚙️ **Settings & Configuration**
+- Adjust rotation strategies on the fly
+- Modify validation quality levels
+- Configure cache backends
+- Save/load configuration profiles
+
+### TUI Navigation
+
+| Key | Action |
+|-----|--------|
+| `Tab` / `Shift+Tab` | Navigate between panels |
+| `Space` | Select/toggle items |
+| `Enter` | Activate selected item |
+| `f` | Fetch new proxies |
+| `v` | Validate current proxies |
+| `r` | Refresh current view |
+| `e` | Export proxies |
+| `s` | Open settings |
+| `h` | Show help |
+| `q` / `Ctrl+C` | Quit application |
+
+### TUI Screenshots
+
+The TUI provides a rich, colorful interface with:
+
+- **Dark/Light Theme Support**: Automatically adapts to terminal theme
+- **Responsive Layout**: Adjusts to terminal size changes
+- **Live Updates**: Real-time proxy statistics and health monitoring
+- **Progress Indicators**: Visual feedback for long-running operations
+- **Rich Tables**: Sortable columns with proxy details and metadata
+- **Interactive Charts**: Visual representation of performance metrics
+
+#### Main Dashboard
+```
+┌─ ProxyWhirl Dashboard ─────────────────────────────────────┐
+│ 📊 Statistics    🔄 Status: Active     ⏰ Uptime: 2h 34m  │
+│ ├─ Total Proxies: 1,247                                    │
+│ ├─ Working: 891 (71.4%)                                    │
+│ ├─ Average Response: 1.2s                                  │
+│ └─ Success Rate: 87.3%                                     │
+│                                                            │
+│ 🌍 Geographic Distribution                                 │
+│ ├─ United States: 312 (24.8%)                            │
+│ ├─ Germany: 156 (12.4%)                                   │
+│ ├─ France: 134 (10.7%)                                    │
+│ └─ Others: 645 (51.8%)                                     │
+└────────────────────────────────────────────────────────────┘
+```
+
+#### Proxy List View
+```
+┌─ Proxy List ────────────────────────────────────────────────┐
+│ Host            Port  Country  Type    Health  Response      │
+│ 192.168.1.100   8080  US       HTTP    ████ ▌  0.89s       │
+│ 10.0.0.50       3128  DE       HTTPS   ███▌    1.24s       │
+│ 172.16.0.25     1080  FR       SOCKS5  ██▌     2.15s       │
+│ 203.0.113.45    8080  JP       HTTP    █▌      3.42s       │
+└────────────────────────────────────────────────────────────┘
+```
+
+### TUI Configuration
+
+Create a TUI-specific configuration file:
+
+```yaml
+# tui-config.yaml
+tui:
+  theme: dark
+  refresh_interval: 5
+  show_response_time_graph: true
+  max_displayed_proxies: 100
+  
+dashboard:
+  show_geographic_distribution: true
+  show_loader_statistics: true
+  auto_refresh: true
+
+export:
+  default_format: json
+  default_path: ./exported_proxies
+```
+
+```bash
+# Use TUI configuration
+proxywhirl tui --config tui-config.yaml
+```
+
 ---
+
+## Integration Examples
+
+### Web Scraping with Requests
+
+```python
+import requests
+from proxywhirl import ProxyWhirl
+
+def scrape_with_rotating_proxies():
+    proxy_whirl = ProxyWhirl(rotation_strategy="health_based")
+    proxy_whirl.fetch_proxies()
+    
+    urls_to_scrape = [
+        "https://httpbin.org/ip",
+        "https://httpbin.org/user-agent",
+        "https://httpbin.org/headers"
+    ]
+    
+    for url in urls_to_scrape:
+        proxy = proxy_whirl.get_proxy()
+        if proxy:
+            proxy_url = f"http://{proxy.host}:{proxy.port}"
+            try:
+                response = requests.get(
+                    url,
+                    proxies={"http": proxy_url, "https": proxy_url},
+                    timeout=10
+                )
+                print(f"✅ {url}: {response.status_code}")
+                proxy_whirl.update_proxy_health(proxy, True)
+            except:
+                proxy_whirl.update_proxy_health(proxy, False)
+
+scrape_with_rotating_proxies()
+```
+
+### Selenium WebDriver Integration
+
+```python
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from proxywhirl import ProxyWhirl
+
+async def setup_selenium_with_proxy():
+    proxy_whirl = ProxyWhirl()
+    await proxy_whirl.fetch_proxies()
+    
+    proxy = await proxy_whirl.get_proxy()
+    if proxy:
+        chrome_options = Options()
+        chrome_options.add_argument(f"--proxy-server={proxy.host}:{proxy.port}")
+        
+        driver = webdriver.Chrome(options=chrome_options)
+        driver.get("https://httpbin.org/ip")
+        print(f"Page title: {driver.title}")
+        driver.quit()
+```
+
+### FastAPI Integration
+
+```python
+from fastapi import FastAPI, HTTPException
+from proxywhirl import ProxyWhirl
+import httpx
+
+app = FastAPI()
+proxy_whirl = ProxyWhirl(rotation_strategy="health_based")
+
+@app.on_event("startup")
+async def startup_event():
+    await proxy_whirl.fetch_proxies()
+
+@app.get("/proxy-request")
+async def make_proxy_request(url: str):
+    proxy = await proxy_whirl.get_proxy()
+    if not proxy:
+        raise HTTPException(status_code=503, detail="No proxies available")
+    
+    proxy_url = f"http://{proxy.host}:{proxy.port}"
+    async with httpx.AsyncClient(proxies=proxy_url, timeout=10) as client:
+        try:
+            response = await client.get(url)
+            proxy_whirl.update_proxy_health(proxy, True)
+            return {"status": "success", "data": response.json()}
+        except Exception as e:
+            proxy_whirl.update_proxy_health(proxy, False)
+            raise HTTPException(status_code=502, detail=f"Proxy request failed: {e}")
+```
 
 

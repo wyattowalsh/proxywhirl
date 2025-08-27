@@ -1,0 +1,1206 @@
+---
+title: Configuration
+description: Comprehensive guide to configuring ProxyWhirl for different environments and use cases
+icon: fa/FaCog
+---
+
+# Configuration Guide
+
+ProxyWhirl provides a flexible, hierarchical configuration system that supports environment variables, YAML files, and programmatic configuration. This guide covers all configuration options and best practices for different deployment scenarios.
+
+## Configuration Hierarchy
+
+ProxyWhirl follows this configuration precedence (highest to lowest priority):
+
+1. **Programmatic Settings** - Direct parameter passing
+2. **Environment Variables** - `PROXYWHIRL_*` prefixed variables  
+3. **Configuration Files** - YAML/JSON configuration files
+4. **Default Values** - Built-in sensible defaults
+
+```python
+from proxywhirl import ProxyWhirl, ProxyWhirlSettings
+
+# 1. Programmatic (highest priority)
+proxy_whirl = ProxyWhirl(
+    cache_type="sqlite",
+    rotation_strategy="health_based"
+)
+
+# 2. Environment variables (PROXYWHIRL_CACHE_TYPE=sqlite)
+# 3. Configuration file
+# 4. Defaults (memory cache, round_robin rotation)
+```
+
+## Core Configuration
+
+### Basic Settings
+
+```python
+from proxywhirl import ProxyWhirl, ProxyWhirlSettings, CacheType, RotationStrategy
+
+# Basic configuration
+settings = ProxyWhirlSettings(
+    # Cache configuration
+    cache_type=CacheType.SQLITE,
+    cache_path="proxies.db",
+    
+    # Rotation strategy
+    rotation_strategy=RotationStrategy.HEALTH_BASED,
+    health_check_interval=30,
+    
+    # Validation settings
+    auto_validate=True,
+    validation_timeout=10.0,
+    concurrent_validations=10,
+    
+    # Loader settings
+    loader_timeout=30.0,
+    max_loader_retries=3,
+    enable_loader_caching=True
+)
+
+proxy_whirl = ProxyWhirl(config=settings)
+```
+
+### Environment Variables
+
+Set environment variables for production deployments:
+
+```bash
+# Cache Configuration
+export PROXYWHIRL_CACHE_TYPE=sqlite
+export PROXYWHIRL_CACHE_PATH=/data/proxies.db
+
+# Rotation Strategy  
+export PROXYWHIRL_ROTATION_STRATEGY=health_based
+export PROXYWHIRL_HEALTH_CHECK_INTERVAL=60
+
+# Validation Settings
+export PROXYWHIRL_AUTO_VALIDATE=true
+export PROXYWHIRL_VALIDATION_TIMEOUT=15.0
+export PROXYWHIRL_CONCURRENT_VALIDATIONS=20
+
+# Loader Settings
+export PROXYWHIRL_LOADER_TIMEOUT=30.0
+export PROXYWHIRL_MAX_LOADER_RETRIES=5
+export PROXYWHIRL_ENABLE_LOADER_CACHING=true
+export PROXYWHIRL_LOADER_CACHE_TTL=300
+
+# Logging
+export PROXYWHIRL_LOG_LEVEL=INFO
+export PROXYWHIRL_LOG_FILE=/var/log/proxywhirl.log
+
+# Security (for API server)
+export PROXYWHIRL_SECRET_KEY=your-super-secret-key-here
+export PROXYWHIRL_CORS_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+```
+
+### Configuration Files
+
+Create YAML configuration files for complex setups:
+
+```yaml
+# proxywhirl-config.yaml
+app:
+  name: "ProxyWhirl Production"
+  version: "1.0.0"
+  debug: false
+
+# Cache Configuration
+cache:
+  type: sqlite
+  path: /data/proxies.db
+  
+  # SQLite-specific settings
+  sqlite:
+    wal_mode: true
+    synchronous: NORMAL
+    cache_size: 20000
+    temp_store: MEMORY
+    pragma_settings:
+      journal_mode: WAL
+      foreign_keys: ON
+      
+  # JSON cache settings (if using JSON)
+  json:
+    pretty_print: true
+    create_backup: true
+    backup_count: 5
+    compression: true
+
+# Rotation Configuration  
+rotation:
+  strategy: health_based
+  health_check_interval: 30
+  quality_threshold: 0.8
+  fallback_strategy: random
+  
+  # Strategy-specific settings
+  health_based:
+    min_success_rate: 0.7
+    health_decay_factor: 0.95
+    
+  weighted:
+    response_time_weight: 0.7
+    success_rate_weight: 0.3
+
+# Validation Configuration
+validation:
+  auto_validate: true
+  timeout: 10.0
+  test_url: "https://httpbin.org/ip"
+  concurrent_limit: 20
+  
+  # Quality levels
+  quality_levels:
+    basic:
+      min_success_rate: 0.6
+      max_response_time: 10.0
+    standard:  
+      min_success_rate: 0.8
+      max_response_time: 5.0
+    thorough:
+      min_success_rate: 0.95
+      max_response_time: 2.0
+      
+  # Circuit breaker
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5
+    timeout: 60
+    half_open_max_calls: 3
+
+# Loader Configuration
+loaders:
+  # Global loader settings
+  global:
+    timeout: 30.0
+    max_retries: 3
+    retry_delay: 1.0
+    max_retry_delay: 15.0
+    rate_limit: 5.0  # requests per second
+    enable_caching: true
+    cache_ttl: 300
+    user_agent: "ProxyWhirl/1.0"
+    
+  # Per-loader settings
+  the_speedx_http:
+    enabled: true
+    timeout: 25.0
+    max_retries: 5
+    rate_limit: 2.0
+    
+  clarketm_raw:
+    enabled: true
+    timeout: 20.0
+    max_retries: 3
+    
+  monosans:
+    enabled: true
+    timeout: 30.0
+    rate_limit: 1.0
+    
+  proxyscrape:
+    enabled: false  # Disabled for this deployment
+    
+  user_provided:
+    enabled: true
+    file_path: /data/custom_proxies.json
+
+# Export Configuration
+export:
+  default_format: json_pretty
+  max_export_size: 100000
+  enable_compression: true
+  
+  # Format-specific settings
+  formats:
+    csv:
+      include_headers: true
+      delimiter: ","
+      quote_char: '"'
+    json:
+      pretty_print: true
+      ensure_ascii: false
+    pac:
+      fallback_proxy: "DIRECT"
+      randomize_order: true
+
+# Logging Configuration
+logging:
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: /var/log/proxywhirl.log
+  max_file_size: 10MB
+  backup_count: 5
+  
+  # Log rotation
+  rotation:
+    when: "midnight"
+    interval: 1
+    
+  # Component-specific log levels
+  loggers:
+    proxywhirl.validator: DEBUG
+    proxywhirl.loaders: INFO
+    proxywhirl.cache: WARNING
+
+# Performance Configuration
+performance:
+  # Memory limits
+  max_memory_cache_size: 50000
+  memory_cleanup_interval: 300
+  
+  # Connection pools
+  max_connections: 100
+  connection_timeout: 30.0
+  keepalive_timeout: 5.0
+  
+  # Async settings
+  max_concurrent_tasks: 50
+  task_timeout: 60.0
+
+# Security Configuration (for API server)
+security:
+  secret_key: ${PROXYWHIRL_SECRET_KEY}
+  algorithm: HS256
+  access_token_expire_minutes: 30
+  
+  # CORS settings
+  cors:
+    allow_origins: ["*"]
+    allow_methods: ["GET", "POST"]
+    allow_headers: ["*"]
+    allow_credentials: false
+    
+  # Rate limiting
+  rate_limit:
+    enabled: true
+    requests_per_minute: 100
+    burst_size: 20
+
+# Monitoring Configuration
+monitoring:
+  enabled: true
+  metrics_port: 8080
+  health_check_path: /health
+  
+  # Prometheus metrics
+  prometheus:
+    enabled: true
+    path: /metrics
+    
+  # Health checks
+  health_checks:
+    - name: "proxy_count"
+      threshold: 100
+    - name: "validation_rate"
+      threshold: 0.8
+```
+
+Load configuration from file:
+
+```python
+from proxywhirl import ProxyWhirl, ProxyWhirlSettings
+
+# Load from YAML file
+settings = ProxyWhirlSettings.from_yaml("proxywhirl-config.yaml")
+proxy_whirl = ProxyWhirl(config=settings)
+
+# Load from JSON file
+settings = ProxyWhirlSettings.from_json("proxywhirl-config.json")
+proxy_whirl = ProxyWhirl(config=settings)
+
+# Load with environment variable substitution
+import os
+os.environ["PROXYWHIRL_SECRET_KEY"] = "your-secret-key"
+settings = ProxyWhirlSettings.from_yaml("proxywhirl-config.yaml")
+```
+
+## Environment-Specific Configurations
+
+### Development Environment
+
+```yaml
+# config/development.yaml
+app:
+  debug: true
+  
+cache:
+  type: memory  # Fast for development
+  
+rotation:
+  strategy: round_robin  # Predictable for testing
+  
+validation:
+  timeout: 5.0  # Faster for development
+  concurrent_limit: 5
+  
+loaders:
+  global:
+    timeout: 10.0  # Shorter timeouts
+    max_retries: 2
+    
+logging:
+  level: DEBUG
+  
+performance:
+  max_connections: 20  # Lower limits for dev
+```
+
+```python
+# Development usage
+settings = ProxyWhirlSettings.from_yaml("config/development.yaml")
+proxy_whirl = ProxyWhirl(config=settings)
+```
+
+### Production Environment
+
+```yaml
+# config/production.yaml
+app:
+  debug: false
+  
+cache:
+  type: sqlite
+  path: /data/proxies.db
+  sqlite:
+    wal_mode: true
+    cache_size: 50000
+    
+rotation:
+  strategy: health_based
+  health_check_interval: 60
+  
+validation:
+  timeout: 15.0
+  concurrent_limit: 50
+  
+loaders:
+  global:
+    timeout: 30.0
+    max_retries: 5
+    rate_limit: 2.0
+    
+logging:
+  level: INFO
+  file: /var/log/proxywhirl.log
+  
+performance:
+  max_connections: 200
+  max_concurrent_tasks: 100
+  
+monitoring:
+  enabled: true
+  metrics_port: 8080
+```
+
+### Testing Environment
+
+```yaml
+# config/testing.yaml
+app:
+  debug: true
+  
+cache:
+  type: memory
+  
+rotation:
+  strategy: round_robin
+  
+validation:
+  auto_validate: false  # Skip validation in tests
+  
+loaders:
+  global:
+    timeout: 5.0
+    max_retries: 1
+    
+  # Enable only reliable loaders for testing
+  the_speedx_http:
+    enabled: true
+  clarketm_raw:
+    enabled: true
+    
+  # Disable potentially unreliable loaders
+  monosans:
+    enabled: false
+  proxyscrape:
+    enabled: false
+    
+logging:
+  level: WARNING  # Reduce noise in tests
+```
+
+## Loader Configuration
+
+### Global Loader Settings
+
+```python
+from proxywhirl.loaders.base import LoaderConfig
+
+# Configure all loaders
+global_loader_config = LoaderConfig(
+    timeout=30.0,
+    max_retries=3,
+    retry_delay=1.0,
+    max_retry_delay=15.0,
+    rate_limit_calls=10,
+    rate_limit_period=60.0,
+    enable_caching=True,
+    cache_ttl=300,
+    user_agent="MyApp/1.0 (+https://example.com)"
+)
+
+# Apply to ProxyWhirl
+settings = ProxyWhirlSettings(
+    default_loader_config=global_loader_config
+)
+```
+
+### Per-Loader Configuration
+
+```yaml
+# Per-loader configuration in YAML
+loaders:
+  the_speedx_http:
+    enabled: true
+    timeout: 25.0
+    max_retries: 5
+    rate_limit: 2.0  # 2 requests per second
+    headers:
+      User-Agent: "ProxyWhirl TheSpeedX Client/1.0"
+      Accept: "text/plain"
+      
+  clarketm_raw:
+    enabled: true
+    timeout: 20.0
+    max_retries: 3
+    cache_ttl: 600  # Cache for 10 minutes
+    
+  monosans:
+    enabled: true
+    timeout: 30.0
+    rate_limit: 1.0  # Conservative rate limit
+    retry_delay: 2.0
+    
+  proxyscrape:
+    enabled: false  # Temporarily disabled
+    reason: "Rate limited by provider"
+    
+  user_provided:
+    enabled: true
+    file_path: "/data/custom_proxies.json"
+    watch_file: true  # Reload when file changes
+    format: "json"
+```
+
+```python
+# Programmatic per-loader configuration
+from proxywhirl import ProxyWhirl
+from proxywhirl.loaders import TheSpeedXHttpLoader, ClarketmHttpLoader
+
+# Configure specific loaders
+speedx_config = LoaderConfig(timeout=25.0, max_retries=5, rate_limit=2.0)
+clarketm_config = LoaderConfig(timeout=20.0, max_retries=3)
+
+# Apply configurations
+proxy_whirl = ProxyWhirl()
+proxy_whirl.configure_loader(TheSpeedXHttpLoader, speedx_config)
+proxy_whirl.configure_loader(ClarketmHttpLoader, clarketm_config)
+```
+
+## Cache Configuration
+
+### Memory Cache Configuration
+
+```python
+from proxywhirl import ProxyWhirlSettings, CacheType
+
+memory_settings = ProxyWhirlSettings(
+    cache_type=CacheType.MEMORY,
+    
+    # Memory-specific settings
+    memory_cache_max_size=10000,  # Maximum proxies in memory
+    memory_cache_ttl=3600,        # TTL in seconds
+    memory_cache_cleanup_interval=300,  # Cleanup every 5 minutes
+    memory_cache_max_memory_mb=100,     # Memory limit
+)
+```
+
+### JSON Cache Configuration
+
+```yaml
+cache:
+  type: json
+  path: /data/proxies.json
+  
+  json:
+    pretty_print: true      # Human-readable formatting
+    create_backup: true     # Create backups before writing
+    backup_count: 5         # Keep 5 backup files
+    compression: true       # Compress JSON files
+    atomic_writes: true     # Atomic file operations
+    file_permissions: 0o644 # File permissions
+```
+
+### SQLite Cache Configuration
+
+```yaml
+cache:
+  type: sqlite
+  path: /data/proxies.db
+  
+  sqlite:
+    # Performance settings
+    wal_mode: true            # Write-Ahead Logging
+    synchronous: NORMAL       # Sync mode (OFF/NORMAL/FULL)
+    cache_size: 20000         # Page cache size
+    temp_store: MEMORY        # Store temp data in memory
+    mmap_size: 268435456      # Memory-mapped I/O size
+    
+    # Connection settings
+    timeout: 30.0             # Connection timeout
+    check_same_thread: false  # Allow multi-thread access
+    
+    # Maintenance settings  
+    auto_vacuum: INCREMENTAL  # Automatic vacuuming
+    vacuum_on_startup: false  # Skip vacuum on startup
+    analyze_on_startup: true  # Update statistics on startup
+    
+    # Custom PRAGMA settings
+    pragma_settings:
+      journal_mode: WAL
+      foreign_keys: ON
+      recursive_triggers: ON
+      secure_delete: ON
+```
+
+## Validation Configuration
+
+### Basic Validation Settings
+
+```python
+from proxywhirl import ProxyWhirlSettings
+from proxywhirl.validator import QualityLevel
+
+validation_settings = ProxyWhirlSettings(
+    # Auto-validation
+    auto_validate=True,
+    validation_timeout=10.0,
+    concurrent_validations=20,
+    
+    # Quality thresholds
+    validation_quality_level=QualityLevel.STANDARD,
+    min_success_rate=0.8,
+    max_response_time=5.0,
+    
+    # Test configuration
+    validation_test_url="https://httpbin.org/ip",
+    validation_follow_redirects=True,
+    validation_verify_ssl=True,
+)
+```
+
+### Advanced Validation Configuration
+
+```yaml
+validation:
+  # Basic settings
+  auto_validate: true
+  timeout: 15.0
+  test_url: "https://httpbin.org/ip"
+  concurrent_limit: 30
+  
+  # Quality levels
+  quality_levels:
+    basic:
+      min_success_rate: 0.6
+      max_response_time: 15.0
+      test_anonymity: false
+    standard:
+      min_success_rate: 0.8
+      max_response_time: 8.0
+      test_anonymity: true
+    thorough:
+      min_success_rate: 0.95
+      max_response_time: 3.0
+      test_anonymity: true
+      test_multiple_sites: true
+      
+  # Circuit breaker configuration
+  circuit_breaker:
+    enabled: true
+    failure_threshold: 5      # Failures before opening
+    timeout: 60               # Seconds before trying again
+    half_open_max_calls: 3    # Test calls in half-open state
+    
+  # Retry configuration
+  retries:
+    max_attempts: 3
+    backoff_factor: 1.5
+    max_backoff: 10.0
+    
+  # Test targets
+  test_sites:
+    - url: "https://httpbin.org/ip"
+      weight: 1.0
+      timeout: 10.0
+    - url: "https://api.ipify.org"
+      weight: 0.8
+      timeout: 8.0
+    - url: "https://icanhazip.com"
+      weight: 0.6
+      timeout: 5.0
+```
+
+## Rotation Strategy Configuration
+
+### Health-Based Rotation
+
+```yaml
+rotation:
+  strategy: health_based
+  health_check_interval: 30
+  
+  health_based:
+    min_success_rate: 0.7     # Minimum success rate
+    health_decay_factor: 0.95  # Health score decay
+    cooldown_period: 300      # Cooldown for failed proxies
+    max_consecutive_failures: 5
+    quality_threshold: 0.8
+```
+
+### Weighted Rotation
+
+```yaml
+rotation:
+  strategy: weighted
+  
+  weighted:
+    response_time_weight: 0.6   # Weight for response time
+    success_rate_weight: 0.3    # Weight for success rate
+    age_weight: 0.1            # Weight for proxy age
+    min_weight: 0.1            # Minimum weight value
+    normalize_weights: true     # Normalize weights to sum to 1
+```
+
+### Custom Rotation Strategy
+
+```python
+from proxywhirl.rotator import BaseRotationStrategy, ProxyRotator
+from proxywhirl.models import Proxy
+from typing import List, Optional
+import random
+
+class CustomRotationStrategy(BaseRotationStrategy):
+    """Custom rotation strategy based on geographic preference."""
+    
+    def __init__(self, preferred_countries: List[str] = None):
+        super().__init__()
+        self.preferred_countries = preferred_countries or ["US", "CA", "DE"]
+    
+    def select_proxy(self, proxies: List[Proxy]) -> Optional[Proxy]:
+        if not proxies:
+            return None
+        
+        # Filter by preferred countries first
+        preferred = [p for p in proxies if p.country_code in self.preferred_countries]
+        
+        if preferred:
+            # Select from preferred countries based on quality
+            preferred.sort(key=lambda p: p.quality_score or 0, reverse=True)
+            return preferred[0]
+        
+        # Fallback to any available proxy
+        return random.choice(proxies)
+
+# Register custom strategy
+custom_rotator = ProxyRotator()
+custom_rotator.register_strategy("geographic", CustomRotationStrategy(["US", "DE"]))
+
+# Use in ProxyWhirl
+settings = ProxyWhirlSettings(
+    rotation_strategy="geographic",
+    custom_rotator=custom_rotator
+)
+```
+
+## Logging Configuration
+
+### Basic Logging Setup
+
+```python
+from proxywhirl import ProxyWhirlSettings
+import logging
+
+logging_settings = ProxyWhirlSettings(
+    log_level="INFO",
+    log_file="/var/log/proxywhirl.log",
+    log_format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    log_rotation=True,
+    log_max_file_size=10 * 1024 * 1024,  # 10MB
+    log_backup_count=5
+)
+```
+
+### Advanced Logging Configuration
+
+```yaml
+logging:
+  # Root logger
+  level: INFO
+  format: "%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s"
+  
+  # File logging
+  file: /var/log/proxywhirl.log
+  max_file_size: 10MB
+  backup_count: 5
+  
+  # Log rotation
+  rotation:
+    when: "midnight"    # daily rotation
+    interval: 1
+    utc: true
+    
+  # Console logging  
+  console:
+    enabled: true
+    level: WARNING
+    colored: true
+    
+  # Component-specific loggers
+  loggers:
+    proxywhirl.validator:
+      level: DEBUG
+      file: /var/log/proxywhirl-validator.log
+      
+    proxywhirl.loaders:
+      level: INFO
+      file: /var/log/proxywhirl-loaders.log
+      
+    proxywhirl.cache:
+      level: WARNING
+      
+    proxywhirl.rotator:
+      level: INFO
+      
+  # Structured logging (JSON)
+  structured:
+    enabled: true
+    format: json
+    include_fields:
+      - timestamp
+      - level
+      - logger
+      - message
+      - module
+      - function
+```
+
+### Custom Logging Handler
+
+```python
+import logging
+from proxywhirl.logger import setup_logger
+
+class CustomProxyHandler(logging.Handler):
+    """Custom handler for proxy-specific logging."""
+    
+    def __init__(self, webhook_url: str):
+        super().__init__()
+        self.webhook_url = webhook_url
+    
+    def emit(self, record):
+        if record.levelno >= logging.ERROR:
+            # Send critical errors to external service
+            self.send_alert(record)
+    
+    def send_alert(self, record):
+        import requests
+        payload = {
+            "level": record.levelname,
+            "message": record.getMessage(),
+            "timestamp": record.created
+        }
+        try:
+            requests.post(self.webhook_url, json=payload, timeout=5)
+        except:
+            pass  # Don't fail if webhook fails
+
+# Setup custom logging
+setup_logger(
+    level="INFO",
+    file="/var/log/proxywhirl.log",
+    additional_handlers=[
+        CustomProxyHandler("https://hooks.slack.com/your-webhook-url")
+    ]
+)
+```
+
+## Performance Configuration
+
+### Connection and Pool Settings
+
+```yaml
+performance:
+  # Connection pools
+  max_connections: 200
+  connection_timeout: 30.0
+  keepalive_timeout: 5.0
+  
+  # HTTP client settings
+  http:
+    timeout: 30.0
+    max_redirects: 5
+    verify_ssl: true
+    pool_maxsize: 20
+    pool_connections: 10
+    
+  # Async settings
+  max_concurrent_tasks: 100
+  task_timeout: 120.0
+  semaphore_limit: 50
+  
+  # Memory management
+  max_memory_cache_size: 100000
+  memory_cleanup_interval: 300
+  gc_threshold: [700, 10, 10]
+  
+  # Worker settings
+  worker_threads: 4
+  worker_queue_size: 1000
+```
+
+### Optimization Settings
+
+```python
+from proxywhirl import ProxyWhirlSettings
+
+performance_settings = ProxyWhirlSettings(
+    # Async optimizations
+    max_concurrent_validations=50,
+    validation_batch_size=100,
+    loader_batch_size=1000,
+    
+    # Cache optimizations  
+    enable_cache_compression=True,
+    cache_write_batch_size=500,
+    cache_read_buffer_size=1000,
+    
+    # Memory optimizations
+    enable_object_pooling=True,
+    max_object_pool_size=1000,
+    enable_lazy_loading=True,
+    
+    # Network optimizations
+    enable_connection_pooling=True,
+    dns_cache_ttl=300,
+    tcp_keepalive=True,
+    tcp_nodelay=True
+)
+```
+
+## Security Configuration
+
+### API Security Settings
+
+```yaml
+security:
+  # Authentication
+  secret_key: ${PROXYWHIRL_SECRET_KEY}
+  algorithm: HS256
+  access_token_expire_minutes: 30
+  
+  # API keys
+  api_keys:
+    enabled: true
+    header_name: "X-API-Key"
+    query_param_name: "api_key"
+    
+  # CORS settings
+  cors:
+    allow_origins: 
+      - "https://yourdomain.com"
+      - "https://app.yourdomain.com"
+    allow_methods: ["GET", "POST", "PUT", "DELETE"]
+    allow_headers: ["*"]
+    allow_credentials: true
+    max_age: 86400
+    
+  # Rate limiting
+  rate_limit:
+    enabled: true
+    requests_per_minute: 100
+    burst_size: 20
+    storage: "redis://localhost:6379/0"
+    
+  # Input validation
+  validation:
+    max_request_size: 1MB
+    max_query_params: 50
+    sanitize_inputs: true
+    
+  # Security headers
+  headers:
+    x_content_type_options: "nosniff"
+    x_frame_options: "DENY"
+    x_xss_protection: "1; mode=block"
+    strict_transport_security: "max-age=31536000; includeSubDomains"
+```
+
+### SSL/TLS Configuration
+
+```python
+from proxywhirl.settings import APISettings
+
+security_settings = APISettings(
+    # SSL settings
+    ssl_keyfile="/path/to/keyfile.pem",
+    ssl_certfile="/path/to/certfile.pem",
+    ssl_ca_certs="/path/to/ca-bundle.pem",
+    ssl_check_hostname=True,
+    ssl_verify_mode="CERT_REQUIRED",
+    
+    # TLS settings
+    tls_min_version="TLSv1.2",
+    tls_ciphers="ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20:!aNULL:!MD5:!DSS",
+    
+    # Certificate validation
+    cert_reqs="REQUIRED",
+    check_hostname=True,
+    ca_cert_dir="/etc/ssl/certs"
+)
+```
+
+## Monitoring and Observability
+
+### Metrics Configuration
+
+```yaml
+monitoring:
+  enabled: true
+  metrics_port: 8080
+  metrics_path: /metrics
+  
+  # Prometheus metrics
+  prometheus:
+    enabled: true
+    namespace: "proxywhirl"
+    labels:
+      environment: "production"
+      service: "proxy-service"
+      
+  # Custom metrics
+  custom_metrics:
+    - name: "proxy_success_rate"
+      type: "gauge"
+      description: "Success rate of proxies"
+      
+    - name: "proxy_response_time"
+      type: "histogram"
+      description: "Response time distribution"
+      buckets: [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+      
+  # Health checks
+  health_checks:
+    endpoint: /health
+    checks:
+      - name: "proxy_count"
+        threshold: 100
+        warning_threshold: 50
+        
+      - name: "cache_health"
+        threshold: 0.95
+        
+      - name: "loader_health"
+        threshold: 0.8
+```
+
+### Alerting Configuration
+
+```python
+from proxywhirl.monitoring import AlertManager, Alert, Condition
+
+# Configure alerting
+alerts = AlertManager()
+
+# Proxy count alert
+proxy_count_alert = Alert(
+    name="low_proxy_count",
+    condition=Condition(
+        metric="proxy_count",
+        operator="<",
+        threshold=100
+    ),
+    severity="warning",
+    message="Proxy count is below threshold",
+    webhook_url="https://hooks.slack.com/your-webhook"
+)
+
+# High error rate alert
+error_rate_alert = Alert(
+    name="high_error_rate",
+    condition=Condition(
+        metric="error_rate",
+        operator=">",
+        threshold=0.1
+    ),
+    severity="critical",
+    message="Error rate is above 10%",
+    webhook_url="https://hooks.slack.com/your-webhook"
+)
+
+alerts.add_alert(proxy_count_alert)
+alerts.add_alert(error_rate_alert)
+
+# Configure ProxyWhirl with alerting
+settings = ProxyWhirlSettings(alert_manager=alerts)
+```
+
+## Configuration Best Practices
+
+### 1. Environment-Specific Configurations
+
+```bash
+# Use different config files per environment
+├── config/
+│   ├── base.yaml          # Common settings
+│   ├── development.yaml   # Dev overrides
+│   ├── staging.yaml       # Staging overrides
+│   ├── production.yaml    # Production overrides
+│   └── testing.yaml       # Test overrides
+```
+
+```python
+import os
+from proxywhirl import ProxyWhirlSettings
+
+# Load environment-specific configuration
+env = os.getenv("PROXYWHIRL_ENV", "development")
+config_file = f"config/{env}.yaml"
+
+settings = ProxyWhirlSettings.from_yaml(config_file)
+proxy_whirl = ProxyWhirl(config=settings)
+```
+
+### 2. Secret Management
+
+```python
+# Use environment variables for secrets
+import os
+from proxywhirl.settings import APISettings
+
+# Don't put secrets in config files
+settings = APISettings(
+    secret_key=os.getenv("PROXYWHIRL_SECRET_KEY"),
+    database_url=os.getenv("DATABASE_URL"),
+    redis_url=os.getenv("REDIS_URL")
+)
+```
+
+### 3. Configuration Validation
+
+```python
+from proxywhirl import ProxyWhirlSettings
+from pydantic import ValidationError
+
+def load_validated_config(config_file: str) -> ProxyWhirlSettings:
+    """Load and validate configuration with error handling."""
+    try:
+        settings = ProxyWhirlSettings.from_yaml(config_file)
+        
+        # Validate critical settings
+        if settings.cache_type == "sqlite" and not settings.cache_path:
+            raise ValueError("SQLite cache requires cache_path")
+            
+        if settings.rotation_strategy == "health_based" and settings.health_check_interval < 10:
+            raise ValueError("Health-based rotation requires health_check_interval >= 10")
+            
+        return settings
+        
+    except ValidationError as e:
+        print(f"Configuration validation failed: {e}")
+        raise
+    except Exception as e:
+        print(f"Configuration loading failed: {e}")
+        raise
+
+# Use validated configuration
+settings = load_validated_config("config/production.yaml")
+```
+
+### 4. Dynamic Configuration Updates
+
+```python
+from proxywhirl import ProxyWhirl
+import threading
+import time
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
+class ConfigReloadHandler(FileSystemEventHandler):
+    """Reload configuration when file changes."""
+    
+    def __init__(self, proxy_whirl: ProxyWhirl, config_file: str):
+        self.proxy_whirl = proxy_whirl
+        self.config_file = config_file
+    
+    def on_modified(self, event):
+        if event.src_path.endswith(self.config_file):
+            try:
+                new_settings = ProxyWhirlSettings.from_yaml(self.config_file)
+                self.proxy_whirl.update_configuration(new_settings)
+                print("✅ Configuration reloaded successfully")
+            except Exception as e:
+                print(f"❌ Configuration reload failed: {e}")
+
+# Set up configuration watching
+proxy_whirl = ProxyWhirl()
+handler = ConfigReloadHandler(proxy_whirl, "config/production.yaml")
+observer = Observer()
+observer.schedule(handler, path="config/", recursive=False)
+observer.start()
+
+# Keep running
+try:
+    while True:
+        time.sleep(1)
+except KeyboardInterrupt:
+    observer.stop()
+observer.join()
+```
+
+### 5. Configuration Testing
+
+```python
+import pytest
+from proxywhirl import ProxyWhirlSettings
+
+def test_development_config():
+    """Test development configuration."""
+    settings = ProxyWhirlSettings.from_yaml("config/development.yaml")
+    
+    assert settings.debug is True
+    assert settings.cache_type == "memory"
+    assert settings.log_level == "DEBUG"
+
+def test_production_config():
+    """Test production configuration."""
+    settings = ProxyWhirlSettings.from_yaml("config/production.yaml")
+    
+    assert settings.debug is False
+    assert settings.cache_type == "sqlite"
+    assert settings.log_level == "INFO"
+    assert settings.cache_path is not None
+
+def test_config_validation():
+    """Test configuration validation."""
+    with pytest.raises(ValidationError):
+        ProxyWhirlSettings(
+            cache_type="sqlite",
+            cache_path=None  # Should fail validation
+        )
+```
+
+This comprehensive configuration guide covers all aspects of configuring ProxyWhirl for different environments and use cases, from basic settings to advanced production deployments with monitoring and security.

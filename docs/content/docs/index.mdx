@@ -3,7 +3,51 @@ title: Overview
 icon: fa/FaHome
 ---
 
-`proxywhirl` is a web data extraction rotating proxy system. It loads and validates proxies from online sources, and serves them via a smart rotator. The rotator has a few extras including proxy list output and loader health reporting. `proxywhirl` can be used via [Python API](docs/usage#python-api), [CLI](docs/usage#command-line-interface-cli), or [TUI](docs/usage#terminal-user-interface-tui)
+---
+title: Overview
+icon: fa/FaHome
+---
+
+# ProxyWhirl
+
+**Python 3.13+ library for managing rotating proxies with pluggable proxy source loaders, flexible caching, and comprehensive validation.**
+
+ProxyWhirl provides a unified, production-ready interface for discovering, validating, and rotating proxies from multiple sources. Built with modern async/await patterns and comprehensive error handling, it's designed for high-throughput web data collection with intelligent proxy health monitoring.
+
+## Key Features
+
+- 🔄 **8+ Built-in Loaders** - TheSpeedX, Clarketm, Monosans, ProxyScrape, Proxifly, JetkaiProxy, VakhovFresh, UserProvided
+- 🎯 **5 Rotation Strategies** - Round-robin, random, weighted, health-based, and least-used
+- 💾 **Multi-backend Caching** - Memory (default), JSON file, and SQLite database storage  
+- 🔍 **Circuit Breaker Validation** - 3 quality levels with automatic failure recovery
+- 🖥️ **Multiple Interfaces** - Python API (async/sync), Rich CLI, Interactive TUI
+- 📤 **Flexible Export System** - 7+ formats with advanced filtering and volume controls
+
+## Quick Start
+
+```python
+import asyncio
+from proxywhirl import ProxyWhirl
+
+async def main():
+    # Initialize with health-based rotation and auto-validation
+    proxy_whirl = ProxyWhirl(
+        rotation_strategy="health_based",
+        auto_validate=True
+    )
+    
+    # Fetch and validate proxies from all sources
+    count = await proxy_whirl.fetch_proxies()
+    print(f"✅ Loaded {count} working proxies")
+    
+    # Get a proxy and use it
+    proxy = await proxy_whirl.get_proxy()
+    if proxy:
+        print(f"🔄 Using proxy: {proxy.host}:{proxy.port} ({proxy.country_code})")
+
+asyncio.run(main())
+```
+
 
 ---
 

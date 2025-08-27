@@ -1,3 +1,9 @@
+---
+title: Architecture
+description: ProxyWhirl system architecture and component relationships  
+icon: fa/FaSitemap
+---
+
 ## Architecture
 
 <Mermaid
@@ -11,36 +17,37 @@
 
     %% Core Orchestration
     subgraph CORE[⚙️ Core Orchestration]
-        PW[ProxyWhirl<br/>Main Controller<br/>1195 lines]
-        CONFIG[Configuration<br/>config.py • Settings]
+        PW[ProxyWhirl<br/>Main Controller<br/>1439 lines]
+        CONFIG[Configuration<br/>config.py • 277 lines]
+        SETTINGS[Settings<br/>settings.py • 264 lines]
     end
 
     %% Data Models
     subgraph MODELS[📋 Data Models]
-        CORE_MODELS[Core Models<br/>models.py • Pydantic]
-        CACHE_MODELS[Cache Models<br/>cache_models.py]
-        EXPORT_MODELS[Export Models<br/>export_models.py]
+        CORE_MODELS[Core Models<br/>models.py • 1384 lines]
+        CACHE_MODELS[Cache Models<br/>cache_models.py • 353 lines]
+        EXPORT_MODELS[Export Models<br/>export_models.py • 295 lines]
     end
 
     %% Caching System
     subgraph CACHE[💾 Caching System]
-        CACHE_BASE[Cache Abstraction<br/>caches/base.py]
-        MEM[Memory Cache<br/>caches/memory.py]
-        JSON[JSON Cache<br/>caches/json.py]
-        SQLITE[SQLite Cache<br/>caches/sqlite.py]
-        LEGACY[Legacy Cache<br/>cache.py]
+        CACHE_BASE[Cache Abstraction<br/>caches/base.py • 421 lines]
+        MEM[Memory Cache<br/>caches/memory.py • 375 lines]
+        JSON[JSON Cache<br/>caches/json.py • 681 lines]
+        SQLITE[SQLite Cache<br/>caches/sqlite.py • 988 lines]
+        LEGACY[Legacy Cache<br/>cache.py • 165 lines]
     end
 
     %% Validation System
     subgraph VALID[🔒 Validation System]
-        VAL[ProxyValidator<br/>validator.py • 788 lines]
+        VAL[ProxyValidator<br/>validator.py • 963 lines]
         CB[Circuit Breaker<br/>Integrated Pattern]
         TARGET[Target-based<br/>Validation]
     end
 
     %% Rotation Engine
     subgraph ROT[🔄 Rotation Engine]
-        ROTOR[ProxyRotator<br/>rotator.py • 402 lines]
+        ROTOR[ProxyRotator<br/>rotator.py • 1151 lines]
         RR[Round Robin]
         RAND[Random Selection]
         WEIGHT[Weighted Distribution]
@@ -50,23 +57,37 @@
 
     %% Data Loading
     subgraph LOAD[📡 Data Loading]
-        BASE_LOADER[BaseLoader<br/>loaders/base.py]
-        SPEEDX[TheSpeedX<br/>HTTP/SOCKS]
-        CLARKETM[Clarketm<br/>Raw Loader]
-        MONOSANS[Monosans<br/>Loader]
-        PROXIFLY[Proxifly<br/>Loader]
-        JETKAI[JetkaiProxy<br/>List]
-        VAKHOV[VakhovFresh<br/>Proxy]
-        PROXYSCRAPE[ProxyScrape<br/>Loader]
-        USER[UserProvided<br/>Loader]
+        BASE_LOADER[BaseLoader<br/>loaders/base.py • 268 lines]
+        SPEEDX[TheSpeedX<br/>HTTP/SOCKS • 141 lines]
+        CLARKETM[Clarketm<br/>Raw Loader • 53 lines]
+        MONOSANS[Monosans<br/>Loader • 87 lines]
+        PROXIFLY[Proxifly<br/>Loader • 125 lines]
+        JETKAI[JetkaiProxy<br/>List • 121 lines]
+        VAKHOV[VakhovFresh<br/>Proxy • 122 lines]
+        PROXYSCRAPE[ProxyScrape<br/>Loader • 66 lines]
+        USER[UserProvided<br/>Loader • 25 lines]
+    end
+
+    %% User Interface Layer
+    subgraph UI[🖥️ User Interface Layer]
+        CLI[CLI Interface<br/>cli.py • 2196 lines]
+        TUI[TUI Application<br/>tui.py • 1867 lines]
+        PYTHON_API[Python API<br/>proxywhirl.py • Async/Sync]
+    end
+    
+    %% API Server Layer  
+    subgraph API_LAYER[🌐 API Server Layer]
+        API[REST API<br/>api.py • 1677 lines]
+        API_SERVER[API Server<br/>api_server.py • 262 lines]
     end
 
     %% Export & Monitoring
-    subgraph EXPORT[� Export & Monitoring]
-        EXP[ProxyExporter<br/>exporter.py • 742 lines]
+    subgraph EXPORT[📤 Export & Monitoring]
+        EXP[ProxyExporter<br/>exporter.py • 741 lines]
         HEALTH_RPT[Health Reporting<br/>CLI/TUI Integration]
-        LOG[Structured Logging<br/>logger.py • Loguru]
-        UTILS[Utilities<br/>utils.py]
+        LOG[Structured Logging<br/>logger.py • 142 lines]
+        UTILS[Utilities<br/>utils.py • 69 lines]
+        AUTH[Authentication<br/>auth.py • 135 lines]
     end
 
     %% External Services
@@ -79,10 +100,13 @@
     %% User Interface connections
     CLI --> PW
     TUI --> PW
+    PYTHON_API --> PW
     API --> PW
+    API_SERVER --> API
 
     %% Core orchestration flow
     PW --> CONFIG
+    PW --> SETTINGS
     PW --> CACHE_BASE
     PW --> VAL
     PW --> ROTOR
@@ -125,8 +149,11 @@
     PW --> EXP
     CLI --> HEALTH_RPT
     TUI --> HEALTH_RPT
+    API --> HEALTH_RPT
     PW --> LOG
     PW --> UTILS
+    API --> AUTH
+    API_SERVER --> AUTH
 
     %% External connections
     SPEEDX --> SOURCES
@@ -154,15 +181,18 @@
     classDef loadLayer fill:#e0f2f1,stroke:#00695c,stroke-width:2px
     classDef exportLayer fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
     classDef extLayer fill:#fafafa,stroke:#616161,stroke-width:2px
+    classDef interfaceLayer fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    classDef apiLayer fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
 
-    class CLI,TUI,API uiLayer
-    class PW,CONFIG coreLayer
+    class CLI,TUI,PYTHON_API interfaceLayer
+    class API,API_SERVER apiLayer
+    class PW,CONFIG,SETTINGS coreLayer
     class CORE_MODELS,CACHE_MODELS,EXPORT_MODELS modelLayer
     class CACHE_BASE,MEM,JSON,SQLITE,LEGACY cacheLayer
     class VAL,CB,TARGET validLayer
     class ROTOR,RR,RAND,WEIGHT,HEALTH,LEAST rotLayer
     class BASE_LOADER,SPEEDX,CLARKETM,MONOSANS,PROXIFLY,JETKAI,VAKHOV,PROXYSCRAPE,USER loadLayer
-    class EXP,HEALTH_RPT,LOG,UTILS exportLayer
+    class EXP,HEALTH_RPT,LOG,UTILS,AUTH exportLayer
     class SOURCES,TARGETS,HEALTH_ENDPOINTS extLayer"
 />
 
