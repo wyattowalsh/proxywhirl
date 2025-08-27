@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "name": "proxywhirl-frontend",
+  "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "buildCommand": "cd frontend && pnpm build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "cd frontend && pnpm install --frozen-lockfile",
+  "framework": null,
+  "functions": {}
+}
