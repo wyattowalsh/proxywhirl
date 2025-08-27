@@ -76,11 +76,11 @@ from proxywhirl.loaders.clarketm_raw import ClarketmHttpLoader
 from proxywhirl.loaders.jetkai_proxy_list import JetkaiProxyListLoader
 from proxywhirl.loaders.monosans import MonosansLoader
 
-# from proxywhirl.loaders.openproxyspace import OpenProxySpaceLoader  # DISABLED: 521 errors
-from proxywhirl.loaders.proxifly import ProxiflyLoader
-
 # from proxywhirl.loaders.proxynova import ProxyNovaLoader  # DISABLED: Module missing
+from proxywhirl.loaders.proxy4parsing import Proxy4ParsingLoader
 from proxywhirl.loaders.proxyscrape import ProxyScrapeLoader
+from proxywhirl.loaders.pubproxy import PubProxyLoader
+from proxywhirl.loaders.sunny_proxy_scraper import SunnyProxyScraperLoader
 from proxywhirl.loaders.the_speedx import (
     TheSpeedXHttpLoader,
     TheSpeedXSocksLoader,
@@ -100,6 +100,10 @@ from proxywhirl.models import (
 )
 from proxywhirl.rotator import ProxyRotator
 from proxywhirl.validator import ProxyValidator
+
+# from proxywhirl.loaders.openproxyspace import OpenProxySpaceLoader  # DISABLED: 521 errors
+# from proxywhirl.loaders.proxifly import ProxiflyLoader  # DISABLED: Failed to connect
+
 
 if TYPE_CHECKING:
     from proxywhirl.export_models import ExportConfig
@@ -238,10 +242,13 @@ class ProxyWhirl:
             ProxyScrapeLoader,
             # ProxyNovaLoader,  # DISABLED: Module missing
             # OpenProxySpaceLoader,  # DISABLED: Returns 521 errors
-            # New working loaders based on research
-            ProxiflyLoader,
+            # ProxiflyLoader,  # DISABLED: Failed to connect - REMOVED
             VakhovFreshProxyLoader,
             JetkaiProxyListLoader,
+            # NEW WORKING LOADERS:
+            Proxy4ParsingLoader,
+            PubProxyLoader,
+            SunnyProxyScraperLoader,
         ]
         self.loaders: List[BaseLoader] = self._create_loaders()
 
@@ -1215,7 +1222,8 @@ class ProxyWhirl:
 
             # Test each loader concurrently with timeout
             import asyncio
-            from datetime import datetime as dt, timezone as tz
+            from datetime import datetime as dt
+            from datetime import timezone as tz
             
             async def test_loader(loader):
                 """Test a single loader and return health metrics."""

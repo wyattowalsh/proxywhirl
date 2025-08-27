@@ -300,6 +300,31 @@ class ConnectionManager:
         for connection in disconnected:
             self.active_connections[channel].discard(connection)
 
+    async def cleanup_stale_connections(self) -> int:
+        """Clean up stale WebSocket connections and return count of cleaned connections."""
+        total_cleaned = 0
+        
+        for channel_name, connections in self.active_connections.items():
+            stale_connections = set()
+            
+            for connection in connections.copy():
+                try:
+                    # Send a ping to check if connection is alive
+                    await connection.send_json({"type": "ping", "timestamp": time.time()})
+                except Exception:
+                    # Connection is stale, mark for removal
+                    stale_connections.add(connection)
+            
+            # Remove stale connections
+            for connection in stale_connections:
+                connections.discard(connection)
+                total_cleaned += 1
+            
+            if stale_connections:
+                logger.debug(f"Cleaned {len(stale_connections)} stale connections from {channel_name}")
+        
+        return total_cleaned
+
 
 # === Global State ===
 
@@ -318,24 +343,58 @@ api_start_time = datetime.now(timezone.utc)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager."""
+    """Application lifespan manager with comprehensive background tasks."""
     logger.info("🚀 ProxyWhirl API starting up...")
 
     # Initialize ProxyWhirl instance
     app.state.proxywhirl = ProxyWhirl(auto_validate=True)
+    
+    # Track background tasks for proper cleanup
+    background_tasks = []
 
-    # Start background health monitoring
+    # Start health monitoring
     health_task = asyncio.create_task(health_monitoring_background())
+    background_tasks.append(("Health Monitor", health_task))
+    
+    # Start connection pool maintenance task
+    pool_maintenance_task = asyncio.create_task(connection_pool_maintenance())
+    background_tasks.append(("Connection Pool Maintenance", pool_maintenance_task))
+    
+    # Start cache cleanup task  
+    cache_cleanup_task = asyncio.create_task(cache_cleanup_background())
+    background_tasks.append(("Cache Cleanup", cache_cleanup_task))
+    
+    # Start expired session cleanup
+    session_cleanup_task = asyncio.create_task(session_cleanup_background())
+    background_tasks.append(("Session Cleanup", session_cleanup_task))
+
+    logger.info(f"✅ Started {len(background_tasks)} background tasks")
 
     yield
 
-    # Cleanup on shutdown
+    # Graceful cleanup on shutdown
     logger.info("🔄 ProxyWhirl API shutting down...")
-    health_task.cancel()
-    try:
-        await health_task
-    except asyncio.CancelledError:
-        pass
+    logger.info("⏹️  Stopping background tasks...")
+    
+    for task_name, task in background_tasks:
+        task.cancel()
+        try:
+            await asyncio.wait_for(task, timeout=5.0)
+        except (asyncio.CancelledError, asyncio.TimeoutError):
+            logger.info(f"✅ {task_name} task stopped")
+        except Exception as e:
+            logger.warning(f"⚠️  {task_name} task cleanup error: {e}")
+    
+    # Final cleanup
+    if hasattr(app.state, 'proxywhirl') and app.state.proxywhirl:
+        try:
+            # Close cache connections if possible
+            if hasattr(app.state.proxywhirl.cache, 'close'):
+                await app.state.proxywhirl.cache.close()
+        except Exception as e:
+            logger.warning(f"Cache cleanup error: {e}")
+    
+    logger.info("✅ ProxyWhirl API shutdown complete")
 
 
 # === FastAPI App Initialization ===
@@ -677,6 +736,115 @@ async def health_monitoring_background():
             await asyncio.sleep(60)  # Back off on errors
 
 
+async def connection_pool_maintenance():
+    """Background task for database connection pool maintenance."""
+    while True:
+        try:
+            # Connection pool maintenance every 5 minutes
+            await asyncio.sleep(300)
+            
+            # Get current ProxyWhirl instance
+            pw = app.state.proxywhirl
+            
+            # Perform connection pool maintenance if using SQLite cache
+            if hasattr(pw.cache, 'pool_maintenance'):
+                await pw.cache.pool_maintenance()
+                logger.debug("Connection pool maintenance completed")
+            
+            # Clean up any stale connections
+            if hasattr(pw.cache, 'cleanup_connections'):
+                cleaned = await pw.cache.cleanup_connections()
+                if cleaned > 0:
+                    logger.info(f"Cleaned up {cleaned} stale database connections")
+                    
+        except Exception as e:
+            logger.error(f"Connection pool maintenance error: {e}")
+            await asyncio.sleep(60)
+
+
+async def cache_cleanup_background():
+    """Background task for cache cleanup and optimization."""
+    while True:
+        try:
+            # Cache cleanup every 10 minutes
+            await asyncio.sleep(600)
+            
+            pw = app.state.proxywhirl
+            
+            # Remove expired or invalid proxies
+            initial_count = pw.get_proxy_count()
+            
+            # Clean expired proxies (older than 1 hour without health check)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=1)
+            removed_expired = 0
+            
+            proxies = pw.list_proxies()
+            for proxy in proxies:
+                if proxy.last_checked < cutoff_time and proxy.status != ProxyStatus.ACTIVE:
+                    try:
+                        await pw.remove_proxy_async(f"{proxy.host}:{proxy.port}")
+                        removed_expired += 1
+                    except Exception:
+                        continue
+            
+            # Remove blacklisted proxies older than 24 hours  
+            day_ago = datetime.now(timezone.utc) - timedelta(hours=24)
+            removed_blacklisted = 0
+            
+            for proxy in proxies:
+                if (proxy.status == ProxyStatus.BLACKLISTED and 
+                    proxy.last_checked < day_ago):
+                    try:
+                        await pw.remove_proxy_async(f"{proxy.host}:{proxy.port}")
+                        removed_blacklisted += 1
+                    except Exception:
+                        continue
+            
+            final_count = pw.get_proxy_count()
+            total_removed = initial_count - final_count
+            
+            if total_removed > 0:
+                logger.info(f"Cache cleanup: removed {removed_expired} expired, "
+                          f"{removed_blacklisted} blacklisted proxies ({total_removed} total)")
+            
+            # Optimize cache if supported
+            if hasattr(pw.cache, 'optimize'):
+                await pw.cache.optimize()
+                logger.debug("Cache optimization completed")
+                
+        except Exception as e:
+            logger.error(f"Cache cleanup error: {e}")
+            await asyncio.sleep(60)
+
+
+async def session_cleanup_background():
+    """Background task for cleaning up expired sessions and JWT tokens."""
+    while True:
+        try:
+            # Session cleanup every 30 minutes
+            await asyncio.sleep(1800)
+            
+            # Clean up expired JWT tokens (if we had a token blacklist)
+            # This is a placeholder for future token blacklist implementation
+            logger.debug("Session cleanup: JWT token cleanup (placeholder)")
+            
+            # Clean up WebSocket connections that are no longer active
+            if 'ws_manager' in globals():
+                cleaned_connections = await ws_manager.cleanup_stale_connections()
+                if cleaned_connections > 0:
+                    logger.info(f"Cleaned up {cleaned_connections} stale WebSocket connections")
+            
+            # Memory cleanup for large objects
+            import gc
+            collected = gc.collect()
+            if collected > 0:
+                logger.debug(f"Garbage collection: freed {collected} objects")
+                
+        except Exception as e:
+            logger.error(f"Session cleanup error: {e}")
+            await asyncio.sleep(60)
+
+
 async def fetch_proxies_background(
     pw: ProxyWhirl,
     task_id: str,
@@ -895,9 +1063,7 @@ async def stream_proxies(
 
     async def generate_proxy_stream():
         """Generate JSON stream of proxies in batches."""
-        from proxywhirl.models import Proxy  # Import here to avoid circular imports
-
-        all_proxies: List[Proxy] = pw.list_proxies()
+        all_proxies = pw.list_proxies()
 
         # Apply filters (same logic as list_proxies)
         filtered_proxies: List[Proxy] = []
@@ -1037,9 +1203,9 @@ async def update_proxy_health(
     proxy_id: Annotated[str, Path(description="Proxy ID in format 'host:port'")],
     current_user: Annotated[User, Security(get_current_user, scopes=["write"])],
     pw: ProxyWhirl = Depends(get_proxywhirl),
-    success: bool = Field(description="Whether the proxy operation was successful"),
-    response_time: Optional[float] = Field(None, ge=0.001, description="Response time in seconds"),
-    error_type: Optional[ValidationErrorType] = Field(None, description="Type of error if failed"),
+    success: Annotated[bool, Query(description="Whether the proxy operation was successful")] = True,
+    response_time: Annotated[Optional[float], Query(ge=0.001, description="Response time in seconds")] = None,
+    error_type: Annotated[Optional[ValidationErrorType], Query(description="Type of error if failed")] = None,
 ):
     """
     Update proxy health metrics after usage.

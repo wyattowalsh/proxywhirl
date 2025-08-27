@@ -1,23 +1,27 @@
-from .base import BaseLoader
-from .clarketm_raw import ClarketmHttpLoader
-from .jetkai_proxy_list import JetkaiProxyListLoader
-from .monosans import MonosansLoader
-from .proxifly import ProxiflyLoader
-from .proxyscrape import ProxyScrapeLoader
-from .the_speedx import TheSpeedXHttpLoader, TheSpeedXSocksLoader
-from .user_provided import UserProvidedLoader
-from .vakhov_fresh import VakhovFreshProxyLoader
+"""Proxy loaders module."""
+
+from proxywhirl.loaders.base import BaseLoader
+from proxywhirl.loaders.clarketm import ClarketmLoader
+from proxywhirl.loaders.jetkai_proxy_list import JetkaiProxyListLoader
+from proxywhirl.loaders.monosans import MonosansLoader
+from proxywhirl.loaders.proxy4parsing import Proxy4ParsingLoader
+from proxywhirl.loaders.proxy_scrape import ProxyScrapeLoader
+from proxywhirl.loaders.pubproxy import PubProxyLoader
+from proxywhirl.loaders.sunny_proxy_scraper import SunnyProxyScraperLoader
+from proxywhirl.loaders.thespeedx import TheSpeedXLoader
+from proxywhirl.loaders.user_provided import UserProvidedLoader
+from proxywhirl.loaders.vakhov_fresh import VakhovFreshLoader
 
 __all__ = [
     "BaseLoader",
-    "TheSpeedXHttpLoader",
-    "TheSpeedXSocksLoader",
-    "ClarketmHttpLoader",
-    "MonosansLoader",
-    "ProxyScrapeLoader",
-    "UserProvidedLoader",
-    # New working loaders
-    "ProxiflyLoader",
-    "VakhovFreshProxyLoader",
+    "ClarketmLoader",
     "JetkaiProxyListLoader",
+    "MonosansLoader",
+    "Proxy4ParsingLoader",
+    "ProxyScrapeLoader",
+    "PubProxyLoader",
+    "SunnyProxyScraperLoader",
+    "TheSpeedXLoader",
+    "UserProvidedLoader",
+    "VakhovFreshLoader",
 ]

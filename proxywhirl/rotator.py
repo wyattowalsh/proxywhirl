@@ -24,7 +24,6 @@ from proxywhirl.models import (
     ValidationErrorType,
 )
 
-
 # === Circuit Breaker Components ===
 
 
@@ -100,7 +99,7 @@ class RotationMetrics:
 
 
 try:
-    from prometheus_client import Counter, Gauge, Histogram, CollectorRegistry
+    from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram
 
     PROMETHEUS_AVAILABLE = True
 except ImportError:

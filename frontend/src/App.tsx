@@ -1,8 +1,8 @@
 import React, { Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { ThemeProvider } from './components/providers/ThemeProvider'
-import Layout from './components/layout/Layout'
+import { ThemeProvider } from './components/theme-provider'
+import { Layout } from './components/layout/Layout'
 import { ErrorBoundary } from './components/ErrorBoundary'
 
 // Modern Vite-compatible lazy loading with proper dynamic imports
