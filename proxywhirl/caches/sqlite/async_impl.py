@@ -25,7 +25,6 @@ from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlmodel import SQLModel, select, text
 
-from .models import ProxyRecord
 from proxywhirl.caches.base import (
     BaseProxyCache,
     CacheFilters,
@@ -36,6 +35,7 @@ from proxywhirl.caches.config import CacheType
 from proxywhirl.models import Proxy
 
 from .base import SQLiteBase
+from .models import ProxyRecord
 
 
 class AsyncSQLiteProxyCache(BaseProxyCache, SQLiteBase):

@@ -1,6 +1,8 @@
-"""proxywhirl/cli/commands/data_export.py -- Data Export Commands
+"""proxywhirl/cli/commands/data_export.py -- Data export commands"""
 
-Commands for exporting proxy data in various formats.
-"""
+from __future__ import annotations
 
-# Placeholder - will be implemented with export functionality
+from ..app import app
+
+# TODO: Implement export command from original cli.py
+# This would include the complex export command with all filtering options

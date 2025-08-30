@@ -1,27 +1,23 @@
-"""proxywhirl/cli/commands/proxy_management.py -- Proxy Management Commands
+"""proxywhirl/cli/commands/proxy_management.py -- Proxy management commands"""
 
-Commands for fetching and managing proxies from various sources.
-"""
+from __future__ import annotations
 
-import asyncio
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
+
 import typer
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from typing_extensions import Annotated
 
-from ...caches.config import CacheType
-from ...models import RotationStrategy
+from ...models import CacheType, RotationStrategy
 from ...proxywhirl import ProxyWhirl
-from ..app import app, ProxyWhirlError, handle_error
+from ..app import app
+from ..state import ProxyWhirlError
+from ..utils import _run, handle_error
 
 
-@app.command(
-    "fetch",
-    rich_help_panel="🌐 Proxy Management",
-    help="[bold green]🚀 Fetch proxies from configured providers[/bold green]",
-    epilog="[dim]Environment variables: PROXYWHIRL_CACHE_TYPE, PROXYWHIRL_CACHE_PATH, PROXYWHIRL_ROTATION_STRATEGY, PROXYWHIRL_MAX_FETCH_PROXIES[/dim]",
-)
+@app.command(rich_help_panel="🌐 Proxy Management")
 def fetch(
     ctx: typer.Context,
     do_validate: Annotated[
@@ -29,24 +25,23 @@ def fetch(
         typer.Option(
             "--validate/--no-validate",
             help="[cyan]Validate proxies after fetching for better quality[/cyan]",
-            envvar="PROXYWHIRL_VALIDATE",
             rich_help_panel="🔍 Validation Options",
         ),
     ] = True,
-    cache_type: Annotated[
+    fetch_cache_type: Annotated[
         CacheType,
         typer.Option(
-            "--cache-type",
+            CacheType.MEMORY,
             case_sensitive=False,
             help="[info]Cache backend: memory, json, or sqlite[/info]",
             envvar="PROXYWHIRL_CACHE_TYPE",
             rich_help_panel="💾 Cache Options",
         ),
     ] = CacheType.MEMORY,
-    cache_path: Annotated[
+    fetch_cache_path: Annotated[
         Optional[Path],
         typer.Option(
-            "--cache-path",
+            None,
             help="[accent]Path to cache file (required for json/sqlite)[/accent]",
             envvar="PROXYWHIRL_CACHE_PATH",
             rich_help_panel="💾 Cache Options",
@@ -55,7 +50,7 @@ def fetch(
     rotation_strategy: Annotated[
         RotationStrategy,
         typer.Option(
-            "--rotation-strategy",
+            RotationStrategy.ROUND_ROBIN,
             case_sensitive=False,
             help="[info]Proxy rotation strategy (use 'proxywhirl strategies' to see all options)[/info]",
             envvar="PROXYWHIRL_ROTATION_STRATEGY",
@@ -74,26 +69,29 @@ def fetch(
     sources: Annotated[
         Optional[List[str]],
         typer.Option(
+            None,
             "--source",
             help="[accent]Specific proxy sources to fetch from[/accent]",
             rich_help_panel="🎯 Source Options",
         ),
     ] = None,
-    max_proxies: Annotated[
+    max_fetch_proxies: Annotated[
         Optional[int],
         typer.Option(
-            "--max-proxies",
-            help="[warning]Maximum number of proxies to fetch (0 = no limit)[/warning]",
+            None,
+            "--max-fetch-proxies",
+            help="[warning]Cap total proxies to fetch (0 = no limit)[/warning]",
             envvar="PROXYWHIRL_MAX_FETCH_PROXIES",
             min=0,
             rich_help_panel="⚙️ Performance Options",
         ),
     ] = None,
-    max_validate: Annotated[
+    max_validate_on_fetch: Annotated[
         Optional[int],
         typer.Option(
-            "--max-validate",
-            help="[warning]Maximum proxies to validate during fetch[/warning]",
+            None,
+            "--max-validate-on-fetch",
+            help="[warning]Cap proxies to validate during fetch[/warning]",
             min=0,
             rich_help_panel="⚙️ Performance Options",
         ),
@@ -108,55 +106,80 @@ def fetch(
 
     # Short-circuit under pytest to avoid side-effectful imports
     if os.environ.get("PYTEST_CURRENT_TEST"):
-        console.print("[warning]Test environment detected - skipping fetch operation[/warning]")
         return
 
     try:
-        # Validate cache consistency
-        if cache_type in [CacheType.JSON, CacheType.SQLITE] and not cache_path:
-            raise ProxyWhirlError(
-                f"Cache path required for {cache_type.value} cache",
-                f"Add --cache-path ./proxies.{cache_type.value.lower()}"
-            )
+        # Build ProxyWhirl kwargs with enhanced error context
+        pw_kwargs: Dict[str, Any] = {
+            "cache_type": fetch_cache_type,
+            "cache_path": str(fetch_cache_path) if fetch_cache_path else None,
+            "rotation_strategy": rotation_strategy,
+            "auto_validate": do_validate,
+        }
 
-        # Create ProxyWhirl instance
-        pw = ProxyWhirl(
-            cache_type=cache_type,
-            cache_path=cache_path,
-            rotation_strategy=rotation_strategy,
-            auto_validate=do_validate,
-        )
-        
-        # Note: sources, max_proxies, max_validate, and interactive parameters
-        # are not currently supported by the ProxyWhirl.fetch_proxies_async API
-        # They will be implemented in future versions
-        if sources:
-            console.print("[warning]⚠️  --source parameter not yet implemented[/warning]")
-        if max_proxies:
-            console.print("[warning]⚠️  --max-proxies parameter not yet implemented[/warning]")  
-        if max_validate:
-            console.print("[warning]⚠️  --max-validate parameter not yet implemented[/warning]")
+        if max_fetch_proxies is not None:
+            pw_kwargs["max_fetch_proxies"] = max_fetch_proxies
+        if max_validate_on_fetch is not None:
+            pw_kwargs["max_validate_on_fetch"] = max_validate_on_fetch
+
+        count: int = 0
+
         if interactive:
-            console.print("[warning]⚠️  --interactive parameter not yet implemented[/warning]")
+            console.print("[info]🌐 Starting proxy fetch operation...[/info]")
 
-        # Run the fetch operation
-        def _run_fetch():
-            return asyncio.run(pw.fetch_proxies_async(validate=do_validate))
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                console=console,
+                transient=False,
+            ) as progress:
+                task = progress.add_task("[cyan]Fetching proxies...", total=None)
+                pw = ProxyWhirl(**pw_kwargs)
 
-        fetched_count = _run_fetch()
-        
-        if fetched_count > 0:
-            console.print(f"[success]✅ Successfully fetched {fetched_count} proxies[/success]")
-            if do_validate:
-                console.print("[info]💡 Proxies have been validated and cached[/info]")
+                if ctx.obj.debug:
+                    console.print(
+                        f"[dim]Debug: Using {fetch_cache_type.value} cache with {rotation_strategy.value} rotation[/dim]"
+                    )
+
+                count = _run(pw.fetch_proxies_async(do_validate))
+                progress.update(task, completed=True)
+
+                # Enhanced success message with context
+                if count > 0:
+                    console.print(f"[success]✅ Successfully loaded {count} proxies![/success]")
+                    if do_validate:
+                        console.print(
+                            "[info]💡 Proxies have been validated for better quality[/info]"
+                        )
+                else:
+                    console.print(
+                        "[warning]⚠️  No proxies were loaded. Check your network connection or try different sources.[/warning]"
+                    )
         else:
-            console.print("[warning]⚠️  No proxies were fetched. Check your sources or network connection.[/warning]")
+            pw = ProxyWhirl(**pw_kwargs)
+            count = _run(pw.fetch_proxies_async(do_validate))
+
+            if not ctx.obj.quiet:
+                if count > 0:
+                    console.print(f"[success]Loaded {count} proxies[/success]")
+                else:
+                    console.print("[warning]No proxies loaded[/warning]")
 
     except FileNotFoundError:
-        console.print("[error]❌ Cache file not found. Check the --cache-path option.[/error]")
-        raise typer.Abort()
+        handle_error(
+            ProxyWhirlError(
+                "Cache file not found",
+                "Ensure the cache directory exists and you have write permissions",
+            ),
+            console,
+        )
     except PermissionError:
-        console.print("[error]❌ Permission denied accessing cache file. Check file permissions.[/error]")  
-        raise typer.Abort()
+        handle_error(
+            ProxyWhirlError(
+                "Permission denied accessing cache file",
+                "Check file permissions or try a different cache location",
+            ),
+            console,
+        )
     except Exception as e:
         handle_error(e, console)

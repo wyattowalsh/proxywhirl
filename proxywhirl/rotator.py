@@ -18,12 +18,10 @@ from proxywhirl.models import (
     CircuitState,
     ErrorHandlingPolicy,
     Proxy,
-    ProxySession,  # Fixed: was SessionProxy
     ProxyStatus,
     RotationStrategy,
-    SessionConfig,
-    SessionManager,
-    ValidationErrorType,  # Added missing import
+    SessionProxy,
+    ValidationErrorType,
 )
 
 # === Circuit Breaker Components ===
@@ -154,7 +152,7 @@ class ProxyRotator:
     _use_counts: dict[str, int]
     _cooldowns: dict[str, datetime]
     _cooldown_period: timedelta
-    _sessions: Dict[str, ProxySession]  # Session ID -> ProxySession mapping
+    _sessions: Dict[str, SessionProxy]  # Session ID -> SessionProxy mapping
 
     # Error handling policy to cooldown duration mapping (seconds)
     ERROR_POLICY_DURATIONS = {
@@ -193,7 +191,7 @@ class ProxyRotator:
         self._cooldowns = {}
         self._cooldown_period = timedelta(seconds=15)
         # Session management
-        self._sessions: Dict[str, ProxySession] = {}
+        self._sessions: Dict[str, SessionProxy] = {}
 
     def get_proxy(self, proxies: List[Proxy]) -> Optional[Proxy]:
         """Get next proxy based on rotation strategy."""
@@ -423,7 +421,7 @@ class ProxyRotator:
         ttl_seconds = custom_ttl or self.default_session_ttl
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
 
-        session_proxy = ProxySession(
+        session_proxy = SessionProxy(
             session_id=session_id, proxy=new_proxy, expires_at=expires_at, target_id=target_id
         )
 
@@ -545,10 +543,10 @@ class ProxyRotator:
 
     def create_session_proxy(
         self, session_id: str, proxy: Proxy, target_id: Optional[str] = None
-    ) -> ProxySession:
+    ) -> SessionProxy:
         """Create a session proxy mapping."""
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=self.default_session_ttl)
-        session_proxy = ProxySession(
+        session_proxy = SessionProxy(
             session_id=session_id, proxy=proxy, expires_at=expires_at, target_id=target_id
         )
         self._sessions[session_id] = session_proxy

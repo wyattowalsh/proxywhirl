@@ -1,16 +1,18 @@
 'use client';
 
 import { motion } from 'motion/react';
+import { cn } from '@/lib/utils';
 
 interface AnimatedTitleProps {
   title: string;
   subtitle: string;
+  className?: string;
 }
 
-export function AnimatedTitle({ title, subtitle }: AnimatedTitleProps) {
+export function AnimatedTitle({ title, subtitle, className }: AnimatedTitleProps) {
   return (
     <motion.div 
-      className="space-y-6"
+      className={cn("space-y-6", className)}
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.8, ease: "easeOut", delay: 0.4 }}
@@ -21,12 +23,24 @@ export function AnimatedTitle({ title, subtitle }: AnimatedTitleProps) {
         transition={{ type: "spring", stiffness: 400, damping: 10 }}
       >
         <motion.span 
-          className="pw bg-gradient-to-r from-blue-600 via-purple-600 to-teal-600 bg-clip-text text-transparent drop-shadow-sm"
+          className="brand-text"
+          style={{
+            // Fallback gradient in case CSS custom properties don't load
+            background: `linear-gradient(135deg, 
+              rgb(34, 197, 94) 0%,
+              rgb(6, 182, 212) 35%,
+              rgb(59, 130, 246) 70%,
+              rgb(147, 51, 234) 100%
+            )`,
+            backgroundSize: '200% 100%',
+            backgroundClip: 'text',
+            WebkitBackgroundClip: 'text',
+            color: 'transparent'
+          }}
           animate={{ 
             backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"],
           }}
           transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-          style={{ backgroundSize: "200% 100%" }}
         >
           {title}
         </motion.span>

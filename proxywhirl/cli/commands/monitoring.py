@@ -1,6 +1,3 @@
-"""proxywhirl/cli/commands/monitoring.py -- Monitoring Commands
+"""proxywhirl/cli/commands/monitoring.py -- Monitoring commands"""
 
-Commands for monitoring proxy health and performance.
-"""
-
-# Placeholder - will be implemented with monitoring functionality
+# TODO: Implement monitoring commands from original cli.py

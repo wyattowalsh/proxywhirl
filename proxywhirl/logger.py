@@ -27,17 +27,28 @@ Enhanced usage (optional):
 """
 
 import asyncio
+import inspect
 import logging
 import os
 import sys
+import time
 from contextlib import asynccontextmanager, contextmanager
 from datetime import datetime, timezone
 from enum import Enum
 from functools import lru_cache, wraps
 from pathlib import Path
 from threading import local
-from typing import Any, AsyncIterator, Callable, Dict, Iterator, Optional, TypeVar, Union, Tuple
-import inspect
+from typing import (
+    Any,
+    AsyncIterator,
+    Callable,
+    Dict,
+    Iterator,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 from loguru import logger
 from rich.console import Console

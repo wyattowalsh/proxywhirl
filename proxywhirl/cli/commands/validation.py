@@ -1,6 +1,3 @@
-"""proxywhirl/cli/commands/validation.py -- Validation Commands
+"""proxywhirl/cli/commands/validation.py -- Validation commands"""
 
-Commands for validating proxy functionality.
-"""
-
-# Placeholder - will be implemented with validation functionality
+# TODO: Implement validation commands from original cli.py

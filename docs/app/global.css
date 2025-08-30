@@ -2716,3 +2716,394 @@ blockquote::before {
     border-color: SelectedItemText;
   }
 }
+
+/* ====================================
+   🚀 ENHANCED LANDING PAGE ANIMATIONS & RESPONSIVE DESIGN
+   ==================================== */
+
+/* Modern fade-in-up animation with stagger support */
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s ease-out forwards;
+  opacity: 0;
+}
+
+/* Enhanced scan line effects */
+@keyframes scan-line {
+  0% { 
+    transform: translateX(-100%); 
+    opacity: 0; 
+  }
+  50% { 
+    opacity: 1; 
+  }
+  100% { 
+    transform: translateX(100vw); 
+    opacity: 0; 
+  }
+}
+
+@keyframes scan-line-elite {
+  0% { 
+    transform: translateX(-100%) scaleX(0.5); 
+    opacity: 0; 
+  }
+  30% { 
+    opacity: 0.8; 
+    transform: translateX(-20%) scaleX(1); 
+  }
+  70% { 
+    opacity: 0.6; 
+    transform: translateX(20%) scaleX(1); 
+  }
+  100% { 
+    transform: translateX(100vw) scaleX(0.5); 
+    opacity: 0; 
+  }
+}
+
+/* Enhanced glass morphism utilities */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dark .glass-effect {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Enhanced floating animations with physics */
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0px) rotate(0deg); 
+  }
+  25% { 
+    transform: translateY(-10px) rotate(0.5deg); 
+  }
+  50% { 
+    transform: translateY(-20px) rotate(0deg); 
+  }
+  75% { 
+    transform: translateY(-15px) rotate(-0.5deg); 
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Sophisticated pulse animations */
+@keyframes pulse-slow {
+  0%, 100% { 
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s ease-in-out infinite;
+}
+
+/* Advanced glow pulse for elite elements */
+@keyframes glow-pulse {
+  0%, 100% { 
+    opacity: 0.6;
+    filter: brightness(1) drop-shadow(0 0 5px currentColor);
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 1;
+    filter: brightness(1.2) drop-shadow(0 0 15px currentColor);
+    transform: scale(1.02);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* Enhanced gradient shift for modern text effects */
+@keyframes gradient-shift-modern {
+  0% { 
+    background-position: 0% 50%; 
+    filter: hue-rotate(0deg);
+  }
+  25% { 
+    background-position: 100% 50%; 
+    filter: hue-rotate(90deg);
+  }
+  50% { 
+    background-position: 100% 100%; 
+    filter: hue-rotate(180deg);
+  }
+  75% { 
+    background-position: 0% 100%; 
+    filter: hue-rotate(270deg);
+  }
+  100% { 
+    background-position: 0% 50%; 
+    filter: hue-rotate(360deg);
+  }
+}
+
+.animate-gradient-shift {
+  background-size: 400% 400%;
+  animation: gradient-shift-modern 8s ease-in-out infinite;
+}
+
+/* Enhanced feature card backdrop effects */
+.feature-card-enhanced {
+  position: relative;
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dark .feature-card-enhanced {
+  background: rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.feature-card-enhanced:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.25),
+    0 0 40px rgba(59, 130, 246, 0.1);
+}
+
+.dark .feature-card-enhanced:hover {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 40px rgba(59, 130, 246, 0.15);
+}
+
+/* Advanced backdrop effect for feature cards */
+.feature-card-backdrop {
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(147, 51, 234, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.04) 0%, transparent 50%);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.dark .feature-card-backdrop {
+  background: 
+    radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.04) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(147, 51, 234, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.02) 0%, transparent 50%);
+}
+
+/* ====================================
+   📱 ADVANCED RESPONSIVE DESIGN & CONTAINER QUERIES
+   ==================================== */
+
+/* Container query support for advanced responsive design */
+@container (min-width: 320px) {
+  .brand-text--responsive {
+    font-size: clamp(1rem, 4vw, 1.25rem);
+  }
+}
+
+@container (min-width: 768px) {
+  .brand-text--responsive {
+    font-size: clamp(1.5rem, 5vw, 2rem);
+  }
+}
+
+@container (min-width: 1024px) {
+  .brand-text--responsive {
+    font-size: clamp(2rem, 6vw, 3rem);
+  }
+}
+
+/* Enhanced mobile-first responsive utilities */
+@media (max-width: 640px) {
+  .landing-page-container {
+    min-height: 100vh;
+    min-height: 100dvh;
+    padding: 1rem 0;
+  }
+  
+  .feature-card-enhanced {
+    border-radius: 16px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  
+  /* Reduce motion for mobile performance */
+  .animate-matrix-rain,
+  .animate-float,
+  .floating-animation {
+    animation-duration: 8s;
+    animation-iteration-count: 3;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .landing-page-container {
+    padding: 1.5rem 0;
+  }
+}
+
+@media (min-width: 769px) {
+  .landing-page-container {
+    padding: 2rem 0;
+  }
+}
+
+@media (min-width: 1024px) {
+  .landing-page-container {
+    padding: 3rem 0;
+  }
+  
+  .feature-card-enhanced:hover {
+    transform: translateY(-6px) scale(1.03) rotateX(2deg);
+  }
+}
+
+@media (min-width: 1280px) {
+  .landing-page-container {
+    padding: 4rem 0;
+  }
+}
+
+/* ====================================
+   🎯 ACCESSIBILITY & INTERACTION ENHANCEMENTS
+   ==================================== */
+
+/* Enhanced focus states for better accessibility */
+.feature-card-enhanced:focus-visible,
+.glass-effect:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.5);
+  outline-offset: 2px;
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float,
+  .animate-pulse-slow,
+  .animate-glow-pulse,
+  .animate-gradient-shift,
+  .animate-matrix-rain,
+  .animate-fade-in-up {
+    animation: none;
+  }
+  
+  .feature-card-enhanced:hover {
+    transform: none;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .glass-effect {
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid black;
+  }
+  
+  .dark .glass-effect {
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid white;
+  }
+  
+  .feature-card-enhanced {
+    border-width: 2px;
+  }
+}
+
+/* Enhanced color scheme support */
+@media (prefers-color-scheme: light) {
+  .feature-card-backdrop {
+    background: 
+      radial-gradient(circle at 20% 30%, rgba(59, 130, 246, 0.12) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(147, 51, 234, 0.10) 0%, transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(99, 102, 241, 0.08) 0%, transparent 50%);
+  }
+}
+
+/* ====================================
+   🎨 ENHANCED DARK MODE SPECIFIC STYLES
+   ==================================== */
+
+.dark {
+  /* Enhanced dark mode feature cards */
+  .feature-card-enhanced {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+  
+  .feature-card-enhanced:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 
+      0 25px 50px -12px rgba(0, 0, 0, 0.6),
+      0 0 50px rgba(59, 130, 246, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  
+  /* Enhanced glass effects for dark mode */
+  .glass-effect {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.3),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+}
+
+/* ====================================
+   🌟 PERFORMANCE OPTIMIZATIONS
+   ==================================== */
+
+/* GPU acceleration for smooth animations */
+.feature-card-enhanced,
+.glass-effect,
+.animate-float,
+.animate-pulse-slow {
+  will-change: transform, opacity;
+  transform: translate3d(0, 0, 0);
+}
+
+/* Efficient backdrop-filter implementation */
+@supports (backdrop-filter: blur(20px)) {
+  .glass-effect-fallback {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+}
+
+@supports not (backdrop-filter: blur(20px)) {
+  .glass-effect-fallback {
+    background: rgba(255, 255, 255, 0.15);
+  }
+  
+  .dark .glass-effect-fallback {
+    background: rgba(0, 0, 0, 0.3);
+  }
+}

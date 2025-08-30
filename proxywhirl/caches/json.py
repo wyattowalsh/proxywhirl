@@ -1,11 +1,14 @@
-"""proxywhirl/caches/json.py -- Production-ready JSON cache with enterprise features
+"""proxywhirl/caches/json.py -- Enhanced production-ready JSON cache with performance optimizations
 
-Enterprise-grade file-based JSON cache with:
+Enterprise-grade file-based JSON cache with advanced features:
+- High-performance indexing for O(1) proxy lookups by host/port  
 - Atomic write operations with automatic backup/recovery
 - Optimized JSON serialization with compression support
 - File integrity verification and corruption recovery
 - Advanced error handling and retry mechanisms
 - Cross-platform file locking for multi-process safety
+- Memory optimization and batch processing
+- Incremental saves with change detection
 """
 
 from __future__ import annotations
@@ -15,9 +18,10 @@ import hashlib
 import json
 import tempfile
 import time
+from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from loguru import logger
 
@@ -28,11 +32,46 @@ from proxywhirl.caches.base import (
     DuplicateStrategy,
 )
 from proxywhirl.models import Proxy
+
 from .config import CacheType
 
 
+class ProxyIndex:
+    """High-performance in-memory index for proxy lookups."""
+    
+    def __init__(self):
+        # Primary index: (host, port) -> array index for O(1) lookups
+        self.host_port_to_idx: Dict[Tuple[str, int], int] = {}
+        # Secondary indices for filtered queries
+        self.source_to_indices: Dict[str, Set[int]] = defaultdict(set)
+        self.country_to_indices: Dict[str, Set[int]] = defaultdict(set)
+        
+    def clear(self):
+        """Clear all indices."""
+        self.host_port_to_idx.clear()
+        self.source_to_indices.clear()
+        self.country_to_indices.clear()
+    
+    def add_proxy(self, proxy: Proxy, index: int):
+        """Add a proxy to all relevant indices."""
+        self.host_port_to_idx[(proxy.host, proxy.port)] = index
+        if hasattr(proxy, 'source') and proxy.source:
+            self.source_to_indices[proxy.source].add(index)
+        if hasattr(proxy, 'country') and proxy.country:
+            self.country_to_indices[proxy.country].add(index)
+    
+    def remove_proxy(self, proxy: Proxy, index: int):
+        """Remove a proxy from all relevant indices."""
+        key = (proxy.host, proxy.port)
+        self.host_port_to_idx.pop(key, None)
+        if hasattr(proxy, 'source') and proxy.source:
+            self.source_to_indices[proxy.source].discard(index)
+        if hasattr(proxy, 'country') and proxy.country:
+            self.country_to_indices[proxy.country].discard(index)
+
+
 class JsonProxyCache(BaseProxyCache):
-    """Production-ready file-based JSON cache with enterprise features."""
+    """Enhanced production-ready file-based JSON cache with performance optimizations."""
 
     def __init__(
         self,
@@ -42,24 +81,62 @@ class JsonProxyCache(BaseProxyCache):
         max_backup_count: int = 5,
         integrity_checks: bool = True,
         retry_attempts: int = 3,
+        # New performance enhancements
+        enable_indexing: bool = True,
+        batch_size: int = 1000,
+        enable_incremental_saves: bool = True,
+        incremental_save_threshold: int = 100,
         duplicate_strategy: Optional[DuplicateStrategy] = None,
     ):
         if duplicate_strategy is None:
             duplicate_strategy = DuplicateStrategy.UPDATE
         super().__init__(CacheType.JSON, cache_path, duplicate_strategy)
 
-        # Configuration
+        # Original configuration
         self.compression = compression
         self.enable_backups = enable_backups
         self.max_backup_count = max_backup_count
         self.integrity_checks = integrity_checks
         self.retry_attempts = retry_attempts
+        
+        # New performance configuration
+        self.enable_indexing = enable_indexing
+        self.batch_size = batch_size
+        self.enable_incremental_saves = enable_incremental_saves
+        self.incremental_save_threshold = incremental_save_threshold
 
         # Internal state
         self._proxies: List[Proxy] = []
         self._initialized = False
         self._last_save_time = 0.0
         self._save_count = 0
+        self._dirty_indices: Set[int] = set()  # Track changed proxies for incremental saves
+
+        # High-performance indexing
+        self._index = ProxyIndex() if enable_indexing else None
+
+        # Original configuration
+        self.compression = compression
+        self.enable_backups = enable_backups
+        self.max_backup_count = max_backup_count
+        self.integrity_checks = integrity_checks
+        self.retry_attempts = retry_attempts
+        
+        # New performance configuration
+        self.enable_indexing = enable_indexing
+        self.batch_size = batch_size
+        self.enable_incremental_saves = enable_incremental_saves
+        self.incremental_save_threshold = incremental_save_threshold
+
+        # Internal state
+        self._proxies: List[Proxy] = []
+        self._initialized = False
+        self._last_save_time = 0.0
+        self._save_count = 0
+        self._dirty_indices: Set[int] = set()  # Track changed proxies for incremental saves
+
+        # High-performance indexing
+        self._index = ProxyIndex() if enable_indexing else None
 
         # File management paths
         if cache_path:
@@ -72,7 +149,7 @@ class JsonProxyCache(BaseProxyCache):
             self.temp_dir = None
             self.lock_file = None
 
-        # Statistics
+        # Enhanced statistics with performance metrics
         self._file_stats = {
             "saves": 0,
             "loads": 0,
@@ -81,7 +158,14 @@ class JsonProxyCache(BaseProxyCache):
             "compression_ratio": 1.0,
             "avg_save_time": 0.0,
             "avg_load_time": 0.0,
+            "index_hits": 0,
+            "index_misses": 0,
+            "incremental_saves": 0,
+            "batch_operations": 0,
         }
+
+        logger.info(f"Enhanced JSON cache initialized with indexing={'enabled' if enable_indexing else 'disabled'}, "
+                   f"batch_size={batch_size}, compression={'enabled' if compression else 'disabled'}")
 
     # Abstract method implementations
     async def _initialize_backend(self) -> None:
@@ -116,6 +200,10 @@ class JsonProxyCache(BaseProxyCache):
             success = await self._load_from_file_with_recovery()
             if not success:
                 logger.warning(f"Failed to load cache from {self.cache_path}, starting fresh")
+
+        # Build high-performance indices after loading
+        if self.enable_indexing:
+            self._rebuild_indices()
 
         self._initialized = True
 
@@ -267,7 +355,149 @@ class JsonProxyCache(BaseProxyCache):
 
         logger.debug(f"Added {added_count} new proxies, total: {len(self._proxies)}")
 
+    # === Performance enhancement methods ===
+
+    def _rebuild_indices(self) -> None:
+        """Rebuild all performance indices for fast lookups."""
+        if not self._index:
+            return
+
+        start_time = time.time()
+        self._index.clear()
+        
+        for i, proxy in enumerate(self._proxies):
+            self._index.add_proxy(proxy, i)
+        
+        build_time = time.time() - start_time
+        logger.debug(f"Rebuilt indices for {len(self._proxies)} proxies in {build_time:.3f}s")
+
+    async def add_proxies_batch(self, proxies: List[Proxy]) -> None:
+        """Add multiple proxies with batch processing and indexing optimization."""
+        if not proxies:
+            return
+
+        await self._ensure_initialized()
+        start_time = time.time()
+        
+        added_count = 0
+        updated_count = 0
+
+        # Process in batches for memory efficiency
+        for batch_start in range(0, len(proxies), self.batch_size):
+            batch = proxies[batch_start:batch_start + self.batch_size]
+            batch_added, batch_updated = self._add_proxy_batch(batch)
+            added_count += batch_added
+            updated_count += batch_updated
+
+        # Incremental save if we have significant changes
+        if (added_count + updated_count >= self.incremental_save_threshold and 
+            self.enable_incremental_saves):
+            await self._save_to_file()
+            self._file_stats["incremental_saves"] += 1
+
+        # Update performance metrics
+        operation_time = time.time() - start_time
+        self._file_stats["batch_operations"] += 1
+        
+        logger.info(f"Batch added {added_count} new, updated {updated_count} existing proxies "
+                   f"in {operation_time:.3f}s (total: {len(self._proxies)})")
+
+    def _add_proxy_batch(self, batch: List[Proxy]) -> Tuple[int, int]:
+        """Add a batch of proxies with optimized duplicate detection."""
+        added_count = 0
+        updated_count = 0
+        
+        if self._index:
+            # Use O(1) index-based lookups for high performance
+            for proxy in batch:
+                key = (proxy.host, proxy.port)
+                existing_idx = self._index.host_port_to_idx.get(key)
+                
+                if existing_idx is not None and existing_idx < len(self._proxies):
+                    # Update existing proxy
+                    old_proxy = self._proxies[existing_idx]
+                    self._index.remove_proxy(old_proxy, existing_idx)
+                    self._proxies[existing_idx] = proxy
+                    self._index.add_proxy(proxy, existing_idx)
+                    self._dirty_indices.add(existing_idx)
+                    updated_count += 1
+                else:
+                    # Add new proxy
+                    new_idx = len(self._proxies)
+                    self._proxies.append(proxy)
+                    self._index.add_proxy(proxy, new_idx)
+                    self._dirty_indices.add(new_idx)
+                    added_count += 1
+        else:
+            # Fallback to O(n) search without indexing
+            existing_map = {(p.host, p.port): i for i, p in enumerate(self._proxies)}
+            
+            for proxy in batch:
+                key = (proxy.host, proxy.port)
+                if key in existing_map:
+                    idx = existing_map[key]
+                    self._proxies[idx] = proxy
+                    self._dirty_indices.add(idx)
+                    updated_count += 1
+                else:
+                    self._proxies.append(proxy)
+                    self._dirty_indices.add(len(self._proxies) - 1)
+                    added_count += 1
+        
+        return added_count, updated_count
+
     async def get_proxies(self, filters: Optional[CacheFilters] = None) -> List[Proxy]:
+        """Get proxies with high-performance filtering using indices."""
+        await self._ensure_initialized()
+        
+        start_time = time.time()
+        
+        if not filters:
+            result = self._proxies.copy()
+        else:
+            result = self._get_proxies_with_indices(filters)
+        
+        # Update performance metrics
+        operation_time = time.time() - start_time
+        if self._index and filters:
+            self._file_stats["index_hits"] += 1
+        elif filters:
+            self._file_stats["index_misses"] += 1
+        
+        logger.debug(f"Retrieved {len(result)} proxies in {operation_time:.3f}s")
+        return result
+
+    def _get_proxies_with_indices(self, filters: CacheFilters) -> List[Proxy]:
+        """High-performance proxy retrieval using indices."""
+        if not self._index:
+            # Fallback to base implementation
+            return self._apply_filters(self._proxies.copy(), filters)
+        
+        # Start with all indices
+        candidate_indices = set(range(len(self._proxies)))
+        
+        # Apply index-based filters for O(1) performance
+        if hasattr(filters, 'countries') and filters.countries:
+            country_candidates = set()
+            for country in filters.countries:
+                country_candidates.update(self._index.country_to_indices.get(country, set()))
+            candidate_indices &= country_candidates
+        
+        if hasattr(filters, 'sources') and filters.sources:
+            source_candidates = set()
+            for source in filters.sources:
+                source_candidates.update(self._index.source_to_indices.get(source, set()))
+            candidate_indices &= source_candidates
+        
+        # Convert indices to proxy objects
+        result = [self._proxies[i] for i in candidate_indices if i < len(self._proxies)]
+        
+        # Apply remaining filters that couldn't use indices
+        result = self._apply_filters(result, filters)
+        
+        return result
+
+    async def get_proxies_original(self, filters: Optional[CacheFilters] = None) -> List[Proxy]:
         """Get proxies with filtering."""
         await self._ensure_initialized()
 
@@ -319,7 +549,7 @@ class JsonProxyCache(BaseProxyCache):
         await self._update_metrics()
 
     async def get_health_metrics(self) -> CacheMetrics:
-        """Get comprehensive cache health metrics with advanced analytics."""
+        """Get comprehensive cache health metrics with enhanced performance analytics."""
         await self._ensure_initialized()
 
         # Enhanced metrics calculation
@@ -336,6 +566,22 @@ class JsonProxyCache(BaseProxyCache):
         if self.cache_path and self.cache_path.exists():
             file_size = self.cache_path.stat().st_size / (1024 * 1024)  # MB
             self._metrics.disk_usage_mb = file_size
+
+        # Enhanced performance metrics
+        if hasattr(self._metrics, 'performance_stats'):
+            self._metrics.performance_stats.update({
+                "index_hit_rate": (
+                    self._file_stats["index_hits"] / 
+                    max(1, self._file_stats["index_hits"] + self._file_stats["index_misses"])
+                ) * 100,
+                "avg_save_time_ms": self._file_stats["avg_save_time"] * 1000,
+                "avg_load_time_ms": self._file_stats["avg_load_time"] * 1000,
+                "incremental_saves": self._file_stats["incremental_saves"],
+                "batch_operations": self._file_stats["batch_operations"],
+                "indexing_enabled": self.enable_indexing,
+                "compression_enabled": self.compression,
+                "dirty_indices_count": len(self._dirty_indices) if hasattr(self, '_dirty_indices') else 0,
+            })
 
         # Geographic distribution
         self._metrics.geographic_distribution = {}

@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'motion/react';
+import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import type { StaticImageData } from 'next/image';
 
@@ -9,12 +10,13 @@ interface AnimatedLogoProps {
   alt: string;
   width: number;
   height: number;
+  className?: string;
 }
 
-export function AnimatedLogo({ src, alt, width, height }: AnimatedLogoProps) {
+export function AnimatedLogo({ src, alt, width, height, className }: AnimatedLogoProps) {
   return (
     <motion.div 
-      className="relative group"
+      className={cn("relative group", className)}
       initial={{ scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={{ duration: 1, ease: "easeOut", delay: 0.2 }}

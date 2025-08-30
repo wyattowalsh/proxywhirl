@@ -32,7 +32,7 @@ const NAVIGATION_ITEMS = [
     icon: RiCodeSSlashLine,
     label: 'API Reference',
     description: 'Detailed API documentation',
-    accent: 'emerald',
+    accent: 'emerald', 
   },
   {
     href: '/contributing',

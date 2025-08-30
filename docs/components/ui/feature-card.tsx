@@ -1,6 +1,7 @@
 'use client';
 
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { LuSparkles, LuArrowRight, LuZap } from 'react-icons/lu';
@@ -18,9 +19,10 @@ export interface Feature {
 interface FeatureCardProps {
   feature: Feature;
   index: number;
+  className?: string;
 }
 
-export function FeatureCard({ feature, index }: FeatureCardProps) {
+export function FeatureCard({ feature, index, className }: FeatureCardProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isHovered, setIsHovered] = useState(false);
   
@@ -207,7 +209,7 @@ export function FeatureCard({ feature, index }: FeatureCardProps) {
         transition={{ duration: 0.4, ease: "easeOut" }}
       />
       
-      <div className="relative z-20 space-y-3 p-4 lg:p-5">
+      <div className={cn("relative z-20 space-y-3 p-4 lg:p-5", className)}>
         {/* Revolutionary icon container with 3D transforms */}
         <motion.div 
           className="relative mx-auto w-12 h-12 lg:w-16 lg:h-16"

@@ -26,8 +26,7 @@ from proxywhirl.caches.base import (
     CacheMetrics,
     DuplicateStrategy,
 )
-from proxywhirl.caches.config import CacheType
-from proxywhirl.models import Proxy
+from proxywhirl.models import CacheType, Proxy
 
 
 class MemoryProxyCache(BaseProxyCache[Proxy]):

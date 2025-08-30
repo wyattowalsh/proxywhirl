@@ -6,7 +6,7 @@ Enterprise-grade caching architecture supporting:
 - JSONCache: Persistent file-based cache with atomic operations
 - SQLiteCache: Advanced relational cache with SQLModel ORM and analytics
 - AsyncSQLiteCache: Production-ready async SQLite with connection pooling
-
+ 
 Each backend is optimized for its specific use case while maintaining
 a consistent interface through the base class abstraction.
 """
@@ -16,8 +16,8 @@ from .config import CacheConfiguration, CacheType, JsonCacheConfig, SqliteCacheC
 from .json import JsonProxyCache
 from .memory import MemoryProxyCache
 
-# TODO: Implement SQLite cache classes
-# from .sqlite import AsyncSQLiteProxyCache, SQLiteProxyCache
+# Import SQLite cache classes from new location
+from .sqlite import AsyncSQLiteProxyCache, SQLiteProxyCache
 
 __all__ = [
     # Base classes
@@ -32,7 +32,7 @@ __all__ = [
     # Cache implementations
     "MemoryProxyCache",
     "JsonProxyCache",
-    # TODO: Add SQLite cache classes when implemented
-    # "SQLiteProxyCache",
-    # "AsyncSQLiteProxyCache",
+    # SQLite cache classes
+    "SQLiteProxyCache",
+    "AsyncSQLiteProxyCache",
 ]

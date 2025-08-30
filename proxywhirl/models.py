@@ -953,12 +953,10 @@ class Proxy(BaseModel):
     )
 
     # Target-based health tracking  
-    def __init__(self, **data: Any) -> None:
-        """Initialize proxy with target health tracking."""
-        super().__init__(**data)
+    def model_post_init(self, __context: Any = None) -> None:
+        """Initialize target health tracking after Pydantic initialization."""
         # Initialize target_health as a regular dict, not a Pydantic field
-        if not hasattr(self, 'target_health'):
-            self.target_health: Dict[str, TargetHealthStatus] = {}
+        object.__setattr__(self, 'target_health', {})
 
     @model_validator(mode="before")
     @classmethod

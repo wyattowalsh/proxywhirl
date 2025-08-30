@@ -26,6 +26,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from proxywhirl.models import Proxy
+
 from .config import CacheType
 
 if TYPE_CHECKING:

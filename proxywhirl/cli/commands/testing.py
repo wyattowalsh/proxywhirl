@@ -1,6 +1,3 @@
-"""proxywhirl/cli/commands/testing.py -- Testing Commands
+"""proxywhirl/cli/commands/testing.py -- Testing commands"""
 
-Commands for testing proxy loaders and functionality.
-"""
-
-# Placeholder - will be implemented with testing functionality
+# TODO: Implement testing commands from original cli.py

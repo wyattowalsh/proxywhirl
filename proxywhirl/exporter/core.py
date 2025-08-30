@@ -26,6 +26,7 @@ from typing import Dict, List, Optional, Tuple
 import yaml
 from loguru import logger
 
+from ..models import Proxy
 from .models import (
     ExportConfig,
     ExportFormat,
@@ -36,7 +37,6 @@ from .models import (
     SortOrder,
     VolumeControl,
 )
-from ..models import Proxy
 
 
 class ProxyExportError(Exception):

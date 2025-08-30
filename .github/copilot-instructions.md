@@ -1,6 +1,8 @@
 # github copilot custom project instructions for `proxywhirl`
 
-> `proxywhirl` is an advanced rotating proxy system that collects free online proxies, efficiently and robustly validates them, caches them in a variety of formats (memory, JSON, SQLite), and offers a rotating proxy interface for seamless integration with applications. Interfaces include: Python3 package, Typer CLI, TUI, FastAPI API, and Vite Frontend. Utility logic is included to produce analytics, reports, proxy lists, and more.
+> `proxywhirl` is a rotating proxy system for web data extraction workflows that collects, validates, analyzes, reports, caches, and serves proxy servers via a. variety of interfaces: Python3 package, Typer CLI, Textual TUI, FastAPI API, and Vite/React Frontend. Utility logic is included to execute analytics, compile reports, aggregate proxy lists, and more. Logic implementations aim to be maximally elegant, performant, robust, flexible, clear, succinct, graceful, and developer-friendly.
+
+---
 
 ## repo structure
 

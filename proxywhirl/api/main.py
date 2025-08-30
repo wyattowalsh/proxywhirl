@@ -143,7 +143,7 @@ async def health_monitoring_background():
         try:
             # Get app state for ProxyWhirl instance
             from fastapi import FastAPI
-            
+
             # This is a simplified version - in production, we'd access the app state properly
             await asyncio.sleep(30)  # Run every 30 seconds
             

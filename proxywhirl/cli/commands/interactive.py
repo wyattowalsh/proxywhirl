@@ -1,29 +1,28 @@
-"""proxywhirl/cli/commands/interactive.py -- Interactive Commands
+"""proxywhirl/cli/commands/interactive.py -- Interactive mode commands"""
 
-Commands for launching interactive interfaces.
-"""
+from __future__ import annotations
+
+import typer
 
 from ..app import app
 
 
-@app.command(rich_help_panel="🖥️ Interactive Mode")
-def tui() -> None:
-    """Launch the ProxyWhirl TUI (Terminal User Interface)"""
+@app.command(name="tui", rich_help_panel="🖥️ Interactive Mode")
+def run_tui(ctx: typer.Context) -> None:
+    """[bold]🖥️ Launch interactive terminal UI[/bold]
+    
+    Start the beautiful ProxyWhirl TUI for managing proxies interactively.
+    """
+    console = ctx.obj.console
+    
     try:
-        from ...tui import main as tui_main
-        tui_main()
-    except ImportError:
-        from rich.console import Console
-        console = Console()
-        console.print("[error]❌ TUI module not available[/error]")
-        console.print("[info]💡 The TUI may not be fully implemented yet[/info]")
+        from ...tui import run_tui
+        console.print("[info]🚀 Launching ProxyWhirl TUI...[/info]")
+        run_tui()
+    except ImportError as e:
+        console.print(f"[error]❌ TUI not available: {e}[/error]")
+        console.print("[warning]💡 Try: pip install 'proxywhirl[tui]'[/warning]")
+        raise typer.Exit(1)
     except Exception as e:
-        from rich.console import Console
-        console = Console()
-        console.print(f"[error]❌ Failed to start TUI: {e}[/error]")
-
-
-@app.command(name="interactive", rich_help_panel="🖥️ Interactive Mode")
-def interactive() -> None:
-    """Launch interactive mode (alias for tui)"""
-    tui()
+        console.print(f"[error]❌ Failed to launch TUI: {e}[/error]")
+        raise typer.Exit(1)

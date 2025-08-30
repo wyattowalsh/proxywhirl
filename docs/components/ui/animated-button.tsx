@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'motion/react';
+import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 
@@ -12,6 +13,7 @@ interface AnimatedButtonProps {
   variant?: 'primary' | 'secondary';
   icon?: ReactNode;
   iconPosition?: 'left' | 'right';
+  className?: string;
 }
 
 export function AnimatedButton({ 
@@ -21,7 +23,8 @@ export function AnimatedButton({
   external, 
   variant = 'primary',
   icon,
-  iconPosition = 'right'
+  iconPosition = 'right',
+  className
 }: AnimatedButtonProps) {
   const isPrimary = variant === 'primary';
   
@@ -37,7 +40,7 @@ export function AnimatedButton({
     >
       <Link
         href={href}
-        className={isPrimary ? primaryClasses : secondaryClasses}
+        className={cn(isPrimary ? primaryClasses : secondaryClasses, className)}
         target={external ? '_blank' : undefined}
         rel={external ? 'noopener noreferrer' : undefined}
         aria-label={ariaLabel}

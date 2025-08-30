@@ -62,10 +62,12 @@ from typing import (
 from loguru import logger
 from pandas import DataFrame
 
-from proxywhirl.caches import (  # TODO: Add SQLite cache classes when implemented; AsyncSQLiteProxyCache,; SQLiteProxyCache,
+from proxywhirl.caches import (
+    AsyncSQLiteProxyCache,
     BaseProxyCache,
     JsonProxyCache,
     MemoryProxyCache,
+    SQLiteProxyCache,
 )
 from proxywhirl.loaders.base import BaseLoader
 from proxywhirl.loaders.clarketm_raw import ClarketmHttpLoader
@@ -83,13 +85,16 @@ from proxywhirl.loaders.the_speedx import (
     TheSpeedXHttpLoader,
     TheSpeedXSocksLoader,
 )
-from proxywhirl.caches import CacheConfiguration, CacheType, JsonCacheConfig, SqliteCacheConfig
 from proxywhirl.loaders.user_provided import UserProvidedLoader
 from proxywhirl.loaders.vakhov_fresh import VakhovFreshProxyLoader
 from proxywhirl.models import (
+    CacheConfiguration,
+    CacheType,
+    JsonCacheConfig,
     Proxy,
     ProxyStatus,
     RotationStrategy,
+    SqliteCacheConfig,
     TargetDefinition,
     ValidationErrorType,
 )
@@ -101,7 +106,7 @@ from proxywhirl.validator import ProxyValidator
 
 
 if TYPE_CHECKING:
-    from .exporter import ExportConfig
+    from proxywhirl.export_models import ExportConfig
 
 T = TypeVar("T")
 
@@ -258,6 +263,7 @@ class ProxyWhirl:
         For production use, enables compression, backups, integrity checks,
         and connection pooling for optimal performance and reliability.
         """
+        from proxywhirl.caches.base import CacheType
 
         if cache_type == "memory" or cache_type == CacheType.MEMORY:
             return MemoryProxyCache()
@@ -278,17 +284,14 @@ class ProxyWhirl:
             if cache_path is None:
                 cache_path = Path(".proxywhirl_cache.sqlite")
 
-            # TODO: Implement SQLite cache
             # Enable enterprise SQLite features by default
-            # return SQLiteProxyCache(
-            #     cache_path=cache_path,
-            #     connection_pool_size=10,  # Connection pooling
-            #     connection_pool_recycle=3600,  # 1-hour connection recycling
-            #     enable_wal=True,  # Write-Ahead Logging
-            #     create_tables=True,  # Auto table creation
-            # )
-            logger.warning("SQLite cache not yet implemented, falling back to JSON cache")
-            return JsonProxyCache(cache_path.with_suffix(".json"))
+            return SQLiteProxyCache(
+                cache_path=cache_path,
+                connection_pool_size=10,  # Connection pooling
+                connection_pool_recycle=3600,  # 1-hour connection recycling
+                enable_wal=True,  # Write-Ahead Logging
+                create_tables=True,  # Auto table creation
+            )
         else:
             logger.warning(f"Unknown cache type: {cache_type}, defaulting to memory")
             return MemoryProxyCache()
@@ -300,7 +303,7 @@ class ProxyWhirl:
         This method supports full customization of enterprise features
         through structured configuration objects.
         """
-        from proxywhirl.caches import CacheConfiguration
+        from proxywhirl.models import CacheConfiguration
 
         if cache_config.cache_type == CacheType.MEMORY:
             return MemoryProxyCache()
@@ -328,16 +331,13 @@ class ProxyWhirl:
             )
 
             sqlite_config = cache_config.sqlite_config
-            # TODO: Implement SQLite cache
-            # return SQLiteProxyCache(
-            #     cache_path=cache_path,
-            #     connection_pool_size=sqlite_config.connection_pool_size,
-            #     connection_pool_recycle=sqlite_config.connection_pool_recycle,
-            #     enable_wal=sqlite_config.enable_wal,
-            #     create_tables=True,
-            # )
-            logger.warning("SQLite cache not yet implemented, falling back to JSON cache")
-            return JsonProxyCache(cache_path.with_suffix(".json"))
+            return SQLiteProxyCache(
+                cache_path=cache_path,
+                connection_pool_size=sqlite_config.connection_pool_size,
+                connection_pool_recycle=sqlite_config.connection_pool_recycle,
+                enable_wal=sqlite_config.enable_wal,
+                create_tables=True,
+            )
         else:
             logger.warning(f"Unknown cache type: {cache_config.cache_type}, defaulting to memory")
             return MemoryProxyCache()
