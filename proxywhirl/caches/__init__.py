@@ -12,19 +12,27 @@ a consistent interface through the base class abstraction.
 """
 
 from .base import BaseProxyCache, CacheFilters, CacheMetrics
+from .config import CacheConfiguration, CacheType, JsonCacheConfig, SqliteCacheConfig
 from .json import JsonProxyCache
 from .memory import MemoryProxyCache
-from .sqlite import AsyncSQLiteProxyCache, SQLiteProxyCache
+
+# TODO: Implement SQLite cache classes
+# from .sqlite import AsyncSQLiteProxyCache, SQLiteProxyCache
 
 __all__ = [
     # Base classes
     "BaseProxyCache",
     "CacheFilters",
     "CacheMetrics",
+    # Configuration classes
+    "CacheConfiguration",
+    "CacheType",
+    "JsonCacheConfig",
+    "SqliteCacheConfig",
     # Cache implementations
     "MemoryProxyCache",
     "JsonProxyCache",
-    "SQLiteProxyCache",
-    "AsyncSQLiteProxyCache",
+    # TODO: Add SQLite cache classes when implemented
+    # "SQLiteProxyCache",
+    # "AsyncSQLiteProxyCache",
 ]
-

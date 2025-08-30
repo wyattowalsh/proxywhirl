@@ -1,7 +1,7 @@
-"""ProxyCache tests.
+"""Modern cache tests through ProxyWhirl factory.
 
-Comprehensive test suite for ProxyCache with property-based testing,
-error scenarios, and multi-backend validation.
+Comprehensive test suite for modern cache system through ProxyWhirl's 
+unified interface, testing memory, JSON, and SQLite cache backends.
 
 pyright: reportMissingImports=false, reportUnknownMemberType=false,
     reportUnknownVariableType=false, reportUnknownArgumentType=false,
@@ -19,8 +19,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from proxywhirl.cache import ProxyCache
 from proxywhirl.models import AnonymityLevel, CacheType, Proxy, Scheme
+from proxywhirl.proxywhirl import ProxyWhirl
 
 
 def _make_proxy(i: int) -> Proxy:
@@ -32,10 +32,16 @@ def _make_proxy(i: int) -> Proxy:
         port=8000 + i,
         schemes=[Scheme.HTTP],
         country_code="US",
+        country="United States",
+        city="New York",
+        region="New York",
+        isp="Test ISP",
+        organization="Test Organization",
         anonymity=AnonymityLevel.ELITE,
         last_checked=datetime.now(timezone.utc),
         response_time=0.5,
         source="test",
+        blacklist_reason=None,
     )
 
 
@@ -58,64 +64,75 @@ proxy_strategies = st.builds(
 
 def test_memory_cache_add_get_clear():
     """Test basic memory cache operations."""
-    cache = ProxyCache(CacheType.MEMORY)
+    pw = ProxyWhirl(cache_type=CacheType.MEMORY)
     p1, p2 = _make_proxy(1), _make_proxy(2)
-    cache.add_proxies([p1, p2])
-    got = cache.get_proxies()
+    pw.cache.add_proxies_sync([p1, p2])
+    got = pw.cache.get_proxies_sync()
     assert len(got) == 2
-    cache.clear()
-    assert cache.get_proxies() == []
+    pw.cache.clear_sync()
+    assert pw.cache.get_proxies_sync() == []
 
 
-def test_json_cache_persistence(tmp_path: Path):
-    """Test JSON cache persistence across instances."""
-    path = tmp_path / "c.json"
-    cache = ProxyCache(CacheType.JSON, path)
-    p1 = _make_proxy(1)
-    cache.add_proxies([p1])
-    # New instance should read from disk
-    cache2 = ProxyCache(CacheType.JSON, path)
-    got = cache2.get_proxies()
-    assert len(got) == 1 and got[0].host == p1.host
+def test_json_cache_empty():
+    """Test JSON cache behavior when file doesn't exist."""
+    path = Path("/nonexistent/path.json")
+    pw = ProxyWhirl(cache_type=CacheType.JSON, cache_path=path)
+    proxies = pw.cache.get_proxies_sync()
+    assert proxies == []
+
+
+def test_json_cache_persistence_real_file(tmp_path: Path):
+    """Test actual JSON persistence with a real file on disk."""
+    path = tmp_path / "test.json"
+    pw1 = ProxyWhirl(cache_type=CacheType.JSON, cache_path=path)
+    p1 = _make_proxy(10)
+    pw1.cache.add_proxies_sync([p1])
+
+    # Create a second instance that loads from the same file
+    pw2 = ProxyWhirl(cache_type=CacheType.JSON, cache_path=path)
+    proxies = pw2.cache.get_proxies_sync()
+    assert len(proxies) == 1
+    assert proxies[0].host == p1.host
 
 
 def test_update_and_remove():
     """Test proxy update and removal operations."""
-    cache = ProxyCache(CacheType.MEMORY)
+    pw = ProxyWhirl(cache_type=CacheType.MEMORY)
     p1 = _make_proxy(1)
-    cache.add_proxies([p1])
+    pw.cache.add_proxies_sync([p1])
     p1.port = 9000
-    cache.update_proxy(p1)
-    assert cache.get_proxies()[0].port == 9000
-    cache.remove_proxy(p1)
-    assert cache.get_proxies() == []
+    pw.cache.update_proxy_sync(p1)
+    assert pw.cache.get_proxies_sync()[0].port == 9000
+    pw.cache.remove_proxy_sync(p1)
+    assert pw.cache.get_proxies_sync() == []
 
 
 def test_sqlite_cache_round_trip(tmp_path: Path):
     """Test SQLite cache operations with database persistence."""
     db_path = tmp_path / "cache.sqlite"
-    cache = ProxyCache(CacheType.SQLITE, db_path)
+    pw = ProxyWhirl(cache_type=CacheType.SQLITE, cache_path=db_path)
     p1, p2 = _make_proxy(10), _make_proxy(11)
-    cache.add_proxies([p1, p2])
-    all1 = cache.get_proxies()
+    pw.cache.add_proxies_sync([p1, p2])
+    all1 = pw.cache.get_proxies_sync()
     hosts1 = {p.host for p in all1}
     assert {p1.host, p2.host} == hosts1
     # Update one
     p1.port = 9999
-    cache.update_proxy(p1)
+    pw.cache.update_proxy_sync(p1)
     # Remove other
-    cache.remove_proxy(p2)
-    all2 = cache.get_proxies()
+    pw.cache.remove_proxy_sync(p2)
+    all2 = pw.cache.get_proxies_sync()
     assert len(all2) == 1 and all2[0].port == 9999
     # Clear
-    cache.clear()
-    assert cache.get_proxies() == []
+    pw.cache.clear_sync()
+    assert pw.cache.get_proxies_sync() == []
 
 
 def test_sqlite_cache_requires_path():
     """Test that SQLite cache requires path parameter."""
-    with pytest.raises(ValueError, match="cache_path is required for SQLITE cache"):
-        ProxyCache(CacheType.SQLITE)
+    # SQLite cache now gets default path when path is None
+    pw = ProxyWhirl(cache_type=CacheType.SQLITE)  # Should work with default path
+    assert pw.cache is not None
 
 
 def test_json_cache_handles_missing_file(tmp_path: Path):

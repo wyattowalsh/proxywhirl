@@ -1,4 +1,4 @@
-"""proxywhirl/cache_models.py -- Enhanced SQLModel database models for SQLite cache backend
+"""proxywhirl/caches/db/models.py -- Enhanced SQLModel database models for SQLite cache backend
 
 This module provides rich relational database models for the SQLite cache backend,
 leveraging SQLModel's advanced features while keeping JSON/memory backends simple.

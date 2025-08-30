@@ -18,17 +18,18 @@ from unittest.mock import Mock, mock_open, patch
 import pytest
 import yaml
 
-from proxywhirl.export_models import (
+from proxywhirl.exporter import (
     ExportConfig,
     ExportFormat,
     OutputConfig,
+    ProxyExporter,
+    ProxyExportError,
     ProxyFilter,
     SamplingMethod,
     SortField,
     SortOrder,
     VolumeControl,
 )
-from proxywhirl.exporter import ProxyExporter, ProxyExportError
 from proxywhirl.models import AnonymityLevel, Proxy, Scheme
 
 

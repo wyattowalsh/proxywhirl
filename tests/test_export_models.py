@@ -14,7 +14,7 @@ from typing import List, Optional
 import pytest
 from pydantic import ValidationError
 
-from proxywhirl.export_models import (
+from proxywhirl.exporter import (
     ExportConfig,
     ExportFormat,
     OutputConfig,

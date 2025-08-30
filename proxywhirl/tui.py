@@ -58,8 +58,7 @@ from textual.widgets import (
     TabPane,
 )
 
-from .export_models import ExportConfig, ExportFormat
-from .exporter import ProxyExporter, ProxyExportError
+from .exporter import ExportConfig, ExportFormat, ProxyExporter, ProxyExportError
 from .logger import get_logger
 from .models import CacheType, Proxy, RotationStrategy
 from .proxywhirl import ProxyWhirl

@@ -10,10 +10,10 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: 'proxywhirl',
-    template: '%s | proxywhirl'
+    default: 'proxywhirl rotating proxy system',
+    template: '%s | proxywhirl rotating proxy system'
   },
-  description: 'Elegant Python proxy server for seamless web requests',
+  description: 'Python proxy server for seamless web requests',
   keywords: [
     'proxy',
     'python',

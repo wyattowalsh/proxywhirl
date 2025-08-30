@@ -1,10 +1,12 @@
-"""proxywhirl/caches/memory.py -- Production-ready memory cache with advanced LRU
+"""proxywhirl/caches/memory.py -- Enterprise memory cache with advanced LRU
 
-Enterprise-grade in-memory cache with:
-- Thread-safe LRU eviction with configurable TTL
-- Advanced statistics and performance monitoring
-- Async/sync hybrid patterns for maximum performance
-- Memory-optimized data structures and cleanup
+Enterprise-grade in-memory cache featuring:
+- Thread-safe LRU eviction with configurable TTL and background cleanup
+- Advanced statistics and performance monitoring with real-time analytics
+- Async/sync hybrid patterns optimized for maximum performance
+- Memory-optimized data structures with intelligent cleanup strategies
+- Comprehensive health metrics and trend analysis
+- Background task management and resource lifecycle control
 """
 
 from __future__ import annotations
@@ -24,11 +26,12 @@ from proxywhirl.caches.base import (
     CacheMetrics,
     DuplicateStrategy,
 )
-from proxywhirl.models import CacheType, Proxy
+from proxywhirl.caches.config import CacheType
+from proxywhirl.models import Proxy
 
 
-class MemoryProxyCache(BaseProxyCache):
-    """Production-ready high-performance LRU memory cache with advanced features."""
+class MemoryProxyCache(BaseProxyCache[Proxy]):
+    """Enterprise memory cache with advanced LRU and background task management."""
 
     def __init__(
         self,
@@ -37,6 +40,7 @@ class MemoryProxyCache(BaseProxyCache):
         eviction_batch_size: int = 100,
         enable_stats: bool = True,
         duplicate_strategy: Optional[DuplicateStrategy] = None,
+        cleanup_interval_seconds: int = 300,
     ):
         if duplicate_strategy is None:
             duplicate_strategy = DuplicateStrategy.UPDATE
@@ -47,13 +51,13 @@ class MemoryProxyCache(BaseProxyCache):
         self.ttl_seconds = ttl_seconds
         self.eviction_batch_size = eviction_batch_size
         self.enable_stats = enable_stats
+        self.cleanup_interval_seconds = min(cleanup_interval_seconds, ttl_seconds // 4)
 
         # Thread-safe LRU cache: key -> (proxy, access_time, expire_time, access_count)
         self._cache: OrderedDict[Tuple[str, int], Tuple[Proxy, float, float, int]] = OrderedDict()
         self._lock = RLock()  # Reentrant lock for complex operations
-        self._initialized = True
 
-        # Advanced statistics with proper typing
+        # Advanced statistics with performance tracking
         self._stats: Dict[str, Any] = {
             "hits": 0,
             "misses": 0,
@@ -62,314 +66,266 @@ class MemoryProxyCache(BaseProxyCache):
             "total_access_time": 0.0,
             "last_cleanup": time.time(),
             "peak_size": 0,
+            "cache_operations": 0,
+            "memory_pressure_events": 0,
+            "background_cleanups": 0,
         }
 
-        # Background cleanup task
+        # Background task tracking
         self._cleanup_task: Optional[asyncio.Task[None]] = None
-        self._start_background_cleanup()
 
-    def _start_background_cleanup(self) -> None:
-        """Start background cleanup task for expired entries."""
-        try:
-            if self._cleanup_task is None or self._cleanup_task.done():
-                self._cleanup_task = asyncio.create_task(self._background_cleanup())
-        except RuntimeError:
-            # No event loop running - cleanup will happen on access
-            logger.debug("No event loop available for background cleanup")
+    # === BaseProxyCache Interface Implementation ===
 
-    async def _background_cleanup(self) -> None:
-        """Background task to clean up expired entries."""
-        try:
-            while True:
-                await asyncio.sleep(min(300, self.ttl_seconds // 4))
-                await self._cleanup_expired_entries()
-        except asyncio.CancelledError:
-            logger.debug("Memory cache background cleanup cancelled")
-        except Exception as e:
-            logger.error(f"Memory cache background cleanup error: {e}")
+    async def _initialize_backend(self) -> None:
+        """Initialize memory cache backend with background tasks."""
+        logger.debug("Initializing MemoryProxyCache backend")
 
-    async def _cleanup_expired_entries(self) -> int:
-        """Clean up expired entries and return count of removed entries."""
-        current_time = time.time()
-        expired_keys: List[Tuple[str, int]] = []
+        # Start background cleanup if not already running
+        if not self._cleanup_task or self._cleanup_task.done():
+            await self.start_background_tasks()
 
-        with self._lock:
-            for key, (_, _, expire_time, _) in self._cache.items():
-                if current_time > expire_time:
-                    expired_keys.append(key)
-
-            for key in expired_keys:
-                del self._cache[key]
-                self._stats["expired_cleanups"] += 1
-
-            self._stats["last_cleanup"] = current_time
-
-        return len(expired_keys)
-
-    async def add_proxies(self, proxies: List[Proxy]) -> None:
-        """Add proxies with intelligent LRU management and batch optimization."""
-        if not proxies:
-            return
-
-        current_time = time.time()
-        expire_time = current_time + self.ttl_seconds
-
-        with self._lock:
-            for proxy in proxies:
-                key = (proxy.host, proxy.port)
-
-                # Add/update proxy with access count
-                if key in self._cache:
-                    # Update existing entry and mark as recently used
-                    _, _, _, access_count = self._cache[key]
-                    self._cache[key] = (proxy, current_time, expire_time, access_count + 1)
-                    self._cache.move_to_end(key)  # Mark as recently used
-                else:
-                    self._cache[key] = (proxy, current_time, expire_time, 1)
-
-                # Memory pressure eviction
-                if len(self._cache) > self.max_size:
-                    self._evict_lru_batch()
-
-            # Update peak size tracking
-            self._stats["peak_size"] = max(self._stats["peak_size"], len(self._cache))
-
-        # Schedule background cleanup if needed
-        self._start_background_cleanup()
-
-        # Update metrics
-        self._update_metrics_from_cache()
-
-    def _evict_lru_batch(self) -> None:
-        """Evict least recently used entries in batches for better performance."""
-        evict_count = min(
-            self.eviction_batch_size, len(self._cache) - self.max_size + self.eviction_batch_size
+        logger.info(
+            f"MemoryProxyCache initialized with max_size={self.max_size}, ttl={self.ttl_seconds}s"
         )
 
-        for _ in range(evict_count):
-            if self._cache:
-                self._cache.popitem(last=False)  # Remove oldest (LRU)
-                self._stats["evictions"] += 1
-
-    async def get_proxies(self, filters: Optional[CacheFilters] = None) -> List[Proxy]:
-        """Get proxies with LRU update and intelligent filtering."""
-        start_time = time.time()
-        current_time = start_time
-        proxies: List[Proxy] = []
-        expired_keys: List[Tuple[str, int]] = []
+    async def _cleanup_backend(self) -> None:
+        """Clean up memory cache resources."""
+        await self.stop_background_tasks()
 
         with self._lock:
-            # Collect valid proxies and identify expired ones
-            for key, (proxy, access_time, expire_time, access_count) in self._cache.items():
-                if current_time > expire_time:
-                    expired_keys.append(key)
-                else:
-                    # Update access time and count for active entries
-                    self._cache[key] = (proxy, current_time, expire_time, access_count + 1)
-                    proxies.append(proxy)
-                    self._cache.move_to_end(key)  # Mark as recently used
+            self._cache.clear()
 
-            # Clean up expired entries
+        logger.debug("MemoryProxyCache backend cleaned up")
+
+    async def start_background_tasks(self) -> None:
+        """Start background maintenance tasks."""
+        if self._cleanup_task and not self._cleanup_task.done():
+            return  # Already running
+
+        try:
+            self._cleanup_task = asyncio.create_task(self._background_cleanup())
+            self._register_background_task(self._cleanup_task)
+            logger.debug("MemoryProxyCache background cleanup task started")
+        except RuntimeError:
+            # No event loop running - cleanup will happen on access
+            logger.debug("No event loop available for MemoryProxyCache background cleanup")
+
+    async def stop_background_tasks(self) -> None:
+        """Stop all background tasks gracefully."""
+        if self._cleanup_task and not self._cleanup_task.done():
+            self._cleanup_task.cancel()
+            try:
+                await self._cleanup_task
+            except asyncio.CancelledError:
+                pass
+
+            self._cleanup_task = None
+            logger.debug("MemoryProxyCache background tasks stopped")
+
+    # === Required Abstract Methods ===
+
+    async def add_proxies(self, proxies: List[Proxy]) -> None:
+        """Add multiple proxies to memory cache."""
+        for proxy in proxies:
+            await self._add_single_proxy(proxy)
+
+    async def get_proxies(self, filters: Optional[CacheFilters] = None) -> List[Proxy]:
+        """Get proxies from cache with optional filtering."""
+        current_time = time.time()
+        result_proxies: List[Proxy] = []
+
+        with self._lock:
+            for key, (proxy, _, expire_time, _) in self._cache.items():
+                # Skip expired entries
+                if current_time > expire_time:
+                    continue
+                result_proxies.append(proxy)
+
+            # Remove expired entries during iteration
+            expired_keys = [
+                key
+                for key, (_, _, expire_time, _) in self._cache.items()
+                if current_time > expire_time
+            ]
             for key in expired_keys:
                 del self._cache[key]
                 self._stats["expired_cleanups"] += 1
 
-            # Update statistics
-            if proxies:
-                self._stats["hits"] += len(proxies)
-            else:
-                self._stats["misses"] += 1
-
-        # Apply filters (outside lock for better concurrency)
-        filtered_proxies = self._apply_filters(proxies, filters)
-
-        # Update performance metrics
-        access_time = time.time() - start_time
-        self._stats["total_access_time"] += access_time
-
-        # Update cache metrics
-        self._update_metrics_from_cache()
-
-        return filtered_proxies
+        # Apply filters using parent class method
+        return super()._apply_filters(result_proxies, filters)
 
     async def update_proxy(self, proxy: Proxy) -> None:
-        """Update proxy with LRU positioning."""
-        current_time = time.time()
-        expire_time = current_time + self.ttl_seconds
-        key = (proxy.host, proxy.port)
-
-        with self._lock:
-            if key in self._cache:
-                _, _, _, access_count = self._cache[key]
-                self._cache[key] = (proxy, current_time, expire_time, access_count)
-                self._cache.move_to_end(key)  # Mark as recently used
-            else:
-                self._cache[key] = (proxy, current_time, expire_time, 1)
-
-        self._update_metrics_from_cache()
+        """Update a proxy in cache."""
+        await self._add_single_proxy(proxy, enable_duplicates=True)
 
     async def remove_proxy(self, proxy: Proxy) -> None:
-        """Remove proxy from cache."""
+        """Remove a proxy from cache."""
         key = (proxy.host, proxy.port)
-
         with self._lock:
             if key in self._cache:
                 del self._cache[key]
 
-        self._update_metrics_from_cache()
-
     async def clear(self) -> None:
-        """Clear all cached proxies."""
+        """Clear all proxies from memory cache."""
         with self._lock:
             self._cache.clear()
-            # Reset statistics except cumulative ones
-            self._stats.update(
-                {"hits": 0, "misses": 0, "evictions": 0, "expired_cleanups": 0, "peak_size": 0}
-            )
-
-        self._update_metrics_from_cache()
-
-    def _update_metrics_from_cache(self) -> None:
-        """Update cache metrics from current cache state."""
-        with self._lock:
-            current_proxies = [proxy for proxy, _, _, _ in self._cache.values()]
-        self._update_metrics(current_proxies)
+            self._reset_stats()
 
     async def get_health_metrics(self) -> CacheMetrics:
-        """Get comprehensive cache health metrics with enhanced analytics."""
+        """Get comprehensive cache performance metrics."""
         with self._lock:
-            cache_size = len(self._cache)
-            current_proxies = [proxy for proxy, _, _, _ in self._cache.values()]
+            current_size = len(self._cache)
 
-            # Update base metrics
-            self._metrics.cache_hits = self._stats["hits"]
-            self._metrics.cache_misses = self._stats["misses"]
-            self._metrics.cache_evictions = self._stats["evictions"]
-            self._metrics.total_proxies = cache_size
-            self._metrics.last_updated = datetime.now(timezone.utc)
+            # Calculate health statistics
+            healthy_count = 0
+            unhealthy_count = 0
+            current_time = time.time()
 
-            # Calculate proxy health distribution
-            healthy_count = sum(1 for p in current_proxies if p.is_healthy)
-            self._metrics.healthy_proxies = healthy_count
-            self._metrics.unhealthy_proxies = cache_size - healthy_count
+            for _, (proxy, _, expire_time, _) in self._cache.items():
+                if current_time <= expire_time:  # Only count non-expired proxies
+                    from proxywhirl.models import ProxyStatus
 
-            # Geographic distribution
-            self._metrics.geographic_distribution = {}
-            for proxy in current_proxies:
-                country = proxy.country_code or "UNKNOWN"
-                self._metrics.geographic_distribution[country] = (
-                    self._metrics.geographic_distribution.get(country, 0) + 1
-                )
-
-            # Source reliability tracking
-            source_scores: Dict[str, List[float]] = {}
-            for proxy in current_proxies:
-                source = proxy.source or "UNKNOWN"
-                if source not in source_scores:
-                    source_scores[source] = []
-                # Store quality scores for averaging
-                if hasattr(proxy, "quality_score") and proxy.quality_score is not None:
-                    source_scores[source].append(proxy.quality_score)
-
-            # Convert to averages
-            self._metrics.source_reliability = {}
-            for source, scores in source_scores.items():
-                if scores:
-                    self._metrics.source_reliability[source] = sum(scores) / len(scores)
-                else:
-                    self._metrics.source_reliability[source] = 0.0
-
-            # Quality distribution
-            quality_ranges = {"high": 0, "medium": 0, "low": 0, "unknown": 0}
-            for proxy in current_proxies:
-                if hasattr(proxy, "quality_score") and proxy.quality_score is not None:
-                    score = proxy.quality_score
-                    if score >= 0.8:
-                        quality_ranges["high"] += 1
-                    elif score >= 0.5:
-                        quality_ranges["medium"] += 1
+                    if proxy.status == ProxyStatus.ACTIVE:
+                        healthy_count += 1
                     else:
-                        quality_ranges["low"] += 1
-                else:
-                    quality_ranges["unknown"] += 1
-            self._metrics.quality_distribution = quality_ranges
+                        unhealthy_count += 1
 
-            # Response time metrics
-            response_times = [
-                p.response_time for p in current_proxies if p.response_time is not None
-            ]
-            if response_times:
-                self._metrics.avg_response_time = sum(response_times) / len(response_times)
-                self._metrics.success_rate = healthy_count / cache_size if cache_size > 0 else 0.0
-
-        return self._metrics
-
-    async def get_memory_usage(self) -> float:
-        """Calculate approximate memory usage in MB."""
-        import sys
-
-        with self._lock:
-            # Rough estimation of memory usage
-            total_size = sys.getsizeof(self._cache)
-            for key, (proxy, expiry, score, access_count) in self._cache.items():
-                total_size += sys.getsizeof(key)
-                total_size += sys.getsizeof(proxy.model_dump())  # Approximate proxy size
-                total_size += sys.getsizeof(expiry) if expiry else 0
-                total_size += sys.getsizeof(score) if score else 0
-                total_size += sys.getsizeof(access_count)
-
-        return total_size / (1024 * 1024)  # Convert to MB
-
-    async def get_performance_trends(self, hours: int = 24) -> Dict[str, Any]:
-        """Get simulated performance trends for memory cache."""
-        # Memory cache doesn't persist historical data, return current snapshot
-        current_metrics = await self.get_health_metrics()
-
-        # Create a simple trend with current values
-        current_time = datetime.now(timezone.utc).isoformat()
-        snapshot = {
-            "timestamp": current_time,
-            "avg_success_rate": current_metrics.success_rate,
-            "avg_response_time": current_metrics.avg_response_time,
-            "measurements": current_metrics.total_proxies,
-            "successful_checks": current_metrics.healthy_proxies,
-        }
-
-        return {"hourly_trends": [snapshot]}  # Single snapshot since no historical data
-
-    # === Advanced Memory Cache Analytics ===
-
-    async def get_cache_statistics(self) -> Dict[str, Any]:
-        """Get detailed cache performance statistics."""
-        with self._lock:
-            total_ops = self._stats["hits"] + self._stats["misses"]
-
-            return {
-                **self._stats.copy(),
-                "cache_size": len(self._cache),
-                "hit_rate": self._stats["hits"] / total_ops if total_ops > 0 else 0.0,
-                "memory_efficiency": len(self._cache) / self.max_size if self.max_size > 0 else 0.0,
-                "average_access_time": (
-                    self._stats["total_access_time"] / self._stats["hits"]
-                    if self._stats["hits"] > 0
-                    else 0.0
-                ),
-                "cache_pressure": len(self._cache) / self.max_size if self.max_size > 0 else 0.0,
-            }
-
-    async def get_hot_proxies(self, limit: int = 10) -> List[Tuple[Proxy, int]]:
-        """Get most frequently accessed proxies."""
-        with self._lock:
-            # Sort by access count (4th element in tuple)
-            sorted_items = sorted(
-                self._cache.items(), key=lambda x: x[1][3], reverse=True  # access_count
+            avg_access_time = (
+                self._stats["total_access_time"] / self._stats["hits"]
+                if self._stats["hits"] > 0
+                else 0.0
             )
 
-            return [
-                (proxy, access_count) for _, (proxy, _, _, access_count) in sorted_items[:limit]
+            return CacheMetrics(
+                total_proxies=current_size,
+                healthy_proxies=healthy_count,
+                unhealthy_proxies=unhealthy_count,
+                cache_hits=self._stats["hits"],
+                cache_misses=self._stats["misses"],
+                cache_evictions=self._stats["evictions"],
+                last_updated=datetime.now(timezone.utc),
+                avg_response_time=avg_access_time,
+                success_rate=healthy_count / current_size if current_size > 0 else 0.0,
+                memory_usage_mb=self.get_memory_usage(),
+            )
+
+    # === Private Helper Methods ===
+
+    async def _add_single_proxy(self, proxy: Proxy, enable_duplicates: bool = False) -> bool:
+        """Add single proxy to memory cache with intelligent LRU management."""
+        key = (proxy.host, proxy.port)
+        current_time = time.time()
+        expire_time = current_time + self.ttl_seconds
+
+        with self._lock:
+            # Handle duplicates based on strategy
+            if key in self._cache and not enable_duplicates:
+                if self.duplicate_strategy == DuplicateStrategy.IGNORE:
+                    return False
+                elif self.duplicate_strategy == DuplicateStrategy.UPDATE:
+                    # Update existing entry and move to end
+                    _, _, _, access_count = self._cache[key]
+                    del self._cache[key]
+                    self._cache[key] = (proxy, current_time, expire_time, access_count)
+                    self._update_stats("cache_operations", 1)
+                    return True
+
+            # Check size limits and evict if necessary
+            if len(self._cache) >= self.max_size:
+                self._evict_entries()
+                self._stats["memory_pressure_events"] += 1
+
+            # Add new entry
+            self._cache[key] = (proxy, current_time, expire_time, 1)
+            self._stats["cache_operations"] += 1
+            self._stats["peak_size"] = max(self._stats["peak_size"], len(self._cache))
+
+            return True
+
+    def _evict_entries(self) -> None:
+        """Evict entries using intelligent LRU strategy with batching."""
+        if len(self._cache) < self.max_size:
+            return
+
+        # Calculate eviction count
+        eviction_count = min(self.eviction_batch_size, len(self._cache) // 4)
+        eviction_count = max(eviction_count, 1)  # Always evict at least one
+
+        # Remove oldest entries (beginning of OrderedDict)
+        for _ in range(eviction_count):
+            if self._cache:
+                self._cache.popitem(last=False)  # Remove from beginning (oldest)
+                self._stats["evictions"] += 1
+
+        logger.debug(f"Evicted {eviction_count} entries from memory cache")
+
+    def _update_stats(self, key: str, increment: int = 1) -> None:
+        """Thread-safe statistics update."""
+        if self.enable_stats:
+            self._stats[key] = self._stats.get(key, 0) + increment
+
+    def _reset_stats(self) -> None:
+        """Reset all statistics to initial values."""
+        self._stats = {
+            "hits": 0,
+            "misses": 0,
+            "evictions": 0,
+            "expired_cleanups": 0,
+            "total_access_time": 0.0,
+            "last_cleanup": time.time(),
+            "peak_size": 0,
+            "cache_operations": 0,
+            "memory_pressure_events": 0,
+            "background_cleanups": 0,
+        }
+
+    async def _background_cleanup(self) -> None:
+        """Background task for cleaning expired entries and maintenance."""
+        while True:
+            try:
+                await asyncio.sleep(self.cleanup_interval_seconds)
+                await self._cleanup_expired_entries()
+            except asyncio.CancelledError:
+                logger.debug("Background cleanup task cancelled")
+                break
+            except Exception as e:
+                logger.error(f"Error in background cleanup: {e}")
+
+    async def _cleanup_expired_entries(self) -> None:
+        """Remove expired entries from cache."""
+        current_time = time.time()
+        expired_count = 0
+
+        with self._lock:
+            expired_keys = [
+                key
+                for key, (_, _, expire_time, _) in self._cache.items()
+                if current_time > expire_time
             ]
 
-    def __del__(self):
-        """Cleanup background task on destruction."""
-        if hasattr(self, "_cleanup_task") and self._cleanup_task and not self._cleanup_task.done():
-            self._cleanup_task.cancel()
+            for key in expired_keys:
+                del self._cache[key]
+                expired_count += 1
+
+            self._stats["expired_cleanups"] += expired_count
+            self._stats["background_cleanups"] += 1
+            self._stats["last_cleanup"] = current_time
+
+        if expired_count > 0:
+            logger.debug(f"Cleaned up {expired_count} expired entries from memory cache")
+
+    def get_memory_usage(self) -> float:
+        """Get approximate memory usage in MB."""
+        import sys
+
+        total_size = 0
+        with self._lock:
+            total_size += sys.getsizeof(self._cache)
+            for key, value in self._cache.items():
+                total_size += sys.getsizeof(key)
+                total_size += sys.getsizeof(value)
+                # Approximate proxy object size
+                proxy = value[0]
+                total_size += sys.getsizeof(vars(proxy))
+
+        return total_size / (1024 * 1024)  # Convert to MB

@@ -15,10 +15,10 @@ from proxywhirl.loaders.base import BaseLoader
 
 class SunnyProxyScraperLoader(BaseLoader):
     """Load proxies from sunny9577/proxy-scraper GitHub repository.
-    
+
     Provides structured JSON proxy data with comprehensive metadata including
     country, anonymity level, and supported protocols.
-    
+
     Features:
     - JSON format with rich metadata
     - Country and region information
@@ -42,41 +42,41 @@ class SunnyProxyScraperLoader(BaseLoader):
     )
     def load(self) -> DataFrame:
         """Load proxies from sunny9577/proxy-scraper repository.
-        
+
         Returns:
             DataFrame: Proxy data with host, port, protocol, and metadata columns
-            
+
         Raises:
             httpx.HTTPError: If the request fails after retries
         """
         rows: List[dict[str, object]] = []
-        
+
         try:
             with httpx.Client(timeout=30.0) as client:
                 response = client.get(self.url)
                 response.raise_for_status()
-                
+
                 data = response.json()
-                
+
                 if not isinstance(data, list):
                     logger.error("Expected JSON array from sunny9577/proxy-scraper")
                     return pd.DataFrame(rows)
-                
+
                 # Process each proxy
                 for proxy in data:
                     try:
                         host = str(proxy.get("ip", "")).strip()
                         port = int(str(proxy.get("port", "")))
-                        
+
                         # Validate basic requirements
                         if not host or not (1 <= port <= 65535):
                             continue
-                        
+
                         # Extract metadata
                         country = str(proxy.get("country", "")).strip()
                         anonymity = str(proxy.get("anonymity", "")).strip()
                         proxy_type = str(proxy.get("type", "")).strip()
-                        
+
                         # Determine protocol from type field
                         protocol = "http"
                         if proxy_type.lower() in ["http/https", "https"]:
@@ -85,14 +85,14 @@ class SunnyProxyScraperLoader(BaseLoader):
                             protocol = "socks4"
                         elif proxy_type.lower() in ["socks5"]:
                             protocol = "socks5"
-                        
+
                         # Build proxy record
                         proxy_record = {
                             "host": host,
                             "port": port,
                             "protocol": protocol,
                         }
-                        
+
                         # Add metadata if available
                         if country:
                             proxy_record["country"] = country
@@ -100,15 +100,15 @@ class SunnyProxyScraperLoader(BaseLoader):
                             proxy_record["anonymity"] = anonymity.lower()
                         if proxy_type:
                             proxy_record["type"] = proxy_type
-                            
+
                         rows.append(proxy_record)
-                        
+
                     except (ValueError, TypeError, KeyError) as e:
                         logger.debug(f"Skipping invalid proxy from sunny9577: {e}")
                         continue
-                
+
                 logger.info(f"Loaded {len(rows)} proxies from sunny9577/proxy-scraper")
-                
+
         except httpx.HTTPError as e:
             logger.error(f"HTTP error loading sunny9577/proxy-scraper proxies: {e}")
             raise

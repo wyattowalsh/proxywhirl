@@ -1,12 +1,18 @@
 """proxywhirl -- Python 3.13+ library for rotating proxy management"""
 
-from proxywhirl.cache import ProxyCache
+# Modern cache system imports
+from proxywhirl.caches import (  # TODO: Add SQLite cache classes when implemented; AsyncSQLiteProxyCache,; SQLiteProxyCache,
+    BaseProxyCache,
+    CacheFilters,
+    CacheMetrics,
+    JsonProxyCache,
+    MemoryProxyCache,
+)
+from proxywhirl.caches import CacheType
 from proxywhirl.config import LoaderConfig, ProxyWhirlSettings
 from proxywhirl.logger import configure_rich_logging, get_logger, setup_logger
 from proxywhirl.models import (
     AnonymityLevel,
-    CacheType,
-    CoreProxy,
     Proxy,
     ProxyError,
     ProxyScheme,
@@ -42,7 +48,15 @@ __version__ = "0.1.0"
 __all__ = [
     "ProxyWhirl",
     "ProxyWhirlClient",
-    "ProxyCache",
+    # Modern cache system exports
+    "BaseProxyCache",
+    "MemoryProxyCache",
+    "JsonProxyCache",
+    # TODO: Add SQLite cache classes when implemented
+    # "SQLiteProxyCache",
+    # "AsyncSQLiteProxyCache",
+    "CacheFilters",
+    "CacheMetrics",
     "ProxyRotator",
     "ProxyValidator",
     "CircuitBreaker",
@@ -57,7 +71,6 @@ __all__ = [
     "configure_rich_logging",
     "AnonymityLevel",
     "CacheType",
-    "CoreProxy",
     "Proxy",
     "ProxyError",
     "ProxySourceError",

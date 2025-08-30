@@ -380,6 +380,7 @@ class TestRotatorIntegration:
         proxies[0].status = ProxyStatus.ACTIVE  # Healthy
         proxies[1].status = ProxyStatus.BLACKLISTED  # Should be excluded
         from proxywhirl.models import ProxyErrorState
+
         proxies[2].error_state = ProxyErrorState()  # Error state but might recover
         proxies[3].status = ProxyStatus.ACTIVE  # Healthy
         proxies[4].status = ProxyStatus.INACTIVE  # Might be used in emergency

@@ -1,5 +1,5 @@
 ---
-applyTo: ".github/workflows/**"
+applyTo: ".github/workflows/**,.github/ISSUE_TEMPLATE/**,.github/PULL_REQUEST_TEMPLATE/**,.github/**/*.md"
 ---
 
 # ProxyWhirl Deployment Instructions

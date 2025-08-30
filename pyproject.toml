@@ -30,14 +30,19 @@ dependencies = [
     "aiosqlite>=0.19.0",
     "tenacity>=9.1.2",
     "textual[syntax]>=5.3.0",
-    "typer>=0.16.0",
+    "typer>=0.16.1",
     "typing-extensions>=4.12.2",
     "uvicorn[standard]>=0.30.0",
+    "asyncio-throttle>=1.0.2",
+    "scikit-learn>=1.7.1",
+    "numpy>=2.3.2",
+    "geoip2>=5.1.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.4.1",
+    "ruff>=0.12.10",
 ]
 format = [
     "autoflake>=2.3.1",

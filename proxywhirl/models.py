@@ -10,12 +10,12 @@ This module provides intelligent, high-performance proxy data models with:
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum, auto
 from ipaddress import IPv4Address, IPv6Address, ip_address
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Union, cast
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import (
     BaseModel,
@@ -50,97 +50,7 @@ class ProxyConfigError(ProxyError):
     """Error in proxy configuration."""
 
 
-def _to_upper(v: Optional[str]) -> Optional[str]:
-    """Convert country code to uppercase and validate format."""
-    if v is None:
-        return None
-    upper = str(v).upper()  # Remove unnecessary isinstance check
-    # Validate pattern after conversion
-    if len(upper) != 2 or not upper.isalpha():
-        raise ValueError("Country code must be 2 alphabetic characters")
-    return upper
-
-
-CountryCode = Annotated[Optional[str], AfterValidator(_to_upper)]
-
-
-# === Advanced Annotated Types with Pydantic v2 Patterns ===
-
-PortNumber = Annotated[
-    int,
-    Field(ge=1, le=65535),
-    WithJsonSchema(
-        {
-            "example": 8080,
-            "description": "Valid TCP port number (1-65535)",
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 65535,
-        }
-    ),
-]
-
-ResponseTimeSeconds = Annotated[
-    float,
-    Field(ge=0.001, le=300.0),
-    AfterValidator(lambda x: round(x, 3)),  # Precision control
-    PlainSerializer(lambda x: f"{x:.3f}", when_used="json"),
-    WithJsonSchema(
-        {
-            "example": 1.234,
-            "description": "Response time in seconds (0.001-300.0)",
-            "type": "number",
-            "minimum": 0.001,
-            "maximum": 300.0,
-        }
-    ),
-]
-
-QualityScore = Annotated[
-    float,
-    Field(ge=0.0, le=1.0),
-    AfterValidator(lambda x: round(x, 4)),  # High precision for quality
-    WithJsonSchema(
-        {
-            "example": 0.8750,
-            "description": "Quality score from 0.0 (poor) to 1.0 (excellent)",
-            "type": "number",
-            "minimum": 0.0,
-            "maximum": 1.0,
-        }
-    ),
-]
-
-SuccessRate = Annotated[
-    float,
-    Field(ge=0.0, le=1.0),
-    AfterValidator(lambda x: round(x, 3)),
-    PlainSerializer(lambda x: f"{x*100:.1f}%", when_used="json"),
-    WithJsonSchema(
-        {
-            "example": 0.95,
-            "description": "Success rate from 0.0 to 1.0 (serialized as percentage)",
-            "type": "number",
-            "minimum": 0.0,
-            "maximum": 1.0,
-        }
-    ),
-]
-
-UptimePercentage = Annotated[
-    float,
-    Field(ge=0.0, le=100.0),
-    AfterValidator(lambda x: round(x, 2)),
-    WithJsonSchema(
-        {
-            "example": 99.95,
-            "description": "Uptime percentage (0.0-100.0)",
-            "type": "number",
-            "minimum": 0.0,
-            "maximum": 100.0,
-        }
-    ),
-]
+# === Enumeration Types ===
 
 
 class AnonymityLevel(StrEnum):
@@ -159,14 +69,6 @@ class Scheme(StrEnum):
     HTTPS = "https"
     SOCKS4 = "socks4"
     SOCKS5 = "socks5"
-
-
-class CacheType(StrEnum):
-    """Cache storage types."""
-
-    MEMORY = auto()
-    JSON = auto()
-    SQLITE = auto()
 
 
 class ProxyStatus(StrEnum):
@@ -243,121 +145,246 @@ class MLFeatureType(StrEnum):
     DAY_OF_WEEK = "day_of_week"
 
 
-# === Cache Configuration Models ===
+# === Type Definitions ===
 
 
-class JsonCacheConfig(BaseModel):
-    """Configuration for enterprise JSON cache features."""
+def _to_upper(v: Optional[str]) -> Optional[str]:
+    """Convert string to uppercase, preserving None values."""
+    return v.upper() if v else v
+
+
+def _validate_port(v: int) -> int:
+    """Validate port number is in valid range."""
+    if not (1 <= v <= 65535):
+        raise ValueError(f"Port must be between 1 and 65535, got {v}")
+    return v
+
+
+CountryCode = Annotated[Optional[str], AfterValidator(_to_upper)]
+
+PortNumber = Annotated[
+    int,
+    Field(ge=1, le=65535),
+    WithJsonSchema(
+        {
+            "type": "integer", 
+            "minimum": 1,
+            "maximum": 65535,
+            "description": "TCP/UDP port number (1-65535)"
+        }
+    ),
+    AfterValidator(_validate_port),
+]
+
+ResponseTimeSeconds = Annotated[
+    float,
+    Field(ge=0.001, le=300.0),
+    AfterValidator(lambda x: round(x, 3)),  # Precision control
+    PlainSerializer(lambda x: f"{x:.3f}", when_used="json"),
+    WithJsonSchema(
+        {
+            "type": "number",
+            "minimum": 0.001,
+            "maximum": 300.0,
+            "multipleOf": 0.001,
+            "description": "Response time in seconds (max 5 minutes)"
+        }
+    ),
+]
+
+QualityScore = Annotated[
+    float,
+    Field(ge=0.0, le=1.0),
+    AfterValidator(lambda x: round(x, 4)),  # High precision for quality
+    WithJsonSchema(
+        {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "multipleOf": 0.0001,
+            "description": "Quality score from 0.0 (worst) to 1.0 (best)"
+        }
+    ),
+]
+
+SuccessRate = Annotated[
+    float,
+    Field(ge=0.0, le=1.0),
+    AfterValidator(lambda x: round(x, 3)),
+    WithJsonSchema(
+        {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "Success rate from 0.0 to 1.0"
+        }
+    ),
+]
+
+
+# === Performance and Error Tracking ===
+
+
+@dataclass
+class ProxyCredentials:
+    """Authentication credentials for proxy access."""
+    username: str
+    password: str
+    auth_type: str = "basic"  # basic, digest, etc.
+
+
+@dataclass  
+class ProxyCapabilities:
+    """Proxy feature support information."""
+    supports_https: bool = False
+    supports_socks: bool = False
+    supports_ipv6: bool = False
+    max_connections: Optional[int] = None
+    bandwidth_limit: Optional[str] = None  # e.g., "100Mbps"
+
+
+class ProxyErrorState(BaseModel):
+    """Error tracking and cooldown management for proxies."""
 
     model_config = ConfigDict(
-        str_strip_whitespace=True,
         validate_assignment=True,
         extra="forbid",
     )
 
-    # Enterprise features
-    compression: bool = Field(
-        default=True,
-        description="Enable gzip compression for JSON files (saves ~60-80% disk space)",
-    )
-    enable_backups: bool = Field(
-        default=True, description="Create automatic backups for corruption recovery"
-    )
-    max_backup_count: int = Field(
-        default=5, ge=1, le=50, description="Maximum number of backup files to retain"
-    )
-    integrity_checks: bool = Field(
-        default=True, description="Verify file integrity using checksums and validation"
-    )
-    retry_attempts: int = Field(
-        default=3, ge=1, le=10, description="Number of retry attempts for failed operations"
-    )
-
-    # Performance tuning
-    atomic_writes: bool = Field(
-        default=True, description="Use atomic write operations for data consistency"
-    )
-    flush_interval_seconds: float = Field(
-        default=30.0, ge=1.0, le=300.0, description="Automatic flush interval in seconds"
-    )
-
-
-class SqliteCacheConfig(BaseModel):
-    """Configuration for enterprise SQLite cache features."""
-
-    model_config = ConfigDict(
-        str_strip_whitespace=True,
-        validate_assignment=True,
-        extra="forbid",
-    )
-
-    # Connection and performance
-    connection_pool_size: int = Field(
-        default=10, ge=1, le=100, description="Maximum connections in the pool"
-    )
-    connection_pool_recycle: int = Field(
-        default=3600, ge=300, le=86400, description="Connection recycling interval in seconds"
-    )
-    enable_wal: bool = Field(
-        default=True, description="Enable Write-Ahead Logging for better concurrency"
-    )
-
-    # Data retention
-    health_metrics_retention_days: int = Field(
-        default=30, ge=1, le=365, description="Number of days to retain health metrics"
-    )
-    auto_vacuum: bool = Field(default=True, description="Enable automatic database vacuuming")
+    consecutive_failures: int = Field(default=0, ge=0)
+    last_error: Optional[ValidationErrorType] = Field(default=None)
+    last_error_time: Optional[datetime] = Field(default=None)
+    cooldown_until: Optional[datetime] = Field(default=None)
+    total_failures: int = Field(default=0, ge=0)
+    
+    def record_failure(
+        self, 
+        error_type: ValidationErrorType = ValidationErrorType.UNKNOWN,
+        cooldown_seconds: Optional[int] = None
+    ) -> None:
+        """Record a failure and set cooldown if needed."""
+        self.consecutive_failures += 1
+        self.total_failures += 1
+        self.last_error = error_type
+        self.last_error_time = datetime.now(timezone.utc)
+        
+        if cooldown_seconds:
+            self.cooldown_until = datetime.now(timezone.utc) + timedelta(seconds=cooldown_seconds)
+    
+    def record_success(self) -> None:
+        """Record a successful operation, clearing failure state."""
+        self.consecutive_failures = 0
+        self.last_error = None
+        self.cooldown_until = None
+    
+    @property
+    def is_in_cooldown(self) -> bool:
+        """Check if proxy is currently in cooldown period."""
+        if self.cooldown_until is None:
+            return False
+        return datetime.now(timezone.utc) < self.cooldown_until
+    
+    def is_available(self) -> bool:
+        """Check if proxy is available (not in cooldown)."""
+        return not self.is_in_cooldown
 
 
-class CacheConfiguration(BaseModel):
-    """Unified cache configuration for all cache types."""
+class ProxyPerformanceMetrics(BaseModel):
+    """Advanced performance metrics with computed insights."""
 
     model_config = ConfigDict(
-        str_strip_whitespace=True,
         validate_assignment=True,
-        extra="forbid",
+        extra="allow",
     )
 
-    cache_type: CacheType = Field(
-        default=CacheType.JSON, description="Type of cache backend to use"
-    )
-    cache_path: Optional[str] = Field(
-        default=None, description="Custom cache file path (auto-generated if None)"
-    )
+    # Basic metrics
+    total_requests: int = Field(default=0, ge=0)
+    successful_requests: int = Field(default=0, ge=0) 
+    failed_requests: int = Field(default=0, ge=0)
+    
+    # Timing metrics
+    avg_response_time: Optional[float] = Field(default=None, ge=0)
+    min_response_time: Optional[float] = Field(default=None, ge=0)
+    max_response_time: Optional[float] = Field(default=None, ge=0)
+    
+    # Quality indicators
+    last_success_time: Optional[datetime] = Field(default=None)
+    uptime_percentage: Optional[float] = Field(default=None, ge=0, le=100)
+    
+    # Advanced metrics (percentiles)
+    response_time_p50: Optional[float] = Field(default=None, ge=0)
+    response_time_p95: Optional[float] = Field(default=None, ge=0)
+    response_time_p99: Optional[float] = Field(default=None, ge=0)
 
-    # Backend-specific configurations
-    json_config: JsonCacheConfig = Field(
-        default_factory=JsonCacheConfig, description="Configuration for JSON cache backend"
-    )
-    sqlite_config: SqliteCacheConfig = Field(
-        default_factory=SqliteCacheConfig, description="Configuration for SQLite cache backend"
-    )
+    @computed_field
+    @property
+    def success_rate(self) -> float:
+        """Calculate success rate."""
+        if self.total_requests == 0:
+            return 0.0
+        return self.successful_requests / self.total_requests
+    
+    @computed_field
+    @property
+    def reliability_score(self) -> float:
+        """Compute reliability score (0.0-1.0) based on success rate and consistency."""
+        base_score = self.success_rate
+        
+        # Penalize if we have very few requests
+        if self.total_requests < 10:
+            base_score *= 0.5
+        
+        # Bonus for high uptime
+        if self.uptime_percentage and self.uptime_percentage > 95:
+            base_score = min(1.0, base_score * 1.05)
+        
+        return round(base_score, 4)
+    
+    @computed_field  
+    @property
+    def performance_score(self) -> float:
+        """Compute performance score (0.0-1.0) based on response times."""
+        if not self.avg_response_time:
+            return 0.5  # Neutral score for unknown performance
+        
+        # Score based on average response time
+        if self.avg_response_time <= 1.0:
+            score = 1.0
+        elif self.avg_response_time <= 3.0:
+            score = 0.8
+        elif self.avg_response_time <= 5.0:
+            score = 0.6
+        elif self.avg_response_time <= 10.0:
+            score = 0.4
+        else:
+            score = 0.2
+        
+        # Adjust based on consistency (using p95 if available)
+        if self.response_time_p95 and self.avg_response_time:
+            consistency_ratio = self.avg_response_time / self.response_time_p95
+            if consistency_ratio > 0.8:  # Very consistent
+                score = min(1.0, score * 1.1)
+            elif consistency_ratio < 0.3:  # Very inconsistent
+                score *= 0.8
+        
+        return round(score, 4)
 
-    @field_validator("cache_path")
-    @classmethod
-    def validate_cache_path(cls, v: Optional[str]) -> Optional[str]:
-        """Validate cache path format."""
-        if v is None:
-            return v
-
-        path = Path(v)
-
-        # Ensure parent directory exists or can be created
-        parent = path.parent
-        if not parent.exists():
-            try:
-                parent.mkdir(parents=True, exist_ok=True)
-            except Exception as e:
-                raise ValueError(f"Cannot create cache directory {parent}: {e}")
-
-        return str(path)
+    @computed_field
+    @property
+    def is_healthy(self) -> bool:
+        """Determine if proxy is considered healthy based on metrics."""
+        return (
+            self.reliability_score > 0.7 and
+            self.performance_score > 0.5 and
+            (self.total_requests == 0 or self.success_rate > 0.6)
+        )
 
 
-# === Target-Based Validation Models ===
+# === Target Validation Models ===
 
 
 class TargetDefinition(BaseModel):
-    """Definition of a validation target with its configuration."""
+    """Configuration for proxy validation targets."""
 
     model_config = ConfigDict(
         str_strip_whitespace=True,
@@ -365,420 +392,458 @@ class TargetDefinition(BaseModel):
         extra="forbid",
     )
 
-    target_id: str = Field(
-        ...,
-        min_length=1,
-        max_length=50,
-        pattern=r"^[a-zA-Z0-9_-]+$",
-        description="Unique identifier for this target (alphanumeric, _, - only)",
-    )
-    url: str = Field(..., min_length=1, description="Target URL to validate against")
-    name: Optional[str] = Field(
-        None, max_length=100, description="Human-readable name for this target"
-    )
-    timeout: Optional[float] = Field(
-        None, ge=0.1, le=60.0, description="Custom timeout for this target (seconds)"
-    )
-    weight: float = Field(
-        1.0, ge=0.0, le=10.0, description="Weight for quality scoring (higher = more important)"
-    )
-    expected_status_codes: Optional[List[int]] = Field(
-        None, description="Expected HTTP status codes (default: [200])"
-    )
+    target_id: str = Field(..., min_length=1, max_length=50)
+    url: str = Field(..., min_length=1)
+    method: str = Field(default="GET", pattern=r"^(GET|POST|HEAD|OPTIONS)$")
+    expected_status: int = Field(default=200, ge=100, le=599)
+    timeout: float = Field(default=10.0, ge=0.1, le=60.0)
+    weight: float = Field(default=1.0, ge=0.1, le=10.0)
+    headers: Dict[str, str] = Field(default_factory=dict)
+    verify_ssl: bool = Field(default=True)
 
     @field_validator("url")
     @classmethod
     def validate_url(cls, v: str) -> str:
         """Basic URL validation."""
-        if not v.startswith(("http://", "https://")):
+        if not (v.startswith("http://") or v.startswith("https://")):
             raise ValueError("URL must start with http:// or https://")
         return v
 
-    @property
-    def display_name(self) -> str:
-        """Get display name or fallback to target_id."""
-        return self.name or self.target_id
-
 
 class TargetHealthStatus(BaseModel):
-    """Health status for a specific target."""
+    """Health status tracking for individual targets."""
 
     model_config = ConfigDict(
         validate_assignment=True,
         extra="forbid",
     )
 
-    target_id: str = Field(..., description="Target identifier")
-    success_rate: SuccessRate = Field(default=0.0, description="Success rate for this target")
-    avg_response_time: Optional[ResponseTimeSeconds] = Field(
-        default=None, description="Average response time for this target"
-    )
-    last_success: Optional[datetime] = Field(
-        default=None, description="Timestamp of last successful validation"
-    )
-    last_failure: Optional[datetime] = Field(
-        default=None, description="Timestamp of last failed validation"
-    )
-    consecutive_failures: int = Field(default=0, ge=0, description="Count of consecutive failures")
-    consecutive_successes: int = Field(
-        default=0, ge=0, description="Count of consecutive successes"
-    )
-    total_attempts: int = Field(default=0, ge=0, description="Total validation attempts")
-    total_successes: int = Field(default=0, ge=0, description="Total successful validations")
+    target_id: str = Field(..., min_length=1)
+    consecutive_successes: int = Field(default=0, ge=0)
+    consecutive_failures: int = Field(default=0, ge=0)
+    last_check_time: Optional[datetime] = Field(default=None)
+    last_success_time: Optional[datetime] = Field(default=None)
+    last_response_time: Optional[float] = Field(default=None, ge=0)
+    total_checks: int = Field(default=0, ge=0)
+    successful_checks: int = Field(default=0, ge=0)
+    avg_response_time: Optional[float] = Field(default=None, ge=0)
 
-    # Computed quality score for this specific target
     @computed_field
     @property
-    def target_quality_score(self) -> float:
-        """Quality score specific to this target."""
-        if self.total_attempts == 0:
-            return 0.5  # Neutral score for untested targets
+    def success_rate(self) -> float:
+        """Calculate success rate for this target."""
+        if self.total_checks == 0:
+            return 0.0
+        return self.successful_checks / self.total_checks
 
-        base_score = float(self.success_rate)
-
-        # Speed bonus/penalty
-        speed_adjustment = 0.0
+    @computed_field
+    @property  
+    def quality_score(self) -> float:
+        """Calculate quality score for this target."""
+        if self.total_checks == 0:
+            return 0.0
+            
+        base_score = self.success_rate * 0.7
+        
+        # Response time factor
         if self.avg_response_time is not None:
-            if self.avg_response_time < 1.0:
-                speed_adjustment = 0.1  # Fast bonus
-            elif self.avg_response_time > 5.0:
-                speed_adjustment = -0.1  # Slow penalty
-
-        # Stability bonus for consistent successes
-        stability_bonus = 0.0
-        if self.consecutive_successes >= 5:
-            stability_bonus = 0.05
-        elif self.consecutive_failures >= 3:
-            stability_bonus = -0.1
-
-        return max(0.0, min(1.0, base_score + speed_adjustment + stability_bonus))
+            if self.avg_response_time < 2.0:
+                base_score += 0.2
+            elif self.avg_response_time < 5.0:
+                base_score += 0.1
+            elif self.avg_response_time > 15.0:
+                base_score -= 0.1
+        
+        # Penalize consecutive failures
+        if self.consecutive_failures > 2:
+            base_score -= min(0.3, self.consecutive_failures * 0.1)
+        
+        return max(0.0, min(1.0, base_score))
 
     def record_success(self, response_time: Optional[float] = None) -> None:
-        """Record a successful validation."""
-        self.total_attempts += 1
-        self.total_successes += 1
+        """Record successful check."""
         self.consecutive_successes += 1
         self.consecutive_failures = 0
-        self.last_success = datetime.now(timezone.utc)
-
-        # Update success rate
-        self.success_rate = self.total_successes / self.total_attempts
-
-        # Update average response time (simple moving average)
+        self.total_checks += 1
+        self.successful_checks += 1
+        self.last_check_time = datetime.now(timezone.utc)
+        self.last_success_time = self.last_check_time
+        
         if response_time is not None:
+            self.last_response_time = response_time
             if self.avg_response_time is None:
                 self.avg_response_time = response_time
             else:
-                # Weighted average favoring recent measurements
-                self.avg_response_time = (self.avg_response_time * 0.7) + (response_time * 0.3)
+                # Exponential moving average
+                self.avg_response_time = 0.8 * self.avg_response_time + 0.2 * response_time
 
     def record_failure(self) -> None:
-        """Record a failed validation."""
-        self.total_attempts += 1
+        """Record failed check."""
         self.consecutive_failures += 1
         self.consecutive_successes = 0
-        self.last_failure = datetime.now(timezone.utc)
-
-        # Update success rate
-        self.success_rate = self.total_successes / self.total_attempts
+        self.total_checks += 1
+        self.last_check_time = datetime.now(timezone.utc)
 
 
-# === Lightweight Models ===
+# === Session Management ===
 
 
-@dataclass(frozen=True, slots=True)
-class CoreProxy:
+class SessionConfig(BaseModel):
+    """Configuration model for proxy session management."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        validate_default=True,
+        validate_assignment=True,
+        use_enum_values=True,
+    )
+
+    # Session persistence settings
+    enable_sticky_sessions: bool = Field(
+        default=False,
+        description="Enable sticky sessions for consistent proxy assignment",
+    )
+    session_ttl_seconds: int = Field(
+        default=300,
+        ge=10,
+        le=86400,
+        description="Session TTL in seconds (10 seconds to 24 hours)",
+    )
+    max_sessions: int = Field(
+        default=1000,
+        ge=1,
+        le=100000,
+        description="Maximum number of concurrent sessions",
+    )
+    cleanup_interval_seconds: int = Field(
+        default=60,
+        ge=10,
+        le=3600,
+        description="Interval for session cleanup in seconds",
+    )
+    
+    # Session binding options
+    bind_by_ip: bool = Field(
+        default=True,
+        description="Bind sessions to client IP addresses",
+    )
+    bind_by_user_agent: bool = Field(
+        default=False,
+        description="Include User-Agent in session binding",
+    )
+    
+    # Performance settings
+    session_pool_size: int = Field(
+        default=50,
+        ge=1,
+        le=1000,
+        description="Initial session pool size",
+    )
+
+    @field_validator("session_ttl_seconds")
+    @classmethod
+    def validate_session_ttl(cls, v: int) -> int:
+        """Validate session TTL is within reasonable bounds."""
+        if v < 10:
+            raise ValueError("Session TTL must be at least 10 seconds")
+        if v > 86400:
+            raise ValueError("Session TTL cannot exceed 24 hours")
+        return v
+
+
+class ProxySession(BaseModel):
     """
-    Lightweight proxy model for high-performance operations.
-
-    Use this for hot paths where you only need basic proxy info.
-    Convert to full Proxy model when you need rich metadata.
+    Proxy session model for sticky session management.
+    
+    Manages the binding between client identifiers and specific proxy assignments
+    with automatic expiration and cleanup handling.
     """
 
-    host: str
-    port: int  # Keep as int for lightweight model
-    scheme: Scheme
-    source: str = ""
-
-    @property
-    def uri(self) -> str:
-        """Get proxy URI."""
-        return f"{self.scheme.value}://{self.host}:{self.port}"
-
-    def to_proxy(self) -> "Proxy":
-        """Convert to full Proxy model with optional rich metadata."""
-        return Proxy(
-            host=self.host,
-            ip=ip_address(self.host),  # Convert string to IP address
-            port=self.port,
-            schemes=[self.scheme],
-            source=self.source,
-            credentials=None,
-            metrics=None,
-            capabilities=None,
-            country_code=None,
-            country=None,
-            city=None,
-            region=None,
-            isp=None,
-            organization=None,
-            anonymity=AnonymityLevel.UNKNOWN,
-            response_time=None,
-            status=ProxyStatus.ACTIVE,
-            quality_score=None,
-            blacklist_reason=None,
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class ErrorEvent:
-    """Lightweight error event record."""
-
-    error_type: ValidationErrorType
-    timestamp: datetime
-    error_message: Optional[str] = None
-    http_status: Optional[int] = None
-
-
-class ProxyErrorState(BaseModel):
-    """Tracks error state and history for a proxy."""
-
-    # Current error state
-    consecutive_failures: int = 0
-    last_error_type: Optional[ValidationErrorType] = None
-    last_error_time: Optional[datetime] = None
-    last_success_time: Optional[datetime] = None
-
-    # Error history (limited to last 10 for memory efficiency)
-    error_history: List[ErrorEvent] = Field(default_factory=list)
-
-    # Cooldown state
-    is_in_cooldown: bool = False
-    cooldown_until: Optional[datetime] = None
-    cooldown_policy: Optional[ErrorHandlingPolicy] = None
-
-    # Failure pattern analysis
-    failure_rate_1h: float = 0.0  # Failures per hour in last hour
-    failure_rate_24h: float = 0.0  # Failures per hour in last 24h
-
-    def add_error(
-        self,
-        error_type: ValidationErrorType,
-        error_message: Optional[str] = None,
-        http_status: Optional[int] = None,
-    ) -> None:
-        """Add a new error event."""
-        now = datetime.now(timezone.utc)
-
-        # Update error state
-        self.consecutive_failures += 1
-        self.last_error_type = error_type
-        self.last_error_time = now
-
-        # Add to history (keep only last 10)
-        self.error_history.append(
-            ErrorEvent(
-                error_type=error_type,
-                timestamp=now,
-                error_message=error_message,
-                http_status=http_status,
-            )
-        )
-        if len(self.error_history) > 10:
-            self.error_history.pop(0)
-
-    def add_success(self) -> None:
-        """Record a successful request."""
-        now = datetime.now(timezone.utc)
-        self.consecutive_failures = 0
-        self.last_success_time = now
-        self.last_error_type = None
-
-    def is_available(self) -> bool:
-        """Check if proxy is available (not in cooldown)."""
-        if not self.is_in_cooldown or not self.cooldown_until:
-            return True
-        return datetime.now(timezone.utc) >= self.cooldown_until
-
-    def set_cooldown(self, policy: ErrorHandlingPolicy, duration_seconds: int) -> None:
-        """Set cooldown period based on error handling policy."""
-        now = datetime.now(timezone.utc)
-        self.is_in_cooldown = True
-        self.cooldown_until = now + timedelta(seconds=duration_seconds)
-        self.cooldown_policy = policy
-
-    def clear_cooldown(self) -> None:
-        """Clear cooldown state."""
-        self.is_in_cooldown = False
-        self.cooldown_until = None
-        self.cooldown_policy = None
-
-
-class ProxyCredentials(BaseModel):
-    """Authentication credentials for proxy access."""
-
-    username: str
-    password: str
-    auth_type: str = "basic"  # basic, ntlm, etc.
-
-
-class ProxyPerformanceMetrics(BaseModel):
-    """Enhanced performance and reliability metrics with industry-standard indicators."""
-
-    # Basic request statistics
-    success_count: int = 0
-    failure_count: int = 0
-    total_requests: int = 0
-
-    # Response time metrics (enhanced with percentiles)
-    avg_response_time: Optional[ResponseTimeSeconds] = None
-    min_response_time: Optional[ResponseTimeSeconds] = None
-    max_response_time: Optional[ResponseTimeSeconds] = None
-    p50_response_time: Optional[ResponseTimeSeconds] = Field(
-        None, description="50th percentile (median) response time"
-    )
-    p95_response_time: Optional[ResponseTimeSeconds] = Field(
-        None, description="95th percentile response time"
-    )
-    p99_response_time: Optional[ResponseTimeSeconds] = Field(
-        None, description="99th percentile response time"
+    model_config = ConfigDict(
+        extra="allow",
+        validate_default=True,
+        validate_assignment=True,
+        arbitrary_types_allowed=True,
     )
 
-    # Uptime and availability
-    uptime_percentage: Optional[UptimePercentage] = None
-
-    # Failure tracking (industry standard)
-    consecutive_failures: int = Field(0, description="Consecutive failures since last success")
-    max_consecutive_failures: int = Field(0, description="Maximum consecutive failures recorded")
-
-    # Health check metrics
-    last_success: Optional[datetime] = None
-    last_failure: Optional[datetime] = None
-    last_health_check: Optional[datetime] = None
-    health_check_interval: int = Field(30, description="Health check interval in seconds")
-
-    # Connection-specific metrics
-    connection_success_rate: Optional[SuccessRate] = Field(
-        None, description="TCP connection establishment success rate"
+    # Session identification
+    session_id: str = Field(
+        ...,
+        min_length=1,
+        max_length=128,
+        description="Unique session identifier",
     )
-    dns_resolution_time: Optional[ResponseTimeSeconds] = Field(
-        None, description="Average DNS resolution time"
+    client_identifier: str = Field(
+        ...,
+        min_length=1,
+        max_length=256,
+        description="Client identification string (IP, hash, etc.)",
     )
-    ssl_handshake_time: Optional[ResponseTimeSeconds] = Field(
-        None, description="Average SSL handshake time"
+    
+    # Proxy assignment
+    assigned_proxy_host: str = Field(
+        ...,
+        description="Host of assigned proxy",
     )
+    assigned_proxy_port: int = Field(
+        ...,
+        ge=1,
+        le=65535,
+        description="Port of assigned proxy",
+    )
+    
+    # Session timing
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="UTC timestamp when session was created",
+    )
+    expires_at: datetime = Field(
+        ...,
+        description="UTC timestamp when session expires",
+    )
+    last_used_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="UTC timestamp of last session usage",
+    )
+    
+    # Session metadata
+    use_count: int = Field(
+        default=0,
+        ge=0,
+        description="Number of times this session has been used",
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional session metadata",
+    )
+    
+    # Thread safety - private attribute
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+    def __init__(self, **data: Any):
+        """Initialize session with automatic expiration time and thread lock."""
+        if "expires_at" not in data and "session_ttl_seconds" in data:
+            ttl_seconds: int = data.pop("session_ttl_seconds")
+            data["expires_at"] = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
+        
+        super().__init__(**data)
+        
+        # Initialize thread lock after parent initialization
+        self._lock = threading.RLock()
 
-    # Bandwidth and throughput
-    bytes_transferred: int = Field(0, description="Total bytes transferred through proxy")
-    avg_bandwidth_mbps: Optional[float] = Field(
-        None, ge=0.0, description="Average bandwidth in Mbps"
-    )
+    @field_validator("expires_at", mode="before")
+    @classmethod
+    def validate_expires_at(cls, v: Any) -> datetime:
+        """Ensure expires_at is a UTC datetime."""
+        if isinstance(v, datetime):
+            if v.tzinfo is None:
+                return v.replace(tzinfo=timezone.utc)
+            return v
+        
+        # Handle string ISO format
+        if isinstance(v, str):
+            dt = datetime.fromisoformat(v.replace('Z', '+00:00'))
+            return dt.astimezone(timezone.utc)
+        
+        raise ValueError(f"Invalid expires_at format: {v}")
 
     @computed_field
     @property
-    def success_rate(self) -> SuccessRate:
-        """Fractional success rate in [0,1]."""
-        if self.total_requests == 0:
-            return 0.0
-        rate = self.success_count / self.total_requests
-        return min(1.0, max(0.0, round(rate, 3)))
+    def is_expired(self) -> bool:
+        """Check if session has expired."""
+        return datetime.now(timezone.utc) >= self.expires_at
 
     @computed_field
     @property
-    def failure_rate(self) -> SuccessRate:
-        """Fractional failure rate in [0,1]."""
-        if self.total_requests == 0:
-            return 0.0
-        rate = self.failure_count / self.total_requests
-        return min(1.0, max(0.0, round(rate, 3)))
+    def time_remaining_seconds(self) -> float:
+        """Get remaining time in seconds."""
+        remaining = self.expires_at - datetime.now(timezone.utc)
+        return max(0.0, remaining.total_seconds())
 
     @computed_field
     @property
-    def reliability_score(self) -> QualityScore:
-        """Enhanced reliability score using industry-standard algorithm."""
-        if self.total_requests < 10:
-            return 0.5  # Insufficient data baseline
+    def proxy_url(self) -> str:
+        """Generate proxy URL from assigned proxy."""
+        return f"http://{self.assigned_proxy_host}:{self.assigned_proxy_port}"
 
-        # Base score from success rate (60% weight)
-        base_score = self.success_rate * 0.6
+    def touch(self) -> None:
+        """Update last_used_at timestamp and increment use count."""
+        with self._lock:
+            self.last_used_at = datetime.now(timezone.utc)
+            self.use_count += 1
 
-        # Response time factor (20% weight) - penalize high response times
-        response_factor = 0.2
-        if self.avg_response_time:
-            # Normalize response time (1s = good, >5s = poor)
-            response_penalty = min(self.avg_response_time / 5.0, 1.0)
-            response_factor *= 1.0 - response_penalty
+    def extend_session(self, additional_seconds: int) -> None:
+        """Extend session expiration time."""
+        with self._lock:
+            self.expires_at = self.expires_at + timedelta(seconds=additional_seconds)
 
-        # Consecutive failures penalty (10% weight)
-        failure_penalty = min(self.consecutive_failures / 10.0, 1.0) * 0.1
-
-        # Uptime factor (10% weight)
-        uptime_factor = (self.uptime_percentage or 95.0) / 100.0 * 0.1
-
-        final_score = base_score + response_factor - failure_penalty + uptime_factor
-        return min(1.0, max(0.0, round(final_score, 3)))
-
-    @computed_field
-    @property
-    def health_score(self) -> QualityScore:
-        """Industry-standard health score for proxy pool management."""
-        if self.total_requests == 0:
-            return 0.5  # Unknown health baseline
-
-        # Recent activity bonus (last success within health check interval)
-        recent_bonus = 0.0
-        if self.last_success:
-            time_since_success = (datetime.now() - self.last_success).total_seconds()
-            if time_since_success <= self.health_check_interval:
-                recent_bonus = 0.2
-            elif time_since_success <= self.health_check_interval * 2:
-                recent_bonus = 0.1
-
-        # Connection reliability (if available) - connection_success_rate is already 0-1
-        connection_factor = (self.connection_success_rate or 0.95) * 0.3
-
-        # Base reliability score (50% weight)
-        base_health = self.reliability_score * 0.5
-
-        return min(1.0, max(0.0, round(base_health + connection_factor + recent_bonus, 3)))
-
-    @computed_field
-    @property
-    def is_healthy(self) -> bool:
-        """Determine if proxy is healthy based on industry thresholds."""
+    def is_valid_for_client(self, client_identifier: str) -> bool:
+        """Check if session is valid for the given client."""
         return (
-            self.health_score >= 0.7 and self.consecutive_failures < 5 and self.success_rate >= 80.0
+            not self.is_expired and
+            self.client_identifier == client_identifier
         )
+
+
+class SessionManager(BaseModel):
+    """
+    Session manager for handling proxy session lifecycle.
+    
+    Provides thread-safe session creation, retrieval, cleanup,
+    and expiration management.
+    """
+
+    model_config = ConfigDict(
+        extra="forbid",
+        validate_default=True,
+        arbitrary_types_allowed=True,
+    )
+
+    config: SessionConfig = Field(default_factory=SessionConfig)
+    
+    def model_post_init(self, __context: Any = None) -> None:
+        """Initialize non-serializable attributes after Pydantic initialization."""
+        # Internal session storage (not Pydantic fields)
+        self._sessions: Dict[str, ProxySession] = {}
+        self._lock = threading.RLock()
+        self._last_cleanup = datetime.now(timezone.utc)
 
     @computed_field
     @property
-    def performance_stability(self) -> str:
-        """Performance stability assessment."""
-        if not self.avg_response_time or not self.min_response_time or not self.max_response_time:
-            return "unknown"
+    def session_count(self) -> int:
+        """Get current number of active sessions."""
+        return len(self._sessions)
 
-        # Calculate coefficient of variation (simplified)
-        range_ratio = (self.max_response_time - self.min_response_time) / self.avg_response_time
+    @computed_field
+    @property
+    def expired_session_count(self) -> int:
+        """Count expired sessions that need cleanup."""
+        with self._lock:
+            return sum(1 for session in self._sessions.values() if session.is_expired)
 
-        if range_ratio < 0.2:
-            return "very_stable"
-        elif range_ratio < 0.5:
-            return "stable"
-        elif range_ratio < 1.0:
-            return "moderate"
-        else:
-            return "unstable"
+    def create_session(
+        self,
+        session_id: str,
+        client_identifier: str,
+        assigned_proxy_host: str,
+        assigned_proxy_port: int,
+        **metadata: Any,
+    ) -> ProxySession:
+        """Create a new proxy session."""
+        if not self.config.enable_sticky_sessions:
+            raise ValueError("Sticky sessions are not enabled")
+        
+        with self._lock:
+            # Check session limit
+            if len(self._sessions) >= self.config.max_sessions:
+                self._cleanup_expired_sessions()
+                if len(self._sessions) >= self.config.max_sessions:
+                    raise ValueError("Maximum session limit reached")
+            
+            # Create session
+            session = ProxySession(
+                session_id=session_id,
+                client_identifier=client_identifier,
+                assigned_proxy_host=assigned_proxy_host,
+                assigned_proxy_port=assigned_proxy_port,
+                session_ttl_seconds=self.config.session_ttl_seconds,
+                metadata=metadata,
+            )
+            
+            self._sessions[session_id] = session
+            return session
+
+    def get_session(self, session_id: str) -> Optional[ProxySession]:
+        """Get session by ID, return None if expired or not found."""
+        with self._lock:
+            session = self._sessions.get(session_id)
+            if session is None:
+                return None
+            
+            if session.is_expired:
+                # Clean up expired session
+                del self._sessions[session_id]
+                return None
+            
+            return session
+
+    def get_session_for_client(self, client_identifier: str) -> Optional[ProxySession]:
+        """Find active session for the given client identifier."""
+        with self._lock:
+            for session in self._sessions.values():
+                if session.is_valid_for_client(client_identifier):
+                    return session
+            return None
+
+    def touch_session(self, session_id: str) -> bool:
+        """Touch session to update last_used_at and use_count."""
+        session = self.get_session(session_id)
+        if session is None:
+            return False
+        
+        session.touch()
+        return True
+
+    def remove_session(self, session_id: str) -> bool:
+        """Remove session by ID."""
+        with self._lock:
+            return self._sessions.pop(session_id, None) is not None
+
+    def cleanup_expired_sessions(self) -> int:
+        """Clean up expired sessions and return count removed."""
+        return self._cleanup_expired_sessions()
+
+    def _cleanup_expired_sessions(self) -> int:
+        """Internal method to clean up expired sessions."""
+        with self._lock:
+            expired_ids = [
+                session_id for session_id, session in self._sessions.items()
+                if session.is_expired
+            ]
+            
+            for session_id in expired_ids:
+                del self._sessions[session_id]
+            
+            self._last_cleanup = datetime.now(timezone.utc)
+            return len(expired_ids)
+
+    def should_cleanup(self) -> bool:
+        """Check if cleanup should be performed based on interval."""
+        cleanup_interval = timedelta(seconds=self.config.cleanup_interval_seconds)
+        return datetime.now(timezone.utc) - self._last_cleanup > cleanup_interval
+
+    def get_session_stats(self) -> Dict[str, Any]:
+        """Get session statistics."""
+        with self._lock:
+            total_sessions = len(self._sessions)
+            expired_count = sum(1 for s in self._sessions.values() if s.is_expired)
+            active_count = total_sessions - expired_count
+            
+            if self._sessions:
+                total_uses = sum(s.use_count for s in self._sessions.values())
+                avg_uses = total_uses / total_sessions
+            else:
+                avg_uses = 0.0
+            
+            return {
+                "total_sessions": total_sessions,
+                "active_sessions": active_count,
+                "expired_sessions": expired_count,
+                "average_uses_per_session": avg_uses,
+                "max_sessions": self.config.max_sessions,
+                "session_utilization": active_count / self.config.max_sessions,
+                "last_cleanup": self._last_cleanup.isoformat(),
+            }
+
+    def clear_all_sessions(self) -> int:
+        """Clear all sessions and return count removed."""
+        with self._lock:
+            count = len(self._sessions)
+            self._sessions.clear()
+            return count
 
 
-class ProxyCapabilities(BaseModel):
-    """Proxy feature support information."""
-
-    supports_https: bool = True
-    supports_connect_method: bool = True
-    supports_udp: bool = False
-    max_concurrent_connections: Optional[int] = None
-    bandwidth_limit_mbps: Optional[float] = None
-    protocol_versions: List[str] = Field(default_factory=list)
+# === Core Proxy Models ===
 
 
 class Proxy(BaseModel):
@@ -799,8 +864,8 @@ class Proxy(BaseModel):
         str_strip_whitespace=True,
         validate_default=True,
         use_enum_values=True,
-        serialize_by_alias=False,  # Performance optimization
-        validate_assignment=True,  # Enhanced type safety
+        serialize_by_alias=False,
+        validate_assignment=True,
         json_schema_extra={
             "examples": [
                 {
@@ -887,231 +952,222 @@ class Proxy(BaseModel):
         None, max_length=500, description="Reason for blacklisting"
     )
 
-    # Target-based health tracking
-    target_health: Dict[str, TargetHealthStatus] = Field(
-        default_factory=dict,
-        description="Per-target health status mapping target_id -> TargetHealthStatus",
-    )
+    # Target-based health tracking  
+    def __init__(self, **data: Any) -> None:
+        """Initialize proxy with target health tracking."""
+        super().__init__(**data)
+        # Initialize target_health as a regular dict, not a Pydantic field
+        if not hasattr(self, 'target_health'):
+            self.target_health: Dict[str, TargetHealthStatus] = {}
 
     @model_validator(mode="before")
     @classmethod
-    def _resolve_ip_from_host(cls, data: Any) -> Any:
+    def preprocess_data(cls, data: Any) -> Any:
+        """Preprocess and normalize input data."""
         if isinstance(data, dict):
-            d = cast(Dict[str, Any], data)
-            host = d.get("host")
-            if host and "ip" not in d:
-                try:
-                    # If host is an IP address, use it as the IP field
-                    d["ip"] = ip_address(str(host))
-                except ValueError:
-                    # If host is a hostname, set ip equal to host for now
-                    # The actual IP resolution should happen during validation
-                    d["ip"] = str(host)
-        return cast(Any, data)
+            data = dict(data)  # Ensure we have a mutable dict
+            # Handle legacy scheme field
+            if "scheme" in data and "schemes" not in data:
+                data["schemes"] = [data.pop("scheme")]
+            
+            # Handle protocol alias
+            if "protocol" in data and "schemes" not in data:
+                data["schemes"] = [data.pop("protocol")]
+        
+        return data
 
     @field_validator("ip", mode="before")
     @classmethod
-    def _validate_ip(cls, v: Any) -> Union[IPv4Address, IPv6Address, str]:
-        """Validate IP address field, allowing valid hostnames as fallback."""
+    def validate_ip(cls, v: Any) -> Union[IPv4Address, IPv6Address, str]:
+        """Validate IP address format."""
         if isinstance(v, (IPv4Address, IPv6Address)):
             return v
-        if not isinstance(v, str):
-            # Only allow strings and IP address objects
-            raise ValueError("IP address must be a string or IP address")
-
-        # Try to parse as IP address first
-        try:
-            return ip_address(str(v))
-        except ValueError:
-            pass
-
-        # Check if it's a reasonable hostname format
-        hostname = str(v)
-        if not hostname or len(hostname) > 253:
-            raise ValueError("Invalid hostname format")
-
-        # Basic hostname validation
-        # Must not start/end with dots, no consecutive dots
-        if hostname.startswith(".") or hostname.endswith(".") or ".." in hostname:
-            raise ValueError("Invalid hostname format")
-
-        # Split into labels and check each
-        labels = hostname.split(".")
-        for label in labels:
-            if not label or len(label) > 63:
-                raise ValueError("Invalid hostname format")
-            # Labels should contain only alphanumeric and hyphens
-            # Must not start/end with hyphen
-            if not all(c.isalnum() or c == "-" for c in label):
-                raise ValueError("Invalid hostname format")
-            if label.startswith("-") or label.endswith("-"):
-                raise ValueError("Invalid hostname format")
-
-        return hostname
+        
+        if isinstance(v, str):
+            v = v.strip()
+            try:
+                return ip_address(v)
+            except ValueError:
+                # Keep as string for hostname resolution
+                return v
+        
+        raise ValueError(f"Invalid IP address format: {v}")
 
     @field_validator("city", mode="before")
     @classmethod
-    def _empty_to_none(cls, v: Any) -> Optional[str]:
-        if isinstance(v, str):
-            return v.strip() or None
+    def normalize_city(cls, v: Optional[str]) -> Optional[str]:
+        """Normalize city names."""
         if v is None:
             return None
-        return None
+        
+        city = str(v).strip()
+        if not city:
+            return None
+        
+        # Basic normalization
+        city = city.title()
+        return city
 
     @field_validator("response_time", mode="before")
     @classmethod
-    def _coerce_response_time(cls, v: Any) -> Optional[float]:
+    def convert_response_time(cls, v: Any) -> Optional[float]:
+        """Convert response time to float with validation."""
         if v is None:
             return None
+        
         try:
-            return float(v)
-        except (TypeError, ValueError):
+            rt = float(v)
+            return rt if rt > 0 else None
+        except (ValueError, TypeError):
             return None
 
     @field_validator("schemes", mode="before")
     @classmethod
-    def _validate_schemes(cls, v: List[Any] | str | None) -> List[Scheme]:
-        """
-        Coerce input to List[Scheme], case-insensitive.
-        """
-        mapping = {
-            "http": Scheme.HTTP,
-            "https": Scheme.HTTPS,
-            "socks4": Scheme.SOCKS4,
-            "socks5": Scheme.SOCKS5,
-        }
-        items: Set[str] = set()
+    def normalize_schemes(cls, v: Any) -> List[str]:
+        """Normalize and validate proxy schemes."""
+        schemes: List[str] = []
+        
         if isinstance(v, str):
-            for s in v.split(","):
-                items.add(s.lower().strip())
-        elif isinstance(v, list):
-            for s in v:
-                try:
-                    items.add(str(s).lower().strip())
-                except (TypeError, ValueError):
-                    continue
+            schemes = [v.lower().strip()]
+        elif hasattr(v, '__iter__') and not isinstance(v, (str, bytes)):
+            try:
+                # Type ignore for dynamic conversion
+                schemes = [str(item).lower().strip() for item in v]  # type: ignore
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"Cannot convert schemes to strings: {v}") from e
         else:
-            return []
-        return [mapping[s] for s in items if s in mapping]
+            raise ValueError(f"Schemes must be string or iterable, got {type(v)}")
+        
+        # Validate each scheme against available options
+        valid_schemes = {s.value for s in Scheme}
+        validated: List[str] = [s for s in schemes if s in valid_schemes]
+        
+        if not validated:
+            raise ValueError(f"No valid schemes found in: {v}")
+        
+        return validated
 
     @field_validator("anonymity", mode="before")
     @classmethod
-    def _normalize_anonymity(cls, v: Any) -> AnonymityLevel:
-        mapping = {
-            "0": AnonymityLevel.TRANSPARENT,
-            "1": AnonymityLevel.ANONYMOUS,
-            "2": AnonymityLevel.ELITE,
-        }
-        if isinstance(v, str) and v.isdigit():
-            return mapping.get(v, AnonymityLevel.UNKNOWN)
+    def normalize_anonymity(cls, v: Any) -> str:
+        """Normalize anonymity level."""
+        if v is None:
+            return AnonymityLevel.UNKNOWN
+        
         if isinstance(v, AnonymityLevel):
             return v
-        try:
-            return AnonymityLevel(v.lower())
-        except (ValueError, AttributeError):
+        
+        v_str = str(v).upper()
+        
+        # Handle common variations
+        if v_str in ["HIGH", "ELITE", "ANONYMOUS"]:
+            return AnonymityLevel.ELITE
+        elif v_str in ["LOW", "TRANSPARENT"]:
+            return AnonymityLevel.TRANSPARENT
+        elif v_str in ["MEDIUM", "ANONYMOUS"]:
+            return AnonymityLevel.ANONYMOUS
+        else:
             return AnonymityLevel.UNKNOWN
 
     @field_serializer("last_checked", when_used="json")
-    def _serialize_last_checked(self, v: datetime) -> str:
-        """Serialize datetime in clean ISO format for API compatibility."""
-        return v.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+    def serialize_datetime(self, dt: datetime) -> str:
+        """Serialize datetime as ISO format string."""
+        return dt.isoformat()
 
     @field_serializer("schemes", mode="plain")
-    def _serialize_schemes(self, schemes: List[Union[Scheme, str]]) -> List[str]:
-        """Serialize schemes as string list for API compatibility."""
-        return [s.value if isinstance(s, Scheme) else s for s in schemes]
+    def serialize_schemes(self, schemes: List[Scheme]) -> List[str]:
+        """Serialize schemes as string list."""
+        return [s.value if hasattr(s, 'value') else str(s) for s in schemes]
 
     @field_serializer("metadata", mode="plain")
-    def _serialize_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
-        """Enhanced metadata serialization with computed stats (only when requested)."""
-        # For normal serialization, return metadata as-is for round-trip compatibility
-        # Computed fields can be accessed separately via the computed_field properties
-        return dict(metadata)
+    def serialize_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure metadata is JSON-serializable."""
+        return {k: v for k, v in metadata.items() if v is not None}
 
     @computed_field
     @property
     def intelligent_quality_score(self) -> float:
-        """Computed quality score based on multiple performance factors."""
-        # Check for target-based health data first
-        if self.target_health:
-            return self._compute_target_weighted_score()
-
-        # Fallback to legacy single-target scoring
+        """
+        Compute intelligent quality score using multiple factors.
+        
+        This replaces the simple quality_score with a weighted calculation
+        that considers target-specific performance, global factors, and
+        legacy compatibility.
+        """
+        # If we have target-specific health data, use it
+        target_score = self._compute_target_weighted_score()
+        if target_score > 0:
+            return self._apply_global_quality_factors(target_score)
+        
+        # Fall back to legacy quality score computation
         return self._compute_legacy_quality_score()
 
     def _compute_target_weighted_score(self) -> float:
-        """Compute quality score based on target-weighted performance."""
+        """Compute weighted quality score from target health data."""
         if not self.target_health:
-            return 0.5
-
+            return 0.0
+        
         total_weight = 0.0
-        weighted_score = 0.0
-
-        # TODO: Get target definitions from somewhere (maybe context or global registry)
-        # For now, treat all targets with equal weight
-        for health_status in self.target_health.values():
-            target_weight = 1.0  # Default weight, should come from TargetDefinition
-            target_score = health_status.target_quality_score
-
-            weighted_score += target_score * target_weight
-            total_weight += target_weight
-
-        if total_weight == 0:
-            return 0.5
-
-        base_score = weighted_score / total_weight
-
-        # Apply global factors (anonymity, overall response time)
-        return self._apply_global_quality_factors(base_score)
+        weighted_sum = 0.0
+        
+        for target_health in self.target_health.values():
+            # Use weight from target definition if available, otherwise default to 1.0
+            weight = 1.0  # Would be retrieved from TargetDefinition in practice
+            
+            weighted_sum += target_health.quality_score * weight
+            total_weight += weight
+        
+        return weighted_sum / total_weight if total_weight > 0 else 0.0
 
     def _compute_legacy_quality_score(self) -> float:
-        """Legacy single-target quality scoring for backward compatibility."""
-        # Access field values using __dict__ to avoid FieldInfo issues
-        metrics_value = self.__dict__.get("metrics")
-        if metrics_value is None:
-            return 0.5  # Neutral score for new proxies
-
-        # Multi-factor quality calculation with weighted components
-        success_weight = metrics_value.success_rate * 0.4
-
-        # Speed component - faster proxies get higher scores
-        speed_weight = 0.0
-        if self.response_time is not None and self.response_time > 0:
-            # Convert response time to score: 1 second = 0.3, 0.1 second = 1.0
-            speed_weight = min(1.0, (1.0 / self.response_time) * 0.1) * 0.3
-
-        # Uptime component
-        uptime_weight = (metrics_value.uptime_percentage or 0.5) * 0.2
-
-        # Anonymity premium - higher anonymity levels get bonus points
-        anonymity_bonus = {
-            AnonymityLevel.ELITE: 0.1,
-            AnonymityLevel.ANONYMOUS: 0.07,
-            AnonymityLevel.TRANSPARENT: 0.03,
-            AnonymityLevel.UNKNOWN: 0.05,
-        }.get(self.anonymity, 0.05)
-
-        return min(1.0, success_weight + speed_weight + uptime_weight + anonymity_bonus)
+        """Compute quality score using legacy factors."""
+        if self.quality_score is not None:
+            return float(self.quality_score)
+        
+        # Basic scoring based on available metrics
+        base_score = 0.5  # Default neutral score
+        
+        # Response time factor
+        if self.response_time is not None:
+            if self.response_time < 1.0:
+                base_score += 0.2
+            elif self.response_time < 3.0:
+                base_score += 0.1
+            elif self.response_time > 10.0:
+                base_score -= 0.2
+        
+        # Status factor
+        if self.status == ProxyStatus.ACTIVE:
+            base_score += 0.1
+        elif self.status == ProxyStatus.BLACKLISTED:
+            base_score = 0.0
+        
+        # Consecutive failures penalty
+        if self.error_state.consecutive_failures > 0:
+            penalty = min(0.3, self.error_state.consecutive_failures * 0.1)
+            base_score -= penalty
+        
+        return max(0.0, min(1.0, base_score))
 
     def _apply_global_quality_factors(self, base_score: float) -> float:
-        """Apply global quality factors like anonymity and response time."""
+        """Apply global factors to the base quality score."""
+        adjusted_score = base_score
+        
         # Anonymity bonus
-        anonymity_bonus = {
-            AnonymityLevel.ELITE: 0.1,
-            AnonymityLevel.ANONYMOUS: 0.07,
-            AnonymityLevel.TRANSPARENT: 0.03,
-            AnonymityLevel.UNKNOWN: 0.05,
-        }.get(self.anonymity, 0.05)
-
-        # Global response time factor (if available)
-        speed_factor = 0.0
-        if self.response_time is not None and self.response_time > 0:
-            if self.response_time < 1.0:
-                speed_factor = 0.05  # Small global bonus for fast proxies
-            elif self.response_time > 10.0:
-                speed_factor = -0.05  # Small global penalty for very slow proxies
-
-        return max(0.0, min(1.0, base_score + anonymity_bonus + speed_factor))
+        if self.anonymity == AnonymityLevel.ELITE:
+            adjusted_score = min(1.0, adjusted_score * 1.05)
+        elif self.anonymity == AnonymityLevel.TRANSPARENT:
+            adjusted_score *= 0.95
+        
+        # HTTPS support bonus
+        if Scheme.HTTPS in self.schemes:
+            adjusted_score = min(1.0, adjusted_score * 1.02)
+        
+        # Error state penalties
+        if self.error_state.is_in_cooldown:
+            adjusted_score *= 0.8
+        
+        return max(0.0, min(1.0, adjusted_score))
 
     def get_target_health(self, target_id: str) -> Optional[TargetHealthStatus]:
         """Get health status for a specific target."""
@@ -1123,108 +1179,91 @@ class Proxy(BaseModel):
         """Update health status for a specific target."""
         if target_id not in self.target_health:
             self.target_health[target_id] = TargetHealthStatus(target_id=target_id)
-
-        health_status = self.target_health[target_id]
+        
+        target_health = self.target_health[target_id]
+        
         if success:
-            health_status.record_success(response_time)
+            target_health.record_success(response_time)
         else:
-            health_status.record_failure()
+            target_health.record_failure()
 
     def get_target_quality_score(self, target_id: str) -> float:
         """Get quality score for a specific target."""
-        health_status = self.target_health.get(target_id)
-        if health_status is None:
-            return 0.5  # Neutral score for unknown targets
-        return health_status.target_quality_score
+        target_health = self.get_target_health(target_id)
+        if target_health is None:
+            return 0.0
+        return target_health.quality_score
 
     @computed_field
-    @property
-    def reliability_tier(self) -> str:
-        """Computed reliability classification based on performance."""
-        score = self.intelligent_quality_score
-        if score >= 0.9:
-            return "premium"
-        elif score >= 0.7:
-            return "standard"
-        elif score >= 0.5:
-            return "basic"
-        else:
-            return "unreliable"
-
-    @computed_field
-    @property
-    def performance_category(self) -> str:
-        """Performance category based on response time."""
-        if self.response_time is None:
-            return "untested"
-        elif self.response_time < 0.5:
-            return "fast"
-        elif self.response_time < 2.0:
-            return "moderate"
-        elif self.response_time < 5.0:
-            return "slow"
-        else:
-            return "very_slow"
-
-    @computed_field
-    @property
-    def usage_recommendation(self) -> str:
-        """Smart usage recommendation based on proxy characteristics."""
-        if self.reliability_tier == "premium" and self.performance_category in ["fast", "moderate"]:
-            return "recommended_for_production"
-        elif self.reliability_tier in ["standard", "premium"]:
-            return "suitable_for_general_use"
-        elif self.reliability_tier == "basic":
-            return "suitable_for_testing"
-        else:
-            return "not_recommended"
-
-    @property
-    def uris(self) -> Dict[str, str]:
-        """Returns a dict of proxy URIs for each supported scheme with RFC 2732 IPv6 compliance."""
-        # Format host with IPv6 brackets if needed per RFC 2732
-        # Use IP field for proper type detection, fallback to host string
-        host_formatted = f"[{self.ip}]" if isinstance(self.ip, IPv6Address) else str(self.host)
-        return {
-            (
-                scheme.value if hasattr(scheme, "value") else str(scheme)
-            ): f"{scheme.value if hasattr(scheme, 'value') else str(scheme)}://{host_formatted}:{self.port}"
-            for scheme in self.schemes
-        }
-
-    @property
-    def authenticated_uri(self) -> str:
-        """Primary proxy URI with authentication if available and RFC 2732 IPv6 compliance."""
-        scheme = self.schemes[0]
-        # Schemes are validated as Scheme enum values, extract string value
-        scheme_str = scheme.value if hasattr(scheme, "value") else str(scheme)
-
-        # Format host with IPv6 brackets if needed per RFC 2732
-        # Use IP field for proper type detection, fallback to host string
-        host_formatted = (
-            f"[{self.ip}]"
-            if self.ip and isinstance(self.ip, IPv6Address)
-            else str(self.ip or self.host)
-        )
-
-        # Access field values using __dict__ to avoid FieldInfo issues
-        credentials_value = self.__dict__.get("credentials")
-        if credentials_value is not None:
-            auth = f"{credentials_value.username}:{credentials_value.password}@"
-        else:
-            auth = ""
-        return f"{scheme_str}://{auth}{host_formatted}:{self.port}"
-
     @property
     def is_healthy(self) -> bool:
-        """Quick health check based on recent metrics."""
-        if self.status != ProxyStatus.ACTIVE:
+        """Determine if proxy is currently healthy."""
+        # Check error state first
+        if not self.error_state.is_available():
             return False
-        # Access field values using __dict__ to avoid FieldInfo issues
-        metrics_value = self.__dict__.get("metrics")
-        if metrics_value is None or metrics_value.total_requests == 0:
-            return True  # No data yet, assume healthy
-        return metrics_value.success_rate >= 0.7
+        
+        # Check status
+        if self.status in [ProxyStatus.BLACKLISTED, ProxyStatus.INACTIVE]:
+            return False
+        
+        # Use metrics if available
+        if self.metrics is not None:
+            return self.metrics.is_healthy
+        
+        # Basic health check
+        return (
+            self.error_state.consecutive_failures < 3 and
+            (self.response_time is None or self.response_time < 10.0)
+        )
+
+    @computed_field
+    @property
+    def url(self) -> str:
+        """Generate primary proxy URL."""
+        primary_scheme = self.schemes[0] if self.schemes else "http"
+        return f"{primary_scheme}://{self.host}:{self.port}"
+
+    @computed_field
+    @property
+    def display_name(self) -> str:
+        """Generate human-readable display name."""
+        location_parts: List[str] = []
+        
+        if self.city:
+            location_parts.append(self.city)
+        if self.country_code:
+            location_parts.append(self.country_code)
+        
+        location = ", ".join(location_parts) if location_parts else "Unknown"
+        
+        return f"{self.host}:{self.port} ({location})"
+
+    @property
+    def primary_scheme(self) -> Scheme:
+        """Get the primary/preferred scheme for this proxy."""
+        if not self.schemes:
+            return Scheme.HTTP
+        
+        # Prefer HTTPS if available
+        if Scheme.HTTPS in self.schemes:
+            return Scheme.HTTPS
+        
+        # Then SOCKS5
+        if Scheme.SOCKS5 in self.schemes:
+            return Scheme.SOCKS5
+        
+        # Return first available
+        return self.schemes[0]
+
+    @property
+    def supports_https(self) -> bool:
+        """Check if proxy supports HTTPS."""
+        return Scheme.HTTPS in self.schemes
+
+    @property
+    def is_socks(self) -> bool:
+        """Check if proxy supports SOCKS protocols."""
+        return any(scheme in [Scheme.SOCKS4, Scheme.SOCKS5] for scheme in self.schemes)
 
 
 class StrictProxy(BaseModel):
@@ -1243,11 +1282,10 @@ class StrictProxy(BaseModel):
         str_strip_whitespace=True,
         validate_default=True,
         extra="forbid",
-        frozen=True,  # Immutable after creation
-        validate_assignment=True,  # Validate on assignment
+        frozen=True,
+        validate_assignment=True,
         use_enum_values=True,
         populate_by_name=True,
-        # Performance optimizations
         arbitrary_types_allowed=False,
     )
 
@@ -1272,113 +1310,11 @@ class StrictProxy(BaseModel):
 
     @computed_field
     @property
-    def is_production_ready(self) -> bool:
-        """Determine if proxy meets production standards."""
-        return (
-            self.quality_score >= 0.8
-            and self.response_time is not None
-            and self.response_time < 2.0
-            and self.anonymity in [AnonymityLevel.ANONYMOUS, AnonymityLevel.ELITE]
-        )
+    def url(self) -> str:
+        """Generate proxy URL with primary scheme."""
+        primary_scheme = self.schemes[0] if self.schemes else Scheme.HTTP
+        return f"{primary_scheme}://{self.host}:{self.port}"
 
 
-# === Session Management Models ===
-
-
-class SessionProxy(BaseModel):
-    """Session-to-proxy mapping with TTL for state-aware proxy stickiness.
-
-    This model tracks the assignment of proxies to specific session IDs,
-    enabling consistent proxy usage across multiple requests while handling
-    proxy health changes and session expiration gracefully.
-
-    Attributes
-    ----------
-    session_id : str
-        Unique identifier for the session.
-    proxy : Proxy
-        The assigned proxy instance.
-    assigned_at : datetime
-        When the proxy was assigned to this session.
-    expires_at : datetime
-        When this session assignment expires.
-    target_id : str, optional
-        Target ID for target-specific session stickiness.
-
-    Examples
-    --------
-    Create a session with 30-minute TTL:
-        >>> from datetime import datetime, timedelta, timezone
-        >>> expires = datetime.now(timezone.utc) + timedelta(minutes=30)
-        >>> session = SessionProxy(
-        ...     session_id="user123",
-        ...     proxy=proxy_instance,
-        ...     expires_at=expires
-        ... )
-        >>> print(session.ttl_remaining)
-        1800.0
-    """
-
-    session_id: str = Field(..., description="Unique session identifier")
-    proxy: Proxy = Field(..., description="Assigned proxy instance")
-    assigned_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), description="Assignment timestamp"
-    )
-    expires_at: datetime = Field(..., description="Session expiration time")
-    target_id: Optional[str] = Field(None, description="Target ID for target-specific sessions")
-
-    model_config = ConfigDict(
-        str_strip_whitespace=True,
-        validate_assignment=True,
-        frozen=False,  # Allow updates for proxy health changes
-    )
-
-    @computed_field
-    @property
-    def is_expired(self) -> bool:
-        """Check if session has expired."""
-        return datetime.now(timezone.utc) >= self.expires_at
-
-    @computed_field
-    @property
-    def ttl_remaining(self) -> float:
-        """Get remaining TTL in seconds."""
-        delta = self.expires_at - datetime.now(timezone.utc)
-        return max(0.0, delta.total_seconds())
-
-    @computed_field
-    @property
-    def is_proxy_healthy(self) -> bool:
-        """Check if assigned proxy is currently healthy."""
-        return self.proxy.status == ProxyStatus.ACTIVE and self.proxy.error_state.is_available()
-
-    @computed_field
-    @property
-    def should_reassign(self) -> bool:
-        """Determine if session should be reassigned a new proxy."""
-        return self.is_expired or not self.is_proxy_healthy
-
-    def extend_ttl(self, additional_seconds: int) -> None:
-        """Extend session TTL by specified seconds.
-
-        Parameters
-        ----------
-        additional_seconds : int
-            Seconds to add to current expiration time.
-        """
-        self.expires_at += timedelta(seconds=additional_seconds)
-
-    def update_proxy(self, new_proxy: Proxy) -> None:
-        """Update assigned proxy and reset assignment time.
-
-        Parameters
-        ----------
-        new_proxy : Proxy
-            New proxy to assign to this session.
-        """
-        self.proxy = new_proxy
-        self.assigned_at = datetime.now(timezone.utc)
-
-
-# Legacy alias for backward compatibility
+# Legacy aliases for backward compatibility
 ProxyScheme = Scheme

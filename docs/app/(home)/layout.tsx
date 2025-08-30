@@ -21,6 +21,13 @@ const NAVIGATION_ITEMS = [
     accent: 'blue',
   },
   {
+    href: '/usage',
+    icon: RiFileCodeLine,
+    label: 'Usage',
+    description: 'How to use ProxyWhirl effectively',
+    accent: 'orange',
+  },
+  {
     href: '/reference',
     icon: RiCodeSSlashLine,
     label: 'API Reference',
@@ -33,14 +40,7 @@ const NAVIGATION_ITEMS = [
     label: 'Contributing',
     description: 'Join our community',
     accent: 'purple',
-  },
-  {
-    href: '/dev-notes',
-    icon: RiFileCodeLine,
-    label: 'Dev Notes',
-    description: 'Technical insights and updates',
-    accent: 'orange',
-  },
+  }
 ] as const;
 
 // Enhanced navigation button component

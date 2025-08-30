@@ -15,10 +15,10 @@ from proxywhirl.loaders.base import BaseLoader
 
 class PubProxyLoader(BaseLoader):
     """Load proxies from PubProxy API service.
-    
+
     Provides access to a curated list of public proxies via JSON API.
     Includes detailed proxy information like country, anonymity level, and speed.
-    
+
     Features:
     - JSON API with structured proxy data
     - Proxy quality metrics (speed, anonymity level)
@@ -50,55 +50,55 @@ class PubProxyLoader(BaseLoader):
     )
     def load(self) -> DataFrame:
         """Load proxies from PubProxy API.
-        
+
         Returns:
             DataFrame: Proxy data with host, port, protocol, and metadata columns
-            
+
         Raises:
             httpx.HTTPError: If the request fails after retries
         """
         rows: List[dict[str, object]] = []
-        
+
         try:
             with httpx.Client(timeout=30.0) as client:
                 response = client.get(self.url, params=self.params)
                 response.raise_for_status()
-                
+
                 data = response.json()
-                
+
                 # Extract proxy list from response
                 proxies = data.get("data", [])
                 count = data.get("count", 0)
-                
+
                 if not proxies:
                     logger.warning("No proxies returned from PubProxy API")
                     return pd.DataFrame(rows)
-                
+
                 logger.debug(f"PubProxy API returned {count} proxies")
-                
+
                 # Process each proxy
                 for proxy in proxies:
                     try:
                         host = str(proxy.get("ip", "")).strip()
                         port = int(str(proxy.get("port", "")))
-                        
+
                         # Validate basic requirements
                         if not host or not (1 <= port <= 65535):
                             continue
-                        
+
                         # Extract additional metadata
                         country = str(proxy.get("country", "")).upper()
                         proxy_level = str(proxy.get("proxy_level", ""))
                         proxy_type = str(proxy.get("type", "http")).lower()
                         speed = str(proxy.get("speed", ""))
-                        
+
                         # Build proxy record
                         proxy_record = {
                             "host": host,
                             "port": port,
                             "protocol": proxy_type,
                         }
-                        
+
                         # Add metadata if available
                         if country:
                             proxy_record["country"] = country
@@ -106,15 +106,15 @@ class PubProxyLoader(BaseLoader):
                             proxy_record["anonymity"] = proxy_level
                         if speed:
                             proxy_record["speed"] = speed
-                            
+
                         rows.append(proxy_record)
-                        
+
                     except (ValueError, TypeError, KeyError) as e:
                         logger.debug(f"Skipping invalid proxy from PubProxy: {e}")
                         continue
-                
+
                 logger.info(f"Loaded {len(rows)} proxies from PubProxy API")
-                
+
         except httpx.HTTPError as e:
             logger.error(f"HTTP error loading PubProxy proxies: {e}")
             raise

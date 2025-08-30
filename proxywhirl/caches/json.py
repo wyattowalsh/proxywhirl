@@ -27,7 +27,8 @@ from proxywhirl.caches.base import (
     CacheMetrics,
     DuplicateStrategy,
 )
-from proxywhirl.models import CacheType, Proxy
+from proxywhirl.models import Proxy
+from .config import CacheType
 
 
 class JsonProxyCache(BaseProxyCache):
@@ -81,6 +82,19 @@ class JsonProxyCache(BaseProxyCache):
             "avg_save_time": 0.0,
             "avg_load_time": 0.0,
         }
+
+    # Abstract method implementations
+    async def _initialize_backend(self) -> None:
+        """Backend-specific initialization logic."""
+        await self._ensure_initialized()
+
+    async def _cleanup_backend(self) -> None:
+        """Backend-specific cleanup logic."""
+        if self.lock_file and self.lock_file.exists():
+            try:
+                self.lock_file.unlink()
+            except Exception as e:
+                logger.warning(f"Failed to clean up lock file: {e}")
 
     async def _ensure_initialized(self) -> None:
         """Initialize cache with comprehensive error handling and recovery."""

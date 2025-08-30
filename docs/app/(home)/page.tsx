@@ -7,11 +7,12 @@ import { AnimatedButton } from '@/components/ui/animated-button';
 import { HeroSection, FeatureGrid, CTASection } from '@/components/ui/animated-sections';
 import type { ReactNode } from 'react';
 import { LuZap, LuShieldCheck, LuLayers, LuArrowRight, LuGithub, LuSparkles, LuTerminal, LuBrainCircuit, LuDatabase } from 'react-icons/lu';
+import styles from './styles.module.css';
 
 // Enhanced data configuration with elite hacker approach
 const BRAND_CONFIG = {
   name: 'proxywhirl',
-  tagline: 'collect, validate, and rotate proxies',
+  tagline: 'rotating proxy system',
 } as const;
 
 type Feature = {
@@ -81,7 +82,7 @@ const ACTION_BUTTONS: ActionButton[] = [
 
 export default function HomePage() {
   return (
-    <div className="landing-page-container relative bg-black flex flex-col md:h-screen md:max-h-screen md:overflow-hidden">
+    <div className={`${styles.landingPageContainer} landing-page-container relative bg-black flex flex-col md:h-screen md:max-h-screen md:overflow-hidden`}>
       {/* Revolutionary Animated Background */}
       <AnimatedBackground />
       

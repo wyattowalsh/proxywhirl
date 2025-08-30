@@ -19,6 +19,183 @@ cd docs && pnpm build                  # Production build validation
 cd docs && pnpm type-check             # TypeScript validation
 ```
 
+## Complete Frontend Stack
+
+### Framework Configuration
+The documentation site uses these specific versions:
+- **Next.js**: `15.4.1` with App Router and Server Components
+- **React**: `19.1.1` with concurrent features and automatic batching
+- **TypeScript**: `5.9.2` strict mode with enhanced inference
+- **Tailwind CSS**: `4.1.12` with CSS variables and container queries
+- **Fumadocs**: `15.6.3` for MDX documentation framework
+
+### Core Dependencies
+```json
+{
+  "dependencies": {
+    "@ai-sdk/openai-compatible": "^1.0.11",  // AI integration for docs
+    "@ai-sdk/react": "^2.0.22",              // React AI hooks
+    "@radix-ui/react-collapsible": "^1.1.12", // Collapsible components
+    "@radix-ui/react-dialog": "^1.1.15",     // Modal dialogs
+    "@radix-ui/react-popover": "^1.1.15",    // Popover components
+    "@radix-ui/react-presence": "^1.1.5",    // Animation presence
+    "@radix-ui/react-scroll-area": "^1.2.10", // Custom scrollbars
+    "@radix-ui/react-separator": "^1.1.7",   // Visual separators
+    "@radix-ui/react-slot": "^1.2.3",        // Composition utilities
+    "ai": "^5.0.22",                         // Vercel AI SDK
+    "class-variance-authority": "^0.7.1",     // Conditional class variants
+    "clsx": "^2.1.1",                        // Conditional class names
+    "fumadocs-core": "15.6.3",               // Docs framework core
+    "fumadocs-mdx": "11.6.11",               // MDX processing
+    "fumadocs-python": "^0.0.3",             // Python docs generation
+    "fumadocs-ui": "15.6.3",                 // UI components for docs
+    "hast-util-to-jsx-runtime": "^2.3.6",    // AST to JSX conversion
+    "lucide-react": "^0.525.0",              // Icon library
+    "mermaid": "^11.10.1",                   // Diagram generation
+    "motion": "^12.23.12",                   // Animation library
+    "next": "15.4.1",                        // React framework
+    "next-themes": "^0.4.6",                 // Theme management
+    "react": "^19.1.1",                      // React library
+    "react-dom": "^19.1.1",                  // React DOM bindings
+    "react-icons": "^5.5.0",                 // Icon components
+    "remark": "^15.0.1",                     // Markdown processor
+    "remark-gfm": "^4.0.1",                  // GitHub Flavored Markdown
+    "remark-mdx": "^3.1.0",                  // MDX support
+    "remark-rehype": "^11.1.2",              // Markdown to HTML
+    "shiki": "^3.11.0",                      // Syntax highlighting
+    "tailwind-merge": "^3.3.1",              // Tailwind class merging
+    "zod": "^4.1.1"                          // Schema validation
+  }
+}
+```
+
+### Development Dependencies
+```json
+{
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.12",       // Tailwind PostCSS plugin
+    "@types/mdx": "^2.0.13",                 // MDX TypeScript types
+    "@types/node": "24.0.14",                // Node.js TypeScript types
+    "@types/react": "^19.1.11",              // React TypeScript types
+    "@types/react-dom": "^19.1.7",           // React DOM TypeScript types
+    "postcss": "^8.5.6",                     // CSS postprocessor
+    "tailwindcss": "^4.1.12",                // Utility-first CSS framework
+    "tw-animate-css": "^1.3.7",              // Tailwind animation utilities
+    "typescript": "^5.9.2"                   // TypeScript compiler
+  }
+}
+```
+
+## AI-Assisted Component Development
+
+### GitHub Copilot Integration
+When developing components, GitHub Copilot understands ProxyWhirl patterns:
+
+```tsx
+// GitHub Copilot recognizes this ProxyWhirl-specific pattern
+interface ProxyCardProps {
+  proxy: {
+    host: string;
+    port: number;
+    status: 'active' | 'inactive';
+    quality: number;
+  };
+}
+
+// AI-generated component following ProxyWhirl design system
+export function ProxyCard({ proxy }: ProxyCardProps) {
+  return (
+    <div className="border rounded-lg p-4 shadow-sm">
+      <div className="flex justify-between items-center">
+        <div className="font-mono text-sm">
+          {proxy.host}:{proxy.port}
+        </div>
+        <Badge variant={proxy.status === 'active' ? 'success' : 'secondary'}>
+          {proxy.status}
+        </Badge>
+      </div>
+      <div className="mt-2">
+        <QualityIndicator quality={proxy.quality} />
+      </div>
+    </div>
+  );
+}
+```
+
+### Modern React 19 Patterns
+```tsx
+// Use React 19 concurrent features
+import { use, Suspense } from 'react';
+
+// Server Components for better performance
+export default async function ProxyListPage() {
+  const proxies = await fetchProxies(); // Server-side data fetching
+  
+  return (
+    <Suspense fallback={<ProxyListSkeleton />}>
+      <ProxyList proxies={proxies} />
+    </Suspense>
+  );
+}
+
+// Client Components for interactivity
+'use client';
+export function InteractiveProxyCard({ proxy }: ProxyCardProps) {
+  const [isValidating, startTransition] = useTransition();
+  
+  const handleValidate = () => {
+    startTransition(async () => {
+      await validateProxy(proxy.id);
+    });
+  };
+  
+  return (
+    <Card>
+      <Button 
+        onClick={handleValidate} 
+        disabled={isValidating}
+      >
+        {isValidating ? 'Validating...' : 'Validate'}
+      </Button>
+    </Card>
+  );
+}
+```
+
+### Tailwind CSS 4.x Patterns
+```tsx
+// Use CSS variables and container queries
+const cardStyles = cn(
+  "relative overflow-hidden rounded-lg border bg-card text-card-foreground shadow",
+  "@container/card",
+  "@sm/card:flex-row @sm/card:items-center"
+);
+
+// Modern color system with CSS variables
+<div className="bg-background text-foreground border-border">
+  <div className="bg-primary text-primary-foreground">
+    ProxyWhirl Status
+  </div>
+</div>
+```
+
+# ProxyWhirl Frontend Instructions
+
+Follow these instructions for Next.js 15 + React 19 documentation site development with AI assistance.
+
+## Development Environment Setup
+
+### Required Package Management
+Always use `pnpm` exclusively for the documentation site:
+
+```bash
+# REQUIRED: Setup commands
+cd docs && pnpm install --frozen-lockfile
+cd docs && pnpm dev                    # Development server with Turbopack
+cd docs && pnpm build                  # Production build validation
+cd docs && pnpm type-check             # TypeScript validation
+```
+
 ### Framework Configuration
 The documentation site uses these specific versions:
 - **Next.js**: `15.4+` with App Router and Server Components
@@ -300,6 +477,316 @@ export function generateStaticParams() {
     { slug: 'api-reference' },
     { slug: 'examples' },
   ]
+}
+```
+
+## ProxyWhirl Documentation Site Patterns
+
+### Fumadocs Framework Integration
+
+ProxyWhirl uses Fumadocs for sophisticated technical documentation with MDX processing and interactive components.
+
+#### MDX Configuration and Processing
+```typescript
+// source.config.ts - Advanced MDX collection configuration
+import { defineConfig, defineDocs, frontmatterSchema, metaSchema } from 'fumadocs-mdx/config';
+
+export const docs = defineDocs({
+  docs: {
+    schema: frontmatterSchema.extend({
+      // ProxyWhirl-specific frontmatter fields
+      api_endpoint: z.string().optional(),
+      loader_compatibility: z.array(z.string()).optional(),
+      validation_stages: z.array(z.string()).optional(),
+      circuit_breaker_applicable: z.boolean().optional(),
+    }),
+  },
+  meta: {
+    schema: metaSchema.extend({
+      // Enhanced metadata for proxy documentation
+      category: z.enum(['core', 'loaders', 'validation', 'api', 'deployment']).optional(),
+      difficulty: z.enum(['beginner', 'intermediate', 'advanced']).optional(),
+    }),
+  },
+});
+```
+
+#### Interactive Proxy Demo Component
+```tsx
+// components/mdx/interactive-proxy-demo.tsx - Real-time proxy testing
+import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+
+export function InteractiveProxyDemo({ enableValidation = true, maxProxies = 10 }) {
+  const [proxies, setProxies] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedProxy, setSelectedProxy] = useState(null);
+  
+  const fetchProxies = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/proxies?limit=${maxProxies}`);
+      const data = await response.json();
+      setProxies(data.proxies || []);
+    } catch (error) {
+      console.error('Failed to fetch proxies:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const validateProxy = async (proxy) => {
+    try {
+      const response = await fetch('/api/proxies/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proxy_ids: [proxy.id] }),
+      });
+      const result = await response.json();
+      
+      setProxies(prev => prev.map(p => 
+        p.id === proxy.id 
+          ? { ...p, status: result.valid_proxies > 0 ? 'valid' : 'invalid' }
+          : p
+      ));
+    } catch (error) {
+      console.error('Validation failed:', error);
+    }
+  };
+  
+  return (
+    <div className="space-y-6">
+      <Button onClick={fetchProxies} disabled={loading}>
+        {loading ? 'Loading...' : 'Fetch Proxies'}
+      </Button>
+      
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {proxies.map(proxy => (
+          <Card key={proxy.id}>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <code className="text-sm">{proxy.host}:{proxy.port}</code>
+                <Badge variant={proxy.status === 'valid' ? 'success' : 'secondary'}>
+                  {proxy.scheme}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => setSelectedProxy(proxy)}>
+                  Select
+                </Button>
+                {enableValidation && (
+                  <Button size="sm" onClick={() => validateProxy(proxy)}>
+                    Validate
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+#### ProxyWhirl MDX Components
+```tsx
+// mdx-components.tsx - Comprehensive component mapping
+import defaultMdxComponents from 'fumadocs-ui/mdx';
+import * as TabsComponents from "fumadocs-ui/components/tabs";
+import { Mermaid } from "@/components/mdx/mermaid";
+import { ImageZoom } from 'fumadocs-ui/components/image-zoom';
+import * as Python from 'fumadocs-python/components';
+
+export function getMDXComponents(components?: MDXComponents): MDXComponents {
+  return {
+    ...defaultMdxComponents,
+    ...TabsComponents,
+    Mermaid,
+    img: (props) => <ImageZoom {...(props as any)} />,
+    ...Python,
+    
+    // ProxyWhirl-specific components
+    ProxyExample: ({ proxy, showValidation = false }) => (
+      <div className="proxy-example border rounded-lg p-4">
+        <Tabs items={["Sync", "Async", "Validation"]}>
+          <Tab value="sync">
+            <CodeBlock language="python">
+              {`from proxywhirl import ProxyWhirl
+pw = ProxyWhirl()
+proxy = pw.get_proxy()
+print(f"Using: {proxy.host}:{proxy.port}")`}
+            </CodeBlock>
+          </Tab>
+          <Tab value="async">
+            <CodeBlock language="python">
+              {`async with ProxyWhirl.create() as pw:
+    proxy = await pw.get_proxy_async()
+    print(f"Using: {proxy.host}:{proxy.port}")`}
+            </CodeBlock>
+          </Tab>
+          {showValidation && (
+            <Tab value="validation">
+              <CodeBlock language="python">
+                {`result = await pw.validate_proxies_async()
+print(f"Success rate: {result.success_rate:.1%}")`}
+              </CodeBlock>
+            </Tab>
+          )}
+        </Tabs>
+      </div>
+    ),
+    
+    ArchitectureDiagram: ({ focus = "overview" }) => (
+      <Mermaid>
+        {focus === "validation" ? `
+graph TD
+    A[Proxy] --> B[Stage 1: Connectivity]
+    B --> C{Connected?}
+    C -->|Yes| D[Stage 2: Anonymity]
+    C -->|No| E[Mark Invalid]
+    D --> F[Stage 3: Performance]
+    F --> G[Stage 4: Geographic]
+    G --> H[Stage 5: Anti-Detection]
+    H --> I[Circuit Breaker]
+` : `
+graph TB
+    A[ProxyWhirl Core] --> B[Cache System]
+    A --> C[Validator] 
+    A --> D[Rotator]
+    A --> E[Loaders]
+    B --> F[Memory/JSON/SQLite]
+    C --> G[5-Stage Pipeline]
+    D --> H[Multiple Strategies]
+    E --> I[Plugin Architecture]
+`}
+      </Mermaid>
+    ),
+    
+    ...components,
+  };
+}
+```
+
+#### API Documentation Generation
+```typescript  
+// scripts/generate-api-docs.mjs - Automated API reference
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+
+async function generateAPIDocumentation() {
+  const openAPISpec = await fetch('http://localhost:8000/openapi.json')
+    .then(res => res.json());
+  
+  const endpointDocs = Object.entries(openAPISpec.paths).map(([path, methods]) => {
+    return Object.entries(methods).map(([method, spec]) => ({
+      path,
+      method: method.toUpperCase(),
+      summary: spec.summary,
+      description: spec.description,
+      security: spec.security || [],
+      examples: generateCodeExamples(path, method, spec),
+    }));
+  }).flat();
+  
+  // Group by tags and generate MDX files
+  const groupedEndpoints = endpointDocs.reduce((acc, endpoint) => {
+    const tag = endpoint.tags?.[0] || 'General';
+    if (!acc[tag]) acc[tag] = [];
+    acc[tag].push(endpoint);
+    return acc;
+  }, {});
+  
+  Object.entries(groupedEndpoints).forEach(([tag, endpoints]) => {
+    const mdxContent = generateEndpointMDX(tag, endpoints);
+    writeFileSync(`content/docs/api/${tag.toLowerCase()}.mdx`, mdxContent);
+  });
+}
+
+function generateEndpointMDX(tag, endpoints) {
+  return `---
+title: "${tag} API"
+description: "${tag} endpoints for ProxyWhirl REST API"
+---
+
+# ${tag} API
+
+${endpoints.map(endpoint => `
+## ${endpoint.method} ${endpoint.path}
+
+${endpoint.description}
+
+### Request Examples
+
+<Tabs items={["Python", "curl", "JavaScript"]}>
+<Tab value="python">
+\`\`\`python
+${endpoint.examples.python}
+\`\`\`
+</Tab>
+<Tab value="curl">
+\`\`\`bash
+${endpoint.examples.curl}
+\`\`\`
+</Tab>
+<Tab value="javascript">
+\`\`\`javascript
+${endpoint.examples.javascript}
+\`\`\`
+</Tab>
+</Tabs>
+
+`).join('\n')}`;
+}
+```
+
+#### Performance Optimization Patterns
+```tsx
+// Advanced Next.js 15 + React 19 patterns
+import { Suspense, lazy } from 'react';
+import dynamic from 'next/dynamic';
+
+// Lazy load heavy components
+const InteractiveDemo = lazy(() => import('./interactive-proxy-demo'));
+const MermaidDiagram = dynamic(() => import('./mermaid'), {
+  loading: () => <div className="animate-pulse bg-muted h-64 rounded" />,
+  ssr: false,
+});
+
+// Intersection observer for performance
+function LazySection({ children, className }) {
+  const [isVisible, setIsVisible] = useState(false);
+  const ref = useRef();
+  
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, []);
+  
+  return (
+    <div ref={ref} className={className}>
+      {isVisible ? (
+        <Suspense fallback={<div>Loading...</div>}>
+          {children}
+        </Suspense>
+      ) : (
+        <div className="h-64 bg-muted animate-pulse rounded" />
+      )}
+    </div>
+  );
 }
 ```
 

@@ -54,7 +54,6 @@ from fastapi.security import (
     SecurityScopes,
 )
 from jose import JWTError, jwt
-from loguru import logger
 from orjson import dumps as orjson_dumps
 from passlib.context import CryptContext
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -69,6 +68,15 @@ from slowapi.util import get_remote_address
 from typing_extensions import Annotated
 
 from .auth import User, UserInDB, get_user_manager
+from .logger import (
+    LogLevel,
+    catch_and_log,
+    log_api_request,
+    log_operation,
+    log_performance,
+    logger,
+    should_sample_api_request,
+)
 from .models import (
     CacheType,
     Proxy,
@@ -82,19 +90,20 @@ from .settings import APISettings, get_api_settings
 
 class ORJSONResponse(JSONResponse):
     """High-performance JSON response using orjson for 2x faster serialization."""
-    
+
     media_type = "application/json"
-    
+
     def render(self, content: Any) -> bytes:
-        """Render content using orjson for optimal performance."""
+        """Render content to bytes using orjson for optimal performance."""
         if content is None:
             return b""
-        
-        # Use orjson for fast serialization with proper datetime handling
+
         return orjson_dumps(
             content,
-            option=orjson.OPT_NAIVE_UTC | orjson.OPT_SERIALIZE_NUMPY
+            option=orjson.OPT_NON_STR_KEYS | orjson.OPT_SERIALIZE_NUMPY | orjson.OPT_NAIVE_UTC,
+            default=str,
         )
+
 
 # === Security Configuration ===
 
@@ -303,10 +312,10 @@ class ConnectionManager:
     async def cleanup_stale_connections(self) -> int:
         """Clean up stale WebSocket connections and return count of cleaned connections."""
         total_cleaned = 0
-        
+
         for channel_name, connections in self.active_connections.items():
             stale_connections = set()
-            
+
             for connection in connections.copy():
                 try:
                     # Send a ping to check if connection is alive
@@ -314,15 +323,17 @@ class ConnectionManager:
                 except Exception:
                     # Connection is stale, mark for removal
                     stale_connections.add(connection)
-            
+
             # Remove stale connections
             for connection in stale_connections:
                 connections.discard(connection)
                 total_cleaned += 1
-            
+
             if stale_connections:
-                logger.debug(f"Cleaned {len(stale_connections)} stale connections from {channel_name}")
-        
+                logger.debug(
+                    f"Cleaned {len(stale_connections)} stale connections from {channel_name}"
+                )
+
         return total_cleaned
 
 
@@ -348,22 +359,22 @@ async def lifespan(app: FastAPI):
 
     # Initialize ProxyWhirl instance
     app.state.proxywhirl = ProxyWhirl(auto_validate=True)
-    
+
     # Track background tasks for proper cleanup
     background_tasks = []
 
     # Start health monitoring
     health_task = asyncio.create_task(health_monitoring_background())
     background_tasks.append(("Health Monitor", health_task))
-    
+
     # Start connection pool maintenance task
     pool_maintenance_task = asyncio.create_task(connection_pool_maintenance())
     background_tasks.append(("Connection Pool Maintenance", pool_maintenance_task))
-    
-    # Start cache cleanup task  
+
+    # Start cache cleanup task
     cache_cleanup_task = asyncio.create_task(cache_cleanup_background())
     background_tasks.append(("Cache Cleanup", cache_cleanup_task))
-    
+
     # Start expired session cleanup
     session_cleanup_task = asyncio.create_task(session_cleanup_background())
     background_tasks.append(("Session Cleanup", session_cleanup_task))
@@ -375,7 +386,7 @@ async def lifespan(app: FastAPI):
     # Graceful cleanup on shutdown
     logger.info("🔄 ProxyWhirl API shutting down...")
     logger.info("⏹️  Stopping background tasks...")
-    
+
     for task_name, task in background_tasks:
         task.cancel()
         try:
@@ -384,16 +395,16 @@ async def lifespan(app: FastAPI):
             logger.info(f"✅ {task_name} task stopped")
         except Exception as e:
             logger.warning(f"⚠️  {task_name} task cleanup error: {e}")
-    
+
     # Final cleanup
-    if hasattr(app.state, 'proxywhirl') and app.state.proxywhirl:
+    if hasattr(app.state, "proxywhirl") and app.state.proxywhirl:
         try:
             # Close cache connections if possible
-            if hasattr(app.state.proxywhirl.cache, 'close'):
+            if hasattr(app.state.proxywhirl.cache, "close"):
                 await app.state.proxywhirl.cache.close()
         except Exception as e:
             logger.warning(f"Cache cleanup error: {e}")
-    
+
     logger.info("✅ ProxyWhirl API shutdown complete")
 
 
@@ -415,6 +426,7 @@ app = FastAPI(
 )
 
 # === Security Middleware ===
+
 
 # Enhanced security headers middleware
 @app.middleware("http")
@@ -525,9 +537,10 @@ if settings.is_production:
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=trusted_hosts)
     logger.info(f"Trusted host middleware enabled with hosts: {trusted_hosts}")
 
-# CORS middleware with environment-based configuration  
+# CORS middleware with environment-based configuration
 cors_config = settings.get_cors_config()
 app.add_middleware(CORSMiddleware, **cors_config)
+
 
 # Authentication context middleware (before rate limiting)
 @app.middleware("http")
@@ -539,16 +552,18 @@ async def authentication_context_middleware(request: Request, call_next) -> Resp
         request.state.authenticated_user = None
         request.state.user_scopes = []
         return await call_next(request)
-    
+
     # Try to extract and validate JWT token
     try:
         authorization = request.headers.get("Authorization")
         if authorization and authorization.startswith("Bearer "):
             token = authorization.split(" ")[1]
-            payload = jwt.decode(token, settings.secret_key.get_secret_value(), algorithms=[settings.algorithm])
+            payload = jwt.decode(
+                token, settings.secret_key.get_secret_value(), algorithms=[settings.algorithm]
+            )
             username = payload.get("sub")
             scopes = payload.get("scopes", [])
-            
+
             # Add user context to request state
             request.state.authenticated_user = username
             request.state.user_scopes = scopes
@@ -559,8 +574,9 @@ async def authentication_context_middleware(request: Request, call_next) -> Resp
     except (JWTError, AttributeError):
         request.state.authenticated_user = None
         request.state.user_scopes = []
-    
+
     return await call_next(request)
+
 
 # Rate limiting middleware (after authentication context)
 app.state.limiter = limiter
@@ -699,8 +715,21 @@ async def get_websocket_user(websocket: WebSocket) -> Optional[UserInDB]:
 
 
 async def get_proxywhirl() -> ProxyWhirl:
-    """Get ProxyWhirl instance dependency."""
-    return app.state.proxywhirl
+    """Get ProxyWhirl instance with proper error handling."""
+    try:
+        if not hasattr(app.state, "proxywhirl") or app.state.proxywhirl is None:
+            logger.error("ProxyWhirl instance not initialized")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="ProxyWhirl service not available"
+            )
+        return app.state.proxywhirl
+    except Exception as e:
+        logger.error(f"Failed to get ProxyWhirl instance: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Service temporarily unavailable"
+        )
 
 
 # === Background Tasks ===
@@ -742,21 +771,21 @@ async def connection_pool_maintenance():
         try:
             # Connection pool maintenance every 5 minutes
             await asyncio.sleep(300)
-            
+
             # Get current ProxyWhirl instance
             pw = app.state.proxywhirl
-            
+
             # Perform connection pool maintenance if using SQLite cache
-            if hasattr(pw.cache, 'pool_maintenance'):
+            if hasattr(pw.cache, "pool_maintenance"):
                 await pw.cache.pool_maintenance()
                 logger.debug("Connection pool maintenance completed")
-            
+
             # Clean up any stale connections
-            if hasattr(pw.cache, 'cleanup_connections'):
+            if hasattr(pw.cache, "cleanup_connections"):
                 cleaned = await pw.cache.cleanup_connections()
                 if cleaned > 0:
                     logger.info(f"Cleaned up {cleaned} stale database connections")
-                    
+
         except Exception as e:
             logger.error(f"Connection pool maintenance error: {e}")
             await asyncio.sleep(60)
@@ -768,16 +797,16 @@ async def cache_cleanup_background():
         try:
             # Cache cleanup every 10 minutes
             await asyncio.sleep(600)
-            
+
             pw = app.state.proxywhirl
-            
+
             # Remove expired or invalid proxies
             initial_count = pw.get_proxy_count()
-            
+
             # Clean expired proxies (older than 1 hour without health check)
             cutoff_time = datetime.now(timezone.utc) - timedelta(hours=1)
             removed_expired = 0
-            
+
             proxies = pw.list_proxies()
             for proxy in proxies:
                 if proxy.last_checked < cutoff_time and proxy.status != ProxyStatus.ACTIVE:
@@ -786,32 +815,33 @@ async def cache_cleanup_background():
                         removed_expired += 1
                     except Exception:
                         continue
-            
-            # Remove blacklisted proxies older than 24 hours  
+
+            # Remove blacklisted proxies older than 24 hours
             day_ago = datetime.now(timezone.utc) - timedelta(hours=24)
             removed_blacklisted = 0
-            
+
             for proxy in proxies:
-                if (proxy.status == ProxyStatus.BLACKLISTED and 
-                    proxy.last_checked < day_ago):
+                if proxy.status == ProxyStatus.BLACKLISTED and proxy.last_checked < day_ago:
                     try:
                         await pw.remove_proxy_async(f"{proxy.host}:{proxy.port}")
                         removed_blacklisted += 1
                     except Exception:
                         continue
-            
+
             final_count = pw.get_proxy_count()
             total_removed = initial_count - final_count
-            
+
             if total_removed > 0:
-                logger.info(f"Cache cleanup: removed {removed_expired} expired, "
-                          f"{removed_blacklisted} blacklisted proxies ({total_removed} total)")
-            
+                logger.info(
+                    f"Cache cleanup: removed {removed_expired} expired, "
+                    f"{removed_blacklisted} blacklisted proxies ({total_removed} total)"
+                )
+
             # Optimize cache if supported
-            if hasattr(pw.cache, 'optimize'):
+            if hasattr(pw.cache, "optimize"):
                 await pw.cache.optimize()
                 logger.debug("Cache optimization completed")
-                
+
         except Exception as e:
             logger.error(f"Cache cleanup error: {e}")
             await asyncio.sleep(60)
@@ -823,23 +853,24 @@ async def session_cleanup_background():
         try:
             # Session cleanup every 30 minutes
             await asyncio.sleep(1800)
-            
+
             # Clean up expired JWT tokens (if we had a token blacklist)
             # This is a placeholder for future token blacklist implementation
             logger.debug("Session cleanup: JWT token cleanup (placeholder)")
-            
+
             # Clean up WebSocket connections that are no longer active
-            if 'ws_manager' in globals():
+            if "ws_manager" in globals():
                 cleaned_connections = await ws_manager.cleanup_stale_connections()
                 if cleaned_connections > 0:
                     logger.info(f"Cleaned up {cleaned_connections} stale WebSocket connections")
-            
+
             # Memory cleanup for large objects
             import gc
+
             collected = gc.collect()
             if collected > 0:
                 logger.debug(f"Garbage collection: freed {collected} objects")
-                
+
         except Exception as e:
             logger.error(f"Session cleanup error: {e}")
             await asyncio.sleep(60)
@@ -898,42 +929,102 @@ async def fetch_proxies_background(
 
 
 @app.post("/auth/token", response_model=Token, tags=["Authentication"])
-async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+@limiter.limit(settings.rate_limit_auth)
+async def login_for_access_token(
+    request: Request,
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
+) -> Token:
     """
-    Authenticate user and return JWT access token.
+    Authenticate user and return JWT access token with scopes.
 
-    Uses OAuth2 password flow with scope-based permissions.
+    Uses OAuth2 password flow with comprehensive security features:
+    - Rate limiting to prevent brute force attacks
+    - Secure password verification with timing attack protection
+    - Scope-based permission granting
+    - Comprehensive audit logging
     """
-    user_result = user_manager.authenticate_user(form_data.username, form_data.password)
-    if not user_result or not isinstance(user_result, UserInDB):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
+    start_time = time.time()
+    
+    try:
+        # Authenticate user with timing attack protection
+        user_result = user_manager.authenticate_user(form_data.username, form_data.password)
+        
+        if not user_result or not isinstance(user_result, UserInDB):
+            # Log failed authentication attempt
+            logger.warning(
+                f"Failed authentication attempt for user: {form_data.username} "
+                f"from IP: {getattr(request.client, 'host', 'unknown')}"
+            )
+            
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        user = user_result
+
+        # Check if user account is disabled
+        if user.disabled:
+            logger.warning(f"Authentication attempt on disabled account: {user.username}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Account disabled",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Process requested scopes with validation
+        requested_scopes = set(form_data.scopes) if form_data.scopes else set()
+        available_scopes = set(user.scopes)
+        
+        # Grant intersection of requested and available scopes
+        granted_scopes = list(requested_scopes.intersection(available_scopes))
+        
+        # If no scopes requested or granted, provide default read scope if available
+        if not granted_scopes and "read" in available_scopes:
+            granted_scopes = ["read"]
+        
+        # Create access token with user claims and scopes
+        access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+        token_data = {
+            "sub": user.username,
+            "scopes": granted_scopes,
+            "iat": datetime.now(timezone.utc),
+            "email": user.email,
+            "token_type": "access_token"
+        }
+        
+        access_token = create_access_token(
+            data=token_data, 
+            expires_delta=access_token_expires
         )
 
-    user = user_result  # Type: UserInDB
+        # Log successful authentication
+        processing_time = time.time() - start_time
+        logger.info(
+            f"Successful authentication for user: {user.username}, "
+            f"scopes: {granted_scopes}, "
+            f"processing_time: {processing_time:.3f}s, "
+            f"from IP: {getattr(request.client, 'host', 'unknown')}"
+        )
 
-    # Validate requested scopes against user permissions
-    requested_scopes = form_data.scopes if form_data.scopes else []
-    available_scopes = user.scopes
-    granted_scopes = [scope for scope in requested_scopes if scope in available_scopes]
+        return Token(
+            access_token=access_token,
+            token_type="bearer",
+            expires_in=settings.access_token_expire_minutes * 60,
+            scopes=granted_scopes,
+        )
 
-    # If no scopes requested, grant default read scope if user has it
-    if not granted_scopes and "read" in available_scopes:
-        granted_scopes = ["read"]
-
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username, "scopes": granted_scopes}, expires_delta=access_token_expires
-    )
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        "scopes": granted_scopes,
-    }
+    except HTTPException:
+        # Re-raise HTTP exceptions (authentication failures)
+        raise
+    except Exception as e:
+        # Log and handle unexpected errors
+        logger.error(f"Authentication endpoint error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Authentication service temporarily unavailable"
+        )
 
 
 @app.get("/auth/me", response_model=User, tags=["Authentication"])
@@ -985,7 +1076,12 @@ async def fetch_proxies(
     )
 
 
-@app.get("/proxies", response_model=ProxyListResponse, response_class=ORJSONResponse, tags=["Proxy Management"])
+@app.get(
+    "/proxies",
+    response_model=ProxyListResponse,
+    response_class=ORJSONResponse,
+    tags=["Proxy Management"],
+)
 async def list_proxies(
     current_user: Annotated[User, Depends(get_current_active_user)],
     pw: ProxyWhirl = Depends(get_proxywhirl),
@@ -1203,9 +1299,15 @@ async def update_proxy_health(
     proxy_id: Annotated[str, Path(description="Proxy ID in format 'host:port'")],
     current_user: Annotated[User, Security(get_current_user, scopes=["write"])],
     pw: ProxyWhirl = Depends(get_proxywhirl),
-    success: Annotated[bool, Query(description="Whether the proxy operation was successful")] = True,
-    response_time: Annotated[Optional[float], Query(ge=0.001, description="Response time in seconds")] = None,
-    error_type: Annotated[Optional[ValidationErrorType], Query(description="Type of error if failed")] = None,
+    success: Annotated[
+        bool, Query(description="Whether the proxy operation was successful")
+    ] = True,
+    response_time: Annotated[
+        Optional[float], Query(ge=0.001, description="Response time in seconds")
+    ] = None,
+    error_type: Annotated[
+        Optional[ValidationErrorType], Query(description="Type of error if failed")
+    ] = None,
 ):
     """
     Update proxy health metrics after usage.
@@ -1359,35 +1461,81 @@ async def validate_all_proxies(
 @limiter.limit(settings.rate_limit_default)
 async def health_check(request: Request, pw: ProxyWhirl = Depends(get_proxywhirl)):
     """
-    Basic API health check with rate limiting.
+    Comprehensive API health check with enhanced monitoring.
 
-    Returns current API status and basic proxy statistics.
+    Provides detailed system health information including:
+    - Service availability and uptime  
+    - Proxy statistics and health ratios
+    - Cache performance metrics
+    - WebSocket connection status
+    - Background task monitoring
     """
     try:
+        start_time = time.time()
+        current_time = datetime.now(timezone.utc)
+        uptime = (current_time - api_start_time).total_seconds()
+        
+        # Get comprehensive proxy statistics
         proxy_count = pw.get_proxy_count()
         proxies = pw.list_proxies()
-        healthy_count = sum(1 for p in proxies if p.is_healthy)
-
-        uptime = (datetime.now(timezone.utc) - api_start_time).total_seconds()
+        healthy_count = sum(1 for p in proxies if p.status == ProxyStatus.ACTIVE)
+        
+        # Calculate health ratio and determine status
+        health_ratio = healthy_count / proxy_count if proxy_count > 0 else 1.0
+        
+        if health_ratio >= 0.8:
+            status = "healthy"
+        elif health_ratio >= 0.5:
+            status = "degraded" 
+        else:
+            status = "unhealthy"
+        
+        # Get WebSocket connections
+        active_connections = sum(
+            len(connections) for connections in ws_manager.active_connections.values()
+        )
+        
+        # Get background task status
+        active_bg_tasks = len([t for t in background_tasks.values() 
+                             if t.get("status") == "running"])
+        
+        processing_time = time.time() - start_time
+        
+        # Log health check for monitoring
+        logger.debug(
+            f"Health check completed: status={status}, "
+            f"proxies={proxy_count}, healthy={healthy_count}, "
+            f"processing_time={processing_time:.3f}s"
+        )
 
         return HealthResponse(
-            status="healthy",
-            timestamp=datetime.now(timezone.utc),
+            status=status,
+            timestamp=current_time,
             version=settings.version,
             uptime=uptime,
             proxy_count=proxy_count,
             healthy_proxies=healthy_count,
+            cache_type=pw.cache_type.value if hasattr(pw.cache_type, 'value') else 'unknown',
+            cache_size=len(proxies),
+            active_connections=active_connections,
+            background_tasks=active_bg_tasks,
         )
-
+        
     except Exception as e:
         logger.error(f"Health check failed: {e}")
+        
+        # Return degraded status on errors
         return HealthResponse(
-            status="unhealthy",
+            status="error",
             timestamp=datetime.now(timezone.utc),
-            version="1.0.0",
-            uptime=(datetime.now(timezone.utc) - api_start_time).total_seconds(),
+            version=settings.version,
+            uptime=0.0,
             proxy_count=0,
             healthy_proxies=0,
+            cache_type="unknown",
+            cache_size=0,
+            active_connections=0,
+            background_tasks=0,
         )
 
 
@@ -1589,7 +1737,12 @@ async def security_audit(
 # === Statistics Endpoints ===
 
 
-@app.get("/stats/cache", response_model=CacheStatsResponse, response_class=ORJSONResponse, tags=["Statistics"])
+@app.get(
+    "/stats/cache",
+    response_model=CacheStatsResponse,
+    response_class=ORJSONResponse,
+    tags=["Statistics"],
+)
 async def get_cache_stats(
     current_user: Annotated[User, Security(get_current_user, scopes=["read"])],
     pw: ProxyWhirl = Depends(get_proxywhirl),

@@ -18,10 +18,12 @@ from proxywhirl.models import (
     CircuitState,
     ErrorHandlingPolicy,
     Proxy,
+    ProxySession,  # Fixed: was SessionProxy
     ProxyStatus,
     RotationStrategy,
-    SessionProxy,
-    ValidationErrorType,
+    SessionConfig,
+    SessionManager,
+    ValidationErrorType,  # Added missing import
 )
 
 # === Circuit Breaker Components ===
@@ -152,7 +154,7 @@ class ProxyRotator:
     _use_counts: dict[str, int]
     _cooldowns: dict[str, datetime]
     _cooldown_period: timedelta
-    _sessions: Dict[str, SessionProxy]  # Session ID -> SessionProxy mapping
+    _sessions: Dict[str, ProxySession]  # Session ID -> ProxySession mapping
 
     # Error handling policy to cooldown duration mapping (seconds)
     ERROR_POLICY_DURATIONS = {
@@ -191,7 +193,7 @@ class ProxyRotator:
         self._cooldowns = {}
         self._cooldown_period = timedelta(seconds=15)
         # Session management
-        self._sessions: Dict[str, SessionProxy] = {}
+        self._sessions: Dict[str, ProxySession] = {}
 
     def get_proxy(self, proxies: List[Proxy]) -> Optional[Proxy]:
         """Get next proxy based on rotation strategy."""
@@ -421,7 +423,7 @@ class ProxyRotator:
         ttl_seconds = custom_ttl or self.default_session_ttl
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
 
-        session_proxy = SessionProxy(
+        session_proxy = ProxySession(
             session_id=session_id, proxy=new_proxy, expires_at=expires_at, target_id=target_id
         )
 
@@ -541,14 +543,13 @@ class ProxyRotator:
         self._sessions.clear()
         return count
 
-    def create_session_proxy(self, session_id: str, proxy: Proxy, target_id: Optional[str] = None) -> SessionProxy:
+    def create_session_proxy(
+        self, session_id: str, proxy: Proxy, target_id: Optional[str] = None
+    ) -> ProxySession:
         """Create a session proxy mapping."""
         expires_at = datetime.now(timezone.utc) + timedelta(seconds=self.default_session_ttl)
-        session_proxy = SessionProxy(
-            session_id=session_id,
-            proxy=proxy,
-            expires_at=expires_at,
-            target_id=target_id
+        session_proxy = ProxySession(
+            session_id=session_id, proxy=proxy, expires_at=expires_at, target_id=target_id
         )
         self._sessions[session_id] = session_proxy
         return session_proxy
@@ -691,7 +692,7 @@ class MetricsRotator(AsyncProxyRotator):
 
         # Create instance-specific registry to avoid conflicts
         self._registry = CollectorRegistry()
-        
+
         # Initialize Prometheus metrics with unique names per instance
         instance_id = id(self)
         self.selection_duration = Histogram(
@@ -702,20 +703,20 @@ class MetricsRotator(AsyncProxyRotator):
         )
 
         self.selection_total = Counter(
-            f"proxy_selections_total_{instance_id}", 
-            "Total proxy selections", 
+            f"proxy_selections_total_{instance_id}",
+            "Total proxy selections",
             ["strategy", "status"],
             registry=self._registry,
         )
 
         self.available_proxies = Gauge(
-            f"available_proxies_count_{instance_id}", 
+            f"available_proxies_count_{instance_id}",
             "Number of available proxies",
             registry=self._registry,
         )
 
         self.session_count = Gauge(
-            f"active_sessions_count_{instance_id}", 
+            f"active_sessions_count_{instance_id}",
             "Number of active sessions",
             registry=self._registry,
         )

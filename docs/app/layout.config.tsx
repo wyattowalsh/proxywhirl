@@ -15,9 +15,10 @@ export const baseOptions: BaseLayoutProps = {
 		title: (
 			<>
 				<Image src={Icon} alt="proxwhirl project icon" width={36} height={36} />
-				<span className="pw animated">proxywhirl</span>
+				<span className="brand-text">proxywhirl</span>
 			</>
 		),
+		// transparentMode: 'always',
 	},
 	// see https://fumadocs.dev/docs/ui/navigation/links
 	links: [

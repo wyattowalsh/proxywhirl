@@ -1,6 +1,6 @@
 ---
 title: Dev Notes
-icon: pi/PiDevToLogo
+icon: tb/TbBrain
 ---
 
 import { Step, Steps } from 'fumadocs-ui/components/steps';
@@ -36,79 +36,79 @@ import { File, Folder, Files } from 'fumadocs-ui/components/files';
 
 ### Core Dependencies
 
-<Tabs items={["Performance", "Data & Validation", "Networking & HTTP", "Observability"]}>
+<Tabs items={["Web & API", "Data & Validation", "Async & Networking", "Observability & Tooling"]}>
 
-<Tab value="Performance">
+<Tab value="Web & API">
 
 ```package-install
-python>=3.13
-pydantic>=2.11.7
-sqlmodel>=0.0.21
-polars>=1.12.0
-orjson>=3.10.0
-uvloop>=0.21.0
+fastapi[all]>=0.116.1
+gunicorn>=20.1.0
+uvicorn[standard]>=0.30.0
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+slowapi>=0.1.9
 ```
 
-**Performance Optimizations:**
-- **Python 3.13+**: Latest performance improvements, better asyncio
-- **Polars**: 10-100x faster DataFrame operations than pandas
-- **orjson**: Fastest JSON serialization for Python
-- **uvloop**: High-performance event loop replacing asyncio's default
+**API & Web Framework:**
+- **FastAPI**: High-performance web framework for building APIs.
+- **Uvicorn/Gunicorn**: ASGI server for running the application.
+- **Python-JOSE & Passlib**: For JWT-based authentication and password hashing.
+- **SlowAPI**: For rate limiting API endpoints.
 
 </Tab>
 
 <Tab value="Data & Validation">
 
 ```package-install
+pydantic>=2.11.7
 pydantic-settings>=2.9.1
-sqlalchemy>=2.0.0
-redis-py>=5.1.0
-tenacity>=9.1.2
-httpx>=0.28.1
-aiohttp>=3.10.0
+sqlmodel>=0.0.24
+sqlalchemy[asyncio]>=2.0.0
+pandas>=2.3.0
+pyyaml>=6.0.2
 ```
 
 **Data Layer:**
-- **Pydantic v2**: Type validation with 5-50x performance improvements
-- **SQLModel**: Type-safe database operations with Pydantic integration
-- **Redis**: Distributed caching and session management
-- **Tenacity**: Intelligent retry logic with exponential backoff
+- **Pydantic v2**: Core data validation and settings management.
+- **SQLModel**: Type-safe database operations with SQLAlchemy and Pydantic.
+- **Pandas**: Used in the new loader architecture for data manipulation.
+- **PyYAML**: For loading configuration from YAML files.
 
 </Tab>
 
-<Tab value="Networking & HTTP">
+<Tab value="Async & Networking">
 
 ```package-install
-httpx[http2]>=0.28.1
-aiohttp[speedups]>=3.10.0
-dnspython>=2.6.1
-selectolax>=0.3.19
-aiofiles>=24.1.0
+httpx>=0.28.1
+aiohttp>=3.12.15
+aiocache>=0.12.3
+aiosqlite>=0.19.0
+tenacity>=9.1.2
 ```
 
-**HTTP Optimizations:**
-- **httpx**: Modern HTTP client with HTTP/2, connection pooling
-- **aiohttp**: Additional async client for validation pipelines
-- **selectolax**: Fast HTML parsing (10x faster than BeautifulSoup)
-- **dnspython**: DNS resolution optimization and caching
+**Async & Networking:**
+- **httpx & aiohttp**: Modern async HTTP clients for validation and fetching.
+- **aiocache**: Asynchronous caching framework (memory, Redis, etc.).
+- **aiosqlite**: Async driver for SQLite database.
+- **Tenacity**: Intelligent retry logic with exponential backoff.
 
 </Tab>
 
-<Tab value="Observability">
+<Tab value="Observability & Tooling">
 
 ```package-install
 loguru>=0.7.3
 rich>=14.0.0
-tqdm>=4.66.0
-prometheus-client>=0.20.0
-structlog>=24.1.0
+typer>=0.16.0
+textual[syntax]>=5.3.0
+prometheus-fastapi-instrumentator>=7.0.0
 ```
 
-**Monitoring & Debugging:**
-- **loguru**: Structured logging with performance insights
-- **rich**: Enhanced terminal output and debugging
-- **prometheus-client**: Metrics collection and monitoring
-- **structlog**: Machine-readable structured logging
+**Monitoring & Tooling:**
+- **Loguru**: Structured and simplified logging.
+- **Rich & Textual**: Enhanced terminal output, TUI, and debugging.
+- **Typer**: For building the command-line interface.
+- **Prometheus FastAPI Instrumentator**: For exposing Prometheus metrics from the API.
 
 </Tab>
 

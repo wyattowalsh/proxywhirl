@@ -11,16 +11,44 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from enum import StrEnum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Protocol,
+    TypeVar,
+)
 
+from loguru import logger
 from pydantic import BaseModel, Field
 
-from proxywhirl.models import CacheType, Proxy
+from proxywhirl.models import Proxy
+from .config import CacheType
 
 if TYPE_CHECKING:
     pass
 
 T = TypeVar("T")
+P = TypeVar("P", bound=Proxy)  # Generic proxy type for future extensibility
+
+
+class BackgroundTaskManager(Protocol):
+    """Protocol for managing background tasks in cache implementations."""
+
+    async def start_background_tasks(self) -> None:
+        """Start background maintenance tasks."""
+        ...
+
+    async def stop_background_tasks(self) -> None:
+        """Stop all background tasks gracefully."""
+        ...
+
+    async def get_task_status(self) -> Dict[str, Any]:
+        """Get status of background tasks."""
+        ...
 
 
 class DuplicateStrategy(StrEnum):
@@ -113,7 +141,7 @@ class CacheMetrics(BaseModel):
 class HealthMetricsCollector:
     """Unified metrics collection interface for all cache backends."""
 
-    def __init__(self, cache: BaseProxyCache):
+    def __init__(self, cache: "BaseProxyCache[Any]"):
         self.cache = cache
         self._collection_interval = 60  # seconds
         self._last_collection: Optional[datetime] = None
@@ -210,11 +238,20 @@ class CacheFilters(BaseModel):
     offset: int = 0
 
 
-class BaseProxyCache(ABC):
-    """Abstract base class for proxy cache implementations.
+class BaseProxyCache(ABC, Generic[P]):
+    """Abstract base class for proxy cache implementations with enterprise features.
 
     Provides unified interface for memory, JSON, SQLite, and future cache backends
-    with consistent async patterns, health metrics, and filtering capabilities.
+    with consistent async patterns, health metrics, filtering capabilities,
+    async context manager support, and background task management.
+
+    Features:
+    - Async context manager for resource management
+    - Background task management protocol
+    - Comprehensive health metrics with analytics
+    - Generic typing support for extensibility
+    - Enterprise-grade duplicate handling strategies
+    - Performance monitoring and optimization hooks
     """
 
     def __init__(
@@ -228,6 +265,121 @@ class BaseProxyCache(ABC):
         self.duplicate_strategy = duplicate_strategy
         self._metrics = CacheMetrics()
         self._initialized = False
+        self._background_tasks: List[asyncio.Task[Any]] = []
+        self._shutdown_event = asyncio.Event()
+        self._metrics_collector: Optional[HealthMetricsCollector] = None
+
+    # === Async Context Manager Support ===
+
+    async def __aenter__(self) -> BaseProxyCache[P]:
+        """Async context manager entry."""
+        await self.initialize()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> None:
+        """Async context manager exit with graceful cleanup."""
+        await self.close()
+
+    async def initialize(self) -> None:
+        """Initialize cache with enterprise features."""
+        if self._initialized:
+            return
+
+        logger.debug(f"Initializing {self.__class__.__name__} cache")
+
+        # Initialize metrics collector
+        self._metrics_collector = HealthMetricsCollector(self)
+
+        # Backend-specific initialization
+        await self._initialize_backend()
+
+        # Start background tasks if supported
+        if hasattr(self, "start_background_tasks"):
+            await self.start_background_tasks()  # type: ignore
+
+        self._initialized = True
+        logger.info(f"Cache {self.__class__.__name__} initialized successfully")
+
+    async def close(self) -> None:
+        """Close cache and cleanup resources."""
+        if not self._initialized:
+            return
+
+        logger.debug(f"Closing {self.__class__.__name__} cache")
+
+        # Signal shutdown to background tasks
+        self._shutdown_event.set()
+
+        # Stop background tasks gracefully
+        if hasattr(self, "stop_background_tasks"):
+            await self.stop_background_tasks()  # type: ignore
+
+        # Cancel any remaining background tasks
+        for task in self._background_tasks:
+            if not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+
+        self._background_tasks.clear()
+
+        # Backend-specific cleanup
+        await self._cleanup_backend()
+
+        self._initialized = False
+        logger.info(f"Cache {self.__class__.__name__} closed successfully")
+
+    @abstractmethod
+    async def _initialize_backend(self) -> None:
+        """Backend-specific initialization logic."""
+        pass
+
+    @abstractmethod
+    async def _cleanup_backend(self) -> None:
+        """Backend-specific cleanup logic."""
+        pass
+
+    # === Background Task Management ===
+
+    def _register_background_task(self, task: asyncio.Task[Any]) -> None:
+        """Register a background task for lifecycle management."""
+        self._background_tasks.append(task)
+
+        # Add done callback to clean up completed tasks
+        def cleanup_task(completed_task: asyncio.Task[Any]) -> None:
+            try:
+                self._background_tasks.remove(completed_task)
+            except ValueError:
+                pass  # Task already removed
+
+        task.add_done_callback(cleanup_task)
+
+    async def get_background_task_status(self) -> Dict[str, Any]:
+        """Get status of background tasks."""
+        active_tasks = [t for t in self._background_tasks if not t.done()]
+        completed_tasks = [t for t in self._background_tasks if t.done()]
+
+        return {
+            "active_tasks": len(active_tasks),
+            "completed_tasks": len(completed_tasks),
+            "total_tasks": len(self._background_tasks),
+            "shutdown_requested": self._shutdown_event.is_set(),
+        }
+
+    # === Enhanced Metrics Collection ===
+
+    async def collect_comprehensive_metrics(self) -> CacheMetrics:
+        """Collect comprehensive metrics using the metrics collector."""
+        if self._metrics_collector:
+            return await self._metrics_collector.collect_comprehensive_metrics()
+        return await self.get_health_metrics()
 
     @abstractmethod
     async def add_proxies(self, proxies: List[Proxy]) -> None:
@@ -390,32 +542,58 @@ class BaseProxyCache(ABC):
 
     # === Sync Wrappers for Backward Compatibility ===
 
+    def _run_sync(self, coro: Any) -> Any:
+        """Smart sync wrapper that handles both sync and async contexts."""
+        try:
+            # Try to get the running loop
+            asyncio.get_running_loop()
+            # If we're in an async context, we can't use asyncio.run()
+            # Instead, we need to create a new thread or handle differently
+            import concurrent.futures
+            
+            def run_in_thread() -> Any:
+                # Create a new event loop in a separate thread
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    return new_loop.run_until_complete(coro)
+                finally:
+                    new_loop.close()
+            
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(run_in_thread)
+                return future.result()
+                
+        except RuntimeError:
+            # No running loop, safe to use asyncio.run()
+            return asyncio.run(coro)
+
     def add_proxies_sync(self, proxies: List[Proxy]) -> None:
         """Synchronous wrapper for add_proxies."""
-        asyncio.run(self.add_proxies(proxies))
+        self._run_sync(self.add_proxies(proxies))
 
     def get_proxies_sync(self, filters: Optional[CacheFilters] = None) -> List[Proxy]:
         """Synchronous wrapper for get_proxies."""
-        return asyncio.run(self.get_proxies(filters))
+        return self._run_sync(self.get_proxies(filters))
 
     def clear_sync(self) -> None:
         """Synchronous wrapper for clear."""
-        asyncio.run(self.clear())
+        self._run_sync(self.clear())
 
     def get_health_metrics_sync(self) -> CacheMetrics:
         """Synchronous wrapper for get_health_metrics."""
-        return asyncio.run(self.get_health_metrics())
+        return self._run_sync(self.get_health_metrics())
 
     def update_proxy_sync(self, proxy: Proxy) -> None:
         """Synchronous wrapper for update_proxy."""
-        asyncio.run(self.update_proxy(proxy))
+        self._run_sync(self.update_proxy(proxy))
 
     def remove_proxy_sync(self, proxy: Proxy) -> None:
         """Synchronous wrapper for remove_proxy."""
-        asyncio.run(self.remove_proxy(proxy))
+        self._run_sync(self.remove_proxy(proxy))
 
     def get_stats_sync(self) -> Dict[str, Any]:
         """Synchronous wrapper for get_stats if available."""
         if hasattr(self, "get_stats"):
-            return asyncio.run(self.get_stats())  # type: ignore
+            return self._run_sync(self.get_stats())  # type: ignore
         return {}
