@@ -1,0 +1,778 @@
+---
+title: Cache Backends
+description: Guide to ProxyWhirl's caching system including memory, JSON, and SQLite backends
+icon: fa/FaDatabase
+---
+
+# Cache Backends
+
+ProxyWhirl provides a flexible multi-backend caching system to store and manage proxies efficiently. Choose the right backend for your use case based on performance, persistence, and querying requirements.
+
+## Cache Types Overview
+
+| Backend | Performance | Persistent | Queryable | Use Case |
+|---------|-------------|------------|-----------|----------|
+| **Memory** | ⚡ Fastest | ❌ No | ❌ Limited | Development, short-lived processes |
+| **JSON** | 🚀 Fast | ✅ Yes | ❌ Basic | Simple persistence, human-readable |
+| **SQLite** | 📊 Good | ✅ Yes | ✅ Full SQL | Production, complex queries, analytics |
+
+## Memory Cache
+
+The default cache backend stores proxies in memory for maximum performance.
+
+### Features
+
+- ⚡ **Fastest Performance**: No I/O operations
+- 🔄 **Automatic Cleanup**: Memory-efficient with built-in limits
+- 🎯 **Development Ready**: Perfect for testing and development
+- ❌ **Not Persistent**: Data lost when process exits
+
+### Usage
+
+```python
+from proxywhirl import ProxyWhirl, CacheType
+
+# Memory cache (default)
+proxy_whirl = ProxyWhirl(cache_type=CacheType.MEMORY)
+
+# Explicit memory cache configuration
+proxy_whirl = ProxyWhirl(
+    cache_type="memory",  # String format also supported
+    # cache_path not needed for memory cache
+)
+```
+
+### Configuration
+
+```python
+from proxywhirl import ProxyWhirlSettings
+
+settings = ProxyWhirlSettings(
+    memory_cache_max_size=10000,  # Maximum proxies in memory
+    memory_cache_ttl=3600,        # TTL in seconds (1 hour)
+    memory_cache_cleanup_interval=300  # Cleanup every 5 minutes
+)
+
+proxy_whirl = ProxyWhirl(
+    cache_type=CacheType.MEMORY,
+    config=settings
+)
+```
+
+### Memory Cache Example
+
+```python
+import asyncio
+from proxywhirl import ProxyWhirl
+
+async def memory_cache_example():
+    # Initialize with memory cache
+    proxy_whirl = ProxyWhirl(cache_type="memory")
+    
+    # Fetch proxies (stored in memory)
+    count = await proxy_whirl.fetch_proxies()
+    print(f"📋 Cached {count} proxies in memory")
+    
+    # Use proxies
+    for i in range(5):
+        proxy = await proxy_whirl.get_proxy()
+        if proxy:
+            print(f"🔄 Using proxy {i+1}: {proxy.host}:{proxy.port}")
+    
+    # Check memory usage
+    cache_info = proxy_whirl.get_cache_info()
+    print(f"💾 Memory usage: {cache_info['size']} proxies")
+    
+    # Note: All data will be lost when process ends
+
+asyncio.run(memory_cache_example())
+```
+
+## JSON Cache
+
+File-based caching using JSON format for persistence and human readability.
+
+### Features
+
+- 💾 **Persistent Storage**: Survives process restarts
+- 👁️ **Human Readable**: Easy to inspect and debug
+- ✏️ **Editable**: Can be manually modified
+- 🚀 **Good Performance**: Fast for small to medium datasets
+
+### Usage
+
+```python
+from pathlib import Path
+from proxywhirl import ProxyWhirl, CacheType
+
+# JSON cache with file path
+proxy_whirl = ProxyWhirl(
+    cache_type=CacheType.JSON,
+    cache_path=Path("proxies.json")
+)
+
+# String paths also supported
+proxy_whirl = ProxyWhirl(
+    cache_type="json",
+    cache_path="my_proxies.json"
+)
+```
+
+### JSON File Format
+
+The JSON cache stores proxies in a structured format:
+
+```json
+{
+  "metadata": {
+    "version": "1.0",
+    "created": "2024-01-01T12:00:00Z",
+    "last_updated": "2024-01-01T13:30:00Z",
+    "total_proxies": 150
+  },
+  "proxies": [
+    {
+      "host": "192.168.1.100",
+      "port": 8080,
+      "schemes": ["http", "https"],
+      "country_code": "US",
+      "anonymity": "elite",
+      "last_checked": "2024-01-01T13:25:00Z",
+      "response_time": 0.85,
+      "success_rate": 0.92,
+      "source": "the-speedx-http"
+    }
+  ]
+}
+```
+
+### JSON Cache Example
+
+```python
+import asyncio
+from pathlib import Path
+from proxywhirl import ProxyWhirl, CacheType
+
+async def json_cache_example():
+    cache_file = Path("persistent_proxies.json")
+    
+    # Initialize with JSON cache
+    proxy_whirl = ProxyWhirl(
+        cache_type=CacheType.JSON,
+        cache_path=cache_file
+    )
+    
+    # Check if cache file exists
+    if cache_file.exists():
+        cached_count = proxy_whirl.get_proxy_count()
+        print(f"📂 Found {cached_count} cached proxies in {cache_file}")
+    else:
+        print(f"🆕 Creating new cache file: {cache_file}")
+        count = await proxy_whirl.fetch_proxies()
+        print(f"💾 Saved {count} proxies to JSON cache")
+    
+    # Use cached proxies
+    proxy = await proxy_whirl.get_proxy()
+    if proxy:
+        print(f"✅ Retrieved proxy from cache: {proxy.host}:{proxy.port}")
+    
+    # Manually inspect the JSON file
+    print(f"📄 Cache file size: {cache_file.stat().st_size} bytes")
+
+asyncio.run(json_cache_example())
+```
+
+### JSON Cache Management
+
+```python
+import json
+from pathlib import Path
+from proxywhirl import ProxyWhirl
+
+def manage_json_cache():
+    cache_path = Path("proxies.json")
+    
+    # Load and inspect cache manually
+    if cache_path.exists():
+        with open(cache_path, 'r') as f:
+            cache_data = json.load(f)
+        
+        print(f"📊 Cache Statistics:")
+        print(f"  Total Proxies: {cache_data['metadata']['total_proxies']}")
+        print(f"  Last Updated: {cache_data['metadata']['last_updated']}")
+        
+        # Filter US proxies
+        us_proxies = [p for p in cache_data['proxies'] if p.get('country_code') == 'US']
+        print(f"  US Proxies: {len(us_proxies)}")
+        
+        # Export filtered proxies
+        with open("us_proxies.json", 'w') as f:
+            json.dump(us_proxies, f, indent=2)
+        print(f"✅ Exported {len(us_proxies)} US proxies to us_proxies.json")
+
+manage_json_cache()
+```
+
+## SQLite Cache
+
+Database-based caching with full SQL querying capabilities for production use.
+
+### Features
+
+- 🗄️ **Full Database**: Complete SQL support with indexes
+- 📊 **Advanced Queries**: Filter, sort, and aggregate with SQL
+- 📈 **Analytics Ready**: Perfect for statistics and reporting
+- 🔧 **Production Grade**: ACID compliance and concurrent access
+- 💾 **Efficient Storage**: Optimized binary format
+
+### Usage
+
+```python
+from pathlib import Path
+from proxywhirl import ProxyWhirl, CacheType
+
+# SQLite cache with database file
+proxy_whirl = ProxyWhirl(
+    cache_type=CacheType.SQLITE,
+    cache_path=Path("proxies.db")
+)
+
+# In-memory SQLite (for testing)
+proxy_whirl = ProxyWhirl(
+    cache_type=CacheType.SQLITE,
+    cache_path=":memory:"
+)
+```
+
+### Database Schema
+
+SQLite cache creates optimized tables:
+
+```sql
+-- Main proxies table
+CREATE TABLE proxies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    host TEXT NOT NULL,
+    port INTEGER NOT NULL,
+    ip TEXT NOT NULL,
+    schemes TEXT NOT NULL,  -- JSON array
+    country_code TEXT,
+    country TEXT,
+    city TEXT,
+    anonymity TEXT,
+    last_checked TIMESTAMP,
+    response_time REAL,
+    success_rate REAL DEFAULT 0.0,
+    use_count INTEGER DEFAULT 0,
+    source TEXT,
+    metadata TEXT,  -- JSON object
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for performance
+CREATE INDEX idx_proxies_country ON proxies(country_code);
+CREATE INDEX idx_proxies_anonymity ON proxies(anonymity);
+CREATE INDEX idx_proxies_success_rate ON proxies(success_rate);
+CREATE INDEX idx_proxies_response_time ON proxies(response_time);
+CREATE INDEX idx_proxies_last_checked ON proxies(last_checked);
+
+-- Health tracking table
+CREATE TABLE proxy_health_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    proxy_id INTEGER NOT NULL,
+    success BOOLEAN NOT NULL,
+    response_time REAL,
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (proxy_id) REFERENCES proxies (id)
+);
+```
+
+### SQLite Cache Example
+
+```python
+import asyncio
+from pathlib import Path
+from proxywhirl import ProxyWhirl, CacheType
+
+async def sqlite_cache_example():
+    db_path = Path("production_proxies.db")
+    
+    # Initialize with SQLite cache
+    proxy_whirl = ProxyWhirl(
+        cache_type=CacheType.SQLITE,
+        cache_path=db_path
+    )
+    
+    # Fetch proxies (automatically stored in database)
+    if proxy_whirl.get_proxy_count() == 0:
+        print("🔄 Fetching fresh proxies...")
+        count = await proxy_whirl.fetch_proxies()
+        print(f"💾 Stored {count} proxies in SQLite database")
+    else:
+        print(f"📊 Found {proxy_whirl.get_proxy_count()} proxies in database")
+    
+    # Use proxies with health tracking
+    for i in range(10):
+        proxy = await proxy_whirl.get_proxy()
+        if proxy:
+            # Simulate request
+            success = True  # Your actual request result
+            response_time = 1.2  # Your actual response time
+            
+            proxy_whirl.update_proxy_health(proxy, success, response_time)
+            print(f"✅ Used proxy {i+1}: {proxy.host} (Success rate: {proxy.success_rate:.1%})")
+    
+    print(f"🗄️ Database file size: {db_path.stat().st_size} bytes")
+
+asyncio.run(sqlite_cache_example())
+```
+
+### Advanced SQLite Queries
+
+```python
+import sqlite3
+from pathlib import Path
+from proxywhirl import ProxyWhirl, CacheType
+
+def advanced_sqlite_queries():
+    db_path = Path("proxies.db")
+    
+    # Direct SQLite access for advanced queries
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    
+    # Top 10 fastest proxies
+    cursor.execute("""
+        SELECT host, port, country_code, response_time, success_rate
+        FROM proxies 
+        WHERE response_time IS NOT NULL 
+        ORDER BY response_time ASC 
+        LIMIT 10
+    """)
+    
+    print("🚀 Top 10 Fastest Proxies:")
+    for row in cursor.fetchall():
+        print(f"  {row[0]}:{row[1]} ({row[2]}) - {row[3]:.2f}s (Success: {row[4]:.1%})")
+    
+    # Country distribution
+    cursor.execute("""
+        SELECT country_code, COUNT(*) as count,
+               AVG(response_time) as avg_response,
+               AVG(success_rate) as avg_success
+        FROM proxies 
+        WHERE country_code IS NOT NULL
+        GROUP BY country_code 
+        ORDER BY count DESC 
+        LIMIT 10
+    """)
+    
+    print("\n🌍 Top Countries by Proxy Count:")
+    for row in cursor.fetchall():
+        print(f"  {row[0]}: {row[1]} proxies (Avg response: {row[2]:.2f}s, Success: {row[3]:.1%})")
+    
+    # Health trend analysis
+    cursor.execute("""
+        SELECT DATE(checked_at) as date,
+               COUNT(*) as checks,
+               SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) as successes,
+               AVG(response_time) as avg_response
+        FROM proxy_health_log 
+        WHERE checked_at >= date('now', '-7 days')
+        GROUP BY DATE(checked_at)
+        ORDER BY date DESC
+    """)
+    
+    print("\n📈 Health Trend (Last 7 Days):")
+    for row in cursor.fetchall():
+        success_rate = (row[2] / row[1]) * 100 if row[1] > 0 else 0
+        print(f"  {row[0]}: {row[1]} checks, {success_rate:.1f}% success, {row[3]:.2f}s avg")
+    
+    conn.close()
+
+advanced_sqlite_queries()
+```
+
+### SQLite Performance Optimization
+
+```python
+from proxywhirl import ProxyWhirl, ProxyWhirlSettings
+
+# Optimize SQLite for performance
+settings = ProxyWhirlSettings(
+    sqlite_cache_wal_mode=True,         # Enable WAL mode for better concurrency
+    sqlite_cache_synchronous="NORMAL",  # Balance safety and performance  
+    sqlite_cache_journal_mode="WAL",    # Write-Ahead Logging
+    sqlite_cache_temp_store="MEMORY",   # Use memory for temporary data
+    sqlite_cache_cache_size=10000,     # Increase cache size
+    sqlite_vacuum_on_startup=False,     # Skip vacuum for faster startup
+)
+
+proxy_whirl = ProxyWhirl(
+    cache_type="sqlite",
+    cache_path="optimized_proxies.db",
+    config=settings
+)
+```
+
+## Cache Comparison
+
+### Performance Benchmarks
+
+```python
+import asyncio
+import time
+from pathlib import Path
+from proxywhirl import ProxyWhirl, CacheType
+
+async def benchmark_caches():
+    """Compare performance across different cache backends."""
+    
+    backends = [
+        (CacheType.MEMORY, None, "Memory"),
+        (CacheType.JSON, Path("benchmark.json"), "JSON"),
+        (CacheType.SQLITE, Path("benchmark.db"), "SQLite")
+    ]
+    
+    results = {}
+    
+    for cache_type, cache_path, name in backends:
+        print(f"\n🏃 Benchmarking {name} Cache...")
+        
+        # Clean up previous test files
+        if cache_path and Path(cache_path).exists():
+            Path(cache_path).unlink()
+        
+        proxy_whirl = ProxyWhirl(
+            cache_type=cache_type,
+            cache_path=cache_path
+        )
+        
+        # Measure fetch time
+        start = time.time()
+        count = await proxy_whirl.fetch_proxies()
+        fetch_time = time.time() - start
+        
+        # Measure get proxy time (100 operations)
+        start = time.time()
+        for _ in range(100):
+            await proxy_whirl.get_proxy()
+        get_time = time.time() - start
+        
+        results[name] = {
+            'proxies_loaded': count,
+            'fetch_time': fetch_time,
+            'get_proxy_time': get_time / 100,  # Per operation
+            'total_time': fetch_time + get_time
+        }
+        
+        print(f"  ✅ Loaded {count} proxies in {fetch_time:.2f}s")
+        print(f"  ⚡ Avg get_proxy(): {get_time/100*1000:.2f}ms")
+    
+    # Print comparison
+    print(f"\n📊 Performance Comparison:")
+    for name, metrics in results.items():
+        print(f"  {name}:")
+        print(f"    Fetch: {metrics['fetch_time']:.2f}s")
+        print(f"    Get Proxy: {metrics['get_proxy_time']*1000:.2f}ms")
+        print(f"    Total: {metrics['total_time']:.2f}s")
+
+asyncio.run(benchmark_caches())
+```
+
+### Storage Efficiency
+
+```python
+import json
+from pathlib import Path
+
+def compare_storage_sizes():
+    """Compare storage efficiency of different cache formats."""
+    
+    files = {
+        "JSON": Path("proxies.json"),
+        "SQLite": Path("proxies.db")
+    }
+    
+    print("💾 Storage Size Comparison:")
+    
+    for format_name, file_path in files.items():
+        if file_path.exists():
+            size_bytes = file_path.stat().st_size
+            size_mb = size_bytes / (1024 * 1024)
+            
+            # Estimate proxies per MB
+            if format_name == "JSON":
+                with open(file_path) as f:
+                    data = json.load(f)
+                proxy_count = data['metadata']['total_proxies']
+            else:  # SQLite
+                import sqlite3
+                conn = sqlite3.connect(file_path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM proxies")
+                proxy_count = cursor.fetchone()[0]
+                conn.close()
+            
+            proxies_per_mb = proxy_count / size_mb if size_mb > 0 else 0
+            
+            print(f"  {format_name}:")
+            print(f"    Size: {size_mb:.2f} MB ({size_bytes:,} bytes)")
+            print(f"    Proxies: {proxy_count:,}")
+            print(f"    Density: {proxies_per_mb:.0f} proxies/MB")
+
+compare_storage_sizes()
+```
+
+## Cache Configuration
+
+### Environment Variables
+
+Configure caching through environment variables:
+
+```bash
+# Cache type and path
+export PROXYWHIRL_CACHE_TYPE=sqlite
+export PROXYWHIRL_CACHE_PATH=/data/proxies.db
+
+# Memory cache settings
+export PROXYWHIRL_MEMORY_CACHE_MAX_SIZE=10000
+export PROXYWHIRL_MEMORY_CACHE_TTL=3600
+
+# JSON cache settings
+export PROXYWHIRL_JSON_CACHE_PRETTY=true
+export PROXYWHIRL_JSON_CACHE_BACKUP=true
+
+# SQLite cache settings
+export PROXYWHIRL_SQLITE_CACHE_WAL_MODE=true
+export PROXYWHIRL_SQLITE_CACHE_SYNCHRONOUS=NORMAL
+export PROXYWHIRL_SQLITE_CACHE_SIZE=10000
+```
+
+### Configuration File
+
+Use YAML configuration for complex setups:
+
+```yaml
+# cache-config.yaml
+cache:
+  type: sqlite
+  path: ./data/proxies.db
+  
+  # SQLite-specific settings
+  sqlite:
+    wal_mode: true
+    synchronous: NORMAL
+    cache_size: 20000
+    temp_store: MEMORY
+    vacuum_on_startup: false
+    
+  # JSON-specific settings  
+  json:
+    pretty_print: true
+    create_backup: true
+    backup_count: 5
+    
+  # Memory-specific settings
+  memory:
+    max_size: 15000
+    ttl: 7200
+    cleanup_interval: 300
+
+# Health tracking
+health:
+  track_proxy_health: true
+  health_log_retention_days: 30
+  health_check_interval: 60
+```
+
+```python
+from proxywhirl import ProxyWhirl, ProxyWhirlSettings
+
+# Load from configuration file
+settings = ProxyWhirlSettings.from_file("cache-config.yaml")
+proxy_whirl = ProxyWhirl(config=settings)
+```
+
+## Cache Maintenance
+
+### Cleanup and Optimization
+
+```python
+import asyncio
+from proxywhirl import ProxyWhirl
+
+async def maintain_cache():
+    """Perform cache maintenance operations."""
+    
+    proxy_whirl = ProxyWhirl(
+        cache_type="sqlite",
+        cache_path="proxies.db"
+    )
+    
+    # Remove old/unhealthy proxies
+    removed_count = await proxy_whirl.cleanup_unhealthy_proxies(
+        min_success_rate=0.5,  # Remove proxies with <50% success rate
+        max_age_hours=24       # Remove proxies older than 24 hours
+    )
+    print(f"🧹 Removed {removed_count} unhealthy proxies")
+    
+    # Optimize database (SQLite only)
+    if hasattr(proxy_whirl.cache, 'vacuum'):
+        await proxy_whirl.cache.vacuum()
+        print("✨ Database optimized")
+    
+    # Update statistics
+    await proxy_whirl.update_cache_statistics()
+    print("📊 Cache statistics updated")
+
+# Run maintenance
+asyncio.run(maintain_cache())
+```
+
+### Backup and Recovery
+
+```python
+import shutil
+from datetime import datetime
+from pathlib import Path
+
+def backup_cache():
+    """Create backup of cache files."""
+    
+    cache_files = [
+        Path("proxies.json"),
+        Path("proxies.db")
+    ]
+    
+    backup_dir = Path("backups")
+    backup_dir.mkdir(exist_ok=True)
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    for cache_file in cache_files:
+        if cache_file.exists():
+            backup_path = backup_dir / f"{cache_file.stem}_{timestamp}{cache_file.suffix}"
+            shutil.copy2(cache_file, backup_path)
+            print(f"💾 Backed up {cache_file} to {backup_path}")
+
+def restore_cache(backup_file: Path, target_file: Path):
+    """Restore cache from backup."""
+    if backup_file.exists():
+        shutil.copy2(backup_file, target_file)
+        print(f"🔄 Restored {target_file} from {backup_file}")
+    else:
+        print(f"❌ Backup file not found: {backup_file}")
+
+# Create backups
+backup_cache()
+
+# Restore example
+# restore_cache(Path("backups/proxies_20240101_120000.db"), Path("proxies.db"))
+```
+
+## Best Practices
+
+### 1. Choose the Right Backend
+
+- **Development**: Use memory cache for speed
+- **Production**: Use SQLite for reliability and queries
+- **CI/CD**: Use memory cache for ephemeral environments
+- **Analytics**: Use SQLite for reporting and statistics
+
+### 2. Monitor Cache Health
+
+```python
+async def monitor_cache_health():
+    proxy_whirl = ProxyWhirl(cache_type="sqlite", cache_path="proxies.db")
+    
+    cache_stats = proxy_whirl.get_cache_statistics()
+    
+    # Check cache health indicators
+    if cache_stats['total_proxies'] < 100:
+        print("⚠️  Low proxy count, consider fetching more")
+    
+    if cache_stats['avg_success_rate'] < 0.7:
+        print("⚠️  Low success rate, validate proxies")
+    
+    if cache_stats['last_updated_hours_ago'] > 6:
+        print("⚠️  Cache is stale, refresh recommended")
+```
+
+### 3. Handle Concurrent Access
+
+```python
+import asyncio
+from proxywhirl import ProxyWhirl
+
+async def concurrent_access_example():
+    """Handle multiple processes accessing the same cache."""
+    
+    # SQLite handles concurrent access well
+    proxy_whirl = ProxyWhirl(
+        cache_type="sqlite",
+        cache_path="shared_proxies.db"
+    )
+    
+    # Multiple coroutines can safely access the cache
+    tasks = [
+        proxy_whirl.get_proxy() 
+        for _ in range(10)
+    ]
+    
+    proxies = await asyncio.gather(*tasks)
+    valid_proxies = [p for p in proxies if p is not None]
+    print(f"✅ Retrieved {len(valid_proxies)} proxies concurrently")
+
+asyncio.run(concurrent_access_example())
+```
+
+### 4. Error Handling
+
+```python
+from proxywhirl import ProxyWhirl, ProxyError
+
+def robust_cache_usage():
+    try:
+        proxy_whirl = ProxyWhirl(
+            cache_type="sqlite",
+            cache_path="proxies.db"
+        )
+        
+        # Test cache accessibility
+        count = proxy_whirl.get_proxy_count()
+        print(f"📊 Cache contains {count} proxies")
+        
+    except ProxyError as e:
+        print(f"❌ ProxyWhirl cache error: {e}")
+        # Fallback to memory cache
+        proxy_whirl = ProxyWhirl(cache_type="memory")
+        
+    except Exception as e:
+        print(f"❌ Unexpected cache error: {e}")
+        # Implement recovery strategy
+
+robust_cache_usage()
+```
+
+### 5. Performance Tuning
+
+```python
+from proxywhirl import ProxyWhirlSettings
+
+# Optimize for your use case
+settings = ProxyWhirlSettings(
+    # For high-throughput applications
+    sqlite_cache_wal_mode=True,
+    sqlite_cache_synchronous="OFF",  # Faster, less safe
+    sqlite_cache_size=50000,
+    
+    # For memory-constrained environments
+    memory_cache_max_size=5000,
+    memory_cache_cleanup_interval=60,
+    
+    # For network-constrained environments
+    json_cache_compress=True,
+    json_cache_create_backup=False
+)
+```
