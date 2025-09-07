@@ -13,15 +13,15 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from jose import JWTError, jwt
 from loguru import logger
 
-from ...auth import get_user_manager
 from ...settings import get_api_settings
+from ..auth_service import get_auth_service
 from ..dependencies import get_websocket_user
 
 router = APIRouter()
 
 # Initialize settings and user manager
 settings = get_api_settings()
-user_manager = get_user_manager()
+auth_service = get_auth_service()
 
 
 class ConnectionManager:

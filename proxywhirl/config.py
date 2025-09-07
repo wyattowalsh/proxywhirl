@@ -12,7 +12,8 @@ from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from proxywhirl.models import CacheType, RotationStrategy
+from proxywhirl.caches import CacheType
+from proxywhirl.models import RotationStrategy
 
 
 class LoaderConfig(BaseModel):

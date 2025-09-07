@@ -17,9 +17,9 @@ from loguru import logger
 from proxywhirl.models import (
     AnonymityLevel,
     Proxy,
-    ProxyScheme,
     ProxyStatus,
 )
+from proxywhirl.models import Scheme as ProxyScheme
 
 from .models import ProxyRecord
 
@@ -118,5 +118,7 @@ class SQLiteBase:
         if self.enable_wal:
             pragmas.insert(0, "PRAGMA journal_mode=WAL;")
 
+        return pragmas
+        return pragmas
         return pragmas
         return pragmas

@@ -181,4 +181,3 @@ class ProxyTableWidget(DataTable):
             status,
             last_checked,
         )
-        )

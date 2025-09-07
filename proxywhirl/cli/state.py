@@ -7,9 +7,9 @@ from typing import Any, Optional
 
 from rich.console import Console
 
+from ..caches import CacheType
 from ..config import ProxyWhirlSettings
-from ..models import CacheType
-from .app import PROXYWHIRL_THEME
+from .theme import PROXYWHIRL_THEME
 
 
 class ProxyWhirlError(Exception):

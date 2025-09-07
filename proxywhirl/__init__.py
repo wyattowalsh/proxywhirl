@@ -1,5 +1,8 @@
 """proxywhirl -- Python 3.13+ library for rotating proxy management"""
 
+# Initialize the enhanced logger first (auto-configures loguru + rich)
+import proxywhirl.logger  # This auto-configures the enhanced logger
+
 # Import core models first to avoid circular imports  
 # Modern cache system imports (after models to avoid circular imports)
 from proxywhirl.caches import (
@@ -13,7 +16,23 @@ from proxywhirl.caches import (
 
 # Configuration and logging
 from proxywhirl.config import LoaderConfig, ProxyWhirlSettings
-from proxywhirl.logger import configure_rich_logging, get_logger, setup_logger
+from proxywhirl.logger import (
+    Environment,
+    LogLevel,
+    bind_context,
+    bind_context_async,
+    catch_and_log,
+    configure_rich_logging,
+    get_logger,
+    log_api_request,
+    log_cache_operation,
+    log_operation,
+    log_operation_async,
+    log_performance,
+    log_proxy_operation,
+    log_validation_result,
+    setup_logger,
+)
 from proxywhirl.models import Proxy, Scheme
 
 # Core functionality
@@ -60,36 +79,27 @@ __all__ = [
     "QualityLevel",
     "LoaderConfig",
     "ProxyWhirlSettings",
+    # Enhanced logger exports
     "setup_logger",
     "get_logger",
     "configure_rich_logging",
+    "log_performance",
+    "catch_and_log",
+    "log_operation",
+    "log_operation_async",
+    "bind_context", 
+    "bind_context_async",
+    "log_proxy_operation",
+    "log_api_request",
+    "log_cache_operation",
+    "log_validation_result",
+    "LogLevel",
+    "Environment",
+    # Models
     "Proxy",
     "Scheme", 
     "ProxyScheme",
+    # Utils
     "normalize_proxy_url",
     "validate_ip",
-] + __all_tui__
-
-# For now, avoid complex imports due to circular dependency issues with models/ package
-# Users can import specific modules directly: from proxywhirl.proxywhirl import ProxyWhirl
-
-__version__ = "0.1.0"
-
-# Primary exports that don't cause circular imports
-from proxywhirl.proxywhirl import ProxyWhirl
-
-# Legacy alias for backward compatibility  
-ProxyWhirlClient = ProxyWhirl
-
-# TUI functionality (optional import)
-try:
-    from proxywhirl.tui import ProxyWhirlTUI, run_tui
-
-    __all_tui__ = ["ProxyWhirlTUI", "run_tui"]
-except ImportError:
-    __all_tui__ = []
-
-__all__ = [
-    "ProxyWhirl",
-    "ProxyWhirlClient",
 ] + __all_tui__

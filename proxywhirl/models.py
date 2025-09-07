@@ -1314,5 +1314,60 @@ class StrictProxy(BaseModel):
         return f"{primary_scheme}://{self.host}:{self.port}"
 
 
+# === Performance and Lightweight Models ===
+
+
+@dataclass(frozen=True, slots=True)
+class CoreProxy:
+    """Lightweight, immutable proxy representation for high-performance scenarios."""
+    host: str
+    port: int
+    scheme: str
+    source: str = "unknown"
+    
+    @property
+    def url(self) -> str:
+        """Generate proxy URL."""
+        return f"{self.scheme}://{self.host}:{self.port}"
+
+
+@dataclass(frozen=True, slots=True)
+class ErrorEvent:
+    """Immutable error event record for performance tracking."""
+    timestamp: datetime
+    error_type: ValidationErrorType
+    error_message: Optional[str] = None
+    http_status: Optional[int] = None
+
+
+# === Session-based Models ===
+
+
+class SessionProxy(BaseModel):
+    """A proxy instance bound to a specific session with TTL."""
+    
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    
+    session_id: str
+    proxy: Proxy
+    expires_at: datetime
+    target_id: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    usage_count: int = 0
+    error_count: int = 0
+    
+    def is_expired(self) -> bool:
+        """Check if the session proxy has expired."""
+        return datetime.now(timezone.utc) > self.expires_at
+
+    def extend_ttl(self, additional_seconds: int) -> None:
+        """Extend the TTL by additional seconds."""
+        self.expires_at += timedelta(seconds=additional_seconds)
+
+    def time_to_expiry(self) -> timedelta:
+        """Get time remaining until expiration."""
+        return self.expires_at - datetime.now(timezone.utc)
+
+
 # Legacy aliases for backward compatibility
 ProxyScheme = Scheme

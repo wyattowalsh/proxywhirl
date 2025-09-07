@@ -9,7 +9,8 @@ import typer
 from rich.table import Table
 from typing_extensions import Annotated
 
-from ...models import CacheType, Proxy
+from ...caches import CacheType
+from ...models import Proxy
 from ...proxywhirl import ProxyWhirl
 from ..app import app
 from ..state import ProxyWhirlError

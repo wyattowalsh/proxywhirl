@@ -1,0 +1,289 @@
+---
+title: architecture
+---
+
+<Mermaid
+  chart={`---
+title: ProxyWhirl Enhanced Architecture
+config:
+  theme: base
+  themeVariables:
+    primaryColor: '#0366d6'
+    primaryTextColor: '#ffffff'
+    primaryBorderColor: '#0366d6'
+    lineColor: '#6f42c1'
+    secondaryColor: '#f6f8fa'
+    tertiaryColor: '#ffeaa7'
+---
+flowchart TB
+    %% ==================== LAYER 1: USER INTERFACES ====================
+    CLI[🖥️ CLI Interface<br/>Typer Framework<br/>Rich Output]
+    TUI[🎨 TUI Dashboard<br/>Textual Framework<br/>Real-time Updates]
+    WEB[🌐 Web Interface<br/>React/Next.js<br/>Real-time WebSocket]
+
+    %% TUI Components Detail
+    subgraph TUI_COMPONENTS["TUI Components"]
+        TUI_TABLE[ProxyDataTable<br/>Interactive Grid]
+        TUI_STATS[ProxyStatsWidget<br/>Live Metrics]
+        TUI_STATE[TUI State<br/>Session Management]
+    end
+
+    %% CLI Components Detail  
+    subgraph CLI_COMPONENTS["CLI Components"]
+        CLI_STATE[ProxyWhirlState<br/>CLI State Manager]
+        CLI_ERROR[Error Handling<br/>User-friendly Messages]
+    end
+
+    %% ==================== LAYER 2: API GATEWAY ====================
+    subgraph API_LAYER["🌐 FastAPI Gateway"]
+        direction TB
+        subgraph API_ENDPOINTS["Endpoints"]
+            PROXY_EP["/proxies<br/>CRUD Operations<br/>Streaming Support"]
+            HEALTH_EP["/health<br/>System Status<br/>Detailed Metrics"]
+            AUTH_EP["/auth<br/>JWT Tokens<br/>User Management"]
+            ADMIN_EP["/admin<br/>System Config<br/>Cache Management"]
+            WS_EP["/ws<br/>Real-time Updates<br/>Live Monitoring"]
+        end
+        subgraph API_MIDDLEWARE["Middleware Stack"]
+            LOG_MW[Logging<br/>Structured]
+            MON_MW[Monitoring<br/>Metrics]
+            SEC_MW[Security<br/>CORS & Auth]
+            RATE_MW[Rate Limiting<br/>SlowAPI]
+        end
+        subgraph WS_MANAGER["WebSocket System"]
+            WS_MGR[ConnectionManager<br/>Channel Management<br/>Cleanup]
+            WS_HEALTH[Health Monitor<br/>Real-time Updates]
+        end
+    end
+
+    %% ==================== CORE ORCHESTRATION ====================
+    subgraph CORE["⚙️ Core Orchestration"]
+        direction TB
+        PW[ProxyWhirl<br/>Main Controller<br/>1195 lines<br/>Async/Sync API]
+        CONFIG[Configuration<br/>ProxyWhirlSettings<br/>Environment Variables]
+        AUTH_SVC[Auth Service<br/>User Management<br/>Token Validation]
+    end
+
+    %% ==================== DATA MODELS ====================
+    subgraph MODELS["📋 Data Models & Schemas"]
+        direction LR
+        CORE_MODELS[Core Models<br/>Proxy, Scheme<br/>Pydantic V2]
+        CACHE_MODELS[Cache Models<br/>Metrics, Filters<br/>Type Safety]
+        EXPORT_MODELS[Export Models<br/>Format Handlers<br/>Validation]
+        API_MODELS[API Models<br/>Request/Response<br/>OpenAPI Schema]
+    end
+
+    %% ==================== BUSINESS LOGIC LAYER ====================
+    subgraph BUSINESS["🔧 Business Logic Layer"]
+        direction TB
+        
+        subgraph VALIDATION["🔒 Validation Engine"]
+            VAL[ProxyValidator<br/>788 lines<br/>Circuit Breaker]
+            CB[Circuit Breaker<br/>Fault Tolerance<br/>Auto Recovery]
+            TARGET[Target Validation<br/>Multi-endpoint<br/>Quality Levels]
+        end
+        
+        subgraph ROTATION["🔄 Rotation Engine"]
+            ROTOR[ProxyRotator<br/>402 lines<br/>Smart Selection]
+            RR[Round Robin]
+            RAND[Random]
+            WEIGHT[Weighted]
+            HEALTH[Health-based]
+            LEAST[Least Used]
+        end
+        
+        subgraph EXPORT_SYS["📤 Export System"]
+            EXP[ProxyExporter<br/>742 lines<br/>Multi-format]
+            JSON_EXP[JSON Export]
+            CSV_EXP[CSV Export]
+            XML_EXP[XML Export]
+            TXT_EXP[TXT Export]
+            PAC_EXP[PAC Export]
+            YAML_EXP[YAML Export]
+            SQL_EXP[SQL Export]
+        end
+    end
+
+    %% ==================== DATA ACCESS LAYER ====================
+    subgraph DATA_LAYER["💾 Data Access Layer"]
+        direction TB
+        
+        subgraph CACHE_SYS["Caching System"]
+            CACHE_MGR[Cache Manager<br/>Strategy Pattern<br/>Auto-Fallback]
+            MEM_CACHE[Memory Cache<br/>High Performance<br/>Thread-Safe]
+            JSON_CACHE[JSON Cache<br/>File-based<br/>Portable]
+            SQLITE_CACHE[SQLite Cache<br/>Relational<br/>Query Support]
+            ASYNC_SQLITE[Async SQLite<br/>Production Ready<br/>Connection Pool]
+            ANALYTICS[Analytics Cache<br/>Metrics Storage<br/>Time-series]
+        end
+        
+        subgraph LOADERS["📡 Data Loaders"]
+            BASE_LOADER[BaseLoader<br/>Abstract Interface<br/>Plugin System]
+            SPEEDX[TheSpeedX<br/>HTTP/SOCKS]
+            CLARKETM[Clarketm<br/>Raw Format]
+            MONOSANS[Monosans<br/>API-based]
+            PROXYSCRAPE[ProxyScrape<br/>API Service]
+            JETKAI[JetkaiProxy<br/>GitHub Lists]
+            VAKHOV[VakhovFresh<br/>Fresh Sources]
+            PROXY4PARSING[Proxy4Parsing<br/>Parser Engine]
+            PUBPROXY[PubProxy<br/>Public API]
+            SUNNYSCRAPER[SunnyScraper<br/>Web Scraper]
+            USER[UserProvided<br/>Custom Lists]
+        end
+    end
+
+    %% ==================== INFRASTRUCTURE & UTILITIES ====================
+    subgraph INFRASTRUCTURE["🛠️ Infrastructure Layer"]
+        direction LR
+        LOG[Logger System<br/>Loguru + Rich<br/>Structured Logging]
+        UTILS_MOD[Utilities<br/>Validation Helpers<br/>Data Processing]
+        HEALTH_RPT[Health Reporter<br/>System Metrics<br/>Status Monitoring]
+    end
+
+    %% ==================== EXTERNAL SYSTEMS ====================
+    subgraph EXTERNAL["🌍 External Systems"]
+        direction LR
+        SOURCES[Proxy Sources<br/>GitHub, APIs<br/>Web Scrapers]
+        TARGETS[Validation Targets<br/>HTTP/HTTPS<br/>Test Endpoints]
+        HEALTH_ENDPOINTS[Health Endpoints<br/>Monitoring<br/>External Services]
+    end
+
+    %% ==================== RELATIONSHIP FLOWS ====================
+    %% UI Layer connections
+    CLI --> API_LAYER
+    TUI --> API_LAYER
+    WEB --> API_LAYER
+    
+    %% TUI internal connections
+    TUI --> TUI_TABLE
+    TUI --> TUI_STATS
+    TUI --> TUI_STATE
+
+    %% CLI internal connections
+    CLI --> CLI_STATE
+    CLI --> CLI_ERROR
+
+    %% API endpoint routing
+    API_LAYER ==> PW
+    PROXY_EP ==> PW
+    HEALTH_EP ==> HEALTH_RPT
+    AUTH_EP ==> AUTH_SVC
+    ADMIN_EP ==> CONFIG
+    WS_EP ==> WS_MGR
+
+    %% WebSocket system connections
+    WS_MGR --> WS_HEALTH
+    WS_MGR --> PW
+
+    %% Core system connections
+    PW ==> CONFIG
+    PW ==> CACHE_MGR
+
+    %% Business logic flows
+    PW ==> VAL
+    PW ==> ROTOR
+    PW ==> BASE_LOADER
+    PW ==> EXP
+
+    %% Validation flows
+    VAL --> CB
+    VAL --> TARGET
+    TARGET -.-> HEALTH_ENDPOINTS
+
+    %% Rotation strategy flows
+    ROTOR --> RR
+    ROTOR --> RAND
+    ROTOR --> WEIGHT
+    ROTOR --> HEALTH
+    ROTOR --> LEAST
+
+    %% Cache system flows
+    CACHE_MGR ==> MEM_CACHE
+    CACHE_MGR ==> JSON_CACHE
+    CACHE_MGR ==> SQLITE_CACHE
+    CACHE_MGR ==> ASYNC_SQLITE
+    CACHE_MGR ==> ANALYTICS
+
+    %% Loader inheritance flows
+    BASE_LOADER --> SPEEDX
+    BASE_LOADER --> CLARKETM
+    BASE_LOADER --> MONOSANS
+    BASE_LOADER --> PROXYSCRAPE
+    BASE_LOADER --> JETKAI
+    BASE_LOADER --> VAKHOV
+    BASE_LOADER --> PROXY4PARSING
+    BASE_LOADER --> PUBPROXY
+    BASE_LOADER --> SUNNYSCRAPER
+    BASE_LOADER --> USER
+
+    %% External connections
+    SPEEDX -.-> SOURCES
+    CLARKETM -.-> SOURCES
+    MONOSANS -.-> SOURCES
+    PROXYSCRAPE -.-> SOURCES
+    JETKAI -.-> SOURCES
+    VAKHOV -.-> SOURCES
+    PROXY4PARSING -.-> SOURCES
+    PUBPROXY -.-> SOURCES
+    SUNNYSCRAPER -.-> SOURCES
+
+    %% Export flows
+    PW ==> EXP
+    EXP --> JSON_EXP
+    EXP --> CSV_EXP
+    EXP --> XML_EXP
+    EXP --> TXT_EXP
+    EXP --> PAC_EXP
+    EXP --> YAML_EXP
+    EXP --> SQL_EXP
+
+    %% Model dependencies
+    PW --> CORE_MODELS
+    CACHE_MGR --> CACHE_MODELS
+    EXP --> EXPORT_MODELS
+    API_LAYER --> API_MODELS
+
+    %% Middleware flows
+    API_LAYER --> LOG_MW
+    API_LAYER --> MON_MW
+    API_LAYER --> SEC_MW
+    API_LAYER --> RATE_MW
+
+    %% Utility connections
+    PW --> LOG
+    PW --> UTILS_MOD
+    CLI --> HEALTH_RPT
+    TUI --> HEALTH_RPT
+
+    %% Data feedback flows
+    VAL ==> CACHE_MGR
+    CACHE_MGR ==> ROTOR
+    ROTOR ==> PW
+
+    %% Health monitoring flows
+    VAL -.-> HEALTH_ENDPOINTS
+    HEALTH_RPT -.-> ANALYTICS
+    WS_HEALTH -.-> HEALTH_ENDPOINTS
+
+    %% ==================== ADVANCED STYLING ====================
+    classDef uiLayer fill:#e1f5fe,stroke:#0277bd,stroke-width:3px,color:#000
+    classDef apiLayer fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px,color:#000
+    classDef coreLayer fill:#e8eaf6,stroke:#3f51b5,stroke-width:3px,color:#000
+    classDef modelLayer fill:#e8f5e8,stroke:#388e3c,stroke-width:3px,color:#000
+    classDef businessLayer fill:#fff3e0,stroke:#f57c00,stroke-width:3px,color:#000
+    classDef dataLayer fill:#fce4ec,stroke:#c2185b,stroke-width:3px,color:#000
+    classDef utilLayer fill:#f1f8e9,stroke:#558b2f,stroke-width:3px,color:#000
+    classDef extLayer fill:#fafafa,stroke:#616161,stroke-width:2px,color:#000
+    classDef componentLayer fill:#e3f2fd,stroke:#1565c0,stroke-width:2px,color:#000
+
+    %% Apply layer styles
+    class CLI,TUI,WEB uiLayer
+    class TUI_TABLE,TUI_STATS,TUI_STATE,CLI_STATE,CLI_ERROR componentLayer
+    class HEALTH_EP,PROXY_EP,AUTH_EP,ADMIN_EP,WS_EP,LOG_MW,MON_MW,SEC_MW,RATE_MW,WS_MGR,WS_HEALTH apiLayer
+    class PW,CONFIG,AUTH_SVC coreLayer
+    class CORE_MODELS,CACHE_MODELS,EXPORT_MODELS,API_MODELS modelLayer
+    class VAL,CB,TARGET,ROTOR,RR,RAND,WEIGHT,HEALTH,LEAST,EXP,JSON_EXP,CSV_EXP,XML_EXP,TXT_EXP,PAC_EXP,YAML_EXP,SQL_EXP businessLayer
+    class CACHE_MGR,MEM_CACHE,JSON_CACHE,SQLITE_CACHE,ASYNC_SQLITE,ANALYTICS,BASE_LOADER,SPEEDX,CLARKETM,MONOSANS,PROXYSCRAPE,JETKAI,VAKHOV,PROXY4PARSING,PUBPROXY,SUNNYSCRAPER,USER dataLayer
+    class LOG,UTILS_MOD,HEALTH_RPT utilLayer
+    class SOURCES,TARGETS,HEALTH_ENDPOINTS extLayer`}
+/>

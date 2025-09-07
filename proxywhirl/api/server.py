@@ -1,7 +1,20 @@
 """ProxyWhirl API Server
 
 Production-ready startup script for the ProxyWhirl FastAPI server.
-Enhanced integration from api_server.py with comprehensive configuration.
+Supports both development and production modes with comprehensive configuration.
+
+Usage:
+    python -m proxywhirl.api.server                    # Development mode
+    python -m proxywhirl.api.server --production       # Production mode
+    python -m proxywhirl.api.server --host 0.0.0.0     # Custom host
+    python -m proxywhirl.api.server --port 8080        # Custom port
+
+Environment Variables:
+    PROXYWHIRL_SECRET_KEY     - JWT secret key (required for production)
+    PROXYWHIRL_HOST           - Server host (default: 127.0.0.1)
+    PROXYWHIRL_PORT           - Server port (default: 8000)
+    PROXYWHIRL_RELOAD         - Enable auto-reload (default: False)
+    PROXYWHIRL_WORKERS        - Number of worker processes (production only)
 """
 
 import os
@@ -13,9 +26,9 @@ import uvicorn
 from loguru import logger
 
 # Add the project root to Python path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-app = typer.Typer(help="ProxyWhirl FastAPI Server", name="proxywhirl-server")
+app = typer.Typer(help="ProxyWhirl FastAPI Server")
 
 
 def configure_logging(level: str = "INFO"):
@@ -110,10 +123,9 @@ def serve(
     # Configure logging
     configure_logging(log_level.upper())
 
-    # Import the FastAPI app
+    # Import the FastAPI app for validation
     try:
-        from proxywhirl.api import app as fastapi_app
-
+        from proxywhirl.api.main import app as fastapi_app
         logger.success("✅ ProxyWhirl API loaded successfully")
     except ImportError as e:
         logger.error(f"❌ Failed to import ProxyWhirl API: {e}")
@@ -121,7 +133,7 @@ def serve(
 
     # Server configuration
     server_config = {
-        "app": "proxywhirl.api:app",
+        "app": "proxywhirl.api.main:app",
         "host": host,
         "port": port,
         "reload": reload and not production,
@@ -159,7 +171,7 @@ def serve(
 
             # Configure Gunicorn
             gunicorn_config = [
-                "proxywhirl.api:app",
+                "proxywhirl.api.main:app",
                 "--bind", f"{host}:{port}",
                 "--workers", str(workers),
                 "--worker-class", "uvicorn.workers.UvicornWorker",
@@ -223,7 +235,7 @@ def openapi():
     try:
         import json
 
-        from proxywhirl.api import app as fastapi_app
+        from proxywhirl.api.main import app as fastapi_app
 
         schema = fastapi_app.openapi()
         print(json.dumps(schema, indent=2))

@@ -1,405 +1,117 @@
 ---
-applyTo: ".github/workflows/**,.github/ISSUE_TEMPLATE/**,.github/PULL_REQUEST_TEMPLATE/**,.github/**/*.md"
+applyTo: ".github/**,./Makefile,./pyproject.toml,./proxywhirl/**,./tests/**"
 ---
 
-# ProxyWhirl Deployment Instructions
+# `proxywhirl` devops custom project instructions
 
-Follow these instructions for advanced CI/CD, security, and zero-downtime deployment with AI assistance.
+This instruction set details the DevOps infrastructure and automation workflows for `proxywhirl`. The system uses GitHub for project management and version control, GitHub Actions for comprehensive CI/CD pipelines, and a Makefile for local development workflow automation. The DevOps stack emphasizes quality gates, automated testing, dependency management, multi-environment deployments, and developer experience optimization through `uv` for Python dependency management and `pnpm` for Node.js ecosystems.
 
-## CI/CD Pipeline Configuration
+---
 
-### GitHub Actions Workflow Standards
-All workflows must follow these patterns for ProxyWhirl:
+## structure
 
-```yaml
-# Required workflow structure
-name: ProxyWhirl [Pipeline Name]
+- **[`.github/`](../.github/)**                                                - GitHub project configuration and automation infrastructure
+  - **Project Instructions**                                                 - Specialized instruction sets for different components and AI agents
+    - **[`backend.instructions.md`](./backend.instructions.md)**             - Core Python package development guidelines with CLI, API, validator, and rotator logic ([pydantic](./context/pydantic-docs.md), [fastapi](./context/fastapi-docs.md), [typer](./context/typer-docs.md), [textual](./context/textual-docs.md))
+    - **[`docs.instructions.md`](./docs.instructions.md)**                   - Next.js FumaDocs documentation site development guidelines ([fumadocs](./context/fumadocs-docs.md), [next-js](./context/next-js-docs.md), [shadcn_ui](./context/shadcn_ui-docs.md), [tailwindcss](./context/tailwindcss.com-docs.md))
+    - **[`frontend.instructions.md`](./frontend.instructions.md)**           - Vite/React frontend development guidelines for proxy management UI ([react](./context/react.dev-content-docs.md), [typescript](./context/typescript-docs.md), [tailwindcss](./context/tailwindcss.com-docs.md))
+    - **[`devops.md`](./devops.md)**                                         - DevOps infrastructure and automation workflows using GitHub Actions and Makefile ([uv](./context/uv-docs.md), [pnpm](./context/pnpm.io-docs.md))
+    - **[`copilot-instructions.md`](./copilot-instructions.md)**             - GitHub Copilot project-specific instructions and SWE agent configuration
+    - **[`todos.md`](./todos.md)**                                           - Development roadmap and task tracking for project milestones
+  - **[`workflows/`](./workflows/)**                                         - GitHub Actions CI/CD pipeline definitions with comprehensive automation
+    - **[`ci.yml`](./workflows/ci.yml)**                                     - Main CI pipeline with quality gates, multi-Python version testing, and comprehensive coverage ([pytest](./context/pytest-docs.md), [ruff](./context/ruff-docs.md), [mypy](./context/mypy-docs.md))
+    - **[`release.yml`](./workflows/release.yml)**                           - Automated release workflow with semantic versioning and changelog generation
+    - **[`frontend.yml`](./workflows/frontend.yml)**                         - Frontend-specific CI/CD for Vite/React application with build optimization
+    - **[`health-report.yml`](./workflows/health-report.yml)**               - Automated proxy health monitoring and reporting with scheduled execution
+    - **[`proxy-lists.yml`](./workflows/proxy-lists.yml)**                   - Scheduled proxy list updates and validation with data freshness checks
+  - **[`ISSUE_TEMPLATE/`](./ISSUE_TEMPLATE/)**                               - Standardized GitHub issue templates for structured project management
+    - **[`bug-report.yml`](./ISSUE_TEMPLATE/bug-report.yml)**                - Bug reporting template with structured fields for reproducible issues
+    - **[`feature-request.yml`](./ISSUE_TEMPLATE/feature-request.yml)**      - Feature request template with user story format and acceptance criteria
+    - **[`documentation.yml`](./ISSUE_TEMPLATE/documentation.yml)**          - Documentation improvement requests with specific content areas
+    - **[`performance-issue.yml`](./ISSUE_TEMPLATE/performance-issue.yml)**  - Performance-related issue tracking with benchmarking requirements
+    - **[`question.yml`](./ISSUE_TEMPLATE/question.yml)**                    - General questions and support requests with context gathering
+    - **[`config.yml`](./ISSUE_TEMPLATE/config.yml)**                        - Issue template configuration with routing and automation rules
+  - **[`assets/`](./assets/)**                                               - Project assets and media resources for branding and documentation
+    - **[`health_report.md`](./assets/health_report.md)**                    - Template for automated proxy health reporting
+    - **[`README.md`](./assets/README.md)**                                  - Assets documentation and usage guidelines
+    - **[`img/`](./assets/img/)**                                            - Brand assets, icons, and visual resources
+  - **[`context/`](./context/)**                                             - Library documentation and API references for development tools
+    - **Python Libraries**                                                   - Core Python development stack documentation
+      - **[`pydantic-docs.md`](./context/pydantic-docs.md)**                 - Data validation and settings management library docs
+      - **[`fastapi-docs.md`](./context/fastapi-docs.md)**                   - Modern web API framework documentation
+      - **[`httpx-docs.md`](./context/httpx-docs.md)**                       - HTTP client library for proxy validation
+      - **[`aiohttp-docs.md`](./context/aiohttp-docs.md)**                   - Asynchronous HTTP client/server framework docs
+      - **[`typer-docs.md`](./context/typer-docs.md)**                       - CLI application framework documentation
+      - **[`textual-docs.md`](./context/textual-docs.md)**                   - Terminal UI framework for interactive applications
+      - **[`loguru-docs.md`](./context/loguru-docs.md)**                     - Structured logging library documentation
+      - **[`sqlmodel-docs.md`](./context/sqlmodel-docs.md)**                 - Database ORM and query builder docs
+      - **[`aiocache-docs.md`](./context/aiocache-docs.md)**                 - Asynchronous caching framework documentation
+      - **[`tenacity-docs.md`](./context/tenacity-docs.md)**                 - Retry and circuit breaker library docs
+      - **[`pandas-docs.md`](./context/pandas-docs.md)**                     - Data analysis and manipulation library documentation
+      - **[`rich-source-docs.md`](./context/rich-source-docs.md)**           - Terminal formatting and display library docs
+      - **[`python-dotenv-docs.md`](./context/python-dotenv-docs.md)**       - Environment variable management documentation
+      - **[`pydantic-settings-docs.md`](./context/pydantic-settings-docs.md)** - Configuration management with Pydantic
+    - **Development Tools**                                                  - Code quality and development workflow tools
+      - **[`pytest-docs.md`](./context/pytest-docs.md)**                     - Testing framework with fixtures and plugins
+      - **[`ruff-docs.md`](./context/ruff-docs.md)**                         - Fast Python linter and formatter documentation
+      - **[`mypy-docs.md`](./context/mypy-docs.md)**                         - Static type checker for Python
+      - **[`pylint-docs.md`](./context/pylint-docs.md)**                     - Code analysis and quality checking tool
+      - **[`black-docs.md`](./context/black-docs.md)**                       - Opinionated Python code formatter
+      - **[`isort-docs.md`](./context/isort-docs.md)**                       - Import sorting and organization tool
+      - **[`uv-docs.md`](./context/uv-docs.md)**                             - Fast Python package manager and dependency resolver
+    - **Frontend & Documentation**                                           - Web development and documentation tooling
+      - **[`next-js-docs.md`](./context/next-js-docs.md)**                   - React framework for documentation site
+      - **[`fumadocs-docs.md`](./context/fumadocs-docs.md)**                 - Documentation site generator and theming
+      - **[`react.dev-content-docs.md`](./context/react.dev-content-docs.md)** - React library for interactive UI components
+      - **[`typescript-docs.md`](./context/typescript-docs.md)**             - Type-safe JavaScript development
+      - **[`tailwindcss.com-docs.md`](./context/tailwindcss.com-docs.md)**   - Utility-first CSS framework documentation
+      - **[`shadcn_ui-docs.md`](./context/shadcn_ui-docs.md)**               - Modern component library with design system
+      - **[`postcss-docs.md`](./context/postcss-docs.md)**                   - CSS transformation and optimization tool
+      - **[`pnpm.io-docs.md`](./context/pnpm.io-docs.md)**                   - Fast, disk space efficient package manager
+    - **System & Build Tools**                                               - Infrastructure and build system documentation
+      - **[`GNUMake   2025-06-21.md`](./context/GNUMake\ \ \ 2025-06-21.md)** - Build automation and task runner documentation
+      - **[`mermaid-docs-docs.md`](./context/mermaid-docs-docs.md)**          - Diagram generation and visualization tools
+      - **[`tqdm-docs.rst.txt`](./context/tqdm-docs.rst.txt)**               - Progress bar library for long-running operations
+  - **[`chatmodes/`](./chatmodes/)**                                         - AI agent configurations for specialized development modes
+    - **[`proxywhirl.chatmode.md`](./chatmodes/proxywhirl.chatmode.md)**     - Primary AI agent mode for proxywhirl development
+    - **[`chatmode-research.md`](./chatmodes/chatmode-research.md)**         - Research-focused AI agent configuration
+    - **[`copilot-instructions-research.md`](./chatmodes/copilot-instructions-research.md)** - Research mode instructions for GitHub Copilot
+  - **[`dependabot.yml`](./dependabot.yml)**                                 - Automated dependency updates for Python, Node.js, and GitHub Actions with security monitoring
+  - **[`pull_request_template.md`](./pull_request_template.md)**             - Standardized pull request template with comprehensive checklist and quality gates
+- **[`pyproject.toml`](../pyproject.toml)**                                  - Python project configuration with dependency management and tool settings ([uv](./context/uv-docs.md), [pytest](./context/pytest-docs.md), [ruff](./context/ruff-docs.md), [black](./context/black-docs.md), [mypy](./context/mypy-docs.md), [pylint](./context/pylint-docs.md))
+  - **Project Metadata**                                                     - Core project definition with Python 3.13+ requirement and comprehensive dependency specification
+  - **Dependency Groups**                                                    - Organized dependency management with groups for dev, test, lint, format, and notebook environments
+    - `dev` - Core development dependencies ([pytest](./context/pytest-docs.md), [ruff](./context/ruff-docs.md))
+    - `test` - Comprehensive testing stack ([pytest](./context/pytest-docs.md) ecosystem with coverage, benchmarking, and parallel execution)
+    - `lint` - Static analysis tools ([mypy](./context/mypy-docs.md), [pylint](./context/pylint-docs.md), [ruff](./context/ruff-docs.md) with type stubs)
+    - `format` - Code formatting utilities ([black](./context/black-docs.md), [isort](./context/isort-docs.md), autoflake, autopep8)
+    - `notebook` - Jupyter ecosystem for data analysis and experimentation
+  - **Tool Configuration**                                                   - Integrated configuration for all development tools with consistent settings
+    - **[pytest](./context/pytest-docs.md)** - Comprehensive test configuration with coverage, HTML reports, and parallel execution
+    - **[black](./context/black-docs.md)** - Code formatting with 100-character line length
+    - **[isort](./context/isort-docs.md)** - Import sorting compatible with black formatter
+    - **[ruff](./context/ruff-docs.md)** - Fast linting with consistent line length and exclusions
+    - **[mypy](./context/mypy-docs.md)** - Strict type checking with test module exclusions
+    - **[pylint](./context/pylint-docs.md)** - Code analysis with consistent formatting standards
+- **[`Makefile`](../Makefile)**                                              - Comprehensive development workflow automation with colored output and intelligent task organization ([uv](./context/uv-docs.md), [pnpm](./context/pnpm.io-docs.md))
+  - **Environment Management**                                               - Virtual environment setup, dependency synchronization, and CI preparation
+    - `setup` - Complete environment initialization with all dependency groups
+    - `ci-setup` - CI-optimized environment setup with PATH export for GitHub Actions
+    - `sync-dev` - Development dependencies only (dev, test, lint, format groups)
+    - `sync-prod` - Production dependencies synchronization for deployment
+  - **Development Workflow**                                                 - Core development tasks and comprehensive quality gates
+    - `test` - Comprehensive test suite execution with [pytest](./context/pytest-docs.md) and coverage reporting
+    - `format` - Code formatting pipeline with [black](./context/black-docs.md) and [isort](./context/isort-docs.md)
+    - `lint` - Multi-stage linting with [ruff](./context/ruff-docs.md), [pylint](./context/pylint-docs.md), and [mypy](./context/mypy-docs.md) type checking
+    - `quality` - Complete quality pipeline orchestration: format → lint → test
+  - **Documentation & UI**                                                   - Multi-platform development server management with tmux integration
+    - `docs-dev` - [FumaDocs](./context/fumadocs-docs.md) development server (localhost:3000)
+    - `docs-build` - Production documentation build with [Next.js](./context/next-js-docs.md)
+    - `frontend-dev` - [Vite](./context/vite-docs.md)/React development server (localhost:5173)
+    - `frontend-build` - Production frontend build with optimization
+    - `ui-dev` - Concurrent docs + frontend servers via tmux multiplexing
+  - **Utilities**                                                            - Maintenance, validation, and cleanup automation
+    - `validate-pkgmgrs` - Package manager consistency validation ([uv](./context/uv-docs.md) + [pnpm](./context/pnpm.io-docs.md))
+    - `clean` - Comprehensive cleanup of build artifacts, caches, logs, and temporary files
 
-on:
-  push:
-    branches: [main, dev]
-  pull_request:
-    branches: [main, dev]
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Target Environment'
-        required: true
-        default: 'dev'
-        type: choice
-        options: ['dev', 'staging', 'prod']
-
-env:
-  PYTHON_VERSION: "3.13"
-  NODE_VERSION: "20"
-  UV_CACHE_DIR: ~/.cache/uv
-  PNPM_CACHE_DIR: ~/.pnpm-store
-```
-
-### OIDC Security Requirements (MANDATORY)
-Always use OIDC for trusted publishing:
-
-```yaml
-# Required permissions for OIDC
-permissions:
-  id-token: write      # OIDC token generation
-  contents: read       # Repository access
-  attestations: write  # Provenance attestation
-  security-events: write  # SARIF reporting
-
-jobs:
-  secure-publish:
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Setup Python with OIDC
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-      
-      - name: Setup uv with caching
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-          cache-dependency-glob: "uv.lock"
-      
-      - name: Build with provenance
-        run: uv build --wheel
-      
-      - name: Publish with OIDC (Trusted Publishing)
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          attestations: true  # Generate provenance attestation
-```
-
-### Advanced Caching Strategy
-Implement intelligent caching for all dependencies:
-
-```yaml
-# Multi-layer caching for optimal performance
-- name: Cache Python dependencies
-  uses: actions/cache@v4
-  with:
-    path: |
-      ~/.cache/uv
-      ~/.cache/pip
-      ${{ github.workspace }}/.venv
-    key: python-${{ runner.os }}-${{ hashFiles('uv.lock', 'pyproject.toml') }}
-    restore-keys: |
-      python-${{ runner.os }}-
-
-- name: Cache analysis tools
-  uses: actions/cache@v4
-  with:
-    path: |
-      ~/.cache/ruff
-      ~/.cache/mypy
-      ~/.cache/pylint
-    key: analysis-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
-
-- name: Cache Node.js dependencies (docs)
-  uses: actions/cache@v4
-  with:
-    path: |
-      ~/.pnpm-store
-      docs/node_modules
-      docs/.next/cache
-    key: node-${{ runner.os }}-${{ hashFiles('docs/pnpm-lock.yaml') }}
-```
-
-## Security Implementation Requirements
-
-### SAST/DAST Integration (MANDATORY)
-All workflows must include security scanning:
-
-```yaml
-security-scan:
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v4
-    
-    - name: Python Security Scanning
-      run: |
-        uv run bandit -r proxywhirl -f sarif -o bandit-report.sarif
-        uv run safety check --json --output safety-report.json
-        uv run pip-audit --format=sarif --output=pip-audit.sarif
-    
-    - name: Upload SARIF to GitHub Security
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: bandit-report.sarif
-    
-    - name: CodeQL Analysis
-      uses: github/codeql-action/analyze@v3
-      with:
-        languages: python
-        queries: security-extended,security-and-quality
-```
-
-### Dependency Management Automation
-Configure Dependabot with security-first approach:
-
-```yaml
-# .github/dependabot.yml
-version: 2
-updates:
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "tuesday"
-      time: "10:00"
-    target-branch: "dev"
-    groups:
-      security-updates:
-        applies-to: security-updates
-        patterns: ["*"]
-      critical-dependencies:
-        patterns: ["pydantic*", "httpx*", "loguru*"]
-    commit-message:
-      prefix: "deps"
-      include: "scope"
-```
-
-## Matrix Testing Strategy
-
-### Cross-Platform Testing Requirements
-Test across multiple environments:
-
-```yaml
-quality-matrix:
-  strategy:
-    fail-fast: false
-    matrix:
-      os: [ubuntu-latest, macos-latest, windows-latest]
-      python-version: ["3.13", "3.14-dev"]
-      include:
-        - os: ubuntu-latest
-          platform: linux
-          cache-prefix: linux
-        - os: macos-latest
-          platform: darwin
-          cache-prefix: macos
-        - os: windows-latest
-          platform: win32
-          cache-prefix: windows
-
-  runs-on: ${{ matrix.os }}
-  
-  steps:
-    - name: Quality Pipeline Execution
-      run: |
-        # Platform-specific quality checks
-        if [[ "${{ matrix.platform }}" == "windows" ]]; then
-          # Windows-specific testing adjustments
-          export PYTEST_TIMEOUT=300
-        fi
-        
-        # Execute comprehensive quality pipeline
-        uv run pytest -n auto --cov=proxywhirl --benchmark-autosave
-        uv run ruff check . --output-format=github
-        uv run mypy proxywhirl --strict
-```
-
-## Performance Monitoring Integration
-
-### Benchmark Regression Detection
-Monitor performance across releases:
-
-```yaml
-performance-validation:
-  runs-on: ubuntu-latest
-  steps:
-    - name: Benchmark Execution
-      run: |
-        # Run performance benchmarks
-        uv run pytest tests/benchmarks/ \
-          --benchmark-only \
-          --benchmark-json=benchmark-results.json \
-          --benchmark-autosave
-    
-    - name: Performance Regression Analysis
-      run: |
-        # Compare against baseline performance
-        uv run python scripts/analyze_performance.py \
-          --current=benchmark-results.json \
-          --baseline=main \
-          --threshold=1.2 \
-          --output=performance-report.md
-    
-    - name: Performance Report Comment
-      uses: actions/github-script@v7
-      if: github.event_name == 'pull_request'
-      with:
-        script: |
-          const fs = require('fs')
-          const report = fs.readFileSync('performance-report.md', 'utf8')
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: `## Performance Analysis\n\n${report}`
-          })
-```
-
-## AI-Enhanced Deployment Validation
-
-### MCP Tool Integration for Infrastructure
-Use MCP tools for deployment validation:
-
-```bash
-# Infrastructure validation pipeline
-mcp_package_versi_check_github_actions([
-  {"name": "actions/checkout", "version": "v4"},
-  {"name": "astral-sh/setup-uv", "version": "v4"},
-  {"name": "actions/setup-node", "version": "v4"}
-])
-
-# Security best practices research
-mcp_brave_search_brave_web_search("GitHub OIDC trusted publishing 2025")
-mcp_docfork_get-library-docs("actions/runner", "security hardening")
-
-# Deployment validation
-mcp_sequential_th2_sequentialthinking_tools("validate deployment security")
-```
-
-### Automated Health Checks
-Implement comprehensive health monitoring:
-
-```yaml
-health-validation:
-  runs-on: ubuntu-latest
-  if: github.ref == 'refs/heads/main'
-  steps:
-    - name: Post-Deploy Health Checks
-      run: |
-        # Validate PyPI package availability
-        timeout 300 pip install proxywhirl==${{ github.ref_name }}
-        
-        # Test package functionality
-        python -c "
-        import proxywhirl
-        pw = proxywhirl.ProxyWhirl()
-        print(f'ProxyWhirl v{proxywhirl.__version__} loaded successfully')
-        "
-        
-        # Validate documentation site
-        curl -f -s -o /dev/null https://proxywhirl.dev/health || exit 1
-    
-    - name: Smoke Test Execution
-      run: |
-        # Execute critical path testing
-        uv run python -m proxywhirl --help
-        uv run python -c "
-        import asyncio
-        from proxywhirl import ProxyWhirl
-        
-        async def smoke_test():
-            pw = ProxyWhirl()
-            assert hasattr(pw, 'load_proxies')
-            print('✅ Smoke test passed')
-        
-        asyncio.run(smoke_test())
-        "
-```
-
-## Release Management Instructions
-
-### Semantic Versioning Automation
-Automate version management:
-
-```yaml
-release-automation:
-  runs-on: ubuntu-latest
-  if: github.ref == 'refs/heads/main'
-  steps:
-    - name: Generate Release Notes
-      id: release-notes
-      run: |
-        # Auto-generate release notes from conventional commits
-        npx conventional-changelog-cli -p angular -i CHANGELOG.md -s
-        
-        # Extract version from pyproject.toml
-        VERSION=$(uv run python -c "
-        import toml
-        print(toml.load('pyproject.toml')['project']['version'])
-        ")
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-    
-    - name: Create GitHub Release
-      uses: actions/create-release@v1
-      with:
-        tag_name: v${{ steps.release-notes.outputs.version }}
-        release_name: ProxyWhirl v${{ steps.release-notes.outputs.version }}
-        body_path: CHANGELOG.md
-        draft: false
-        prerelease: false
-```
-
-## Zero-Downtime Deployment Strategy
-
-### Blue-Green Deployment Implementation
-Implement seamless deployments:
-
-```yaml
-blue-green-deployment:
-  runs-on: ubuntu-latest
-  environment: production
-  steps:
-    - name: Deploy to Staging (Green)
-      run: |
-        # Deploy to staging environment first
-        echo "Deploying to staging environment"
-        # Staging deployment logic
-    
-    - name: Health Check Staging
-      run: |
-        # Comprehensive health validation
-        curl -f https://staging.proxywhirl.dev/health
-        # Load testing with minimal traffic
-    
-    - name: Traffic Switch (Blue → Green)
-      if: success()
-      run: |
-        # Gradual traffic switching
-        echo "Switching traffic to new deployment"
-        # Traffic routing logic
-    
-    - name: Rollback on Failure
-      if: failure()
-      run: |
-        # Automatic rollback mechanism
-        echo "Rolling back to previous stable version"
-        # Rollback logic
-```
-
-## Anti-Patterns (FORBIDDEN)
-
-### Security Violations
-- **FORBIDDEN**: Hardcoded secrets or API keys in workflows
-- **FORBIDDEN**: Bypassing OIDC for PyPI publishing
-- **FORBIDDEN**: Missing provenance attestation
-- **FORBIDDEN**: Workflows without proper permissions configuration
-- **FORBIDDEN**: Direct production deployment without staging validation
-
-### Performance Violations
-- **FORBIDDEN**: Missing caching strategies for dependencies
-- **FORBIDDEN**: Serial execution where parallel is possible
-- **FORBIDDEN**: Ignoring benchmark regression thresholds
-- **FORBIDDEN**: Missing timeout configurations for long-running jobs
-
-### Quality Violations
-- **FORBIDDEN**: Deploying without comprehensive test execution
-- **FORBIDDEN**: Bypassing security scanning (SAST/DAST)
-- **FORBIDDEN**: Missing matrix testing across platforms
-- **FORBIDDEN**: Workflows without proper error handling and rollback
-
-### Monitoring Violations
-- **FORBIDDEN**: Deployments without health checks
-- **FORBIDDEN**: Missing performance monitoring and alerting
-- **FORBIDDEN**: No automated rollback mechanisms
-- **FORBIDDEN**: Insufficient logging and observability
-
-Follow these instructions consistently for secure, performant, and reliable ProxyWhirl deployments with comprehensive AI-assisted validation.
+---

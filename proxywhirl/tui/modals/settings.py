@@ -17,7 +17,8 @@ from textual.widgets import (
     Switch,
 )
 
-from ...models import CacheType, RotationStrategy
+from ...caches import CacheType
+from ...models import RotationStrategy
 
 
 class SettingsModal(ModalScreen[Dict[str, Any]]):

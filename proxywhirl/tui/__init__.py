@@ -20,8 +20,9 @@ Package Structure:
 """
 
 from .app import ProxyWhirlTUI
+from .widgets import ProxyDataTable, ProxyStatsWidget
 
-__all__ = ["ProxyWhirlTUI", "run_tui"]
+__all__ = ["ProxyWhirlTUI", "ProxyDataTable", "ProxyStatsWidget", "run_tui"]
 
 
 def run_tui() -> None:

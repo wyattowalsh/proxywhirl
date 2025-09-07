@@ -10,7 +10,8 @@ import typer
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from typing_extensions import Annotated
 
-from ...models import CacheType, RotationStrategy
+from ...caches import CacheType
+from ...models import RotationStrategy
 from ...proxywhirl import ProxyWhirl
 from ..app import app
 from ..state import ProxyWhirlError

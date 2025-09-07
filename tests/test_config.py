@@ -13,6 +13,7 @@ from unittest.mock import patch
 import pytest
 import yaml
 
+from proxywhirl.caches import CacheType
 from proxywhirl.config import (
     CircuitBreakerConfig,
     LoaderConfig,
@@ -22,7 +23,7 @@ from proxywhirl.config import (
     create_production_config,
     load_config,
 )
-from proxywhirl.models import CacheType, RotationStrategy
+from proxywhirl.models import RotationStrategy
 
 
 class TestLoaderConfig:

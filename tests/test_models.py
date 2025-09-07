@@ -11,7 +11,8 @@ from unittest.mock import patch
 import pytest
 from pydantic import ValidationError
 
-from proxywhirl.models import AnonymityLevel, CacheType, Proxy, RotationStrategy, Scheme
+from proxywhirl.caches import CacheType
+from proxywhirl.models import AnonymityLevel, Proxy, RotationStrategy, Scheme
 
 
 class TestProxyModel:

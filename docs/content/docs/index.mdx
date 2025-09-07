@@ -9,173 +9,78 @@ icon: tb/TbWorldWww
 
 ## Architecture
 
-ProxyWhirl follows a modular, layered architecture built around a central orchestrator that coordinates specialized components for proxy loading, validation, caching, rotation, and export. The system provides multiple interfaces (CLI, TUI, API) and supports pluggable components with robust error handling, circuit breaker patterns, and comprehensive monitoring.
+ProxyWhirl follows a modular, layered architecture built around a central orchestrator that coordinates specialized components for proxy loading, validation, caching, rotation, and export. The system provides multiple interfaces (CLI, TUI, Web API) and supports pluggable components with robust error handling, circuit breaker patterns, comprehensive monitoring, and modern FastAPI-based web services.
 
-<Mermaid
-  chart="flowchart TB
-    %% User Interface Layer
-    subgraph UI[🎯 User Interface Layer]
-        CLI[CLI Interface<br/>cli.py • Typer]
-        TUI[TUI Application<br/>tui.py • Textual]
-        API[Python API<br/>proxywhirl.py • Async/Sync]
-    end
+<include>../architecture.mdx</include>
 
-    %% Core Orchestration
-    subgraph CORE[⚙️ Core Orchestration]
-        PW[ProxyWhirl<br/>Main Controller<br/>1195 lines]
-        CONFIG[Configuration<br/>config.py • Settings]
-    end
+---
 
-    %% Data Models
-    subgraph MODELS[📋 Data Models]
-        CORE_MODELS[Core Models<br/>models.py • Pydantic]
-        CACHE_MODELS[Cache Models<br/>cache_models.py]
-        EXPORT_MODELS[Export Models<br/>export_models.py]
-    end
+## Features
 
-    %% Caching System
-    subgraph CACHE[💾 Caching System]
-        CACHE_BASE[Cache Abstraction<br/>caches/base.py]
-        MEM[Memory Cache<br/>caches/memory.py]
-        JSON[JSON Cache<br/>caches/json.py]
-        SQLITE[SQLite Cache<br/>caches/sqlite.py]
-        LEGACY[Legacy Cache<br/>cache.py]
-    end
+### Loaders
 
-    %% Validation System
-    subgraph VALID[🔒 Validation System]
-        VAL[ProxyValidator<br/>validator.py • 788 lines]
-        CB[Circuit Breaker<br/>Integrated Pattern]
-        TARGET[Target-based<br/>Validation]
-    end
+Plugin-based proxy source system with 8+ built-in implementations including TheSpeedX (HTTP/SOCKS), Clarketm, Monosans, ProxyScrape, Proxifly, JetkaiProxy, VakhovFresh, and UserProvided. Features rate limiting, health monitoring, automatic retries, and response caching through the unified [`BaseLoader`](../../../proxywhirl/loaders/base.py) interface.
 
-    %% Rotation Engine
-    subgraph ROT[🔄 Rotation Engine]
-        ROTOR[ProxyRotator<br/>rotator.py • 402 lines]
-        RR[Round Robin]
-        RAND[Random Selection]
-        WEIGHT[Weighted Distribution]
-        HEALTH[Health-based]
-        LEAST[Least Used]
-    end
+<details>
+<summary>Loader Health Summary</summary>
+<include>../../../.github/assets/health_report.md</include>
+</details>
 
-    %% Data Loading
-    subgraph LOAD[📡 Data Loading]
-        BASE_LOADER[BaseLoader<br/>loaders/base.py]
-        SPEEDX[TheSpeedX<br/>HTTP/SOCKS]
-        CLARKETM[Clarketm<br/>Raw Loader]
-        MONOSANS[Monosans<br/>Loader]
-        PROXIFLY[Proxifly<br/>Loader]
-        JETKAI[JetkaiProxy<br/>List]
-        VAKHOV[VakhovFresh<br/>Proxy]
-        PROXYSCRAPE[ProxyScrape<br/>Loader]
-        USER[UserProvided<br/>Loader]
-    end
+---
 
-    %% Export & Monitoring
-    subgraph EXPORT[� Export & Monitoring]
-        EXP[ProxyExporter<br/>exporter.py • 742 lines]
-        HEALTH_RPT[Health Reporting<br/>CLI/TUI Integration]
-        LOG[Structured Logging<br/>logger.py • Loguru]
-        UTILS[Utilities<br/>utils.py]
-    end
+### Validator
 
-    %% External Services
-    subgraph EXT[🌐 External Services]
-        SOURCES[Proxy Sources<br/>HTTP/SOCKS Endpoints]
-        TARGETS[Validation Targets<br/>Test URLs]
-        HEALTH_ENDPOINTS[Health Check<br/>Endpoints]
-    end
+Async proxy validation engine with circuit breaker pattern to prevent cascading failures. Supports three quality levels (BASIC/STANDARD/THOROUGH) with connectivity testing, response validation, and anonymity detection. Automatically recovers from failures and tracks proxy health metrics.
 
-    %% User Interface connections
-    CLI --> PW
-    TUI --> PW
-    API --> PW
+---
 
-    %% Core orchestration flow
-    PW --> CONFIG
-    PW --> CACHE_BASE
-    PW --> VAL
-    PW --> ROTOR
-    PW --> BASE_LOADER
+### Caches
 
-    %% Model dependencies
-    PW --> CORE_MODELS
-    CACHE_BASE --> CACHE_MODELS
-    EXP --> EXPORT_MODELS
+Multi-backend caching system supporting memory, JSON file, and SQLite storage. Provides performance metrics, health tracking, and advanced filtering capabilities. Configurable cache backends through the unified [`CacheBase`](../../../proxywhirl/caches/base.py) interface with automatic fallback handling.
 
-    %% Cache system connections
-    CACHE_BASE --> MEM
-    CACHE_BASE --> JSON
-    CACHE_BASE --> SQLITE
-    PW --> LEGACY
+---
 
-    %% Validation system connections
-    VAL --> CB
-    VAL --> TARGET
-    VAL --> TARGETS
+### Rotator
 
-    %% Rotation strategies
-    ROTOR --> RR
-    ROTOR --> RAND
-    ROTOR --> WEIGHT
-    ROTOR --> HEALTH
-    ROTOR --> LEAST
+Intelligent proxy rotation with five strategies: round-robin, random, weighted, health-based, and least-used. Features error handling policies, automatic cooldown management, and session persistence. Tracks proxy performance and adapts rotation behavior based on real-time health metrics.
 
-    %% Loading system inheritance
-    BASE_LOADER --> SPEEDX
-    BASE_LOADER --> CLARKETM
-    BASE_LOADER --> MONOSANS
-    BASE_LOADER --> PROXIFLY
-    BASE_LOADER --> JETKAI
-    BASE_LOADER --> VAKHOV
-    BASE_LOADER --> PROXYSCRAPE
-    BASE_LOADER --> USER
+---
 
-    %% Export and monitoring connections
-    PW --> EXP
-    CLI --> HEALTH_RPT
-    TUI --> HEALTH_RPT
-    PW --> LOG
-    PW --> UTILS
+### Exporter
 
-    %% External connections
-    SPEEDX --> SOURCES
-    CLARKETM --> SOURCES
-    MONOSANS --> SOURCES
-    PROXIFLY --> SOURCES
-    JETKAI --> SOURCES
-    VAKHOV --> SOURCES
-    PROXYSCRAPE --> SOURCES
-    VAL --> HEALTH_ENDPOINTS
-    TARGET --> HEALTH_ENDPOINTS
+Comprehensive export system supporting 7+ formats: JSON, CSV, XML, TXT, YAML, SQL, and PAC files. Advanced filtering by geography, performance, and status with volume controls including sampling, limits, and distribution strategies. Async-optimized with extensible format handlers.
 
-    %% Data flow
-    CACHE_BASE --> ROTOR
-    VAL --> CACHE_BASE
-    ROTOR --> PW
+---
 
-    %% Styling
-    classDef uiLayer fill:#e1f5fe,stroke:#0277bd,stroke-width:2px
-    classDef coreLayer fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    classDef modelLayer fill:#e8eaf6,stroke:#3f51b5,stroke-width:2px
-    classDef cacheLayer fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
-    classDef validLayer fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    classDef rotLayer fill:#fce4ec,stroke:#c2185b,stroke-width:2px
-    classDef loadLayer fill:#e0f2f1,stroke:#00695c,stroke-width:2px
-    classDef exportLayer fill:#f1f8e9,stroke:#558b2f,stroke-width:2px
-    classDef extLayer fill:#fafafa,stroke:#616161,stroke-width:2px
+### Interfaces
 
-    class CLI,TUI,API uiLayer
-    class PW,CONFIG coreLayer
-    class CORE_MODELS,CACHE_MODELS,EXPORT_MODELS modelLayer
-    class CACHE_BASE,MEM,JSON,SQLITE,LEGACY cacheLayer
-    class VAL,CB,TARGET validLayer
-    class ROTOR,RR,RAND,WEIGHT,HEALTH,LEAST rotLayer
-    class BASE_LOADER,SPEEDX,CLARKETM,MONOSANS,PROXIFLY,JETKAI,VAKHOV,PROXYSCRAPE,USER loadLayer
-    class EXP,HEALTH_RPT,LOG,UTILS exportLayer
-    class SOURCES,TARGETS,HEALTH_ENDPOINTS extLayer"
-/>
+#### Application Programming Interface (API)
+
+Native Python library with both async and sync support. Provides complete access to all ProxyWhirl functionality through the main [`ProxyWhirl`](../../../proxywhirl/proxywhirl.py) class with intelligent method routing and comprehensive error handling.
+
+#### Command Line Interface (CLI)
+
+Rich terminal interface built with Typer featuring commands for fetching, listing, validating, and exporting proxies. Includes health reporting, configuration management, and beautiful output formatting with progress indicators and colored status displays.
+
+#### Text User Interface (TUI)
+
+Interactive dashboard built with Textual providing real-time proxy management, live statistics, and visual health monitoring. Features dark/light themes, tabbed navigation, advanced filtering, and export capabilities with responsive design.
+
+#### Web App
+
+Modern FastAPI-based web service with RESTful endpoints, WebSocket support for real-time updates, and comprehensive OpenAPI documentation. Features JWT authentication, rate limiting, and async streaming for high-performance proxy serving.
+
+---
+
+### Configuration
+
+Flexible settings management through Pydantic models with environment variable support, configuration file loading, and runtime validation. Supports per-component configuration including cache backends, rotation strategies, and validation quality levels.
+
+---
+
+### Utilities
+
+Helper functions for proxy validation, data conversion, and health checking. Includes structured logging with Loguru, async utilities, and performance optimization tools for high-throughput proxy operations.
 
 ---
 

@@ -1,44 +1,70 @@
 ---
-applyTo: "README.md,*.md,docs/**/*.md,docs/**/*.mdx"
+applyTo: "./docs/**,./Makefile,./pyproject.toml,./proxywhirl/**,./tests/**"
 ---
 
-# ProxyWhirl Documentation Development Guide
+# `proxywhirl` docs custom project instructions
 
-The ProxyWhirl documentation is a modern Next.js site built with Fumadocs, providing comprehensive API documentation and user guides.
+This instruction set details the Next.js-powered documentation site for `proxywhirl` built with FumaDocs. The system provides comprehensive API documentation, user guides, and interactive examples using modern web technologies. The documentation features automatic API generation from Python source, advanced search capabilities, responsive design with dark mode support, and deployment automation. Development uses `pnpm` for Node.js dependency management and integrates with the main project's `uv`/Python workflow through the root Makefile.
 
-## Documentation Architecture
+---
 
-### Tech Stack
-- **Framework**: Next.js 15.4.1 with React 19.1.1
-- **Documentation**: Fumadocs 15.6.3 framework for MDX-based docs
-- **Styling**: Tailwind CSS 4.1.12 with custom design system
-- **Package Manager**: pnpm (not npm/yarn)
-- **TypeScript**: 5.9.2 strict mode enabled
-- **Syntax Highlighting**: Shiki 3.11.0 for code blocks
-- **Diagrams**: Mermaid 11.10.1 for visual documentation
+## structure
 
-### Directory Structure
-```
-docs/
-├── app/                    # Next.js app directory
-│   ├── (home)/            # Landing page route group
-│   ├── api/               # API routes (search, etc.)
-│   ├── docs/              # Documentation layout
-│   └── global.css         # Global styles
-├── components/            # Reusable React components
-│   ├── layout/            # Layout components
-│   ├── layouts/           # Page layout variants
-│   ├── mdx/               # MDX-specific components
-│   └── ui/                # UI component library
-├── content/docs/          # MDX documentation content
-├── public/img/            # Static images and assets
-└── scripts/               # Build and utility scripts
-```
+- **[`docs/`](../docs/)**                                                     - Next.js 15.4.1 documentation site with FumaDocs 15.6.3 integration ([next-js](./context/next-js-docs.md), [fumadocs](./context/fumadocs-docs.md))
+  - **[`package.json`](../docs/package.json)**                               - Node.js project configuration with Next.js 15.4.1, React 19.1.1, TypeScript 5.9.2, and FumaDocs ecosystem ([pnpm](./context/pnpm.io-docs.md))
+    - **Core Framework**: Next.js 15.4.1 with React 19.1.1 and Turbo mode development ([next-js](./context/next-js-docs.md), [react](./context/react.dev-content-docs.md))
+    - **Documentation**: FumaDocs 15.6.3 with fumadocs-mdx 11.6.11 and fumadocs-python 0.0.3 for API generation
+    - **Syntax Highlighting**: Shiki 3.11.0 for code block rendering with language support
+    - **Diagrams**: Mermaid 11.10.1 for architectural and flow diagrams
+    - **AI Integration**: @ai-sdk/openai-compatible 1.0.11 and @ai-sdk/react 2.0.22 for AI-powered features
+    - **UI Components**: Radix UI primitives with Lucide React 0.525.0 icons and React Icons 5.5.0
+    - **Styling**: Tailwind CSS 4.1.12 with PostCSS and tw-animate-css 1.3.7 animations
+    - **Content Processing**: Remark 15.0.1 ecosystem with GFM, MDX, and Rehype support
+  - **[`pnpm-lock.yaml`](../docs/pnpm-lock.yaml)**                           - Lockfile ensuring reproducible builds with exact dependency versions ([pnpm](./context/pnpm.io-docs.md))
+  - **[`tsconfig.json`](../docs/tsconfig.json)**                             - TypeScript configuration with strict mode and Next.js optimizations ([typescript](./context/typescript-docs.md))
+  - **[`next.config.mjs`](../docs/next.config.mjs)**                         - Next.js configuration with FumaDocs MDX processing and build optimizations ([next-js](./context/next-js-docs.md), [fumadocs](./context/fumadocs-docs.md))
+  - **[`postcss.config.mjs`](../docs/postcss.config.mjs)**                   - PostCSS configuration for Tailwind CSS 4.x processing and optimization ([postcss](./context/postcss-docs.md), [tailwindcss](./context/tailwindcss.com-docs.md))
+  - **[`components.json`](../docs/components.json)**                          - shadcn/ui component library configuration with custom styling ([shadcn_ui](./context/shadcn_ui-docs.md))
+  - **[`source.config.ts`](../docs/source.config.ts)**                       - FumaDocs content source configuration for MDX processing and routing ([fumadocs](./context/fumadocs-docs.md))
+  - **[`layout.config.tsx`](../docs/layout.config.tsx)**                     - Global layout configuration with navigation, branding, and meta information ([next-js](./context/next-js-docs.md), [react](./context/react.dev-content-docs.md))
+  - **[`mdx-components.tsx`](../docs/mdx-components.tsx)**                    - Custom MDX component registry for enhanced documentation features ([fumadocs](./context/fumadocs-docs.md), [react](./context/react.dev-content-docs.md))
+  - **[`app/`](../docs/app/)**                                                - Next.js app directory with file-based routing and layout system ([next-js](./context/next-js-docs.md))
+    - **[`layout.tsx`](../docs/app/layout.tsx)**                             - Root application layout with providers, fonts, and global configuration ([next-js](./context/next-js-docs.md), [react](./context/react.dev-content-docs.md))
+    - **[`global.css`](../docs/app/global.css)**                             - Global CSS styles with Tailwind base, components, and utilities ([tailwindcss](./context/tailwindcss.com-docs.md))
+    - **[`(home)/`](../docs/app/(home)/)**                                    - Route group for landing page with custom layout and hero components ([next-js](./context/next-js-docs.md))
+    - **[`api/`](../docs/app/api/)**                                          - API routes for search functionality and dynamic content generation ([next-js](./context/next-js-docs.md))
+    - **[`docs/`](../docs/app/docs/)**                                        - Documentation layout route with sidebar navigation and content rendering ([next-js](./context/next-js-docs.md), [fumadocs](./context/fumadocs-docs.md))
+    - **[`docs-og/`](../docs/app/docs-og/)**                                  - Open Graph image generation for social media previews ([next-js](./context/next-js-docs.md))
+  - **[`components/`](../docs/components/)**                                  - Reusable React components with TypeScript and shadcn/ui integration ([react](./context/react.dev-content-docs.md), [shadcn_ui](./context/shadcn_ui-docs.md))
+    - **[`index.tsx`](../docs/components/index.tsx)**                        - Component barrel exports for organized imports
+    - **[`theme-toggle.tsx`](../docs/components/theme-toggle.tsx)**          - Dark/light mode toggle with system preference detection
+    - **[`search-toggle.tsx`](../docs/components/search-toggle.tsx)**        - Search interface toggle with keyboard shortcuts
+    - **[`search.tsx`](../docs/components/search.tsx)**                      - Advanced search component with fuzzy matching and categorization
+    - **[`sidebar.tsx`](../docs/components/sidebar.tsx)**                    - Collapsible navigation sidebar with responsive design
+    - **[`navigation-menu.tsx`](../docs/components/navigation-menu.tsx)**    - Main navigation menu with dropdown and mobile support
+    - **[`language-toggle.tsx`](../docs/components/language-toggle.tsx)**    - Language selection component for internationalization
+    - **[`markdown.tsx`](../docs/components/markdown.tsx)**                  - Enhanced markdown rendering with syntax highlighting
+    - **[`layout/`](../docs/components/layout/)**                            - Layout-specific components for consistent page structure
+    - **[`layouts/`](../docs/components/layouts/)**                          - Multiple layout variants for different content types
+    - **[`mdx/`](../docs/components/mdx/)**                                  - MDX-specific components for interactive documentation features
+    - **[`ui/`](../docs/components/ui/)**                                    - shadcn/ui component library with custom styling ([shadcn_ui](./context/shadcn_ui-docs.md))
+  - **[`content/`](../docs/content/)**                                        - Documentation content written in MDX format ([fumadocs](./context/fumadocs-docs.md))
+    - **[`docs/`](../docs/content/docs/)**                                   - Main documentation content organized by categories and topics
+  - **[`lib/`](../docs/lib/)**                                               - Utility functions and shared logic ([typescript](./context/typescript-docs.md))
+    - **[`cn.ts`](../docs/lib/cn.ts)**                                       - Class name utility for conditional styling with Tailwind ([tailwindcss](./context/tailwindcss.com-docs.md))
+    - **[`utils.ts`](../docs/lib/utils.ts)**                                 - Common utility functions for data processing and formatting
+    - **[`source.ts`](../docs/lib/source.ts)**                               - Content source utilities and FumaDocs integration helpers ([fumadocs](./context/fumadocs-docs.md))
+    - **[`is-active.ts`](../docs/lib/is-active.ts)**                         - Navigation state utilities for active link detection
+    - **[`merge-refs.ts`](../docs/lib/merge-refs.ts)**                       - React ref merging utility for component composition ([react](./context/react.dev-content-docs.md))
+    - **[`llm.ts`](../docs/lib/llm.ts)**                                     - LLM integration utilities for AI-powered documentation features
+    - **[`inkeep-qa-schema.ts`](../docs/lib/inkeep-qa-schema.ts)**           - Q&A schema for enhanced search and knowledge base functionality
+  - **[`public/`](../docs/public/)**                                          - Static assets served directly by Next.js ([next-js](./context/next-js-docs.md))
+    - **[`img/`](../docs/public/img/)**                                      - Image assets including logos, diagrams, and visual documentation aids
+  - **[`scripts/`](../docs/scripts/)**                                        - Build and automation scripts for documentation generation ([typescript](./context/typescript-docs.md))
+    - **[`generate-api-docs.mjs`](../docs/scripts/generate-api-docs.mjs)**   - Automated API documentation generation from Python FastAPI OpenAPI specifications
+    - **[`generate-docs.mjs`](../docs/scripts/generate-docs.mjs)**           - General documentation generation and processing utilities
 
-## Development Workflows
-
-### Local Development
-```bash
+---
 # Start development server (from project root)
 make docs-dev     # Runs on http://localhost:3000
 make dev          # Alias for docs-dev

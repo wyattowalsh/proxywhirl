@@ -26,7 +26,9 @@ from proxywhirl.caches.base import (
     CacheMetrics,
     DuplicateStrategy,
 )
-from proxywhirl.models import CacheType, Proxy
+from proxywhirl.models import Proxy
+
+from .config import CacheType
 
 
 class MemoryProxyCache(BaseProxyCache[Proxy]):
@@ -327,4 +329,5 @@ class MemoryProxyCache(BaseProxyCache[Proxy]):
                 proxy = value[0]
                 total_size += sys.getsizeof(vars(proxy))
 
+        return total_size / (1024 * 1024)  # Convert to MB
         return total_size / (1024 * 1024)  # Convert to MB

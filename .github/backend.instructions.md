@@ -1,82 +1,133 @@
 ---
 applyTo: "proxywhirl/**/*.py,tests/**/*.py,./pyproject.toml,./Makefile,./python-version"
-----
+---
 
-# `proxywhirl` backend custom project instructions
+# `proxywhirl` backend logic custom project instructions
 
-this instruction set details the main `proxywhirl` logic for the codebase in **[proxywhirl/](../proxywhirl/)**. The system loads proxies from a variety of online sources, validates them, and manages their lifecycle. It also supports user-input proxies, analytics, reporting, proxy list generation, advanced caching (memory, JSON, SQLite), and offers a Typer CLI, Textual TUI, and FastAPI backend. Pytest is used for testing and integration, end-to-end, and unit (in a structure mirroring the **[proxywhirl/](../proxywhirl/)** package) tests are included. `uv` is used to manage Python, manage backend dependencies, execute workflows, and run commands (eg `uv run ...`) all via a **[`./pyproject.toml`](../pyproject.toml)** file. A **[`Makefile`](../Makefile)** is also included for common tasks.
+This instruction set details the core `proxywhirl` Python package that provides a comprehensive proxy management system. The system aggregates proxies from multiple online sources via pluggable loaders, validates them through a 5-stage pipeline, and manages their rotation with multiple strategies. It features multi-backend caching (memory/JSON/SQLite), structured logging, analytics/reporting, and data export capabilities. The system exposes three interfaces: a Typer CLI, Textual TUI, and FastAPI backend. Development uses `uv` for dependency management and `pytest` for comprehensive testing + a `Makefile` for common workflow automation.
 
 ---
 
 ## structure
 
 - **[`proxywhirl/`](../proxywhirl/)**                                           - Core Python package with CLI, API, validator, and rotator logic
-  - **[`__init__.py`](../proxywhirl/__init__.py)**                              - Package initialization and public API exports
-  - **[`__main__.py`](../proxywhirl/__main__.py)**                              - Entry point for CLI
-  - **[`proxywhirl.py`](../proxywhirl/proxywhirl.py)**                          - Main orchestrator class with unified sync/async interface
-  - **[`validator.py`](../proxywhirl/validator.py)**                            - 5-stage validation pipeline with circuit breaker protection
-  - **[`rotator.py`](../proxywhirl/rotator.py)**                                - Proxy rotation strategies and algorithms
-  - **[`config.py`](../proxywhirl/config.py)**                                  - Configuration management and settings
-  - **[`logger.py`](../proxywhirl/logger.py)**                                  - Structured logging with loguru integration
-  - **[`utils.py`](../proxywhirl/utils.py)**                                    - Utility functions and helpers
-  - **[`settings.py`](../proxywhirl/settings.py)**                              - Application settings and environment configuration
-  - **[`tui.py`](../proxywhirl/tui.py)**                                        - Interactive terminal UI for proxy management
-  - **[`exporter.py`](../proxywhirl/exporter.py)**                              - Multi-format data export functionality
-  - **[`export_models.py`](../proxywhirl/export_models.py)**                    - Pydantic models for export formats
-  - **[`cache_models.py`](../proxywhirl/cache_models.py)**                      - Cache-specific data models
-  - **[`models.py`](../proxywhirl/models.py)**                                  - Core Pydantic models (legacy, being migrated)
-  - **[`auth.py`](../proxywhirl/auth.py)**                                      - Authentication and authorization for API
-  - **[`api.py`](../proxywhirl/api.py)**                                        - Legacy FastAPI implementation (1867 lines)
-  - **[`api_server.py`](../proxywhirl/api_server.py)**                          - API server orchestration
-  - **[`cli.py`](../proxywhirl/cli.py)**                                        - Legacy Typer CLI implementation
-  - **[`cli_new.py`](../proxywhirl/cli_new.py)**                                - New CLI implementation (transitioning)
-  - **[`api/`](../proxywhirl/api/)**                                            - Modern FastAPI application structure
-    - **[`main.py`](../proxywhirl/api/main.py)**                               - FastAPI app initialization
-    - **[`dependencies.py`](../proxywhirl/api/dependencies.py)**               - Dependency injection patterns
-    - **[`endpoints/`](../proxywhirl/api/endpoints/)**                         - API endpoint implementations
-    - **[`middleware/`](../proxywhirl/api/middleware/)**                       - Custom middleware components
-    - **[`models/`](../proxywhirl/api/models/)**                               - API-specific Pydantic models
-  - **[`caches/`](../proxywhirl/caches/)**                                      - Multi-backend caching system
-    - **[`base.py`](../proxywhirl/caches/base.py)**                            - Abstract base cache interface
-    - **[`memory.py`](../proxywhirl/caches/memory.py)**                        - In-memory cache implementation
-    - **[`json.py`](../proxywhirl/caches/json.py)**                            - JSON file-based persistent cache
-    - **[`sqlite.py`](../proxywhirl/caches/sqlite.py)**                        - SQLite database cache with queries
-    - **[`db/`](../proxywhirl/caches/db/)**                                    - Database schemas and migrations
-  - **[`cli/`](../proxywhirl/cli/)**                                            - Modern CLI application structure
-    - **[`main.py`](../proxywhirl/cli/main.py)**                               - Typer CLI app initialization
-    - **[`types.py`](../proxywhirl/cli/types.py)**                             - CLI-specific type definitions
-    - **[`commands/`](../proxywhirl/cli/commands/)**                           - Individual command implementations
-    - **[`utils/`](../proxywhirl/cli/utils/)**                                 - CLI utility functions
-  - **[`loaders/`](../proxywhirl/loaders/)**                                    - Proxy source loader plugins
-    - **[`base.py`](../proxywhirl/loaders/base.py)**                           - Abstract loader interface with health tracking
-    - **[`the_speedx.py`](../proxywhirl/loaders/the_speedx.py)**               - TheSpeedX HTTP/SOCKS loader (~1000 proxies)
-    - **[`clarketm_raw.py`](../proxywhirl/loaders/clarketm_raw.py)**           - Clarketm raw proxy loader
-    - **[`monosans.py`](../proxywhirl/loaders/monosans.py)**                   - Monosans proxy list loader
-    - **[`proxyscrape.py`](../proxywhirl/loaders/proxyscrape.py)**             - ProxyScrape API integration
-    - **[`proxifly.py`](../proxywhirl/loaders/proxifly.py)**                   - Proxifly service loader
-    - **[`vakhov_fresh.py`](../proxywhirl/loaders/vakhov_fresh.py)**           - VakhovFresh loader
-    - **[`jetkai_proxy_list.py`](../proxywhirl/loaders/jetkai_proxy_list.py)** - JetkaiProxyList loader
-    - **[`user_provided.py`](../proxywhirl/loaders/user_provided.py)**         - User-supplied proxy loader
-    - **[`proxy4parsing.py`](../proxywhirl/loaders/proxy4parsing.py)**         - Proxy4Parsing loader
-    - **[`pubproxy.py`](../proxywhirl/loaders/pubproxy.py)**                   - PubProxy API loader
-    - **[`sunny_proxy_scraper.py`](../proxywhirl/loaders/sunny_proxy_scraper.py)** - SunnyProxyScraper loader
-  - **[`models/`](../proxywhirl/models/)**                                      - Core Pydantic data models
-    - **[`proxy.py`](../proxywhirl/models/proxy.py)**                          - Proxy model with validation
-    - **[`cache.py`](../proxywhirl/models/cache.py)**                          - Cache-related models
-    - **[`enums.py`](../proxywhirl/models/enums.py)**                          - Enumeration types (schemes, cache types)
-    - **[`exceptions.py`](../proxywhirl/models/exceptions.py)**                - Custom exception classes
-    - **[`performance.py`](../proxywhirl/models/performance.py)**              - Performance tracking models
-    - **[`session.py`](../proxywhirl/models/session.py)**                      - Session management models
-    - **[`targets.py`](../proxywhirl/models/targets.py)**                      - Target URL validation models
-    - **[`types.py`](../proxywhirl/models/types.py)**                          - Type aliases and custom types
-- **[`tests/`](../tests/)**                                                     - Comprehensive test suite with unit, integration, and E2E tests
-  - **[`conftest.py`](../tests/conftest.py)**                                  - Pytest configuration and shared fixtures
-  - **[`test_integration.py`](../tests/test_integration.py)**                  - Cross-component integration tests
-  - **[`test_e2e.py`](../tests/test_e2e.py)**                                  - End-to-end workflow tests
-  - **Unit tests**                                                             - Structure mirrors the `proxywhirl/` package with `test_*.py` files for each module
-  - **[`test_loaders/`](../tests/test_loaders/)**                              - Individual loader plugin tests
-- **[`pyproject.toml`](../pyproject.toml)**                                    - Python project configuration with uv dependency management
-- **[`Makefile`](../Makefile)**                                                - Development workflow automation and task runners
+  - **[`__init__.py`](../proxywhirl/__init__.py)**                              - Package initialization and public API exports with version info
+  - **[`__main__.py`](../proxywhirl/__main__.py)**                              - CLI entry point enabling `python -m proxywhirl` execution
+  - **[`proxywhirl.py`](../proxywhirl/proxywhirl.py)**                          - Main orchestrator class with unified sync/async interface and proxy management ([aiohttp](./context/aiohttp-docs.md), [httpx](./context/httpx-docs.md))
+  - **[`validator.py`](../proxywhirl/validator.py)**                            - 5-stage proxy validation pipeline with circuit breaker protection and retry logic ([httpx](./context/httpx-docs.md), [tenacity](./context/tenacity-docs.md))
+  - **[`rotator.py`](../proxywhirl/rotator.py)**                                - Proxy rotation strategies including round-robin, random, and weighted selection algorithms
+  - **[`config.py`](../proxywhirl/config.py)**                                  - Configuration management with YAML/JSON support and environment variable integration ([pydantic-settings](./context/pydantic-settings-docs.md))
+  - **[`logger.py`](../proxywhirl/logger.py)**                                  - Structured logging with colored output, file rotation, and performance metrics ([loguru](./context/loguru-docs.md), [rich](./context/rich-source-docs.md))
+  - **[`utils.py`](../proxywhirl/utils.py)**                                    - Common utility functions for networking, validation, and data processing
+  - **[`settings.py`](../proxywhirl/settings.py)**                              - Application settings with environment variable support and validation ([pydantic-settings](./context/pydantic-settings-docs.md), [python-dotenv](./context/python-dotenv-docs.md))
+  - **[`models.py`](../proxywhirl/models.py)**                                  - Core Pydantic data models for proxies, sessions, and validation results ([pydantic](./context/pydantic-docs.md))
+  - **[`models/`](../proxywhirl/models/)**                                      - Extended model definitions and specialized data structures ([pydantic](./context/pydantic-docs.md))
+    - **[`session.py`](../proxywhirl/models/session.py)**                       - Session management models for persistent proxy connections
+  - **[`api/`](../proxywhirl/api/)**                                            - Modern FastAPI application with REST/WebSocket endpoints and authentication ([fastapi](./context/fastapi-docs.md))
+    - **[`main.py`](../proxywhirl/api/main.py)**                               - FastAPI app initialization with middleware, CORS, and route registration ([fastapi](./context/fastapi-docs.md))
+    - **[`server.py`](../proxywhirl/api/server.py)**                           - API server orchestration with uvicorn configuration and lifecycle management ([fastapi](./context/fastapi-docs.md))
+    - **[`auth.py`](../proxywhirl/api/auth.py)**                               - Authentication logic with JWT tokens and user session management ([fastapi](./context/fastapi-docs.md))
+    - **[`auth_service.py`](../proxywhirl/api/auth_service.py)**               - Authentication service implementation with password hashing and token validation ([fastapi](./context/fastapi-docs.md))
+    - **[`dependencies.py`](../proxywhirl/api/dependencies.py)**               - Dependency injection for database, auth, and shared resources ([fastapi](./context/fastapi-docs.md))
+    - **[`endpoints/`](../proxywhirl/api/endpoints/)**                         - RESTful API endpoint implementations with OpenAPI documentation ([fastapi](./context/fastapi-docs.md))
+      - **[`admin.py`](../proxywhirl/api/endpoints/admin.py)**                 - Administrative endpoints for system management and monitoring ([fastapi](./context/fastapi-docs.md))
+      - **[`auth.py`](../proxywhirl/api/endpoints/auth.py)**                   - Authentication endpoints for login, logout, and token management ([fastapi](./context/fastapi-docs.md))
+      - **[`health.py`](../proxywhirl/api/endpoints/health.py)**               - Health check endpoints for monitoring and load balancer integration ([fastapi](./context/fastapi-docs.md))
+      - **[`proxies.py`](../proxywhirl/api/endpoints/proxies.py)**             - Proxy management endpoints for CRUD operations and validation ([fastapi](./context/fastapi-docs.md))
+      - **[`websocket.py`](../proxywhirl/api/endpoints/websocket.py)**         - Real-time WebSocket endpoints for live proxy status updates ([fastapi](./context/fastapi-docs.md))
+    - **[`middleware/`](../proxywhirl/api/middleware/)**                       - Custom middleware for logging, monitoring, and security ([fastapi](./context/fastapi-docs.md))
+      - **[`logging.py`](../proxywhirl/api/middleware/logging.py)**            - Request/response logging middleware with structured output ([fastapi](./context/fastapi-docs.md), [loguru](./context/loguru-docs.md))
+      - **[`monitoring.py`](../proxywhirl/api/middleware/monitoring.py)**      - Performance monitoring middleware with metrics collection ([fastapi](./context/fastapi-docs.md))
+      - **[`security.py`](../proxywhirl/api/middleware/security.py)**          - Security middleware with rate limiting and CSRF protection ([fastapi](./context/fastapi-docs.md))
+    - **[`models/`](../proxywhirl/api/models/)**                               - API-specific Pydantic models for request/response serialization ([pydantic](./context/pydantic-docs.md))
+      - **[`auth.py`](../proxywhirl/api/models/auth.py)**                      - Authentication models for login credentials and JWT tokens ([pydantic](./context/pydantic-docs.md))
+      - **[`requests.py`](../proxywhirl/api/models/requests.py)**              - Request models with validation and serialization schemas ([pydantic](./context/pydantic-docs.md))
+      - **[`responses.py`](../proxywhirl/api/models/responses.py)**            - Response models with consistent API response formatting ([pydantic](./context/pydantic-docs.md))
+  - **[`caches/`](../proxywhirl/caches/)**                                      - Multi-backend caching system with memory, JSON, and SQLite storage ([aiocache](./context/aiocache-docs.md))
+    - **[`base.py`](../proxywhirl/caches/base.py)**                            - Abstract base cache interface defining common caching operations
+    - **[`manager.py`](../proxywhirl/caches/manager.py)**                      - Cache manager for coordinating multiple cache backends and strategies
+    - **[`config.py`](../proxywhirl/caches/config.py)**                        - Cache configuration settings with TTL, size limits, and backend selection ([pydantic-settings](./context/pydantic-settings-docs.md))
+    - **[`analytics.py`](../proxywhirl/caches/analytics.py)**                  - Cache analytics with hit/miss ratios and performance metrics
+    - **[`async_cache.py`](../proxywhirl/caches/async_cache.py)**              - Asynchronous cache operations with concurrent access handling
+    - **[`memory.py`](../proxywhirl/caches/memory.py)**                        - In-memory cache implementation with LRU eviction ([aiocache](./context/aiocache-docs.md))
+    - **[`json.py`](../proxywhirl/caches/json.py)**                            - JSON file-based persistent cache with atomic writes
+    - **[`json_elite.py`](../proxywhirl/caches/json_elite.py)**                - Enhanced JSON cache with compression and backup features
+    - **[`sqlite.py`](../proxywhirl/caches/sqlite.py)**                        - SQLite database cache with indexed queries and transactions ([sqlmodel](./context/sqlmodel-docs.md))
+    - **[`db/`](../proxywhirl/caches/db/)**                                    - Database schemas and migration scripts for cache storage ([sqlmodel](./context/sqlmodel-docs.md))
+    - **[`sqlite/`](../proxywhirl/caches/sqlite/)**                            - SQLite-specific cache implementations with optimized queries
+  - **[`cli/`](../proxywhirl/cli/)**                                            - Modern CLI application with rich terminal interface and command organization ([typer](./context/typer-docs.md))
+    - **[`main.py`](../proxywhirl/cli/main.py)**                               - Typer CLI app initialization with command registration and help system ([typer](./context/typer-docs.md))
+    - **[`app.py`](../proxywhirl/cli/app.py)**                                 - CLI application setup with global configuration and context management ([typer](./context/typer-docs.md))
+    - **[`state.py`](../proxywhirl/cli/state.py)**                             - CLI state management for persistent configuration and session data ([typer](./context/typer-docs.md))
+    - **[`theme.py`](../proxywhirl/cli/theme.py)**                             - CLI theming with colors, styles, and rich console formatting ([typer](./context/typer-docs.md), [rich](./context/rich-source-docs.md))
+    - **[`types.py`](../proxywhirl/cli/types.py)**                             - CLI-specific type definitions and custom click types ([typer](./context/typer-docs.md))
+    - **[`utils.py`](../proxywhirl/cli/utils.py)**                             - CLI utility functions for formatting, validation, and user interaction ([typer](./context/typer-docs.md))
+    - **[`callbacks.py`](../proxywhirl/cli/callbacks.py)**                     - CLI callback functions for parameter validation and transformation ([typer](./context/typer-docs.md))
+    - **[`shared_options.py`](../proxywhirl/cli/shared_options.py)**           - Shared CLI options and decorators for consistent command interfaces ([typer](./context/typer-docs.md))
+    - **[`commands/`](../proxywhirl/cli/commands/)**                           - Individual command implementations organized by functionality ([typer](./context/typer-docs.md))
+      - **[`data_display.py`](../proxywhirl/cli/commands/data_display.py)**    - Commands for displaying proxy data with tables and charts ([typer](./context/typer-docs.md), [rich](./context/rich-source-docs.md))
+      - **[`data_export.py`](../proxywhirl/cli/commands/data_export.py)**      - Commands for exporting proxy data to various formats ([typer](./context/typer-docs.md), [pandas](./context/pandas-docs.md))
+      - **[`export.py`](../proxywhirl/cli/commands/export.py)**                - Export functionality with format selection and filtering ([typer](./context/typer-docs.md))
+      - **[`fetch.py`](../proxywhirl/cli/commands/fetch.py)**                  - Commands for fetching proxies from various sources ([typer](./context/typer-docs.md))
+      - **[`interactive.py`](../proxywhirl/cli/commands/interactive.py)**      - Interactive mode commands with guided workflows ([typer](./context/typer-docs.md))
+      - **[`list.py`](../proxywhirl/cli/commands/list.py)**                    - Commands for listing proxies with filtering and sorting ([typer](./context/typer-docs.md))
+      - **[`monitoring.py`](../proxywhirl/cli/commands/monitoring.py)**        - Commands for monitoring proxy performance and health ([typer](./context/typer-docs.md))
+      - **[`proxy_access.py`](../proxywhirl/cli/commands/proxy_access.py)**    - Commands for accessing and using proxies in workflows ([typer](./context/typer-docs.md))
+      - **[`proxy_management.py`](../proxywhirl/cli/commands/proxy_management.py)** - Commands for managing proxy lifecycle and configuration ([typer](./context/typer-docs.md))
+      - **[`reference.py`](../proxywhirl/cli/commands/reference.py)**          - Commands for documentation and API reference ([typer](./context/typer-docs.md))
+      - **[`testing.py`](../proxywhirl/cli/commands/testing.py)**              - Commands for testing proxy functionality and performance ([typer](./context/typer-docs.md))
+      - **[`validate.py`](../proxywhirl/cli/commands/validate.py)**            - Commands for validating individual proxies ([typer](./context/typer-docs.md))
+      - **[`validation.py`](../proxywhirl/cli/commands/validation.py)**        - Additional validation commands with batch processing ([typer](./context/typer-docs.md))
+      - **[`version.py`](../proxywhirl/cli/commands/version.py)**              - Commands for version information and update checking ([typer](./context/typer-docs.md))
+  - **[`exporter/`](../proxywhirl/exporter/)**                                - Multi-format data export with CSV, JSON, XML, and Excel support ([pandas](./context/pandas-docs.md))
+    - **[`core.py`](../proxywhirl/exporter/core.py)**                          - Core export engine with format detection and data transformation ([pandas](./context/pandas-docs.md))
+    - **[`models.py`](../proxywhirl/exporter/models.py)**                      - Export configuration models with format-specific options ([pydantic](./context/pydantic-docs.md))
+  - **[`tui/`](../proxywhirl/tui/)**                                           - Interactive terminal UI with real-time proxy monitoring and management ([textual](./context/textual-docs.md))
+    - **[`app.py`](../proxywhirl/tui/app.py)**                                 - Main TUI application with screens, layouts, and event handling ([textual](./context/textual-docs.md))
+    - **[`styles.py`](../proxywhirl/tui/styles.py)**                           - TUI styling with CSS-like syntax and responsive design ([textual](./context/textual-docs.md))
+    - **[`modals/`](../proxywhirl/tui/modals/)**                               - TUI modal dialog components for user input and confirmations ([textual](./context/textual-docs.md))
+      - **[`export.py`](../proxywhirl/tui/modals/export.py)**                  - Export configuration modal with format selection and options ([textual](./context/textual-docs.md))
+      - **[`health.py`](../proxywhirl/tui/modals/health.py)**                  - Health monitoring modal with real-time proxy status updates ([textual](./context/textual-docs.md))
+      - **[`settings.py`](../proxywhirl/tui/modals/settings.py)**              - Settings configuration modal for TUI preferences ([textual](./context/textual-docs.md))
+    - **[`widgets/`](../proxywhirl/tui/widgets/)**                             - Custom TUI widgets for proxy lists, charts, and status displays ([textual](./context/textual-docs.md))
+      - **[`stats.py`](../proxywhirl/tui/widgets/stats.py)**                   - Statistics widgets for proxy performance and analytics ([textual](./context/textual-docs.md))
+      - **[`tables.py`](../proxywhirl/tui/widgets/tables.py)**                 - Data table widgets for proxy lists and detailed information ([textual](./context/textual-docs.md))
+  - **[`loaders/`](../proxywhirl/loaders/)**                                    - Pluggable proxy source loaders with health tracking and automatic failover ([httpx](./context/httpx-docs.md), [aiohttp](./context/aiohttp-docs.md))
+    - **[`base.py`](../proxywhirl/loaders/base.py)**                           - Abstract loader interface with health monitoring and retry mechanisms
+    - **[`the_speedx.py`](../proxywhirl/loaders/the_speedx.py)**               - TheSpeedX GitHub repository loader providing ~1000 HTTP/SOCKS proxies ([httpx](./context/httpx-docs.md))
+    - **[`clarketm_raw.py`](../proxywhirl/loaders/clarketm_raw.py)**           - Clarketm raw proxy list loader with format parsing ([httpx](./context/httpx-docs.md))
+    - **[`monosans.py`](../proxywhirl/loaders/monosans.py)**                   - Monosans proxy collection loader with filtering capabilities ([httpx](./context/httpx-docs.md))
+    - **[`proxyscrape.py`](../proxywhirl/loaders/proxyscrape.py)**             - ProxyScrape API integration with protocol and country filtering ([httpx](./context/httpx-docs.md))
+    - **[`proxifly.py`](../proxywhirl/loaders/proxifly.py)**                   - Proxifly service loader with premium proxy support ([httpx](./context/httpx-docs.md))
+    - **[`vakhov_fresh.py`](../proxywhirl/loaders/vakhov_fresh.py)**           - VakhovFresh proxy loader with freshness validation ([httpx](./context/httpx-docs.md))
+    - **[`jetkai_proxy_list.py`](../proxywhirl/loaders/jetkai_proxy_list.py)** - JetkaiProxyList GitHub repository loader with categorization ([httpx](./context/httpx-docs.md))
+    - **[`user_provided.py`](../proxywhirl/loaders/user_provided.py)**         - User-supplied proxy loader supporting file and URL inputs
+    - **[`proxy4parsing.py`](../proxywhirl/loaders/proxy4parsing.py)**         - Proxy4Parsing service loader with automatic format detection ([httpx](./context/httpx-docs.md))
+    - **[`pubproxy.py`](../proxywhirl/loaders/pubproxy.py)**                   - PubProxy API loader with geographic and protocol filters ([httpx](./context/httpx-docs.md))
+    - **[`sunny_proxy_scraper.py`](../proxywhirl/loaders/sunny_proxy_scraper.py)** - SunnyProxyScraper loader with multi-source aggregation ([httpx](./context/httpx-docs.md))
+  - **[`models.py`](../proxywhirl/models.py)**                                   - Core Pydantic data models with validation and serialization ([pydantic](./context/pydantic-docs.md))
+    - Contains proxy models with connection details and validation status
+    - Enumeration types for protocols (HTTP/HTTPS/SOCKS4/SOCKS5), status, and rotation strategies
+    - Custom exception classes with detailed error context
+    - Performance tracking models with latency and success rate metrics
+    - Session management models for connection pooling and state
+- **[`tests/`](../tests/)**                                                     - Comprehensive test suite with unit, integration, and E2E coverage ([pytest](./context/pytest-docs.md))
+  - **[`conftest.py`](../tests/conftest.py)**                                  - Pytest configuration with fixtures, markers, and test utilities ([pytest](./context/pytest-docs.md))
+  - **[`test_integration.py`](../tests/test_integration.py)**                  - Cross-component integration tests with realistic workflows ([pytest](./context/pytest-docs.md))
+  - **[`test_e2e.py`](../tests/test_e2e.py)**                                  - End-to-end workflow tests simulating real-world usage ([pytest](./context/pytest-docs.md))
+  - **[`test_utils_common.py`](../tests/test_utils_common.py)**                - Common utility function tests and shared test helpers ([pytest](./context/pytest-docs.md))
+  - **Unit tests**                                                             - Comprehensive unit tests that mirror the `proxywhirl/` package structure with `test_*.py` files for each module ([pytest](./context/pytest-docs.md))
+  - **[`test_loaders/`](../tests/test_loaders/)**                              - Individual loader plugin tests with mocked HTTP responses ([pytest](./context/pytest-docs.md))
+    - **[`test_base.py`](../tests/test_loaders/test_base.py)**                 - Base loader interface and health tracking tests ([pytest](./context/pytest-docs.md))
+    - **[`test_clarketm_raw.py`](../tests/test_loaders/test_clarketm_raw.py)** - Clarketm loader with mocked GitHub API responses ([pytest](./context/pytest-docs.md))
+    - **[`test_jetkai_proxy_list.py`](../tests/test_loaders/test_jetkai_proxy_list.py)** - JetkaiProxyList loader with format parsing tests ([pytest](./context/pytest-docs.md))
+    - **[`test_monosans.py`](../tests/test_loaders/test_monosans.py)**         - Monosans loader with filtering and validation tests ([pytest](./context/pytest-docs.md))
+    - **[`test_proxifly.py`](../tests/test_loaders/test_proxifly.py)**         - Proxifly loader with API authentication tests ([pytest](./context/pytest-docs.md))
+    - **[`test_proxyscrape.py`](../tests/test_loaders/test_proxyscrape.py)**   - ProxyScrape API integration tests ([pytest](./context/pytest-docs.md))
+    - **[`test_the_speedx.py`](../tests/test_loaders/test_the_speedx.py)**     - TheSpeedX loader with GitHub repository tests ([pytest](./context/pytest-docs.md))
+    - **[`test_user_provided.py`](../tests/test_loaders/test_user_provided.py)** - User-provided loader with file and URL input tests ([pytest](./context/pytest-docs.md))
+    - **[`test_vakhov_fresh.py`](../tests/test_loaders/test_vakhov_fresh.py)** - VakhovFresh loader with freshness validation tests ([pytest](./context/pytest-docs.md))
+- **[`pyproject.toml`](../pyproject.toml)**                                    - Python project configuration with uv dependency management and build settings ([uv](./context/uv-docs.md), [pydantic-settings](./context/pydantic-settings-docs.md))
+- **[`Makefile`](../Makefile)**                                                - Development workflow automation with tasks for testing, linting, and deployment
 
 ---
-

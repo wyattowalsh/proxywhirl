@@ -9,6 +9,21 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel, EmailStr, Field
 
 
+class User(BaseModel):
+    """User information model."""
+
+    username: str = Field(..., description="Username")
+    email: Optional[str] = Field(None, description="User email address")
+    disabled: bool = Field(default=False, description="Whether user account is disabled")
+    scopes: List[str] = Field(default_factory=list, description="User permissions/scopes")
+
+
+class UserInDB(User):
+    """User model with hashed password for database storage."""
+
+    hashed_password: str = Field(..., description="Hashed password")
+
+
 class Token(BaseModel):
     """JWT Token response model."""
     

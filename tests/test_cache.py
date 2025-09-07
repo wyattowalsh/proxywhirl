@@ -19,7 +19,8 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from proxywhirl.models import AnonymityLevel, CacheType, Proxy, Scheme
+from proxywhirl.caches import CacheType
+from proxywhirl.models import AnonymityLevel, Proxy, Scheme
 from proxywhirl.proxywhirl import ProxyWhirl
 
 

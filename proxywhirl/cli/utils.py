@@ -19,7 +19,7 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from ..models import CacheType
+from ..caches import CacheType
 from .state import ProxyWhirlError
 
 T = TypeVar("T")

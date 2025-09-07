@@ -53,7 +53,8 @@ class TestPackageImports:
     def test_direct_imports(self) -> None:
         """Test direct imports from submodules."""
         from proxywhirl.cache import ProxyCache
-        from proxywhirl.models import CacheType, ProxyScheme, RotationStrategy
+        from proxywhirl.caches import CacheType
+        from proxywhirl.models import ProxyScheme, RotationStrategy
         from proxywhirl.rotator import ProxyRotator
         from proxywhirl.validator import ProxyValidator, QualityLevel
 
@@ -151,7 +152,7 @@ class TestInstantiation:
 
     def test_cache_instantiation(self) -> None:
         """Test ProxyCache can be instantiated."""
-        from proxywhirl.models import CacheType
+        from proxywhirl.caches import CacheType
 
         cache = ProxyCache(CacheType.MEMORY)
         assert cache is not None

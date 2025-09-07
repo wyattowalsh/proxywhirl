@@ -29,7 +29,8 @@ from typer.testing import CliRunner
 
 from proxywhirl import cli
 from proxywhirl.cache import ProxyCache
-from proxywhirl.models import AnonymityLevel, CacheType, Proxy, ProxyStatus, Scheme
+from proxywhirl.caches import CacheType
+from proxywhirl.models import AnonymityLevel, Proxy, ProxyStatus, Scheme
 from proxywhirl.proxywhirl import ProxyWhirl
 from proxywhirl.rotator import RotationStrategy
 from proxywhirl.validator import ProxyValidator

@@ -3,22 +3,8 @@
 from __future__ import annotations
 
 import typer
-from rich.theme import Theme
 
 from .callbacks import main_callback
-
-# Enhanced ProxyWhirl theme for better UX
-PROXYWHIRL_THEME = Theme(
-    {
-        "proxy": "cyan bold",
-        "success": "green bold",
-        "warning": "yellow bold",
-        "error": "red bold",
-        "info": "blue",
-        "accent": "magenta",
-        "dim": "dim white",
-    }
-)
 
 app = typer.Typer(
     help="[bold]ProxyWhirl CLI[/bold]: [italic]Advanced proxy management toolkit[/italic]",

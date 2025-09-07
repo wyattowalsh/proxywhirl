@@ -16,15 +16,15 @@ from jose import JWTError, jwt
 from loguru import logger
 from pydantic import ValidationError
 
-from ..auth import User, UserInDB, get_user_manager
 from ..models import ProxyStatus
 from ..proxywhirl import ProxyWhirl
 from ..settings import get_api_settings
-from .models.auth import TokenData
+from .auth_service import get_auth_service
+from .models.auth import TokenData, User, UserInDB
 
-# Initialize settings and user manager
+# Initialize settings and auth service
 settings = get_api_settings()
-user_manager = get_user_manager()
+auth_service = get_auth_service()
 
 # OAuth2 scheme with comprehensive scopes
 oauth2_scheme = OAuth2PasswordBearer(
@@ -133,8 +133,8 @@ async def get_current_user(
         logger.warning(f"JWT validation failed: {e}")
         raise credentials_exception
     
-    # Get user from user manager
-    user = user_manager.get_user(token_data.username)
+    # Get user from auth service
+    user = auth_service.get_user(token_data.username)
     if user is None:
         logger.warning(f"User not found: {token_data.username}")
         raise credentials_exception
@@ -219,7 +219,7 @@ async def get_websocket_user(
             return None
         
         # Check if user exists and is active
-        user = user_manager.get_user(username)
+        user = auth_service.get_user(username)
         if user is None or user.disabled:
             return None
         

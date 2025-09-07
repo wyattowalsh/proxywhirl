@@ -9,9 +9,10 @@ from unittest.mock import AsyncMock, Mock, patch
 import pandas as pd
 import pytest
 
+from proxywhirl.caches import CacheType
 from proxywhirl.loaders.base import BaseLoader
 from proxywhirl.loaders.user_provided import UserProvidedLoader
-from proxywhirl.models import CacheType, CoreProxy, RotationStrategy, Scheme
+from proxywhirl.models import CoreProxy, RotationStrategy, Scheme
 from proxywhirl.proxywhirl import ProxyWhirl
 
 
