@@ -200,8 +200,8 @@ class TestWeightedStrategy:
 
         strategy = WeightedStrategy()
 
-        # Should be able to select both
-        selections = [strategy.select(pool).url for _ in range(20)]
+        # Should be able to select both (increase iterations for reliability)
+        selections = [strategy.select(pool).url for _ in range(100)]
         assert any("new" in url for url in selections)
         assert any("tested" in url for url in selections)
 

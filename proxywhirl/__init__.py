@@ -14,6 +14,15 @@ from proxywhirl.exceptions import (
     ProxyValidationError,
     ProxyWhirlError,
 )
+from proxywhirl.fetchers import (
+    CSVParser,
+    HTMLTableParser,
+    JSONParser,
+    PlainTextParser,
+    ProxyFetcher,
+    ProxyValidator,
+    deduplicate_proxies,
+)
 from proxywhirl.models import (
     HealthStatus,
     Proxy,
@@ -75,6 +84,8 @@ __all__: list[str] = [
     "ValidationLevel",
     # Core Classes
     "ProxyRotator",
+    "ProxyFetcher",
+    "ProxyValidator",
     # Protocols
     "RotationStrategy",
     # Strategies
@@ -82,6 +93,11 @@ __all__: list[str] = [
     "RandomStrategy",
     "WeightedStrategy",
     "LeastUsedStrategy",
+    # Parsers
+    "JSONParser",
+    "CSVParser",
+    "PlainTextParser",
+    "HTMLTableParser",
     # Utilities
     "configure_logging",
     "is_valid_proxy_url",
@@ -92,4 +108,5 @@ __all__: list[str] = [
     "generate_encryption_key",
     "proxy_to_dict",
     "create_proxy_from_url",
+    "deduplicate_proxies",
 ]
