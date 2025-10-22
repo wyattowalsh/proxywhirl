@@ -12,11 +12,13 @@ ProxyWhirl is a production-ready Python library for intelligent proxy rotation w
 - 🔄 **Smart Rotation**: Round-robin, random, weighted, and least-used strategies
 - 🔐 **Authentication**: Built-in credential handling for authenticated proxies
 - 🎯 **Runtime Management**: Add/remove proxies without restarting
-- � **Pool Statistics**: Track health, success rates, and performance metrics
+- 📊 **Pool Statistics**: Track health, success rates, and performance metrics
+- 🌐 **Built-in Proxy Sources**: 16+ pre-configured free proxy APIs and lists
+- 📡 **Auto-Fetch**: Fetch proxies from JSON, CSV, plain text, and HTML sources
 - ⚡ **High Performance**: <50ms overhead, tested with concurrent requests
 - 🛡️ **Resilient**: Automatic failover with retry logic using tenacity
-- � **Secure**: Credential protection with SecretStr, never logged
-- 🧪 **Well-Tested**: 239 tests passing, 88% code coverage
+- 🔒 **Secure**: Credential protection with SecretStr, never logged
+- 🧪 **Well-Tested**: 300 tests passing, 88% code coverage
 - 📦 **Type-Safe**: Full type hints with py.typed marker
 - 🔧 **Production-Ready**: Context manager support, structured logging
 
@@ -109,6 +111,73 @@ removed = rotator.clear_unhealthy_proxies()
 print(f"Removed {removed} unhealthy proxies")
 ```
 
+### Auto-Fetch from Built-in Sources
+
+ProxyWhirl includes 16+ pre-configured proxy sources for easy bootstrapping:
+
+```python
+from proxywhirl import ProxyRotator, ProxyFetcher, Proxy
+from proxywhirl import RECOMMENDED_SOURCES, ALL_HTTP_SOURCES
+from proxywhirl.models import ProxySource
+import asyncio
+
+async def main():
+    # Fetch from recommended sources (fast, reliable)
+    fetcher = ProxyFetcher(sources=RECOMMENDED_SOURCES)
+    proxy_dicts = await fetcher.fetch_all(validate=True)
+    
+    # Create rotator with fetched proxies
+    rotator = ProxyRotator()
+    for proxy_dict in proxy_dicts:
+        proxy = Proxy(
+            url=proxy_dict["url"],
+            source=ProxySource.FETCHED  # Tag as fetched
+        )
+        rotator.add_proxy(proxy)
+    
+    # Mix with your own proxies
+    rotator.add_proxy(Proxy(
+        url="http://my-premium-proxy.com:8080",
+        source=ProxySource.USER,  # Tag as user-provided
+        username="myuser",
+        password="mypass"
+    ))
+    
+    # Get source breakdown
+    stats = rotator.get_statistics()
+    print(f"User proxies: {stats['source_breakdown']['USER']}")
+    print(f"Fetched proxies: {stats['source_breakdown']['FETCHED']}")
+    
+    # Use rotator
+    response = rotator.get("https://httpbin.org/ip")
+    print(response.json())
+
+asyncio.run(main())
+```
+
+**Available Source Collections:**
+
+- `RECOMMENDED_SOURCES` - Best quality/speed (4 sources)
+- `ALL_HTTP_SOURCES` - All HTTP/HTTPS proxies (6 sources)
+- `ALL_SOCKS4_SOURCES` - All SOCKS4 proxies (4 sources)
+- `ALL_SOCKS5_SOURCES` - All SOCKS5 proxies (5 sources)
+- `ALL_SOURCES` - Everything (15 sources)
+- `API_SOURCES` - API-based sources only (6 sources)
+
+**Individual Sources:**
+
+```python
+from proxywhirl import (
+    FREE_PROXY_LIST,
+    PROXY_SCRAPE_HTTP,
+    GEONODE_HTTP,
+    GITHUB_MONOSANS_HTTP,
+    # ... and 12 more
+)
+```
+
+See `proxywhirl/sources.py` for the complete list.
+
 ## 📚 Documentation
 
 See [specs/001-core-python-package/](specs/001-core-python-package/) for complete documentation:
@@ -152,29 +221,39 @@ rotator.strategy = RandomStrategy()  # Import from proxywhirl.strategies
 
 ## 🛣️ Roadmap
 
-### ✅ Phase 1 - MVP (v0.1.0) - **COMPLETE**
-- Core proxy rotation with multiple strategies
-- Authentication support
-- Runtime pool management
-- Comprehensive test coverage (239 tests, 88% coverage)
+### ✅ Phase 1 - Core Package (v0.1.0) - **COMPLETE**
 
-### 🔜 Phase 2 - Auto-Fetch (v0.2.0) - Coming Soon
-- Auto-fetch proxies from free public sources
-- Multi-format parsing (JSON, CSV, HTML tables)
-- Multi-level validation (format, TCP, HTTP, anonymity)
-- JavaScript rendering support with Playwright
+- Core proxy rotation with multiple strategies (round-robin, random, weighted, least-used)
+- Authentication support with SecretStr credential protection
+- Runtime pool management (add/remove/update proxies)
+- Auto-fetch proxies from 16+ pre-configured sources
+- Multi-format parsing (JSON, CSV, plain text, HTML tables)
+- Source tagging (USER vs FETCHED) and statistics
+- Advanced error handling with metadata and retry recommendations
+- Comprehensive test coverage (300 tests, 88% coverage)
 
-### 🔜 Phase 3 - Storage & Async (v0.3.0) - Planned
+### 🔜 Phase 2 - Validation & Storage (v0.2.0) - Coming Soon
+
+- Multi-level proxy validation (format, TCP, HTTP, anonymity)
 - File persistence (JSON with atomic writes)
 - SQLite storage backend
+- JavaScript rendering support with Playwright
+- Continuous background health checks
+
+### 🔜 Phase 3 - Async & Monitoring (v0.3.0) - Planned
+
 - Full async API support
 - Event hooks and monitoring
-
-### 🔜 Phase 4 - Advanced Features (v0.4.0) - Planned
 - Circuit breaker pattern
 - Rate limiting per proxy
 - Advanced metrics and profiling
-- Production deployment guides
+
+### 🔜 Phase 4 - Production Features (v0.4.0) - Planned
+
+- Redis caching support
+- Kubernetes deployment guides
+- Docker container examples
+- Performance optimization (caching, connection pooling)
 
 ## 🏗️ Architecture
 
@@ -258,4 +337,6 @@ MIT License - see [LICENSE](LICENSE) for details
 
 ---
 
-**Status**: ✅ MVP Complete - Feature 001 (Core Package) Implemented - 239 tests passing, 88% coverage
+**Status**: ✅ Core Package Complete (v0.1.0) - 300 tests passing, 88% coverage
+
+Features: US1-US7 implemented including basic rotation, authentication, pool lifecycle, rotation strategies, proxy fetching, mixed sources, and advanced error handling.
