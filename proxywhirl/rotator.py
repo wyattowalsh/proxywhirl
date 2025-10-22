@@ -191,6 +191,19 @@ class ProxyRotator:
             "average_success_rate": avg_success_rate,
         }
 
+    def get_statistics(self) -> dict[str, Any]:
+        """
+        Get comprehensive statistics including source breakdown (FR-050).
+
+        Returns:
+            Dictionary containing:
+            - All stats from get_pool_stats()
+            - source_breakdown: Count of proxies by source (USER, FETCHED, etc.)
+        """
+        stats = self.get_pool_stats()
+        stats["source_breakdown"] = self.pool.get_source_breakdown()
+        return stats
+
     def clear_unhealthy_proxies(self) -> int:
         """
         Remove all unhealthy and dead proxies from the pool.
