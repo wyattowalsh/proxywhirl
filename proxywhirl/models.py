@@ -386,3 +386,15 @@ class ProxyPool(BaseModel):
         ]
         self.updated_at = datetime.now(timezone.utc)
         return initial_count - self.size
+
+    def get_all_proxies(self) -> list[Proxy]:
+        """Get all proxies in the pool."""
+        return self.proxies.copy()
+
+    def get_source_breakdown(self) -> dict[str, int]:
+        """Get count of proxies by source."""
+        breakdown: dict[str, int] = {}
+        for proxy in self.proxies:
+            source_key = proxy.source.value
+            breakdown[source_key] = breakdown.get(source_key, 0) + 1
+        return breakdown

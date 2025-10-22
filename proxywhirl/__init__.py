@@ -14,6 +14,15 @@ from proxywhirl.exceptions import (
     ProxyValidationError,
     ProxyWhirlError,
 )
+from proxywhirl.fetchers import (
+    CSVParser,
+    HTMLTableParser,
+    JSONParser,
+    PlainTextParser,
+    ProxyFetcher,
+    ProxyValidator,
+    deduplicate_proxies,
+)
 from proxywhirl.models import (
     HealthStatus,
     Proxy,
@@ -28,6 +37,30 @@ from proxywhirl.models import (
     ValidationLevel,
 )
 from proxywhirl.rotator import ProxyRotator
+from proxywhirl.sources import (
+    ALL_HTTP_SOURCES,
+    ALL_SOCKS4_SOURCES,
+    ALL_SOCKS5_SOURCES,
+    ALL_SOURCES,
+    API_SOURCES,
+    FREE_PROXY_LIST,
+    GEONODE_HTTP,
+    GEONODE_SOCKS4,
+    GEONODE_SOCKS5,
+    GITHUB_CLARKETM_HTTP,
+    GITHUB_HOOKZOF_HTTP,
+    GITHUB_MONOSANS_HTTP,
+    GITHUB_MONOSANS_SOCKS4,
+    GITHUB_MONOSANS_SOCKS5,
+    GITHUB_THESPECBAY_HTTP,
+    GITHUB_THESPECBAY_SOCKS4,
+    GITHUB_THESPECBAY_SOCKS5,
+    PROXY_NOVA,
+    PROXY_SCRAPE_HTTP,
+    PROXY_SCRAPE_SOCKS4,
+    PROXY_SCRAPE_SOCKS5,
+    RECOMMENDED_SOURCES,
+)
 from proxywhirl.strategies import (
     LeastUsedStrategy,
     RandomStrategy,
@@ -75,6 +108,8 @@ __all__: list[str] = [
     "ValidationLevel",
     # Core Classes
     "ProxyRotator",
+    "ProxyFetcher",
+    "ProxyValidator",
     # Protocols
     "RotationStrategy",
     # Strategies
@@ -82,6 +117,11 @@ __all__: list[str] = [
     "RandomStrategy",
     "WeightedStrategy",
     "LeastUsedStrategy",
+    # Parsers
+    "JSONParser",
+    "CSVParser",
+    "PlainTextParser",
+    "HTMLTableParser",
     # Utilities
     "configure_logging",
     "is_valid_proxy_url",
@@ -92,4 +132,29 @@ __all__: list[str] = [
     "generate_encryption_key",
     "proxy_to_dict",
     "create_proxy_from_url",
+    "deduplicate_proxies",
+    # Built-in Proxy Sources (Individual)
+    "FREE_PROXY_LIST",
+    "PROXY_SCRAPE_HTTP",
+    "PROXY_SCRAPE_SOCKS4",
+    "PROXY_SCRAPE_SOCKS5",
+    "GEONODE_HTTP",
+    "GEONODE_SOCKS4",
+    "GEONODE_SOCKS5",
+    "PROXY_NOVA",
+    "GITHUB_CLARKETM_HTTP",
+    "GITHUB_THESPECBAY_HTTP",
+    "GITHUB_THESPECBAY_SOCKS4",
+    "GITHUB_THESPECBAY_SOCKS5",
+    "GITHUB_MONOSANS_HTTP",
+    "GITHUB_MONOSANS_SOCKS4",
+    "GITHUB_MONOSANS_SOCKS5",
+    "GITHUB_HOOKZOF_HTTP",
+    # Built-in Proxy Sources (Collections)
+    "ALL_HTTP_SOURCES",
+    "ALL_SOCKS4_SOURCES",
+    "ALL_SOCKS5_SOURCES",
+    "ALL_SOURCES",
+    "RECOMMENDED_SOURCES",
+    "API_SOURCES",
 ]
