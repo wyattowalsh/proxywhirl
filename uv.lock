@@ -7,6 +7,18 @@ resolution-markers = [
 ]
 
 [[package]]
+name = "aiosqlite"
+version = "0.21.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/13/7d/8bca2bf9a247c2c5dfeec1d7a5f40db6518f88d314b8bca9da29670d2671/aiosqlite-0.21.0.tar.gz", hash = "sha256:131bb8056daa3bc875608c631c678cda73922a2d4ba8aec373b19f18c17e7aa3", size = 13454, upload-time = "2025-02-03T07:30:16.235Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f5/10/6c25ed6de94c49f88a91fa5018cb4c0f3625f31d5be9f771ebe5cc7cd506/aiosqlite-0.21.0-py3-none-any.whl", hash = "sha256:2549cf4057f95f53dcba16f2b64e8e2791d7e1adedb13197dd8ed77bb226d7d0", size = 15792, upload-time = "2025-02-03T07:30:13.6Z" },
+]
+
+[[package]]
 name = "annotated-types"
 version = "0.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -860,12 +872,16 @@ name = "proxywhirl"
 version = "1.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "aiosqlite" },
     { name = "beautifulsoup4" },
+    { name = "cryptography" },
+    { name = "greenlet" },
     { name = "httpx" },
     { name = "loguru" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "respx" },
+    { name = "sqlmodel" },
     { name = "tenacity" },
 ]
 
@@ -911,10 +927,13 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aiosqlite", specifier = ">=0.21.0" },
     { name = "beautifulsoup4", specifier = ">=4.14.2" },
     { name = "black", marker = "extra == 'dev'", specifier = ">=23.0.0" },
+    { name = "cryptography", specifier = ">=46.0.3" },
     { name = "cryptography", marker = "extra == 'all'", specifier = ">=41.0.0" },
     { name = "cryptography", marker = "extra == 'security'", specifier = ">=41.0.0" },
+    { name = "greenlet", specifier = ">=3.2.4" },
     { name = "httpx", specifier = ">=0.25.0" },
     { name = "hypothesis", marker = "extra == 'dev'", specifier = ">=6.88.0" },
     { name = "loguru", specifier = ">=0.7.0" },
@@ -928,6 +947,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1.0" },
     { name = "respx", specifier = ">=0.22.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },
+    { name = "sqlmodel", specifier = ">=0.0.27" },
     { name = "sqlmodel", marker = "extra == 'all'", specifier = ">=0.0.14" },
     { name = "sqlmodel", marker = "extra == 'storage'", specifier = ">=0.0.14" },
     { name = "tenacity", specifier = ">=8.2.0" },

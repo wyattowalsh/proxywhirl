@@ -5,6 +5,7 @@ A production-ready library for intelligent proxy rotation with auto-fetching,
 validation, and persistence capabilities.
 """
 
+from proxywhirl.browser import BrowserRenderer
 from proxywhirl.exceptions import (
     ProxyAuthenticationError,
     ProxyConnectionError,
@@ -24,6 +25,7 @@ from proxywhirl.fetchers import (
     deduplicate_proxies,
 )
 from proxywhirl.models import (
+    HealthMonitor,
     HealthStatus,
     Proxy,
     ProxyConfiguration,
@@ -100,6 +102,7 @@ __all__: list[str] = [
     "ProxySourceConfig",
     "SourceStats",
     "ProxyPool",
+    "HealthMonitor",
     # Enums
     "HealthStatus",
     "ProxySource",
@@ -110,6 +113,7 @@ __all__: list[str] = [
     "ProxyRotator",
     "ProxyFetcher",
     "ProxyValidator",
+    "BrowserRenderer",
     # Protocols
     "RotationStrategy",
     # Strategies

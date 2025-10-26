@@ -8,15 +8,19 @@ parsing different formats (JSON, CSV, plain text, HTML tables).
 import asyncio
 import csv
 import json
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
+
+if TYPE_CHECKING:
+    from proxywhirl.models import ValidationLevel
 from urllib.parse import urlparse
 
 import httpx
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from proxywhirl.exceptions import ProxyFetchError, ProxyValidationError
+from proxywhirl.models import RenderMode
 
 
 class ProxySourceConfig(BaseModel):
@@ -26,6 +30,7 @@ class ProxySourceConfig(BaseModel):
     format: str = "json"  # json, csv, text, html
     refresh_interval: int = 3600  # seconds
     custom_parser: Optional[Any] = None
+    render_mode: RenderMode = RenderMode.STATIC  # Page rendering mode
 
 
 class JSONParser:
@@ -80,9 +85,7 @@ class JSONParser:
             for proxy in parsed:
                 for field in self.required_fields:
                     if field not in proxy:
-                        raise ProxyValidationError(
-                            f"Missing required field: {field}"
-                        )
+                        raise ProxyValidationError(f"Missing required field: {field}")
 
         return parsed
 
@@ -141,8 +144,7 @@ class CSVParser:
                     if self.skip_invalid:
                         continue
                     raise ProxyFetchError(
-                        f"Malformed CSV row: expected {len(headers)} columns, "
-                        f"got {len(row)}"
+                        f"Malformed CSV row: expected {len(headers)} columns, got {len(row)}"
                     )
                 proxies.append(dict(zip(headers, row)))
         else:
@@ -155,8 +157,7 @@ class CSVParser:
                     if self.skip_invalid:
                         continue
                     raise ProxyFetchError(
-                        f"Malformed CSV row: expected {len(self.columns)} "
-                        f"columns, got {len(row)}"
+                        f"Malformed CSV row: expected {len(self.columns)} columns, got {len(row)}"
                     )
                 proxies.append(dict(zip(self.columns, row)))
 
@@ -289,9 +290,7 @@ class HTMLTableParser:
         return proxies
 
 
-def deduplicate_proxies(
-    proxies: list[dict[str, Any]]
-) -> list[dict[str, Any]]:
+def deduplicate_proxies(proxies: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Deduplicate proxies by URL+Port combination.
 
@@ -330,6 +329,8 @@ class ProxyValidator:
         self,
         timeout: float = 5.0,
         test_url: str = "http://httpbin.org/ip",
+        level: Optional["ValidationLevel"] = None,
+        concurrency: int = 50,
     ) -> None:
         """
         Initialize proxy validator.
@@ -337,9 +338,136 @@ class ProxyValidator:
         Args:
             timeout: Connection timeout in seconds
             test_url: URL to use for connectivity testing
+            level: Validation level (BASIC, STANDARD, FULL). Defaults to STANDARD.
+            concurrency: Maximum number of concurrent validations
         """
+        from proxywhirl.models import ValidationLevel
+
         self.timeout = timeout
         self.test_url = test_url
+        self.level = level or ValidationLevel.STANDARD
+        self.concurrency = concurrency
+
+    async def _validate_tcp_connectivity(self, host: str, port: int) -> bool:
+        """
+        Validate TCP connectivity to proxy.
+
+        Args:
+            host: Proxy hostname or IP address
+            port: Proxy port number
+
+        Returns:
+            True if TCP connection succeeds, False otherwise
+        """
+        import socket
+
+        try:
+            # Create TCP connection with timeout
+            sock = socket.create_connection((host, port), timeout=self.timeout)
+            sock.close()
+            return True
+        except (socket.timeout, ConnectionRefusedError, socket.gaierror, OSError):
+            # Connection failed - timeout, refused, DNS error, or network unreachable
+            return False
+
+    async def _validate_http_request(self, proxy_url: Optional[str] = None) -> bool:
+        """
+        Validate HTTP request through proxy.
+
+        Args:
+            proxy_url: Full proxy URL (e.g., "http://proxy.example.com:8080")
+                      If None, makes request without proxy (for testing)
+
+        Returns:
+            True if HTTP request succeeds, False otherwise
+        """
+        try:
+            client_kwargs: dict[str, Any] = {"timeout": self.timeout}
+            if proxy_url:
+                client_kwargs["proxies"] = proxy_url
+
+            async with httpx.AsyncClient(**client_kwargs) as client:
+                response = await client.get(self.test_url)
+                return response.status_code == 200
+        except (
+            httpx.TimeoutException,
+            httpx.ConnectError,
+            httpx.NetworkError,
+            Exception,
+        ):
+            # Request failed - timeout, connection error, network error, or other
+            return False
+
+    async def check_anonymity(self, proxy_url: Optional[str] = None) -> Optional[str]:
+        """
+        Check proxy anonymity level by detecting IP leakage.
+
+        Tests if the proxy reveals the real IP address or proxy usage through
+        HTTP headers like X-Forwarded-For, Via, X-Real-IP, etc.
+
+        Args:
+            proxy_url: Full proxy URL (e.g., "http://proxy.example.com:8080")
+                      If None, makes request without proxy (for testing)
+
+        Returns:
+            - "transparent": Proxy leaks real IP address
+            - "anonymous": Proxy hides IP but reveals proxy usage via headers
+            - "elite": Proxy completely hides both IP and proxy usage
+            - "unknown" or None: Could not determine (error occurred)
+        """
+        # Headers that indicate proxy usage or IP leakage
+        proxy_headers = {
+            "via",
+            "x-forwarded-for",
+            "x-real-ip",
+            "forwarded",
+            "proxy-connection",
+            "x-proxy-id",
+            "proxy-agent",
+        }
+
+        try:
+            client_kwargs: dict[str, Any] = {"timeout": self.timeout}
+            if proxy_url:
+                client_kwargs["proxies"] = proxy_url
+
+            async with httpx.AsyncClient(**client_kwargs) as client:
+                response = await client.get(self.test_url)
+
+                if response.status_code != 200:
+                    return "unknown"
+
+                # Try to parse JSON response for IP and headers
+                try:
+                    data = response.json()
+                    headers = data.get("headers", {})
+
+                    # Convert header keys to lowercase for case-insensitive comparison
+                    headers_lower = {k.lower(): v for k, v in headers.items()}
+
+                    # Check for headers that leak real IP (transparent proxy)
+                    if "x-forwarded-for" in headers_lower or "x-real-ip" in headers_lower:
+                        return "transparent"
+
+                    # Check for headers that reveal proxy usage (anonymous proxy)
+                    if any(header in headers_lower for header in proxy_headers):
+                        return "anonymous"
+
+                    # No proxy-revealing headers found (elite proxy)
+                    return "elite"
+
+                except (ValueError, KeyError):
+                    # Could not parse response or missing expected fields
+                    return "unknown"
+
+        except (
+            httpx.TimeoutException,
+            httpx.ConnectError,
+            httpx.NetworkError,
+            Exception,
+        ):
+            # Request failed
+            return "unknown"
 
     async def validate(self, proxy: dict[str, Any]) -> bool:
         """
@@ -369,25 +497,50 @@ class ProxyValidator:
             # Any error means proxy is not working
             return False
 
-    async def validate_batch(
-        self, proxies: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
+    async def validate_batch(self, proxies: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
-        Validate multiple proxies in parallel.
+        Validate multiple proxies in parallel with concurrency control.
+
+        Uses asyncio.Semaphore to limit concurrent validations based on
+        the configured concurrency limit.
 
         Args:
             proxies: List of proxy dictionaries
 
         Returns:
-            List of working proxies
+            List of working proxies (only proxies that passed validation)
         """
-        tasks = [self.validate(proxy) for proxy in proxies]
+        if not proxies:
+            return []
+
+        # Create semaphore to limit concurrent validations
+        semaphore = asyncio.Semaphore(self.concurrency)
+
+        async def validate_with_semaphore(proxy: dict[str, Any]) -> tuple[dict[str, Any], bool]:
+            """Validate a single proxy with semaphore control."""
+            async with semaphore:
+                try:
+                    result = await self.validate(proxy)
+                    return (proxy, result)
+                except Exception:
+                    # If validation raises an exception, treat as failed
+                    return (proxy, False)
+
+        # Run all validations in parallel (semaphore controls concurrency)
+        tasks = [validate_with_semaphore(proxy) for proxy in proxies]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        validated = []
-        for proxy, result in zip(proxies, results):
-            # Filter out proxies that raised exceptions or returned False
-            if result is True:
+        # Filter out failed validations and exceptions
+        validated: list[dict[str, Any]] = []
+        for result in results:
+            # Handle exceptions from gather
+            if isinstance(result, Exception):
+                continue
+            # result is a tuple[dict[str, Any], bool]
+            if not isinstance(result, tuple):
+                continue
+            proxy, is_valid = result
+            if is_valid:
                 validated.append(proxy)
 
         return validated
@@ -438,10 +591,9 @@ class ProxyFetcher:
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)),
     )
-    async def fetch_from_source(
-        self, source: "ProxySourceConfig"
-    ) -> list[dict[str, Any]]:
+    async def fetch_from_source(self, source: "ProxySourceConfig") -> list[dict[str, Any]]:
         """
         Fetch proxies from a single source.
 
@@ -455,37 +607,52 @@ class ProxyFetcher:
             ProxyFetchError: If fetching fails after retries
         """
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(source.url)
-                response.raise_for_status()
+            # Determine if browser rendering is needed
+            html_content: str
 
-                # Get parser
-                if source.custom_parser:
-                    parser = source.custom_parser
-                elif source.format in self._parsers:
-                    parser_class = self._parsers[source.format]
-                    parser = parser_class()
-                else:
+            if source.render_mode == RenderMode.BROWSER:
+                # Use browser rendering for JavaScript-heavy pages
+                try:
+                    from proxywhirl.browser import BrowserRenderer
+                except ImportError as e:
                     raise ProxyFetchError(
-                        f"Unsupported format: {source.format}"
-                    )
+                        "Browser rendering requires Playwright. "
+                        "Install with: pip install 'proxywhirl[js]' or pip install playwright"
+                    ) from e
 
-                # Parse proxies
-                proxies_list: list[dict[str, Any]] = parser.parse(response.text)
-                return proxies_list
+                try:
+                    async with BrowserRenderer() as renderer:
+                        html_content = await renderer.render(source.url)
+                except TimeoutError as e:
+                    raise ProxyFetchError(f"Browser timeout fetching from {source.url}: {e}") from e
+                except RuntimeError as e:
+                    raise ProxyFetchError(f"Browser error fetching from {source.url}: {e}") from e
+            else:
+                # Use standard HTTP client for static pages
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    response = await client.get(source.url)
+                    response.raise_for_status()
+                    html_content = response.text
+
+            # Get parser
+            if source.custom_parser:
+                parser = source.custom_parser
+            elif source.format in self._parsers:
+                parser_class = self._parsers[source.format]
+                parser = parser_class()
+            else:
+                raise ProxyFetchError(f"Unsupported format: {source.format}")
+
+            # Parse proxies
+            proxies_list: list[dict[str, Any]] = parser.parse(html_content)
+            return proxies_list
 
         except httpx.HTTPStatusError as e:
-            raise ProxyFetchError(
-                f"HTTP error fetching from {source.url}: {e}"
-            ) from e
+            raise ProxyFetchError(f"HTTP error fetching from {source.url}: {e}") from e
         except httpx.RequestError as e:
-            raise ProxyFetchError(
-                f"Request error fetching from {source.url}: {e}"
-            ) from e
+            raise ProxyFetchError(f"Request error fetching from {source.url}: {e}") from e
         except Exception as e:
-            raise ProxyFetchError(
-                f"Error fetching from {source.url}: {e}"
-            ) from e
+            raise ProxyFetchError(f"Error fetching from {source.url}: {e}") from e
 
     async def fetch_all(
         self, validate: bool = True, deduplicate: bool = True

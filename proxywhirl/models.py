@@ -2,10 +2,11 @@
 Data models for ProxyWhirl using Pydantic v2.
 """
 
-from datetime import datetime, timezone
+import asyncio
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, HttpUrl, SecretStr, field_validator, model_validator
@@ -55,16 +56,21 @@ class RenderMode(str, Enum):
 
     STATIC = "static"
     JAVASCRIPT = "javascript"
+    BROWSER = "browser"  # Full browser rendering with Playwright
     AUTO = "auto"
 
 
 class ValidationLevel(str, Enum):
-    """Proxy validation strictness levels."""
+    """Proxy validation strictness levels.
 
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    STRICT = "strict"
+    BASIC: Format + TCP connectivity validation (fast, ~100ms)
+    STANDARD: BASIC + HTTP request test (medium, ~500ms)
+    FULL: STANDARD + Anonymity check (comprehensive, ~2s)
+    """
+
+    BASIC = "basic"
+    STANDARD = "standard"
+    FULL = "full"
 
 
 # ============================================================================
@@ -128,6 +134,9 @@ class Proxy(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    # TTL fields for automatic expiration
+    ttl: Optional[int] = None  # Time-to-live in seconds
+    expires_at: Optional[datetime] = None  # Explicit expiration timestamp
 
     @model_validator(mode="after")
     def extract_protocol_from_url(self) -> "Proxy":
@@ -153,12 +162,30 @@ class Proxy(BaseModel):
             raise ValueError("Both username and password must be provided together")
         return self
 
+    @model_validator(mode="after")
+    def set_expiration_from_ttl(self) -> "Proxy":
+        """Set expires_at timestamp if ttl is provided."""
+        if self.ttl is not None and self.expires_at is None:
+            self.expires_at = self.created_at + timedelta(seconds=self.ttl)
+        return self
+
     @property
     def success_rate(self) -> float:
         """Calculate success rate."""
         if self.total_requests == 0:
             return 0.0
         return self.total_successes / self.total_requests
+
+    @property
+    def is_expired(self) -> bool:
+        """Check if proxy has expired based on TTL or explicit expiration time.
+
+        Returns:
+            True if proxy has expired, False otherwise. Always False if no TTL/expires_at set.
+        """
+        if self.expires_at is None:
+            return False
+        return datetime.now(timezone.utc) > self.expires_at
 
     @property
     def is_healthy(self) -> bool:
@@ -368,12 +395,18 @@ class ProxyPool(BaseModel):
         return [p for p in self.proxies if p.source == source]
 
     def get_healthy_proxies(self) -> list[Proxy]:
-        """Get all healthy or unknown (not yet tested) proxies."""
+        """Get all healthy or unknown (not yet tested) proxies, excluding expired ones.
+
+        Returns only proxies that are:
+        - Healthy, degraded, or unknown status
+        - Not expired (if TTL is set)
+        """
         return [
             p
             for p in self.proxies
             if p.health_status
             in (HealthStatus.HEALTHY, HealthStatus.UNKNOWN, HealthStatus.DEGRADED)
+            and not p.is_expired  # Filter out expired proxies
         ]
 
     def clear_unhealthy(self) -> int:
@@ -384,6 +417,17 @@ class ProxyPool(BaseModel):
             for p in self.proxies
             if p.health_status not in (HealthStatus.DEAD, HealthStatus.UNHEALTHY)
         ]
+        self.updated_at = datetime.now(timezone.utc)
+        return initial_count - self.size
+
+    def clear_expired(self) -> int:
+        """Remove all expired proxies, return count removed.
+
+        Returns:
+            Number of expired proxies removed from the pool
+        """
+        initial_count = self.size
+        self.proxies = [p for p in self.proxies if not p.is_expired]
         self.updated_at = datetime.now(timezone.utc)
         return initial_count - self.size
 
@@ -398,3 +442,225 @@ class ProxyPool(BaseModel):
             source_key = proxy.source.value
             breakdown[source_key] = breakdown.get(source_key, 0) + 1
         return breakdown
+
+
+# ============================================================================
+# STORAGE PROTOCOLS
+# ============================================================================
+
+
+@runtime_checkable
+class StorageBackend(Protocol):
+    """Protocol for proxy storage backends.
+
+    This defines the interface that all storage backends must implement,
+    allowing for file-based, database, or other storage mechanisms.
+    """
+
+    async def save(self, proxies: list[Proxy]) -> None:
+        """Save proxies to storage.
+
+        Args:
+            proxies: List of proxies to save
+
+        Raises:
+            IOError: If save operation fails
+        """
+        ...
+
+    async def load(self) -> list[Proxy]:
+        """Load proxies from storage.
+
+        Returns:
+            List of proxies loaded from storage
+
+        Raises:
+            FileNotFoundError: If storage doesn't exist
+            ValueError: If data is corrupted or invalid
+        """
+        ...
+
+    async def clear(self) -> None:
+        """Clear all proxies from storage.
+
+        Raises:
+            IOError: If clear operation fails
+        """
+        ...
+
+
+# ============================================================================
+# HEALTH MONITORING
+# ============================================================================
+
+
+class HealthMonitor:
+    """Continuous health monitoring for proxy pools with auto-eviction.
+
+    Runs background health checks at configurable intervals and automatically
+    evicts proxies that fail consecutive checks beyond a threshold.
+
+    Example:
+        >>> pool = ProxyPool(name="my_pool")
+        >>> pool.add_proxy(Proxy(url="http://proxy.com:8080"))
+        >>> monitor = HealthMonitor(pool=pool, check_interval=60, failure_threshold=3)
+        >>> await monitor.start()  # Start background checks
+        >>> # ... proxies are monitored continuously ...
+        >>> await monitor.stop()  # Stop monitoring
+    """
+
+    def __init__(
+        self,
+        pool: ProxyPool,
+        check_interval: int = 60,
+        failure_threshold: int = 3,
+    ) -> None:
+        """Initialize health monitor.
+
+        Args:
+            pool: ProxyPool to monitor
+            check_interval: Seconds between health checks (default: 60)
+            failure_threshold: Consecutive failures before eviction (default: 3)
+
+        Raises:
+            ValueError: If check_interval or failure_threshold <= 0
+        """
+        if check_interval <= 0:
+            raise ValueError("check_interval must be positive")
+        if failure_threshold <= 0:
+            raise ValueError("failure_threshold must be positive")
+
+        self.pool = pool
+        self.check_interval = check_interval
+        self.failure_threshold = failure_threshold
+        self.is_running = False
+        self._task: Optional[asyncio.Task[None]] = None
+        self._failure_counts: dict[str, int] = {}
+        self._start_time: Optional[datetime] = None
+
+    async def start(self) -> None:
+        """Start background health monitoring.
+
+        Creates an asyncio task that runs health checks periodically.
+        Idempotent - calling multiple times won't create duplicate tasks.
+        """
+        if self.is_running:
+            return  # Already running
+
+        import asyncio
+
+        self.is_running = True
+        self._start_time = datetime.now(timezone.utc)
+        self._task = asyncio.create_task(self._check_health_loop())
+
+    async def stop(self) -> None:
+        """Stop background health monitoring.
+
+        Cancels the background task and waits for graceful shutdown.
+        Idempotent - safe to call when not running.
+        """
+        if not self.is_running:
+            return  # Not running
+
+        self.is_running = False
+
+        if self._task and not self._task.done():
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass  # Expected when cancelling
+            except Exception:
+                pass  # Other errors also ignored during shutdown
+
+        self._task = None
+        self._start_time = None
+
+    async def _check_health_loop(self) -> None:
+        """Main health check loop - runs periodically."""
+        import asyncio
+
+        while self.is_running:
+            try:
+                await self._run_health_checks()
+            except Exception:
+                # Log error but keep running
+                pass
+
+            # Sleep until next check
+            await asyncio.sleep(self.check_interval)
+
+    async def _run_health_checks(self) -> None:
+        """Run health checks on all proxies in pool."""
+        # This will be implemented with actual TCP/HTTP checks
+        # For now, just a placeholder
+        pass
+
+    def _record_failure(self, proxy: Proxy) -> None:
+        """Record a health check failure for a proxy.
+
+        Args:
+            proxy: Proxy that failed health check
+        """
+        url = proxy.url
+        self._failure_counts[url] = self._failure_counts.get(url, 0) + 1
+
+        # Check if threshold reached
+        if self._failure_counts[url] >= self.failure_threshold:
+            self._evict_proxy(proxy)
+
+    def _record_success(self, proxy: Proxy) -> None:
+        """Record a successful health check for a proxy.
+
+        Args:
+            proxy: Proxy that passed health check
+        """
+        url = proxy.url
+        # Reset failure count on success
+        if url in self._failure_counts:
+            del self._failure_counts[url]
+
+    def _evict_proxy(self, proxy: Proxy) -> None:
+        """Evict a proxy from the pool due to excessive failures.
+
+        Args:
+            proxy: Proxy to evict (matched by URL, not identity)
+        """
+        # Find and remove proxy by URL (handles different proxy instances with same URL)
+        proxy_url = proxy.url
+        for p in list(self.pool.proxies):
+            if p.url == proxy_url:
+                self.pool.remove_proxy(p.id)
+                break
+
+        # Clean up failure count
+        if proxy_url in self._failure_counts:
+            del self._failure_counts[proxy_url]
+
+    def get_status(self) -> dict[str, Any]:
+        """Get current monitoring status.
+
+        Returns:
+            Dict containing:
+                - is_running: Whether monitor is active
+                - check_interval: Seconds between checks
+                - failure_threshold: Failures before eviction
+                - total_proxies: Count of proxies in pool
+                - healthy_proxies: Count of healthy proxies
+                - failure_counts: Dict of proxy URL -> failure count
+                - uptime_seconds: Monitor runtime (if running)
+        """
+        status: dict[str, Any] = {
+            "is_running": self.is_running,
+            "check_interval": self.check_interval,
+            "failure_threshold": self.failure_threshold,
+            "total_proxies": self.pool.size,
+            "healthy_proxies": len(self.pool.get_healthy_proxies()),
+            "failure_counts": self._failure_counts.copy(),
+        }
+
+        if self.is_running and self._start_time:
+            uptime = (datetime.now(timezone.utc) - self._start_time).total_seconds()
+            status["uptime_seconds"] = uptime
+
+        return status
