@@ -74,13 +74,15 @@ A user wants to format CLI output as JSON, plain text, or other formats for pars
 
 ### Edge Cases
 
-- What happens when the proxy list file doesn't exist or is empty?
-- How does the CLI handle invalid command syntax or unknown subcommands?
-- What occurs when all proxies fail during a CLI request?
-- How are authentication credentials handled when specified via command-line arguments (security concern)?
-- What happens when configuration file has invalid or conflicting settings?
-- How does the CLI behave when network connectivity is unavailable?
-- What occurs when output exceeds terminal width or buffer limits?
+- What happens when the proxy list file doesn't exist or is empty? *(CLI should display clear error: "Proxy list not found at `<path>`" with suggestion to use --help)*
+- How does the CLI handle invalid command syntax or unknown subcommands? *(Display usage help with "Unknown command: `<cmd>`. Did you mean `<suggestion>`?")*
+- What occurs when all proxies fail during a CLI request? *(Exit with code 1 and error: "All proxies failed. Check pool health with 'proxywhirl pool test'")*
+- How are authentication credentials handled when specified via command-line arguments (security concern)? *(Warn users that CLI args visible in process list; prefer config file or env vars)*
+- What happens when configuration file has invalid or conflicting settings? *(Validate on load, display specific errors with line numbers, fall back to defaults)*
+- How does the CLI behave when network connectivity is unavailable? *(Fail fast with network error, suggest offline mode if applicable)*
+- What occurs when output exceeds terminal width or buffer limits? *(Use paging for large outputs, truncate with "... and N more" indicators)*
+- How does lock file handle crashes or orphaned locks? *(Include PID in lock file, check if process still running, auto-cleanup stale locks)*
+- What happens during concurrent read-only operations (pool list)? *(Allow concurrent reads, only lock for write operations)*
 
 ## Requirements *(mandatory)*
 
@@ -104,6 +106,12 @@ A user wants to format CLI output as JSON, plain text, or other formats for pars
 - **FR-016**: CLI MUST support reading request body from files or stdin for POST/PUT requests
 - **FR-017**: CLI MUST follow redirects by default with option to disable via flag
 - **FR-018**: CLI MUST return appropriate exit codes (0 for success, non-zero for errors)
+- **FR-019**: CLI MUST prompt for confirmation on destructive actions (pool remove, config reset) unless `--yes` or `-y` flag is provided
+- **FR-020**: CLI MUST skip interactive prompts when output is not a TTY (for automation/scripting)
+- **FR-021**: CLI MUST display progress bars for long-running operations (proxy validation, batch requests) with dynamic total count expansion
+- **FR-022**: CLI MUST disable progress bars when output is not a TTY or when `--quiet` flag is used
+- **FR-023**: CLI MUST use lock files to prevent concurrent execution that could corrupt configuration or pool state
+- **FR-024**: CLI MUST provide clear error message when lock file exists, suggesting wait or use of `--force` flag to override (with warning)
 
 ### Key Entities
 
@@ -128,13 +136,26 @@ A user wants to format CLI output as JSON, plain text, or other formats for pars
 - **SC-009**: Configuration changes persist across CLI sessions without data loss
 - **SC-010**: CLI integrates seamlessly with shell scripts and automation workflows
 
+## Clarifications
+
+### Session 2025-10-25
+
+- Q: What format should the CLI configuration file use? → A: Use pyproject.toml (existing project standard)
+- Q: How should credentials be encrypted in the configuration file? → A: Reuse existing Fernet (cryptography library) - Already used in Phase 2 File Storage
+- Q: Should destructive CLI actions require interactive confirmation? → A: Interactive prompts with --yes flag - Ask "Are you sure?" by default, skip with -y/--yes
+- Q: Should long-running operations display progress indicators? → A: Progress bar with percentage - Dynamic expansion as items added to iterator
+- Q: How should concurrent CLI executions be handled? → A: Lock file with graceful failure - Create .lock file, fail with clear error if locked
+
 ## Assumptions
 
 - Users have basic command-line interface experience
 - Terminal environment supports ANSI color codes for enhanced output (degrades gracefully if not)
+- Configuration file uses TOML format (pyproject.toml) for consistency with project standards
+- CLI configuration is stored in `[tool.proxywhirl]` section of pyproject.toml when project-local, or `~/.config/proxywhirl/config.toml` for global settings
 - Configuration file is stored in standard OS-specific config directories (XDG on Linux, ~/Library on macOS, AppData on Windows)
 - Users have read/write permissions to configuration directory
-- Proxy credentials are stored securely in configuration files with appropriate file permissions
+- Proxy credentials are encrypted using Fernet (cryptography library) - same implementation as Phase 2 File Storage
+- Encrypted credentials are stored in configuration files with appropriate file permissions (600)
 - CLI inherits environment variables from shell (e.g., HTTP_PROXY, NO_PROXY)
 
 ## Dependencies
