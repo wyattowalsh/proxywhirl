@@ -7,7 +7,9 @@
 
 ProxyWhirl is a production-ready Python library for intelligent proxy rotation with multiple strategies, authentication support, and runtime pool management.
 
-## ✨ Features (MVP - v0.1.0)
+## ✨ Features
+
+### Core Features (v0.1.0)
 
 - 🔄 **Smart Rotation**: Round-robin, random, weighted, and least-used strategies
 - 🔐 **Authentication**: Built-in credential handling for authenticated proxies
@@ -18,21 +20,59 @@ ProxyWhirl is a production-ready Python library for intelligent proxy rotation w
 - ⚡ **High Performance**: <50ms overhead, tested with concurrent requests
 - 🛡️ **Resilient**: Automatic failover with retry logic using tenacity
 - 🔒 **Secure**: Credential protection with SecretStr, never logged
-- 🧪 **Well-Tested**: 300 tests passing, 88% code coverage
+- 🧪 **Well-Tested**: 357 tests passing, 88% code coverage
 - 📦 **Type-Safe**: Full type hints with py.typed marker
 - 🔧 **Production-Ready**: Context manager support, structured logging
+
+### Validation & Storage (v0.2.0)
+
+- ✅ **Multi-Level Validation**: BASIC (connectivity), STANDARD (HTTP), FULL (anonymity)
+- ✅ **Anonymity Detection**: Detect transparent/anonymous/elite proxies
+- ✅ **Batch Validation**: Parallel validation with concurrency control (100+ proxies/sec)
+- ✅ **File Storage**: JSON persistence with atomic writes and encryption
+- ✅ **SQLite Storage**: Async backend with advanced querying and indexing
+- ✅ **Query Support**: Filter by source, health status, protocol
+- ✅ **Encryption**: Fernet-based credential encryption at rest
+- ✅ **Health Monitoring**: Continuous background health checks with auto-eviction
+- ✅ **TTL Expiration**: Automatic proxy expiration based on time-to-live
+- ✅ **Browser Rendering**: JavaScript-heavy sites support via Playwright (optional)
 
 ## 📦 Installation
 
 ```bash
-# Basic installation (recommended for MVP)
+# Basic installation
 pip install proxywhirl
+
+# With validation and storage support (Phase 2)
+pip install "proxywhirl[storage]"
+
+# With browser rendering support (Phase 2.5, requires Playwright)
+pip install "proxywhirl[js]"
+playwright install chromium
+
+# All features
+pip install "proxywhirl[storage,js]"
+playwright install chromium
 
 # Development installation with uv (faster)
 uv pip install proxywhirl
+
+# Or clone and install from source
+git clone https://github.com/wyattowalsh/proxywhirl.git
+cd proxywhirl
+uv sync
 ```
 
-> **Note**: Full feature set (auto-fetch, file persistence, async API) coming in future releases.
+**Phase 2 Dependencies** (included with `[storage]` extra):
+
+- `cryptography` - File encryption support
+- `sqlmodel` - SQLite ORM with Pydantic integration
+- `aiosqlite` - Async SQLite operations
+- `greenlet` - SQLAlchemy async compatibility
+
+**Browser Rendering** (included with `[js]` extra):
+
+- `playwright` - Browser automation for JavaScript rendering
 
 ## 🚀 Quick Start
 
@@ -155,6 +195,262 @@ async def main():
 asyncio.run(main())
 ```
 
+### Proxy Validation (Phase 2)
+
+Validate proxies before using them with configurable validation levels:
+
+```python
+from proxywhirl.models import Proxy, ValidationLevel, ProxyValidator
+import asyncio
+
+async def main():
+    proxies = [
+        Proxy(url="http://proxy1.example.com:8080"),
+        Proxy(url="http://proxy2.example.com:8080"),
+        Proxy(url="http://proxy3.example.com:8080"),
+    ]
+    
+    # BASIC: Quick connectivity check (~100ms)
+    validator = ProxyValidator(level=ValidationLevel.BASIC)
+    validated = await validator.validate_batch(proxies)
+    
+    # STANDARD: TCP + HTTP validation (~500ms)
+    validator = ProxyValidator(level=ValidationLevel.STANDARD)
+    validated = await validator.validate_batch(proxies)
+    
+    # FULL: TCP + HTTP + anonymity detection (~1s)
+    validator = ProxyValidator(level=ValidationLevel.FULL)
+    validated = await validator.validate_batch(proxies, max_concurrent=5)
+    
+    # Filter healthy proxies
+    healthy = [p for p in validated if p.health_status == "healthy"]
+    print(f"{len(healthy)}/{len(proxies)} proxies are healthy")
+    
+    # Check anonymity level
+    for proxy in validated:
+        if proxy.anonymity_level:
+            print(f"{proxy.url}: {proxy.anonymity_level}")
+
+asyncio.run(main())
+```
+
+### File Storage with Encryption (Phase 2)
+
+Persist proxies to disk with optional credential encryption:
+
+```python
+from proxywhirl.storage import FileStorage
+from proxywhirl.models import Proxy
+from cryptography.fernet import Fernet
+import asyncio
+
+async def main():
+    # Generate encryption key (save this securely!)
+    key = Fernet.generate_key()
+    
+    # Create storage with encryption
+    storage = FileStorage("proxies.json", encryption_key=key)
+    
+    # Proxies with credentials
+    proxies = [
+        Proxy(url="http://proxy.com:8080", username="user", password="secret123"),
+    ]
+    
+    # Save - credentials encrypted at rest
+    await storage.save(proxies)
+    
+    # Load - automatic decryption
+    loaded = await storage.load()
+    print(loaded[0].username.get_secret_value())  # "user"
+
+asyncio.run(main())
+```
+
+### SQLite Storage (Phase 2)
+
+High-performance SQLite backend with advanced querying:
+
+```python
+from proxywhirl.storage import SQLiteStorage
+from proxywhirl.models import Proxy
+import asyncio
+
+async def main():
+    storage = SQLiteStorage("proxies.db")
+    await storage.initialize()
+    
+    # Save proxies
+    proxies = [
+        Proxy(url="http://proxy1.com:8080", source="user"),
+        Proxy(url="http://proxy2.com:8080", source="fetched"),
+    ]
+    await storage.save(proxies)
+    
+    # Query by source
+    user_proxies = await storage.query(source="user")
+    print(f"Found {len(user_proxies)} user proxies")
+    
+    # Query by health status
+    healthy = await storage.query(health_status="healthy")
+    
+    # Load all proxies
+    all_proxies = await storage.load()
+    
+    # Delete specific proxy
+    await storage.delete("http://proxy1.com:8080")
+    
+    await storage.close()
+
+asyncio.run(main())
+```
+
+### Health Monitoring (Phase 2.4)
+
+Continuous background health monitoring with automatic eviction:
+
+```python
+import asyncio
+from proxywhirl.models import HealthMonitor, Proxy, ProxyPool
+
+async def main():
+    # Create pool with proxies
+    pool = ProxyPool(name="monitored_pool")
+    pool.add_proxy(Proxy(url="http://proxy1.com:8080"))
+    pool.add_proxy(Proxy(url="http://proxy2.com:8080"))
+    
+    # Create monitor with custom settings
+    monitor = HealthMonitor(
+        pool=pool,
+        check_interval=30,  # Check every 30 seconds
+        failure_threshold=5  # Evict after 5 consecutive failures
+    )
+    
+    # Start background monitoring
+    await monitor.start()
+    
+    # Use pool normally - dead proxies are evicted automatically
+    # ... your application code ...
+    
+    # Check monitoring status
+    status = monitor.get_status()
+    print(f"Running: {status['is_running']}")
+    print(f"Healthy proxies: {status['healthy_proxies']}/{status['total_proxies']}")
+    print(f"Uptime: {status['uptime_seconds']}s")
+    
+    # Stop monitoring
+    await monitor.stop()
+
+asyncio.run(main())
+```
+
+### TTL Expiration (Phase 2.6)
+
+Automatic proxy expiration based on time-to-live:
+
+```python
+from proxywhirl.models import Proxy, ProxyPool
+from datetime import datetime, timedelta, timezone
+
+# Proxy with 1-hour TTL
+proxy1 = Proxy(url="http://proxy.com:8080", ttl=3600)
+
+# Proxy with explicit expiration
+tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
+proxy2 = Proxy(url="http://proxy2.com:8080", expires_at=tomorrow)
+
+# Permanent proxy (no TTL)
+proxy3 = Proxy(url="http://permanent.com:8080")
+
+# Pool automatically filters expired proxies
+pool = ProxyPool(name="ttl_pool")
+pool.add_proxy(proxy1)
+pool.add_proxy(proxy2)
+pool.add_proxy(proxy3)
+
+# Check expiration
+if proxy1.is_expired:
+    print("Proxy expired!")
+
+# Clean up expired proxies
+removed = pool.clear_expired()
+print(f"Removed {removed} expired proxies")
+```
+
+### Health Monitoring (Phase 2.4)
+
+Continuous background health checks with automatic eviction of failing proxies:
+
+```python
+from proxywhirl.models import HealthMonitor, ProxyPool, Proxy
+import asyncio
+
+async def main():
+    # Create pool with proxies
+    pool = ProxyPool(name="monitored_pool")
+    pool.add_proxy(Proxy(url="http://proxy1.example.com:8080"))
+    pool.add_proxy(Proxy(url="http://proxy2.example.com:8080"))
+    
+    # Start health monitoring
+    monitor = HealthMonitor(
+        pool=pool,
+        check_interval=60,      # Check every 60 seconds
+        failure_threshold=3     # Evict after 3 consecutive failures
+    )
+    
+    await monitor.start()       # Runs in background
+    
+    # Your application runs here...
+    # Monitor automatically evicts unhealthy proxies
+    
+    await monitor.stop()        # Clean shutdown
+
+asyncio.run(main())
+```
+
+### Browser Rendering (Phase 2.5)
+
+Fetch proxies from JavaScript-heavy websites that require browser execution:
+
+```python
+from proxywhirl.browser import BrowserRenderer, BrowserConfig, WaitStrategy
+from proxywhirl.fetchers import ProxyFetcher, ProxySourceConfig
+from proxywhirl.models import RenderMode
+import asyncio
+
+async def main():
+    # Option 1: Use BrowserRenderer directly
+    async with BrowserRenderer() as renderer:
+        html = await renderer.render("https://js-heavy-site.com/proxies")
+        # Parse HTML manually
+    
+    # Option 2: Use with ProxyFetcher
+    fetcher = ProxyFetcher()
+    source = ProxySourceConfig(
+        url="https://js-heavy-site.com/proxies",
+        format="json",
+        render_mode=RenderMode.BROWSER  # Enable browser rendering
+    )
+    proxies = await fetcher.fetch_from_source(source)
+    
+    # Option 3: Custom browser configuration
+    config = BrowserConfig(
+        headless=True,
+        browser_type="chromium",
+        timeout=30,
+        wait_strategy=WaitStrategy.NETWORK_IDLE
+    )
+    async with BrowserRenderer(config=config) as renderer:
+        html = await renderer.render("https://example.com/proxies")
+
+asyncio.run(main())
+```
+
+**Installation for browser rendering:**
+```bash
+pip install "proxywhirl[js]"
+playwright install chromium
+```
+
 **Available Source Collections:**
 
 - `RECOMMENDED_SOURCES` - Best quality/speed (4 sources)
@@ -232,13 +528,18 @@ rotator.strategy = RandomStrategy()  # Import from proxywhirl.strategies
 - Advanced error handling with metadata and retry recommendations
 - Comprehensive test coverage (300 tests, 88% coverage)
 
-### 🔜 Phase 2 - Validation & Storage (v0.2.0) - Coming Soon
+### ✅ Phase 2 - Validation & Storage (v0.2.0) - **COMPLETE**
 
-- Multi-level proxy validation (format, TCP, HTTP, anonymity)
-- File persistence (JSON with atomic writes)
-- SQLite storage backend
-- JavaScript rendering support with Playwright
-- Continuous background health checks
+- ✅ **Multi-level validation**: BASIC (connectivity), STANDARD (HTTP), FULL (anonymity detection)
+- ✅ **File storage**: JSON persistence with optional Fernet encryption
+- ✅ **SQLite storage**: High-performance async backend with advanced querying
+- ✅ **Batch validation**: Parallel validation with concurrency control (100+ proxies/sec)
+- ✅ **Health Monitoring**: Continuous background health checks with auto-eviction (Phase 2.4)
+- ✅ **Browser Rendering**: JavaScript execution with Playwright for JS-heavy sites (Phase 2.5)
+- ✅ **TTL Expiration**: Automatic proxy expiration based on time-to-live (Phase 2.6)
+
+**New in v0.2.0**: See [docs/PHASE2_STATUS.md](docs/PHASE2_STATUS.md) for API reference and migration guide.
+**Examples**: See [examples/health_monitoring_example.py](examples/health_monitoring_example.py) and [examples/browser_rendering_example.py](examples/browser_rendering_example.py)
 
 ### 🔜 Phase 3 - Async & Monitoring (v0.3.0) - Planned
 
@@ -337,6 +638,10 @@ MIT License - see [LICENSE](LICENSE) for details
 
 ---
 
-**Status**: ✅ Core Package Complete (v0.1.0) - 300 tests passing, 88% coverage
+**Status**: ✅ Phase 2 Complete (v0.2.0) - 357 tests passing, 88% coverage
 
-Features: US1-US7 implemented including basic rotation, authentication, pool lifecycle, rotation strategies, proxy fetching, mixed sources, and advanced error handling.
+**Phase 1**: Core rotation, authentication, pool management, proxy fetching (US1-US7 complete)
+
+**Phase 2**: Multi-level validation, file/SQLite storage, anonymity detection (US1-US4 complete)
+
+See [docs/PHASE2_STATUS.md](docs/PHASE2_STATUS.md) for detailed Phase 2 documentation and migration guide.

@@ -307,12 +307,8 @@ def proxy_to_dict(proxy: Proxy, include_stats: bool = True) -> dict[str, Any]:
             "success_rate": proxy.success_rate,
             "average_response_time_ms": proxy.average_response_time_ms,
             "consecutive_failures": proxy.consecutive_failures,
-            "last_success_at": proxy.last_success_at.isoformat()
-            if proxy.last_success_at
-            else None,
-            "last_failure_at": proxy.last_failure_at.isoformat()
-            if proxy.last_failure_at
-            else None,
+            "last_success_at": proxy.last_success_at.isoformat() if proxy.last_success_at else None,
+            "last_failure_at": proxy.last_failure_at.isoformat() if proxy.last_failure_at else None,
         }
         data["stats"] = stats_dict
 
