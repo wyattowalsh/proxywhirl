@@ -541,6 +541,168 @@ rotator.strategy = RandomStrategy()  # Import from proxywhirl.strategies
 **New in v0.2.0**: See [docs/PHASE2_STATUS.md](docs/PHASE2_STATUS.md) for API reference and migration guide.
 **Examples**: See [examples/health_monitoring_example.py](examples/health_monitoring_example.py) and [examples/browser_rendering_example.py](examples/browser_rendering_example.py)
 
+## 🖥️ Command-Line Interface (CLI)
+
+ProxyWhirl includes a powerful CLI built with Typer and Rich for beautiful terminal output.
+
+### Installation
+
+The CLI is included with the base package:
+
+```bash
+pip install proxywhirl
+```
+
+### Quick Start
+
+```bash
+# Show help
+proxywhirl --help
+
+# Make an HTTP request through proxies
+proxywhirl request https://httpbin.org/get
+
+# List proxies in pool
+proxywhirl pool list
+
+# Add a proxy
+proxywhirl pool add http://proxy1.example.com:8080
+
+# Check proxy health
+proxywhirl health
+```
+
+### Commands
+
+#### Configuration Management
+
+```bash
+# Initialize config file
+proxywhirl config init
+
+# Show all settings
+proxywhirl config show
+
+# Get specific value
+proxywhirl config get rotation_strategy
+
+# Update value
+proxywhirl config set max_retries 5
+```
+
+#### Pool Management
+
+```bash
+# List all proxies
+proxywhirl pool list
+
+# Add proxy without authentication
+proxywhirl pool add http://proxy.example.com:8080
+
+# Add proxy with authentication
+proxywhirl pool add http://proxy.example.com:8080 -u username -p password
+
+# Test a proxy
+proxywhirl pool test http://proxy.example.com:8080
+
+# Remove a proxy
+proxywhirl pool remove http://proxy.example.com:8080
+```
+
+#### HTTP Requests
+
+```bash
+# Simple GET request
+proxywhirl request https://httpbin.org/get
+
+# POST with JSON data
+proxywhirl request --method POST --data '{"key":"value"}' https://httpbin.org/post
+
+# Add custom headers
+proxywhirl request --header "Authorization: Bearer token" https://api.example.com
+
+# Override proxy for single request
+proxywhirl request --proxy http://custom-proxy.com:8080 https://httpbin.org/ip
+
+# Configure retries
+proxywhirl request --retries 5 https://httpbin.org/get
+```
+
+#### Health Monitoring
+
+```bash
+# Single health check
+proxywhirl health
+
+# Continuous monitoring (every 60 seconds)
+proxywhirl health --continuous --interval 60
+```
+
+### Output Formats
+
+All commands support multiple output formats:
+
+```bash
+# Human-readable with colors (default)
+proxywhirl pool list
+
+# JSON for scripting
+proxywhirl --format json pool list
+
+# CSV for spreadsheets
+proxywhirl --format csv pool list
+```
+
+### Global Options
+
+```bash
+# Use specific config file
+proxywhirl --config /path/to/config.toml pool list
+
+# Enable verbose logging
+proxywhirl --verbose request https://httpbin.org/get
+
+# Disable file locking (use with caution)
+proxywhirl --no-lock pool list
+```
+
+### Configuration File
+
+ProxyWhirl auto-discovers configuration files in this order:
+
+1. `.proxywhirl.toml` in current directory
+2. `~/.config/proxywhirl/config.toml` (user config)
+3. Built-in defaults
+
+**Example `.proxywhirl.toml`:**
+
+```toml
+[tool.proxywhirl]
+rotation_strategy = "round_robin"
+health_check_interval = 300
+timeout = 30
+max_retries = 3
+follow_redirects = true
+verify_ssl = true
+default_format = "text"
+color = true
+verbose = false
+storage_backend = "memory"
+encrypt_credentials = false
+
+[[tool.proxywhirl.proxies]]
+url = "http://proxy1.example.com:8080"
+
+[[tool.proxywhirl.proxies]]
+url = "http://proxy2.example.com:8080"
+username = "user"
+password = "pass"
+```
+
+### Examples
+
+See [examples/cli_examples.sh](examples/cli_examples.sh) for a complete collection of CLI usage examples.
+
 ### 🔜 Phase 3 - Async & Monitoring (v0.3.0) - Planned
 
 - Full async API support

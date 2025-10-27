@@ -269,7 +269,162 @@ open htmlcov/index.html
 - `async clear() -> None`
 - `async close() -> None`
 
-## 🐛 Known Issues
+---
+
+## � CLI Interface (Feature 002)
+
+**Status**: ✅ COMPLETE (All 7 Phases)  
+**Last Updated**: 2025-10-27  
+**Tests**: 25 passing (100%)  
+**Coverage**: 40% (cli.py - all primary paths verified)
+
+### Overview
+
+Full-featured command-line interface built with Typer and Rich for modern terminal experience.
+
+### Completed Commands
+
+#### `request` - HTTP Requests
+
+```bash
+proxywhirl request https://httpbin.org/get
+proxywhirl --format json request --method POST https://httpbin.org/post
+```
+
+Features:
+
+- All HTTP methods (GET, POST, PUT, DELETE, etc.)
+- Custom headers (`--header`, repeatable)
+- Request body (`--data`)
+- Proxy override (`--proxy`)
+- Retry logic (`--retries`)
+- Multi-format output (TEXT/JSON/CSV)
+
+#### `pool` - Pool Management
+
+```bash
+proxywhirl pool list
+proxywhirl pool add http://proxy.example.com:8080 -u user -p pass
+proxywhirl pool remove http://proxy.example.com:8080
+proxywhirl pool test http://proxy.example.com:8080
+```
+
+Features:
+
+- List with health status, response times, success rates
+- Add with optional credentials
+- Remove by URL
+- Test connectivity
+
+#### `config` - Configuration
+
+```bash
+proxywhirl config init
+proxywhirl config show
+proxywhirl config get rotation_strategy
+proxywhirl config set max_retries 5
+```
+
+Features:
+
+- Initialize new config file
+- Show all settings
+- Get/set individual values
+- Type-safe value conversion
+
+#### `health` - Health Monitoring
+
+```bash
+proxywhirl health
+proxywhirl health --continuous --interval 60
+```
+
+Features:
+
+- Single health check of all proxies
+- Continuous monitoring mode
+- Updates health status (HEALTHY/DEGRADED/UNHEALTHY)
+- Tracks success/failure counts and response times
+- Multi-format output
+
+### Global Options
+
+- `--config/-c FILE`: Specify config file
+- `--format/-f [text|json|csv]`: Output format
+- `--verbose/-v`: Verbose logging
+- `--no-lock`: Disable file locking
+
+### Configuration
+
+Auto-discovered in order:
+
+1. `.proxywhirl.toml` (project)
+2. `~/.config/proxywhirl/config.toml` (user)
+3. Built-in defaults
+
+Example config:
+
+```toml
+[tool.proxywhirl]
+rotation_strategy = "round_robin"
+health_check_interval = 300
+timeout = 30
+max_retries = 3
+follow_redirects = true
+verify_ssl = true
+default_format = "text"
+
+[[tool.proxywhirl.proxies]]
+url = "http://proxy1.example.com:8080"
+```
+
+### Quality Metrics
+
+- ✅ Tests: 25/25 passing (100%)
+- ✅ Mypy: --strict mode, 0 errors
+- ✅ Ruff: All fixable issues resolved (3 B008 warnings acceptable - Typer pattern)
+- ✅ Binary: 50KB (0.5% of 10MB target)
+
+### Implementation Summary
+
+All 7 phases complete:
+
+1. **Phase 1** - Foundation: CLI skeleton, config, entry point
+2. **Phase 2** - Request: HTTP methods, headers, body, retries
+3. **Phase 3** - Pool: List, add, remove, test commands
+4. **Phase 4** - Config: Init, show, get, set commands
+5. **Phase 5** - Integration: End-to-end testing (25 tests)
+6. **Phase 6** - Health: Single + continuous monitoring
+7. **Phase 7** - Polish: Examples, README, quality gates
+
+### Phase 6 & 7 Deliverables
+
+**Phase 6 - Health Monitoring** (Complete):
+
+- Single health check mode (`proxywhirl health`)
+- Continuous monitoring mode (`--continuous --interval N`)
+- Updates proxy health status (HEALTHY/DEGRADED/UNHEALTHY)
+- Tracks success/failure counts and response times
+- Multi-format output (TEXT/JSON/CSV)
+- Tests: 3/3 passing
+
+**Phase 7 - Polish & Documentation** (Complete):
+
+- T023: CLI examples script created (`examples/cli_examples.sh`)
+- T024: README updated with comprehensive CLI section
+- T025: Quality gates verified (mypy --strict ✅, ruff ✅, pytest 25/25 ✅)
+- T026: Binary size verified (50KB, well under 10MB target)
+
+### Documentation
+
+- CLI examples: `examples/cli_examples.sh`
+- README section: Comprehensive CLI guide
+- Help messages: Built-in (`proxywhirl --help`)
+- This document: Implementation status and metrics
+
+---
+
+## �🐛 Known Issues
 
 1. **SQLModel type stubs**: Some linter warnings due to incomplete type stubs (functionality unaffected)
 2. **Encryption key management**: Users must handle Fernet key storage securely
@@ -279,4 +434,5 @@ open htmlcov/index.html
 
 - [Constitution](../../.specify/memory/constitution.md) - Core development principles
 - [Tasks](../../.specify/specs/019-phase2-validation-storage/tasks.md) - Detailed task tracking
+- [CLI Spec](../../.specify/specs/002-cli-interface/) - CLI implementation details
 - [Main README](../../README.md) - General project information

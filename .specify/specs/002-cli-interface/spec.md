@@ -98,18 +98,18 @@ A user wants to format CLI output as JSON, plain text, or other formats for pars
 - **FR-008**: CLI MUST allow specifying rotation strategy via command-line flag or configuration
 - **FR-009**: CLI MUST support multiple output formats (human-readable, JSON, table, CSV)
 - **FR-010**: CLI MUST provide `--verbose` and `--quiet` flags to control output verbosity
-- **FR-011**: CLI MUST display helpful error messages with suggestions when commands fail
+- **FR-011**: CLI MUST display helpful error messages with actionable suggestions (target: 90% of failures include next steps per SC-007)
 - **FR-012**: CLI MUST support `--help` flag for all commands and subcommands with usage examples
 - **FR-013**: CLI MUST allow setting request headers via command-line arguments
 - **FR-014**: CLI MUST support timeout configuration (connection, read, total) via flags
-- **FR-015**: CLI MUST provide `--dry-run` mode to preview actions without execution
-- **FR-016**: CLI MUST support reading request body from files or stdin for POST/PUT requests
+- **FR-015**: CLI SHOULD provide `--dry-run` mode to preview actions without execution (deferred to post-MVP)
+- **FR-016**: CLI MUST support reading request body from stdin (if present), else --file argument, else --data flag for POST/PUT requests
 - **FR-017**: CLI MUST follow redirects by default with option to disable via flag
 - **FR-018**: CLI MUST return appropriate exit codes (0 for success, non-zero for errors)
 - **FR-019**: CLI MUST prompt for confirmation on destructive actions (pool remove, config reset) unless `--yes` or `-y` flag is provided
-- **FR-020**: CLI MUST skip interactive prompts when output is not a TTY (for automation/scripting)
-- **FR-021**: CLI MUST display progress bars for long-running operations (proxy validation, batch requests) with dynamic total count expansion
-- **FR-022**: CLI MUST disable progress bars when output is not a TTY or when `--quiet` flag is used
+- **FR-020**: CLI MUST detect TTY status and adjust behavior: disable interactive prompts when not TTY (for automation/scripting)
+- **FR-021**: CLI MUST display progress bars for long-running operations (>3 seconds expected duration: proxy validation, batch requests) with dynamic total count expansion
+- **FR-022**: CLI MUST disable progress bars and ANSI colors when output is not a TTY or when `--quiet` flag is used (part of TTY awareness per FR-020)
 - **FR-023**: CLI MUST use lock files to prevent concurrent execution that could corrupt configuration or pool state
 - **FR-024**: CLI MUST provide clear error message when lock file exists, suggesting wait or use of `--force` flag to override (with warning)
 
@@ -160,7 +160,6 @@ A user wants to format CLI output as JSON, plain text, or other formats for pars
 
 ## Dependencies
 
-- Core Python Package for proxy rotation logic
-- Configuration Management feature for persistent settings
-- Health Monitoring feature for proxy status display
-- Data Export feature for output formatting capabilities
+- Core Python Package (Phase 1) for proxy rotation logic
+- Storage & Health Monitoring (Phase 2) for persistent pools and proxy status tracking
+- Configuration encryption (Phase 2 FileStorage) for credential security

@@ -1,12 +1,20 @@
 <!--
 Sync Impact Report:
 - Version: 0.0.0 → 1.0.0 (Initial constitution ratification)
-- Principles Added: 7 core principles (Library-First, Test-First, Type Safety, Independent User Stories, Performance Standards, Security-First, Simplicity & Flat Architecture)
-- Sections Added: Technology Standards, Development Workflow, Governance
+  - Principles Added: 7 core principles (Library-First, Test-First, Type Safety, Independent User Stories, Performance Standards, Security-First, Simplicity & Flat Architecture)
+  - Sections Added: Technology Standards, Development Workflow, Governance
+  
+- Version: 1.0.0 → 1.1.0 (Package Management Standards)
+  - Added: Package Management section in Technology Standards
+  - Enforced: `uv add` for dependency management (NOT `uv pip install` or `pip install`)
+  - Rationale: Ensures pyproject.toml stays in sync with installed packages
+  - Impact: Updated .github/copilot-instructions.md with mandatory package management commands
+  
 - Templates Status:
   ✅ plan-template.md - Aligned with Constitution Check and user story independence
   ✅ spec-template.md - Aligned with user story prioritization and independence
   ✅ tasks-template.md - Aligned with test-first development and user story phases
+  ✅ copilot-instructions.md - Updated with package management section
 - Follow-up TODOs: None
 -->
 
@@ -201,6 +209,14 @@ ProxyWhirl MUST maintain a flat, elegant structure that is easy to navigate and 
 - Python 3.9+ (target versions: 3.9, 3.10, 3.11, 3.12, 3.13)
 - Type hints using modern syntax (from `__future__ import annotations`)
 
+**Package Management**:
+- Package manager: `uv` (MANDATORY)
+- Add dependencies: `uv add <package>` (NEVER `uv pip install` or `pip install`)
+- Add dev dependencies: `uv add --dev <package>`
+- Sync environment: `uv sync` (updates lockfile and installs)
+- Run commands: `uv run <command>` (e.g., `uv run pytest`, `uv run mypy`)
+- Rationale: `uv add` ensures `pyproject.toml` stays in sync with installed packages, preventing drift between declared and actual dependencies
+
 **Core Dependencies**:
 - `httpx>=0.25.0` - HTTP client with proxy support
 - `pydantic>=2.0.0` - Data validation and settings
@@ -322,4 +338,4 @@ ProxyWhirl MUST maintain a flat, elegant structure that is easy to navigate and 
 - Version history tracks all changes
 - Sync Impact Report documents ripple effects
 
-**Version**: 1.0.0 | **Ratified**: 2025-10-22 | **Last Amended**: 2025-10-22
+**Version**: 1.1.0 | **Ratified**: 2025-10-22 | **Last Amended**: 2025-10-26
