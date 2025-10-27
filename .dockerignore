@@ -1,0 +1,63 @@
+# Test and coverage artifacts
+tests/
+htmlcov/
+.coverage
+.pytest_cache/
+*.cover
+.hypothesis/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Environment
+.env
+.env.*
+venv/
+env/
+ENV/
+
+# Spec and planning
+.specify/
+
+# CI/CD
+.github/
+
+# Linting and type checking
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# Examples (not needed in production image)
+examples/
+
+# Config files
+pyproject.toml
+ruff.toml
+mypy.ini
