@@ -186,7 +186,7 @@ Add a proxy to the pool.
 
 **Arguments**:
 
-- `proxy-url` (required): Proxy URL (http://host:port or socks5://host:port)
+- `proxy-url` (required): Proxy URL (<http://host:port> or <socks5://host:port>)
 
 **Options**:
 
@@ -459,4 +459,4 @@ Valid strategies: round-robin, random, weighted, least-used
 
 **Exit Codes**: 5 (0=success, 1=general error, 2=usage error, 3=config error, 4=lock error)
 
-All commands follow POSIX conventions and Click best practices.
+All commands follow POSIX conventions and Typer best practices.

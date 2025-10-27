@@ -4,6 +4,7 @@ Utility functions for logging, validation, and encryption.
 
 import json
 import re
+from pathlib import Path
 from typing import Any, Optional
 from urllib.parse import urlparse
 
@@ -339,3 +340,60 @@ def create_proxy_from_url(
         return proxy
     except ValidationError as e:
         raise ValueError(f"Invalid proxy URL: {url}") from e
+
+
+# ============================================================================
+# CLI UTILITIES
+# ============================================================================
+
+
+class CLILock:
+    """Context manager for CLI concurrency locking with Typer-aware error handling."""
+
+    def __init__(self, config_dir: Path) -> None:
+        """Initialize lock file manager.
+
+        Args:
+            config_dir: Directory where lock file will be created
+        """
+        from filelock import FileLock
+
+        self.lock_path = config_dir / ".proxywhirl.lock"
+        self.lock = FileLock(self.lock_path, timeout=0)
+        self._lock_data_path = config_dir / ".proxywhirl.lock.json"
+
+    def __enter__(self) -> "CLILock":
+        """Acquire lock or raise Typer exit."""
+        import os
+        import sys
+
+        import typer
+        from filelock import Timeout
+
+        try:
+            self.lock.acquire()
+            # Write PID to lock data file
+            lock_data = {"pid": os.getpid(), "command": " ".join(sys.argv)}
+            with open(self._lock_data_path, "w") as f:
+                json.dump(lock_data, f)
+            return self
+        except Timeout:
+            # Read existing lock
+            lock_data = {}
+            if self._lock_data_path.exists():
+                with open(self._lock_data_path, "r") as f:
+                    lock_data = json.load(f)
+
+            typer.secho(
+                f"Another proxywhirl process is running (PID {lock_data.get('pid', 'unknown')})\n"
+                f"Command: {lock_data.get('command', 'unknown')}\n"
+                f"Wait for it to finish, or use --force to override (unsafe).",
+                err=True,
+                fg="red",
+            )
+            raise typer.Exit(code=4)
+
+    def __exit__(self, *args: Any) -> None:
+        """Release lock and cleanup."""
+        self.lock.release()
+        self._lock_data_path.unlink(missing_ok=True)

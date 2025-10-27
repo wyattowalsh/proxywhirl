@@ -122,7 +122,7 @@ url = "socks5://proxy2.example.com:1080"
 
 ## 2. Command Context Model
 
-**Purpose**: Shared state passed between Click commands via `click.Context`
+**Purpose**: Shared state passed between Typer commands via `typer.Context`
 
 **Schema**:
 
@@ -134,7 +134,7 @@ from typing import Optional
 
 @dataclass
 class CommandContext:
-    """Shared state for CLI commands (stored in click.Context.obj)."""
+    """Shared state for CLI commands (stored in typer.Context.obj)."""
     
     config: CLIConfig
     rotator: Optional[ProxyRotator] = None  # Lazy-initialized
@@ -162,19 +162,21 @@ class CommandContext:
         return self.rotator
 ```
 
-**Usage in Click Commands**:
+**Usage in Typer Commands**:
 
 ```python
-@click.group()
-@click.pass_context
-def cli(ctx: click.Context):
+import typer
+
+app = typer.Typer()
+
+@app.callback()
+def main(ctx: typer.Context) -> None:
     """ProxyWhirl CLI - Proxy rotation made simple."""
     config = load_config()  # From config.py
     ctx.obj = CommandContext(config=config)
 
-@cli.command()
-@click.pass_context
-def pool_list(ctx: click.Context):
+@app.command()
+def pool_list(ctx: typer.Context) -> None:
     rotator = ctx.obj.get_rotator()
     # ... use rotator
 ```
@@ -296,7 +298,7 @@ class LockFileData:
          v           v
 ┌─────────────────────────────┐
 │   CommandContext            │
-│  (Click context object)     │──> ProxyRotator (lazy init)
+│  (Typer context object)     │──> ProxyRotator (lazy init)
 │                             │──> StorageBackend (lazy init)
 └─────────────────────────────┘
          │
@@ -365,7 +367,7 @@ Lock File (independent, file-based coordination)
 
 - `CLIConfig`: Persistent TOML configuration
 - `ProxyConfig`: Single proxy definition (with credentials)
-- `CommandContext`: Shared CLI state (Click context object)
+- `CommandContext`: Shared CLI state (Typer context object)
 - `RequestResult`: HTTP request result for output
 - `ProxyStatus`: Proxy health for pool listings
 - `PoolSummary`: Aggregate pool statistics

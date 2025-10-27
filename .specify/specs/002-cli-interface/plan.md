@@ -7,7 +7,7 @@
 
 ## Summary
 
-The CLI Interface feature provides a command-line tool for managing and using proxies, built on top of the core ProxyWhirl library. Users can make HTTP requests through rotating proxies, manage proxy pools, configure persistent settings, and format output for automation workflows. The implementation uses Click for command structure, Rich for progress bars and formatting, TOML for configuration (pyproject.toml), Fernet encryption for credentials (reusing Phase 2 implementation), and file-based locking for concurrency safety.
+The CLI Interface feature provides a command-line tool for managing and using proxies, built on top of the core ProxyWhirl library. Users can make HTTP requests through rotating proxies, manage proxy pools, configure persistent settings, and format output for automation workflows. The implementation uses Typer for command structure, Rich for progress bars and formatting, TOML for configuration (pyproject.toml), Fernet encryption for credentials (reusing Phase 2 implementation), and file-based locking for concurrency safety.
 
 ## Technical Context
 
@@ -15,9 +15,10 @@ The CLI Interface feature provides a command-line tool for managing and using pr
 
 **Primary Dependencies**:
 
-- `click>=8.1.0` - CLI framework with command groups, options, and help generation
-- `rich>=13.0.0` - Progress bars, tables, and formatted output
+- `typer>=0.9.0` - Modern CLI framework with automatic help generation and rich integration
+- `rich>=13.0.0` - Progress bars, tables, and formatted output (built-in Typer integration)
 - `toml>=0.10.2` - TOML parsing (Python 3.9-3.10) or `tomllib` (built-in Python 3.11+)
+- `tomli-w>=1.0.0` - TOML writing (all Python versions)
 - Core ProxyWhirl library - Proxy rotation, validation, storage (Phase 1 & 2)
 
 **Storage**:
@@ -26,7 +27,7 @@ The CLI Interface feature provides a command-line tool for managing and using pr
 - Proxy pool: Reuses Phase 2 storage backends (FileStorage, SQLiteStorage)
 - Lock files: `.proxywhirl.lock` with PID tracking (platform-specific paths)
 
-**Testing**: pytest with Click's CliRunner for command invocation testing
+**Testing**: pytest with Typer's testing utilities for command invocation testing
 
 **Target Platform**: Cross-platform CLI (Linux, macOS, Windows) - terminal-based interaction
 
@@ -61,11 +62,12 @@ The CLI Interface feature provides a command-line tool for managing and using pr
 - All functionality (rotation, validation, storage) accessible via Python API
 - CLI imports and composes library functions - no duplicate logic
 - Users can use library directly without CLI dependency
+- Typer provides zero-cost abstraction over library API
 
 ### II. Test-First Development ✅ PASS
 
 - Tests will be written BEFORE CLI implementation (per tasks.md workflow)
-- Click's CliRunner enables testing commands as black boxes
+- Typer's testing utilities enable testing commands as black boxes
 - Coverage target: 85%+ (consistent with Phase 1 & 2)
 - Integration tests will validate end-to-end user stories
 
@@ -86,7 +88,7 @@ The CLI Interface feature provides a command-line tool for managing and using pr
 
 ### V. Performance Standards ✅ PASS
 
-- CLI startup: <500ms (library import + Click initialization)
+- CLI startup: <500ms (library import + Typer initialization)
 - Request execution: <2s for simple requests (SC-004)
 - No performance regression to core library (CLI adds minimal overhead)
 - Progress bars update asynchronously - no blocking
@@ -100,7 +102,7 @@ The CLI Interface feature provides a command-line tool for managing and using pr
 
 ### VII. Simplicity & Flat Architecture ✅ PASS
 
-- Single new module: `proxywhirl/cli.py` (Click command definitions)
+- Single new module: `proxywhirl/cli.py` (Typer command definitions)
 - Optional new module: `proxywhirl/config.py` (TOML configuration management)
 - No sub-packages - stays within flat structure
 - Total modules after CLI: 11 (<10 threshold - requires justification, see Complexity Tracking)
@@ -118,7 +120,7 @@ specs/002-cli-interface/
 ├── data-model.md        # Phase 1 output (/speckit.plan command)
 ├── quickstart.md        # Phase 1 output (/speckit.plan command)
 ├── contracts/           # Phase 1 output (/speckit.plan command)
-│   └── cli-schema.yaml  # CLI command structure and options
+│   └── cli-schema.md    # CLI command structure and options
 └── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
 ```
 
@@ -135,13 +137,13 @@ proxywhirl/                      # Existing package (flat structure maintained)
 ├── browser.py                   # Browser rendering (Phase 2)
 ├── utils.py                     # Utilities (existing)
 ├── exceptions.py                # Custom exceptions (existing)
-├── cli.py                       # NEW: Click CLI commands and groups
+├── cli.py                       # NEW: Typer CLI commands and groups
 ├── config.py                    # NEW: TOML configuration management
 └── py.typed                     # Type marker (existing)
 
 tests/
 ├── unit/
-│   ├── test_cli.py              # NEW: CLI unit tests (CliRunner)
+│   ├── test_cli.py              # NEW: CLI unit tests (Typer testing)
 │   └── test_config.py           # NEW: Configuration tests
 ├── integration/
 │   ├── test_cli_requests.py     # NEW: End-to-end request tests
@@ -153,10 +155,10 @@ examples/
 └── cli_examples.sh              # NEW: CLI usage examples (bash script)
 ```
 
-**Structure Decision**: Single project structure maintained. CLI added as two new modules (`cli.py`, `config.py`) to existing flat `proxywhirl/` package. This violates the "maximum 10 modules" principle (now 11), but is justified because CLI is a distinct user interface layer that cannot be folded into existing modules without breaking single responsibility.
+**Structure Decision**: Single project structure maintained. CLI added as two new modules (`cli.py`, `config.py`) to existing flat `proxywhirl/` package. This violates the "maximum 10 modules" principle (now 11), but is justified because CLI is a distinct user interface layer that cannot be folded into existing modules without breaking single responsibility. Typer is chosen over Click for its native type safety, automatic validation, and built-in Rich integration.
 
 ## Complexity Tracking
 
 | Violation | Why Needed | Simpler Alternative Rejected Because |
 |-----------|------------|-------------------------------------|
-| 11 modules (exceeds 10) | CLI is a distinct user interface layer requiring separate `cli.py` and `config.py` modules | Merging CLI into existing modules would violate single responsibility - `rotator.py` is for library logic, not command-line parsing. Config management is orthogonal to all existing modules. |
+| 11 modules (exceeds 10) | CLI is a distinct user interface layer requiring separate `cli.py` and `config.py` modules | Merging CLI into existing modules would violate single responsibility - `rotator.py` is for library logic, not command-line parsing. Config management is orthogonal to all existing modules. Typer provides better type safety and less boilerplate than Click. |

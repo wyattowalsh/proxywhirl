@@ -8,31 +8,33 @@ This document consolidates findings for all unknowns and technology choices iden
 
 ---
 
-## 1. CLI Framework Selection (Click vs. Typer vs. argparse)
+## 1. CLI Framework Selection (Typer vs. Click vs. argparse)
 
-**Decision**: Click 8.1+
+**Decision**: Typer 0.9+
 
 **Rationale**:
 
-- **Mature ecosystem**: Click is the de facto standard for Python CLIs (used by Flask, pip, AWS CLI v2)
-- **Command groups**: Native support for nested commands (`proxywhirl pool add`, `proxywhirl config set`)
-- **Automatic help generation**: Decorators generate comprehensive `--help` output (SC-002: 2 keystrokes)
-- **Type safety**: Integrates with Python type hints for parameter validation
-- **Testing support**: `CliRunner` provides black-box testing without subprocess overhead
-- **Cross-platform**: Handles Windows/Unix path differences, terminal detection automatically
+- **Modern & Type-Safe**: Built on top of Click but with automatic type validation from Python type hints
+- **Native Rich Integration**: Built-in support for Rich progress bars, tables, and formatting
+- **Automatic Help Generation**: Generates comprehensive help from docstrings and type hints
+- **Less Boilerplate**: Cleaner syntax than Click - function parameters become CLI options automatically
+- **Pydantic Integration**: Native support for Pydantic models as CLI arguments
+- **Testing Support**: Includes testing utilities compatible with Click's CliRunner
+- **Command Groups**: Full support for nested commands (`proxywhirl pool add`, `proxywhirl config set`)
+- **Active Development**: Modern, well-maintained, growing ecosystem
 
 **Alternatives Considered**:
 
-- **Typer**: Modern, async-first, but less mature ecosystem and fewer examples for complex CLIs
+- **Click**: Mature but requires more boilerplate; manual type validation
 - **argparse**: Built-in, but verbose API, manual help formatting, poor nested command support
 - **Fire**: Too magical (auto-generates from function signatures), poor control over UX
 
 **Implementation Notes**:
 
-- Use `@click.group()` for top-level command
-- Use `@click.command()` for subcommands
-- Use `@click.option()` with `--help` text for all flags
-- Use `click.Context` for passing shared state (config, rotator instance)
+- Use `typer.Typer()` for app and command groups
+- Use function signatures with type hints for automatic option/argument creation
+- Use `typer.Option()` and `typer.Argument()` for advanced configuration
+- Rich integration is automatic - no additional setup needed
 
 ---
 
@@ -61,6 +63,7 @@ This document consolidates findings for all unknowns and technology choices iden
 - Use `rich.table.Table` for pool listings
 - Use `rich.console.Console` for all output (auto-detects TTY)
 - Use `rich.json.JSON` for `--format json` output
+- Typer automatically uses Rich for progress bars and formatting when available
 
 ---
 
@@ -161,27 +164,28 @@ except Timeout:
 
 ---
 
-## 6. Interactive Confirmation Prompts (Click.confirm vs. questionary)
+## 6. Interactive Confirmation Prompts (typer.confirm vs. questionary)
 
-**Decision**: `click.confirm()` (built-in)
+**Decision**: `typer.confirm()` (built-in)
 
 **Rationale**:
 
-- **Zero dependencies**: Click already a dependency
+- **Zero dependencies**: Typer already a dependency
 - **TTY detection**: Automatically handles non-TTY (returns default)
 - **Simple API**: One-line confirmation prompts
-- **Consistent UX**: Matches Click's option/argument patterns
+- **Consistent UX**: Matches Typer's option/argument patterns
+- **Rich integration**: Styled prompts with Rich automatically
 
 **Alternatives Considered**:
 
 - **questionary**: More features (multi-select, autocomplete), but overkill for y/n prompts
-- **Custom input()**: Manual TTY detection, no cross-platform guarantees
+- **click.confirm()**: Works but Typer's version has better type safety
 
 **Implementation Notes**:
 
 ```python
 if not yes_flag and sys.stdout.isatty():
-    click.confirm("Remove proxy from pool?", abort=True)
+    typer.confirm("Remove proxy from pool?", abort=True)
 ```
 
 ---
@@ -209,10 +213,10 @@ if not yes_flag and sys.stdout.isatty():
 ```python
 try:
     # Command logic
-    sys.exit(0)
+    raise typer.Exit(0)
 except ConfigError:
-    click.echo("Error: Invalid configuration", err=True)
-    sys.exit(3)
+    typer.echo("Error: Invalid configuration", err=True)
+    raise typer.Exit(3)
 ```
 
 ---
@@ -253,12 +257,12 @@ class CsvRenderer(OutputRenderer): ...    # csv.writer
 
 All technical unknowns resolved. Key decisions:
 
-1. **Click 8.1+** for CLI framework (mature, command groups, testing)
-2. **Rich 13.0+** for progress bars and formatting (comprehensive, TTY-aware)
+1. **Typer 0.9+** for CLI framework (modern, type-safe, Rich integration, less boilerplate)
+2. **Rich 13.0+** for progress bars and formatting (comprehensive, TTY-aware, native Typer support)
 3. **tomllib/toml** conditional import (Python 3.9-3.13 compatibility)
 4. **Multi-level config discovery** (project → user → defaults)
 5. **filelock 3.12+** for cross-platform locking (PID tracking, timeout)
-6. **click.confirm()** for interactive prompts (built-in, TTY-aware)
+6. **typer.confirm()** for interactive prompts (built-in, TTY-aware, Rich styling)
 7. **POSIX exit codes** (0=success, 1-4=errors, shell-compatible)
 8. **Strategy pattern** for output formats (extensible, testable)
 

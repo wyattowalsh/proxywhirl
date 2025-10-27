@@ -22,7 +22,14 @@ All development MUST follow the 7 core principles in `.specify/memory/constituti
 - Python 3.9+ (target: 3.9, 3.10, 3.11, 3.12, 3.13)
 - Use `Union[X, Y]` syntax (not `X | Y`) for Python 3.9 compatibility
 - Use `datetime.timezone.utc` (not `datetime.UTC`) for Python 3.9 compatibility
-- Package manager: `uv` (enforce `uv run` prefix for all Python commands)
+
+### Package Management (MANDATORY)
+- Package manager: `uv` (ONLY uv commands allowed)
+- Add dependencies: `uv add <package>` (NEVER `uv pip install` or `pip install`)
+- Add dev dependencies: `uv add --dev <package>`
+- Sync environment: `uv sync`
+- Run commands: `uv run <command>` (e.g., `uv run pytest`, `uv run mypy`)
+- Rationale: `uv add` keeps `pyproject.toml` in sync with installed packages
 
 ### Core Dependencies
 - `httpx>=0.25.0` - HTTP client with proxy support

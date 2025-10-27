@@ -664,3 +664,52 @@ class HealthMonitor:
             status["uptime_seconds"] = uptime
 
         return status
+
+
+# ============================================================================
+# CLI MODELS
+# ============================================================================
+
+
+class RequestResult(BaseModel):
+    """Result of HTTP request made through proxy."""
+
+    url: str
+    method: str  # GET, POST, PUT, DELETE, etc.
+    status_code: int
+    elapsed_ms: float
+    proxy_used: str  # URL of proxy that succeeded
+    attempts: int  # Number of retries before success
+    headers: dict[str, str]  # Response headers
+    body: Optional[str] = None  # Response body (truncated if large)
+    error: Optional[str] = None  # Error message if failed
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    def is_success(self) -> bool:
+        """Check if request was successful."""
+        return 200 <= self.status_code < 300
+
+
+class ProxyStatus(BaseModel):
+    """Status of a single proxy in the pool."""
+
+    url: str
+    health: str  # "healthy", "degraded", "failed", "unknown"
+    last_check: Optional[datetime] = None
+    response_time_ms: Optional[float] = None
+    success_rate: float = 0.0  # 0.0-1.0
+    total_requests: int = 0
+    failed_requests: int = 0
+    is_active: bool = True
+
+
+class PoolSummary(BaseModel):
+    """Summary of entire proxy pool."""
+
+    total_proxies: int
+    healthy: int
+    degraded: int
+    failed: int
+    rotation_strategy: str
+    current_index: int  # For round-robin
+    proxies: list[ProxyStatus]
