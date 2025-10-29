@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  proxywhirl-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: proxywhirl-api:latest
+    container_name: proxywhirl-api
+    ports:
+      - "8000:8000"
+    environment:
+      # Rotation strategy: round-robin, random, weighted, least-used
+      - PROXYWHIRL_STRATEGY=round-robin
+      
+      # Request timeout in seconds
+      - PROXYWHIRL_TIMEOUT=30
+      
+      # Maximum retry attempts
+      - PROXYWHIRL_MAX_RETRIES=3
+      
+      # Enable API key authentication (set to 'true' to enable)
+      - PROXYWHIRL_REQUIRE_AUTH=false
+      # - PROXYWHIRL_API_KEY=your-secret-api-key-here
+      
+      # CORS origins (comma-separated, use * for all)
+      - PROXYWHIRL_CORS_ORIGINS=*
+      
+      # Optional: SQLite storage for persistence
+      # - PROXYWHIRL_STORAGE_PATH=/data/proxies.db
+    
+    volumes:
+      # Persistent storage for proxy pool (if using SQLite)
+      - proxywhirl-data:/data
+      
+      # Optional: Mount custom configuration
+      # - ./config:/app/config:ro
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    
+    networks:
+      - proxywhirl-network
+    
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+volumes:
+  proxywhirl-data:
+    driver: local
+
+networks:
+  proxywhirl-network:
+    driver: bridge

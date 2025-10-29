@@ -101,7 +101,7 @@ addopts = [
     "--strict-config",
     "--cov=proxywhirl",
     "--cov-report=term-missing",
-    "--cov-report=html",
+    "--cov-report=html:logs/htmlcov",
 ]
 asyncio_mode = "auto"
 
@@ -113,15 +113,43 @@ include = '\.pyi?$'
 [tool.ruff]
 line-length = 100
 target-version = "py39"
-select = ["E", "F", "I", "N", "W", "UP"]
-ignore = ["E501"]
+extend-exclude = [".codex", ".cursor", ".github", ".specify"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501", "B904", "SIM105", "B007"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
 
 [tool.mypy]
 python_version = "3.9"
 strict = true
 warn_return_any = true
 warn_unused_configs = true
+disallow_any_unimported = false
+disallow_any_expr = false
+disallow_any_decorated = false
+disallow_any_explicit = false
+disallow_subclassing_any = true
+disallow_untyped_calls = true
 disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = ["cryptography.*", "tomllib", "tomli"]
+ignore_missing_imports = true
 
 [dependency-groups]
 dev = [

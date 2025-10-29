@@ -541,6 +541,194 @@ rotator.strategy = RandomStrategy()  # Import from proxywhirl.strategies
 **New in v0.2.0**: See [docs/PHASE2_STATUS.md](docs/PHASE2_STATUS.md) for API reference and migration guide.
 **Examples**: See [examples/health_monitoring_example.py](examples/health_monitoring_example.py) and [examples/browser_rendering_example.py](examples/browser_rendering_example.py)
 
+## 🌐 REST API Server (v0.3.0)
+
+ProxyWhirl now includes a production-ready REST API server built with FastAPI for remote proxy pool management and proxied requests.
+
+### Quick Start with Docker
+
+```bash
+# Using Docker Compose (recommended)
+docker-compose up -d
+
+# Access the API at http://localhost:8000
+# Interactive docs at http://localhost:8000/docs
+```
+
+### Manual Start
+
+```bash
+# Install with API dependencies
+pip install "proxywhirl[storage]"
+
+# Start the API server
+uv run uvicorn proxywhirl.api:app --host 0.0.0.0 --port 8000
+
+# Or in development mode with auto-reload
+uv run uvicorn proxywhirl.api:app --reload
+```
+
+### API Features
+
+- **Proxied Requests**: Make HTTP requests through rotating proxies via REST API
+- **Pool Management**: CRUD operations for proxy pool (add, remove, list, health check)
+- **Monitoring**: Health checks, readiness probes, metrics, and status endpoints
+- **Configuration**: Runtime configuration updates without restart
+- **Security**: Optional API key authentication, rate limiting, CORS support
+- **Documentation**: Auto-generated OpenAPI/Swagger docs
+
+### API Endpoints
+
+#### Make Proxied Requests
+
+```bash
+# POST /api/v1/request - Make a proxied HTTP request
+curl -X POST http://localhost:8000/api/v1/request \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "https://httpbin.org/ip",
+    "method": "GET",
+    "timeout": 30
+  }'
+```
+
+#### Manage Proxy Pool
+
+```bash
+# GET /api/v1/proxies - List all proxies with pagination
+curl http://localhost:8000/api/v1/proxies?page=1&page_size=50
+
+# POST /api/v1/proxies - Add new proxy
+curl -X POST http://localhost:8000/api/v1/proxies \
+  -H "Content-Type: application/json" \
+  -d '{
+    "url": "http://proxy.example.com:8080",
+    "username": "user",
+    "password": "pass"
+  }'
+
+# GET /api/v1/proxies/{id} - Get specific proxy
+curl http://localhost:8000/api/v1/proxies/proxy-123
+
+# DELETE /api/v1/proxies/{id} - Remove proxy
+curl -X DELETE http://localhost:8000/api/v1/proxies/proxy-123
+
+# POST /api/v1/proxies/test - Run health check
+curl -X POST http://localhost:8000/api/v1/proxies/test \
+  -H "Content-Type: application/json" \
+  -d '{"proxy_ids": ["proxy-123", "proxy-456"]}'
+```
+
+#### Monitoring
+
+```bash
+# GET /api/v1/health - Health check
+curl http://localhost:8000/api/v1/health
+
+# GET /api/v1/ready - Readiness probe (for Kubernetes)
+curl http://localhost:8000/api/v1/ready
+
+# GET /api/v1/status - Pool status and statistics
+curl http://localhost:8000/api/v1/status
+
+# GET /api/v1/metrics - Performance metrics
+curl http://localhost:8000/api/v1/metrics
+```
+
+#### Configuration
+
+```bash
+# GET /api/v1/config - Get current configuration
+curl http://localhost:8000/api/v1/config
+
+# PUT /api/v1/config - Update configuration
+curl -X PUT http://localhost:8000/api/v1/config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rotation_strategy": "round-robin",
+    "timeout": 30,
+    "max_retries": 3
+  }'
+```
+
+### Configuration
+
+Configure the API using environment variables:
+
+```bash
+# Rotation strategy
+export PROXYWHIRL_STRATEGY=round-robin  # round-robin, random, weighted, least-used
+
+# Request timeout (seconds)
+export PROXYWHIRL_TIMEOUT=30
+
+# Maximum retry attempts
+export PROXYWHIRL_MAX_RETRIES=3
+
+# Optional: API key authentication
+export PROXYWHIRL_REQUIRE_AUTH=true
+export PROXYWHIRL_API_KEY=your-secret-key
+
+# Optional: CORS origins (comma-separated)
+export PROXYWHIRL_CORS_ORIGINS=http://localhost:3000,https://app.example.com
+
+# Optional: SQLite storage for persistence
+export PROXYWHIRL_STORAGE_PATH=/data/proxies.db
+```
+
+### Python Client Example
+
+```python
+import httpx
+import asyncio
+
+async def main():
+    async with httpx.AsyncClient(base_url="http://localhost:8000") as client:
+        # Make proxied request
+        response = await client.post(
+            "/api/v1/request",
+            json={
+                "url": "https://httpbin.org/ip",
+                "method": "GET",
+                "timeout": 30
+            }
+        )
+        print(response.json())
+        
+        # Add proxy to pool
+        response = await client.post(
+            "/api/v1/proxies",
+            json={
+                "url": "http://proxy.example.com:8080",
+                "username": "user",
+                "password": "pass"
+            }
+        )
+        print(response.json())
+        
+        # Get pool status
+        response = await client.get("/api/v1/status")
+        print(response.json())
+
+asyncio.run(main())
+```
+
+### Rate Limiting
+
+The API includes built-in rate limiting:
+- Default: 100 requests/minute per IP
+- Proxied requests (`/api/v1/request`): 50 requests/minute per IP
+- Returns HTTP 429 with `Retry-After` header when exceeded
+
+### API Documentation
+
+Interactive API documentation is available at:
+- **Swagger UI**: <http://localhost:8000/docs>
+- **ReDoc**: <http://localhost:8000/redoc>
+- **OpenAPI JSON**: <http://localhost:8000/openapi.json>
+
+For more details, see [docs/003-REST-API-PROGRESS.md](docs/003-REST-API-PROGRESS.md).
+
 ## 🖥️ Command-Line Interface (CLI)
 
 ProxyWhirl includes a powerful CLI built with Typer and Rich for beautiful terminal output.
