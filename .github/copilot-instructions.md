@@ -45,14 +45,28 @@ All development MUST follow the 7 core principles in `.specify/memory/constituti
 - `mypy>=1.5.0` - Type checking (--strict mode)
 - `ruff>=0.1.0` - Linting AND formatting (NOT black)
 
+### REST API Dependencies (003-rest-api)
+- `fastapi>=0.100.0` - Modern async web framework
+- `uvicorn[standard]>=0.24.0` - ASGI server
+- `slowapi>=0.1.9` - Rate limiting middleware
+- `python-multipart>=0.0.6` - File upload support
+
 ## Project Structure
 
 ```
 proxywhirl/              # Flat package (no sub-packages)
 ├── __init__.py          # Public API exports
+├── api.py               # FastAPI REST API (003-rest-api)
+├── api_models.py        # API-specific Pydantic models (003-rest-api)
+├── browser.py           # Browser rendering support
+├── cli.py               # Command-line interface
+├── config.py            # Configuration management
 ├── exceptions.py        # Exception hierarchy
-├── models.py            # Pydantic v2 models
+├── fetchers.py          # Proxy source fetchers
+├── models.py            # Core Pydantic v2 models
 ├── rotator.py           # ProxyRotator class
+├── sources.py           # Proxy source definitions
+├── storage.py           # SQLite persistence
 ├── strategies.py        # Rotation strategies
 ├── utils.py             # Pure utility functions
 └── py.typed             # PEP 561 type marker
@@ -60,7 +74,8 @@ proxywhirl/              # Flat package (no sub-packages)
 tests/
 ├── unit/                # Fast, isolated tests (<10ms)
 ├── integration/         # End-to-end with HTTP mocking
-└── property/            # Hypothesis property-based tests
+├── property/            # Hypothesis property-based tests
+└── benchmarks/          # Performance benchmarks
 
 .specify/
 ├── memory/              # Constitution, compliance reports
@@ -84,6 +99,10 @@ uv run mypy --strict proxywhirl/           # Must pass with 0 errors
 # Linting & Formatting
 uv run ruff check proxywhirl/              # Linting
 uv run ruff format proxywhirl/             # Formatting (NOT black)
+
+# REST API Server (003-rest-api)
+uv run uvicorn proxywhirl.api:app --reload  # Development server
+uv run uvicorn proxywhirl.api:app --host 0.0.0.0 --port 8000  # Production
 
 # Quality Gates (all must pass)
 uv run pytest tests/ && \
@@ -136,12 +155,28 @@ uv run ruff check proxywhirl/
 - Ruff: All checks passing
 - Security: 100% credential coverage
 
+### ✅ 003-rest-api (Implementation Complete)
+**Status**: Implementation Complete (Tests Pending)
+
+**User Stories Implemented**:
+- US1 (P1): Proxied Requests - POST /api/v1/request endpoint with failover
+- US2 (P2): Pool Management - CRUD operations for proxy pool
+- US3 (P2): Monitoring - Health, readiness, status, metrics endpoints
+- US4 (P3): Configuration - Runtime config updates via API
+
+**Key Features**:
+- 15 RESTful endpoints (OpenAPI/Swagger docs at /docs)
+- Rate limiting (slowapi): 100 req/min default, 50 req/min for proxied requests
+- Optional API key authentication (PROXYWHIRL_REQUIRE_AUTH env var)
+- CORS support for cross-origin requests
+- Graceful shutdown with resource cleanup
+- Comprehensive error handling with structured responses
+
 ## Future Features (Planned)
 
 - 002-cli-interface: Command-line tool
-- 003-rest-api: RESTful API server
 - 004-rotation-strategies-intelligent: ML-based strategies
-- 005-caching-mechanisms-storage: SQLite, Redis backends
+- 005-caching-mechanisms-storage: Redis backends
 - 006-health-monitoring-continuous: Background health checks
 - 018-mcp-server-model: Model Context Protocol server
 
