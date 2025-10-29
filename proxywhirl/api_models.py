@@ -10,10 +10,10 @@ core domain models in models.py. These models define the API contract including:
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Generic, TypeVar, Any, Optional
+from typing import Generic, TypeVar, Any, Optional, Literal, List
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, HttpUrl, PositiveInt, SecretStr
 
 
 # Generic type variable for response data
