@@ -105,9 +105,9 @@ A user wants to select proxies from specific geographic regions to access geo-re
 
 ### Edge Cases
 
-- When rotation strategy is changed mid-operation with active requests, new requests MUST use new strategy immediately while in-flight requests complete using the original strategy they were assigned
+- What happens when rotation strategy is changed mid-operation with active requests?
 - How does the system handle rotation when all proxies are currently in use by other requests?
-- When a rotation strategy requires metadata (performance, geo-location) that is incomplete or missing, system MUST reject selection with clear error indicating missing data and MAY use configured fallback strategy if available
+- What occurs when a rotation strategy requires metadata (performance, geo-location) that is incomplete or missing?
 - How are rotation strategies affected by concurrent proxy pool modifications (adds/removals)?
 - What happens when weighted strategies have proxies with zero or negative weights?
 - How does session persistence handle extremely long-lived sessions?
@@ -124,28 +124,26 @@ A user wants to select proxies from specific geographic regions to access geo-re
 - **FR-005**: System MUST support session persistence strategy with configurable timeout
 - **FR-006**: System MUST support geo-targeted proxy selection based on country/region
 - **FR-007**: System MUST allow strategy to be specified per request or globally configured
-- **FR-008**: System MUST track comprehensive request metadata per proxy including: requests started, requests completed, successful requests, failed requests, and active (in-flight) requests
-- **FR-009**: System MUST track response times per proxy using Exponential Moving Average (EMA) with configurable smoothing factor (alpha) for performance-based strategy
+- **FR-008**: System MUST track request counts per proxy for least-used strategy
+- **FR-009**: System MUST track response times per proxy for performance-based strategy
 - **FR-010**: System MUST support weighted random selection with custom weights
 - **FR-011**: System MUST allow combining strategies (e.g., geo-filter + round-robin)
 - **FR-012**: System MUST skip unhealthy proxies in all rotation strategies
 - **FR-013**: System MUST support sticky sessions with session ID or cookie-based tracking
 - **FR-014**: System MUST provide strategy selection API for programmatic control
-- **FR-015**: System MUST reset proxy usage counters on pool modifications AND maintain sliding time window (configurable, default 1 hour) for counter staleness prevention
+- **FR-015**: System MUST reset proxy usage counters on pool modifications
 - **FR-016**: System MUST support custom rotation strategies via plugin architecture
 - **FR-017**: System MUST log rotation decisions for debugging and auditing
 - **FR-018**: System MUST handle concurrent rotation requests thread-safely
 - **FR-019**: System MUST update performance metrics in real-time or near-real-time
 - **FR-020**: System MUST support strategy hot-swapping without service restart
-- **FR-021**: System MUST validate required metadata availability for strategy and reject with clear error when incomplete
-- **FR-022**: System MUST support optional fallback strategy configuration when primary strategy fails due to missing metadata
 
 ### Key Entities
 
 - **Rotation Strategy**: Algorithm for selecting next proxy (round-robin, random, least-used, performance-based, session, geo-targeted)
-- **Proxy Metadata**: Information used by strategies including request counts (started, completed, successful, failed, active), average latency, success rate, geo-location, health status
+- **Proxy Metadata**: Information used by strategies (request count, average latency, success rate, geo-location, health status)
 - **Session**: Logical grouping of requests requiring same proxy (session ID, proxy assignment, timeout)
-- **Strategy Configuration**: Settings controlling strategy behavior (weights, timeouts, fallback rules, geo-preferences, EMA alpha parameter, sliding window duration)
+- **Strategy Configuration**: Settings controlling strategy behavior (weights, timeouts, fallback rules, geo-preferences)
 - **Selection Context**: Request-specific parameters influencing strategy (target region, session ID, priority level)
 
 ## Success Criteria *(mandatory)*
@@ -160,7 +158,7 @@ A user wants to select proxies from specific geographic regions to access geo-re
 - **SC-006**: Geo-targeted strategy selects correct region 100% of the time when proxies are available
 - **SC-007**: Strategy selection adds less than 5ms overhead per request
 - **SC-008**: All strategies handle 10,000 concurrent rotation requests without deadlocks
-- **SC-009**: Strategy hot-swap completes within 100ms for new requests without dropping requests; in-flight requests complete with original strategy
+- **SC-009**: Strategy hot-swap completes within 100ms without dropping requests
 - **SC-010**: Custom strategy plugins can be loaded and activated within 1 second
 
 ## Assumptions
@@ -171,16 +169,6 @@ A user wants to select proxies from specific geographic regions to access geo-re
 - Geo-location data for proxies is accurate and available
 - Concurrent access patterns don't create extreme lock contention
 - Strategy selection logic completes faster than network I/O to proxies
-
-## Clarifications
-
-### Session 2025-10-29
-
-- Q: When should request counts be tracked for least-used strategy? → A: Track comprehensive metadata including requests started, requests completed, successes, failures
-- Q: What averaging method should be used for tracking response times in performance-based strategy? → A: Exponential Moving Average (EMA) with configurable alpha
-- Q: What happens when rotation strategy requires metadata that is incomplete or missing? → A: Reject with clear error + fallback strategy option
-- Q: How should strategy hot-swapping handle in-flight requests? → A: Continue with new strategy; in-flight requests complete with old strategy
-- Q: What is the reset policy for proxy usage counters during normal operations? → A: Sliding time window (e.g., last 1 hour)
 
 ## Dependencies
 
