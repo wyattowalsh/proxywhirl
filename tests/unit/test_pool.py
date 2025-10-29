@@ -219,8 +219,12 @@ class TestProxyPoolStats:
     def test_healthy_count(self):
         """Test healthy proxy count."""
         pool = ProxyPool(name="test-pool")
-        pool.add_proxy(Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY))  # type: ignore
-        pool.add_proxy(Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY))  # type: ignore
+        pool.add_proxy(
+            Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
+        )  # type: ignore
+        pool.add_proxy(
+            Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY)
+        )  # type: ignore
         pool.add_proxy(Proxy(url="http://proxy3.example.com:8080", health_status=HealthStatus.DEAD))  # type: ignore
 
         assert pool.healthy_count == 2
@@ -228,9 +232,13 @@ class TestProxyPoolStats:
     def test_unhealthy_count(self):
         """Test unhealthy proxy count."""
         pool = ProxyPool(name="test-pool")
-        pool.add_proxy(Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY))  # type: ignore
+        pool.add_proxy(
+            Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
+        )  # type: ignore
         pool.add_proxy(Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.DEAD))  # type: ignore
-        pool.add_proxy(Proxy(url="http://proxy3.example.com:8080", health_status=HealthStatus.DEGRADED))  # type: ignore
+        pool.add_proxy(
+            Proxy(url="http://proxy3.example.com:8080", health_status=HealthStatus.DEGRADED)
+        )  # type: ignore
 
         assert pool.unhealthy_count == 2
 

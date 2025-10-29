@@ -20,7 +20,7 @@ class TestStrategySwitching:
         pool = ProxyPool(name="test-pool")
         proxies = []
         for i in range(3):
-            proxy = Proxy(url=f"http://proxy{i+1}.example.com:8080")
+            proxy = Proxy(url=f"http://proxy{i + 1}.example.com:8080")
             proxy.health_status = HealthStatus.HEALTHY
             pool.add_proxy(proxy)
             proxies.append(proxy)
@@ -44,14 +44,16 @@ class TestStrategySwitching:
 
         # With random selection, we should see variation
         unique_sequences = len(set(sequences))
-        assert unique_sequences > 1, f"Random strategy should produce varied sequences, got {unique_sequences} unique"
+        assert unique_sequences > 1, (
+            f"Random strategy should produce varied sequences, got {unique_sequences} unique"
+        )
 
     def test_switch_from_random_to_weighted(self):
         """Test switching from random to weighted strategy."""
         pool = ProxyPool(name="test-pool")
         proxies = []
         for i in range(3):
-            proxy = Proxy(url=f"http://proxy{i+1}.example.com:8080")
+            proxy = Proxy(url=f"http://proxy{i + 1}.example.com:8080")
             proxy.health_status = HealthStatus.HEALTHY
             pool.add_proxy(proxy)
             proxies.append(proxy)
@@ -92,7 +94,7 @@ class TestStrategySwitching:
         pool = ProxyPool(name="test-pool")
         proxies = []
         for i in range(3):
-            proxy = Proxy(url=f"http://proxy{i+1}.example.com:8080")
+            proxy = Proxy(url=f"http://proxy{i + 1}.example.com:8080")
             proxy.health_status = HealthStatus.HEALTHY
             pool.add_proxy(proxy)
             proxies.append(proxy)
@@ -187,7 +189,7 @@ class TestStrategyStatePreservation:
         pool = ProxyPool(name="test-pool")
         proxies = []
         for i in range(2):
-            proxy = Proxy(url=f"http://proxy{i+1}.example.com:8080")
+            proxy = Proxy(url=f"http://proxy{i + 1}.example.com:8080")
             proxy.health_status = HealthStatus.HEALTHY
             pool.add_proxy(proxy)
             proxies.append(proxy)
@@ -209,7 +211,9 @@ class TestStrategyStatePreservation:
 
         # Stats should be preserved
         stats_after = {p.url: (p.total_requests, p.total_successes) for p in proxies}
-        assert stats_after == stats_before, "Proxy stats should be preserved across strategy changes"
+        assert stats_after == stats_before, (
+            "Proxy stats should be preserved across strategy changes"
+        )
 
     def test_pool_composition_unchanged_after_strategy_switch(self):
         """Test that the proxy pool itself doesn't change when switching strategies."""
@@ -243,4 +247,3 @@ class TestStrategyStatePreservation:
 
         assert current_urls == original_urls, "Pool URLs should be unchanged"
         assert current_pool_size == original_pool_size, "Pool size should be unchanged"
-

@@ -82,7 +82,7 @@ class TestProxyRotatorContextManager:
 class TestProxyRotatorRequests:
     """Test ProxyRotator HTTP request methods with mocks."""
 
-    @patch('httpx.Client')
+    @patch("httpx.Client")
     def test_get_request_with_mock(self, mock_client_class):
         """Test GET request with mocked httpx client."""
         # Setup mock
@@ -107,7 +107,7 @@ class TestProxyRotatorRequests:
         assert response.status_code == 200
         mock_client.request.assert_called_once()
 
-    @patch('httpx.Client')
+    @patch("httpx.Client")
     def test_post_request_with_mock(self, mock_client_class):
         """Test POST request with mocked httpx client."""
         mock_response = Mock(spec=httpx.Response)
@@ -126,7 +126,7 @@ class TestProxyRotatorRequests:
         response = rotator.post("https://httpbin.org/post", json={"key": "value"})
         assert response.status_code == 201
 
-    @patch('httpx.Client')
+    @patch("httpx.Client")
     def test_all_http_methods(self, mock_client_class):
         """Test all HTTP methods."""
         mock_response = Mock(spec=httpx.Response)
@@ -160,7 +160,7 @@ class TestProxyRotatorRequests:
         with pytest.raises(ProxyPoolEmptyError):
             rotator.get("https://example.com")
 
-    @patch('httpx.Client')
+    @patch("httpx.Client")
     def test_request_updates_stats(self, mock_client_class):
         """Test that requests update proxy statistics."""
         mock_response = Mock(spec=httpx.Response)
@@ -183,7 +183,7 @@ class TestProxyRotatorRequests:
         assert rotator.pool.proxies[0].total_successes == 1
         assert rotator.pool.proxies[0].total_requests == 1
 
-    @patch('httpx.Client')
+    @patch("httpx.Client")
     def test_request_success_records_stats(self, mock_client_class):
         """Test that successful request records success stats."""
         mock_response = Mock(spec=httpx.Response)
@@ -238,7 +238,7 @@ class TestProxyRotatorWithCredentials:
 class TestProxyRotatorWithContextManager:
     """Test ProxyRotator with context manager and persistent client."""
 
-    @patch('httpx.Client')
+    @patch("httpx.Client")
     def test_request_with_persistent_client(self, mock_client_class):
         """Test request with persistent client in context manager."""
         mock_response = Mock(spec=httpx.Response)

@@ -19,16 +19,12 @@ class TestProxyValidationPerformance:
     async def test_validation_meets_100_proxies_per_second_requirement(self) -> None:
         """SC-011: Validate 100+ proxies per second in parallel."""
         # Generate 150 test proxies
-        proxies = [
-            {"url": f"http://proxy{i}.example.com:8080"} for i in range(150)
-        ]
+        proxies = [{"url": f"http://proxy{i}.example.com:8080"} for i in range(150)]
 
         validator = ProxyValidator(timeout=5.0)
 
         # Mock validate to return immediately (simulating fast network)
-        with patch.object(
-            validator, "validate", new_callable=AsyncMock
-        ) as mock_validate:
+        with patch.object(validator, "validate", new_callable=AsyncMock) as mock_validate:
             mock_validate.return_value = True
 
             # Measure time for batch validation
@@ -51,15 +47,11 @@ class TestProxyValidationPerformance:
     async def test_validation_scales_with_larger_batches(self) -> None:
         """Verify validation scales efficiently with larger proxy batches."""
         # Test with 500 proxies
-        proxies = [
-            {"url": f"http://proxy{i}.example.com:8080"} for i in range(500)
-        ]
+        proxies = [{"url": f"http://proxy{i}.example.com:8080"} for i in range(500)]
 
         validator = ProxyValidator(timeout=5.0)
 
-        with patch.object(
-            validator, "validate", new_callable=AsyncMock
-        ) as mock_validate:
+        with patch.object(validator, "validate", new_callable=AsyncMock) as mock_validate:
             mock_validate.return_value = True
 
             start = time.perf_counter()

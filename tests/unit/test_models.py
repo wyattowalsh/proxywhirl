@@ -103,18 +103,14 @@ class TestProxyHealthStatus:
 
     def test_one_failure_degrades_health(self):
         """Test that one failure sets status to DEGRADED."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         proxy.record_failure()
         assert proxy.health_status == HealthStatus.DEGRADED
         assert proxy.consecutive_failures == 1
 
     def test_three_failures_unhealthy(self):
         """Test that three consecutive failures set status to UNHEALTHY."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         proxy.record_failure()
         proxy.record_failure()
         proxy.record_failure()
@@ -123,9 +119,7 @@ class TestProxyHealthStatus:
 
     def test_five_failures_dead(self):
         """Test that five consecutive failures set status to DEAD."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         for _ in range(5):
             proxy.record_failure()
         assert proxy.health_status == HealthStatus.DEAD
@@ -205,30 +199,22 @@ class TestProxyProperties:
 
     def test_is_healthy_true_for_healthy_status(self):
         """Test is_healthy returns True for HEALTHY status."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         assert proxy.is_healthy is True
 
     def test_is_healthy_false_for_degraded_status(self):
         """Test is_healthy returns False for DEGRADED status."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080", health_status=HealthStatus.DEGRADED
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.DEGRADED)
         assert proxy.is_healthy is False
 
     def test_is_healthy_false_for_unhealthy_status(self):
         """Test is_healthy returns False for UNHEALTHY status."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080", health_status=HealthStatus.UNHEALTHY
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.UNHEALTHY)
         assert proxy.is_healthy is False
 
     def test_is_healthy_false_for_dead_status(self):
         """Test is_healthy returns False for DEAD status."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080", health_status=HealthStatus.DEAD
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.DEAD)
         assert proxy.is_healthy is False
 
     def test_credentials_property_returns_none_when_no_creds(self):

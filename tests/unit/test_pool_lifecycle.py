@@ -128,7 +128,7 @@ class TestProxyPoolDynamicOperations:
         chunk_size = 10
         threads = []
         for i in range(0, 50, chunk_size):
-            chunk = proxies[i:i + chunk_size]
+            chunk = proxies[i : i + chunk_size]
             t = threading.Thread(target=remove_proxies, args=(chunk,))
             threads.append(t)
             t.start()
@@ -157,6 +157,7 @@ class TestProxyPoolDynamicOperations:
         def remove_proxies():
             try:
                 import time
+
                 time.sleep(0.01)  # Small delay to let some proxies be added
                 proxies_snapshot = list(pool.proxies)
                 for proxy in proxies_snapshot[:5]:  # Remove first 5
@@ -165,14 +166,8 @@ class TestProxyPoolDynamicOperations:
                 errors.append(e)
 
         # Start threads
-        add_threads = [
-            threading.Thread(target=add_proxies, args=(i * 10, 10))
-            for i in range(3)
-        ]
-        remove_threads = [
-            threading.Thread(target=remove_proxies)
-            for _ in range(2)
-        ]
+        add_threads = [threading.Thread(target=add_proxies, args=(i * 10, 10)) for i in range(3)]
+        remove_threads = [threading.Thread(target=remove_proxies) for _ in range(2)]
 
         for t in add_threads + remove_threads:
             t.start()
@@ -221,6 +216,7 @@ class TestProxyPoolValidation:
         initial_updated = pool.updated_at
 
         import time
+
         time.sleep(0.01)
 
         pool.add_proxy(Proxy(url="http://proxy.example.com:8080"))
@@ -233,6 +229,7 @@ class TestProxyPoolValidation:
         initial_updated = pool.updated_at
 
         import time
+
         time.sleep(0.01)
 
         pool.remove_proxy(proxy.id)

@@ -117,7 +117,7 @@ class TestProxyToDictConversion:
         proxy = Proxy(
             url="http://proxy.example.com:8080",
             username=SecretStr("user"),
-            password=SecretStr("pass")
+            password=SecretStr("pass"),
         )
         result = proxy_to_dict(proxy)
 

@@ -101,8 +101,12 @@ class TestMixedProxySources:
         # With weighted rotation and 1 user vs 3 fetched proxies:
         # User should get at least 30% of selections (expected ~40%)
         # Fetched should get at least 50% collectively (expected ~60%)
-        assert user_selections >= 100, f"Expected user proxy selected >=100 times, got {user_selections}"
-        assert fetched_selections >= 200, f"Expected fetched proxies selected >=200 times, got {fetched_selections}"
+        assert user_selections >= 100, (
+            f"Expected user proxy selected >=100 times, got {user_selections}"
+        )
+        assert fetched_selections >= 200, (
+            f"Expected fetched proxies selected >=200 times, got {fetched_selections}"
+        )
         assert user_selections + fetched_selections == 500
 
     def test_statistics_indicate_source_for_each_proxy(self) -> None:

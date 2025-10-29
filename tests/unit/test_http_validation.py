@@ -33,7 +33,9 @@ class TestHTTPValidation:
 
         # Use respx to mock timeout
         with respx.mock:
-            respx.get(validator.test_url).mock(side_effect=httpx.TimeoutException("Request timed out"))
+            respx.get(validator.test_url).mock(
+                side_effect=httpx.TimeoutException("Request timed out")
+            )
 
             result = await validator._validate_http_request()
 
@@ -72,7 +74,9 @@ class TestHTTPValidation:
 
         # Use respx to mock network error
         with respx.mock:
-            respx.get(validator.test_url).mock(side_effect=httpx.NetworkError("Network unreachable"))
+            respx.get(validator.test_url).mock(
+                side_effect=httpx.NetworkError("Network unreachable")
+            )
 
             result = await validator._validate_http_request()
 

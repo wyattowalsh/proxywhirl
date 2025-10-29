@@ -59,13 +59,9 @@ class TestTTLIntegration:
         strategy = RandomStrategy()
 
         # Add mix of proxies
-        valid_proxies = [
-            Proxy(url=f"http://valid{i}.proxy.com:8080", ttl=3600)
-            for i in range(5)
-        ]
+        valid_proxies = [Proxy(url=f"http://valid{i}.proxy.com:8080", ttl=3600) for i in range(5)]
         expired_proxies = [
-            Proxy(url=f"http://expired{i}.proxy.com:8080", ttl=-1800)
-            for i in range(3)
+            Proxy(url=f"http://expired{i}.proxy.com:8080", ttl=-1800) for i in range(3)
         ]
 
         for proxy in valid_proxies + expired_proxies:
@@ -91,9 +87,7 @@ class TestTTLIntegration:
 
         # Add only expired proxies
         for i in range(3):
-            pool.add_proxy(
-                Proxy(url=f"http://expired{i}.proxy.com:8080", ttl=-3600)
-            )
+            pool.add_proxy(Proxy(url=f"http://expired{i}.proxy.com:8080", ttl=-3600))
 
         assert pool.size == 3
 

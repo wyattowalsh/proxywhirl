@@ -82,9 +82,7 @@ class TestSQLiteStorage:
             await storage.initialize()
 
             # Save proxies
-            proxies = [
-                Proxy(url=f"http://proxy{i}.example.com:8080") for i in range(10)
-            ]
+            proxies = [Proxy(url=f"http://proxy{i}.example.com:8080") for i in range(10)]
             await storage.save(proxies)
 
             # Load all

@@ -11,7 +11,7 @@ from proxywhirl.models import HealthStatus
 class TestBasicRotation:
     """Integration tests for basic round-robin proxy rotation."""
 
-    @patch('httpx.Client')
+    @patch("httpx.Client")
     def test_round_robin_rotation_with_three_proxies(self, mock_client_class):
         """Test that 10 requests cycle through 3 proxies in round-robin fashion."""
         # Setup mock HTTP client
@@ -58,7 +58,7 @@ class TestBasicRotation:
             assert proxy.total_successes == proxy.total_requests
             assert proxy.total_failures == 0
 
-    @patch('httpx.Client')
+    @patch("httpx.Client")
     def test_all_proxies_get_traffic(self, mock_client_class):
         """Test that over multiple requests, all proxies receive traffic."""
         # Setup mock
@@ -92,7 +92,7 @@ class TestBasicRotation:
                 f"Proxy {i} should have 4 successes, got {proxy.total_successes}"
             )
 
-    @patch('httpx.Client')
+    @patch("httpx.Client")
     def test_single_proxy_no_rotation(self, mock_client_class):
         """Test that with a single proxy, all requests use that proxy."""
         # Setup mock
@@ -119,7 +119,7 @@ class TestBasicRotation:
         assert rotator.pool.proxies[0].total_requests == 10
         assert rotator.pool.proxies[0].total_successes == 10
 
-    @patch('httpx.Client')
+    @patch("httpx.Client")
     def test_rotation_preserves_order_across_methods(self, mock_client_class):
         """Test that rotation order is consistent across different HTTP methods."""
         # Setup mock
@@ -153,7 +153,7 @@ class TestBasicRotation:
         assert len(proxy_urls) == 3
         assert len(set(proxy_urls)) == 3, "All 3 proxies should be used"
 
-    @patch('httpx.Client')
+    @patch("httpx.Client")
     def test_dynamic_proxy_addition_during_rotation(self, mock_client_class):
         """Test that adding proxies mid-rotation works correctly."""
         # Setup mock

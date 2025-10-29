@@ -105,9 +105,7 @@ class TestRuntimeProxyUpdates:
         proxy2.health_status = HealthStatus.HEALTHY
 
         # Mock responses
-        respx.get("https://httpbin.org/test").mock(
-            return_value=httpx.Response(200, text="success")
-        )
+        respx.get("https://httpbin.org/test").mock(return_value=httpx.Response(200, text="success"))
 
         # Initial state: 2 proxies
         assert rotator.pool.size == 2
@@ -161,7 +159,7 @@ class TestRuntimeProxyUpdates:
         # Perform multiple add/remove cycles
         for i in range(3):
             # Add proxies
-            new_proxy = Proxy(url=f"http://proxy{i+2}.example.com:8080")
+            new_proxy = Proxy(url=f"http://proxy{i + 2}.example.com:8080")
             new_proxy.health_status = HealthStatus.HEALTHY
             rotator.add_proxy(new_proxy)
 

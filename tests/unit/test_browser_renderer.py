@@ -71,9 +71,7 @@ class TestBrowserRendererLifecycle:
             if "playwright.async_api" in sys.modules:
                 del sys.modules["playwright.async_api"]
 
-            with pytest.raises(
-                ImportError, match="Playwright is required for browser rendering"
-            ):
+            with pytest.raises(ImportError, match="Playwright is required for browser rendering"):
                 await renderer.start()
         finally:
             # Restore original state
@@ -294,9 +292,7 @@ class TestBrowserRendererRender:
 
         await renderer.render("https://example.com", wait_for_selector=".proxy-list")
 
-        mock_page.wait_for_selector.assert_called_once_with(
-            ".proxy-list", timeout=30000
-        )
+        mock_page.wait_for_selector.assert_called_once_with(".proxy-list", timeout=30000)
 
     @pytest.mark.asyncio
     async def test_render_timeout(self) -> None:

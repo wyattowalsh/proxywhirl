@@ -83,9 +83,7 @@ class TestAuthenticationRotation:
         ]
 
         # Mock all requests to succeed
-        respx.get("https://httpbin.org/test").mock(
-            return_value=httpx.Response(200, text="success")
-        )
+        respx.get("https://httpbin.org/test").mock(return_value=httpx.Response(200, text="success"))
 
         rotator = ProxyRotator(proxies=proxies)
 

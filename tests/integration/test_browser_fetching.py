@@ -88,9 +88,7 @@ class TestBrowserFetching:
         # Mock BrowserRenderer import to fail
         with patch.dict("sys.modules", {"proxywhirl.browser": None}):
             with patch("builtins.__import__", side_effect=ImportError("No module")):
-                with pytest.raises(
-                    ProxyFetchError, match="Browser rendering requires Playwright"
-                ):
+                with pytest.raises(ProxyFetchError, match="Browser rendering requires Playwright"):
                     await fetcher.fetch_from_source(source)
 
     @pytest.mark.asyncio
@@ -135,9 +133,7 @@ class TestBrowserFetching:
 
         # Mock browser to raise runtime error
         mock_renderer = AsyncMock()
-        mock_renderer.render = AsyncMock(
-            side_effect=RuntimeError("Browser crashed")
-        )
+        mock_renderer.render = AsyncMock(side_effect=RuntimeError("Browser crashed"))
         mock_renderer.__aenter__ = AsyncMock(return_value=mock_renderer)
         mock_renderer.__aexit__ = AsyncMock(return_value=None)
 
@@ -180,9 +176,7 @@ class TestBrowserFetching:
         mock_renderer.__aexit__ = AsyncMock(return_value=None)
 
         with respx.mock:
-            respx.get(source_static.url).mock(
-                return_value=Response(200, text=mock_static_json)
-            )
+            respx.get(source_static.url).mock(return_value=Response(200, text=mock_static_json))
 
             # Mock the browser module
             mock_browser_module = MagicMock()

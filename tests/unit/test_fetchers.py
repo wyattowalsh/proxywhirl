@@ -26,10 +26,12 @@ class TestJSONParser:
         """Parse valid JSON array of proxy objects."""
         from proxywhirl.fetchers import JSONParser
 
-        json_data = json.dumps([
-            {"host": "proxy1.com", "port": 8080, "protocol": "http"},
-            {"host": "proxy2.com", "port": 3128, "protocol": "https"},
-        ])
+        json_data = json.dumps(
+            [
+                {"host": "proxy1.com", "port": 8080, "protocol": "http"},
+                {"host": "proxy2.com", "port": 3128, "protocol": "https"},
+            ]
+        )
 
         parser = JSONParser()
         proxies = parser.parse(json_data)
@@ -43,12 +45,14 @@ class TestJSONParser:
         """Parse JSON object with proxies key."""
         from proxywhirl.fetchers import JSONParser
 
-        json_data = json.dumps({
-            "proxies": [
-                {"host": "proxy1.com", "port": 8080},
-                {"host": "proxy2.com", "port": 3128},
-            ]
-        })
+        json_data = json.dumps(
+            {
+                "proxies": [
+                    {"host": "proxy1.com", "port": 8080},
+                    {"host": "proxy2.com", "port": 3128},
+                ]
+            }
+        )
 
         parser = JSONParser(key="proxies")
         proxies = parser.parse(json_data)
@@ -69,9 +73,11 @@ class TestJSONParser:
         """JSON without required fields raises validation error."""
         from proxywhirl.fetchers import JSONParser
 
-        json_data = json.dumps([
-            {"host": "proxy1.com"},  # Missing port
-        ])
+        json_data = json.dumps(
+            [
+                {"host": "proxy1.com"},  # Missing port
+            ]
+        )
 
         parser = JSONParser(required_fields=["host", "port"])
         with pytest.raises(ProxyValidationError, match="Missing required field"):
@@ -115,9 +121,7 @@ proxy2.com,3128,https"""
         csv_data = """proxy1.com,8080,http
 proxy2.com,3128,https"""
 
-        parser = CSVParser(
-            has_header=False, columns=["host", "port", "protocol"]
-        )
+        parser = CSVParser(has_header=False, columns=["host", "port", "protocol"])
         proxies = parser.parse(csv_data)
 
         assert len(proxies) == 2
@@ -260,9 +264,7 @@ class TestHTMLTableParser:
         </table>
         """
 
-        parser = HTMLTableParser(
-            column_indices={"host": 0, "port": 1, "protocol": 2}
-        )
+        parser = HTMLTableParser(column_indices={"host": 0, "port": 1, "protocol": 2})
         proxies = parser.parse(html_data)
 
         assert len(proxies) == 2
@@ -278,9 +280,7 @@ class TestHTMLTableParser:
         </table>
         """
 
-        parser = HTMLTableParser(
-            table_selector="#proxies", column_indices={"host": 0, "port": 1}
-        )
+        parser = HTMLTableParser(table_selector="#proxies", column_indices={"host": 0, "port": 1})
         proxies = parser.parse(html_data)
 
         assert len(proxies) == 1

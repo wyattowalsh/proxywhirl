@@ -146,9 +146,7 @@ class TestProxyDictConversion:
 
     def test_proxy_to_dict_with_tags(self):
         """Test proxy to dict includes tags."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080", tags={"fast", "us"}
-        )  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080", tags={"fast", "us"})  # type: ignore
         result = proxy_to_dict(proxy)
 
         assert "tags" in result
@@ -189,17 +187,13 @@ class TestCreateProxyFromURL:
 
     def test_create_proxy_from_url_with_source(self):
         """Test creating proxy with specific source."""
-        proxy = create_proxy_from_url(
-            "http://proxy.example.com:8080", source=ProxySource.FETCHED
-        )
+        proxy = create_proxy_from_url("http://proxy.example.com:8080", source=ProxySource.FETCHED)
 
         assert proxy.source == ProxySource.FETCHED
 
     def test_create_proxy_from_url_with_tags(self):
         """Test creating proxy with tags."""
-        proxy = create_proxy_from_url(
-            "http://proxy.example.com:8080", tags={"fast", "us"}
-        )
+        proxy = create_proxy_from_url("http://proxy.example.com:8080", tags={"fast", "us"})
 
         assert proxy.tags == {"fast", "us"}
 
@@ -221,9 +215,7 @@ class TestProxyCredentialsModel:
 
         from proxywhirl.models import ProxyCredentials
 
-        creds = ProxyCredentials(
-            username=SecretStr("testuser"), password=SecretStr("testpass")
-        )
+        creds = ProxyCredentials(username=SecretStr("testuser"), password=SecretStr("testpass"))
 
         auth = creds.to_httpx_auth()
         assert isinstance(auth, httpx.BasicAuth)
@@ -254,9 +246,7 @@ class TestProxyCredentialsModel:
 
         from proxywhirl.models import ProxyCredentials
 
-        creds = ProxyCredentials(
-            username=SecretStr("testuser"), password=SecretStr("testpass")
-        )
+        creds = ProxyCredentials(username=SecretStr("testuser"), password=SecretStr("testpass"))
 
         result = creds.to_dict(reveal=False)
         assert result["username"] == "**********"
@@ -279,9 +269,7 @@ class TestProxyConfiguration:
         """Test configuration with custom values."""
         from proxywhirl.models import ProxyConfiguration
 
-        config = ProxyConfiguration(
-            timeout=60, max_retries=5, verify_ssl=False, log_level="DEBUG"
-        )
+        config = ProxyConfiguration(timeout=60, max_retries=5, verify_ssl=False, log_level="DEBUG")
         assert config.timeout == 60
         assert config.max_retries == 5
         assert config.verify_ssl is False

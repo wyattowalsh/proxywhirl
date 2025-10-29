@@ -184,9 +184,7 @@ class TestValidateBeforeAdding:
         ]
 
         validator = ProxyValidator(timeout=5.0)
-        with patch.object(
-            validator, "validate_batch", new_callable=AsyncMock
-        ) as mock_batch:
+        with patch.object(validator, "validate_batch", new_callable=AsyncMock) as mock_batch:
             # Simulate 3 working proxies
             mock_batch.return_value = proxies[:3]
 
@@ -364,14 +362,10 @@ class TestWorkingProxiesOnly:
     async def test_validation_performance_meets_requirements(self) -> None:
         """SC5: Validation meets performance requirements (SC-011: 100+ proxies/sec)."""
         # Generate 150 proxies
-        proxies = [
-            {"url": f"http://proxy{i}.example.com:8080"} for i in range(150)
-        ]
+        proxies = [{"url": f"http://proxy{i}.example.com:8080"} for i in range(150)]
 
         validator = ProxyValidator(timeout=5.0)
-        with patch.object(
-            validator, "validate_batch", new_callable=AsyncMock
-        ) as mock_batch:
+        with patch.object(validator, "validate_batch", new_callable=AsyncMock) as mock_batch:
             # Simulate fast validation (all working)
             mock_batch.return_value = proxies
 
@@ -396,9 +390,7 @@ class TestWorkingProxiesOnly:
         ]
 
         validator = ProxyValidator(timeout=5.0)
-        with patch.object(
-            validator, "validate_batch", new_callable=AsyncMock
-        ) as mock_batch:
+        with patch.object(validator, "validate_batch", new_callable=AsyncMock) as mock_batch:
             # Simulate partial success (only 2 working)
             mock_batch.return_value = proxies[:2]
 

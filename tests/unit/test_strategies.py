@@ -20,9 +20,15 @@ class TestRoundRobinStrategy:
     def test_sequential_selection(self):
         """Test that proxies are selected sequentially."""
         pool = ProxyPool(name="test-pool")
-        pool.add_proxy(Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY))  # type: ignore
-        pool.add_proxy(Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY))  # type: ignore
-        pool.add_proxy(Proxy(url="http://proxy3.example.com:8080", health_status=HealthStatus.HEALTHY))  # type: ignore
+        pool.add_proxy(
+            Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
+        )  # type: ignore
+        pool.add_proxy(
+            Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY)
+        )  # type: ignore
+        pool.add_proxy(
+            Proxy(url="http://proxy3.example.com:8080", health_status=HealthStatus.HEALTHY)
+        )  # type: ignore
 
         strategy = RoundRobinStrategy()
 
@@ -41,8 +47,12 @@ class TestRoundRobinStrategy:
     def test_wraparound_after_last_proxy(self):
         """Test that selection wraps around to first proxy after last."""
         pool = ProxyPool(name="test-pool")
-        pool.add_proxy(Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY))  # type: ignore
-        pool.add_proxy(Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY))  # type: ignore
+        pool.add_proxy(
+            Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
+        )  # type: ignore
+        pool.add_proxy(
+            Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY)
+        )  # type: ignore
 
         strategy = RoundRobinStrategy()
 
@@ -67,7 +77,9 @@ class TestRoundRobinStrategy:
         """Test that pool with only unhealthy proxies raises error."""
         pool = ProxyPool(name="test-pool")
         pool.add_proxy(Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.DEAD))  # type: ignore
-        pool.add_proxy(Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.UNHEALTHY))  # type: ignore
+        pool.add_proxy(
+            Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.UNHEALTHY)
+        )  # type: ignore
 
         strategy = RoundRobinStrategy()
 
@@ -77,7 +89,9 @@ class TestRoundRobinStrategy:
     def test_skips_unhealthy_proxies(self):
         """Test that strategy skips unhealthy proxies."""
         pool = ProxyPool(name="test-pool")
-        healthy_proxy = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)  # type: ignore
+        healthy_proxy = Proxy(
+            url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY
+        )  # type: ignore
         pool.add_proxy(healthy_proxy)
         pool.add_proxy(Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.DEAD))  # type: ignore
 
@@ -115,8 +129,12 @@ class TestRoundRobinStrategy:
     def test_multiple_instances_independent_state(self):
         """Test that multiple strategy instances maintain independent state."""
         pool = ProxyPool(name="test-pool")
-        pool.add_proxy(Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY))  # type: ignore
-        pool.add_proxy(Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY))  # type: ignore
+        pool.add_proxy(
+            Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
+        )  # type: ignore
+        pool.add_proxy(
+            Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY)
+        )  # type: ignore
 
         strategy1 = RoundRobinStrategy()
         strategy2 = RoundRobinStrategy()
@@ -135,7 +153,9 @@ class TestRandomStrategy:
         """Test that selection is random (probabilistic test)."""
         pool = ProxyPool(name="test-pool")
         for i in range(5):
-            pool.add_proxy(Proxy(url=f"http://proxy{i}.example.com:8080", health_status=HealthStatus.HEALTHY))  # type: ignore
+            pool.add_proxy(
+                Proxy(url=f"http://proxy{i}.example.com:8080", health_status=HealthStatus.HEALTHY)
+            )  # type: ignore
 
         strategy = RandomStrategy()
 
@@ -193,7 +213,9 @@ class TestWeightedStrategy:
         pool.add_proxy(new_proxy)
 
         # Proxy with requests
-        tested_proxy = Proxy(url="http://tested.example.com:8080", health_status=HealthStatus.HEALTHY)  # type: ignore
+        tested_proxy = Proxy(
+            url="http://tested.example.com:8080", health_status=HealthStatus.HEALTHY
+        )  # type: ignore
         tested_proxy.total_requests = 10
         tested_proxy.total_successes = 8
         pool.add_proxy(tested_proxy)
@@ -237,7 +259,9 @@ class TestLeastUsedStrategy:
         pool = ProxyPool(name="test-pool")
 
         for i in range(3):
-            pool.add_proxy(Proxy(url=f"http://proxy{i}.example.com:8080", health_status=HealthStatus.HEALTHY))  # type: ignore
+            pool.add_proxy(
+                Proxy(url=f"http://proxy{i}.example.com:8080", health_status=HealthStatus.HEALTHY)
+            )  # type: ignore
 
         strategy = LeastUsedStrategy()
 

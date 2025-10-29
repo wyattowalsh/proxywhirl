@@ -50,9 +50,7 @@ class TestAuthenticatedRequests:
         assert route.called
 
     @respx.mock
-    def test_unauthenticated_request_fails_with_407(
-        self, unauthenticated_proxy: Proxy
-    ) -> None:
+    def test_unauthenticated_request_fails_with_407(self, unauthenticated_proxy: Proxy) -> None:
         """Test that request without credentials fails with 407 error."""
         # Mock 407 Proxy Authentication Required
         respx.get("https://httpbin.org/ip").mock(
@@ -93,9 +91,7 @@ class TestAuthenticatedRequests:
         assert "407" in str(exc_info.value)
 
     @respx.mock
-    def test_authenticated_request_includes_credentials(
-        self, authenticated_proxy: Proxy
-    ) -> None:
+    def test_authenticated_request_includes_credentials(self, authenticated_proxy: Proxy) -> None:
         """Test that credentials are properly included in the request."""
         # Mock the target URL
         route = respx.get("https://httpbin.org/ip").mock(

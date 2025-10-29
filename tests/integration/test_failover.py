@@ -13,8 +13,8 @@ from proxywhirl.models import HealthStatus
 class TestProxyFailover:
     """Integration tests for automatic proxy failover on failures."""
 
-    @patch('proxywhirl.rotator.retry', lambda **kwargs: lambda f: f)  # Disable retries
-    @patch('httpx.Client')
+    @patch("proxywhirl.rotator.retry", lambda **kwargs: lambda f: f)  # Disable retries
+    @patch("httpx.Client")
     def test_automatic_failover_to_next_proxy(self, mock_client_class):
         """Test that when one proxy fails, rotator automatically tries the next proxy."""
         # Setup mock: first proxy fails, second proxy succeeds
@@ -53,13 +53,15 @@ class TestProxyFailover:
             assert response.status_code == 200
         except ProxyConnectionError:
             # This should not happen with failover
-            pytest.fail("Failover did not work - request failed despite having healthy backup proxy")
+            pytest.fail(
+                "Failover did not work - request failed despite having healthy backup proxy"
+            )
 
         # Verify both proxies were tried
         assert call_count[0] >= 2, "Should have tried at least 2 proxies"
 
-    @patch('proxywhirl.rotator.retry', lambda **kwargs: lambda f: f)  # Disable retries
-    @patch('httpx.Client')
+    @patch("proxywhirl.rotator.retry", lambda **kwargs: lambda f: f)  # Disable retries
+    @patch("httpx.Client")
     def test_failover_records_failure_stats(self, mock_client_class):
         """Test that failed proxy records failure statistics."""
         # Setup mock: first proxy fails, second proxy succeeds
@@ -99,8 +101,8 @@ class TestProxyFailover:
         # Check that first proxy recorded a failure
         assert rotator.pool.proxies[0].total_failures >= 1, "Failed proxy should record failure"
 
-    @patch('proxywhirl.rotator.retry', lambda **kwargs: lambda f: f)  # Disable retries
-    @patch('httpx.Client')
+    @patch("proxywhirl.rotator.retry", lambda **kwargs: lambda f: f)  # Disable retries
+    @patch("httpx.Client")
     def test_all_proxies_fail_raises_exception(self, mock_client_class):
         """Test that when all proxies fail, ProxyConnectionError is raised."""
         # Setup mock: all proxies fail
@@ -123,7 +125,7 @@ class TestProxyFailover:
         with pytest.raises((ProxyConnectionError, ProxyPoolEmptyError)):
             rotator.get("https://example.com")
 
-    @patch('httpx.Client')
+    @patch("httpx.Client")
     def test_unhealthy_proxies_skipped_during_failover(self, mock_client_class):
         """Test that unhealthy proxies are not tried during failover."""
         # Setup mock
@@ -162,8 +164,8 @@ class TestProxyFailover:
         assert rotator.pool.proxies[0].total_requests == 0, "Dead proxy should not be used"
         assert rotator.pool.proxies[2].total_requests == 0, "Unhealthy proxy should not be used"
 
-    @patch('proxywhirl.rotator.retry', lambda **kwargs: lambda f: f)  # Disable retries
-    @patch('httpx.Client')
+    @patch("proxywhirl.rotator.retry", lambda **kwargs: lambda f: f)  # Disable retries
+    @patch("httpx.Client")
     def test_consecutive_failures_mark_proxy_unhealthy(self, mock_client_class):
         """Test that consecutive failures eventually mark a proxy as unhealthy."""
         # Setup mock: always fail
@@ -191,6 +193,5 @@ class TestProxyFailover:
         assert rotator.pool.proxies[0].health_status in [
             HealthStatus.DEGRADED,
             HealthStatus.UNHEALTHY,
-            HealthStatus.DEAD
+            HealthStatus.DEAD,
         ], f"Expected DEGRADED, UNHEALTHY or DEAD, got {rotator.pool.proxies[0].health_status}"
-

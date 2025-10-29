@@ -153,17 +153,13 @@ class TestProxyConfigurationStorage:
 
     def test_config_sqlite_storage_with_path(self):
         """Test sqlite storage with path."""
-        config = ProxyConfiguration(
-            storage_backend="sqlite", storage_path=Path("/tmp/proxies.db")
-        )
+        config = ProxyConfiguration(storage_backend="sqlite", storage_path=Path("/tmp/proxies.db"))
         assert config.storage_backend == "sqlite"
         assert config.storage_path == Path("/tmp/proxies.db")
 
     def test_config_file_storage_with_path(self):
         """Test file storage with path."""
-        config = ProxyConfiguration(
-            storage_backend="file", storage_path=Path("/tmp/proxies.json")
-        )
+        config = ProxyConfiguration(storage_backend="file", storage_path=Path("/tmp/proxies.json"))
         assert config.storage_backend == "file"
         assert config.storage_path == Path("/tmp/proxies.json")
 
