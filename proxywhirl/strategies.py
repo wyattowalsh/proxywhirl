@@ -200,19 +200,31 @@ class RandomStrategy:
 
 class WeightedStrategy:
     """
-    Weighted proxy selection strategy.
+    Weighted proxy selection strategy with SelectionContext support.
 
-    Selects proxies based on their success rates, giving preference
-    to proxies with higher success rates. Uses weighted random selection
-    where weights are derived from success_rate.
+    Selects proxies based on custom weights or success rates. When custom weights
+    are provided via StrategyConfig, they take precedence. Otherwise, weights are
+    derived from success_rate. Uses weighted random selection to favor
+    higher-performing proxies while still giving all proxies a chance.
+
+    Supports:
+    - Custom weights via StrategyConfig.weights (proxy URL -> weight mapping)
+    - Fallback to success_rate-based weights
+    - Minimum weight (0.1) to ensure all proxies have selection chance
+    - SelectionContext for filtering (e.g., failed_proxy_ids)
     """
 
-    def select(self, pool: ProxyPool) -> Proxy:
+    def __init__(self) -> None:
+        """Initialize weighted strategy."""
+        self.config: Optional[StrategyConfig] = None
+
+    def select(self, pool: ProxyPool, context: Optional[SelectionContext] = None) -> Proxy:
         """
-        Select a proxy weighted by success rate.
+        Select a proxy weighted by custom weights or success rate.
 
         Args:
             pool: The proxy pool to select from
+            context: Optional selection context for filtering
 
         Returns:
             Weighted-random selected healthy proxy
@@ -225,20 +237,82 @@ class WeightedStrategy:
         if not healthy_proxies:
             raise ProxyPoolEmptyError("No healthy proxies available in pool")
 
-        # Calculate weights based on success rates
-        # Add small base weight to give all proxies a chance
-        weights = [max(proxy.success_rate, 0.1) for proxy in healthy_proxies]
+        # Filter out failed proxies if context provided
+        if context and context.failed_proxy_ids:
+            failed_ids = set(context.failed_proxy_ids)
+            healthy_proxies = [
+                p for p in healthy_proxies
+                if str(p.id) not in failed_ids
+            ]
+
+            if not healthy_proxies:
+                raise ProxyPoolEmptyError("No healthy proxies available after filtering failed proxies")
+
+        # Calculate weights
+        if self.config and self.config.weights:
+            # Use custom weights from config
+            weights = []
+            for proxy in healthy_proxies:
+                custom_weight = self.config.weights.get(proxy.url, None)
+                if custom_weight is not None and custom_weight > 0:
+                    weights.append(custom_weight)
+                else:
+                    # Fallback to success rate or minimum weight
+                    weights.append(max(proxy.success_rate, 0.1))
+        else:
+            # Use success rates as weights
+            # Add small base weight (0.1) to give all proxies a chance
+            weights = [max(proxy.success_rate, 0.1) for proxy in healthy_proxies]
+
+        # Handle edge case: all weights are zero/negative (shouldn't happen with max(0.1))
+        if all(w <= 0 for w in weights):
+            # Fallback to uniform weights
+            weights = [1.0] * len(weights)
 
         # Use random.choices for weighted selection
         selected = random.choices(healthy_proxies, weights=weights, k=1)[0]
+
+        # Update proxy metadata to track request start
+        selected.start_request()
+
         return selected
 
+    def configure(self, config: StrategyConfig) -> None:
+        """
+        Configure the strategy with custom settings.
+
+        Args:
+            config: Strategy configuration object with optional custom weights
+        """
+        self.config = config
+
+    def validate_metadata(self, pool: ProxyPool) -> bool:
+        """
+        Validate that pool has required metadata for weighted selection.
+
+        Weighted strategy can work with success_rate (always available) or custom weights.
+
+        Args:
+            pool: The proxy pool to validate
+
+        Returns:
+            Always True as success_rate is always available
+        """
+        return True
+
     def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
-        """Record the result of using a proxy."""
-        if success:
-            proxy.record_success(response_time_ms)
-        else:
-            proxy.record_failure()
+        """
+        Record the result of using a proxy.
+
+        Updates proxy statistics based on request outcome.
+
+        Args:
+            proxy: The proxy that was used
+            success: Whether the request succeeded
+            response_time_ms: Response time in milliseconds
+        """
+        # Use complete_request for proper tracking
+        proxy.complete_request(success=success, response_time_ms=response_time_ms)
 
 
 class LeastUsedStrategy:
