@@ -29,10 +29,10 @@ description: "Test-first implementation tasks for REST API feature"
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Add FastAPI dependencies to `pyproject.toml`: `fastapi>=0.100.0`, `uvicorn[standard]>=0.24.0`, `slowapi>=0.1.9`, `python-multipart>=0.0.6`
-- [ ] T002 [P] Add test dependencies to `pyproject.toml`: `httpx>=0.25.0` (for FastAPI testing)
-- [ ] T003 [P] Install dependencies and verify imports: `pip install -e .[dev]`
-- [ ] T004 Create `.dockerignore` file with build exclusions: `tests/`, `htmlcov/`, `.git/`, `*.pyc`, `__pycache__/`
+- [X] T001 Add FastAPI dependencies to `pyproject.toml`: `fastapi>=0.100.0`, `uvicorn[standard]>=0.24.0`, `slowapi>=0.1.9`, `python-multipart>=0.0.6`
+- [X] T002 [P] Add test dependencies to `pyproject.toml`: `httpx>=0.25.0` (for FastAPI testing)
+- [X] T003 [P] Install dependencies and verify imports: `pip install -e .[dev]`
+- [X] T004 Create `.dockerignore` file with build exclusions: `tests/`, `htmlcov/`, `.git/`, `*.pyc`, `__pycache__/`
 
 ---
 
@@ -42,28 +42,28 @@ description: "Test-first implementation tasks for REST API feature"
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Create `proxywhirl/api_models.py` with base API response models:
+- [X] T005 Create `proxywhirl/api_models.py` with base API response models:
   - `APIResponse[T]` generic envelope (status, data, error, meta)
   - `ErrorDetail` with error codes (VALIDATION_ERROR, PROXY_ERROR, etc.)
   - `MetaInfo` with timestamp, request_id, version
-- [ ] T006 [P] Create `proxywhirl/api.py` with FastAPI app initialization:
+- [X] T006 [P] Create `proxywhirl/api.py` with FastAPI app initialization:
   - FastAPI app instance with title="ProxyWhirl API", version="1.0.0"
   - CORS middleware configuration (default allow all origins)
   - Exception handlers for 404, 422, 500
   - Lifespan context manager for ProxyRotator initialization/cleanup
-- [ ] T007 [P] Implement dependency injection in `proxywhirl/api.py`:
+- [X] T007 [P] Implement dependency injection in `proxywhirl/api.py`:
   - `get_rotator()` dependency that returns singleton ProxyRotator instance
   - `get_storage()` dependency that returns optional SQLiteStorage
   - `get_config()` dependency that returns current configuration
-- [ ] T008 Implement rate limiting in `proxywhirl/api.py`:
+- [X] T008 Implement rate limiting in `proxywhirl/api.py`:
   - slowapi integration with default 100 req/min per IP
   - Custom limiter for `/api/v1/request` endpoint (50 req/min)
   - Rate limit exceeded handler returning HTTP 429 with Retry-After header
-- [ ] T009 [P] Implement optional API key authentication in `proxywhirl/api.py`:
+- [X] T009 [P] Implement optional API key authentication in `proxywhirl/api.py`:
   - `verify_api_key()` function using FastAPI Security utilities
   - Middleware that checks `X-API-Key` header if `REQUIRE_AUTH` env var is set
   - Return HTTP 401 with error details for invalid keys
-- [ ] T010 [P] Add OpenAPI customization in `proxywhirl/api.py`:
+- [X] T010 [P] Add OpenAPI customization in `proxywhirl/api.py`:
   - Custom OpenAPI schema with contact, license, description
   - Tag definitions for endpoints: "Proxied Requests", "Pool Management", "Monitoring", "Configuration"
   - Response model examples using Pydantic `Config.json_schema_extra`
@@ -110,26 +110,26 @@ description: "Test-first implementation tasks for REST API feature"
 
 ### Implementation for User Story 1
 
-- [ ] T017 [P] [US1] Create ProxiedRequest model in `proxywhirl/api_models.py`:
+- [X] T017 [P] [US1] Create ProxiedRequest model in `proxywhirl/api_models.py`:
   - Fields: url (HttpUrl), method (Literal["GET", "POST", ...]), headers (dict), body (str | bytes | None), timeout (PositiveInt)
   - Validators: method in allowed list, timeout < 300 seconds
   - Example values for OpenAPI schema
-- [ ] T018 [P] [US1] Create ProxiedResponse model in `proxywhirl/api_models.py`:
+- [X] T018 [P] [US1] Create ProxiedResponse model in `proxywhirl/api_models.py`:
   - Fields: status_code (int), headers (dict), body (str | bytes), proxy_used (ProxyResource | None), elapsed_ms (int)
   - Include request_id in meta for tracing
-- [ ] T019 [US1] Implement POST `/api/v1/request` endpoint in `proxywhirl/api.py`:
+- [X] T019 [US1] Implement POST `/api/v1/request` endpoint in `proxywhirl/api.py`:
   - Accept ProxiedRequest, return APIResponse[ProxiedResponse]
   - Use dependency injection to get ProxyRotator instance
   - Call rotator.fetch() with target URL, method, headers, body
   - Handle ProxyError exceptions and return APIResponse with error details
   - Apply rate limiting (50 req/min)
   - Add request/response logging with correlation ID
-- [ ] T020 [US1] Add error handling for edge cases:
+- [X] T020 [US1] Add error handling for edge cases:
   - No proxies available → HTTP 503 with PROXY_POOL_EMPTY error code
   - All proxies failed → HTTP 502 with PROXY_FAILOVER_EXHAUSTED error code
   - Target unreachable → HTTP 504 with TARGET_UNREACHABLE error code
   - Request timeout → HTTP 504 with REQUEST_TIMEOUT error code
-- [ ] T021 [US1] Add request/response example to `proxywhirl/api_models.py`:
+- [X] T021 [US1] Add request/response example to `proxywhirl/api_models.py`:
   - ProxiedRequest example: GET to https://httpbin.org/ip
   - ProxiedResponse example: Success with status_code 200, body, proxy_used
 
@@ -188,45 +188,45 @@ description: "Test-first implementation tasks for REST API feature"
 
 ### Implementation for User Story 2
 
-- [ ] T032 [P] [US2] Create ProxyResource model in `proxywhirl/api_models.py`:
+- [X] T032 [P] [US2] Create ProxyResource model in `proxywhirl/api_models.py`:
   - Fields: id (str), url (HttpUrl), protocol (ProxyProtocol), status (ProxyStatus), health (HealthStatus), stats (ProxyStats), created_at (datetime), updated_at (datetime)
   - Include ProxyStats sub-model: total_requests, successful_requests, failed_requests, avg_latency_ms
   - Add examples for OpenAPI
-- [ ] T033 [P] [US2] Create CreateProxyRequest model in `proxywhirl/api_models.py`:
+- [X] T033 [P] [US2] Create CreateProxyRequest model in `proxywhirl/api_models.py`:
   - Fields: url (HttpUrl), username (str | None), password (SecretStr | None)
   - Validators: valid proxy URL format (protocol://host:port)
-- [ ] T034 [P] [US2] Create PaginatedResponse[T] model in `proxywhirl/api_models.py`:
+- [X] T034 [P] [US2] Create PaginatedResponse[T] model in `proxywhirl/api_models.py`:
   - Generic type with items: list[T], total: int, page: int, page_size: int
   - Include has_next, has_prev computed fields
-- [ ] T035 [P] [US2] Create HealthCheckRequest/Result models in `proxywhirl/api_models.py`:
+- [X] T035 [P] [US2] Create HealthCheckRequest/Result models in `proxywhirl/api_models.py`:
   - HealthCheckRequest: proxy_ids (list[str] | None)
   - HealthCheckResult: proxy_id, status (working/failed), latency_ms, error (str | None), tested_at (datetime)
-- [ ] T036 [US2] Implement GET `/api/v1/proxies` endpoint in `proxywhirl/api.py`:
+- [X] T036 [US2] Implement GET `/api/v1/proxies` endpoint in `proxywhirl/api.py`:
   - Accept query params: page (default 1), page_size (default 50), status_filter (optional)
   - Get proxies from ProxyRotator instance
   - Convert Proxy objects to ProxyResource models
   - Implement pagination logic
   - Return PaginatedResponse[ProxyResource]
-- [ ] T037 [US2] Implement POST `/api/v1/proxies` endpoint in `proxywhirl/api.py`:
+- [X] T037 [US2] Implement POST `/api/v1/proxies` endpoint in `proxywhirl/api.py`:
   - Accept CreateProxyRequest body
   - Validate proxy URL and credentials
   - Add proxy to ProxyRotator instance
   - Run health check on new proxy
   - Return HTTP 201 with ProxyResource
   - Handle duplicate proxy (HTTP 409 CONFLICT)
-- [ ] T038 [US2] Implement GET `/api/v1/proxies/{id}` endpoint in `proxywhirl/api.py`:
+- [X] T038 [US2] Implement GET `/api/v1/proxies/{id}` endpoint in `proxywhirl/api.py`:
   - Get proxy by ID from ProxyRotator
   - Return ProxyResource or HTTP 404 if not found
-- [ ] T039 [US2] Implement DELETE `/api/v1/proxies/{id}` endpoint in `proxywhirl/api.py`:
+- [X] T039 [US2] Implement DELETE `/api/v1/proxies/{id}` endpoint in `proxywhirl/api.py`:
   - Remove proxy from ProxyRotator by ID
   - Return HTTP 204 No Content on success
   - Return HTTP 404 if proxy not found
-- [ ] T040 [US2] Implement POST `/api/v1/proxies/test` endpoint in `proxywhirl/api.py`:
+- [X] T040 [US2] Implement POST `/api/v1/proxies/test` endpoint in `proxywhirl/api.py`:
   - Accept HealthCheckRequest (optional proxy_ids filter)
   - Run health checks on specified proxies (or all if not specified)
   - Return list[HealthCheckResult] with test results
   - Update proxy health status based on results
-- [ ] T041 [US2] Add persistence support for pool modifications:
+- [X] T041 [US2] Add persistence support for pool modifications:
   - If SQLiteStorage configured, auto-save after add/delete operations
   - Add background task to periodically sync pool to storage
 
@@ -277,39 +277,39 @@ description: "Test-first implementation tasks for REST API feature"
 
 ### Implementation for User Story 3
 
-- [ ] T050 [P] [US3] Create HealthResponse model in `proxywhirl/api_models.py`:
+- [X] T050 [P] [US3] Create HealthResponse model in `proxywhirl/api_models.py`:
   - Fields: status (Literal["healthy", "degraded", "unhealthy"]), uptime_seconds (int), version (str), timestamp (datetime)
   - Logic: healthy = all proxies working, degraded = some working, unhealthy = none working
-- [ ] T051 [P] [US3] Create ReadinessResponse model in `proxywhirl/api_models.py`:
+- [X] T051 [P] [US3] Create ReadinessResponse model in `proxywhirl/api_models.py`:
   - Fields: ready (bool), checks (dict[str, bool])
   - Checks: proxy_pool_initialized, storage_connected (if configured)
-- [ ] T052 [P] [US3] Create StatusResponse model in `proxywhirl/api_models.py`:
+- [X] T052 [P] [US3] Create StatusResponse model in `proxywhirl/api_models.py`:
   - Fields: pool_stats (ProxyPoolStats), rotation_strategy (str), storage_backend (str | None), config_source (str)
   - ProxyPoolStats: total, active, failed, healthy_percentage, last_rotation (datetime)
-- [ ] T053 [P] [US3] Create MetricsResponse model in `proxywhirl/api_models.py`:
+- [X] T053 [P] [US3] Create MetricsResponse model in `proxywhirl/api_models.py`:
   - Fields: requests_total (int), requests_per_second (float), avg_latency_ms (float), error_rate (float), proxy_stats (list[ProxyMetrics])
   - ProxyMetrics: proxy_id, requests, success_rate, avg_latency_ms, last_used (datetime)
-- [ ] T054 [US3] Implement GET `/api/v1/health` endpoint in `proxywhirl/api.py`:
+- [X] T054 [US3] Implement GET `/api/v1/health` endpoint in `proxywhirl/api.py`:
   - Calculate uptime from app start time
   - Check proxy pool health (count working vs failed proxies)
   - Return HTTP 200 for healthy/degraded, HTTP 503 for unhealthy
   - Include version from package metadata
-- [ ] T055 [US3] Implement GET `/api/v1/ready` endpoint in `proxywhirl/api.py`:
+- [X] T055 [US3] Implement GET `/api/v1/ready` endpoint in `proxywhirl/api.py`:
   - Check ProxyRotator initialized
   - Check storage connection if configured
   - Return HTTP 200 if ready, HTTP 503 if not ready
   - Used by Kubernetes readiness probes
-- [ ] T056 [US3] Implement GET `/api/v1/status` endpoint in `proxywhirl/api.py`:
+- [X] T056 [US3] Implement GET `/api/v1/status` endpoint in `proxywhirl/api.py`:
   - Get pool statistics from ProxyRotator
   - Include rotation strategy name
   - Include storage backend type (memory, sqlite, etc.)
   - Return detailed pool status
-- [ ] T057 [US3] Implement GET `/api/v1/metrics` endpoint in `proxywhirl/api.py`:
+- [X] T057 [US3] Implement GET `/api/v1/metrics` endpoint in `proxywhirl/api.py`:
   - Track request counts, latencies, errors in app state
   - Calculate requests per second (windowed average)
   - Aggregate per-proxy metrics from ProxyRotator
   - Return performance metrics for monitoring/alerting
-- [ ] T058 [US3] Add metrics collection middleware in `proxywhirl/api.py`:
+- [X] T058 [US3] Add metrics collection middleware in `proxywhirl/api.py`:
   - Track request count, latency, status codes
   - Store in app state (in-memory, no persistence required)
   - Update metrics on each request completion
@@ -357,26 +357,26 @@ description: "Test-first implementation tasks for REST API feature"
 
 ### Implementation for User Story 4
 
-- [ ] T066 [P] [US4] Create ConfigurationSettings model in `proxywhirl/api_models.py`:
+- [X] T066 [P] [US4] Create ConfigurationSettings model in `proxywhirl/api_models.py`:
   - Fields: rotation_strategy (StrategyType), timeout (PositiveInt), max_retries (PositiveInt), rate_limits (RateLimitConfig), auth_enabled (bool), cors_origins (list[str])
   - RateLimitConfig: default_limit, request_endpoint_limit
   - Validators: timeout <= 300, max_retries <= 10, rotation_strategy in supported strategies
-- [ ] T067 [P] [US4] Create UpdateConfigRequest model in `proxywhirl/api_models.py`:
+- [X] T067 [P] [US4] Create UpdateConfigRequest model in `proxywhirl/api_models.py`:
   - All fields optional (partial updates)
   - Same validators as ConfigurationSettings
   - Include examples for OpenAPI
-- [ ] T068 [US4] Implement GET `/api/v1/config` endpoint in `proxywhirl/api.py`:
+- [X] T068 [US4] Implement GET `/api/v1/config` endpoint in `proxywhirl/api.py`:
   - Read current configuration from app state
   - Include default values for unset options
   - Return ConfigurationSettings model
-- [ ] T069 [US4] Implement PUT `/api/v1/config` endpoint in `proxywhirl/api.py`:
+- [X] T069 [US4] Implement PUT `/api/v1/config` endpoint in `proxywhirl/api.py`:
   - Accept UpdateConfigRequest (partial updates)
   - Validate new configuration values
   - Apply configuration to ProxyRotator instance (rotation_strategy, timeout, max_retries)
   - Apply to rate limiter (update limits)
   - Persist to config file if --save-config enabled
   - Return updated ConfigurationSettings
-- [ ] T070 [US4] Add configuration reload logic in `proxywhirl/api.py`:
+- [X] T070 [US4] Add configuration reload logic in `proxywhirl/api.py`:
   - Update ProxyRotator strategy without recreating instance
   - Update rate limiter settings dynamically
   - Emit configuration change event for logging/audit
