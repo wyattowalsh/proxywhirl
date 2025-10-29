@@ -381,7 +381,7 @@ class CLILock:
             # Read existing lock
             lock_data = {}
             if self._lock_data_path.exists():
-                with open(self._lock_data_path, "r") as f:
+                with open(self._lock_data_path) as f:
                     lock_data = json.load(f)
 
             typer.secho(

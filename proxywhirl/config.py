@@ -9,7 +9,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 from cryptography.fernet import Fernet
 from pydantic import BaseModel, Field, SecretStr, field_validator

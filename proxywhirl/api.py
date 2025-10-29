@@ -18,8 +18,9 @@ import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
+import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -121,7 +122,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Load proxies from storage if available
     if _storage:
         try:
-            stored_proxies = _storage.load_proxies()
+            stored_proxies = await _storage.load()
             for proxy in stored_proxies:
                 _rotator.add_proxy(proxy)
             logger.info(f"Loaded {len(stored_proxies)} proxies from storage")
@@ -151,7 +152,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Save state if storage configured
     if _storage and _rotator:
         logger.info("Saving proxy pool state...")
-        _storage.save_proxies(_rotator.pool.proxies)
+        await _storage.save(_rotator.pool.proxies)
 
     logger.info("ProxyWhirl API shutdown complete")
 
@@ -174,7 +175,7 @@ app = FastAPI(
 
 # Add rate limiting
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 
 # CORS middleware
@@ -365,53 +366,70 @@ async def make_proxied_request(
         HTTPException: For various error conditions
     """
     start_time = time.time()
+    max_retries = 3
+    last_error: Optional[Exception] = None
 
-    try:
-        # Make the proxied request using the rotator
-        result = await rotator.fetch(
-            url=str(request_data.url),
-            method=request_data.method,
-            headers=request_data.headers,
-            data=request_data.body,
-            timeout=request_data.timeout,
-        )
+    for attempt in range(max_retries):
+        try:
+            # Get next proxy from rotator using strategy
+            proxy = rotator.strategy.select(rotator.pool)
+            if not proxy:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="No proxies available in the pool",
+                )
 
-        elapsed_ms = int((time.time() - start_time) * 1000)
+            # Build proxy URL for httpx
+            proxy_url = str(proxy.url)
 
-        # Build response
-        response_data = ProxiedResponse(
-            status_code=result.status_code,
-            headers=dict(result.headers),
-            body=result.text,
-            proxy_used=str(result.proxy) if hasattr(result, 'proxy') else None,
-            elapsed_ms=elapsed_ms,
-        )
+            # Make the HTTP request through the proxy
+            async with httpx.AsyncClient(proxy=proxy_url) as client:
+                response = await client.request(
+                    method=request_data.method,
+                    url=str(request_data.url),
+                    headers=request_data.headers,
+                    content=request_data.body.encode() if request_data.body else None,
+                    timeout=request_data.timeout,
+                )
 
-        return APIResponse.success(data=response_data)
+            elapsed_ms = int((time.time() - start_time) * 1000)
 
-    except ProxyWhirlError as e:
-        # Handle proxy-specific errors
-        if "No proxies available" in str(e):
+            # Build successful response
+            response_data = ProxiedResponse(
+                status_code=response.status_code,
+                headers=dict(response.headers),
+                body=response.text,
+                proxy_used=proxy_url,
+                elapsed_ms=elapsed_ms,
+            )
+
+            return APIResponse.success(data=response_data)
+
+        except (httpx.ProxyError, httpx.ConnectError, httpx.TimeoutException) as e:
+            # Proxy-related error, try next proxy
+            last_error = e
+            logger.warning(f"Proxy attempt {attempt + 1} failed: {e}")
+            continue
+
+        except ProxyWhirlError as e:
+            # Handle ProxyWhirl-specific errors
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=str(e),
             )
-        elif "All proxies failed" in str(e):
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=str(e),
-            )
-        else:
+
+        except Exception as e:
+            logger.error(f"Unexpected error in proxied request: {e}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=str(e),
+                detail=f"Unexpected error: {str(e)}",
             )
-    except Exception as e:
-        logger.error(f"Unexpected error in proxied request: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected error: {str(e)}",
-        )
+
+    # All retries exhausted
+    raise HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail=f"All {max_retries} proxy attempts failed. Last error: {str(last_error)}",
+    )
 
 
 # =============================================================================
@@ -531,10 +549,12 @@ async def add_proxy(
 
     # Create proxy
     try:
+        from pydantic import SecretStr
+
         new_proxy = Proxy(
             url=proxy_url_str,
-            username=proxy_data.username,
-            password=proxy_data.password.get_secret_value() if proxy_data.password else None,
+            username=SecretStr(proxy_data.username) if proxy_data.username else None,
+            password=proxy_data.password,
         )
 
         # Add to rotator
@@ -641,7 +661,7 @@ async def delete_proxy(
 
             # Persist if storage configured
             if storage:
-                storage.save_proxies(rotator.pool.proxies)
+                await storage.save(rotator.pool.proxies)
 
             return
 
@@ -688,7 +708,7 @@ async def health_check_proxies(
     for proxy in proxies_to_check:
         start_time = time.time()
         try:
-            async with httpx.AsyncClient(proxies=str(proxy.url), timeout=10.0) as client:
+            async with httpx.AsyncClient(proxy=str(proxy.url), timeout=10.0) as client:
                 response = await client.get(test_url)
                 latency_ms = int((time.time() - start_time) * 1000)
 
@@ -727,7 +747,7 @@ async def health_check_proxies(
 )
 async def health_check(
     rotator: ProxyRotator = Depends(get_rotator),
-) -> APIResponse[HealthResponse]:
+) -> JSONResponse:
     """Check API health status.
 
     Returns 200 if healthy, 503 if unhealthy.
@@ -743,7 +763,7 @@ async def health_check(
     # Determine health based on proxy pool
     total_proxies = len(rotator.pool.proxies)
     if total_proxies == 0:
-        health_status = "unhealthy"
+        health_status: Literal["healthy", "degraded", "unhealthy"] = "unhealthy"
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     else:
         # TODO: Check actual health of proxies
@@ -757,10 +777,9 @@ async def health_check(
         timestamp=datetime.now(timezone.utc),
     )
 
-    response = APIResponse.success(data=health_response)
     return JSONResponse(
         status_code=status_code,
-        content=response.model_dump(mode='json'),
+        content=APIResponse.success(data=health_response).model_dump(mode='json'),
     )
 
 
@@ -773,7 +792,7 @@ async def health_check(
 async def readiness_check(
     rotator: ProxyRotator = Depends(get_rotator),
     storage: Optional[SQLiteStorage] = Depends(get_storage),
-) -> APIResponse[ReadinessResponse]:
+) -> JSONResponse:
     """Check if API is ready to serve requests.
 
     Returns 200 if ready, 503 if not ready.
@@ -798,10 +817,9 @@ async def readiness_check(
         checks=checks,
     )
 
-    response = APIResponse.success(data=readiness_response)
     return JSONResponse(
         status_code=status_code,
-        content=response.model_dump(mode='json'),
+        content=APIResponse.success(data=readiness_response).model_dump(mode='json'),
     )
 
 
