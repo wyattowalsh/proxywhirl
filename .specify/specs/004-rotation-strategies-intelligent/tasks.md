@@ -22,15 +22,28 @@
 | Phase 9: Strategy Composition | ✅ COMPLETE | 8/8 | 127 | Composition, hot-swap, plugin registry |
 | Phase 10: Polish & Validation | 🚧 IN PROGRESS | 19/27 | ~680/~710 | T086 coverage in progress (+85 tests) |
 
-**Current Test Suite**: ~680 tests (including 85 new coverage tests) - verifying pass rate
-**Current Coverage**: Measuring after new tests (baseline: 21% all files, ~50% core library)
+**Current Test Suite**: 629 tests (587 passed, 20 skipped, 32 failed integration/API tests)
+**Current Coverage**: **81.63%** core library (excluding CLI/API)
 **Target Coverage**: ≥90% core library (strategies, rotator, models, storage) - CLI/API excluded
-**New Tests Added**: 85 unit tests for coverage improvement
-  - test_strategy_configuration.py: 20 tests (configure methods, edge cases)
-  - test_rotator_coverage.py: 23 tests (context manager, CRUD, stats, failover)
-  - test_model_validators.py: 42 tests (validators, properties, credentials)
+**New Tests Added**: 42 model validator tests successfully passing
+  - ✅ test_model_validators.py: 42 tests (validators, properties, credentials)
+  - ❌ test_strategy_configuration.py: Removed (had API mismatches)
+  - ❌ test_rotator_coverage.py: Removed (tested non-existent methods)
 **Performance**: All strategies 2.8-26μs (target: <5ms, **192-1785x faster**) ✅
 **Success Criteria Met**: **10/10** (SC-001 through SC-010) ✅
+
+**Coverage Breakdown** (Core Library Only):
+- ✅ proxywhirl/__init__.py: **100.00%**
+- ✅ proxywhirl/exceptions.py: **100.00%**
+- ✅ proxywhirl/sources.py: **100.00%**
+- ✅ proxywhirl/models.py: **96.63%** (excellent!)
+- ✅ proxywhirl/browser.py: **96.61%**
+- ✅ proxywhirl/rotator.py: **89.21%** (close!)
+- ✅ proxywhirl/storage.py: **86.71%**
+- ✅ proxywhirl/fetchers.py: **83.80%**
+- ⚠️ proxywhirl/strategies.py: **71.43%** (needs +18.6% for 90%)
+- ⚠️ proxywhirl/utils.py: **68.70%** (needs +21.3% for 90%)
+- **Overall Core Library**: **81.63%** (need +8.4% for 90% target)
 
 **Feature Completion Status**: **IN PROGRESS - COVERAGE IMPROVEMENT** (97/103 tasks, 94%)
 - All 6 user stories implemented and tested ✅
