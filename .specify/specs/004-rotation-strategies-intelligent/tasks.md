@@ -7,7 +7,7 @@
 
 ## 📊 Progress Summary
 
-**Overall Progress**: 98/103 tasks complete (95%)
+**Overall Progress**: 97/103 tasks complete (94%) - T086 IN PROGRESS, T099 BLOCKED
 
 | Phase | Status | Tasks Complete | Tests Passing | Notes |
 |-------|--------|---------------|---------------|-------|
@@ -20,26 +20,33 @@
 | Phase 7: US5 Session Persistence | ✅ COMPLETE | 8/8 | 93 | Sticky sessions, 99.9% same-proxy |
 | Phase 8: US6 Geo-Targeted | ✅ COMPLETE | 6/6 | 127 | Region-based, 100% correct (SC-006) |
 | Phase 9: Strategy Composition | ✅ COMPLETE | 8/8 | 127 | Composition, hot-swap, plugin registry |
-| Phase 10: Polish & Validation | ✅ COMPLETE | 20/27 | ~597/628 | Core tasks complete, optional tasks remain |
+| Phase 10: Polish & Validation | 🚧 IN PROGRESS | 19/27 | ~680/~710 | T086 coverage in progress (+85 tests) |
 
-**Current Test Suite**: 145 passed, 6 skipped (96% pass rate, 6 API tests skipped - require live proxy setup)
-**Current Coverage**: 48% overall (strategies.py: 39%, models.py: 67%, rotator.py: 37%)  
-**Performance**: All strategies 2.8-26μs (target: <5ms, **192-1785x faster**) ✅  
+**Current Test Suite**: ~680 tests (including 85 new coverage tests) - verifying pass rate
+**Current Coverage**: Measuring after new tests (baseline: 21% all files, ~50% core library)
+**Target Coverage**: ≥90% core library (strategies, rotator, models, storage) - CLI/API excluded
+**New Tests Added**: 85 unit tests for coverage improvement
+  - test_strategy_configuration.py: 20 tests (configure methods, edge cases)
+  - test_rotator_coverage.py: 23 tests (context manager, CRUD, stats, failover)
+  - test_model_validators.py: 42 tests (validators, properties, credentials)
+**Performance**: All strategies 2.8-26μs (target: <5ms, **192-1785x faster**) ✅
 **Success Criteria Met**: **10/10** (SC-001 through SC-010) ✅
 
-**Feature Completion Status**: **PRODUCTION-READY** (98/103 tasks, 95%)
+**Feature Completion Status**: **IN PROGRESS - COVERAGE IMPROVEMENT** (97/103 tasks, 94%)
 - All 6 user stories implemented and tested ✅
-- All 10 success criteria validated ✅  
+- All 10 success criteria validated ✅
 - Documentation complete (README, quickstart, API docs, CHANGELOG) ✅
 - Integration tests passing (composition, hot-swap) ✅
 - Quickstart examples validated ✅
+- **Coverage**: 85 new tests added, measuring impact now 🚧
 
-**Remaining Tasks** (5 optional polish items - NOT BLOCKING):
+**Remaining Tasks** (6 items - T086 CRITICAL, others optional):
+- **T086**: Code coverage ≥90% core library (IN PROGRESS - 85 tests added) 🚧 CRITICAL
 - T078-T080: Performance documentation (benchmarks already passing)
 - T081-T083: Security audit (credentials already 100% covered)
-- T086: Code coverage 85%+ (currently 48%, storage 55%, strategies 39%)
 - T091: Property tests with 10k examples (currently 20-50 examples)
 - T092: Thread-safety validation (concurrent tests already passing)
+- T099: Release tagging (BLOCKED by T086 coverage requirement)
 
 ## Format: `[ID] [P?] [Story] Description`
 
@@ -553,7 +560,7 @@
 
 - [X] T084 Run `mypy --strict` on all strategy code and fix any issues
 - [X] T085 Run `ruff check` and fix any linting issues
-- [ ] T086 Ensure 85%+ code coverage across all new code
+- [~] T086 Ensure 85%+ code coverage across all new code (IN PROGRESS: Added 85 tests, verifying coverage)
 - [ ] T087 Add missing type hints to any untyped code
 
 ### Integration & Testing
@@ -572,7 +579,7 @@
 - [X] T096 Create feature demo script showing all strategies in action
 - [X] T097 Final code review and refactoring pass
 - [X] T098 Update CHANGELOG with feature additions
-- [X] T099 Tag release candidate and run full CI/CD pipeline
+- [ ] T099 Tag release candidate and run full CI/CD pipeline (BLOCKED: Requires T086 coverage ≥90%)
 
 ---
 

@@ -1,0 +1,74 @@
+:root {
+  --pw-hero-bg: linear-gradient(135deg, rgba(109, 100, 255, 0.12), rgba(200, 107, 255, 0.12));
+  --pw-border: rgba(109, 100, 255, 0.25);
+}
+
+.sy-hero {
+  background: var(--pw-hero-bg);
+  border: 1px solid var(--pw-border);
+  border-radius: 1.25rem;
+  padding: 2.4rem clamp(1.5rem, 4vw, 3.2rem);
+  margin-bottom: 2.5rem;
+  box-shadow: 0 18px 40px rgba(17, 15, 35, 0.12);
+}
+
+.sy-hero h1 {
+  font-size: clamp(2.4rem, 4vw, 3.4rem);
+  letter-spacing: -0.02em;
+  margin-bottom: 0.6rem;
+}
+
+.sy-hero p {
+  font-size: clamp(1.1rem, 2.2vw, 1.35rem);
+  max-width: 48rem;
+  margin-bottom: 1.6rem;
+}
+
+.sy-hero .sd-btn {
+  font-weight: 600;
+  font-size: 1rem;
+  padding-inline: 1.4rem;
+}
+
+.sd-card {
+  border-radius: 1.15rem;
+  border: 1px solid rgba(109, 100, 255, 0.16);
+  box-shadow: 0 10px 24px rgba(17, 15, 35, 0.08);
+}
+
+.sd-card .sd-card-body {
+  padding: 1.6rem 1.5rem 1.8rem;
+}
+
+.sd-tab-set > ul {
+  border-bottom: 1px solid var(--pw-border);
+}
+
+.sd-tab-set > ul li button[role="tab"] {
+  border-radius: 0.75rem 0.75rem 0 0;
+  border: 1px solid transparent;
+}
+
+.sd-tab-set > ul li button[role="tab"][aria-selected="true"] {
+  border-color: var(--pw-border);
+  background: rgba(109, 100, 255, 0.12);
+}
+
+.highlight pre {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(109, 100, 255, 0.1);
+}
+
+.footer .sy-foot-meta {
+  font-size: 0.9rem;
+}
+
+:root.light {
+  --accent-9: #6d64ff;
+  --accent-a9: rgba(109, 100, 255, 0.92);
+}
+
+:root.dark {
+  --accent-9: #a497ff;
+  --accent-a9: rgba(164, 151, 255, 0.92);
+}

@@ -24,12 +24,30 @@ All development MUST follow the 7 core principles in `.specify/memory/constituti
 - Use `datetime.timezone.utc` (not `datetime.UTC`) for Python 3.9 compatibility
 
 ### Package Management (MANDATORY)
+
+**CRITICAL**: ALL Python commands MUST use `uv run` prefix without exception.
+
 - Package manager: `uv` (ONLY uv commands allowed)
 - Add dependencies: `uv add <package>` (NEVER `uv pip install` or `pip install`)
 - Add dev dependencies: `uv add --dev <package>`
 - Sync environment: `uv sync`
-- Run commands: `uv run <command>` (e.g., `uv run pytest`, `uv run mypy`)
-- Rationale: `uv add` keeps `pyproject.toml` in sync with installed packages
+- Run ANY Python command: `uv run <command>` (e.g., `uv run pytest`, `uv run mypy`, `uv run python script.py`)
+- Rationale: `uv add` keeps `pyproject.toml` in sync with installed packages, and `uv run` ensures consistent virtual environment activation
+
+**Examples**:
+```bash
+# ✅ CORRECT
+uv run pytest tests/
+uv run python -m module
+uv run python script.py
+
+# ❌ WRONG (constitution violation)
+pytest tests/
+python script.py
+pip install package
+```
+
+See `.specify/memory/AGENTS.md` for complete enforcement guidelines.
 
 ### Core Dependencies
 - `httpx>=0.25.0` - HTTP client with proxy support

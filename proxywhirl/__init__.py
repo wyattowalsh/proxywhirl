@@ -64,10 +64,15 @@ from proxywhirl.sources import (
     RECOMMENDED_SOURCES,
 )
 from proxywhirl.strategies import (
+    CompositeStrategy,
+    GeoTargetedStrategy,
     LeastUsedStrategy,
+    PerformanceBasedStrategy,
     RandomStrategy,
     RotationStrategy,
     RoundRobinStrategy,
+    SessionPersistenceStrategy,
+    StrategyRegistry,
     WeightedStrategy,
 )
 from proxywhirl.utils import (
@@ -116,11 +121,17 @@ __all__: list[str] = [
     "BrowserRenderer",
     # Protocols
     "RotationStrategy",
+    # Strategy Registry
+    "StrategyRegistry",
     # Strategies
+    "CompositeStrategy",
     "RoundRobinStrategy",
     "RandomStrategy",
     "WeightedStrategy",
     "LeastUsedStrategy",
+    "PerformanceBasedStrategy",
+    "SessionPersistenceStrategy",
+    "GeoTargetedStrategy",
     # Parsers
     "JSONParser",
     "CSVParser",

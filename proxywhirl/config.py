@@ -72,9 +72,7 @@ class CLIConfig(BaseModel):
 
     # Security
     encrypt_credentials: bool = Field(True, description="Encrypt credentials in config file")
-    encryption_key_env: str = Field(
-        "PROXYWHIRL_KEY", description="Env var for encryption key"
-    )
+    encryption_key_env: str = Field("PROXYWHIRL_KEY", description="Env var for encryption key")
 
     @field_validator("rotation_strategy")
     @classmethod
@@ -253,14 +251,10 @@ def encrypt_credentials(config: CLIConfig) -> CLIConfig:
     for proxy in config.proxies:
         encrypted_proxy = proxy.model_copy()
         if proxy.username:
-            encrypted_username = fernet.encrypt(
-                proxy.username.get_secret_value().encode()
-            ).decode()
+            encrypted_username = fernet.encrypt(proxy.username.get_secret_value().encode()).decode()
             encrypted_proxy.username = SecretStr(encrypted_username)
         if proxy.password:
-            encrypted_password = fernet.encrypt(
-                proxy.password.get_secret_value().encode()
-            ).decode()
+            encrypted_password = fernet.encrypt(proxy.password.get_secret_value().encode()).decode()
             encrypted_proxy.password = SecretStr(encrypted_password)
         encrypted_proxies.append(encrypted_proxy)
 

@@ -10,7 +10,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Optional, Protocol, runtime_checkable
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, HttpUrl, SecretStr, field_validator, model_validator, ConfigDict
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 from pydantic_settings import BaseSettings
 
 if TYPE_CHECKING:
@@ -81,174 +89,149 @@ class ValidationLevel(str, Enum):
 
 class StrategyConfig(BaseModel):
     """Configuration for rotation strategies.
-    
+
     This model provides flexible configuration options for all rotation
     strategies, allowing customization of weights, EMA parameters, session
     settings, and geo-targeting constraints.
     """
-    
+
     # Weight configuration for weighted strategies
     weights: Optional[dict[str, float]] = Field(
-        default=None,
-        description="Proxy weights keyed by proxy ID or URL"
+        default=None, description="Proxy weights keyed by proxy ID or URL"
     )
-    
+
     # EMA configuration for performance-based strategies
     ema_alpha: float = Field(
         default=0.2,
         ge=0.0,
         le=1.0,
-        description="EMA smoothing factor (0-1). Higher = more weight to recent values"
+        description="EMA smoothing factor (0-1). Higher = more weight to recent values",
     )
-    
+
     # Session configuration for session-based strategies
     session_stickiness_duration_seconds: int = Field(
-        default=300,
-        ge=0,
-        description="How long a session should stick to the same proxy"
+        default=300, ge=0, description="How long a session should stick to the same proxy"
     )
-    
+
     # Geo-targeting configuration
     preferred_countries: Optional[list[str]] = Field(
-        default=None,
-        description="List of ISO 3166-1 alpha-2 country codes (e.g., ['US', 'GB'])"
+        default=None, description="List of ISO 3166-1 alpha-2 country codes (e.g., ['US', 'GB'])"
     )
     preferred_regions: Optional[list[str]] = Field(
-        default=None,
-        description="List of region names (e.g., ['North America', 'Europe'])"
+        default=None, description="List of region names (e.g., ['North America', 'Europe'])"
     )
-    
+    geo_fallback_enabled: bool = Field(
+        default=True,
+        description="Whether to fallback to any proxy when target location unavailable",
+    )
+    geo_secondary_strategy: str = Field(
+        default="round_robin",
+        description="Secondary strategy for selecting from filtered geo proxies",
+    )
+
     # Fallback strategy configuration
     fallback_strategy: Optional[str] = Field(
         default="random",
-        description="Strategy to use when primary strategy fails or metadata missing"
+        description="Strategy to use when primary strategy fails or metadata missing",
     )
-    
+
     # Performance thresholds
     max_response_time_ms: Optional[float] = Field(
-        default=None,
-        description="Maximum acceptable response time in milliseconds"
+        default=None, description="Maximum acceptable response time in milliseconds"
     )
     min_success_rate: Optional[float] = Field(
-        default=None,
-        ge=0.0,
-        le=1.0,
-        description="Minimum acceptable success rate (0-1)"
+        default=None, ge=0.0, le=1.0, description="Minimum acceptable success rate (0-1)"
     )
-    
+
     # Window configuration
     window_duration_seconds: int = Field(
         default=3600,
         ge=60,
-        description="Sliding window duration for counter resets (default 1 hour)"
+        description="Sliding window duration for counter resets (default 1 hour)",
     )
-    
+
     model_config = ConfigDict(extra="forbid")
 
 
 class SelectionContext(BaseModel):
     """Context information for proxy selection decisions.
-    
+
     This model captures all the contextual information that might be relevant
     for intelligent proxy selection, including session tracking, target URL
     characteristics, and previous attempt history.
     """
-    
+
     # Session tracking
     session_id: Optional[str] = Field(
-        default=None,
-        description="Unique session identifier for sticky sessions"
+        default=None, description="Unique session identifier for sticky sessions"
     )
-    
+
     # Target information
     target_url: Optional[str] = Field(
-        default=None,
-        description="The URL being accessed (for domain-based routing)"
+        default=None, description="The URL being accessed (for domain-based routing)"
     )
     target_country: Optional[str] = Field(
-        default=None,
-        description="Preferred country for geo-targeting (ISO 3166-1 alpha-2)"
+        default=None, description="Preferred country for geo-targeting (ISO 3166-1 alpha-2)"
     )
     target_region: Optional[str] = Field(
-        default=None,
-        description="Preferred region for geo-targeting"
+        default=None, description="Preferred region for geo-targeting"
     )
-    
+
     # Request metadata
     request_priority: Optional[int] = Field(
-        default=None,
-        ge=0,
-        le=10,
-        description="Priority level (0-10, higher = more important)"
+        default=None, ge=0, le=10, description="Priority level (0-10, higher = more important)"
     )
-    timeout_ms: Optional[float] = Field(
-        default=None,
-        description="Request timeout in milliseconds"
-    )
-    
+    timeout_ms: Optional[float] = Field(default=None, description="Request timeout in milliseconds")
+
     # Previous attempts (for retry logic)
     failed_proxy_ids: list[str] = Field(
-        default_factory=list,
-        description="List of proxy IDs that have failed for this request"
+        default_factory=list, description="List of proxy IDs that have failed for this request"
     )
-    attempt_number: int = Field(
-        default=1,
-        ge=1,
-        description="Current attempt number (1-indexed)"
-    )
-    
+    attempt_number: int = Field(default=1, ge=1, description="Current attempt number (1-indexed)")
+
     # Custom metadata
     metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional context for custom selection logic"
+        default_factory=dict, description="Additional context for custom selection logic"
     )
-    
+
     model_config = ConfigDict(extra="allow")  # Allow custom fields for extensibility
 
 
 class Session(BaseModel):
     """Session tracking for sticky proxy assignments.
-    
+
     This model maintains the relationship between a session and its assigned
     proxy, with TTL support and usage tracking.
     """
-    
-    session_id: str = Field(
-        description="Unique session identifier"
-    )
-    proxy_id: str = Field(
-        description="ID of the proxy assigned to this session"
-    )
+
+    session_id: str = Field(description="Unique session identifier")
+    proxy_id: str = Field(description="ID of the proxy assigned to this session")
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        description="When the session was created"
+        description="When the session was created",
     )
-    expires_at: datetime = Field(
-        description="When the session expires (TTL)"
-    )
+    expires_at: datetime = Field(description="When the session expires (TTL)")
     last_used_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
-        description="Last time this session was used"
+        description="Last time this session was used",
     )
     request_count: int = Field(
-        default=0,
-        ge=0,
-        description="Number of requests made in this session"
+        default=0, ge=0, description="Number of requests made in this session"
     )
-    
+
     def is_expired(self) -> bool:
         """Check if the session has expired.
-        
+
         Returns:
             True if current time >= expires_at
         """
         return datetime.now(timezone.utc) >= self.expires_at
-    
+
     def touch(self) -> None:
         """Update last_used_at timestamp and increment request_count."""
         self.last_used_at = datetime.now(timezone.utc)
         self.request_count += 1
-    
+
     model_config = ConfigDict(extra="forbid")
 
 
@@ -447,45 +430,44 @@ class Proxy(BaseModel):
 
     def start_request(self) -> None:
         """Mark a request as started (for tracking in-flight requests).
-        
+
         This should be called when a request is about to be made through this proxy.
         Increments both requests_started and requests_active counters.
         """
         self.requests_started += 1
         self.requests_active += 1
         self.updated_at = datetime.now(timezone.utc)
-        
+
         # Initialize window if not set
         if self.window_start is None:
             self.window_start = datetime.now(timezone.utc)
 
     def complete_request(self, success: bool, response_time_ms: float) -> None:
         """Mark a request as complete and update metrics.
-        
+
         Args:
             success: Whether the request was successful
             response_time_ms: Response time in milliseconds
-            
+
         This method decrements requests_active, increments requests_completed,
         updates EMA response time, and delegates to record_success/record_failure.
         """
         # Decrement active count
         if self.requests_active > 0:
             self.requests_active -= 1
-        
+
         # Increment completed count
         self.requests_completed += 1
-        
+
         # Update EMA response time
         if self.ema_response_time_ms is None:
             self.ema_response_time_ms = response_time_ms
         else:
             # EMA formula: EMA_new = alpha * value + (1 - alpha) * EMA_old
             self.ema_response_time_ms = (
-                self.ema_alpha * response_time_ms
-                + (1 - self.ema_alpha) * self.ema_response_time_ms
+                self.ema_alpha * response_time_ms + (1 - self.ema_alpha) * self.ema_response_time_ms
             )
-        
+
         # Delegate to existing success/failure recording
         if success:
             self.record_success(response_time_ms)
@@ -494,7 +476,7 @@ class Proxy(BaseModel):
 
     def reset_window(self) -> None:
         """Reset the sliding window counters.
-        
+
         This is called when the window duration has elapsed, preventing
         counter staleness and unbounded memory growth.
         """
@@ -507,13 +489,13 @@ class Proxy(BaseModel):
 
     def is_window_expired(self) -> bool:
         """Check if the current sliding window has expired.
-        
+
         Returns:
             True if window duration has elapsed since window_start
         """
         if self.window_start is None:
             return False
-        
+
         now = datetime.now(timezone.utc)
         elapsed = (now - self.window_start).total_seconds()
         return elapsed >= self.window_duration_seconds
@@ -588,10 +570,11 @@ class SourceStats(BaseModel):
 
 class ProxyPool(BaseModel):
     """Collection of proxies with management capabilities.
-    
+
     Thread-safe proxy pool with RLock protection for concurrent access.
     All mutating operations are automatically protected by a reentrant lock.
     """
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     id: UUID = Field(default_factory=uuid4)
@@ -602,12 +585,12 @@ class ProxyPool(BaseModel):
     dead_proxy_threshold: int = 5
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    
+
     def __init__(self, **data: Any) -> None:
         """Initialize ProxyPool with thread lock."""
         super().__init__(**data)
         # Use object.__setattr__ to bypass Pydantic's field validation
-        object.__setattr__(self, '_lock', threading.RLock())
+        object.__setattr__(self, "_lock", threading.RLock())
 
     @property
     def size(self) -> int:

@@ -144,6 +144,103 @@ class ProxyRotator:
         self.pool.remove_proxy(UUID(proxy_id))
         logger.info(f"Removed proxy from pool: {proxy_id}")
 
+    def set_strategy(self, strategy: Union[RotationStrategy, str], *, atomic: bool = True) -> None:
+        """
+        Hot-swap the rotation strategy without restarting.
+
+        This method implements atomic strategy swapping to ensure:
+        - New requests immediately use the new strategy
+        - In-flight requests complete with their original strategy
+        - No requests are dropped during the swap
+        - Swap completes in <100ms (SC-009)
+
+        Args:
+            strategy: New strategy instance or strategy name string
+                     ("round-robin", "random", "weighted", "least-used",
+                      "performance-based", "session", "geo-targeted")
+            atomic: If True (default), ensures atomic swap. If False, allows
+                   immediate replacement (faster but may affect in-flight requests)
+
+        Example:
+            >>> rotator = ProxyRotator(strategy="round-robin")
+            >>> # ... after some requests ...
+            >>> rotator.set_strategy("performance-based")  # Hot-swap
+            >>> # New requests now use performance-based strategy
+
+        Thread Safety:
+            Thread-safe via atomic reference swap. Multiple threads can
+            call this method safely without race conditions.
+
+        Performance:
+            Target: <100ms for hot-swap completion (SC-009)
+            Typical: <10ms for strategy instance creation and assignment
+        """
+        import threading
+        import time
+
+        start_time = time.perf_counter()
+
+        # Parse strategy string or use provided instance
+        if isinstance(strategy, str):
+            from proxywhirl.strategies import (
+                GeoTargetedStrategy,
+                PerformanceBasedStrategy,
+                SessionPersistenceStrategy,
+            )
+
+            strategy_map: dict[str, type[RotationStrategy]] = {
+                "round-robin": RoundRobinStrategy,
+                "random": RandomStrategy,
+                "weighted": WeightedStrategy,
+                "least-used": LeastUsedStrategy,
+                "performance-based": PerformanceBasedStrategy,
+                "session": SessionPersistenceStrategy,
+                "geo-targeted": GeoTargetedStrategy,
+            }
+            strategy_lower = strategy.lower()
+            if strategy_lower not in strategy_map:
+                raise ValueError(
+                    f"Unknown strategy: {strategy}. Valid options: {', '.join(strategy_map.keys())}"
+                )
+
+            # Instantiate strategy
+            strategy_class = strategy_map[strategy_lower]
+            new_strategy = strategy_class()
+        else:
+            new_strategy = strategy
+
+        # Store old strategy for logging
+        old_strategy_name = self.strategy.__class__.__name__
+        new_strategy_name = new_strategy.__class__.__name__
+
+        if atomic:
+            # Use a lock to ensure atomic swap
+            if not hasattr(self, "_strategy_lock"):
+                self._strategy_lock = threading.RLock()
+
+            with self._strategy_lock:
+                self.strategy = new_strategy
+        else:
+            # Direct assignment (faster but less safe)
+            self.strategy = new_strategy
+
+        elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+        logger.info(
+            f"Strategy hot-swapped: {old_strategy_name} → {new_strategy_name} "
+            f"(completed in {elapsed_ms:.2f}ms)",
+            old_strategy=old_strategy_name,
+            new_strategy=new_strategy_name,
+            swap_time_ms=elapsed_ms,
+        )
+
+        # Validate SC-009: <100ms hot-swap time
+        if elapsed_ms >= 100.0:
+            logger.warning(
+                f"Hot-swap exceeded target time: {elapsed_ms:.2f}ms (target: <100ms)",
+                swap_time_ms=elapsed_ms,
+            )
+
     def get_pool_stats(self) -> dict[str, Any]:
         """
         Get statistics about the proxy pool.

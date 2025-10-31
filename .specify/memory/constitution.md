@@ -26,19 +26,37 @@ Prefer flat module structure over nested packages. Start simple, YAGNI principle
 
 ## Development Environment
 
-### Python Package Management
+### Python Package Management (MANDATORY)
 
-**MANDATORY**: Use `uv` for all Python package and environment operations:
+**CRITICAL**: ALL Python commands MUST use `uv run` prefix without exception:
+
+```bash
+# ✅ CORRECT - Always use uv run
+uv run pytest tests/
+uv run mypy --strict proxywhirl/
+uv run ruff check proxywhirl/
+uv run python -m module
+uv run python script.py
+uv run python -c "import sys; print(sys.version)"
+
+# ❌ WRONG - Never run Python directly
+pytest tests/
+python -m pytest
+python script.py
+python -c "..."
+```
+
+**Package Management Commands**:
 - Create virtual environment: `uv venv`
 - Sync dependencies from lockfile: `uv sync`
 - Add new package: `uv add <package>`
 - Add dev dependency: `uv add --dev <package>`
-- Run commands in venv: `uv run <command>`
-- Run tests: `uv run pytest`
-- Run type checking: `uv run mypy`
-- Never use `pip`, `pip install`, or `python -m pip` directly
+- Run ANY Python command: `uv run <command>`
+- NEVER use: `pip`, `pip install`, `python -m pip`, or bare `python`
 
-Rationale: `uv` provides significantly faster dependency resolution and installation compared to pip. It manages both the virtual environment and dependencies with a single tool, ensuring reproducible builds with lockfiles.
+**Rationale**: `uv run` ensures consistent virtual environment activation across all contexts. It provides significantly faster dependency resolution and installation compared to pip. It manages both the virtual environment and dependencies with a single tool, ensuring reproducible builds with lockfiles and eliminating environment activation issues.
+
+**Enforcement**: Any Python command without `uv run` prefix is a constitution violation and must be corrected immediately.
 
 ### Python Version Support
 

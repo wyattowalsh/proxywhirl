@@ -1,3 +1,7 @@
+---
+title: REST API Usage
+---
+
 # ProxyWhirl REST API Usage Guide
 
 Complete guide for using the ProxyWhirl REST API.
@@ -69,6 +73,148 @@ curl http://localhost:8000/api/v1/proxies \
 ```
 
 ## Endpoint Reference
+
+### Rotation Strategy Configuration
+
+#### Understanding Rotation Strategies
+
+ProxyWhirl supports 7 advanced rotation strategies that can be configured via the API:
+
+| Strategy | Use Case | Performance | Key Feature |
+|----------|----------|-------------|-------------|
+| `round-robin` | Fair distribution | ~3μs | Perfect load balance |
+| `random` | Unpredictable patterns | ~7μs | Uniform distribution |
+| `weighted` | Prefer best proxies | ~9μs | Success-rate based |
+| `least-used` | Even load balance | ~3μs | Tracks request counts |
+| `performance-based` | Minimize latency | ~5μs | 15-25% faster |
+| `session-persistence` | Sticky sessions | ~3μs | 99.9% same-proxy |
+| `geo-targeted` | Region-specific | ~5μs | Country/region filter |
+
+#### GET /api/v1/config
+
+Get current rotation strategy and configuration:
+
+```bash
+curl http://localhost:8000/api/v1/config
+```
+
+**Response:**
+```json
+{
+  "rotation_strategy": "round-robin",
+  "timeout": 30,
+  "max_retries": 3,
+  "strategy_config": {
+    "ema_alpha": 0.2,
+    "session_ttl": 3600,
+    "geo_fallback_enabled": false
+  }
+}
+```
+
+#### PUT /api/v1/config
+
+Update rotation strategy at runtime (hot-swapping):
+
+**Basic Strategy Change:**
+```bash
+curl -X PUT http://localhost:8000/api/v1/config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rotation_strategy": "performance-based"
+  }'
+```
+
+**With Strategy Configuration:**
+```bash
+# Performance-based with custom EMA alpha
+curl -X PUT http://localhost:8000/api/v1/config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rotation_strategy": "performance-based",
+    "strategy_config": {
+      "ema_alpha": 0.3
+    }
+  }'
+
+# Weighted strategy with custom weights
+curl -X PUT http://localhost:8000/api/v1/config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rotation_strategy": "weighted",
+    "strategy_config": {
+      "weights": {
+        "http://proxy1.com:8080": 0.5,
+        "http://proxy2.com:8080": 0.3,
+        "http://proxy3.com:8080": 0.2
+      }
+    }
+  }'
+
+# Session persistence with custom TTL
+curl -X PUT http://localhost:8000/api/v1/config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rotation_strategy": "session-persistence",
+    "strategy_config": {
+      "session_ttl": 7200
+    }
+  }'
+
+# Geo-targeted with fallback
+curl -X PUT http://localhost:8000/api/v1/config \
+  -H "Content-Type: application/json" \
+  -d '{
+    "rotation_strategy": "geo-targeted",
+    "strategy_config": {
+      "geo_fallback_enabled": true,
+      "geo_secondary_strategy": "round-robin"
+    }
+  }'
+```
+
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "Configuration updated",
+  "config": {
+    "rotation_strategy": "performance-based",
+    "timeout": 30,
+    "max_retries": 3,
+    "strategy_config": {
+      "ema_alpha": 0.3
+    }
+  }
+}
+```
+
+#### Strategy-Specific Request Context
+
+Some strategies support request-specific context via headers:
+
+**Session Persistence:**
+```bash
+curl -X POST http://localhost:8000/api/v1/request \
+  -H "Content-Type: application/json" \
+  -H "X-Session-ID: user-123" \
+  -d '{
+    "url": "https://example.com/login",
+    "method": "POST"
+  }'
+```
+
+**Geo-Targeting:**
+```bash
+curl -X POST http://localhost:8000/api/v1/request \
+  -H "Content-Type: application/json" \
+  -H "X-Target-Country: US" \
+  -H "X-Target-Region: California" \
+  -d '{
+    "url": "https://us-content.com/data",
+    "method": "GET"
+  }'
+```
 
 ### Proxied Requests
 

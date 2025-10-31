@@ -133,9 +133,7 @@ class BrowserRenderer:
             TimeoutError: If page load times out
         """
         if not self._is_started or not self._context:
-            raise RuntimeError(
-                "Browser not started. Call start() or use as context manager."
-            )
+            raise RuntimeError("Browser not started. Call start() or use as context manager.")
 
         page: Page = await self._context.new_page()
 

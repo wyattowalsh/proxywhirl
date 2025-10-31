@@ -215,7 +215,7 @@ async def not_found_handler(request: Request, exc: Any) -> JSONResponse:
     )
     return JSONResponse(
         status_code=status.HTTP_404_NOT_FOUND,
-        content=response.model_dump(mode='json'),
+        content=response.model_dump(mode="json"),
     )
 
 
@@ -229,7 +229,7 @@ async def validation_error_handler(request: Request, exc: Any) -> JSONResponse:
     )
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content=response.model_dump(mode='json'),
+        content=response.model_dump(mode="json"),
     )
 
 
@@ -244,7 +244,7 @@ async def internal_error_handler(request: Request, exc: Exception) -> JSONRespon
     )
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content=response.model_dump(mode='json'),
+        content=response.model_dump(mode="json"),
     )
 
 
@@ -258,7 +258,7 @@ async def proxy_error_handler(request: Request, exc: ProxyWhirlError) -> JSONRes
     )
     return JSONResponse(
         status_code=status.HTTP_502_BAD_GATEWAY,
-        content=response.model_dump(mode='json'),
+        content=response.model_dump(mode="json"),
     )
 
 
@@ -435,6 +435,7 @@ async def make_proxied_request(
 # =============================================================================
 # USER STORY 2: Manage Proxy Pool via API
 # =============================================================================
+
 
 @app.get(
     "/api/v1/proxies",
@@ -697,10 +698,7 @@ async def health_check_proxies(
     # Determine which proxies to check
     proxies_to_check = rotator.pool.proxies
     if request_data.proxy_ids:
-        proxies_to_check = [
-            p for p in rotator.pool.proxies
-            if str(id(p)) in request_data.proxy_ids
-        ]
+        proxies_to_check = [p for p in rotator.pool.proxies if str(id(p)) in request_data.proxy_ids]
 
     results = []
     test_url = "https://httpbin.org/get"
@@ -779,7 +777,7 @@ async def health_check(
 
     return JSONResponse(
         status_code=status_code,
-        content=APIResponse.success(data=health_response).model_dump(mode='json'),
+        content=APIResponse.success(data=health_response).model_dump(mode="json"),
     )
 
 
@@ -819,7 +817,7 @@ async def readiness_check(
 
     return JSONResponse(
         status_code=status_code,
-        content=APIResponse.success(data=readiness_response).model_dump(mode='json'),
+        content=APIResponse.success(data=readiness_response).model_dump(mode="json"),
     )
 
 
@@ -906,6 +904,7 @@ async def get_metrics(
 # =============================================================================
 # USER STORY 4: Configure API Settings
 # =============================================================================
+
 
 @app.get(
     "/api/v1/config",
