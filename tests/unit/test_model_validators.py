@@ -47,8 +47,8 @@ class TestProxyValidators:
             username="user",
             password="pass",
         )
-        assert proxy.username == "user"
-        assert proxy.password == "pass"
+        assert proxy.username.get_secret_value() == "user"
+        assert proxy.password.get_secret_value() == "pass"
 
     def test_validate_credentials_both_absent(self):
         """Test credentials validation with neither username nor password."""
@@ -192,8 +192,8 @@ class TestProxyProperties:
         )
         creds = proxy.credentials
         assert creds is not None
-        assert creds.username == "user"
-        assert creds.password == "pass"
+        assert creds.username.get_secret_value() == "user"
+        assert creds.password.get_secret_value() == "pass"
 
     def test_credentials_property_without_auth(self):
         """Test credentials property without authentication."""
@@ -308,16 +308,16 @@ class TestProxyRecordMethods:
         proxy.start_request()
 
         assert proxy.requests_started == 1
-        assert proxy.concurrent_requests == 1
+        assert proxy.requests_active == 1
 
     def test_complete_request_decrements_concurrent(self):
         """Test completing request decrements concurrent counter."""
         proxy = Proxy(url="http://proxy.example.com:8080")
         proxy.start_request()
-        proxy.complete_request()
+        proxy.complete_request(success=True, response_time_ms=100.0)
 
         assert proxy.requests_started == 1
-        assert proxy.concurrent_requests == 0
+        assert proxy.requests_active == 0
 
     def test_multiple_concurrent_requests(self):
         """Test handling multiple concurrent requests."""
@@ -328,7 +328,7 @@ class TestProxyRecordMethods:
         proxy.start_request()
 
         assert proxy.requests_started == 3
-        assert proxy.concurrent_requests == 3
+        assert proxy.requests_active == 3
 
-        proxy.complete_request()
-        assert proxy.concurrent_requests == 2
+        proxy.complete_request(success=True, response_time_ms=100.0)
+        assert proxy.requests_active == 2
