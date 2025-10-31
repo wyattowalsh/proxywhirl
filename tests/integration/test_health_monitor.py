@@ -1,7 +1,7 @@
 """Integration tests for HealthMonitor with real proxies."""
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 

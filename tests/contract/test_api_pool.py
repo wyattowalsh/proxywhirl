@@ -63,7 +63,7 @@ class TestListProxiesContract:
         # Arrange & Act
         proxy = ProxyResource(
             id="proxy-123",
-            url=HttpUrl("http://proxy.example.com:8080"),
+            url="http://proxy.example.com:8080",
             protocol="http",
             status="active",
             health="healthy",

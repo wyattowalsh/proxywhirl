@@ -11,7 +11,6 @@ Tests cover:
 """
 
 import json
-from typing import Any
 
 import pytest
 

@@ -107,10 +107,10 @@ class TestStrategySwitching:
             proxy_selection = strategy.select(pool)
             assert proxy_selection is not None
 
-        # Manually create uneven usage
-        proxies[0].total_requests = 100
-        proxies[1].total_requests = 50
-        proxies[2].total_requests = 10
+        # Manually create uneven usage for least-used strategy
+        proxies[0].requests_started = 100
+        proxies[1].requests_started = 50
+        proxies[2].requests_started = 10
 
         # Switch to least-used strategy
         strategy = LeastUsedStrategy()
@@ -119,8 +119,9 @@ class TestStrategySwitching:
         next_proxy = strategy.select(pool)
         assert next_proxy.url == proxies[2].url, "Should select least-used proxy first"
 
-        # Mark as used - increment enough to exceed proxy2's usage
-        proxies[2].total_requests = 51  # Now more than proxy2 (50)
+        # After selection, proxy3.requests_started is now 11
+        # Manually set it higher to make proxy2 the least-used
+        proxies[2].requests_started = 51  # Now more than proxy2 (50)
 
         # Should now select second-least-used (proxy2)
         next_proxy = strategy.select(pool)

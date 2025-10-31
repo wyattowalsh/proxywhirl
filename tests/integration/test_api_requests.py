@@ -23,25 +23,33 @@ async def api_client():
 @pytest.fixture
 def setup_test_proxies():
     """Set up test proxies in the global rotator."""
-    if _rotator:
-        # Clear existing proxies
-        _rotator.pool.proxies.clear()
-        # Add test proxies
-        _rotator.add_proxy(Proxy.from_url("http://proxy1.example.com:8080"))
-        _rotator.add_proxy(Proxy.from_url("http://proxy2.example.com:8080"))
-        _rotator.add_proxy(Proxy.from_url("http://proxy3.example.com:8080"))
+    import proxywhirl.api as api_module
+    from proxywhirl import ProxyRotator
+
+    # Initialize rotator if not exists
+    if api_module._rotator is None:
+        api_module._rotator = ProxyRotator()
+
+    rotator = api_module._rotator
+
+    # Clear existing proxies
+    rotator.pool.proxies.clear()
+
+    # Add test proxies
+    rotator.add_proxy(Proxy(url="http://proxy1.example.com:8080"))
+    rotator.add_proxy(Proxy(url="http://proxy2.example.com:8080"))
+    rotator.add_proxy(Proxy(url="http://proxy3.example.com:8080"))
+
     yield
+
     # Cleanup
-    if _rotator:
-        _rotator.pool.proxies.clear()
+    rotator.pool.proxies.clear()
 
 
 # T012: Integration test for proxied GET request
 @pytest.mark.asyncio
 @respx.mock
-async def test_proxied_get_request_success(
-    api_client: AsyncClient, setup_test_proxies
-):
+async def test_proxied_get_request_success(api_client: AsyncClient, setup_test_proxies):
     """Test successful proxied GET request to httpbin.org/get.
 
     Verifies:
@@ -89,9 +97,7 @@ async def test_proxied_get_request_success(
 # T013: Integration test for proxied POST request
 @pytest.mark.asyncio
 @respx.mock
-async def test_proxied_post_request_with_body(
-    api_client: AsyncClient, setup_test_proxies
-):
+async def test_proxied_post_request_with_body(api_client: AsyncClient, setup_test_proxies):
     """Test successful proxied POST request with JSON body.
 
     Verifies:
@@ -139,9 +145,7 @@ async def test_proxied_post_request_with_body(
 # T014: Integration test for proxy rotation
 @pytest.mark.asyncio
 @respx.mock
-async def test_proxy_rotation_multiple_requests(
-    api_client: AsyncClient, setup_test_proxies
-):
+async def test_proxy_rotation_multiple_requests(api_client: AsyncClient, setup_test_proxies):
     """Test proxy rotation across multiple sequential requests.
 
     Verifies:
@@ -188,8 +192,8 @@ async def test_proxy_failover_with_dead_proxy(api_client: AsyncClient):
     # Set up proxies with one that will fail
     if _rotator:
         _rotator.pool.proxies.clear()
-        _rotator.add_proxy(Proxy.from_url("http://dead-proxy.example.com:9999"))
-        _rotator.add_proxy(Proxy.from_url("http://working-proxy.example.com:8080"))
+        _rotator.add_proxy(Proxy(url="http://dead-proxy.example.com:9999"))
+        _rotator.add_proxy(Proxy(url="http://working-proxy.example.com:8080"))
 
     # Mock the target URL response
     respx.get("https://httpbin.org/get").mock(

@@ -1,6 +1,5 @@
 """Unit tests for HTTP request validation."""
 
-from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest

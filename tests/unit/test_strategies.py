@@ -5,19 +5,24 @@ Following TDD: These tests are written FIRST and should FAIL before implementati
 Tests verify core strategy behavior in isolation.
 """
 
+
 import pytest
-from datetime import datetime, timezone
-from uuid import uuid4
 
 from proxywhirl.exceptions import ProxyPoolEmptyError
 from proxywhirl.models import (
+    HealthStatus,
     Proxy,
     ProxyPool,
-    HealthStatus,
     SelectionContext,
     StrategyConfig,
 )
-from proxywhirl.strategies import RoundRobinStrategy, RandomStrategy, LeastUsedStrategy, WeightedStrategy
+from proxywhirl.strategies import (
+    LeastUsedStrategy,
+    PerformanceBasedStrategy,
+    RandomStrategy,
+    RoundRobinStrategy,
+    WeightedStrategy,
+)
 
 
 class TestRoundRobinStrategy:
@@ -154,7 +159,7 @@ class TestRoundRobinStrategy:
         pool.add_proxy(proxy2)
 
         strategy = RoundRobinStrategy()
-        
+
         # Mark proxy0 as failed for this request
         context = SelectionContext(failed_proxy_ids=[str(proxy0.id)])
 
@@ -265,7 +270,9 @@ class TestRandomStrategy:
         # Arrange
         pool = ProxyPool(name="test-pool")
         for i in range(3):
-            pool.add_proxy(Proxy(url=f"http://proxy{i}.com:8080", health_status=HealthStatus.HEALTHY))
+            pool.add_proxy(
+                Proxy(url=f"http://proxy{i}.com:8080", health_status=HealthStatus.HEALTHY)
+            )
 
         strategy = RandomStrategy()
         context = SelectionContext()
@@ -537,7 +544,7 @@ class TestWeightedStrategy:
         config = StrategyConfig(
             weights={
                 "http://proxy1.com:8080": 10.0,  # High weight
-                "http://proxy2.com:8080": 1.0,   # Low weight
+                "http://proxy2.com:8080": 1.0,  # Low weight
             }
         )
 
@@ -699,3 +706,412 @@ class TestLeastUsedStrategy:
 
         # Assert
         assert is_valid is True
+
+    def test_select_handles_tie_breaking(self):
+        """Test that least-used handles tie-breaking when multiple proxies have same count."""
+        # Arrange
+        pool = ProxyPool(name="test-pool")
+        proxy0 = Proxy(url="http://proxy0.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy0.requests_started = 5
+        proxy1 = Proxy(url="http://proxy1.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy1.requests_started = 5  # Same count as proxy0
+        proxy2 = Proxy(url="http://proxy2.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy2.requests_started = 10
+
+        pool.add_proxy(proxy0)
+        pool.add_proxy(proxy1)
+        pool.add_proxy(proxy2)
+
+        strategy = LeastUsedStrategy()
+        context = SelectionContext()
+
+        # Act
+        selected = strategy.select(pool, context)
+
+        # Assert - Should select one of the tied proxies (proxy0 or proxy1)
+        assert selected.url in ["http://proxy0.com:8080", "http://proxy1.com:8080"]
+        assert selected.requests_started == 6  # Was 5, now 6 after start_request()
+
+    def test_configure_accepts_strategy_config(self):
+        """Test that least-used accepts StrategyConfig."""
+        # Arrange
+        strategy = LeastUsedStrategy()
+        config = StrategyConfig()
+
+        # Act
+        strategy.configure(config)
+
+        # Assert
+        assert strategy.config == config
+
+    def test_record_result_updates_proxy_metadata(self):
+        """Test that record_result updates proxy metadata correctly."""
+        # Arrange
+        proxy = Proxy(url="http://proxy1.com:8080")
+        proxy.requests_started = 1
+        proxy.requests_active = 1
+        strategy = LeastUsedStrategy()
+
+        # Act
+        strategy.record_result(proxy, success=True, response_time_ms=150.0)
+
+        # Assert
+        assert proxy.requests_completed == 1
+        assert proxy.total_successes == 1
+        assert proxy.requests_active == 0
+
+    def test_select_with_context_filtering(self):
+        """Test that least-used respects SelectionContext filtering."""
+        # Arrange
+        pool = ProxyPool(name="test-pool")
+        proxy0 = Proxy(url="http://proxy0.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy0.requests_started = 1  # Least used
+        proxy1 = Proxy(url="http://proxy1.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy1.requests_started = 5
+
+        pool.add_proxy(proxy0)
+        pool.add_proxy(proxy1)
+
+        strategy = LeastUsedStrategy()
+        # Create context that filters out proxy0 by UUID
+        context = SelectionContext(failed_proxy_ids=[str(proxy0.id)])
+
+        # Act
+        selected = strategy.select(pool, context)
+
+        # Assert - Should skip proxy0 due to context filtering
+        assert selected.url == "http://proxy1.com:8080"
+
+
+class TestPerformanceBasedStrategy:
+    """Unit tests for PerformanceBasedStrategy with EMA-based selection."""
+
+    def test_select_favors_faster_proxies(self):
+        """Test that performance-based strategy favors proxies with lower EMA response times."""
+        # Arrange
+        pool = ProxyPool(name="test-pool")
+
+        # Fast proxy (50ms EMA)
+        fast_proxy = Proxy(url="http://fast.com:8080", health_status=HealthStatus.HEALTHY)
+        fast_proxy.ema_response_time_ms = 50.0
+        fast_proxy.total_requests = 100
+        fast_proxy.total_successes = 90
+
+        # Slow proxy (200ms EMA)
+        slow_proxy = Proxy(url="http://slow.com:8080", health_status=HealthStatus.HEALTHY)
+        slow_proxy.ema_response_time_ms = 200.0
+        slow_proxy.total_requests = 100
+        slow_proxy.total_successes = 90
+
+        pool.add_proxy(fast_proxy)
+        pool.add_proxy(slow_proxy)
+
+        strategy = PerformanceBasedStrategy()
+        context = SelectionContext()
+
+        # Act - Make multiple selections and count
+        selections = [strategy.select(pool, context) for _ in range(100)]
+        fast_count = sum(1 for s in selections if s.url == "http://fast.com:8080")
+        slow_count = sum(1 for s in selections if s.url == "http://slow.com:8080")
+
+        # Assert - Fast proxy should be selected significantly more often
+        # With 4:1 inverse weight ratio (200/50), expect at least 2:1 selection ratio
+        assert fast_count > slow_count * 2, (
+            f"Fast proxy not favored enough. Fast: {fast_count}, Slow: {slow_count}"
+        )
+
+    def test_select_handles_missing_ema_data(self):
+        """Test that performance-based handles proxies without EMA data."""
+        # Arrange
+        pool = ProxyPool(name="test-pool")
+
+        # Proxy with EMA
+        with_ema = Proxy(url="http://with-ema.com:8080", health_status=HealthStatus.HEALTHY)
+        with_ema.ema_response_time_ms = 100.0
+
+        # Proxy without EMA (None or 0)
+        without_ema = Proxy(url="http://without-ema.com:8080", health_status=HealthStatus.HEALTHY)
+        without_ema.ema_response_time_ms = None
+
+        pool.add_proxy(with_ema)
+        pool.add_proxy(without_ema)
+
+        strategy = PerformanceBasedStrategy()
+        context = SelectionContext()
+
+        # Act
+        selected = strategy.select(pool, context)
+
+        # Assert - Should only select proxy with EMA data
+        assert selected.url == "http://with-ema.com:8080"
+
+    def test_select_raises_when_no_ema_data_available(self):
+        """Test that performance-based raises error when no proxies have EMA data."""
+        # Arrange
+        pool = ProxyPool(name="test-pool")
+
+        proxy1 = Proxy(url="http://proxy1.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy1.ema_response_time_ms = None
+
+        proxy2 = Proxy(url="http://proxy2.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy2.ema_response_time_ms = None
+
+        pool.add_proxy(proxy1)
+        pool.add_proxy(proxy2)
+
+        strategy = PerformanceBasedStrategy()
+        context = SelectionContext()
+
+        # Act & Assert
+        with pytest.raises(ProxyPoolEmptyError, match="No proxies with EMA data"):
+            strategy.select(pool, context)
+
+    def test_configure_accepts_custom_alpha(self):
+        """Test that performance-based accepts custom EMA alpha configuration."""
+        # Arrange
+        strategy = PerformanceBasedStrategy()
+        config = StrategyConfig(ema_alpha=0.3)
+
+        # Act
+        strategy.configure(config)
+
+        # Assert
+        assert strategy.config == config
+        assert strategy.config.ema_alpha == 0.3
+
+    def test_validate_metadata_checks_ema_availability(self):
+        """Test that performance-based validates EMA metadata presence."""
+        # Arrange
+        pool = ProxyPool(name="test-pool")
+
+        # Pool with EMA data
+        proxy_with_ema = Proxy(url="http://proxy1.com:8080")
+        proxy_with_ema.ema_response_time_ms = 100.0
+        pool.add_proxy(proxy_with_ema)
+
+        strategy = PerformanceBasedStrategy()
+
+        # Act
+        is_valid = strategy.validate_metadata(pool)
+
+        # Assert
+        assert is_valid is True
+
+        # Now test pool without EMA data
+        pool_no_ema = ProxyPool(name="no-ema-pool")
+        proxy_no_ema = Proxy(url="http://proxy2.com:8080")
+        proxy_no_ema.ema_response_time_ms = None
+        pool_no_ema.add_proxy(proxy_no_ema)
+
+        is_valid_no_ema = strategy.validate_metadata(pool_no_ema)
+        assert is_valid_no_ema is False
+
+    def test_record_result_updates_ema(self):
+        """Test that record_result updates proxy EMA correctly via complete_request()."""
+        # Arrange
+        proxy = Proxy(url="http://proxy1.com:8080")
+        proxy.ema_response_time_ms = 100.0  # Current EMA
+        proxy.ema_alpha = 0.2  # Proxy's EMA alpha (used by complete_request)
+        proxy.requests_started = 1
+        proxy.requests_active = 1
+
+        strategy = PerformanceBasedStrategy()
+
+        # Act - Record faster response time (50ms)
+        strategy.record_result(proxy, success=True, response_time_ms=50.0)
+
+        # Assert - EMA should decrease: 0.2 * 50 + 0.8 * 100 = 90
+        # (Updated by proxy.complete_request using proxy.ema_alpha)
+        assert proxy.ema_response_time_ms == pytest.approx(90.0, abs=0.1)
+        assert proxy.requests_completed == 1
+
+    def test_select_uses_inverse_weighting(self):
+        """Test that performance-based uses inverse weighting (lower EMA = higher weight)."""
+        # Arrange
+        pool = ProxyPool(name="test-pool")
+
+        # Create 3 proxies with different EMAs
+        proxy1 = Proxy(url="http://proxy1.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy1.ema_response_time_ms = 50.0  # Fastest - should have highest weight
+
+        proxy2 = Proxy(url="http://proxy2.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy2.ema_response_time_ms = 100.0  # Medium
+
+        proxy3 = Proxy(url="http://proxy3.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy3.ema_response_time_ms = 200.0  # Slowest - should have lowest weight
+
+        pool.add_proxy(proxy1)
+        pool.add_proxy(proxy2)
+        pool.add_proxy(proxy3)
+
+        strategy = PerformanceBasedStrategy()
+        context = SelectionContext()
+
+        # Act - Make many selections
+        selections = [strategy.select(pool, context) for _ in range(300)]
+        counts = {
+            "http://proxy1.com:8080": sum(
+                1 for s in selections if s.url == "http://proxy1.com:8080"
+            ),
+            "http://proxy2.com:8080": sum(
+                1 for s in selections if s.url == "http://proxy2.com:8080"
+            ),
+            "http://proxy3.com:8080": sum(
+                1 for s in selections if s.url == "http://proxy3.com:8080"
+            ),
+        }
+
+        # Assert - Fastest should be selected most, slowest least
+        assert counts["http://proxy1.com:8080"] > counts["http://proxy2.com:8080"]
+        assert counts["http://proxy2.com:8080"] > counts["http://proxy3.com:8080"]
+
+
+class TestPluginArchitecture:
+    """Unit tests for plugin architecture (Phase 9, T067)."""
+
+    def test_register_custom_strategy(self):
+        """
+        Test custom strategy registration.
+
+        Validates that custom strategies can be registered and retrieved.
+        """
+        pytest.skip("StrategyRegistry not yet implemented")
+
+        # TODO: Will be implemented in T070
+        # from proxywhirl.strategies import StrategyRegistry
+        #
+        # # Arrange - Create custom strategy class
+        # class CustomStrategy:
+        #     def select(self, pool, context):
+        #         return pool.get_all_proxies()[0]
+        #
+        #     def record_result(self, proxy, success, response_time_ms):
+        #         pass
+        #
+        #     def configure(self, config):
+        #         pass
+        #
+        # # Act - Register strategy
+        # registry = StrategyRegistry()
+        # registry.register_strategy("custom", CustomStrategy)
+        #
+        # # Assert - Can retrieve registered strategy
+        # retrieved = registry.get_strategy("custom")
+        # assert retrieved is CustomStrategy
+
+    def test_get_nonexistent_strategy_raises_error(self):
+        """Test that getting non-existent strategy raises clear error."""
+        pytest.skip("StrategyRegistry not yet implemented")
+
+        # TODO: Will be implemented in T070
+        # from proxywhirl.strategies import StrategyRegistry
+        # from proxywhirl.exceptions import StrategyNotFoundError
+        #
+        # registry = StrategyRegistry()
+        #
+        # with pytest.raises(StrategyNotFoundError, match="nonexistent"):
+        #     registry.get_strategy("nonexistent")
+
+    def test_register_invalid_strategy_raises_error(self):
+        """Test that registering invalid strategy raises validation error."""
+        pytest.skip("StrategyRegistry not yet implemented")
+
+        # TODO: Will be implemented in T070
+        # from proxywhirl.strategies import StrategyRegistry
+        # from proxywhirl.exceptions import InvalidStrategyError
+        #
+        # # Arrange - Create class without required methods
+        # class InvalidStrategy:
+        #     pass
+        #
+        # registry = StrategyRegistry()
+        #
+        # # Act & Assert - Should raise validation error
+        # with pytest.raises(InvalidStrategyError, match="missing required methods"):
+        #     registry.register_strategy("invalid", InvalidStrategy)
+
+    def test_custom_strategy_loading_performance(self):
+        """
+        Test custom strategy loading meets SC-010 (<1 second).
+
+        Validates plugin load performance requirement.
+        """
+        pytest.skip("StrategyRegistry not yet implemented")
+
+        # TODO: Will be implemented in T070
+        # import time
+        # from proxywhirl.strategies import StrategyRegistry
+        #
+        # # Arrange - Create custom strategy
+        # class FastLoadStrategy:
+        #     def select(self, pool, context):
+        #         return pool.get_all_proxies()[0]
+        #
+        #     def record_result(self, proxy, success, response_time_ms):
+        #         pass
+        #
+        #     def configure(self, config):
+        #         pass
+        #
+        # registry = StrategyRegistry()
+        #
+        # # Act - Measure registration time
+        # start_time = time.perf_counter()
+        # registry.register_strategy("fast-load", FastLoadStrategy)
+        # end_time = time.perf_counter()
+        #
+        # load_time = end_time - start_time
+        #
+        # # Assert - SC-010: Should load in <1 second
+        # assert load_time < 1.0, f"Plugin load took {load_time:.3f}s (target: <1s)"
+
+    def test_registry_is_singleton(self):
+        """Test that StrategyRegistry follows singleton pattern."""
+        pytest.skip("StrategyRegistry not yet implemented")
+
+        # TODO: Will be implemented in T070
+        # from proxywhirl.strategies import StrategyRegistry
+        #
+        # # Act - Create multiple registry instances
+        # registry1 = StrategyRegistry()
+        # registry2 = StrategyRegistry()
+        #
+        # # Assert - Should be same instance
+        # assert registry1 is registry2
+
+    def test_register_strategy_with_same_name_replaces(self):
+        """Test that re-registering strategy with same name replaces old one."""
+        pytest.skip("StrategyRegistry not yet implemented")
+
+        # TODO: Will be implemented in T070
+        # from proxywhirl.strategies import StrategyRegistry
+        #
+        # class Strategy1:
+        #     def select(self, pool, context):
+        #         return pool.get_all_proxies()[0]
+        #
+        #     def record_result(self, proxy, success, response_time_ms):
+        #         pass
+        #
+        #     def configure(self, config):
+        #         pass
+        #
+        # class Strategy2:
+        #     def select(self, pool, context):
+        #         return pool.get_all_proxies()[-1]
+        #
+        #     def record_result(self, proxy, success, response_time_ms):
+        #         pass
+        #
+        #     def configure(self, config):
+        #         pass
+        #
+        # registry = StrategyRegistry()
+        #
+        # # Register first strategy
+        # registry.register_strategy("test", Strategy1)
+        # assert registry.get_strategy("test") is Strategy1
+        #
+        # # Replace with second strategy
+        # registry.register_strategy("test", Strategy2)
+        # assert registry.get_strategy("test") is Strategy2
