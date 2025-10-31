@@ -41,7 +41,12 @@
 - **Coverage**: 85 new tests added, measuring impact now 🚧
 
 **Remaining Tasks** (6 items - T086 CRITICAL, others optional):
-- **T086**: Code coverage ≥90% core library (IN PROGRESS - 85 tests added) 🚧 CRITICAL
+- **T086**: Code coverage ≥90% core library (IN PROGRESS - 85 tests added, measuring impact) 🚧 CRITICAL
+  * Created test_strategy_configuration.py: 20 tests for configure() methods and edge cases
+  * Created test_rotator_coverage.py: 23 tests for context manager, CRUD, stats, failover
+  * Created test_model_validators.py: 42 tests for validators, properties, credentials
+  * Configured coverage to exclude CLI/API files (focus on core library)
+  * Running full coverage measurement to verify ≥90% target achieved
 - T078-T080: Performance documentation (benchmarks already passing)
 - T081-T083: Security audit (credentials already 100% covered)
 - T091: Property tests with 10k examples (currently 20-50 examples)
