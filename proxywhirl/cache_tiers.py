@@ -460,8 +460,8 @@ class SQLiteCacheTier(CacheTier):
         # Get existing columns
         cursor = conn.execute("PRAGMA table_info(cache_entries)")
         existing_columns = {row[1] for row in cursor.fetchall()}
-        
-        # Define health columns to add
+
+        # Define health columns to add (whitelist to prevent injection)
         health_columns = [
             ("last_health_check", "REAL"),
             ("consecutive_health_failures", "INTEGER DEFAULT 0"),
@@ -472,11 +472,12 @@ class SQLiteCacheTier(CacheTier):
             ("total_health_checks", "INTEGER DEFAULT 0"),
             ("total_health_check_failures", "INTEGER DEFAULT 0"),
         ]
-        
-        # Add missing columns
+
+        # Add missing columns - safe because column names are from whitelist
         for col_name, col_type in health_columns:
             if col_name not in existing_columns:
                 try:
+                    # Column names from whitelist, not user input
                     conn.execute(f"ALTER TABLE cache_entries ADD COLUMN {col_name} {col_type}")
                 except sqlite3.OperationalError:
                     # Column may already exist in a concurrent process

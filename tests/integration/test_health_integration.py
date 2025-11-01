@@ -76,11 +76,11 @@ class TestHealthIntegration:
         
         # First failure - should not invalidate yet
         checker._update_health_status("http://proxy1.example.com:8080", failure_result)
-        assert not mock_cache.invalidate_by_health.called
-        
+        assert mock_cache.invalidate_by_health.call_count == 0
+
         # Second failure - should invalidate cache
         checker._update_health_status("http://proxy1.example.com:8080", failure_result)
-        assert mock_cache.invalidate_by_health.called
+        assert mock_cache.invalidate_by_health.call_count > 0
         
         # Verify proxy is marked unhealthy
         proxy_state = checker._proxies["http://proxy1.example.com:8080"]

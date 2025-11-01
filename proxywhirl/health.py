@@ -25,11 +25,11 @@ __all__ = ["HealthChecker"]
 class HealthChecker:
     """
     Manages health monitoring of proxy pool with background checks.
-    
+
     Performs periodic HTTP HEAD requests to verify proxy availability,
     tracks health status, and provides real-time pool statistics.
     """
-    
+
     def __init__(
         self,
         config: Optional[HealthCheckConfig] = None,
@@ -37,7 +37,7 @@ class HealthChecker:
         on_event: Optional[Callable[[Any], None]] = None,
     ) -> None:
         """Initialize health checker.
-        
+
         Args:
             config: Health check configuration (uses defaults if None)
             cache_manager: Optional CacheManager for persistence
@@ -49,17 +49,20 @@ class HealthChecker:
         self._running = False
         self._proxies: dict[str, dict[str, Any]] = {}
         self._lock = threading.RLock()
-        
-        logger.info("HealthChecker initialized with config: check_interval={}s, failure_threshold={}",
-                   self.config.check_interval_seconds, self.config.failure_threshold)
-    
+
+        logger.info(
+            "HealthChecker initialized with config: check_interval={}s, failure_threshold={}",
+            self.config.check_interval_seconds,
+            self.config.failure_threshold,
+        )
+
     def add_proxy(self, proxy_url: str, source: str = "unknown") -> None:
         """Register a proxy for health monitoring.
-        
+
         Args:
             proxy_url: Full proxy URL (http://host:port)
             source: Source identifier for the proxy
-            
+
         Raises:
             ValueError: If proxy_url is invalid
         """
@@ -70,13 +73,13 @@ class HealthChecker:
                 raise ValueError(f"Invalid proxy URL: {proxy_url}")
         except Exception as e:
             raise ValueError(f"Invalid proxy URL: {proxy_url}") from e
-        
+
         with self._lock:
             if proxy_url in self._proxies:
                 logger.debug(f"Proxy already registered, updating: {proxy_url}")
             else:
                 logger.debug(f"Registering proxy for health monitoring: {proxy_url}")
-            
+
             self._proxies[proxy_url] = {
                 "source": source,
                 "health_status": HealthStatus.UNKNOWN,
@@ -89,30 +92,31 @@ class HealthChecker:
                 "recovery_attempt": 0,
                 "next_check_time": None,
             }
-    
+
     def check_proxy(self, proxy_url: str) -> HealthCheckResult:
         """Perform a health check on a proxy.
-        
+
         Args:
             proxy_url: Proxy URL to check
-            
+
         Returns:
             HealthCheckResult with check outcome
         """
         check_time = datetime.now(timezone.utc)
         check_url = self.config.check_url
-        
+
         try:
             # Perform HTTP HEAD request through proxy
+            # Note: httpx uses 'proxy' parameter, not 'proxies'
             with httpx.Client(
-                proxies={"http://": proxy_url, "https://": proxy_url},
+                proxy=proxy_url,
                 timeout=self.config.check_timeout_seconds,
             ) as client:
                 response = client.head(check_url)
-                
+
                 # Calculate response time
                 response_time_ms = response.elapsed.total_seconds() * 1000
-                
+
                 # Check if status code is acceptable
                 if response.status_code in self.config.expected_status_codes:
                     return HealthCheckResult(
@@ -133,7 +137,7 @@ class HealthChecker:
                         error_message=f"Unexpected status code: {response.status_code}",
                         check_url=check_url,
                     )
-                    
+
         except httpx.TimeoutException as e:
             return HealthCheckResult(
                 proxy_url=proxy_url,
@@ -150,10 +154,10 @@ class HealthChecker:
                 error_message=f"Check failed: {str(e)}",
                 check_url=check_url,
             )
-    
+
     def _update_health_status(self, proxy_url: str, result: HealthCheckResult) -> None:
         """Update proxy health status based on check result.
-        
+
         Args:
             proxy_url: Proxy URL being updated
             result: Health check result
@@ -162,110 +166,115 @@ class HealthChecker:
             if proxy_url not in self._proxies:
                 logger.warning(f"Cannot update health for unregistered proxy: {proxy_url}")
                 return
-            
+
             proxy_state = self._proxies[proxy_url]
             proxy_state["last_check_time"] = result.check_time
             proxy_state["total_checks"] += 1
-            
+
             if result.status == HealthStatus.HEALTHY:
                 # Success - reset failure count, increment success count
                 proxy_state["consecutive_failures"] = 0
                 proxy_state["consecutive_successes"] += 1
                 proxy_state["last_error"] = None
-                
+
                 # Check if we should mark as healthy
-                if (proxy_state["consecutive_successes"] >= self.config.success_threshold
-                    or proxy_state["health_status"] == HealthStatus.UNKNOWN):
+                if (
+                    proxy_state["consecutive_successes"] >= self.config.success_threshold
+                    or proxy_state["health_status"] == HealthStatus.UNKNOWN
+                ):
                     proxy_state["health_status"] = HealthStatus.HEALTHY
                     logger.info(f"Proxy marked healthy: {proxy_url}")
-                    
+
             else:
                 # Failure - reset success count, increment failure count
                 proxy_state["consecutive_successes"] = 0
                 proxy_state["consecutive_failures"] += 1
                 proxy_state["total_failures"] += 1
                 proxy_state["last_error"] = result.error_message
-                
+
                 # Check if we should mark as unhealthy
                 if proxy_state["consecutive_failures"] >= self.config.failure_threshold:
                     old_status = proxy_state["health_status"]
                     proxy_state["health_status"] = HealthStatus.UNHEALTHY
-                    
+
                     if old_status != HealthStatus.UNHEALTHY:
                         logger.warning(
                             f"Proxy marked unhealthy: {proxy_url}, "
                             f"failures={proxy_state['consecutive_failures']}"
                         )
-                        
+
                         # Invalidate cache if cache manager available
                         if self.cache_manager:
                             try:
                                 from proxywhirl.cache import CacheManager
+
                                 cache_key = CacheManager.generate_cache_key(proxy_url)
                                 self.cache_manager.invalidate_by_health(cache_key)
                             except Exception as e:
                                 logger.error(f"Failed to invalidate cache for {proxy_url}: {e}")
-    
+
     def start(self) -> None:
         """Start health monitoring with background workers.
-        
+
         Creates one worker thread per unique proxy source.
         """
         if self._running:
             logger.warning("Health monitoring already running")
             return
-        
+
         self._running = True
         self._workers: dict[str, Any] = {}
-        
+
         # Get unique sources
         with self._lock:
             sources = set(proxy["source"] for proxy in self._proxies.values())
-        
+
         # Start a worker for each source
         from proxywhirl.health_worker import HealthWorker
-        
+
         for source in sources:
             # Get interval for this source (or use default)
-            interval = self.config.source_intervals.get(source, self.config.check_interval_seconds)
-            
+            interval = self.config.source_intervals.get(
+                source, self.config.check_interval_seconds
+            )
+
             worker = HealthWorker(
                 source=source,
                 check_interval=interval,
-                check_func=lambda url: self._perform_check(url),
+                check_func=self._perform_check,  # Pass method reference directly
                 proxies=self._proxies,
-                lock=self._lock
+                lock=self._lock,
             )
             worker.start()
             self._workers[source] = worker
-        
+
         logger.info(f"Health monitoring started with {len(self._workers)} workers")
-    
+
     def stop(self, timeout: float = 5.0) -> None:
         """Stop health monitoring and cleanup workers.
-        
+
         Args:
             timeout: Maximum seconds to wait for each worker to stop
         """
         if not self._running:
             return
-        
+
         logger.info("Stopping health monitoring")
         self._running = False
-        
+
         # Stop all workers
         for source, worker in self._workers.items():
             worker.stop(timeout=timeout)
-        
+
         self._workers.clear()
         logger.info("Health monitoring stopped")
-    
+
     def _perform_check(self, proxy_url: str) -> Any:
         """Perform health check and update status.
-        
+
         Args:
             proxy_url: Proxy URL to check
-            
+
         Returns:
             HealthCheckResult
         """
