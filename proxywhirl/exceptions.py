@@ -58,3 +58,15 @@ class ProxyFetchError(ProxyWhirlError):
 
 class ProxyStorageError(ProxyWhirlError):
     """Raised when proxy storage operations fail."""
+
+
+class CacheCorruptionError(ProxyWhirlError):
+    """Raised when cache data is corrupted and cannot be recovered."""
+
+
+class CacheStorageError(ProxyWhirlError):
+    """Raised when cache storage backend is unavailable."""
+
+
+class CacheValidationError(ValueError, ProxyWhirlError):
+    """Raised when cache entry fails validation."""

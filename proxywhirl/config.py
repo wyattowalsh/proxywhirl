@@ -70,6 +70,19 @@ class CLIConfig(BaseModel):
     storage_backend: str = Field("file", description="Storage backend type")
     storage_path: Optional[Path] = Field(None, description="Path for file/sqlite storage")
 
+    # Cache settings (005-caching-mechanisms-storage)
+    cache_enabled: bool = Field(True, description="Enable three-tier caching system")
+    cache_l1_max_entries: int = Field(1000, description="L1 (memory) max entries")
+    cache_l2_max_entries: int = Field(5000, description="L2 (JSONL) max entries")
+    cache_l3_max_entries: Optional[int] = Field(None, description="L3 (SQLite) max entries (None=unlimited)")
+    cache_default_ttl: int = Field(3600, ge=60, description="Default cache TTL in seconds")
+    cache_cleanup_interval: int = Field(60, ge=10, description="Background cleanup interval (seconds)")
+    cache_l2_dir: str = Field(".cache/proxies", description="L2 cache directory")
+    cache_l3_db_path: str = Field(".cache/db/proxywhirl.db", description="L3 SQLite database path")
+    cache_encryption_key_env: str = Field("PROXYWHIRL_CACHE_ENCRYPTION_KEY", description="Env var for cache encryption key")
+    cache_health_invalidation: bool = Field(True, description="Auto-invalidate on health check failure")
+    cache_failure_threshold: int = Field(3, ge=1, description="Failures before health invalidation")
+
     # Security
     encrypt_credentials: bool = Field(True, description="Encrypt credentials in config file")
     encryption_key_env: str = Field("PROXYWHIRL_KEY", description="Env var for encryption key")

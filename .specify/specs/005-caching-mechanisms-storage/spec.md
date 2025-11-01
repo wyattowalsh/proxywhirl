@@ -5,6 +5,16 @@
 **Status**: Draft  
 **Input**: User description: "Storage and management of fetched proxies for efficient reuse"
 
+## Clarifications
+
+### Session 2025-11-01
+
+- Q: Which storage backend(s) should be implemented for the multi-tier caching system? → A: In-memory, flat file, and SQLite (three-tier architecture)
+- Q: How should proxy credentials be secured in cache storage? → A: Encrypt credentials at rest, use SecretStr in memory (aligns with existing security practices)
+- Q: What is the default memory tier (L1) size limit? → A: 1000 proxies (10MB memory)
+- Q: What happens when cache storage becomes full (disk space exhausted)? → A: Log error, stop caching to disk, continue in-memory only (graceful degradation)
+- Q: How should cache corruption or invalid cache entries be handled? → A: Evict corrupted entry, log warning, continue (surgical removal)
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Persist Fetched Proxies (Priority: P1)
@@ -73,7 +83,7 @@ A high-performance application needs multi-tier caching (memory, disk, distribut
 
 ### User Story 5 - Cache Warming from Sources (Priority: P3)
 
-A system administrator wants to pre-populate (warm) the cache from proxy lists or previous exports during startup to avoid cold-start delays.
+A system administrator wants to pre-populate (cache warming) the cache from proxy lists or previous exports during startup to avoid cold-start delays.
 
 **Why this priority**: Improves startup performance - ensures proxies are immediately available without initial fetch delays.
 
@@ -105,13 +115,13 @@ Operations team needs visibility into cache performance (hit rate, size, evictio
 
 ### Edge Cases
 
-- What happens when cache storage becomes full (disk space exhausted)?
-- How does system handle cache corruption or invalid cache entries?
-- What occurs when multiple processes try to update the same cached proxy simultaneously?
-- How are proxies handled when cache backend (Redis, file system) becomes unavailable?
-- What happens when imported cache data has conflicting TTL or metadata?
-- How does cache behave during rapid proxy fetching that exceeds cache capacity?
-- What occurs when proxy metadata in cache conflicts with newly fetched metadata?
+- Disk space exhausted: Log error, disable persistent caching (L2/L3), continue in-memory only with alerting
+- Cache corruption: Evict corrupted entry, log WARNING with entry details, increment corruption metric, continue operations
+- Multiple processes updating same proxy: Use portalocker file locking for L2 (exclusive write lock with 5s timeout), SQLite WAL mode for L3 (concurrent reads, serialized writes), RLock per tier for L1 (in-process thread safety). Cross-process coordination limited to file/database locking mechanisms.
+- Cache backend unavailable: Degrade gracefully to higher tier (L3 fails → use L2, L2 fails → use L1 only)
+- Imported cache data with conflicting TTL/metadata: Use most recent fetch_time as source of truth, update existing entry with new metadata, log INFO about merge conflict resolution
+- Rapid proxy fetching exceeding cache capacity: LRU eviction maintains capacity limits, oldest entries demoted to lower tiers or evicted. No explicit backpressure - fetcher continues, cache absorbs via eviction. Monitor eviction rate via statistics.
+- Proxy metadata conflicts with newly fetched: Update existing entry with new metadata (fetch_time, health_status, TTL), preserve access_count and last_accessed statistics, log DEBUG about update
 
 ## Requirements *(mandatory)*
 
@@ -121,12 +131,12 @@ Operations team needs visibility into cache performance (hit rate, size, evictio
 - **FR-002**: System MUST support configurable TTL (time-to-live) for cached proxies
 - **FR-003**: System MUST automatically evict expired proxies based on TTL
 - **FR-004**: System MUST support cache invalidation based on health check failures
-- **FR-005**: System MUST support multi-tier caching (memory, disk, distributed cache)
+- **FR-005**: System MUST support three-tier caching architecture: in-memory (L1), flat file (L2), and SQLite (L3)
 - **FR-006**: System MUST provide cache warming from proxy lists or previous exports
 - **FR-007**: System MUST track cache statistics (hit rate, miss rate, size, evictions)
 - **FR-008**: System MUST support manual cache clearing/flushing operations
-- **FR-009**: System MUST handle cache storage backend failures gracefully
-- **FR-010**: System MUST support configurable cache size limits (max entries, max storage)
+- **FR-009**: System MUST handle cache storage backend failures gracefully via tier degradation: log ERROR, disable failed tier, emit degradation metric, continue operations with remaining tiers (L3 fails → use L2+L1, L2 fails → use L1 only, L1 never fails as it's in-memory)
+- **FR-010**: System MUST support configurable cache size limits with defaults: L1=1000 proxies, L2=5000 proxies, L3=unlimited
 - **FR-011**: System MUST implement LRU (Least Recently Used) eviction when cache is full
 - **FR-012**: System MUST store proxy metadata alongside cached proxy (last used, fetch time, health)
 - **FR-013**: System MUST support cache import/export for backup and migration
@@ -134,15 +144,23 @@ Operations team needs visibility into cache performance (hit rate, size, evictio
 - **FR-015**: System MUST support per-proxy-source TTL configuration
 - **FR-016**: System MUST log cache operations for debugging and auditing
 - **FR-017**: System MUST support cache locking for thread-safe operations
-- **FR-018**: System MUST provide cache health checks and self-healing capabilities
-- **FR-019**: System MUST support cache partitioning by proxy type or source
+- **FR-018**: System MUST provide cache health checks and self-healing capabilities including automatic corruption detection and eviction (cache tier is healthy if failure_count < 3 and last successful operation within 60 seconds)
+- **FR-019**: [Future Enhancement] System SHOULD support cache partitioning by proxy type or source (not included in MVP - Phase 1 implementation focuses on unified cache)
 - **FR-020**: System MUST expose cache metrics via monitoring endpoints
+- **FR-021**: System MUST protect proxy credentials using: (a) SecretStr for in-memory storage (L1), (b) Fernet symmetric encryption for at-rest storage (L2/L3), (c) never log or expose decrypted credentials, (d) secure key management via environment variable. See data-model.md CacheEntry schema and cache_crypto.py implementation for technical details.
+- **FR-022**: System MUST log ERROR and emit metrics when disk storage exhausted, then disable L2/L3 tiers
+- **FR-023**: System MUST continue operations with degraded caching when persistent tiers fail
+- **FR-024**: System MUST detect corrupted cache entries via validation (schema, decryption, data integrity)
+- **FR-025**: System MUST automatically evict corrupted entries and log WARNING with entry identifier and corruption reason
 
 ### Key Entities
 
 - **Cached Proxy**: Stored proxy with metadata (URL, credentials, fetch time, last used, TTL, health status, source)
 - **Cache Entry**: Container for cached proxy with key, value, TTL, and metadata
-- **Cache Tier**: Storage level (memory, disk, distributed) with specific access characteristics
+- **Cache Tier**: Storage level with specific characteristics:
+  - **L1 (Memory)**: In-memory cache for hot proxies, sub-millisecond access, default limit 1000 proxies (~10MB)
+  - **L2 (JSONL Flat File)**: JSONL file cache for warm proxies, moderate persistence
+  - **L3 (SQLite)**: Database cache for cold storage, full persistence and queryability
 - **Cache Statistics**: Metrics tracking cache performance (hits, misses, evictions, size, hit rate)
 - **Cache Configuration**: Settings controlling cache behavior (TTL, size limits, eviction policy, backend type)
 
@@ -163,12 +181,12 @@ Operations team needs visibility into cache performance (hit rate, size, evictio
 
 ## Assumptions
 
-- Cache storage backend has sufficient capacity for expected proxy volumes
+- Cache storage backend has sufficient capacity for expected proxy volumes (graceful degradation handles exhaustion)
 - TTL values are configured appropriately for proxy lifespan
 - File system or cache backend supports concurrent access patterns
 - Cache warming sources contain valid proxy data
 - System has sufficient memory for hot proxy cache tier
-- Cache corruption is rare and can be recovered by clearing cache
+- Cache corruption is rare and handled automatically via self-healing (eviction + logging)
 
 ## Dependencies
 
@@ -177,3 +195,8 @@ Operations team needs visibility into cache performance (hit rate, size, evictio
 - Configuration Management for cache settings
 - Logging System for cache operation logging
 - Metrics & Observability for cache statistics
+- **New Dependencies**:
+  - `cryptography>=41.0.0` - Fernet symmetric encryption for credential protection at rest
+  - `portalocker>=2.8.0` - Cross-platform file locking for L2 cache tier (fcntl on Unix, msvcrt on Windows)
+
+```

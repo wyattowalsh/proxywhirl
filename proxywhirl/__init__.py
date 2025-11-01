@@ -6,7 +6,19 @@ validation, and persistence capabilities.
 """
 
 from proxywhirl.browser import BrowserRenderer
+from proxywhirl.cache import CacheManager
+from proxywhirl.cache_models import (
+    CacheConfig,
+    CacheEntry,
+    CacheStatistics,
+    CacheTierConfig,
+    HealthStatus as CacheHealthStatus,
+    TierStatistics,
+)
 from proxywhirl.exceptions import (
+    CacheCorruptionError,
+    CacheStorageError,
+    CacheValidationError,
     ProxyAuthenticationError,
     ProxyConnectionError,
     ProxyFetchError,
@@ -92,6 +104,14 @@ __version__ = "1.0.0"
 __all__: list[str] = [
     # Version
     "__version__",
+    # Cache Components
+    "CacheManager",
+    "CacheConfig",
+    "CacheEntry",
+    "CacheStatistics",
+    "CacheTierConfig",
+    "TierStatistics",
+    "CacheHealthStatus",
     # Exceptions
     "ProxyWhirlError",
     "ProxyValidationError",
@@ -100,6 +120,9 @@ __all__: list[str] = [
     "ProxyAuthenticationError",
     "ProxyFetchError",
     "ProxyStorageError",
+    "CacheCorruptionError",
+    "CacheStorageError",
+    "CacheValidationError",
     # Models
     "Proxy",
     "ProxyCredentials",

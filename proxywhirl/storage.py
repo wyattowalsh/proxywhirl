@@ -60,6 +60,48 @@ class ProxyTable(SQLModel, table=True):
     updated_at: datetime
 
 
+class CacheEntryTable(SQLModel, table=True):
+    """SQLModel table schema for L3 cache storage.
+
+    This table stores cached proxy entries with TTL, health status, and
+    encryption support for credentials. Used by the three-tier caching
+    system (L1 memory, L2 JSONL files, L3 SQLite).
+
+    Attributes:
+        key: Primary key - URL-safe hash of proxy URL
+        proxy_url: Full proxy URL (scheme://host:port)
+        username_encrypted: Encrypted username (BLOB), None if no auth
+        password_encrypted: Encrypted password (BLOB), None if no auth
+        source: Proxy source identifier (indexed)
+        fetch_time: Unix timestamp when proxy was fetched
+        last_accessed: Unix timestamp of last cache access (indexed)
+        access_count: Number of cache hits
+        ttl_seconds: Time-to-live duration in seconds
+        expires_at: Unix timestamp of expiration (indexed)
+        health_status: Current health status: healthy, unhealthy, unknown (indexed)
+        failure_count: Consecutive failures for health tracking
+        created_at: Unix timestamp of record creation
+        updated_at: Unix timestamp of last update
+    """
+
+    __tablename__: str = "cache_entries"  # type: ignore[misc]
+
+    key: str = Field(primary_key=True)
+    proxy_url: str
+    username_encrypted: Optional[bytes] = None
+    password_encrypted: Optional[bytes] = None
+    source: str = Field(index=True)
+    fetch_time: float
+    last_accessed: float = Field(index=True)
+    access_count: int = 0
+    ttl_seconds: int
+    expires_at: float = Field(index=True)
+    health_status: str = Field(default="unknown", index=True)
+    failure_count: int = 0
+    created_at: float
+    updated_at: float
+
+
 class FileStorage:
     """File-based storage backend using JSON.
 

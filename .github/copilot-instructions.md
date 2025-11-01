@@ -261,3 +261,9 @@ python -m pytest tests/
 
 <!-- MANUAL ADDITIONS START -->
 <!-- MANUAL ADDITIONS END -->
+
+## Active Technologies
+- Python 3.9+ (targeting 3.9, 3.10, 3.11, 3.12, 3.13) (005-caching-mechanisms-storage)
+
+## Recent Changes
+- 005-caching-mechanisms-storage: Added Python 3.9+ (targeting 3.9, 3.10, 3.11, 3.12, 3.13)
