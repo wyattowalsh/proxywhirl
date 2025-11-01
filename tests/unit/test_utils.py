@@ -292,3 +292,158 @@ class TestProxyConfiguration:
 
         with pytest.raises(ValidationError, match="storage_path required"):
             ProxyConfiguration(storage_backend="sqlite")
+
+
+class TestLoggingUtilities:
+    """Test logging configuration and redaction utilities."""
+
+    def test_configure_logging_text_format(self):
+        """Test configuring text-format logging."""
+        from proxywhirl.utils import configure_logging
+
+        # Should not raise
+        configure_logging(level="INFO", format_type="text", redact_credentials=True)
+
+    def test_configure_logging_json_format(self):
+        """Test configuring JSON-format logging."""
+        from proxywhirl.utils import configure_logging
+
+        # Should not raise
+        configure_logging(level="DEBUG", format_type="json", redact_credentials=False)
+
+    def test_redact_sensitive_data_passwords(self):
+        """Test that passwords are redacted from log data."""
+        from proxywhirl.utils import _redact_sensitive_data
+
+        data = {"username": "user", "password": "secret123", "url": "http://example.com"}
+        redacted = _redact_sensitive_data(data)
+
+        assert redacted["username"] == "user"
+        assert redacted["password"] == "**REDACTED**"
+        assert redacted["url"] == "http://example.com"
+
+    def test_redact_sensitive_data_api_keys(self):
+        """Test that API keys are redacted."""
+        from proxywhirl.utils import _redact_sensitive_data
+
+        data = {"api_key": "key123", "secret_token": "token456", "public_data": "visible"}
+        redacted = _redact_sensitive_data(data)
+
+        assert redacted["api_key"] == "**REDACTED**"
+        assert redacted["secret_token"] == "**REDACTED**"
+        assert redacted["public_data"] == "visible"
+
+    def test_redact_sensitive_data_nested(self):
+        """Test redaction works recursively in nested structures."""
+        from proxywhirl.utils import _redact_sensitive_data
+
+        data = {
+            "level1": {"password": "secret", "safe": "value"},
+            "level2": ["normal", {"credential": "hidden"}],
+        }
+        redacted = _redact_sensitive_data(data)
+
+        assert redacted["level1"]["password"] == "**REDACTED**"
+        assert redacted["level1"]["safe"] == "value"
+        assert redacted["level2"][1]["credential"] == "**REDACTED**"
+
+    def test_redact_url_credentials_with_auth(self):
+        """Test that URL credentials are redacted."""
+        from proxywhirl.utils import _redact_url_credentials
+
+        url = "http://user:password@proxy.example.com:8080/path"
+        redacted = _redact_url_credentials(url)
+
+        assert "user" not in redacted
+        assert "password" not in redacted
+        assert "****:****@" in redacted
+        assert "proxy.example.com" in redacted
+
+    def test_redact_url_credentials_without_auth(self):
+        """Test that URLs without credentials pass through unchanged."""
+        from proxywhirl.utils import _redact_url_credentials
+
+        url = "http://proxy.example.com:8080/path"
+        redacted = _redact_url_credentials(url)
+
+        assert redacted == url
+
+
+class TestEncryptionUtilities:
+    """Test encryption utility functions (optional cryptography dependency)."""
+
+    def test_generate_encryption_key(self):
+        """Test generating Fernet encryption key."""
+        try:
+            from proxywhirl.utils import generate_encryption_key
+
+            key = generate_encryption_key()
+            assert isinstance(key, str)
+            assert len(key) > 20  # Fernet keys are base64-encoded, should be fairly long
+        except ImportError:
+            pytest.skip("cryptography package not installed")
+
+    def test_encrypt_credentials_basic(self):
+        """Test encrypting credentials."""
+        try:
+            from proxywhirl.utils import encrypt_credentials, generate_encryption_key
+
+            key = generate_encryption_key()
+            plaintext = "my-secret-password"
+
+            encrypted = encrypt_credentials(plaintext, key)
+            assert encrypted != plaintext
+            assert isinstance(encrypted, str)
+        except ImportError:
+            pytest.skip("cryptography package not installed")
+
+    def test_encrypt_decrypt_roundtrip(self):
+        """Test that encrypt/decrypt roundtrip preserves data."""
+        try:
+            from proxywhirl.utils import (
+                decrypt_credentials,
+                encrypt_credentials,
+                generate_encryption_key,
+            )
+
+            key = generate_encryption_key()
+            plaintext = "test-password-123"
+
+            encrypted = encrypt_credentials(plaintext, key)
+            decrypted = decrypt_credentials(encrypted, key)
+
+            assert decrypted == plaintext
+        except ImportError:
+            pytest.skip("cryptography package not installed")
+
+    def test_decrypt_with_wrong_key_fails(self):
+        """Test that decryption with wrong key raises error."""
+        try:
+            from cryptography.fernet import InvalidToken
+
+            from proxywhirl.utils import (
+                decrypt_credentials,
+                encrypt_credentials,
+                generate_encryption_key,
+            )
+
+            key1 = generate_encryption_key()
+            key2 = generate_encryption_key()
+
+            encrypted = encrypt_credentials("secret", key1)
+
+            with pytest.raises(InvalidToken):
+                decrypt_credentials(encrypted, key2)
+        except ImportError:
+            pytest.skip("cryptography package not installed")
+
+    def test_encrypt_without_explicit_key(self):
+        """Test that encryption can generate key if none provided."""
+        try:
+            from proxywhirl.utils import encrypt_credentials
+
+            # Should not raise even without explicit key
+            encrypted = encrypt_credentials("test-data")
+            assert isinstance(encrypted, str)
+        except ImportError:
+            pytest.skip("cryptography package not installed")
