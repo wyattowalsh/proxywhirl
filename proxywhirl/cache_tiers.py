@@ -395,8 +395,10 @@ class SQLiteCacheTier(CacheTier):
         self._init_db()
 
     def _init_db(self) -> None:
-        """Initialize database schema."""
+        """Initialize database schema with health monitoring fields."""
         conn = sqlite3.connect(str(self.db_path))
+        
+        # Create cache_entries table
         conn.execute("""
             CREATE TABLE IF NOT EXISTS cache_entries (
                 key TEXT PRIMARY KEY,
@@ -412,15 +414,73 @@ class SQLiteCacheTier(CacheTier):
                 health_status TEXT DEFAULT 'unknown',
                 failure_count INTEGER DEFAULT 0,
                 created_at REAL NOT NULL,
-                updated_at REAL NOT NULL
+                updated_at REAL NOT NULL,
+                -- Health monitoring fields (Feature 006)
+                last_health_check REAL,
+                consecutive_health_failures INTEGER DEFAULT 0,
+                consecutive_health_successes INTEGER DEFAULT 0,
+                recovery_attempt INTEGER DEFAULT 0,
+                next_check_time REAL,
+                last_health_error TEXT,
+                total_health_checks INTEGER DEFAULT 0,
+                total_health_check_failures INTEGER DEFAULT 0
             )
         """)
+        
+        # Migrate existing tables to add health columns (T008)
+        self._migrate_health_columns(conn)
+        
+        # Create health_history table (T007)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS health_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                proxy_key TEXT NOT NULL,
+                check_time REAL NOT NULL,
+                status TEXT NOT NULL,
+                response_time_ms REAL,
+                error_message TEXT,
+                check_url TEXT NOT NULL,
+                FOREIGN KEY (proxy_key) REFERENCES cache_entries(key) ON DELETE CASCADE
+            )
+        """)
+        
+        # Create indexes
         conn.execute("CREATE INDEX IF NOT EXISTS idx_expires_at ON cache_entries(expires_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_source ON cache_entries(source)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_health_status ON cache_entries(health_status)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_last_accessed ON cache_entries(last_accessed)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_health_history_proxy ON health_history(proxy_key)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_health_history_time ON health_history(check_time)")
+        
         conn.commit()
         conn.close()
+    
+    def _migrate_health_columns(self, conn: sqlite3.Connection) -> None:
+        """Add health monitoring columns to existing cache_entries table if they don't exist (T008)."""
+        # Get existing columns
+        cursor = conn.execute("PRAGMA table_info(cache_entries)")
+        existing_columns = {row[1] for row in cursor.fetchall()}
+        
+        # Define health columns to add
+        health_columns = [
+            ("last_health_check", "REAL"),
+            ("consecutive_health_failures", "INTEGER DEFAULT 0"),
+            ("consecutive_health_successes", "INTEGER DEFAULT 0"),
+            ("recovery_attempt", "INTEGER DEFAULT 0"),
+            ("next_check_time", "REAL"),
+            ("last_health_error", "TEXT"),
+            ("total_health_checks", "INTEGER DEFAULT 0"),
+            ("total_health_check_failures", "INTEGER DEFAULT 0"),
+        ]
+        
+        # Add missing columns
+        for col_name, col_type in health_columns:
+            if col_name not in existing_columns:
+                try:
+                    conn.execute(f"ALTER TABLE cache_entries ADD COLUMN {col_name} {col_type}")
+                except sqlite3.OperationalError:
+                    # Column may already exist in a concurrent process
+                    pass
 
     def get(self, key: str) -> Optional[CacheEntry]:
         """Retrieve entry from database."""
@@ -440,7 +500,11 @@ class SQLiteCacheTier(CacheTier):
                 "key", "proxy_url", "username_encrypted", "password_encrypted",
                 "source", "fetch_time", "last_accessed", "access_count",
                 "ttl_seconds", "expires_at", "health_status", "failure_count",
-                "created_at", "updated_at"
+                "created_at", "updated_at",
+                # Health monitoring fields
+                "last_health_check", "consecutive_health_failures", "consecutive_health_successes",
+                "recovery_attempt", "next_check_time", "last_health_error",
+                "total_health_checks", "total_health_check_failures"
             ]
             data = dict(zip(columns, row))
 
@@ -451,8 +515,9 @@ class SQLiteCacheTier(CacheTier):
                 data["password"] = self.encryptor.decrypt(data["password_encrypted"])
 
             # Convert timestamps
-            for field in ["fetch_time", "last_accessed", "expires_at", "created_at", "updated_at"]:
-                data[field] = datetime.fromtimestamp(data[field], tz=timezone.utc)
+            for field in ["fetch_time", "last_accessed", "expires_at", "created_at", "updated_at", "last_health_check", "next_check_time"]:
+                if data.get(field) is not None:
+                    data[field] = datetime.fromtimestamp(data[field], tz=timezone.utc)
 
             # Remove encrypted fields
             data.pop("username_encrypted")
@@ -479,14 +544,21 @@ class SQLiteCacheTier(CacheTier):
 
             # Convert timestamps to UNIX epoch
             now = datetime.now(timezone.utc).timestamp()
+            
+            # Helper to convert optional datetime to timestamp
+            def to_timestamp(dt: Optional[datetime]) -> Optional[float]:
+                return dt.timestamp() if dt is not None else None
 
             conn.execute("""
                 INSERT OR REPLACE INTO cache_entries (
                     key, proxy_url, username_encrypted, password_encrypted,
                     source, fetch_time, last_accessed, access_count,
                     ttl_seconds, expires_at, health_status, failure_count,
-                    created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    created_at, updated_at,
+                    last_health_check, consecutive_health_failures, consecutive_health_successes,
+                    recovery_attempt, next_check_time, last_health_error,
+                    total_health_checks, total_health_check_failures
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 entry.key,
                 entry.proxy_url,
@@ -502,6 +574,15 @@ class SQLiteCacheTier(CacheTier):
                 entry.failure_count,
                 now,
                 now,
+                # Health monitoring fields
+                to_timestamp(entry.last_health_check),
+                entry.consecutive_health_failures,
+                entry.consecutive_health_successes,
+                entry.recovery_attempt,
+                to_timestamp(entry.next_check_time),
+                entry.last_health_error,
+                entry.total_health_checks,
+                entry.total_health_check_failures,
             ))
             conn.commit()
             conn.close()

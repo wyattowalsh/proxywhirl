@@ -66,6 +66,16 @@ class CacheEntry(BaseModel):
     expires_at: datetime = Field(..., description="Absolute expiration time")
     health_status: HealthStatus = Field(default=HealthStatus.UNKNOWN)
     failure_count: int = Field(default=0, ge=0, description="Consecutive failures")
+    
+    # Health monitoring fields (Feature 006)
+    last_health_check: Optional[datetime] = Field(None, description="Last health check timestamp")
+    consecutive_health_failures: int = Field(default=0, ge=0, description="Consecutive health check failures")
+    consecutive_health_successes: int = Field(default=0, ge=0, description="Consecutive successful health checks")
+    recovery_attempt: int = Field(default=0, ge=0, description="Current recovery attempt count")
+    next_check_time: Optional[datetime] = Field(None, description="Scheduled next health check")
+    last_health_error: Optional[str] = Field(None, description="Last health check error message")
+    total_health_checks: int = Field(default=0, ge=0, description="Total health checks performed")
+    total_health_check_failures: int = Field(default=0, ge=0, description="Total health check failures")
 
     @property
     def is_expired(self) -> bool:
