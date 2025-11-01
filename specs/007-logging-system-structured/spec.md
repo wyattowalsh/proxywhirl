@@ -5,6 +5,16 @@
 **Status**: Draft  
 **Input**: User description: "Structured logging with multiple output formats and levels"
 
+## Clarifications
+
+### Session 2025-11-01
+
+- Q: How should this feature integrate with existing loguru usage? → A: Extend existing loguru configuration and add structured output handlers
+- Q: What happens when log destination becomes unavailable (disk full, network down)? → A: Log to fallback destination (stderr/console) + emit warning
+- Q: How does system handle extremely high-volume logging that exceeds buffer capacity? → A: Drop oldest buffered entries + increment drop counter
+- Q: What threading model should async logging use? → A: Single background thread + bounded queue with drop policy (loguru native)
+- Q: How do users configure and update logging settings? → A: Environment variables + optional config file
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Structured Log Output (Priority: P1)
@@ -105,21 +115,21 @@ High-throughput applications need asynchronous logging that doesn't block main e
 
 ### Edge Cases
 
-- What happens when log destination becomes unavailable (disk full, network down)?
-- How does system handle extremely high-volume logging that exceeds buffer capacity?
-- What occurs when log rotation happens during active write operations?
-- How are logs handled when multiple processes write to the same log file?
-- What happens when structured log serialization fails (circular references, large objects)?
-- How does system handle logging from crash handlers or signal handlers?
-- What occurs when log retention policy conflicts with active log files?
+- **Log destination unavailable** (disk full, network down): Log to fallback destination (stderr/console) and emit warning (maintains observability during infrastructure issues)
+- **High-volume logging exceeds buffer**: Drop oldest buffered entries and increment drop counter metric (bounded memory, preserves recent logs)
+- **Log rotation during active writes**: Use atomic file operations and write locks to ensure no data loss
+- **Multiple processes writing to same file**: Use process-safe file handlers with advisory locks (loguru's `enqueue=True` provides this)
+- **Structured log serialization fails** (circular references, large objects): Fall back to string representation and log serialization error
+- **Logging from crash/signal handlers**: Use synchronous logging for critical paths (avoid async queue)
+- **Retention policy conflicts with active files**: Skip active files, only clean up closed/rotated files
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: System MUST support structured logging formats (JSON, logfmt, structured text)
-- **FR-002**: System MUST support standard log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-- **FR-003**: System MUST allow runtime log level configuration without restart
+- **FR-001**: System MUST extend existing loguru configuration with structured output handlers (JSON, logfmt)
+- **FR-002**: System MUST support standard log levels (DEBUG, INFO, WARNING, ERROR, CRITICAL) via loguru
+- **FR-003**: System MUST allow runtime log level configuration without restart (via environment variables + optional config file reload)
 - **FR-004**: System MUST support multiple simultaneous output destinations
 - **FR-005**: System MUST support console, file, syslog, and HTTP remote logging outputs
 - **FR-006**: System MUST include timestamp, log level, and message in all log entries
@@ -128,8 +138,8 @@ High-throughput applications need asynchronous logging that doesn't block main e
 - **FR-009**: System MUST implement automatic log file rotation by size
 - **FR-010**: System MUST implement automatic log file rotation by time (daily, hourly)
 - **FR-011**: System MUST support configurable log retention policies
-- **FR-012**: System MUST support asynchronous logging with buffered writes
-- **FR-013**: System MUST handle log destination failures gracefully
+- **FR-012**: System MUST support asynchronous logging with single background thread and bounded queue (using loguru's `enqueue=True`)
+- **FR-013**: System MUST handle log destination failures gracefully (fallback to stderr/console with warning emission)
 - **FR-014**: System MUST support custom log formatters and handlers
 - **FR-015**: System MUST log all proxy operations (selection, request, failure, retry)
 - **FR-016**: System MUST log health check events and status changes
@@ -137,14 +147,16 @@ High-throughput applications need asynchronous logging that doesn't block main e
 - **FR-018**: System MUST provide log filtering by component or module
 - **FR-019**: System MUST support log sampling for high-volume scenarios
 - **FR-020**: System MUST handle Unicode and special characters correctly in logs
+- **FR-021**: System MUST track and expose dropped log count when buffer capacity exceeded (oldest entries dropped first)
 
 ### Key Entities
 
-- **Log Entry**: Record of event with timestamp, level, message, metadata, and context
-- **Log Handler**: Output destination (console, file, remote) with formatter and filters
-- **Log Context**: Metadata attached to log entries (request ID, operation, proxy, user)
-- **Log Configuration**: Settings for levels, formats, outputs, rotation, and retention
-- **Log Rotation Policy**: Rules for when and how to rotate log files
+- **Log Entry**: Record of event with timestamp, level, message, metadata, and context (structured as JSON/logfmt)
+- **Log Handler**: Output destination (console, file, remote) with formatter and filters (loguru handler with custom serializer)
+- **Log Context**: Metadata attached to log entries (request ID, operation, proxy, user) via loguru's `bind()` and contextvars
+- **Log Configuration**: Settings for levels, formats, outputs, rotation, and retention (environment variables + optional config file via pydantic-settings)
+- **Log Rotation Policy**: Rules for when and how to rotate log files (loguru's rotation parameter with size/time triggers)
+- **Drop Counter**: Metric tracking number of logs dropped when buffer capacity exceeded
 
 ## Success Criteria *(mandatory)*
 
@@ -165,15 +177,20 @@ High-throughput applications need asynchronous logging that doesn't block main e
 
 - Log storage has sufficient capacity for configured retention periods
 - Operators configure appropriate log levels for their use case
-- Remote log destinations (if used) are accessible and reliable
+- Remote log destinations (if used) are accessible and reliable (with fallback to local logging on failure)
 - Log rotation thresholds are set reasonably based on log volume
-- Application context for logging (request IDs, etc.) is properly maintained
-- Log parsing tools support chosen structured format (JSON, logfmt)
+- Application context for logging (request IDs, etc.) is properly maintained via contextvars
+- Log parsing tools support JSON or logfmt structured formats
+- Loguru library is already installed and configured in proxywhirl
+- Environment variables are accessible for runtime configuration
+- Bounded queue size is sufficient for typical log volumes (configurable via environment variable)
 
 ## Dependencies
 
-- Core Python Package for operation events to log
-- Configuration Management for logging settings
-- Health Monitoring for health event logging
-- Metrics & Observability for log volume metrics
+- Core Python Package (001) for operation events to log
+- Configuration Management (012) for logging settings via environment variables + config file
+- Health Monitoring (006) for health event logging
+- Metrics & Observability (008) for log volume and drop counter metrics
+- Existing loguru installation in proxywhirl for log handler infrastructure
+- pydantic-settings for configuration management and runtime reloading
 - All features for component-specific logging

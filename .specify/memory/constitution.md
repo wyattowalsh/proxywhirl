@@ -1,104 +1,56 @@
-# ProxyWhirl Constitution
-<!-- Python library for intelligent proxy rotation and management -->
+# Proxywhirl Delivery Constitution
 
 ## Core Principles
 
 ### I. Library-First Architecture
-Every feature starts as a standalone library. Libraries must be self-contained, independently testable, and well-documented. Clear purpose required - no organizational-only libraries. All functionality must be usable via direct Python import without CLI/web dependencies. Full type hints with `py.typed` marker are mandatory.
+- All new functionality ships as importable Python modules inside the existing `proxywhirl` package unless the plan explicitly approves a new project.
+- Modules MUST remain self-contained, composable, and typed (`py.typed` marker required).
+- Features MAY expose CLIs or APIs, but the library layer is the canonical contract.
 
-### II. Test-First Development (NON-NEGOTIABLE)
-TDD mandatory: Tests written → User approved → Tests fail → Then implement. Red-Green-Refactor cycle strictly enforced. Property-based tests with Hypothesis for invariants. Integration tests for all user stories. Coverage target: 85%+ (consistent with existing codebase: 88%+).
+### II. Test-First Development (Non-Negotiable)
+- Red-Green-Refactor workflow is mandatory for every change.
+- Tests MUST be authored or updated before implementation and must fail prior to code changes.
+- Unit, integration, property, and benchmark suites are required when referenced by the spec or success criteria.
 
 ### III. Type Safety & Runtime Validation
-Full type hints required for all public APIs. Pass `mypy --strict` without exceptions. Pydantic models for all data structures with runtime validation. Clear error messages for invalid inputs. No silent failures.
+- Production code MUST pass `mypy --strict`.
+- Runtime configuration MUST be validated using pydantic (or approved equivalent).
+- Public interfaces require precise type hints; no `Any` escapes except documented third-party integrations.
 
 ### IV. Independent User Stories
-Each user story must deliver standalone value and be testable in isolation. No hidden dependencies between stories. Each story has independent acceptance scenarios. Stories can be implemented in any order.
+- Every user story must deliver value in isolation with clear acceptance criteria and tests.
+- Plans and tasks MUST ensure stories can be implemented in parallel without hidden cross-story dependencies.
+- Shared prerequisites belong in Setup/Foundational phases only.
 
-### V. Performance Standards
-Strategy selection: <5ms overhead. Support 10,000 concurrent requests without deadlocks. Hot-swap configuration: <100ms. Thread-safe with <1% lock contention overhead. Memory-bounded with sliding windows and auto-pruning.
+### V. Performance & Observability Standards
+- Success criteria for latency, throughput, and error budgets MUST be measured and enforced via automated tests or benchmarks.
+- Structured logging and metrics collection are mandatory for production features.
+- Performance regressions above documented thresholds are release blockers.
 
-### VI. Security-First Design
-No credential exposure in logs or errors. Use `SecretStr` for sensitive data. Validate all user inputs to prevent injection. Thread-safe access prevents race conditions. Geo-location data from trusted sources only.
+### VI. Security & Privacy by Default
+- Sensitive data MUST be redacted in logs and persisted data.
+- Secrets handling requires `SecretStr` (or equivalent) and audited storage.
+- Error handling MUST avoid leaking credentials or internals.
 
 ### VII. Simplicity & Flat Architecture
-Prefer flat module structure over nested packages. Start simple, YAGNI principles. No circular dependencies. Single responsibility per module. Maximum 20 modules without strong justification.
+- Favor flat module structures over deep package trees.
+- New abstractions require justification in the plan’s complexity section.
+- Default to built-in or existing dependencies; new third-party libraries require explicit approval in the plan.
 
-## Development Environment
+## Delivery Workflow Requirements
+- Specs define ALL functional and non-functional requirements; gaps must block implementation.
+- Plans MUST describe architecture, data models, and technology decisions with no unresolved “TBD” items before tasks are generated.
+- Tasks MUST trace directly to user stories or prerequisites. Each task includes file paths and checklist format.
+- `uv run` is the required prefix for Python tooling commands.
 
-### Python Package Management (MANDATORY)
-
-**CRITICAL**: ALL Python commands MUST use `uv run` prefix without exception:
-
-```bash
-# ✅ CORRECT - Always use uv run
-uv run pytest tests/
-uv run mypy --strict proxywhirl/
-uv run ruff check proxywhirl/
-uv run python -m module
-uv run python script.py
-uv run python -c "import sys; print(sys.version)"
-
-# ❌ WRONG - Never run Python directly
-pytest tests/
-python -m pytest
-python script.py
-python -c "..."
-```
-
-**Package Management Commands**:
-- Create virtual environment: `uv venv`
-- Sync dependencies from lockfile: `uv sync`
-- Add new package: `uv add <package>`
-- Add dev dependency: `uv add --dev <package>`
-- Run ANY Python command: `uv run <command>`
-- NEVER use: `pip`, `pip install`, `python -m pip`, or bare `python`
-
-**Rationale**: `uv run` ensures consistent virtual environment activation across all contexts. It provides significantly faster dependency resolution and installation compared to pip. It manages both the virtual environment and dependencies with a single tool, ensuring reproducible builds with lockfiles and eliminating environment activation issues.
-
-**Enforcement**: Any Python command without `uv run` prefix is a constitution violation and must be corrected immediately.
-
-### Python Version Support
-
-Support Python 3.9+ with testing on 3.9, 3.10, 3.11, 3.12, and 3.13.
-
-## Testing Standards
-
-### Test Organization
-- Unit tests: `tests/unit/` (fast, isolated, no I/O)
-- Integration tests: `tests/integration/` (cross-component, realistic scenarios)
-- Property tests: `tests/property/` (Hypothesis-based invariant testing)
-- Benchmark tests: `tests/benchmarks/` (performance validation with pytest-benchmark)
-- Contract tests: `tests/contract/` (API stability verification)
-
-### Test Execution
-All tests must pass before merge. Use `pytest` with coverage reporting. Parallel execution with `pytest-xdist` for speed.
-
-## Code Quality Gates
-
-### Pre-merge Requirements
-1. All tests pass (unit, integration, property, contract)
-2. `mypy --strict` passes with zero errors
-3. `ruff check` passes (linting)
-4. Test coverage ≥85%
-5. Benchmark tests show no performance regression >10%
-6. Constitution compliance verified
-
-### Documentation Requirements
-- Docstrings for all public APIs (Google style)
-- Type hints for all parameters and returns
-- Examples in docstrings for complex functions
-- README with quick start and API overview
-- Changelog updated for user-facing changes
+## Quality Gates
+- Code review MUST verify compliance with this constitution before merge.
+- Any violation of a MUST statement is a release blocker.
+- Benchmarks and long-running tests may gate release but can run asynchronously if recorded before deployment.
 
 ## Governance
+- This constitution supersedes prior workflow documents.
+- Amendments require explicit documentation, reviewer approval, and migration notes stored under `.specify/memory/`.
+- Project leads are responsible for auditing adherence during planning and implementation phases.
 
-This constitution supersedes all other practices. Amendments require:
-1. Documentation of the change and rationale
-2. Review and approval from project maintainers
-3. Migration plan for existing code if breaking
-
-All PRs/reviews must verify compliance. Complexity must be justified. Constitution violations require explicit justification and acceptance.
-
-**Version**: 1.1.0 | **Ratified**: 2025-06-13 | **Last Amended**: 2025-10-29
-
+**Version**: 1.0.0 | **Ratified**: 2025-10-01 | **Last Amended**: 2025-11-01
