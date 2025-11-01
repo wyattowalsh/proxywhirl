@@ -5,6 +5,16 @@
 **Status**: Draft  
 **Input**: User description: "Continuous health checks and proxy pool status tracking"
 
+## Clarifications
+
+### Session 2025-11-01
+
+- Q: What threading/concurrency model should health checks use? → A: Background thread per proxy source with shared thread pool
+- Q: How should health status changes integrate with the cache layer? → A: Automatically invalidate cache entry on health failure
+- Q: What health check method should be used by default? → A: HTTP HEAD request to configurable URL
+- Q: How should health check state persist across restarts? → A: Store in cache tier (L3 SQLite)
+- Q: What notification mechanism for health events? → A: Structured logging with event callbacks
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Automated Proxy Health Checks (Priority: P1)
@@ -106,19 +116,19 @@ Operations team wants to receive notifications when significant health events oc
 
 ### Edge Cases
 
-- What happens when health check target URL is unreachable (DNS failure, network down)?
-- How does system handle health checks when all proxies are simultaneously unhealthy?
-- What occurs when health check itself times out or hangs indefinitely?
-- How are concurrent health checks managed to avoid overwhelming proxy pool?
-- What happens when proxy becomes unhealthy during active request handling?
-- How does system handle partial proxy failures (some endpoints work, others don't)?
-- What occurs when health check frequency is set too aggressively?
+- **Health check target URL unreachable**: Mark proxy as unhealthy, log DNS/network failure distinctly
+- **All proxies simultaneously unhealthy**: Trigger pool degraded alert, allow manual override to use "least unhealthy" proxies
+- **Health check timeout/hang**: Apply configured timeout (default 10s), cancel check and mark as failed
+- **Concurrent health check overload**: Thread pool limits concurrent checks, queues excess checks with priority by last check time
+- **Proxy fails during active request**: Mark unhealthy after request completes, do not interrupt in-flight requests
+- **Partial proxy failures**: Single health check endpoint determines overall health (customize via FR-007)
+- **Aggressive health check frequency**: Enforce minimum interval (10s) to prevent resource exhaustion
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: System MUST perform automated health checks on all proxies in pool
+- **FR-001**: System MUST perform automated health checks on all proxies in pool using HTTP HEAD requests
 - **FR-002**: System MUST support configurable health check intervals per proxy or source
 - **FR-003**: System MUST mark proxies as unhealthy after configurable failure threshold
 - **FR-004**: System MUST exclude unhealthy proxies from rotation automatically
@@ -126,10 +136,10 @@ Operations team wants to receive notifications when significant health events oc
 - **FR-006**: System MUST provide real-time pool status counts and percentages
 - **FR-007**: System MUST support custom health check URLs and endpoints
 - **FR-008**: System MUST support configurable health check timeouts
-- **FR-009**: System MUST validate health check responses against expected patterns
+- **FR-009**: System MUST validate health check responses against expected patterns (default: 2xx status codes)
 - **FR-010**: System MUST implement automatic proxy recovery with cooldown periods
 - **FR-011**: System MUST support configurable maximum recovery retry attempts
-- **FR-012**: System MUST send health event notifications (proxy down, pool degraded, recovered)
+- **FR-012**: System MUST send health event notifications via structured logging with event callbacks
 - **FR-013**: System MUST log all health check results with timestamps
 - **FR-014**: System MUST track health check history per proxy
 - **FR-015**: System MUST support manual health check triggering via API/CLI
@@ -137,22 +147,28 @@ Operations team wants to receive notifications when significant health events oc
 - **FR-017**: System MUST provide health check metrics (success rate, avg response time)
 - **FR-018**: System MUST support graceful degradation when health check system fails
 - **FR-019**: System MUST allow pausing/resuming health checks without stopping service
-- **FR-020**: System MUST clean up resources from zombie health check tasks
+- **FR-020**: System MUST clean up resources from zombie health check tasks (zombie task defined as: thread running >2x configured check interval OR thread joined but not deregistered from active task registry)
+- **FR-021**: System MUST use background thread per proxy source with shared thread pool for concurrent health checking
+- **FR-022**: System MUST automatically invalidate cache entries when proxies become unhealthy
+- **FR-023**: System MUST persist health check state in cache tier (L3 SQLite) for restart recovery
 
 ### Key Entities
 
-- **Health Check**: Verification request to proxy with URL, timeout, expected response, result
-- **Proxy Health Status**: Current state of proxy (healthy, unhealthy, checking, recovering, unknown)
-- **Health Event**: Significant health state change (proxy down, recovered, pool degraded)
+**Terminology Note**: "Health check results" refers to runtime data structures and API responses. The database table storing historical data is named `health_history` (per FR-023).
+
+- **Health Check**: Verification request to proxy with URL, timeout, expected response, result (uses HTTP HEAD by default)
+- **Proxy Health Status**: Current state of proxy (healthy, unhealthy, checking, recovering, unknown) - persisted in L3 cache
+- **Health Event**: Significant health state change (proxy down, recovered, pool degraded) - notified via callbacks
 - **Pool Status**: Aggregate health statistics (total count, healthy count, unhealthy count, health percentage)
 - **Health Check Configuration**: Settings for checks (interval, timeout, target URL, failure threshold, recovery settings)
+- **Health Check Thread Pool**: Shared thread pool managing background threads (one per proxy source)
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
 - **SC-001**: Health checks detect dead proxies within 1 minute of failure
-- **SC-002**: System maintains 95% or higher pool health under normal conditions
+- **SC-002**: System maintains 95% or higher pool health under normal conditions (normal conditions defined as: pool utilization <80%, request rate <100 req/s, no network disruptions or infrastructure failures)
 - **SC-003**: Health check overhead uses less than 5% of system CPU
 - **SC-004**: Pool status queries return in under 50ms
 - **SC-005**: Automatic recovery restores 80% or more of temporarily failed proxies
@@ -173,8 +189,8 @@ Operations team wants to receive notifications when significant health events oc
 
 ## Dependencies
 
-- Core Python Package for proxy pool access
-- Configuration Management for health check settings
-- Logging System for health check event logging
-- Metrics & Observability for health check metrics
-- Caching Mechanisms for cache invalidation on health failures
+- **Core Python Package** (001): Proxy pool access, ProxyRotator integration
+- **Configuration Management** (config.py): Health check settings, intervals, thresholds
+- **Logging System** (loguru): Health check event logging with structured data
+- **Metrics & Observability**: Health check metrics tracking (success rate, response time)
+- **Caching Mechanisms** (005): Cache invalidation on health failures, L3 persistence of health state

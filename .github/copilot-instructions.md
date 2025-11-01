@@ -264,6 +264,8 @@ python -m pytest tests/
 
 ## Active Technologies
 - Python 3.9+ (targeting 3.9, 3.10, 3.11, 3.12, 3.13) (005-caching-mechanisms-storage)
+- Python 3.9+ (targeting 3.9, 3.10, 3.11, 3.12, 3.13) + httpx (HTTP client with proxy support), threading (background health checks), loguru (structured logging) (006-health-monitoring-continuous)
+- L3 SQLite cache tier for health state persistence (reuses 005-caching infrastructure) (006-health-monitoring-continuous)
 
 ## Recent Changes
 - 005-caching-mechanisms-storage: Added Python 3.9+ (targeting 3.9, 3.10, 3.11, 3.12, 3.13)
