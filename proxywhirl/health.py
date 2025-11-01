@@ -205,3 +205,70 @@ class HealthChecker:
                                 self.cache_manager.invalidate_by_health(cache_key)
                             except Exception as e:
                                 logger.error(f"Failed to invalidate cache for {proxy_url}: {e}")
+    
+    def start(self) -> None:
+        """Start health monitoring with background workers.
+        
+        Creates one worker thread per unique proxy source.
+        """
+        if self._running:
+            logger.warning("Health monitoring already running")
+            return
+        
+        self._running = True
+        self._workers: dict[str, Any] = {}
+        
+        # Get unique sources
+        with self._lock:
+            sources = set(proxy["source"] for proxy in self._proxies.values())
+        
+        # Start a worker for each source
+        from proxywhirl.health_worker import HealthWorker
+        
+        for source in sources:
+            # Get interval for this source (or use default)
+            interval = self.config.source_intervals.get(source, self.config.check_interval_seconds)
+            
+            worker = HealthWorker(
+                source=source,
+                check_interval=interval,
+                check_func=lambda url: self._perform_check(url),
+                proxies=self._proxies,
+                lock=self._lock
+            )
+            worker.start()
+            self._workers[source] = worker
+        
+        logger.info(f"Health monitoring started with {len(self._workers)} workers")
+    
+    def stop(self, timeout: float = 5.0) -> None:
+        """Stop health monitoring and cleanup workers.
+        
+        Args:
+            timeout: Maximum seconds to wait for each worker to stop
+        """
+        if not self._running:
+            return
+        
+        logger.info("Stopping health monitoring")
+        self._running = False
+        
+        # Stop all workers
+        for source, worker in self._workers.items():
+            worker.stop(timeout=timeout)
+        
+        self._workers.clear()
+        logger.info("Health monitoring stopped")
+    
+    def _perform_check(self, proxy_url: str) -> Any:
+        """Perform health check and update status.
+        
+        Args:
+            proxy_url: Proxy URL to check
+            
+        Returns:
+            HealthCheckResult
+        """
+        result = self.check_proxy(proxy_url)
+        self._update_health_status(proxy_url, result)
+        return result
