@@ -5,7 +5,19 @@ Provides continuous health checking of proxies using background threads,
 automatic failure detection, and recovery mechanisms.
 """
 
-from typing import Any
+import threading
+from datetime import datetime, timezone
+from typing import Any, Callable, Optional
+from urllib.parse import urlparse
+
+import httpx
+from loguru import logger
+
+from proxywhirl.health_models import (
+    HealthCheckConfig,
+    HealthCheckResult,
+    HealthStatus,
+)
 
 __all__ = ["HealthChecker"]
 
@@ -18,6 +30,178 @@ class HealthChecker:
     tracks health status, and provides real-time pool statistics.
     """
     
-    def __init__(self) -> None:
-        """Initialize health checker."""
-        pass
+    def __init__(
+        self,
+        config: Optional[HealthCheckConfig] = None,
+        cache_manager: Optional[Any] = None,
+        on_event: Optional[Callable[[Any], None]] = None,
+    ) -> None:
+        """Initialize health checker.
+        
+        Args:
+            config: Health check configuration (uses defaults if None)
+            cache_manager: Optional CacheManager for persistence
+            on_event: Optional callback for health events
+        """
+        self.config = config or HealthCheckConfig()
+        self.cache_manager = cache_manager
+        self.on_event = on_event
+        self._running = False
+        self._proxies: dict[str, dict[str, Any]] = {}
+        self._lock = threading.RLock()
+        
+        logger.info("HealthChecker initialized with config: check_interval={}s, failure_threshold={}",
+                   self.config.check_interval_seconds, self.config.failure_threshold)
+    
+    def add_proxy(self, proxy_url: str, source: str = "unknown") -> None:
+        """Register a proxy for health monitoring.
+        
+        Args:
+            proxy_url: Full proxy URL (http://host:port)
+            source: Source identifier for the proxy
+            
+        Raises:
+            ValueError: If proxy_url is invalid
+        """
+        # Validate URL format
+        try:
+            parsed = urlparse(proxy_url)
+            if not parsed.scheme or not parsed.netloc:
+                raise ValueError(f"Invalid proxy URL: {proxy_url}")
+        except Exception as e:
+            raise ValueError(f"Invalid proxy URL: {proxy_url}") from e
+        
+        with self._lock:
+            if proxy_url in self._proxies:
+                logger.debug(f"Proxy already registered, updating: {proxy_url}")
+            else:
+                logger.debug(f"Registering proxy for health monitoring: {proxy_url}")
+            
+            self._proxies[proxy_url] = {
+                "source": source,
+                "health_status": HealthStatus.UNKNOWN,
+                "consecutive_failures": 0,
+                "consecutive_successes": 0,
+                "total_checks": 0,
+                "total_failures": 0,
+                "last_check_time": None,
+                "last_error": None,
+                "recovery_attempt": 0,
+                "next_check_time": None,
+            }
+    
+    def check_proxy(self, proxy_url: str) -> HealthCheckResult:
+        """Perform a health check on a proxy.
+        
+        Args:
+            proxy_url: Proxy URL to check
+            
+        Returns:
+            HealthCheckResult with check outcome
+        """
+        check_time = datetime.now(timezone.utc)
+        check_url = self.config.check_url
+        
+        try:
+            # Perform HTTP HEAD request through proxy
+            with httpx.Client(
+                proxies={"http://": proxy_url, "https://": proxy_url},
+                timeout=self.config.check_timeout_seconds,
+            ) as client:
+                response = client.head(check_url)
+                
+                # Calculate response time
+                response_time_ms = response.elapsed.total_seconds() * 1000
+                
+                # Check if status code is acceptable
+                if response.status_code in self.config.expected_status_codes:
+                    return HealthCheckResult(
+                        proxy_url=proxy_url,
+                        check_time=check_time,
+                        status=HealthStatus.HEALTHY,
+                        response_time_ms=response_time_ms,
+                        status_code=response.status_code,
+                        check_url=check_url,
+                    )
+                else:
+                    return HealthCheckResult(
+                        proxy_url=proxy_url,
+                        check_time=check_time,
+                        status=HealthStatus.UNHEALTHY,
+                        response_time_ms=response_time_ms,
+                        status_code=response.status_code,
+                        error_message=f"Unexpected status code: {response.status_code}",
+                        check_url=check_url,
+                    )
+                    
+        except httpx.TimeoutException as e:
+            return HealthCheckResult(
+                proxy_url=proxy_url,
+                check_time=check_time,
+                status=HealthStatus.UNHEALTHY,
+                error_message=f"Request timeout: {str(e)}",
+                check_url=check_url,
+            )
+        except Exception as e:
+            return HealthCheckResult(
+                proxy_url=proxy_url,
+                check_time=check_time,
+                status=HealthStatus.UNHEALTHY,
+                error_message=f"Check failed: {str(e)}",
+                check_url=check_url,
+            )
+    
+    def _update_health_status(self, proxy_url: str, result: HealthCheckResult) -> None:
+        """Update proxy health status based on check result.
+        
+        Args:
+            proxy_url: Proxy URL being updated
+            result: Health check result
+        """
+        with self._lock:
+            if proxy_url not in self._proxies:
+                logger.warning(f"Cannot update health for unregistered proxy: {proxy_url}")
+                return
+            
+            proxy_state = self._proxies[proxy_url]
+            proxy_state["last_check_time"] = result.check_time
+            proxy_state["total_checks"] += 1
+            
+            if result.status == HealthStatus.HEALTHY:
+                # Success - reset failure count, increment success count
+                proxy_state["consecutive_failures"] = 0
+                proxy_state["consecutive_successes"] += 1
+                proxy_state["last_error"] = None
+                
+                # Check if we should mark as healthy
+                if (proxy_state["consecutive_successes"] >= self.config.success_threshold
+                    or proxy_state["health_status"] == HealthStatus.UNKNOWN):
+                    proxy_state["health_status"] = HealthStatus.HEALTHY
+                    logger.info(f"Proxy marked healthy: {proxy_url}")
+                    
+            else:
+                # Failure - reset success count, increment failure count
+                proxy_state["consecutive_successes"] = 0
+                proxy_state["consecutive_failures"] += 1
+                proxy_state["total_failures"] += 1
+                proxy_state["last_error"] = result.error_message
+                
+                # Check if we should mark as unhealthy
+                if proxy_state["consecutive_failures"] >= self.config.failure_threshold:
+                    old_status = proxy_state["health_status"]
+                    proxy_state["health_status"] = HealthStatus.UNHEALTHY
+                    
+                    if old_status != HealthStatus.UNHEALTHY:
+                        logger.warning(
+                            f"Proxy marked unhealthy: {proxy_url}, "
+                            f"failures={proxy_state['consecutive_failures']}"
+                        )
+                        
+                        # Invalidate cache if cache manager available
+                        if self.cache_manager:
+                            try:
+                                from proxywhirl.cache import CacheManager
+                                cache_key = CacheManager.generate_cache_key(proxy_url)
+                                self.cache_manager.invalidate_by_health(cache_key)
+                            except Exception as e:
+                                logger.error(f"Failed to invalidate cache for {proxy_url}: {e}")
