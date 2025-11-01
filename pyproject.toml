@@ -1,7 +1,200 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "proxywhirl"
-version = "0.1.0"
-description = "free rotating proxy in python"
+version = "1.0.0"
+description = "Advanced Python proxy rotation library with auto-fetching, validation, and persistence"
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = []
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "Wyatt Walsh", email = "wyattowalsh@gmail.com"}
+]
+keywords = ["proxy", "rotation", "http", "socks", "async", "fetcher", "validator"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: Proxy Servers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    "httpx>=0.25.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "tenacity>=8.2.0",
+    "loguru>=0.7.0",
+    "respx>=0.22.0",
+    "beautifulsoup4>=4.14.2",
+    "cryptography>=46.0.3",
+    "sqlmodel>=0.0.27",
+    "aiosqlite>=0.21.0",
+    "greenlet>=3.2.4",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "filelock>=3.12.0",
+    "platformdirs>=3.0.0",
+    "tomli-w>=1.0.0",
+    "tomli>=2.3.0",
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.24.0",
+    "slowapi>=0.1.9",
+    "python-multipart>=0.0.6",
+]
+
+[project.optional-dependencies]
+storage = [
+    "sqlmodel>=0.0.14",
+]
+security = [
+    "cryptography>=41.0.0",
+]
+js = [
+    "playwright>=1.40.0",
+]
+all = [
+    "sqlmodel>=0.0.14",
+    "cryptography>=41.0.0",
+    "playwright>=1.40.0",
+]
+docs = [
+    "sphinx>=7.4.0",
+    "myst-parser>=2.0.0",
+    "shibuya>=2024.4.0",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-design>=0.6.0",
+    "sphinxcontrib-mermaid>=0.9.2",
+    "sphinx-docsearch>=0.2.0b3",
+    "linkify-it-py>=2.0.2",
+]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "hypothesis>=6.88.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+]
+
+[project.scripts]
+proxywhirl = "proxywhirl.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/wyattowalsh/proxywhirl"
+Documentation = "https://proxywhirl.readthedocs.io"
+Repository = "https://github.com/wyattowalsh/proxywhirl"
+Issues = "https://github.com/wyattowalsh/proxywhirl/issues"
+
+[tool.setuptools]
+packages = ["proxywhirl"]
+
+[tool.setuptools.package-data]
+proxywhirl = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=proxywhirl",
+    "--cov-report=term-missing",
+    "--cov-report=html:logs/htmlcov",
+]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["proxywhirl"]
+omit = [
+    "proxywhirl/cli.py",
+    "proxywhirl/api.py",
+    "proxywhirl/api_models.py",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+
+[tool.black]
+line-length = 100
+target-version = ['py39', 'py310', 'py311', 'py312', 'py313']
+include = '\.pyi?$'
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+extend-exclude = [".codex", ".cursor", ".github", ".specify"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501", "B904", "SIM105", "B007"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_any_unimported = false
+disallow_any_expr = false
+disallow_any_decorated = false
+disallow_any_explicit = false
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = ["cryptography.*", "tomllib", "tomli"]
+ignore_missing_imports = true
+
+[dependency-groups]
+dev = [
+    "black>=25.9.0",
+    "hypothesis>=6.141.1",
+    "mypy>=1.18.2",
+    "nbformat>=5.10.4",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "pytest-benchmark>=5.1.0",
+    "pytest-cov>=7.0.0",
+    "pytest-mock>=3.15.1",
+    "ruff>=0.14.1",
+    "types-requests>=2.32.4.20250913",
+]
+docs = [
+    "sphinx>=7.4.0",
+    "myst-parser>=2.0.0",
+    "shibuya>=2024.4.0",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-design>=0.6.0",
+    "sphinxcontrib-mermaid>=0.9.2",
+    "sphinx-docsearch>=0.2.0b3",
+    "linkify-it-py>=2.0.2",
+]
