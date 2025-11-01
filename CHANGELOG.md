@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Structured Logging System (2025-11-01)
+
+#### Core Logging Components
+- **Structured Output Formats**: JSON and logfmt formatters with Unicode support
+- **Multiple Output Destinations**: Console, file, syslog, and HTTP remote logging handlers
+- **Log Configuration Models**: Pydantic-based configuration with environment variable support
+- **Contextual Logging**: Context manager and binding utilities for request correlation
+- **Credential Redaction**: Automatic redaction of sensitive data (passwords, tokens, API keys)
+
+#### Advanced Features
+- **Log Rotation**: Size-based and time-based rotation with configurable thresholds
+- **Retention Policies**: Automatic cleanup of old log files based on age or count
+- **Async Logging**: Non-blocking logging with bounded queues and drop counter metrics
+- **Module Filtering**: Log only from specific modules to reduce noise
+- **Log Sampling**: Configurable sampling rates to reduce high-volume logging
+- **Runtime Reconfiguration**: Change log levels and handlers without restart
+
+#### API Additions
+- `LogConfiguration`, `LogHandlerConfig`, `LogLevel`, `LogHandlerType` - Configuration models
+- `apply_logging_configuration()`, `reload_logging_configuration()` - Setup and reload
+- `LogContext`, `bind_context()`, `log_with_context()` - Contextual logging
+- `get_request_id()`, `set_request_id()`, `generate_request_id()` - Request correlation
+- `get_drop_counter()`, `reset_drop_counter()` - Performance metrics
+- `create_handler_sink()`, `configure_file_handler_with_rotation()` - Handler utilities
+
+#### Testing & Documentation
+- 71+ tests covering configuration, formatters, schema validation, and edge cases
+- JSON schema contract tests for log entry validation
+- Comprehensive example script (`examples/structured_logging_demo.py`)
+- README documentation with quick start and feature examples
+
+#### Schema Compliance
+- Log entries conform to JSON schema (`specs/007-logging-system-structured/contracts/log-entry.schema.json`)
+- Required fields: timestamp, level, message, module, function, line
+- Optional contextual fields: request_id, operation, proxy_url, strategy, source, user_id, extra
+
 ### Added - Intelligent Rotation Strategies (004-rotation-strategies-intelligent)
 
 - **7 Advanced Rotation Strategies**:
