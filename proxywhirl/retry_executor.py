@@ -337,13 +337,18 @@ class RetryExecutor:
         self,
         available_proxies: List[Proxy],
         failed_proxy: Proxy,
+        target_region: Optional[str] = None,
     ) -> Proxy | None:
         """
         Select best proxy for retry based on performance metrics.
 
+        Uses a weighted scoring formula:
+        score = (0.7 ? success_rate) + (0.3 ? (1 - normalized_latency))
+
         Args:
             available_proxies: List of available proxies
             failed_proxy: The proxy that just failed
+            target_region: Optional target region for geo-targeted selection
 
         Returns:
             Best proxy for retry, or None if no suitable proxy found
@@ -363,6 +368,81 @@ class RetryExecutor:
         if not candidates:
             return None
 
-        # For now, return first candidate
-        # TODO: Implement intelligent selection based on success rates (US3)
-        return candidates[0]
+        # Calculate performance scores for candidates
+        scored_candidates = []
+        for proxy in candidates:
+            score = self._calculate_proxy_score(proxy, target_region)
+            scored_candidates.append((proxy, score))
+
+        # Sort by score (highest first)
+        scored_candidates.sort(key=lambda x: x[1], reverse=True)
+
+        # Return proxy with highest score
+        return scored_candidates[0][0]
+
+    def _calculate_proxy_score(
+        self,
+        proxy: Proxy,
+        target_region: Optional[str] = None,
+    ) -> float:
+        """
+        Calculate performance score for a proxy.
+
+        Formula: score = (0.7 ? success_rate) + (0.3 ? (1 - normalized_latency))
+
+        Args:
+            proxy: Proxy to score
+            target_region: Optional target region for geo-targeting
+
+        Returns:
+            Performance score (0.0 to 1.0, higher is better)
+        """
+        # Get success rate from proxy metrics
+        total_requests = proxy.total_requests
+        if total_requests == 0:
+            # No history - give neutral score
+            success_rate = 0.5
+        else:
+            success_rate = proxy.success_rate
+
+        # Get average latency from recent attempts
+        avg_latency = self._get_proxy_avg_latency(proxy.id)
+
+        # Normalize latency (assuming max latency of 10 seconds)
+        max_latency = 10.0
+        normalized_latency = min(avg_latency / max_latency, 1.0) if avg_latency > 0 else 0.0
+
+        # Calculate base score
+        base_score = (0.7 * success_rate) + (0.3 * (1.0 - normalized_latency))
+
+        # Apply geo-targeting bonus if region matches
+        if target_region and proxy.metadata:
+            proxy_region = proxy.metadata.get("region")
+            if proxy_region == target_region:
+                # 10% bonus for matching region
+                base_score = min(base_score * 1.1, 1.0)
+
+        return base_score
+
+    def _get_proxy_avg_latency(self, proxy_id: str) -> float:
+        """
+        Get average latency for a proxy from recent attempts.
+
+        Args:
+            proxy_id: Proxy ID to get latency for
+
+        Returns:
+            Average latency in seconds (last 100 attempts)
+        """
+        # Get recent attempts for this proxy
+        recent_attempts = [
+            attempt
+            for attempt in list(self.retry_metrics.current_attempts)[-100:]
+            if attempt.proxy_id == proxy_id and attempt.outcome == RetryOutcome.SUCCESS
+        ]
+
+        if not recent_attempts:
+            return 0.0
+
+        total_latency = sum(attempt.latency for attempt in recent_attempts)
+        return total_latency / len(recent_attempts)
