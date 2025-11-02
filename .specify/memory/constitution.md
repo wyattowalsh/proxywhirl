@@ -1,50 +1,92 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# ProxyWhirl Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Library-First Architecture
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+Every feature MUST start as a pure Python library with clean APIs:
+- NO CLI/web dependencies required for core functionality
+- Self-contained, independently testable, documented
+- Clear purpose required - no organizational-only libraries
+- Public API exported through `__init__.py`
+- Type hints with `py.typed` marker (PEP 561)
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Test-First Development (NON-NEGOTIABLE)
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+TDD is MANDATORY for all code:
+- Tests written BEFORE implementation
+- Tests MUST fail before implementation begins
+- Red-Green-Refactor cycle strictly enforced
+- Minimum 85% coverage (100% for security code)
+- All tests must pass before merge
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Type Safety & Runtime Validation
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+Strict type safety at compile-time and runtime:
+- Full type hints for all public APIs
+- mypy --strict compliance (0 errors)
+- Pydantic v2 for runtime validation
+- SecretStr for credentials (never log/expose)
+- No `Any` types except where external APIs require
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. Independent User Stories
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+Each user story MUST be independently testable:
+- No hidden dependencies between stories
+- Each story delivers standalone value
+- Can be implemented and tested in isolation
+- Independent test scenarios defined upfront
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+### V. Performance Standards
+
+Quantifiable performance requirements:
+- <1ms proxy selection (all strategies)
+- <50ms request overhead (p95)
+- 1000+ concurrent requests support
+- Benchmark tests for all critical paths
+
+### VI. Security-First Design
+
+100% credential protection:
+- Credentials use SecretStr (Pydantic)
+- NEVER log credentials (always `***` redaction)
+- NEVER expose credentials in errors
+- 100% test coverage for security code
+
+### VII. Simplicity & Flat Architecture
+
+Maximum 20 modules in flat package:
+- Flat structure: `proxywhirl/*.py` (no sub-packages)
+- Single responsibility per module
+- Max 10 modules for new features
+- Justify any complexity increases
+
+## Development Workflow
+
+### uv Package Manager (MANDATORY)
+
+ALL Python commands MUST use `uv run` prefix:
+- Add dependencies: `uv add <package>` (NEVER `pip install`)
+- Add dev dependencies: `uv add --dev <package>`
+- Run commands: `uv run pytest`, `uv run mypy`, etc.
+- Rationale: Ensures consistent virtual environment activation
+
+### Quality Gates
+
+ALL must pass before merge:
+- ✅ All tests passing (100%)
+- ✅ Coverage ≥85% (100% for security)
+- ✅ Mypy --strict (0 errors)
+- ✅ Ruff checks (0 errors)
+- ✅ Constitution compliance verified
+- ✅ Independent user story testing
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+Constitution supersedes all other practices:
+- All PRs/reviews must verify compliance
+- Violations require documented justification
+- Amendments require explicit approval
+- Use `.github/copilot-instructions.md` for agent guidance
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2025-10-22 | **Last Amended**: 2025-11-02
