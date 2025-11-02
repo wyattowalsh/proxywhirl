@@ -226,9 +226,7 @@ class HealthChecker:
                             proxy_url=proxy_url,
                             source=proxy_state.get("source"),
                             details={
-                                "consecutive_failures": proxy_state[
-                                    "consecutive_failures"
-                                ],
+                                "consecutive_failures": proxy_state["consecutive_failures"],
                                 "last_error": proxy_state.get("last_error"),
                             },
                         )
@@ -241,9 +239,7 @@ class HealthChecker:
                                 cache_key = CacheManager.generate_cache_key(proxy_url)
                                 self.cache_manager.invalidate_by_health(cache_key)
                             except Exception as e:
-                                logger.error(
-                                    f"Failed to invalidate cache for {proxy_url}: {e}"
-                                )
+                                logger.error(f"Failed to invalidate cache for {proxy_url}: {e}")
 
                         # Schedule recovery attempt
                         self._schedule_recovery(proxy_url)
@@ -303,7 +299,6 @@ class HealthChecker:
         Args:
             proxy_url: Proxy URL to attempt recovery on
         """
-        from datetime import datetime, timezone
 
         with self._lock:
             if proxy_url not in self._proxies:
@@ -312,10 +307,7 @@ class HealthChecker:
             proxy_state = self._proxies[proxy_url]
 
             # Check if max recovery attempts reached
-            if (
-                proxy_state["recovery_attempt"]
-                >= self.config.max_recovery_attempts
-            ):
+            if proxy_state["recovery_attempt"] >= self.config.max_recovery_attempts:
                 proxy_state["health_status"] = HealthStatus.PERMANENTLY_FAILED
                 logger.warning(
                     f"Proxy permanently failed after {proxy_state['recovery_attempt']} recovery attempts: {proxy_url}"
@@ -427,16 +419,14 @@ class HealthChecker:
 
         # Get unique sources
         with self._lock:
-            sources = set(proxy["source"] for proxy in self._proxies.values())
+            sources = {proxy["source"] for proxy in self._proxies.values()}
 
         # Start a worker for each source
         from proxywhirl.health_worker import HealthWorker
 
         for source in sources:
             # Get interval for this source (or use default)
-            interval = self.config.source_intervals.get(
-                source, self.config.check_interval_seconds
-            )
+            interval = self.config.source_intervals.get(source, self.config.check_interval_seconds)
 
             worker = HealthWorker(
                 source=source,
@@ -657,7 +647,7 @@ class HealthChecker:
                 cache_key = CacheManager.generate_cache_key(proxy_url)
                 cursor = conn.execute(
                     """
-                    SELECT proxy_key, check_time, status, response_time_ms, 
+                    SELECT proxy_key, check_time, status, response_time_ms,
                            error_message, check_url
                     FROM health_history
                     WHERE proxy_key = ? AND check_time >= ?

@@ -6,8 +6,6 @@ and per-source worker threads.
 """
 
 import threading
-import time
-from datetime import datetime, timezone
 from typing import Any, Callable, Optional
 
 from loguru import logger
@@ -119,9 +117,7 @@ class HealthWorker:
 
                     try:
                         result = self.check_func(proxy_url)
-                        logger.debug(
-                            f"Health check complete for {proxy_url}: {result.status}"
-                        )
+                        logger.debug(f"Health check complete for {proxy_url}: {result.status}")
                     except Exception as e:
                         logger.error(f"Health check failed for {proxy_url}: {e}")
 

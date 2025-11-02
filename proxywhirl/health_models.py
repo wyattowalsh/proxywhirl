@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 __all__ = [
     "HealthStatus",
@@ -105,7 +105,9 @@ class HealthEvent(BaseModel):
     - Pool health degraded (pool_degraded)
     """
 
-    event_type: str = Field(..., description="Type of event (proxy_down, proxy_recovered, pool_degraded)")
+    event_type: str = Field(
+        ..., description="Type of event (proxy_down, proxy_recovered, pool_degraded)"
+    )
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     proxy_url: Optional[str] = Field(None, description="Affected proxy URL if applicable")
     source: Optional[str] = Field(None, description="Proxy source if applicable")
