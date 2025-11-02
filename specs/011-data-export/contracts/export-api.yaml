@@ -1,0 +1,792 @@
+openapi: 3.0.3
+info:
+  title: ProxyWhirl Data Export API
+  version: 0.2.0
+  description: |
+    REST API endpoints for data export and import functionality.
+    Extends proxywhirl REST API (003-rest-api) with export capabilities.
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Development server
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /exports:
+    post:
+      summary: Create new export job
+      tags: [Exports]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExportRequest'
+      responses:
+        '202':
+          description: Export job created and queued
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJobResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+    get:
+      summary: List export jobs
+      tags: [Exports]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed]
+        - name: data_type
+          in: query
+          schema:
+            type: string
+            enum: [pool, analytics, health, dashboard]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of export jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ExportJobResponse'
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+
+  /exports/{export_id}:
+    get:
+      summary: Get export job details
+      tags: [Exports]
+      parameters:
+        - name: export_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Export job details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportJobResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      summary: Cancel or delete export job
+      tags: [Exports]
+      parameters:
+        - name: export_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Export job cancelled/deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Cannot cancel completed export
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /exports/{export_id}/download:
+    get:
+      summary: Download export file
+      tags: [Exports]
+      parameters:
+        - name: export_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Export file content
+          content:
+            application/json:
+              schema:
+                type: object
+            text/csv:
+              schema:
+                type: string
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/gzip:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: Attachment with filename
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /imports:
+    post:
+      summary: Import proxy pool from file
+      tags: [Imports]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                credential_decryption_key:
+                  type: string
+                  format: password
+                  description: Master key or user password for credential decryption
+                duplicate_strategy:
+                  type: string
+                  enum: [skip, rename, merge]
+                  default: skip
+              required:
+                - file
+                - credential_decryption_key
+      responses:
+        '202':
+          description: Import job created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportJobResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+    get:
+      summary: List import jobs
+      tags: [Imports]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [validating, validated, importing, completed, failed]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of import jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ImportJobResponse'
+                  total:
+                    type: integer
+
+  /imports/{import_id}:
+    get:
+      summary: Get import job status
+      tags: [Imports]
+      parameters:
+        - name: import_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Import job details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportJobResponse'
+
+  /export-templates:
+    post:
+      summary: Create export template
+      tags: [Templates]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTemplateRequest'
+      responses:
+        '201':
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportTemplateResponse'
+
+    get:
+      summary: List export templates
+      tags: [Templates]
+      parameters:
+        - name: data_type
+          in: query
+          schema:
+            type: string
+            enum: [pool, analytics, health, dashboard]
+        - name: include_public
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ExportTemplateResponse'
+
+  /export-templates/{template_id}:
+    get:
+      summary: Get template details
+      tags: [Templates]
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Template details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportTemplateResponse'
+
+    put:
+      summary: Update export template
+      tags: [Templates]
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTemplateRequest'
+      responses:
+        '200':
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportTemplateResponse'
+
+    delete:
+      summary: Delete export template
+      tags: [Templates]
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Template deleted
+
+  /scheduled-exports:
+    post:
+      summary: Create scheduled export
+      tags: [Scheduled Exports]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduledExportRequest'
+      responses:
+        '201':
+          description: Scheduled export created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledExportResponse'
+
+    get:
+      summary: List scheduled exports
+      tags: [Scheduled Exports]
+      parameters:
+        - name: enabled_only
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of scheduled exports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduledExportResponse'
+
+  /scheduled-exports/{schedule_id}:
+    get:
+      summary: Get scheduled export details
+      tags: [Scheduled Exports]
+      parameters:
+        - name: schedule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Scheduled export details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledExportResponse'
+
+    patch:
+      summary: Update scheduled export (enable/disable)
+      tags: [Scheduled Exports]
+      parameters:
+        - name: schedule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+                cron_expression:
+                  type: string
+                admin_email_list:
+                  type: array
+                  items:
+                    type: string
+                    format: email
+      responses:
+        '200':
+          description: Scheduled export updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduledExportResponse'
+
+    delete:
+      summary: Delete scheduled export
+      tags: [Scheduled Exports]
+      parameters:
+        - name: schedule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Scheduled export deleted
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  schemas:
+    CreateExportRequest:
+      type: object
+      required:
+        - data_type
+        - format
+      properties:
+        data_type:
+          type: string
+          enum: [pool, analytics, health, dashboard]
+        format:
+          type: string
+          enum: [csv, json, excel, pdf]
+        time_range_start:
+          type: string
+          format: date-time
+          description: Start of data range (for analytics/health)
+        time_range_end:
+          type: string
+          format: date-time
+          description: End of data range
+        parameters:
+          type: object
+          description: Export-specific parameters (filters, columns, etc.)
+          additionalProperties: true
+        compression_enabled:
+          type: boolean
+          default: true
+        notification_preferences:
+          type: object
+          properties:
+            in_app:
+              type: boolean
+              default: true
+            email:
+              type: boolean
+              default: false
+            webhook:
+              type: string
+              format: uri
+              nullable: true
+
+    ExportJobResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        data_type:
+          type: string
+          enum: [pool, analytics, health, dashboard]
+        format:
+          type: string
+          enum: [csv, json, excel, pdf]
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        created_by_user_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        time_range_start:
+          type: string
+          format: date-time
+          nullable: true
+        time_range_end:
+          type: string
+          format: date-time
+          nullable: true
+        output_file_path:
+          type: string
+          nullable: true
+        file_size_bytes:
+          type: integer
+          nullable: true
+        progress_percentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+        compression_enabled:
+          type: boolean
+        error_message:
+          type: string
+          nullable: true
+
+    ImportJobResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        source_file_path:
+          type: string
+        file_format:
+          type: string
+          enum: [json, csv]
+        status:
+          type: string
+          enum: [validating, validated, importing, completed, failed]
+        initiated_by_user_id:
+          type: string
+        initiated_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        validation_errors:
+          type: array
+          items:
+            type: string
+        detected_duplicates:
+          type: array
+          items:
+            type: string
+        imported_proxy_count:
+          type: integer
+          nullable: true
+        error_message:
+          type: string
+          nullable: true
+
+    CreateTemplateRequest:
+      type: object
+      required:
+        - name
+        - data_type
+        - format
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 500
+        data_type:
+          type: string
+          enum: [pool, analytics, health, dashboard]
+        format:
+          type: string
+          enum: [csv, json, excel, pdf]
+        default_filters:
+          type: object
+          additionalProperties: true
+        column_selections:
+          type: array
+          items:
+            type: string
+        compression_enabled:
+          type: boolean
+          default: true
+        destination_path_pattern:
+          type: string
+          default: exports/{user_id}/{year}/{month}/
+        is_public:
+          type: boolean
+          default: false
+
+    ExportTemplateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        data_type:
+          type: string
+        format:
+          type: string
+        default_filters:
+          type: object
+        column_selections:
+          type: array
+          items:
+            type: string
+        compression_enabled:
+          type: boolean
+        destination_path_pattern:
+          type: string
+        created_by_user_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        is_public:
+          type: boolean
+
+    CreateScheduledExportRequest:
+      type: object
+      required:
+        - template_id
+        - name
+        - cron_expression
+      properties:
+        template_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        cron_expression:
+          type: string
+          example: "0 2 * * *"
+        timezone:
+          type: string
+          default: UTC
+          example: America/New_York
+        enabled:
+          type: boolean
+          default: true
+        failure_retry_policy:
+          type: object
+          properties:
+            max_retries:
+              type: integer
+              default: 3
+            backoff_seconds:
+              type: integer
+              default: 300
+        admin_email_list:
+          type: array
+          items:
+            type: string
+            format: email
+
+    ScheduledExportResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        template_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        cron_expression:
+          type: string
+        timezone:
+          type: string
+        enabled:
+          type: boolean
+        last_execution_time:
+          type: string
+          format: date-time
+          nullable: true
+        next_scheduled_time:
+          type: string
+          format: date-time
+          nullable: true
+        failure_retry_policy:
+          type: object
+        admin_email_list:
+          type: array
+          items:
+            type: string
+        created_by_user_id:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Forbidden - insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retry
