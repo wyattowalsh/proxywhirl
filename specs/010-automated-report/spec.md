@@ -29,8 +29,7 @@ Users need to generate detailed reports about proxy pool performance, health, an
 
 1. **Given** a running proxy pool with active proxies, **When** user requests a performance report, **Then** system generates a report showing request counts, success rates, and response times for each proxy
 2. **Given** proxies in various health states, **When** user requests a health report, **Then** system generates a report showing current health status, failure counts, and last check times
-3. **Given** a time range specification, **When** user requests a report for that period, **Then** system generates a report containing only data from the specified timeframe
-4. **Given** an empty proxy pool, **When** user requests a report, **Then** system generates a valid report indicating no data available
+3. **Given** a time range specification (e.g., last 24 hours, last 7 days, custom range), **When** user requests a report for that period, **Then** system generates a report containing only data from the specified timeframe, or indicates "no data available" if timeframe contains no proxy activity
 
 ---
 
@@ -104,8 +103,8 @@ Users want to customize which metrics and sections appear in reports, filter by 
 - **FR-003**: System MUST support time-range filtering for reports (last hour, last 24 hours, last 7 days, custom range)
 - **FR-004**: System MUST export reports in JSON format with structured data
 - **FR-005**: System MUST export reports in CSV format suitable for spreadsheet applications
-- **FR-006**: System MUST export reports in HTML format with styled tables and basic visualizations
-- **FR-007**: System MUST persist report generation history (timestamp, parameters, output location) and store both raw metrics data and generated report files for retention period
+- **FR-006**: System MUST export reports in HTML format with styled tables (sortable/filterable), proper semantic markup, and responsive CSS (visualizations deferred to future release)
+- **FR-007**: System MUST persist report generation history (timestamp, parameters, output location) and store both raw metrics data and generated report files (see FR-021 for retention policy details)
 - **FR-008**: System MUST calculate aggregate statistics (total requests, overall success rate, average response time across all proxies)
 - **FR-009**: System MUST include proxy source breakdown in reports (requests per source, success rate per source)
 - **FR-010**: Users MUST be able to generate reports via API endpoint
@@ -114,8 +113,8 @@ Users want to customize which metrics and sections appear in reports, filter by 
 - **FR-013**: System MUST handle missing or incomplete data gracefully (indicate gaps in report)
 - **FR-014**: System MUST support scheduled report generation at configurable intervals
 - **FR-015**: System MUST support custom report templates with user-defined metrics and sections, validated at template creation/update time
-- **FR-016**: System MUST export reports in PDF format with professional styling
-- **FR-017**: System MUST support report delivery via configured output locations (filesystem, S3-compatible storage)
+- **FR-016**: System MUST export reports in PDF format with professional styling: Arial 11pt body text, Helvetica Bold 14pt headings, 1-inch margins, header with report title and date, footer with page numbers and generation timestamp
+- **FR-017**: System MUST support report delivery via configured filesystem output locations (cloud storage like S3 deferred to future release)
 - **FR-018**: System MUST include rotation strategy metrics in reports (strategy name, switch count, efficiency)
 - **FR-019**: System MUST support filtering reports by specific proxy URLs or sources
 - **FR-020**: System MUST include timestamp and report generation parameters in all reports
@@ -141,7 +140,7 @@ Users want to customize which metrics and sections appear in reports, filter by 
 - **SC-001**: Users can generate a basic performance report in under 5 seconds for pools with up to 1000 proxies
 - **SC-002**: Reports accurately reflect proxy pool state with less than 1% variance from actual metrics
 - **SC-003**: System successfully generates reports in all supported formats (JSON, CSV, HTML) without data loss
-- **SC-004**: Users can understand proxy pool health by reading a report without additional documentation
+- **SC-004**: Users can understand proxy pool health by reading a report without additional documentation (validated: 80% of test users understand health status within 2 minutes of reading report)
 - **SC-005**: Report generation succeeds 99.9% of the time for valid requests
 - **SC-006**: Generated reports consume less than 100MB of memory during generation through incremental streaming for datasets of any size
 - **SC-007**: Scheduled reports run within 1 minute of their scheduled time 99% of the time
@@ -163,7 +162,8 @@ Users want to customize which metrics and sections appear in reports, filter by 
 - PDF generation uses a standard Python library (e.g., reportlab or weasyprint)
 - Scheduled reports use standard cron expression syntax
 - Report templates are stored as JSON configuration files and validated on save
-- Email delivery for scheduled reports is optional (filesystem delivery is baseline)
+- Email delivery for scheduled reports is deferred to future release (filesystem delivery is MVP baseline)
+- SMTP integration and email formatting are explicitly out of scope for this feature
 - Default concurrency limit is 3 simultaneous report generations (configurable)
 - Streaming report generation uses buffered writes with configurable chunk size (default 1000 records)
 

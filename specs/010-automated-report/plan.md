@@ -159,11 +159,15 @@ proxywhirl/                       # Single package (flat architecture)
 ├── [existing modules...]         # Models, rotator, strategies, etc.
 └── py.typed                      # PEP 561 type marker
 
-templates/                        # NEW: Jinja2 templates
+templates/                        # NEW: Jinja2 templates (repository root, NOT in package)
 └── reports/
     ├── base.html                 # HTML report base template
     ├── performance.html          # Performance report template
     └── health.html               # Health report template
+
+Note: templates/ directory lives at repository root alongside proxywhirl/ package.
+Templates are NOT distributed in the Python wheel (external resources).
+Load via: Path(__file__).parent.parent / 'templates' / 'reports'
 
 tests/
 ├── unit/

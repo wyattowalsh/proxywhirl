@@ -41,6 +41,7 @@
 - [ ] T010 [P] Create tests/unit/test_report_models.py with test_report_validation_rules
 - [ ] T011 [P] Create tests/unit/test_metrics_collector.py with test_abstract_interface
 - [ ] T012 [P] Create tests/unit/test_report_formatters.py with test_base_formatter_interface
+- [ ] T012b [P] Add test_source_breakdown_formatting to tests/unit/test_report_formatters.py for FR-009
 
 ### Core Models (proxywhirl/report_models.py)
 
@@ -59,6 +60,7 @@
 - [ ] T022 [FOUNDATION] Define MetricsDataStore abstract base class with ABC
 - [ ] T023 [P] [FOUNDATION] Implement MetricsDataStore.get_proxy_metrics(start, end) -> Iterator[ReportMetric]
 - [ ] T024 [P] [FOUNDATION] Implement MetricsDataStore.get_aggregate_stats(start, end) -> Dict
+- [ ] T024b [P] [FOUNDATION] Implement MetricsDataStore.get_source_breakdown(start, end) -> Dict[str, Dict] for FR-009
 - [ ] T025 [P] [FOUNDATION] Implement MetricsDataStore.get_available_metrics() -> List[str]
 - [ ] T026 [FOUNDATION] Create MockMetricsCollector for unit testing (returns fake data)
 - [ ] T027 [FOUNDATION] Create InMemoryMetricsCollector using ProxyRotator state (for feature independence)
@@ -108,6 +110,7 @@
 - [ ] T049 [US1] Add credential redaction in proxy URLs (strip auth before logging)
 - [ ] T050 [US1] Add structured logging: generation_started, generation_completed events (loguru)
 - [ ] T051 [US1] Verify tests pass: uv run pytest tests/integration/test_report_generation.py
+- [ ] T051b [US1] Add integration test for rotation strategy metrics in tests/integration/test_strategy_metrics.py for FR-018
 
 **Checkpoint**: At this point, User Story 1 should be fully functional - can generate JSON reports programmatically
 
@@ -131,7 +134,7 @@
 - [ ] T056 [P] [US2] Implement CSVFormatter class in proxywhirl/report_formatters.py
 - [ ] T057 [P] [US2] Add CSVFormatter.format() using csv.DictWriter with streaming
 - [ ] T058 [US2] Implement HTMLFormatter class in proxywhirl/report_formatters.py
-- [ ] T059 [US2] Create Jinja2 HTML templates in proxywhirl/templates/reports/ directory
+- [ ] T059 [US2] Create Jinja2 HTML templates in templates/reports/ directory (repository root, not in package)
 - [ ] T060 [US2] Add HTMLFormatter.format() with Jinja2 rendering and autoescaping
 - [ ] T061 [US2] Implement PDFFormatter class in proxywhirl/report_formatters.py
 - [ ] T062 [US2] Add PDFFormatter.format() using reportlab with streaming table generation
@@ -450,14 +453,14 @@ With multiple developers:
 ## Task Count Summary
 
 - **Phase 1 (Setup)**: 9 tasks
-- **Phase 2 (Foundational)**: 27 tasks (BLOCKS all user stories)
-- **Phase 3 (US1 - P1 MVP)**: 15 tasks
+- **Phase 2 (Foundational)**: 29 tasks (BLOCKS all user stories) - added T012b, T024b for coverage
+- **Phase 3 (US1 - P1 MVP)**: 16 tasks - added T051b for strategy metrics
 - **Phase 4 (US2 - P2)**: 16 tasks
 - **Phase 5 (US3 - P3)**: 20 tasks
 - **Phase 6 (US4 - P3)**: 19 tasks
 - **Phase 7 (REST API)**: 26 tasks
 - **Phase 8 (Polish)**: 25 tasks
-- **Total**: 171 tasks
+- **Total**: 174 tasks
 
-**Minimum MVP**: 51 tasks (Phase 1 + Phase 2 + Phase 3) for basic JSON reporting
-**Full Feature**: 171 tasks for complete implementation with all user stories
+**Minimum MVP**: 54 tasks (Phase 1 + Phase 2 + Phase 3) for basic JSON reporting
+**Full Feature**: 174 tasks for complete implementation with all user stories
