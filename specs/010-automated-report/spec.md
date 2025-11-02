@@ -5,6 +5,16 @@
 **Status**: Draft  
 **Input**: User description: "create a new feature/spec branch for 010-reporting-automated-report"
 
+## Clarifications
+
+### Session 2025-11-02
+
+- Q: Should the system store historical raw metrics data for retrospective report generation, or only store the generated report files themselves? → A: Store both raw metrics data and generated report files - enables regenerating historical reports with different templates/formats
+- Q: What specific data should be automatically deleted after the retention period expires? → A: Delete generated report files and generation history records, keep raw metrics per 008-metrics retention policy
+- Q: How should the system handle multiple simultaneous report generation requests? → A: Queue requests with configurable concurrency limit (e.g., 3 concurrent reports max)
+- Q: What should happen when a report would exceed memory or size limits? → A: Stream report generation to disk/output incrementally to avoid loading full dataset in memory
+- Q: How should the system handle invalid or malformed custom report templates? → A: Validate templates at creation/update time, reject templates referencing non-existent metrics
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Generate On-Demand Reports (Priority: P1)
@@ -77,13 +87,13 @@ Users want to customize which metrics and sections appear in reports, filter by 
 
 ### Edge Cases
 
-- What happens when report generation is requested but no data exists for the specified time range?
-- How does system handle report generation when proxy pool is actively rotating proxies?
-- What happens when scheduled report generation fails due to system being offline?
-- How does system handle very large reports (e.g., 1M+ proxy requests)?
-- What happens when export format is unavailable (e.g., PDF library not installed)?
-- How does system handle concurrent report generation requests?
-- What happens when report data exceeds memory limits?
+- What happens when report generation is requested but no data exists for the specified time range? (System generates valid report indicating no data available - per US1 acceptance scenario 4)
+- How does system handle report generation when proxy pool is actively rotating proxies? (Report captures point-in-time snapshot of metrics at generation time)
+- What happens when scheduled report generation fails due to system being offline? (System logs error and retries per retry policy - per US3 acceptance scenario 4)
+- How does system handle very large reports (e.g., 1M+ proxy requests)? (System streams report generation incrementally to avoid memory exhaustion)
+- What happens when export format is unavailable (e.g., PDF library not installed)? (System returns error indicating format unavailable and suggests alternative formats)
+- How does system handle concurrent report generation requests? (System queues requests with configurable concurrency limit, default 3 concurrent maximum)
+- What happens when report data exceeds memory limits? (System uses streaming approach to process data incrementally without loading full dataset)
 
 ## Requirements *(mandatory)*
 
@@ -95,7 +105,7 @@ Users want to customize which metrics and sections appear in reports, filter by 
 - **FR-004**: System MUST export reports in JSON format with structured data
 - **FR-005**: System MUST export reports in CSV format suitable for spreadsheet applications
 - **FR-006**: System MUST export reports in HTML format with styled tables and basic visualizations
-- **FR-007**: System MUST persist report generation history (timestamp, parameters, output location)
+- **FR-007**: System MUST persist report generation history (timestamp, parameters, output location) and store both raw metrics data and generated report files for retention period
 - **FR-008**: System MUST calculate aggregate statistics (total requests, overall success rate, average response time across all proxies)
 - **FR-009**: System MUST include proxy source breakdown in reports (requests per source, success rate per source)
 - **FR-010**: Users MUST be able to generate reports via API endpoint
@@ -103,20 +113,26 @@ Users want to customize which metrics and sections appear in reports, filter by 
 - **FR-012**: System MUST validate time range parameters (end time after start time, not in future)
 - **FR-013**: System MUST handle missing or incomplete data gracefully (indicate gaps in report)
 - **FR-014**: System MUST support scheduled report generation at configurable intervals
-- **FR-015**: System MUST support custom report templates with user-defined metrics and sections
+- **FR-015**: System MUST support custom report templates with user-defined metrics and sections, validated at template creation/update time
 - **FR-016**: System MUST export reports in PDF format with professional styling
 - **FR-017**: System MUST support report delivery via configured output locations (filesystem, S3-compatible storage)
 - **FR-018**: System MUST include rotation strategy metrics in reports (strategy name, switch count, efficiency)
 - **FR-019**: System MUST support filtering reports by specific proxy URLs or sources
 - **FR-020**: System MUST include timestamp and report generation parameters in all reports
+- **FR-021**: System MUST automatically clean up generated report files and generation history records after retention period (default 30 days), while preserving raw metrics per 008-metrics retention policy
+- **FR-022**: System MUST queue concurrent report generation requests with configurable concurrency limit (default 3 concurrent reports maximum)
+- **FR-023**: System MUST stream large report generation to disk/output incrementally to handle arbitrarily large datasets without memory exhaustion
+- **FR-024**: System MUST reject custom report templates that reference non-existent or unavailable metrics with clear error messages
+- **FR-025**: System MUST enable regenerating historical reports from stored raw metrics data using different templates or output formats
 
 ### Key Entities
 
 - **Report**: Represents a generated report containing metrics, timestamp, parameters used for generation, output format, and data snapshot
 - **ReportSchedule**: Represents an automated report schedule with interval (cron expression), template reference, output configuration, and enabled status
-- **ReportTemplate**: Represents a customizable report structure with included metrics, filters, thresholds, and output format preferences
+- **ReportTemplate**: Represents a customizable report structure with included metrics (validated at creation), filters, thresholds, and output format preferences
 - **ReportMetric**: Represents a single metric data point with name, value, timestamp, and associated proxy/source identifier
-- **ReportHistory**: Represents historical record of report generations with timestamp, success/failure status, parameters, and output location
+- **ReportHistory**: Represents historical record of report generations with timestamp, success/failure status, parameters, output location, and retention expiry date
+- **MetricsDataStore**: Represents persisted raw metrics data enabling retrospective report regeneration with different parameters or formats
 
 ## Success Criteria *(mandatory)*
 
@@ -127,24 +143,29 @@ Users want to customize which metrics and sections appear in reports, filter by 
 - **SC-003**: System successfully generates reports in all supported formats (JSON, CSV, HTML) without data loss
 - **SC-004**: Users can understand proxy pool health by reading a report without additional documentation
 - **SC-005**: Report generation succeeds 99.9% of the time for valid requests
-- **SC-006**: Generated reports consume less than 100MB of memory for typical usage (1000 proxies, 7 days data)
+- **SC-006**: Generated reports consume less than 100MB of memory during generation through incremental streaming for datasets of any size
 - **SC-007**: Scheduled reports run within 1 minute of their scheduled time 99% of the time
 - **SC-008**: Users can export and import custom report templates without manual file editing
 - **SC-009**: Report API responds with appropriate HTTP status codes and error messages for invalid requests
 - **SC-010**: PDF reports are readable and professionally formatted on all standard page sizes
+- **SC-011**: System successfully handles 3 concurrent report generation requests without performance degradation
+- **SC-012**: Template validation rejects 100% of templates with non-existent metrics before report generation
 
 ## Assumptions
 
 - Report data will be sourced from existing metrics collection in the proxy rotator (building on 008-metrics-observability-performance)
-- Users have sufficient disk space or cloud storage for report output files
+- Users have sufficient disk space or cloud storage for report output files and raw metrics data
 - Time ranges specified use UTC timezone by default
 - Report generation is synchronous for on-demand requests (async for scheduled reports)
-- Default report retention period is 30 days (configurable)
+- Default report retention period is 30 days (configurable) for generated report files and history records
+- Raw metrics data retention follows 008-metrics-observability-performance policy independently
 - HTML reports include basic CSS for styling without external dependencies
 - PDF generation uses a standard Python library (e.g., reportlab or weasyprint)
 - Scheduled reports use standard cron expression syntax
-- Report templates are stored as JSON configuration files
+- Report templates are stored as JSON configuration files and validated on save
 - Email delivery for scheduled reports is optional (filesystem delivery is baseline)
+- Default concurrency limit is 3 simultaneous report generations (configurable)
+- Streaming report generation uses buffered writes with configurable chunk size (default 1000 records)
 
 ## Dependencies
 
