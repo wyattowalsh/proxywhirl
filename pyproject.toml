@@ -63,10 +63,18 @@ security = [
 js = [
     "playwright>=1.40.0",
 ]
+analytics = [
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "scikit-learn>=1.3.0",
+]
 all = [
     "sqlmodel>=0.0.14",
     "cryptography>=41.0.0",
     "playwright>=1.40.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "scikit-learn>=1.3.0",
 ]
 docs = [
     "sphinx>=7.4.0",
@@ -172,7 +180,7 @@ warn_unreachable = true
 strict_equality = true
 
 [[tool.mypy.overrides]]
-module = ["cryptography.*", "tomllib", "tomli"]
+module = ["cryptography.*", "tomllib", "tomli", "pandas.*", "numpy.*", "sklearn.*", "scipy.*"]
 ignore_missing_imports = true
 
 [dependency-groups]
