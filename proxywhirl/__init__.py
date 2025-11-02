@@ -5,8 +5,32 @@ A production-ready library for intelligent proxy rotation with auto-fetching,
 validation, and persistence capabilities.
 """
 
+from proxywhirl.analytics_engine import AnalyticsEngine
+from proxywhirl.analytics_models import (
+    AnalysisConfig,
+    AnalysisReport,
+    AnalysisType,
+    AnalyticsQuery,
+    Anomaly,
+    AnomalyType,
+    ExportFormat,
+    FailureCluster,
+    PerformanceScore,
+    Prediction,
+    ProxyPerformanceMetrics,
+    Recommendation,
+    RecommendationPriority,
+    TimeSeriesData,
+    TrendDirection,
+    UsagePattern,
+)
 from proxywhirl.browser import BrowserRenderer
 from proxywhirl.cache import CacheManager
+from proxywhirl.cost_analyzer import CostAnalyzer
+from proxywhirl.failure_analyzer import FailureAnalyzer
+from proxywhirl.pattern_detector import PatternDetector
+from proxywhirl.performance_analyzer import PerformanceAnalyzer
+from proxywhirl.predictive_analytics import PredictiveAnalytics
 from proxywhirl.cache_models import (
     CacheConfig,
     CacheEntry,
@@ -138,6 +162,30 @@ __version__ = "1.0.0"
 __all__: list[str] = [
     # Version
     "__version__",
+    # Analytics Components
+    "AnalyticsEngine",
+    "PerformanceAnalyzer",
+    "PatternDetector",
+    "FailureAnalyzer",
+    "CostAnalyzer",
+    "PredictiveAnalytics",
+    # Analytics Models
+    "AnalysisConfig",
+    "AnalysisReport",
+    "AnalysisType",
+    "AnalyticsQuery",
+    "ProxyPerformanceMetrics",
+    "PerformanceScore",
+    "UsagePattern",
+    "FailureCluster",
+    "Prediction",
+    "Recommendation",
+    "RecommendationPriority",
+    "Anomaly",
+    "AnomalyType",
+    "TimeSeriesData",
+    "TrendDirection",
+    "ExportFormat",
     # Cache Components
     "CacheManager",
     "CacheConfig",
