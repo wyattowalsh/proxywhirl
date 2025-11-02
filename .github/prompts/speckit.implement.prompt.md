@@ -108,11 +108,6 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Follow TDD approach**: Execute test tasks before their corresponding implementation tasks
    - **File-based coordination**: Tasks affecting the same files must run sequentially
    - **Validation checkpoints**: Verify each phase completion before proceeding
-   - **Python project command execution**: 
-     - **CRITICAL**: For Python projects with pyproject.toml, ALWAYS use `uv run --` prefix for all Python commands
-     - Examples: `uv run -- pytest`, `uv run -- mypy`, `uv run -- black`, `uv run -- ruff`
-     - This ensures commands run in the correct virtual environment with proper dependencies
-     - Never use bare `python`, `pytest`, `mypy`, etc. - always prefix with `uv run --`
 
 7. Implementation execution rules:
    - **Setup first**: Initialize project structure, dependencies, configuration
@@ -120,7 +115,6 @@ You **MUST** consider the user input before proceeding (if not empty).
    - **Core development**: Implement models, services, CLI commands, endpoints
    - **Integration work**: Database connections, middleware, logging, external services
    - **Polish and validation**: Unit tests, performance optimization, documentation
-   - **Python execution**: Use `uv run --` for all Python commands (pytest, mypy, black, ruff, python scripts)
 
 8. Progress tracking and error handling:
    - Report progress after each completed task

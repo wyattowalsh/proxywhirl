@@ -1,0 +1,101 @@
+# Prometheus Scrape Configuration
+# Add this to your Prometheus prometheus.yml
+
+scrape_configs:
+  # ProxyWhirl metrics endpoint
+  - job_name: 'proxywhirl'
+    
+    # Scrape interval (should match MetricsConfig.scrape_interval_seconds)
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    
+    # Metrics path (should match MetricsConfig.exposition_path)
+    metrics_path: '/metrics'
+    
+    # Target endpoints
+    static_configs:
+      - targets:
+          - 'localhost:9090'  # Change to your ProxyWhirl host:port
+        labels:
+          environment: 'production'  # Optional: add environment label
+          service: 'proxywhirl'
+    
+    # Optional: Basic authentication (if MetricsConfig.basic_auth_* is set)
+    basic_auth:
+      username: 'prometheus'
+      password: 'secure_password'  # Or use password_file for security
+    
+    # Optional: TLS configuration for HTTPS endpoints
+    # tls_config:
+    #   ca_file: /path/to/ca.crt
+    #   cert_file: /path/to/client.crt
+    #   key_file: /path/to/client.key
+    #   insecure_skip_verify: false
+    
+    # Optional: Relabeling rules
+    relabel_configs:
+      # Drop metrics with high cardinality labels (if needed)
+      - source_labels: [__name__]
+        regex: 'proxywhirl_proxy_.*'  # Example: drop per-proxy metrics
+        action: drop
+    
+    # Optional: Metric relabeling (post-scrape)
+    metric_relabel_configs:
+      # Example: drop specific labels to reduce cardinality
+      - regex: 'proxy_url'
+        action: labeldrop
+
+---
+
+# Alternative: Service Discovery (Kubernetes)
+# Use this instead of static_configs for dynamic environments
+
+scrape_configs:
+  - job_name: 'proxywhirl-k8s'
+    scrape_interval: 60s
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+            - production  # Your namespace
+    
+    relabel_configs:
+      # Only scrape pods with annotation: prometheus.io/scrape: "true"
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      
+      # Use custom port from annotation: prometheus.io/port
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        target_label: __address__
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+      
+      # Use custom path from annotation: prometheus.io/path
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      
+      # Add pod metadata as labels
+      - source_labels: [__meta_kubernetes_namespace]
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: kubernetes_pod_name
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        target_label: app
+
+---
+
+# Example Kubernetes Pod Annotations
+# Add these to your ProxyWhirl deployment YAML
+
+# apiVersion: v1
+# kind: Pod
+# metadata:
+#   name: proxywhirl
+#   annotations:
+#     prometheus.io/scrape: "true"
+#     prometheus.io/port: "9090"
+#     prometheus.io/path: "/metrics"

@@ -1,0 +1,201 @@
+# AlertManager Rules Configuration
+# Add this to your Prometheus alert rules file (e.g., /etc/prometheus/rules/proxywhirl.yml)
+
+groups:
+  - name: proxywhirl_performance
+    interval: 60s
+    rules:
+      # Alert: High Error Rate
+      - alert: ProxyPoolHighErrorRate
+        expr: |
+          (
+            rate(proxywhirl_requests_total{status="error"}[5m])
+            /
+            rate(proxywhirl_requests_total[5m])
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: proxywhirl
+        annotations:
+          summary: "High error rate in proxy pool {{ $labels.pool }}"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 5%) for pool {{ $labels.pool }} in region {{ $labels.region }}"
+          runbook_url: "https://wiki.company.com/runbooks/proxy-errors"
+          dashboard_url: "https://grafana.company.com/d/proxywhirl"
+      
+      # Alert: Critical Error Rate
+      - alert: ProxyPoolCriticalErrorRate
+        expr: |
+          (
+            rate(proxywhirl_requests_total{status="error"}[5m])
+            /
+            rate(proxywhirl_requests_total[5m])
+          ) > 0.20
+        for: 3m
+        labels:
+          severity: critical
+          component: proxywhirl
+        annotations:
+          summary: "CRITICAL: Very high error rate in proxy pool {{ $labels.pool }}"
+          description: "Error rate is {{ $value | humanizePercentage }} (threshold: 20%) for pool {{ $labels.pool }}. Immediate action required."
+          runbook_url: "https://wiki.company.com/runbooks/proxy-critical-errors"
+      
+      # Alert: High Latency (P95)
+      - alert: ProxyPoolHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(proxywhirl_request_duration_seconds_bucket[5m])
+          ) > 5.0
+        for: 10m
+        labels:
+          severity: warning
+          component: proxywhirl
+        annotations:
+          summary: "High latency in proxy pool {{ $labels.pool }}"
+          description: "P95 latency is {{ $value | humanizeDuration }} (threshold: 5s) for pool {{ $labels.pool }}"
+          runbook_url: "https://wiki.company.com/runbooks/proxy-latency"
+      
+      # Alert: Pool Unhealthy Proxies
+      - alert: ProxyPoolUnhealthyProxies
+        expr: |
+          (
+            proxywhirl_pool_proxies{health_status="unhealthy"}
+            /
+            sum by (pool) (proxywhirl_pool_proxies)
+          ) > 0.30
+        for: 5m
+        labels:
+          severity: warning
+          component: proxywhirl
+        annotations:
+          summary: "High percentage of unhealthy proxies in pool {{ $labels.pool }}"
+          description: "{{ $value | humanizePercentage }} of proxies are unhealthy (threshold: 30%) in pool {{ $labels.pool }}"
+          runbook_url: "https://wiki.company.com/runbooks/proxy-health"
+      
+      # Alert: Pool Size Low
+      - alert: ProxyPoolSizeLow
+        expr: |
+          sum by (pool) (proxywhirl_pool_proxies{health_status="healthy"}) < 5
+        for: 10m
+        labels:
+          severity: warning
+          component: proxywhirl
+        annotations:
+          summary: "Low number of healthy proxies in pool {{ $labels.pool }}"
+          description: "Only {{ $value }} healthy proxies available (threshold: 5) in pool {{ $labels.pool }}"
+          runbook_url: "https://wiki.company.com/runbooks/proxy-capacity"
+      
+      # Alert: Metrics Endpoint Down
+      - alert: ProxyWhirlMetricsDown
+        expr: up{job="proxywhirl"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: proxywhirl
+        annotations:
+          summary: "ProxyWhirl metrics endpoint is down"
+          description: "Prometheus cannot scrape metrics from ProxyWhirl instance {{ $labels.instance }}"
+          runbook_url: "https://wiki.company.com/runbooks/service-down"
+      
+      # Alert: Health Check Failures
+      - alert: ProxyHealthCheckFailures
+        expr: |
+          (
+            rate(proxywhirl_proxy_health_checks_total{result="fail"}[5m])
+            /
+            rate(proxywhirl_proxy_health_checks_total[5m])
+          ) > 0.50
+        for: 5m
+        labels:
+          severity: warning
+          component: proxywhirl
+        annotations:
+          summary: "High health check failure rate for proxy {{ $labels.proxy_id }}"
+          description: "Health check failure rate is {{ $value | humanizePercentage }} (threshold: 50%) for proxy {{ $labels.proxy_id }} in pool {{ $labels.pool }}"
+          runbook_url: "https://wiki.company.com/runbooks/proxy-health-checks"
+
+  - name: proxywhirl_capacity
+    interval: 300s  # Check every 5 minutes
+    rules:
+      # Alert: Request Rate Increasing
+      - alert: ProxyRequestRateIncreasing
+        expr: |
+          deriv(
+            rate(proxywhirl_requests_total[10m])[30m:]
+          ) > 0.1
+        for: 15m
+        labels:
+          severity: info
+          component: proxywhirl
+        annotations:
+          summary: "Request rate increasing for pool {{ $labels.pool }}"
+          description: "Request rate has been steadily increasing over the past 30 minutes. Consider adding more proxies if sustained."
+          dashboard_url: "https://grafana.company.com/d/proxywhirl"
+      
+      # Alert: Near Capacity
+      - alert: ProxyPoolNearCapacity
+        expr: |
+          (
+            rate(proxywhirl_requests_total[5m])
+            /
+            sum by (pool) (proxywhirl_pool_proxies{health_status="healthy"})
+          ) > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: proxywhirl
+        annotations:
+          summary: "Proxy pool {{ $labels.pool }} approaching capacity"
+          description: "Request rate per proxy is {{ $value | humanize }} req/s. Consider scaling the pool."
+          runbook_url: "https://wiki.company.com/runbooks/proxy-scaling"
+
+  - name: proxywhirl_recording_rules
+    interval: 60s
+    rules:
+      # Recording Rule: Success Rate by Pool (1m)
+      - record: proxywhirl:pool_success_rate:1m
+        expr: |
+          rate(proxywhirl_requests_total{status="success"}[1m])
+          /
+          rate(proxywhirl_requests_total[1m])
+      
+      # Recording Rule: Success Rate by Pool (5m)
+      - record: proxywhirl:pool_success_rate:5m
+        expr: |
+          rate(proxywhirl_requests_total{status="success"}[5m])
+          /
+          rate(proxywhirl_requests_total[5m])
+      
+      # Recording Rule: P95 Latency by Pool (1m)
+      - record: proxywhirl:pool_latency_p95:1m
+        expr: |
+          histogram_quantile(0.95,
+            rate(proxywhirl_request_duration_seconds_bucket[1m])
+          )
+      
+      # Recording Rule: P95 Latency by Pool (5m)
+      - record: proxywhirl:pool_latency_p95:5m
+        expr: |
+          histogram_quantile(0.95,
+            rate(proxywhirl_request_duration_seconds_bucket[5m])
+          )
+      
+      # Recording Rule: P99 Latency by Pool (5m)
+      - record: proxywhirl:pool_latency_p99:5m
+        expr: |
+          histogram_quantile(0.99,
+            rate(proxywhirl_request_duration_seconds_bucket[5m])
+          )
+      
+      # Recording Rule: Request Rate by Pool (1m)
+      - record: proxywhirl:pool_request_rate:1m
+        expr: rate(proxywhirl_requests_total[1m])
+      
+      # Recording Rule: Healthy Proxy Percentage by Pool
+      - record: proxywhirl:pool_healthy_percentage
+        expr: |
+          (
+            proxywhirl_pool_proxies{health_status="healthy"}
+            /
+            sum by (pool) (proxywhirl_pool_proxies)
+          )
