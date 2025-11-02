@@ -87,22 +87,32 @@ class HealthWorker:
         """Main check loop that runs in background thread."""
         while self._running and not self._stop_event.is_set():
             try:
+                from datetime import datetime, timezone
+
                 # Get proxies for this source
                 with self.lock:
                     source_proxies = [
-                        url
+                        (url, state)
                         for url, state in self.proxies.items()
                         if state.get("source") == self.source
                     ]
 
                 # Check each proxy
-                for proxy_url in source_proxies:
+                for proxy_url, proxy_state in source_proxies:
                     if not self._running:
                         break
 
+                    # Check if this proxy has a scheduled recovery check
+                    next_check = proxy_state.get("next_check_time")
+                    if next_check and datetime.now(timezone.utc) < next_check:
+                        # Skip check - not time yet for recovery
+                        continue
+
                     try:
                         result = self.check_func(proxy_url)
-                        logger.debug(f"Health check complete for {proxy_url}: {result.status}")
+                        logger.debug(
+                            f"Health check complete for {proxy_url}: {result.status}"
+                        )
                     except Exception as e:
                         logger.error(f"Health check failed for {proxy_url}: {e}")
 

@@ -227,7 +227,107 @@ class HealthChecker:
                                 cache_key = CacheManager.generate_cache_key(proxy_url)
                                 self.cache_manager.invalidate_by_health(cache_key)
                             except Exception as e:
-                                logger.error(f"Failed to invalidate cache for {proxy_url}: {e}")
+                                logger.error(
+                                    f"Failed to invalidate cache for {proxy_url}: {e}"
+                                )
+
+                        # Schedule recovery attempt
+                        self._schedule_recovery(proxy_url)
+
+    def _schedule_recovery(self, proxy_url: str) -> None:
+        """Schedule a recovery attempt for an unhealthy proxy.
+
+        Args:
+            proxy_url: Proxy URL to schedule recovery for
+        """
+        from datetime import datetime, timedelta, timezone
+
+        with self._lock:
+            if proxy_url not in self._proxies:
+                return
+
+            proxy_state = self._proxies[proxy_url]
+
+            # Calculate exponential backoff cooldown
+            attempt = proxy_state.get("recovery_attempt", 0)
+            cooldown = self._calculate_recovery_cooldown(attempt)
+
+            # Schedule next check
+            proxy_state["next_check_time"] = datetime.now(timezone.utc) + timedelta(
+                seconds=cooldown
+            )
+            proxy_state["health_status"] = HealthStatus.RECOVERING
+            proxy_state["recovery_attempt"] = attempt + 1
+
+            logger.info(
+                f"Scheduled recovery for {proxy_url} in {cooldown}s (attempt {attempt + 1})"
+            )
+
+    def _calculate_recovery_cooldown(self, attempt: int) -> int:
+        """Calculate exponential backoff cooldown for recovery attempts.
+
+        Args:
+            attempt: Current recovery attempt number (0-based)
+
+        Returns:
+            Cooldown period in seconds
+        """
+        # Exponential backoff: base * 2^attempt
+        base = self.config.recovery_cooldown_base_seconds
+        cooldown = base * (2**attempt)
+
+        # Cap at a reasonable maximum (e.g., 1 hour)
+        max_cooldown = 3600
+        return min(cooldown, max_cooldown)
+
+    def _attempt_recovery(self, proxy_url: str) -> None:
+        """Attempt to recover an unhealthy proxy.
+
+        Args:
+            proxy_url: Proxy URL to attempt recovery on
+        """
+        from datetime import datetime, timezone
+
+        with self._lock:
+            if proxy_url not in self._proxies:
+                return
+
+            proxy_state = self._proxies[proxy_url]
+
+            # Check if max recovery attempts reached
+            if (
+                proxy_state["recovery_attempt"]
+                >= self.config.max_recovery_attempts
+            ):
+                proxy_state["health_status"] = HealthStatus.PERMANENTLY_FAILED
+                logger.warning(
+                    f"Proxy permanently failed after {proxy_state['recovery_attempt']} recovery attempts: {proxy_url}"
+                )
+                return
+
+            # Perform health check
+            proxy_state["health_status"] = HealthStatus.CHECKING
+
+        # Release lock before check to avoid blocking
+        result = self.check_proxy(proxy_url)
+
+        with self._lock:
+            if proxy_url not in self._proxies:
+                return
+
+            proxy_state = self._proxies[proxy_url]
+
+            if result.status == HealthStatus.HEALTHY:
+                # Recovery successful!
+                proxy_state["health_status"] = HealthStatus.HEALTHY
+                proxy_state["recovery_attempt"] = 0
+                proxy_state["consecutive_failures"] = 0
+                proxy_state["consecutive_successes"] = 1
+                proxy_state["next_check_time"] = None
+                logger.info(f"Proxy recovered successfully: {proxy_url}")
+            else:
+                # Recovery failed, schedule next attempt
+                self._schedule_recovery(proxy_url)
 
     def start(self) -> None:
         """Start health monitoring with background workers.
