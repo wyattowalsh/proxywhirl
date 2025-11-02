@@ -25,6 +25,16 @@ from proxywhirl.analytics_models import (
     UsagePattern,
 )
 from proxywhirl.browser import BrowserRenderer
+from proxywhirl.circuit_breaker import CircuitBreaker, CircuitBreakerState
+from proxywhirl.retry_executor import RetryExecutor
+from proxywhirl.retry_metrics import (
+    CircuitBreakerEvent,
+    HourlyAggregate,
+    RetryAttempt,
+    RetryMetrics,
+    RetryOutcome,
+)
+from proxywhirl.retry_policy import BackoffStrategy, RetryPolicy
 from proxywhirl.cache import CacheManager
 from proxywhirl.cost_analyzer import CostAnalyzer
 from proxywhirl.failure_analyzer import FailureAnalyzer
@@ -162,6 +172,17 @@ __version__ = "1.0.0"
 __all__: list[str] = [
     # Version
     "__version__",
+    # Retry & Failover Components
+    "RetryPolicy",
+    "BackoffStrategy",
+    "CircuitBreaker",
+    "CircuitBreakerState",
+    "RetryExecutor",
+    "RetryMetrics",
+    "RetryAttempt",
+    "RetryOutcome",
+    "CircuitBreakerEvent",
+    "HourlyAggregate",
     # Analytics Components
     "AnalyticsEngine",
     "PerformanceAnalyzer",
