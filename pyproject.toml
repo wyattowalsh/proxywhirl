@@ -51,6 +51,8 @@ dependencies = [
     "slowapi>=0.1.9",
     "python-multipart>=0.0.6",
     "portalocker>=2.8.0",
+    "redis>=7.0.1",
+    "prometheus-client>=0.23.1",
 ]
 
 [project.optional-dependencies]
@@ -178,6 +180,8 @@ ignore_missing_imports = true
 [dependency-groups]
 dev = [
     "black>=25.9.0",
+    "fakeredis>=2.32.0",
+    "freezegun>=1.5.5",
     "hypothesis>=6.141.1",
     "mypy>=1.18.2",
     "nbformat>=5.10.4",
@@ -187,6 +191,7 @@ dev = [
     "pytest-cov>=7.0.0",
     "pytest-mock>=3.15.1",
     "ruff>=0.14.1",
+    "types-pyyaml>=6.0.12.20250915",
     "types-requests>=2.32.4.20250913",
 ]
 docs = [

@@ -48,7 +48,7 @@ from proxywhirl.api_models import (
     StatusResponse,
     UpdateConfigRequest,
 )
-from proxywhirl.exceptions import ProxyWhirlError
+from proxywhirl.exceptions import ProxyWhirlError, RateLimitExceeded as ProxyWhirlRateLimitExceeded
 from proxywhirl.rotator import ProxyRotator
 from proxywhirl.storage import SQLiteStorage
 
@@ -56,6 +56,7 @@ from proxywhirl.storage import SQLiteStorage
 _rotator: Optional[ProxyRotator] = None
 _storage: Optional[SQLiteStorage] = None
 _config: dict[str, Any] = {}
+_rate_limiter: Optional[Any] = None  # RateLimiter instance (lazy import to avoid circular deps)
 
 # Track app start time for uptime calculation
 _app_start_time = datetime.now(timezone.utc)
@@ -142,6 +143,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         "cors_origins": os.getenv("PROXYWHIRL_CORS_ORIGINS", "*").split(","),
     }
 
+    # Initialize rate limiter if configuration exists
+    global _rate_limiter
+    try:
+        from pathlib import Path
+        from proxywhirl.rate_limit_models import RateLimitConfig
+        from proxywhirl.rate_limiter import RateLimiter
+        
+        config_path = Path(os.getenv("RATE_LIMIT_CONFIG_PATH", "rate_limit_config.yaml"))
+        if config_path.exists():
+            logger.info(f"Loading rate limit configuration from: {config_path}")
+            rate_limit_config = RateLimitConfig.from_yaml(config_path)
+            _rate_limiter = RateLimiter(rate_limit_config)
+            logger.info("Rate limiter initialized successfully")
+        else:
+            logger.info(f"Rate limit config not found: {config_path}, rate limiting disabled")
+    except Exception as e:
+        logger.warning(f"Failed to initialize rate limiter: {e}")
+        _rate_limiter = None
+
     logger.info("ProxyWhirl API initialized successfully")
 
     yield
@@ -153,6 +173,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if _storage and _rotator:
         logger.info("Saving proxy pool state...")
         await _storage.save(_rotator.pool.proxies)
+    
+    # Close rate limiter
+    if _rate_limiter:
+        await _rate_limiter.close()
 
     logger.info("ProxyWhirl API shutdown complete")
 
@@ -246,6 +270,38 @@ async def internal_error_handler(request: Request, exc: Exception) -> JSONRespon
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content=response.model_dump(mode="json"),
     )
+
+
+@app.exception_handler(ProxyWhirlRateLimitExceeded)
+async def rate_limit_exceeded_handler(request: Request, exc: ProxyWhirlRateLimitExceeded) -> JSONResponse:
+    """Handle rate limit exceeded errors (HTTP 429)."""
+    logger.warning(f"Rate limit exceeded: {exc.identifier} on {exc.endpoint}")
+    
+    headers = {
+        "X-RateLimit-Limit": str(exc.limit),
+        "X-RateLimit-Remaining": "0",
+        "X-RateLimit-Reset": str(exc.metadata.get("reset_at", 0)),
+        "X-RateLimit-Tier": exc.tier,
+        "Retry-After": str(exc.retry_after_seconds),
+    }
+    
+    body = {
+        "error": {
+            "code": "rate_limit_exceeded",
+            "message": str(exc),
+            "details": {
+                "limit": exc.limit,
+                "current_count": exc.current_count,
+                "window_size": exc.window_size_seconds,
+                "reset_at": exc.metadata.get("reset_at_iso"),
+                "retry_after_seconds": exc.retry_after_seconds,
+                "tier": exc.tier,
+                "endpoint": exc.endpoint,
+            },
+        }
+    }
+    
+    return JSONResponse(status_code=429, content=body, headers=headers)
 
 
 @app.exception_handler(ProxyWhirlError)
@@ -992,3 +1048,178 @@ async def update_configuration(
     )
 
     return APIResponse.success(data=config_settings)
+
+
+# =============================================================================
+# RATE LIMITING MONITORING ENDPOINTS (US4)
+# =============================================================================
+
+
+def get_rate_limiter() -> Any:
+    """Dependency to get rate limiter instance."""
+    if _rate_limiter is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Rate limiter not initialized"
+        )
+    return _rate_limiter
+
+
+@app.get(
+    "/api/v1/rate-limit/metrics",
+    tags=["Rate Limiting"],
+    summary="Get rate limiting metrics",
+)
+async def get_rate_limit_metrics(
+    limiter: Any = Depends(get_rate_limiter),
+) -> dict[str, Any]:
+    """Get aggregated rate limiting metrics.
+    
+    Returns:
+        Rate limiting statistics including:
+        - Total requests checked
+        - Throttled vs allowed requests
+        - Breakdown by tier and endpoint
+        - Average and P95 check latencies
+        - Redis error counts
+    """
+    metrics = await limiter.get_metrics()
+    
+    # Calculate throttle rate
+    throttle_rate = 0.0
+    if metrics.total_requests > 0:
+        throttle_rate = metrics.throttled_requests / metrics.total_requests
+    
+    return {
+        "total_requests": metrics.total_requests,
+        "throttled_requests": metrics.throttled_requests,
+        "allowed_requests": metrics.allowed_requests,
+        "throttle_rate": round(throttle_rate, 4),
+        "by_tier": metrics.by_tier,
+        "by_endpoint": metrics.by_endpoint,
+        "avg_check_latency_ms": round(metrics.avg_check_latency_ms, 2),
+        "p95_check_latency_ms": round(metrics.p95_check_latency_ms, 2),
+        "redis_errors": metrics.redis_errors,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@app.get(
+    "/api/v1/rate-limit/config",
+    tags=["Rate Limiting"],
+    summary="Get rate limiting configuration",
+)
+async def get_rate_limit_config(
+    limiter: Any = Depends(get_rate_limiter),
+    api_key: None = Depends(verify_api_key),
+) -> dict[str, Any]:
+    """Get current rate limiting configuration.
+    
+    Requires admin authentication.
+    
+    Returns:
+        Current rate limit configuration including:
+        - Enabled status
+        - Default tier
+        - Tier configurations
+        - Redis settings
+        - Whitelist
+    """
+    config = limiter.config
+    
+    return {
+        "enabled": config.enabled,
+        "default_tier": config.default_tier,
+        "tiers": [
+            {
+                "name": tier.name,
+                "requests_per_window": tier.requests_per_window,
+                "window_size_seconds": tier.window_size_seconds,
+                "endpoints": tier.endpoints,
+                "description": tier.description,
+            }
+            for tier in config.tiers
+        ],
+        "redis_enabled": config.redis_enabled,
+        "fail_open": config.fail_open,
+        "whitelist": config.whitelist,
+    }
+
+
+@app.put(
+    "/api/v1/rate-limit/config",
+    tags=["Rate Limiting"],
+    summary="Update rate limiting configuration (hot reload)",
+)
+async def update_rate_limit_config(
+    config_data: dict[str, Any],
+    limiter: Any = Depends(get_rate_limiter),
+    api_key: None = Depends(verify_api_key),
+) -> dict[str, Any]:
+    """Update rate limiting configuration at runtime.
+    
+    Requires admin authentication.
+    
+    Args:
+        config_data: New rate limit configuration
+        
+    Returns:
+        Success message with updated configuration
+        
+    Note:
+        This endpoint updates the configuration in memory.
+        Changes are not persisted to the YAML file.
+        For persistent changes, update the YAML file and restart the service.
+    """
+    from proxywhirl.rate_limit_models import RateLimitConfig
+    
+    try:
+        # Validate new configuration
+        new_config = RateLimitConfig(**config_data)
+        
+        # Update limiter configuration (in memory only)
+        limiter.config = new_config
+        
+        logger.info("Rate limit configuration updated successfully")
+        
+        return {
+            "status": "success",
+            "message": "Rate limit configuration updated (in memory only)",
+            "applied_at": datetime.now(timezone.utc).isoformat(),
+            "note": "Changes are not persisted to file. Update YAML file for permanent changes.",
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to update rate limit configuration: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid configuration: {str(e)}"
+        )
+
+
+@app.get(
+    "/api/v1/rate-limit/status/{identifier}",
+    tags=["Rate Limiting"],
+    summary="Get rate limit status for specific identifier",
+)
+async def get_rate_limit_status(
+    identifier: str,
+    limiter: Any = Depends(get_rate_limiter),
+    api_key: None = Depends(verify_api_key),
+) -> dict[str, Any]:
+    """Get rate limit status for a specific user or IP.
+    
+    Requires admin authentication.
+    
+    Args:
+        identifier: User ID (UUID) or IP address
+        
+    Returns:
+        Current rate limit status for the identifier including:
+        - Identifier
+        - Tier
+        - Active rate limits per endpoint
+        - Whitelist status
+    """
+    status_data = await limiter.get_status(identifier)
+    return status_data
