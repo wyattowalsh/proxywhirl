@@ -303,6 +303,14 @@ class Proxy(BaseModel):
     country_code: Optional[str] = None  # ISO 3166-1 alpha-2 code (e.g., "US", "GB")
     region: Optional[str] = None  # Region/state within country (optional)
     consecutive_failures: int = 0
+    # Health monitoring fields (Feature 006)
+    last_health_check: Optional[datetime] = None  # Last health check timestamp
+    consecutive_successes: int = 0  # Consecutive successful health checks
+    recovery_attempt: int = 0  # Current recovery attempt count
+    next_check_time: Optional[datetime] = None  # Scheduled next health check
+    last_health_error: Optional[str] = None  # Last health check error message
+    total_checks: int = 0  # Total health checks performed
+    total_health_failures: int = 0  # Total health check failures
     tags: set[str] = Field(default_factory=set)
     source: ProxySource = ProxySource.USER
     source_url: Optional[HttpUrl] = None
