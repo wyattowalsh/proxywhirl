@@ -1,0 +1,419 @@
+openapi: 3.0.3
+info:
+  title: ProxyWhirl Retry & Failover API
+  description: REST API endpoints for managing retry policies, circuit breakers, and accessing retry metrics
+  version: 1.0.0
+  contact:
+    name: ProxyWhirl
+    url: https://github.com/wyattowalsh/proxywhirl
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local development server
+
+paths:
+  /retry/policy:
+    get:
+      summary: Get global retry policy
+      description: Returns the current global retry policy configuration
+      operationId: getRetryPolicy
+      tags:
+        - Retry Configuration
+      responses:
+        '200':
+          description: Current retry policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetryPolicyResponse'
+    
+    put:
+      summary: Update global retry policy
+      description: Updates the global retry policy configuration
+      operationId: updateRetryPolicy
+      tags:
+        - Retry Configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetryPolicyRequest'
+      responses:
+        '200':
+          description: Policy updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetryPolicyResponse'
+        '400':
+          description: Invalid policy configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /circuit-breakers:
+    get:
+      summary: List all circuit breaker states
+      description: Returns circuit breaker state for all proxies
+      operationId: listCircuitBreakers
+      tags:
+        - Circuit Breakers
+      responses:
+        '200':
+          description: Circuit breaker states
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  circuit_breakers:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CircuitBreakerResponse'
+
+  /circuit-breakers/{proxyId}:
+    get:
+      summary: Get circuit breaker state
+      description: Returns circuit breaker state for a specific proxy
+      operationId: getCircuitBreaker
+      tags:
+        - Circuit Breakers
+      parameters:
+        - name: proxyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Circuit breaker state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CircuitBreakerResponse'
+        '404':
+          description: Proxy not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /circuit-breakers/{proxyId}/reset:
+    post:
+      summary: Reset circuit breaker
+      description: Manually resets a circuit breaker to CLOSED state
+      operationId: resetCircuitBreaker
+      tags:
+        - Circuit Breakers
+      parameters:
+        - name: proxyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Circuit breaker reset successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CircuitBreakerResponse'
+        '404':
+          description: Proxy not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /circuit-breakers/metrics:
+    get:
+      summary: Get circuit breaker metrics
+      description: Returns circuit breaker state change events
+      operationId: getCircuitBreakerMetrics
+      tags:
+        - Circuit Breakers
+      parameters:
+        - name: hours
+          in: query
+          description: Number of hours to retrieve (default 24)
+          schema:
+            type: integer
+            default: 24
+            minimum: 1
+            maximum: 168
+      responses:
+        '200':
+          description: Circuit breaker events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CircuitBreakerEvent'
+
+  /metrics/retries:
+    get:
+      summary: Get retry metrics summary
+      description: Returns aggregated retry metrics
+      operationId: getRetryMetrics
+      tags:
+        - Metrics
+      responses:
+        '200':
+          description: Retry metrics summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetryMetricsResponse'
+
+  /metrics/retries/timeseries:
+    get:
+      summary: Get time-series retry data
+      description: Returns hourly retry metrics for the specified time range
+      operationId: getRetryTimeseries
+      tags:
+        - Metrics
+      parameters:
+        - name: hours
+          in: query
+          description: Number of hours to retrieve (default 24)
+          schema:
+            type: integer
+            default: 24
+            minimum: 1
+            maximum: 168
+      responses:
+        '200':
+          description: Time-series retry data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeSeriesResponse'
+
+  /metrics/retries/by-proxy:
+    get:
+      summary: Get per-proxy retry statistics
+      description: Returns retry statistics grouped by proxy
+      operationId: getRetryStatsByProxy
+      tags:
+        - Metrics
+      parameters:
+        - name: hours
+          in: query
+          description: Number of hours to analyze (default 24)
+          schema:
+            type: integer
+            default: 24
+            minimum: 1
+            maximum: 168
+      responses:
+        '200':
+          description: Per-proxy retry statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  proxies:
+                    type: object
+                    additionalProperties:
+                      $ref: '#/components/schemas/ProxyRetryStats'
+
+components:
+  schemas:
+    RetryPolicyRequest:
+      type: object
+      properties:
+        max_attempts:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 3
+        backoff_strategy:
+          type: string
+          enum: [exponential, linear, fixed]
+          default: exponential
+        base_delay:
+          type: number
+          minimum: 0.1
+          maximum: 60
+          default: 1.0
+        multiplier:
+          type: number
+          minimum: 1.1
+          maximum: 10
+          default: 2.0
+        max_backoff_delay:
+          type: number
+          minimum: 1
+          maximum: 300
+          default: 30.0
+        jitter:
+          type: boolean
+          default: false
+        retry_status_codes:
+          type: array
+          items:
+            type: integer
+            minimum: 500
+            maximum: 599
+          default: [502, 503, 504]
+        timeout:
+          type: number
+          nullable: true
+          minimum: 0.1
+        retry_non_idempotent:
+          type: boolean
+          default: false
+
+    RetryPolicyResponse:
+      allOf:
+        - $ref: '#/components/schemas/RetryPolicyRequest'
+        - type: object
+          properties:
+            updated_at:
+              type: string
+              format: date-time
+
+    CircuitBreakerResponse:
+      type: object
+      required:
+        - proxy_id
+        - state
+        - failure_count
+      properties:
+        proxy_id:
+          type: string
+        state:
+          type: string
+          enum: [closed, open, half_open]
+        failure_count:
+          type: integer
+          minimum: 0
+        failure_threshold:
+          type: integer
+          minimum: 1
+        window_duration:
+          type: number
+          description: Failure window duration in seconds
+        timeout_duration:
+          type: number
+          description: Time until half-open state in seconds
+        next_test_time:
+          type: string
+          format: date-time
+          nullable: true
+          description: When next recovery test will occur
+        last_state_change:
+          type: string
+          format: date-time
+
+    CircuitBreakerEvent:
+      type: object
+      required:
+        - proxy_id
+        - from_state
+        - to_state
+        - timestamp
+        - failure_count
+      properties:
+        proxy_id:
+          type: string
+        from_state:
+          type: string
+          enum: [closed, open, half_open]
+        to_state:
+          type: string
+          enum: [closed, open, half_open]
+        timestamp:
+          type: string
+          format: date-time
+        failure_count:
+          type: integer
+          minimum: 0
+
+    RetryMetricsResponse:
+      type: object
+      properties:
+        total_retries:
+          type: integer
+          minimum: 0
+        success_by_attempt:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Success count by attempt number
+        circuit_breaker_events_count:
+          type: integer
+          minimum: 0
+        retention_hours:
+          type: integer
+          minimum: 1
+
+    TimeSeriesResponse:
+      type: object
+      properties:
+        data_points:
+          type: array
+          items:
+            type: object
+            properties:
+              timestamp:
+                type: string
+                format: date-time
+              total_requests:
+                type: integer
+              total_retries:
+                type: integer
+              success_rate:
+                type: number
+                format: float
+                minimum: 0
+                maximum: 1
+              avg_latency:
+                type: number
+                format: float
+
+    ProxyRetryStats:
+      type: object
+      properties:
+        proxy_id:
+          type: string
+        total_attempts:
+          type: integer
+        success_count:
+          type: integer
+        failure_count:
+          type: integer
+        avg_latency:
+          type: number
+          format: float
+        circuit_breaker_opens:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+
+tags:
+  - name: Retry Configuration
+    description: Manage retry policy settings
+  - name: Circuit Breakers
+    description: Monitor and manage circuit breaker states
+  - name: Metrics
+    description: Access retry and failover metrics

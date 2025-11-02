@@ -651,3 +651,242 @@ class ExportHistoryResponse(BaseModel):
 
     total_exports: int = Field(description="Total number of exports in history")
     exports: list[dict[str, Any]] = Field(description="List of export history entries")
+
+
+# ============================================================================
+# RETRY & FAILOVER API MODELS
+# ============================================================================
+
+
+class RetryPolicyRequest(BaseModel):
+    """Request model for updating retry policy."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "max_attempts": 5,
+                "backoff_strategy": "exponential",
+                "base_delay": 1.5,
+                "multiplier": 2.0,
+                "max_backoff_delay": 30.0,
+                "jitter": True,
+                "retry_status_codes": [502, 503, 504],
+                "timeout": None,
+                "retry_non_idempotent": False,
+            }
+        },
+    )
+
+    max_attempts: Optional[int] = Field(None, ge=1, le=10, description="Maximum retry attempts")
+    backoff_strategy: Optional[str] = Field(
+        None,
+        description="Backoff strategy (exponential, linear, fixed)",
+    )
+    base_delay: Optional[float] = Field(None, gt=0, le=60, description="Base delay in seconds")
+    multiplier: Optional[float] = Field(
+        None, gt=1, le=10, description="Multiplier for exponential backoff"
+    )
+    max_backoff_delay: Optional[float] = Field(
+        None, gt=0, le=300, description="Maximum backoff delay in seconds"
+    )
+    jitter: Optional[bool] = Field(None, description="Enable random jitter")
+    retry_status_codes: Optional[list[int]] = Field(
+        None, description="HTTP status codes that trigger retries"
+    )
+    timeout: Optional[float] = Field(None, gt=0, description="Total request timeout in seconds")
+    retry_non_idempotent: Optional[bool] = Field(
+        None, description="Allow retries for non-idempotent requests (POST, PUT)"
+    )
+
+
+class RetryPolicyResponse(BaseModel):
+    """Response model for retry policy."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "max_attempts": 3,
+                "backoff_strategy": "exponential",
+                "base_delay": 1.0,
+                "multiplier": 2.0,
+                "max_backoff_delay": 30.0,
+                "jitter": False,
+                "retry_status_codes": [502, 503, 504],
+                "timeout": None,
+                "retry_non_idempotent": False,
+                "updated_at": "2025-11-02T12:00:00Z",
+            }
+        }
+    )
+
+    max_attempts: int
+    backoff_strategy: str
+    base_delay: float
+    multiplier: float
+    max_backoff_delay: float
+    jitter: bool
+    retry_status_codes: list[int]
+    timeout: Optional[float]
+    retry_non_idempotent: bool
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class CircuitBreakerResponse(BaseModel):
+    """Response model for circuit breaker state."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "proxy_id": "proxy1.example.com:8080",
+                "state": "closed",
+                "failure_count": 2,
+                "failure_threshold": 5,
+                "window_duration": 60.0,
+                "timeout_duration": 30.0,
+                "next_test_time": None,
+                "last_state_change": "2025-11-02T12:00:00Z",
+            }
+        }
+    )
+
+    proxy_id: str
+    state: str = Field(description="Circuit breaker state (closed, open, half_open)")
+    failure_count: int = Field(ge=0)
+    failure_threshold: int = Field(ge=1)
+    window_duration: float = Field(gt=0, description="Failure window duration in seconds")
+    timeout_duration: float = Field(gt=0, description="Timeout before half-open in seconds")
+    next_test_time: Optional[datetime] = Field(
+        None, description="Next recovery test time (ISO 8601)"
+    )
+    last_state_change: datetime
+
+
+class CircuitBreakerEventResponse(BaseModel):
+    """Response model for circuit breaker state change event."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "proxy_id": "proxy1.example.com:8080",
+                "from_state": "closed",
+                "to_state": "open",
+                "timestamp": "2025-11-02T12:00:00Z",
+                "failure_count": 5,
+            }
+        }
+    )
+
+    proxy_id: str
+    from_state: str
+    to_state: str
+    timestamp: datetime
+    failure_count: int
+
+
+class RetryMetricsResponse(BaseModel):
+    """Response model for retry metrics summary."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "total_retries": 1250,
+                "success_by_attempt": {
+                    "0": 850,
+                    "1": 300,
+                    "2": 80,
+                    "3": 20,
+                },
+                "circuit_breaker_events_count": 15,
+                "retention_hours": 24,
+            }
+        }
+    )
+
+    total_retries: int = Field(ge=0, description="Total retry attempts in retention period")
+    success_by_attempt: dict[str, int] = Field(
+        description="Success count by attempt number (0=first try)"
+    )
+    circuit_breaker_events_count: int = Field(
+        ge=0, description="Number of circuit breaker state changes"
+    )
+    retention_hours: int = Field(ge=1, description="Metrics retention period in hours")
+
+
+class TimeSeriesDataPoint(BaseModel):
+    """Single data point in time-series metrics."""
+
+    timestamp: datetime
+    total_requests: int = Field(ge=0)
+    total_retries: int = Field(ge=0)
+    success_rate: float = Field(ge=0.0, le=1.0)
+    avg_latency: float = Field(ge=0.0, description="Average latency in seconds")
+
+
+class TimeSeriesResponse(BaseModel):
+    """Response model for time-series retry data."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "data_points": [
+                    {
+                        "timestamp": "2025-11-02T12:00:00Z",
+                        "total_requests": 1000,
+                        "total_retries": 150,
+                        "success_rate": 0.95,
+                        "avg_latency": 0.25,
+                    }
+                ]
+            }
+        }
+    )
+
+    data_points: list[TimeSeriesDataPoint]
+
+
+class ProxyRetryStats(BaseModel):
+    """Per-proxy retry statistics."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "proxy_id": "proxy1.example.com:8080",
+                "total_attempts": 500,
+                "success_count": 450,
+                "failure_count": 50,
+                "avg_latency": 0.3,
+                "circuit_breaker_opens": 2,
+            }
+        }
+    )
+
+    proxy_id: str
+    total_attempts: int = Field(ge=0)
+    success_count: int = Field(ge=0)
+    failure_count: int = Field(ge=0)
+    avg_latency: float = Field(ge=0.0, description="Average latency in seconds")
+    circuit_breaker_opens: int = Field(ge=0, description="Number of times circuit opened")
+
+
+class ProxyRetryStatsResponse(BaseModel):
+    """Response model for per-proxy retry statistics."""
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "proxies": {
+                    "proxy1.example.com:8080": {
+                        "proxy_id": "proxy1.example.com:8080",
+                        "total_attempts": 500,
+                        "success_count": 450,
+                        "failure_count": 50,
+                        "avg_latency": 0.3,
+                        "circuit_breaker_opens": 2,
+                    }
+                }
+            }
+        }
+    )
+
+    proxies: dict[str, ProxyRetryStats]

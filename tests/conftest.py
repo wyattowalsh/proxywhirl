@@ -43,4 +43,35 @@ def mock_async_httpx_client() -> Generator[httpx.AsyncClient, None, None]:
     # Note: In actual async tests, we'd use async context manager
 
 
+@pytest.fixture
+def sample_retry_policy():
+    """Sample retry policy for testing."""
+    from proxywhirl.retry_policy import BackoffStrategy, RetryPolicy
+    
+    return RetryPolicy(
+        max_attempts=3,
+        backoff_strategy=BackoffStrategy.EXPONENTIAL,
+        base_delay=1.0,
+        multiplier=2.0,
+        max_backoff_delay=30.0,
+        jitter=False,
+        retry_status_codes=[502, 503, 504],
+        timeout=None,
+        retry_non_idempotent=False,
+    )
+
+
+@pytest.fixture
+def sample_circuit_breaker():
+    """Sample circuit breaker for testing."""
+    from proxywhirl.circuit_breaker import CircuitBreaker
+    
+    return CircuitBreaker(
+        proxy_id="test-proxy-1",
+        failure_threshold=5,
+        window_duration=60.0,
+        timeout_duration=30.0,
+    )
+
+
 pytest_plugins = ["pytest_asyncio"]

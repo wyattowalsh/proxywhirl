@@ -2,23 +2,22 @@
 Main proxy rotation implementation.
 """
 
-from typing import Any, Optional, Union
+import threading
+from typing import Any, Dict, Optional, Union
 
 import httpx
 from loguru import logger
-from tenacity import (
-    retry,
-    retry_if_not_exception_type,
-    stop_after_attempt,
-    wait_exponential,
-)
 
+from proxywhirl.circuit_breaker import CircuitBreaker, CircuitBreakerState
 from proxywhirl.exceptions import (
     ProxyAuthenticationError,
     ProxyConnectionError,
     ProxyPoolEmptyError,
 )
 from proxywhirl.models import Proxy, ProxyConfiguration, ProxyPool
+from proxywhirl.retry_executor import RetryExecutor
+from proxywhirl.retry_metrics import RetryMetrics
+from proxywhirl.retry_policy import RetryPolicy
 from proxywhirl.strategies import (
     LeastUsedStrategy,
     RandomStrategy,
@@ -53,6 +52,7 @@ class ProxyRotator:
         proxies: Optional[list[Proxy]] = None,
         strategy: Union[RotationStrategy, str, None] = None,
         config: Optional[ProxyConfiguration] = None,
+        retry_policy: Optional[RetryPolicy] = None,
     ) -> None:
         """
         Initialize ProxyRotator.
@@ -63,6 +63,7 @@ class ProxyRotator:
                      ("round-robin", "random", "weighted", "least-used")
                      Default: RoundRobinStrategy
             config: Configuration settings (default: ProxyConfiguration())
+            retry_policy: Retry policy configuration (default: RetryPolicy())
         """
         self.pool = ProxyPool(name="default", proxies=proxies or [])
 
@@ -85,8 +86,24 @@ class ProxyRotator:
         else:
             self.strategy = strategy
 
-        self.config = config or ProxyConfiguration()
-        self._client: Optional[httpx.Client] = None
+        self.config       = config or ProxyConfiguration()
+        self._client:     Optional[httpx.Client] = None
+
+        # Retry and circuit breaker components
+        self.retry_policy     = retry_policy or RetryPolicy()
+        self.circuit_breakers: Dict[str, CircuitBreaker] = {}
+        self.retry_metrics    = RetryMetrics()
+        self.retry_executor   = RetryExecutor(
+            self.retry_policy, self.circuit_breakers, self.retry_metrics
+        )
+
+        # Initialize circuit breakers for existing proxies (all start CLOSED per FR-021)
+        for proxy in self.pool.proxies:
+            self.circuit_breakers[proxy.id] = CircuitBreaker(proxy_id=proxy.id)
+
+        # Start periodic metrics aggregation timer (every 5 minutes)
+        self._aggregation_timer: Optional[threading.Timer] = None
+        self._start_aggregation_timer()
 
         # Configure logging
         if hasattr(logger, "_core") and not logger._core.handlers:
@@ -117,6 +134,11 @@ class ProxyRotator:
             self._client.close()
             self._client = None
 
+        # Cancel aggregation timer
+        if self._aggregation_timer:
+            self._aggregation_timer.cancel()
+            self._aggregation_timer = None
+
     def add_proxy(self, proxy: Union[Proxy, str]) -> None:
         """
         Add a proxy to the pool.
@@ -130,6 +152,10 @@ class ProxyRotator:
             proxy = create_proxy_from_url(proxy)
 
         self.pool.add_proxy(proxy)
+
+        # Initialize circuit breaker for new proxy (starts CLOSED per FR-021)
+        self.circuit_breakers[proxy.id] = CircuitBreaker(proxy_id=proxy.id)
+
         logger.info(f"Added proxy to pool: {proxy.url}", proxy_id=str(proxy.id))
 
     def remove_proxy(self, proxy_id: str) -> None:
@@ -227,7 +253,7 @@ class ProxyRotator:
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
         logger.info(
-            f"Strategy hot-swapped: {old_strategy_name} → {new_strategy_name} "
+            f"Strategy hot-swapped: {old_strategy_name} ? {new_strategy_name} "
             f"(completed in {elapsed_ms:.2f}ms)",
             old_strategy=old_strategy_name,
             new_strategy=new_strategy_name,
@@ -346,24 +372,20 @@ class ProxyRotator:
             "https://": url,
         }
 
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=1, max=10),
-        retry=retry_if_not_exception_type((ProxyAuthenticationError, ProxyPoolEmptyError)),
-        reraise=True,
-    )
     def _make_request(
         self,
         method: str,
         url: str,
+        retry_policy: Optional[RetryPolicy] = None,
         **kwargs: Any,
     ) -> httpx.Response:
         """
-        Make HTTP request with automatic proxy rotation and failover.
+        Make HTTP request with automatic proxy rotation, retry, and circuit breakers.
 
         Args:
             method: HTTP method
             url: URL to request
+            retry_policy: Optional per-request retry policy override
             **kwargs: Additional request parameters
 
         Returns:
@@ -375,11 +397,14 @@ class ProxyRotator:
         """
         import time
 
-        # Select proxy
+        # Use per-request policy or global policy
+        effective_policy = retry_policy or self.retry_policy
+
+        # Select proxy with circuit breaker filtering
         try:
-            proxy = self.strategy.select(self.pool)
+            proxy = self._select_proxy_with_circuit_breaker()
         except ProxyPoolEmptyError as e:
-            logger.error("No healthy proxies available")
+            logger.error("No healthy proxies available or all circuit breakers open")
             raise e
 
         proxy_dict = self._get_proxy_dict(proxy)
@@ -390,50 +415,50 @@ class ProxyRotator:
             proxy_url=str(proxy.url),
         )
 
-        start_time = time.time()
+        # Define request function for retry executor
+        def request_fn() -> httpx.Response:
+            # Create temporary client with proxy
+            with httpx.Client(
+                proxy=proxy_dict.get("http://"),
+                timeout=self.config.timeout,
+                verify=self.config.verify_ssl,
+                follow_redirects=self.config.follow_redirects,
+            ) as client:
+                response = client.request(method, url, **kwargs)
 
+                # Check for 407 Proxy Authentication Required
+                if response.status_code == 407:
+                    logger.error(
+                        f"Proxy authentication failed: {proxy.url}",
+                        proxy_id=str(proxy.id),
+                        status_code=407,
+                    )
+                    raise ProxyAuthenticationError(
+                        f"Proxy authentication required (407) for {proxy.url}. "
+                        "Please provide valid credentials (username and password)."
+                    )
+
+                return response
+
+        # Create a temporary retry executor with effective policy if different from global
+        if retry_policy is not None:
+            executor = RetryExecutor(
+                retry_policy, self.circuit_breakers, self.retry_metrics
+            )
+        else:
+            executor = self.retry_executor
+
+        # Execute with retry
         try:
-            # Create temporary client with proxy if none exists
-            if self._client is None:
-                with httpx.Client(
-                    proxy=proxy_dict.get("http://"),  # httpx uses proxy, not proxies
-                    timeout=self.config.timeout,
-                    verify=self.config.verify_ssl,
-                    follow_redirects=self.config.follow_redirects,
-                ) as client:
-                    response = client.request(method, url, **kwargs)
-            else:
-                # Create a new request with proxy for existing client
-                # httpx doesn't allow changing proxies on existing client
-                with httpx.Client(
-                    proxy=proxy_dict.get("http://"),
-                    timeout=self.config.timeout,
-                    verify=self.config.verify_ssl,
-                    follow_redirects=self.config.follow_redirects,
-                ) as client:
-                    response = client.request(method, url, **kwargs)
+            response = executor.execute_with_retry(request_fn, proxy, method, url)
 
-            # Record success
-            response_time_ms = (time.time() - start_time) * 1000
-            self.strategy.record_result(proxy, success=True, response_time_ms=response_time_ms)
-
-            # Check for 407 Proxy Authentication Required
-            if response.status_code == 407:
-                logger.error(
-                    f"Proxy authentication failed: {proxy.url}",
-                    proxy_id=str(proxy.id),
-                    status_code=407,
-                )
-                raise ProxyAuthenticationError(
-                    f"Proxy authentication required (407) for {proxy.url}. "
-                    "Please provide valid credentials (username and password)."
-                )
+            # Record success in strategy
+            self.strategy.record_result(proxy, success=True, response_time_ms=0.0)
 
             logger.info(
                 f"Request successful: {method} {url}",
                 proxy_id=str(proxy.id),
                 status_code=response.status_code,
-                response_time_ms=response_time_ms,
             )
 
             return response
@@ -442,12 +467,11 @@ class ProxyRotator:
             # Re-raise auth errors without wrapping
             raise
         except Exception as e:
-            # Record failure
-            response_time_ms = (time.time() - start_time) * 1000
-            self.strategy.record_result(proxy, success=False, response_time_ms=response_time_ms)
+            # Record failure in strategy
+            self.strategy.record_result(proxy, success=False, response_time_ms=0.0)
 
             logger.warning(
-                f"Request failed: {method} {url}",
+                f"Request failed after retries: {method} {url}",
                 proxy_id=str(proxy.id),
                 error=str(e),
             )
@@ -481,3 +505,77 @@ class ProxyRotator:
     def options(self, url: str, **kwargs: Any) -> httpx.Response:
         """Make OPTIONS request."""
         return self._make_request("OPTIONS", url, **kwargs)
+
+    def _start_aggregation_timer(self) -> None:
+        """Start periodic metrics aggregation timer (every 5 minutes)."""
+        def aggregate():
+            self.retry_metrics.aggregate_hourly()
+            self._start_aggregation_timer()  # Schedule next aggregation
+
+        self._aggregation_timer = threading.Timer(300.0, aggregate)  # 5 minutes
+        self._aggregation_timer.daemon = True
+        self._aggregation_timer.start()
+
+    def get_circuit_breaker_states(self) -> Dict[str, CircuitBreaker]:
+        """
+        Get circuit breaker states for all proxies.
+
+        Returns:
+            Dictionary mapping proxy IDs to their circuit breaker instances
+        """
+        return self.circuit_breakers.copy()
+
+    def reset_circuit_breaker(self, proxy_id: str) -> None:
+        """
+        Manually reset a circuit breaker to CLOSED state.
+
+        Args:
+            proxy_id: ID of the proxy whose circuit breaker to reset
+
+        Raises:
+            KeyError: If proxy_id not found
+        """
+        if proxy_id not in self.circuit_breakers:
+            raise KeyError(f"No circuit breaker found for proxy {proxy_id}")
+
+        self.circuit_breakers[proxy_id].reset()
+        logger.info(f"Circuit breaker manually reset for proxy {proxy_id}")
+
+    def get_retry_metrics(self) -> RetryMetrics:
+        """
+        Get retry metrics.
+
+        Returns:
+            RetryMetrics instance with current metrics
+        """
+        return self.retry_metrics
+
+    def _select_proxy_with_circuit_breaker(self) -> Proxy:
+        """
+        Select a proxy while respecting circuit breaker states.
+
+        Returns:
+            Selected proxy
+
+        Raises:
+            ProxyPoolEmptyError: If no healthy proxies available or all circuit breakers open
+        """
+        # Check if all circuit breakers are open (FR-019)
+        available_proxies = []
+        for proxy in self.pool.proxies:
+            circuit_breaker = self.circuit_breakers.get(proxy.id)
+            if circuit_breaker and circuit_breaker.should_attempt_request():
+                available_proxies.append(proxy)
+
+        if not available_proxies:
+            logger.error("All circuit breakers are open - no proxies available")
+            raise ProxyPoolEmptyError(
+                "503 Service Temporarily Unavailable - All proxies are currently failing. "
+                "Please wait for circuit breakers to recover."
+            )
+
+        # Create temporary pool with available proxies
+        temp_pool = ProxyPool(name="temp", proxies=available_proxies)
+
+        # Select from available proxies using strategy
+        return self.strategy.select(temp_pool)
