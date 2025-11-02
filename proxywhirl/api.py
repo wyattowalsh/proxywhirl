@@ -48,7 +48,7 @@ from proxywhirl.api_models import (
     StatusResponse,
     UpdateConfigRequest,
 )
-from proxywhirl.exceptions import ProxyWhirlError
+from proxywhirl.exceptions import ProxyWhirlError, RateLimitExceeded as ProxyWhirlRateLimitExceeded
 from proxywhirl.rotator import ProxyRotator
 from proxywhirl.storage import SQLiteStorage
 
@@ -246,6 +246,38 @@ async def internal_error_handler(request: Request, exc: Exception) -> JSONRespon
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content=response.model_dump(mode="json"),
     )
+
+
+@app.exception_handler(ProxyWhirlRateLimitExceeded)
+async def rate_limit_exceeded_handler(request: Request, exc: ProxyWhirlRateLimitExceeded) -> JSONResponse:
+    """Handle rate limit exceeded errors (HTTP 429)."""
+    logger.warning(f"Rate limit exceeded: {exc.identifier} on {exc.endpoint}")
+    
+    headers = {
+        "X-RateLimit-Limit": str(exc.limit),
+        "X-RateLimit-Remaining": "0",
+        "X-RateLimit-Reset": str(exc.metadata.get("reset_at", 0)),
+        "X-RateLimit-Tier": exc.tier,
+        "Retry-After": str(exc.retry_after_seconds),
+    }
+    
+    body = {
+        "error": {
+            "code": "rate_limit_exceeded",
+            "message": str(exc),
+            "details": {
+                "limit": exc.limit,
+                "current_count": exc.current_count,
+                "window_size": exc.window_size_seconds,
+                "reset_at": exc.metadata.get("reset_at_iso"),
+                "retry_after_seconds": exc.retry_after_seconds,
+                "tier": exc.tier,
+                "endpoint": exc.endpoint,
+            },
+        }
+    }
+    
+    return JSONResponse(status_code=429, content=body, headers=headers)
 
 
 @app.exception_handler(ProxyWhirlError)

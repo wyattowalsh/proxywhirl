@@ -1,0 +1,45 @@
+# ProxyWhirl Rate Limiting Configuration
+# This is a sample configuration file. Copy and customize for your deployment.
+# Configuration can be overridden with environment variables (RATE_LIMIT_* prefix)
+
+enabled: true
+default_tier: free
+redis_enabled: true
+redis_url: redis://localhost:6379/1
+fail_open: false
+header_prefix: X-RateLimit-
+
+# Whitelist: User IDs or IPs exempt from rate limiting (no headers added)
+whitelist: []
+
+# Rate limit tiers
+tiers:
+  # Free tier - Basic access for unauthenticated/free users
+  - name: free
+    requests_per_window: 100
+    window_size_seconds: 60
+    description: "Free tier with 100 requests per minute"
+    endpoints:
+      /api/v1/request: 50  # Expensive proxied requests limited more strictly
+
+  # Premium tier - Increased limits for paid users
+  - name: premium
+    requests_per_window: 1000
+    window_size_seconds: 60
+    description: "Premium tier with 1000 requests per minute"
+    endpoints:
+      /api/v1/request: 500  # Still rate limited but much higher
+
+  # Enterprise tier - High volume access
+  - name: enterprise
+    requests_per_window: 10000
+    window_size_seconds: 60
+    description: "Enterprise tier with 10k requests per minute"
+    endpoints: {}  # No endpoint-specific overrides
+
+  # Unlimited tier - No practical limits (for internal/admin use)
+  - name: unlimited
+    requests_per_window: 999999999
+    window_size_seconds: 1
+    description: "Unlimited tier (admin/internal)"
+    endpoints: {}

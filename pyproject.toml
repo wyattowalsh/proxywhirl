@@ -51,6 +51,7 @@ dependencies = [
     "slowapi>=0.1.9",
     "python-multipart>=0.0.6",
     "portalocker>=2.8.0",
+    "redis>=7.0.1",
 ]
 
 [project.optional-dependencies]
@@ -178,6 +179,8 @@ ignore_missing_imports = true
 [dependency-groups]
 dev = [
     "black>=25.9.0",
+    "fakeredis>=2.32.0",
+    "freezegun>=1.5.5",
     "hypothesis>=6.141.1",
     "mypy>=1.18.2",
     "nbformat>=5.10.4",

@@ -70,3 +70,59 @@ class CacheStorageError(ProxyWhirlError):
 
 class CacheValidationError(ValueError, ProxyWhirlError):
     """Raised when cache entry fails validation."""
+
+
+class RateLimitExceeded(ProxyWhirlError):
+    """
+    Raised when rate limit is exceeded.
+
+    Used for HTTP 429 Too Many Requests responses with Retry-After header.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        limit: int,
+        current_count: int,
+        window_size_seconds: int,
+        retry_after_seconds: int,
+        tier: str,
+        endpoint: str,
+        identifier: str,
+        **metadata: Any,
+    ) -> None:
+        """
+        Initialize rate limit exception.
+
+        Args:
+            message: Human-readable error message
+            limit: Maximum requests allowed in window
+            current_count: Current request count in window
+            window_size_seconds: Window size in seconds
+            retry_after_seconds: Seconds until rate limit resets
+            tier: User's rate limit tier
+            endpoint: API endpoint that was rate limited
+            identifier: User ID or IP address
+            **metadata: Additional error-specific metadata
+        """
+        super().__init__(
+            message,
+            error_type="rate_limit_exceeded",
+            retry_recommended=True,
+            limit=limit,
+            current_count=current_count,
+            window_size_seconds=window_size_seconds,
+            retry_after_seconds=retry_after_seconds,
+            tier=tier,
+            endpoint=endpoint,
+            identifier=identifier,
+            **metadata,
+        )
+        self.limit = limit
+        self.current_count = current_count
+        self.window_size_seconds = window_size_seconds
+        self.retry_after_seconds = retry_after_seconds
+        self.tier = tier
+        self.endpoint = endpoint
+        self.identifier = identifier
