@@ -992,3 +992,290 @@ async def update_configuration(
     )
 
     return APIResponse.success(data=config_settings)
+
+
+# ============================================================================
+# EXPORT ENDPOINTS
+# ============================================================================
+
+
+def get_export_manager() -> "ExportManager":
+    """Dependency to get or create ExportManager instance."""
+    from proxywhirl.export_manager import ExportManager
+    
+    if not hasattr(get_export_manager, "_manager"):
+        if _rotator:
+            get_export_manager._manager = ExportManager(
+                proxy_pool=_rotator.pool,
+                storage=_storage,
+            )
+        else:
+            get_export_manager._manager = ExportManager()
+    
+    return get_export_manager._manager
+
+
+@app.post(
+    "/api/v1/exports",
+    response_model=APIResponse[dict[str, Any]],
+    tags=["Export"],
+    summary="Create data export",
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_export(
+    export_request: "ExportRequest",
+    export_manager: "ExportManager" = Depends(get_export_manager),
+    api_key: None = Depends(verify_api_key),
+) -> APIResponse[dict[str, Any]]:
+    """Create a new data export job.
+    
+    Supports exporting:
+    - Proxy lists (CSV, JSON, JSONL, YAML, text, markdown)
+    - Metrics data with time range filtering
+    - Log data with filtering
+    - System configuration
+    - Health status
+    - Cache data
+    
+    Args:
+        export_request: Export configuration
+        export_manager: ExportManager dependency
+        api_key: API key verification
+        
+    Returns:
+        Export result with job ID and status
+        
+    Raises:
+        HTTPException: If export fails
+    """
+    from proxywhirl.api_models import ExportRequest
+    from proxywhirl.export_manager import ExportError
+    from proxywhirl.export_models import (
+        CompressionType,
+        ConfigurationExportFilter,
+        ExportConfig,
+        ExportFormat,
+        ExportType,
+        LocalFileDestination,
+        LogExportFilter,
+        MemoryDestination,
+        MetricsExportFilter,
+        ProxyExportFilter,
+    )
+    
+    try:
+        # Build export config from request
+        export_type   = ExportType(export_request.export_type)
+        export_format = ExportFormat(export_request.export_format)
+        compression   = CompressionType(export_request.compression)
+        
+        # Build destination
+        if export_request.destination_type == "local_file":
+            if not export_request.file_path:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="file_path required for local_file destination",
+                )
+            destination = LocalFileDestination(
+                file_path=export_request.file_path,
+                overwrite=export_request.overwrite,
+            )
+        else:
+            destination = MemoryDestination()
+        
+        # Build filters based on export type
+        proxy_filter   = None
+        metrics_filter = None
+        log_filter     = None
+        config_filter  = None
+        
+        if export_type == ExportType.PROXIES:
+            proxy_filter = ProxyExportFilter(
+                health_status=export_request.health_status,
+                source=export_request.source,
+                protocol=export_request.protocol,
+                min_success_rate=export_request.min_success_rate,
+            )
+        elif export_type == ExportType.METRICS:
+            if not export_request.start_time or not export_request.end_time:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="start_time and end_time required for metrics export",
+                )
+            metrics_filter = MetricsExportFilter(
+                start_time=export_request.start_time,
+                end_time=export_request.end_time,
+            )
+        elif export_type == ExportType.LOGS:
+            log_filter = LogExportFilter(
+                start_time=export_request.start_time,
+                end_time=export_request.end_time,
+                log_levels=export_request.log_levels,
+            )
+        elif export_type == ExportType.CONFIGURATION:
+            config_filter = ConfigurationExportFilter(
+                redact_secrets=export_request.redact_secrets,
+            )
+        
+        # Create export config
+        config = ExportConfig(
+            export_type=export_type,
+            export_format=export_format,
+            destination=destination,
+            compression=compression,
+            proxy_filter=proxy_filter,
+            metrics_filter=metrics_filter,
+            log_filter=log_filter,
+            config_filter=config_filter,
+            pretty_print=export_request.pretty_print,
+            include_metadata=export_request.include_metadata,
+        )
+        
+        # Execute export
+        result = export_manager.export(config)
+        
+        # Build response
+        response_data = {
+            "job_id": str(result.job_id),
+            "status": "completed" if result.success else "failed",
+            "export_type": result.export_type.value,
+            "export_format": result.export_format.value,
+            "records_exported": result.records_exported,
+            "file_size_bytes": result.file_size_bytes,
+            "duration_seconds": result.duration_seconds,
+            "destination_path": result.destination_path,
+            "error": result.error,
+        }
+        
+        return APIResponse.success(data=response_data)
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid export configuration: {e}",
+        )
+    except ExportError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+    except Exception as e:
+        logger.exception("Export creation failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Export failed: {e}",
+        )
+
+
+@app.get(
+    "/api/v1/exports/{job_id}",
+    response_model=APIResponse["ExportStatusResponse"],
+    tags=["Export"],
+    summary="Get export status",
+)
+async def get_export_status(
+    job_id: str,
+    export_manager: "ExportManager" = Depends(get_export_manager),
+    api_key: None = Depends(verify_api_key),
+) -> APIResponse["ExportStatusResponse"]:
+    """Get status of an export job.
+    
+    Args:
+        job_id: Export job ID
+        export_manager: ExportManager dependency
+        api_key: API key verification
+        
+    Returns:
+        Export job status and progress
+        
+    Raises:
+        HTTPException: If job not found
+    """
+    from uuid import UUID
+    
+    from proxywhirl.api_models import ExportStatusResponse
+    
+    try:
+        job_uuid = UUID(job_id)
+        job = export_manager.get_job_status(job_uuid)
+        
+        if not job:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Export job not found: {job_id}",
+            )
+        
+        # Build response
+        response = ExportStatusResponse(
+            job_id=str(job.job_id),
+            status=job.status.value,
+            export_type=job.config.export_type.value,
+            export_format=job.config.export_format.value,
+            total_records=job.progress.total_records,
+            processed_records=job.progress.processed_records,
+            progress_percentage=job.progress.progress_percentage,
+            created_at=job.created_at,
+            started_at=job.started_at,
+            completed_at=job.completed_at,
+            duration_seconds=job.duration_seconds,
+            result_path=job.result_path,
+            error_message=job.error_message,
+        )
+        
+        return APIResponse.success(data=response)
+        
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid job ID format: {job_id}",
+        )
+    except Exception as e:
+        logger.exception("Failed to get export status")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@app.get(
+    "/api/v1/exports/history",
+    response_model=APIResponse["ExportHistoryResponse"],
+    tags=["Export"],
+    summary="Get export history",
+)
+async def get_export_history(
+    limit: int = 100,
+    export_manager: "ExportManager" = Depends(get_export_manager),
+    api_key: None = Depends(verify_api_key),
+) -> APIResponse["ExportHistoryResponse"]:
+    """Get export history.
+    
+    Args:
+        limit: Maximum number of entries to return (default: 100)
+        export_manager: ExportManager dependency
+        api_key: API key verification
+        
+    Returns:
+        List of export history entries
+    """
+    from proxywhirl.api_models import ExportHistoryResponse
+    
+    try:
+        history = export_manager.get_export_history(limit=limit)
+        
+        # Convert to dict
+        history_dicts = [entry.model_dump() for entry in history]
+        
+        response = ExportHistoryResponse(
+            total_exports=len(history_dicts),
+            exports=history_dicts,
+        )
+        
+        return APIResponse.success(data=response)
+        
+    except Exception as e:
+        logger.exception("Failed to get export history")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
