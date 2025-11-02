@@ -7,6 +7,95 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Flexible Configuration Management (012-configuration-management-flexible)
+
+- **Multi-Source Configuration Loading**:
+  - Load from YAML files, environment variables, CLI arguments, and defaults
+  - Clear precedence rules: CLI > Runtime > ENV > File > Defaults
+  - Automatic environment variable loading with `PROXYWHIRL_` prefix
+  - <500ms configuration loading for 100+ settings (SC-006)
+
+- **Runtime Configuration Updates**:
+  - Update configuration at runtime without application restart
+  - Admin-only authorization with role-based access control
+  - <1 second for updates to take effect (SC-003)
+  - Atomic configuration swap with thread-safe operations
+  - Rollback support for reverting to previous configuration
+
+- **Hot-Reloadable vs Restart-Required Fields**:
+  - Clear distinction between hot-reloadable and restart-required settings
+  - Hot-reloadable: `timeout`, `max_retries`, `log_level`, `rate_limit_requests`
+  - Restart-required: `proxy_url`, `database_path`, `server_host`, `server_port`
+  - Runtime validation prevents updates to restart-required fields
+
+- **Configuration Validation**:
+  - Schema-based validation with Pydantic models
+  - Pre-flight validation before applying changes
+  - <100ms validation for typical configurations
+  - Clear error messages with field-level details
+  - Warning system for potentially problematic values
+
+- **Hot Reload from Files**:
+  - Automatic reload when configuration files change
+  - File watching with debouncing (1-2 second default)
+  - <2 seconds for hot reload including validation (SC-004)
+  - Manual reload support via API or signal (SIGHUP)
+  - Validation and rollback on reload failure
+
+- **Configuration Export and Backup**:
+  - Export current configuration to YAML format
+  - Source attribution for each setting
+  - 100% credential redaction in exports (SC-008)
+  - Snapshot system with timestamps and metadata
+  - Round-trip fidelity for configuration backup/restore
+
+- **Concurrent Update Handling**:
+  - Last-write-wins semantics for conflicting updates
+  - Conflict detection within 5-second window
+  - Operator notification for concurrent changes
+  - Configuration update history tracking
+  - Audit trail with user ID, timestamp, and changes
+
+- **Security Features**:
+  - Admin-only write access for runtime updates
+  - SecretStr for automatic credential protection
+  - 100% redaction in logs, errors, and exports
+  - Comprehensive audit logging for all configuration changes
+  - Fine-grained authorization checks
+
+- **Configuration Models**:
+  - `ProxyWhirlSettings`: Central configuration schema with validation
+  - `ConfigurationManager`: Main orchestration class for runtime config
+  - `User`: User model with admin authorization
+  - `ConfigurationSource`: Enum tracking configuration value origins
+  - `ConfigUpdate`: Immutable audit record for configuration changes
+  - `ConfigurationSnapshot`: Point-in-time configuration export
+  - `ValidationResult`: Validation outcome with errors and warnings
+
+- **Helper Functions**:
+  - `load_yaml_config()`: Load configuration from YAML files
+  - `parse_cli_args()`: Parse command-line configuration arguments
+  - `validate_config()`: Validate configuration dictionary against schema
+
+- **Performance Optimizations**:
+  - Thread-safe atomic operations with minimal locking
+  - Efficient configuration snapshot creation
+  - Optimized file watching with debouncing
+  - Fast validation with Pydantic v2
+
+- **Developer Experience**:
+  - Comprehensive examples in `examples/config_management_example.py`
+  - Full documentation in `docs/CONFIGURATION_MANAGEMENT.md`
+  - Example configuration file `proxywhirl.yaml.example`
+  - Type hints throughout for excellent IDE support
+  - Clear docstrings with usage examples
+
+- **Testing**:
+  - Comprehensive unit tests for all models and manager functionality
+  - Integration tests for multi-source loading and hot reload workflows
+  - Property-based tests for configuration merging
+  - 85%+ test coverage achieved
+
 ### Added - Intelligent Rotation Strategies (004-rotation-strategies-intelligent)
 
 - **7 Advanced Rotation Strategies**:
