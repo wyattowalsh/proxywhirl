@@ -36,6 +36,17 @@ from proxywhirl.fetchers import (
     ProxyValidator,
     deduplicate_proxies,
 )
+# Health monitoring (Feature 006)
+from proxywhirl.health import HealthChecker
+from proxywhirl.health_models import (
+    HealthCheckConfig,
+    HealthCheckResult,
+    HealthEvent,
+    HealthStatus as HealthMonitoringStatus,
+    PoolStatus,
+    ProxyHealthState,
+    SourceStatus,
+)
 from proxywhirl.models import (
     HealthMonitor,
     HealthStatus,
@@ -112,6 +123,15 @@ __all__: list[str] = [
     "CacheTierConfig",
     "TierStatistics",
     "CacheHealthStatus",
+    # Health Monitoring (Feature 006)
+    "HealthChecker",
+    "HealthCheckConfig",
+    "HealthCheckResult",
+    "HealthEvent",
+    "HealthMonitoringStatus",
+    "PoolStatus",
+    "SourceStatus",
+    "ProxyHealthState",
     # Exceptions
     "ProxyWhirlError",
     "ProxyValidationError",
