@@ -992,3 +992,55 @@ async def update_configuration(
     )
 
     return APIResponse.success(data=config_settings)
+
+
+# =============================================================================
+# ANALYTICS ENDPOINTS (Feature 009)
+# =============================================================================
+
+# Global analytics engine instance
+_analytics_engine: Optional[Any] = None
+
+
+def get_analytics_engine() -> Any:
+    """Get or initialize analytics engine singleton."""
+    global _analytics_engine
+    
+    if _analytics_engine is None:
+        try:
+            from proxywhirl.analytics_engine import AnalyticsEngine
+            from proxywhirl.analytics_models import AnalysisConfig
+            
+            _analytics_engine = AnalyticsEngine(config=AnalysisConfig())
+            logger.info("Analytics engine initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize analytics engine: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Analytics engine unavailable",
+            )
+    
+    return _analytics_engine
+
+
+@app.get(
+    "/api/v1/analytics/performance",
+    tags=["Analytics"],
+    summary="Get performance analysis",
+)
+async def get_performance_analysis(
+    lookback_days: int = 30,
+    api_key: None = Depends(verify_api_key),
+) -> APIResponse[dict[str, Any]]:
+    """Analyze proxy performance metrics."""
+    engine = get_analytics_engine()
+    from proxywhirl.performance_analyzer import PerformanceAnalyzer
+    
+    proxy_metrics = engine.get_proxy_metrics()
+    if not proxy_metrics:
+        return APIResponse.success(data={"message": "No data available"})
+    
+    analyzer = PerformanceAnalyzer(engine.config)
+    scores = analyzer.rank_proxies(proxy_metrics)
+    
+    return APIResponse.success(data={"scores": [s.model_dump() for s in scores[:10]]})
