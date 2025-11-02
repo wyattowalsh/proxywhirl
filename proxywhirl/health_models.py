@@ -110,6 +110,22 @@ class PoolStatus(BaseModel):
     total_proxies: int = 0
     healthy_proxies: int = 0
     unhealthy_proxies: int = 0
+    checking_proxies: int = 0
+    recovering_proxies: int = 0
+    unknown_proxies: int = 0
+    by_source: dict[str, "SourceStatus"] = Field(default_factory=dict)
+
+    @property
+    def health_percentage(self) -> float:
+        """Calculate percentage of healthy proxies."""
+        if self.total_proxies == 0:
+            return 0.0
+        return (self.healthy_proxies / self.total_proxies) * 100.0
+
+    @property
+    def is_degraded(self) -> bool:
+        """Check if pool health is degraded (less than 50% healthy)."""
+        return self.health_percentage < 50.0
 
 
 class SourceStatus(BaseModel):
@@ -118,6 +134,17 @@ class SourceStatus(BaseModel):
     source_name: str
     total_proxies: int = 0
     healthy_proxies: int = 0
+    unhealthy_proxies: int = 0
+    checking_proxies: int = 0
+    recovering_proxies: int = 0
+    unknown_proxies: int = 0
+
+    @property
+    def health_percentage(self) -> float:
+        """Calculate percentage of healthy proxies for this source."""
+        if self.total_proxies == 0:
+            return 0.0
+        return (self.healthy_proxies / self.total_proxies) * 100.0
 
 
 class ProxyHealthState(BaseModel):

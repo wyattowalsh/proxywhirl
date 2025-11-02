@@ -93,6 +93,22 @@ class HealthChecker:
                 "next_check_time": None,
             }
 
+    def remove_proxy(self, proxy_url: str) -> bool:
+        """Remove a proxy from health monitoring.
+
+        Args:
+            proxy_url: Proxy URL to remove
+
+        Returns:
+            True if proxy was removed, False if it wasn't registered
+        """
+        with self._lock:
+            if proxy_url in self._proxies:
+                del self._proxies[proxy_url]
+                logger.debug(f"Removed proxy from health monitoring: {proxy_url}")
+                return True
+            return False
+
     def check_proxy(self, proxy_url: str) -> HealthCheckResult:
         """Perform a health check on a proxy.
 
@@ -281,3 +297,108 @@ class HealthChecker:
         result = self.check_proxy(proxy_url)
         self._update_health_status(proxy_url, result)
         return result
+
+    def get_pool_status(self) -> "PoolStatus":
+        """Get real-time health statistics for the entire proxy pool.
+
+        Returns:
+            PoolStatus with current health metrics
+        """
+        from proxywhirl.health_models import PoolStatus, SourceStatus
+
+        with self._lock:
+            # Count by status
+            status_counts: dict[str, int] = {
+                "total": 0,
+                "healthy": 0,
+                "unhealthy": 0,
+                "checking": 0,
+                "recovering": 0,
+                "unknown": 0,
+            }
+
+            # Count by source
+            by_source: dict[str, dict[str, int]] = {}
+
+            for proxy_url, state in self._proxies.items():
+                status_counts["total"] += 1
+                source = state.get("source", "unknown")
+
+                # Initialize source if not seen
+                if source not in by_source:
+                    by_source[source] = {
+                        "total": 0,
+                        "healthy": 0,
+                        "unhealthy": 0,
+                        "checking": 0,
+                        "recovering": 0,
+                        "unknown": 0,
+                    }
+
+                by_source[source]["total"] += 1
+
+                # Count by health status
+                health_status = state.get("health_status", HealthStatus.UNKNOWN)
+                if health_status == HealthStatus.HEALTHY:
+                    status_counts["healthy"] += 1
+                    by_source[source]["healthy"] += 1
+                elif health_status == HealthStatus.UNHEALTHY:
+                    status_counts["unhealthy"] += 1
+                    by_source[source]["unhealthy"] += 1
+                elif health_status == HealthStatus.CHECKING:
+                    status_counts["checking"] += 1
+                    by_source[source]["checking"] += 1
+                elif health_status == HealthStatus.RECOVERING:
+                    status_counts["recovering"] += 1
+                    by_source[source]["recovering"] += 1
+                else:  # UNKNOWN or PERMANENTLY_FAILED
+                    status_counts["unknown"] += 1
+                    by_source[source]["unknown"] += 1
+
+            # Create SourceStatus objects
+            source_statuses = {
+                source: SourceStatus(
+                    source_name=source,
+                    total_proxies=counts["total"],
+                    healthy_proxies=counts["healthy"],
+                    unhealthy_proxies=counts["unhealthy"],
+                    checking_proxies=counts["checking"],
+                    recovering_proxies=counts["recovering"],
+                    unknown_proxies=counts["unknown"],
+                )
+                for source, counts in by_source.items()
+            }
+
+            return PoolStatus(
+                total_proxies=status_counts["total"],
+                healthy_proxies=status_counts["healthy"],
+                unhealthy_proxies=status_counts["unhealthy"],
+                checking_proxies=status_counts["checking"],
+                recovering_proxies=status_counts["recovering"],
+                unknown_proxies=status_counts["unknown"],
+                by_source=source_statuses,
+            )
+
+    def get_proxy_status(self, proxy_url: str) -> Optional["ProxyHealthState"]:
+        """Get health state for a specific proxy.
+
+        Args:
+            proxy_url: Proxy URL to query
+
+        Returns:
+            ProxyHealthState if proxy is registered, None otherwise
+        """
+        from proxywhirl.health_models import ProxyHealthState
+
+        with self._lock:
+            if proxy_url not in self._proxies:
+                return None
+
+            state = self._proxies[proxy_url]
+            return ProxyHealthState(
+                proxy_url=proxy_url,
+                health_status=state.get("health_status", HealthStatus.UNKNOWN),
+                last_check=state.get("last_check_time"),
+                consecutive_failures=state.get("consecutive_failures", 0),
+                consecutive_successes=state.get("consecutive_successes", 0),
+            )
