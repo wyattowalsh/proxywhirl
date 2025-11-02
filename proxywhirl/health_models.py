@@ -5,9 +5,9 @@ Defines data structures for health status, check results, events,
 and pool statistics.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
@@ -97,11 +97,30 @@ class HealthCheckConfig(BaseModel):
 
 
 class HealthEvent(BaseModel):
-    """A significant health monitoring event."""
+    """A significant health monitoring event.
 
-    event_type: str  # Placeholder for now
-    timestamp: datetime
-    proxy_url: Optional[str] = None
+    Emitted when important health status changes occur, such as:
+    - Proxy becomes unhealthy (proxy_down)
+    - Proxy recovers (proxy_recovered)
+    - Pool health degraded (pool_degraded)
+    """
+
+    event_type: str = Field(..., description="Type of event (proxy_down, proxy_recovered, pool_degraded)")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    proxy_url: Optional[str] = Field(None, description="Affected proxy URL if applicable")
+    source: Optional[str] = Field(None, description="Proxy source if applicable")
+    details: dict[str, Any] = Field(default_factory=dict, description="Additional event details")
+
+    @property
+    def severity(self) -> str:
+        """Get severity level for this event type."""
+        severity_map = {
+            "proxy_down": "warning",
+            "proxy_recovered": "info",
+            "pool_degraded": "critical",
+            "proxy_permanently_failed": "error",
+        }
+        return severity_map.get(self.event_type, "info")
 
 
 class PoolStatus(BaseModel):

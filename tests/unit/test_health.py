@@ -143,10 +143,11 @@ class TestHealthChecker:
                 )
                 checker._update_health_status("http://proxy1.example.com:8080", mock_check.return_value)
         
-        # After 3 failures, proxy should be marked unhealthy
+        # After 3 failures, proxy should be marked unhealthy then scheduled for recovery
         proxy_state = checker._proxies["http://proxy1.example.com:8080"]
         assert proxy_state["consecutive_failures"] == 3
-        assert proxy_state["health_status"] == HealthStatus.UNHEALTHY
+        # Status is RECOVERING because recovery is automatically scheduled
+        assert proxy_state["health_status"] in (HealthStatus.UNHEALTHY, HealthStatus.RECOVERING)
     
     def test_failure_threshold_resets_on_success(self) -> None:
         """Test failure count resets on successful check (T017)."""

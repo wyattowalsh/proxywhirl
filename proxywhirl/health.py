@@ -219,6 +219,19 @@ class HealthChecker:
                             f"failures={proxy_state['consecutive_failures']}"
                         )
 
+                        # Emit proxy_down event
+                        self._emit_event(
+                            "proxy_down",
+                            proxy_url=proxy_url,
+                            source=proxy_state.get("source"),
+                            details={
+                                "consecutive_failures": proxy_state[
+                                    "consecutive_failures"
+                                ],
+                                "last_error": proxy_state.get("last_error"),
+                            },
+                        )
+
                         # Invalidate cache if cache manager available
                         if self.cache_manager:
                             try:
@@ -233,6 +246,9 @@ class HealthChecker:
 
                         # Schedule recovery attempt
                         self._schedule_recovery(proxy_url)
+
+                        # Check if pool is degraded
+                        self._check_pool_degradation()
 
     def _schedule_recovery(self, proxy_url: str) -> None:
         """Schedule a recovery attempt for an unhealthy proxy.
@@ -303,6 +319,14 @@ class HealthChecker:
                 logger.warning(
                     f"Proxy permanently failed after {proxy_state['recovery_attempt']} recovery attempts: {proxy_url}"
                 )
+
+                # Emit permanently_failed event
+                self._emit_event(
+                    "proxy_permanently_failed",
+                    proxy_url=proxy_url,
+                    source=proxy_state.get("source"),
+                    details={"recovery_attempts": proxy_state["recovery_attempt"]},
+                )
                 return
 
             # Perform health check
@@ -325,9 +349,68 @@ class HealthChecker:
                 proxy_state["consecutive_successes"] = 1
                 proxy_state["next_check_time"] = None
                 logger.info(f"Proxy recovered successfully: {proxy_url}")
+
+                # Emit recovery event
+                self._emit_event(
+                    "proxy_recovered",
+                    proxy_url=proxy_url,
+                    source=proxy_state.get("source"),
+                    details={},
+                )
             else:
                 # Recovery failed, schedule next attempt
                 self._schedule_recovery(proxy_url)
+
+    def _emit_event(
+        self,
+        event_type: str,
+        proxy_url: Optional[str] = None,
+        source: Optional[str] = None,
+        details: Optional[dict[str, Any]] = None,
+    ) -> None:
+        """Emit a health monitoring event.
+
+        Args:
+            event_type: Type of event (proxy_down, proxy_recovered, pool_degraded)
+            proxy_url: Optional proxy URL associated with event
+            source: Optional proxy source
+            details: Optional additional event details
+        """
+        from proxywhirl.health_models import HealthEvent
+
+        event = HealthEvent(
+            event_type=event_type,
+            proxy_url=proxy_url,
+            source=source,
+            details=details or {},
+        )
+
+        # Log event
+        logger.log(
+            event.severity.upper() if event.severity != "info" else "INFO",
+            f"Health event: {event_type} - {proxy_url or 'pool'}",
+        )
+
+        # Call event callback if registered
+        if self.on_event:
+            try:
+                self.on_event(event)
+            except Exception as e:
+                logger.error(f"Error in event callback: {e}")
+
+    def _check_pool_degradation(self) -> None:
+        """Check if pool health is degraded and emit event if so."""
+        status = self.get_pool_status()
+
+        if status.is_degraded and status.total_proxies > 0:
+            self._emit_event(
+                "pool_degraded",
+                details={
+                    "total_proxies": status.total_proxies,
+                    "healthy_proxies": status.healthy_proxies,
+                    "health_percentage": status.health_percentage,
+                },
+            )
 
     def start(self) -> None:
         """Start health monitoring with background workers.
