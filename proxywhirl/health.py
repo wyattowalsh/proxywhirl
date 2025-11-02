@@ -47,6 +47,7 @@ class HealthChecker:
         self.cache_manager = cache_manager
         self.on_event = on_event
         self._running = False
+        self._paused = False  # T094: pause/resume flag
         self._proxies: dict[str, dict[str, Any]] = {}
         self._lock = threading.RLock()
 
@@ -443,6 +444,7 @@ class HealthChecker:
                 check_func=self._perform_check,  # Pass method reference directly
                 proxies=self._proxies,
                 lock=self._lock,
+                checker=self,  # T094: Pass self for pause flag access
             )
             worker.start()
             self._workers[source] = worker
@@ -585,3 +587,116 @@ class HealthChecker:
                 consecutive_failures=state.get("consecutive_failures", 0),
                 consecutive_successes=state.get("consecutive_successes", 0),
             )
+
+    def pause(self) -> None:
+        """Pause health monitoring temporarily (T094).
+
+        Workers will skip health checks while paused but continue running.
+        Useful for maintenance windows or temporary service disruptions.
+        """
+        with self._lock:
+            if not self._running:
+                logger.warning("Cannot pause - health monitoring not running")
+                return
+
+            self._paused = True
+            logger.info("Health monitoring paused")
+
+    def resume(self) -> None:
+        """Resume health monitoring after pause (T095).
+
+        Health checks will resume at the next scheduled interval.
+        """
+        with self._lock:
+            if not self._running:
+                logger.warning("Cannot resume - health monitoring not running")
+                return
+
+            self._paused = False
+            logger.info("Health monitoring resumed")
+
+    def get_health_history(
+        self, proxy_url: Optional[str] = None, hours: Optional[int] = None
+    ) -> list[HealthCheckResult]:
+        """Query health check history from SQLite (T096).
+
+        Args:
+            proxy_url: Optional proxy URL to filter by
+            hours: Optional hours of history to retrieve (default: config.history_retention_hours)
+
+        Returns:
+            List of HealthCheckResult ordered by check_time DESC
+        """
+        from datetime import datetime, timedelta, timezone
+
+        from proxywhirl.health_models import HealthCheckResult
+
+        if not self.cache_manager:
+            logger.warning("Cannot query history - no cache manager configured")
+            return []
+
+        try:
+            import sqlite3
+
+            from proxywhirl.cache import CacheManager
+
+            # Access the L3 SQLite tier
+            if not hasattr(self.cache_manager, "l3_tier"):
+                logger.warning("Cannot query history - no L3 SQLite tier available")
+                return []
+
+            db_path = self.cache_manager.l3_tier.db_path
+            conn = sqlite3.connect(str(db_path))
+
+            # Build query
+            hours_back = hours or self.config.history_retention_hours
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+
+            if proxy_url:
+                # Generate cache key for specific proxy
+                cache_key = CacheManager.generate_cache_key(proxy_url)
+                cursor = conn.execute(
+                    """
+                    SELECT proxy_key, check_time, status, response_time_ms, 
+                           error_message, check_url
+                    FROM health_history
+                    WHERE proxy_key = ? AND check_time >= ?
+                    ORDER BY check_time DESC
+                    """,
+                    (cache_key, cutoff_time.timestamp()),
+                )
+            else:
+                # All proxies
+                cursor = conn.execute(
+                    """
+                    SELECT proxy_key, check_time, status, response_time_ms,
+                           error_message, check_url
+                    FROM health_history
+                    WHERE check_time >= ?
+                    ORDER BY check_time DESC
+                    """,
+                    (cutoff_time.timestamp(),),
+                )
+
+            results = []
+            for row in cursor.fetchall():
+                # Note: We'd need to reverse-lookup proxy_key to proxy_url
+                # For now, use the proxy_key as the URL
+                results.append(
+                    HealthCheckResult(
+                        proxy_url=row[0],  # proxy_key
+                        check_time=datetime.fromtimestamp(row[1], tz=timezone.utc),
+                        status=HealthStatus(row[2]),
+                        response_time_ms=row[3],
+                        status_code=None,  # Not stored in history table
+                        error_message=row[4],
+                        check_url=row[5],
+                    )
+                )
+
+            conn.close()
+            return results
+
+        except Exception as e:
+            logger.error(f"Failed to query health history: {e}")
+            return []

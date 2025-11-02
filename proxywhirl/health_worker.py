@@ -30,6 +30,7 @@ class HealthWorker:
         check_func: Callable[[str], Any],
         proxies: dict[str, Any],
         lock: threading.RLock,
+        checker: Optional[Any] = None,  # T094: Reference to HealthChecker for pause flag
     ) -> None:
         """Initialize health worker.
 
@@ -39,12 +40,14 @@ class HealthWorker:
             check_func: Function to call for health checks
             proxies: Shared proxy state dictionary
             lock: Thread lock for synchronized access
+            checker: Optional reference to parent HealthChecker
         """
         self.source = source
         self.check_interval = check_interval
         self.check_func = check_func
         self.proxies = proxies
         self.lock = lock
+        self.checker = checker
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._stop_event = threading.Event()
@@ -89,6 +92,12 @@ class HealthWorker:
             try:
                 from datetime import datetime, timezone
 
+                # Check if paused (T094)
+                if self.checker and getattr(self.checker, "_paused", False):
+                    # Skip checks while paused
+                    self._stop_event.wait(self.check_interval)
+                    continue
+
                 # Get proxies for this source
                 with self.lock:
                     source_proxies = [
@@ -120,4 +129,5 @@ class HealthWorker:
                 logger.error(f"Error in health check loop for {self.source}: {e}")
 
             # Wait for next check interval
+            self._stop_event.wait(self.check_interval)
             self._stop_event.wait(self.check_interval)
