@@ -98,6 +98,32 @@ from proxywhirl.utils import (
     proxy_to_dict,
     validate_proxy_model,
 )
+from proxywhirl.analytics_models import (
+    AnalysisConfig,
+    AnalysisReport,
+    AnalysisType,
+    AnalyticsQuery,
+    Anomaly,
+    AnomalyType,
+    CostForecast,
+    CostMetrics,
+    ExportFormat,
+    FailureAnalysisResult,
+    FailureCluster,
+    PerformanceScore,
+    Prediction,
+    ProxyPerformanceMetrics,
+    RecommendationPriority,
+    TimeSeriesData,
+    TrendDirection,
+    UsagePattern,
+)
+from proxywhirl.analytics_engine import AnalyticsEngine
+from proxywhirl.performance_analyzer import PerformanceAnalyzer
+from proxywhirl.pattern_detector import PatternDetector
+from proxywhirl.failure_analyzer import FailureAnalyzer
+from proxywhirl.cost_analyzer import CostAnalyzer
+from proxywhirl.predictive_analytics import PredictiveAnalytics
 
 __version__ = "1.0.0"
 
@@ -195,4 +221,30 @@ __all__: list[str] = [
     "ALL_SOURCES",
     "RECOMMENDED_SOURCES",
     "API_SOURCES",
+    # Analytics Components
+    "AnalyticsEngine",
+    "PerformanceAnalyzer",
+    "PatternDetector",
+    "FailureAnalyzer",
+    "CostAnalyzer",
+    "PredictiveAnalytics",
+    # Analytics Models
+    "AnalysisConfig",
+    "AnalysisReport",
+    "AnalysisType",
+    "AnalyticsQuery",
+    "ProxyPerformanceMetrics",
+    "PerformanceScore",
+    "UsagePattern",
+    "Anomaly",
+    "AnomalyType",
+    "FailureCluster",
+    "FailureAnalysisResult",
+    "CostMetrics",
+    "CostForecast",
+    "Prediction",
+    "TimeSeriesData",
+    "TrendDirection",
+    "RecommendationPriority",
+    "ExportFormat",
 ]

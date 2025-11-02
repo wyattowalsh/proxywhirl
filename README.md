@@ -1115,6 +1115,86 @@ See [examples/cli_examples.sh](examples/cli_examples.sh) for a complete collecti
 - Docker container examples
 - Performance optimization (caching, connection pooling)
 
+## 📊 Analytics Engine (v0.4.0)
+
+ProxyWhirl now includes a comprehensive analytics engine for monitoring, analyzing, and optimizing proxy performance.
+
+### Analytics Capabilities
+
+- **Performance Analysis**: Track success rates, latency, uptime, and rank proxies
+- **Usage Pattern Detection**: Identify peak hours, trends, anomalies, and geographic patterns
+- **Failure Analysis**: Detect failure clusters and identify root causes
+- **Cost & ROI Tracking**: Calculate costs, efficiency, and optimization opportunities
+- **Predictive Analytics**: Forecast future capacity needs with ML-based models
+
+### Quick Start
+
+```python
+from proxywhirl import AnalyticsEngine, AnalysisConfig, AnalysisType, AnalyticsQuery
+
+# Initialize analytics engine
+engine = AnalyticsEngine(config=AnalysisConfig(lookback_days=30))
+
+# Record proxy requests
+engine.record_request(
+    proxy_id="proxy-1",
+    proxy_url="http://proxy1.example.com:8080",
+    success=True,
+    latency_ms=250.0,
+    pool="production",
+    region="us-east",
+)
+
+# Generate comprehensive analysis
+query = AnalyticsQuery(
+    analysis_types=[AnalysisType.PERFORMANCE, AnalysisType.USAGE_PATTERNS],
+    lookback_days=30,
+)
+
+report = engine.analyze(query)
+print(f"Key Findings: {report.key_findings}")
+```
+
+### Analytics API Endpoints
+
+```bash
+# Performance analysis
+GET /api/v1/analytics/performance?lookback_days=30
+
+# Usage patterns
+GET /api/v1/analytics/patterns?lookback_days=30
+
+# Failure analysis
+GET /api/v1/analytics/failures?lookback_days=30
+
+# Cost analysis
+GET /api/v1/analytics/costs?total_cost=150.0&lookback_days=30
+
+# Predictive forecasting
+GET /api/v1/analytics/predictions?forecast_days=7
+
+# Comprehensive report
+GET /api/v1/analytics/reports?analysis_types=performance,usage_patterns
+```
+
+### Example Output
+
+```python
+from proxywhirl import PerformanceAnalyzer
+
+analyzer = PerformanceAnalyzer()
+scores = analyzer.rank_proxies(proxy_metrics)
+
+# Top performers
+for score in scores[:3]:
+    print(f"#{score.rank} {score.proxy_id}")
+    print(f"  Overall Score: {score.overall_score:.3f}")
+    print(f"  Success Rate: {score.success_rate_score:.1%}")
+```
+
+**Documentation**: See [docs/ANALYTICS.md](docs/ANALYTICS.md) for complete guide  
+**Example**: Run `python examples/analytics_example.py` for a comprehensive demo
+
 ## 🏗️ Architecture
 
 ```
