@@ -53,6 +53,7 @@ class ProxyRotator:
         proxies: Optional[list[Proxy]] = None,
         strategy: Union[RotationStrategy, str, None] = None,
         config: Optional[ProxyConfiguration] = None,
+        enable_analytics: bool = False,
     ) -> None:
         """
         Initialize ProxyRotator.
@@ -63,6 +64,7 @@ class ProxyRotator:
                      ("round-robin", "random", "weighted", "least-used")
                      Default: RoundRobinStrategy
             config: Configuration settings (default: ProxyConfiguration())
+            enable_analytics: Enable automatic analytics recording (default: False)
         """
         self.pool = ProxyPool(name="default", proxies=proxies or [])
 
@@ -87,6 +89,21 @@ class ProxyRotator:
 
         self.config = config or ProxyConfiguration()
         self._client: Optional[httpx.Client] = None
+
+        # Analytics integration (optional)
+        self._analytics_enabled = enable_analytics
+        self._analytics_engine: Optional[Any] = None
+        
+        if enable_analytics:
+            try:
+                from proxywhirl.analytics_engine import AnalyticsEngine
+                from proxywhirl.analytics_models import AnalysisConfig
+                
+                self._analytics_engine = AnalyticsEngine(config=AnalysisConfig())
+                logger.info("Analytics engine enabled for ProxyRotator")
+            except Exception as e:
+                logger.warning(f"Failed to enable analytics: {e}")
+                self._analytics_enabled = False
 
         # Configure logging
         if hasattr(logger, "_core") and not logger._core.handlers:
@@ -227,7 +244,7 @@ class ProxyRotator:
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
         logger.info(
-            f"Strategy hot-swapped: {old_strategy_name} → {new_strategy_name} "
+            f"Strategy hot-swapped: {old_strategy_name} ? {new_strategy_name} "
             f"(completed in {elapsed_ms:.2f}ms)",
             old_strategy=old_strategy_name,
             new_strategy=new_strategy_name,
@@ -300,6 +317,15 @@ class ProxyRotator:
         stats = self.get_pool_stats()
         stats["source_breakdown"] = self.pool.get_source_breakdown()
         return stats
+    
+    def get_analytics_engine(self) -> Optional[Any]:
+        """
+        Get the analytics engine if enabled.
+        
+        Returns:
+            Analytics engine instance or None if not enabled
+        """
+        return self._analytics_engine if self._analytics_enabled else None
 
     def clear_unhealthy_proxies(self) -> int:
         """
@@ -416,6 +442,24 @@ class ProxyRotator:
             # Record success
             response_time_ms = (time.time() - start_time) * 1000
             self.strategy.record_result(proxy, success=True, response_time_ms=response_time_ms)
+            
+            # Record analytics if enabled
+            if self._analytics_enabled and self._analytics_engine:
+                try:
+                    from urllib.parse import urlparse
+                    domain = urlparse(url).netloc
+                    
+                    self._analytics_engine.record_request(
+                        proxy_id=str(proxy.id),
+                        proxy_url=str(proxy.url),
+                        success=True,
+                        latency_ms=response_time_ms,
+                        pool=self.pool.name,
+                        region=proxy.metadata.get("region") if proxy.metadata else None,
+                        target_domain=domain,
+                    )
+                except Exception as e:
+                    logger.debug(f"Failed to record analytics: {e}")
 
             # Check for 407 Proxy Authentication Required
             if response.status_code == 407:
@@ -445,6 +489,26 @@ class ProxyRotator:
             # Record failure
             response_time_ms = (time.time() - start_time) * 1000
             self.strategy.record_result(proxy, success=False, response_time_ms=response_time_ms)
+            
+            # Record analytics if enabled
+            if self._analytics_enabled and self._analytics_engine:
+                try:
+                    from urllib.parse import urlparse
+                    domain = urlparse(url).netloc
+                    error_type = type(e).__name__
+                    
+                    self._analytics_engine.record_request(
+                        proxy_id=str(proxy.id),
+                        proxy_url=str(proxy.url),
+                        success=False,
+                        latency_ms=response_time_ms,
+                        pool=self.pool.name,
+                        region=proxy.metadata.get("region") if proxy.metadata else None,
+                        target_domain=domain,
+                        error_type=error_type,
+                    )
+                except Exception as analytics_error:
+                    logger.debug(f"Failed to record analytics: {analytics_error}")
 
             logger.warning(
                 f"Request failed: {method} {url}",
