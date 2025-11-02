@@ -561,3 +561,93 @@ class UpdateConfigRequest(BaseModel):
     max_retries: Optional[PositiveInt] = Field(default=None, le=10)
     rate_limits: Optional[RateLimitConfig] = None
     cors_origins: Optional[list[str]] = None
+
+
+# ============================================================================
+# EXPORT API MODELS
+# ============================================================================
+
+
+class ExportRequest(BaseModel):
+    """Request model for creating an export."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "example": {
+                "export_type": "proxies",
+                "export_format": "csv",
+                "destination_type": "local_file",
+                "file_path": "exports/proxies.csv",
+                "compression": "gzip",
+                "health_status": ["healthy"],
+                "pretty_print": True,
+            }
+        }
+    )
+
+    export_type: str = Field(description="Type of data to export (proxies, metrics, logs, configuration, health_status, cache_data)")
+    export_format: str = Field(description="Output format (csv, json, jsonl, yaml, text, markdown)")
+    
+    # Destination
+    destination_type: str = Field("local_file", description="Destination type (local_file, memory)")
+    file_path: Optional[str] = Field(None, description="File path for local_file destination")
+    overwrite: bool = Field(False, description="Overwrite existing file")
+    
+    # Compression
+    compression: str = Field("none", description="Compression type (none, gzip, zip)")
+    
+    # Filters (optional, depending on export type)
+    health_status: Optional[list[str]] = Field(None, description="Filter proxies by health status")
+    source: Optional[list[str]] = Field(None, description="Filter proxies by source")
+    protocol: Optional[list[str]] = Field(None, description="Filter proxies by protocol")
+    min_success_rate: Optional[float] = Field(None, description="Minimum success rate for proxy filter")
+    
+    # Metrics filters
+    start_time: Optional[datetime] = Field(None, description="Start time for metrics/logs export")
+    end_time: Optional[datetime] = Field(None, description="End time for metrics/logs export")
+    
+    # Log filters
+    log_levels: Optional[list[str]] = Field(None, description="Filter logs by level")
+    
+    # Config filters
+    redact_secrets: bool = Field(True, description="Redact sensitive data in config export")
+    
+    # Options
+    pretty_print: bool = Field(True, description="Pretty-print JSON/YAML")
+    include_metadata: bool = Field(True, description="Include export metadata")
+
+
+class ExportStatusResponse(BaseModel):
+    """Response model for export status query."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    job_id: str = Field(description="Export job ID")
+    status: str = Field(description="Current status (pending, running, completed, failed, cancelled)")
+    export_type: str = Field(description="Type of data being exported")
+    export_format: str = Field(description="Output format")
+    
+    # Progress
+    total_records: int = Field(0, description="Total records to export")
+    processed_records: int = Field(0, description="Records processed")
+    progress_percentage: float = Field(0.0, description="Progress percentage")
+    
+    # Timestamps
+    created_at: datetime = Field(description="When export was created")
+    started_at: Optional[datetime] = Field(None, description="When export started")
+    completed_at: Optional[datetime] = Field(None, description="When export completed")
+    duration_seconds: Optional[float] = Field(None, description="Export duration")
+    
+    # Results
+    result_path: Optional[str] = Field(None, description="Path to exported file")
+    error_message: Optional[str] = Field(None, description="Error message if failed")
+
+
+class ExportHistoryResponse(BaseModel):
+    """Response model for export history query."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total_exports: int = Field(description="Total number of exports in history")
+    exports: list[dict[str, Any]] = Field(description="List of export history entries")
