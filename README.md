@@ -74,6 +74,84 @@ uv sync
 
 - `playwright` - Browser automation for JavaScript rendering
 
+## 📝 Structured Logging
+
+ProxyWhirl includes a comprehensive structured logging system with support for JSON and logfmt formats, multiple output destinations, rotation, and contextual metadata.
+
+### Quick Logging Setup
+
+```python
+from proxywhirl import LogConfiguration, LogHandlerConfig, LogHandlerType, apply_logging_configuration
+
+# JSON structured logging to console
+config = LogConfiguration(
+    level="INFO",
+    handlers=[
+        LogHandlerConfig(type=LogHandlerType.CONSOLE, format="json")
+    ]
+)
+apply_logging_configuration(config)
+```
+
+### Multiple Output Destinations
+
+```python
+from proxywhirl import LogConfiguration, LogHandlerConfig, LogHandlerType
+
+config = LogConfiguration(
+    level="DEBUG",
+    handlers=[
+        # Console output with JSON
+        LogHandlerConfig(
+            type=LogHandlerType.CONSOLE,
+            level="INFO",
+            format="json"
+        ),
+        # File output with rotation
+        LogHandlerConfig(
+            type=LogHandlerType.FILE,
+            path="logs/app.log",
+            level="DEBUG",
+            format="logfmt",
+            rotation="100 MB",
+            retention="7 days"
+        ),
+    ]
+)
+apply_logging_configuration(config)
+```
+
+### Contextual Logging
+
+Attach metadata to logs for correlation and debugging:
+
+```python
+from proxywhirl import LogContext, bind_context
+from loguru import logger
+
+# Using context manager
+with LogContext(request_id="req-123", operation="proxy_selection"):
+    logger.info("Selecting proxy")
+    # Logs include request_id and operation automatically
+
+# Using bind_context
+log = bind_context(strategy="weighted", proxy_url="http://proxy1.example.com:8080")
+log.info("Proxy selected successfully")
+```
+
+### Features
+
+- **Structured Formats**: JSON and logfmt output
+- **Multiple Destinations**: Console, file, syslog, HTTP remote logging
+- **Automatic Rotation**: Size-based and time-based log rotation
+- **Retention Policies**: Automatic cleanup of old log files
+- **Credential Redaction**: Automatic redaction of sensitive data
+- **Async Logging**: Non-blocking logging with bounded queues
+- **Sampling & Filtering**: Reduce log volume with sampling and module filtering
+- **Runtime Reconfiguration**: Change log levels without restart
+
+See `examples/structured_logging_demo.py` for comprehensive examples.
+
 ## 🚀 Quick Start
 
 ### Basic Usage

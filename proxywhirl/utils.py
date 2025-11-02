@@ -25,43 +25,31 @@ def configure_logging(
     """
     Configure loguru logging with optional JSON formatting and credential redaction.
 
+    This function sets up structured logging using the formatters from logging_formatters module.
+
     Args:
         level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        format_type: "json" or "text"
+        format_type: "json", "logfmt", or "text"
         redact_credentials: Whether to redact sensitive data
     """
+    from proxywhirl.logging_formatters import (
+        create_loguru_json_sink,
+        create_loguru_logfmt_sink,
+    )
+
     # Remove default handler
     logger.remove()
 
     if format_type == "json":
-
-        def json_sink(message: Any) -> None:
-            record = message.record
-            log_entry: dict[str, Any] = {
-                "timestamp": record["time"].isoformat(),
-                "level": record["level"].name,
-                "message": record["message"],
-                "module": record["module"],
-                "function": record["function"],
-                "line": record["line"],
-            }
-            if record["exception"]:
-                log_entry["exception"] = {
-                    "type": str(record["exception"].type),
-                    "value": str(record["exception"].value),
-                }
-            if record["extra"]:
-                log_entry["extra"] = record["extra"]
-
-            # Redact credentials if enabled
-            if redact_credentials:
-                log_entry = _redact_sensitive_data(log_entry)
-
-            print(json.dumps(log_entry))
-
+        # Use structured JSON formatter
+        json_sink = create_loguru_json_sink(redact_credentials=redact_credentials)
         logger.add(json_sink, level=level)
+    elif format_type == "logfmt":
+        # Use structured logfmt formatter
+        logfmt_sink = create_loguru_logfmt_sink(redact_credentials=redact_credentials)
+        logger.add(logfmt_sink, level=level)
     else:
-        # Text format
+        # Text format (human-readable)
         logger.add(
             lambda msg: print(msg, end=""),
             format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
@@ -70,28 +58,36 @@ def configure_logging(
 
 
 def _redact_sensitive_data(data: Any) -> Any:
-    """Recursively redact sensitive data from log entries."""
-    if isinstance(data, dict):
-        redacted = {}
-        for key, value in data.items():
-            if any(
-                sensitive in key.lower()
-                for sensitive in ["password", "secret", "token", "api_key", "credential"]
-            ):
-                redacted[key] = "**REDACTED**"
-            else:
-                redacted[key] = _redact_sensitive_data(value)
-        return redacted
-    elif isinstance(data, (list, tuple)):
-        return [_redact_sensitive_data(item) for item in data]
-    elif isinstance(data, str):
-        # Redact URLs with credentials
-        return _redact_url_credentials(data)
-    return data
+    """
+    Recursively redact sensitive data from log entries.
+    
+    Note: This function is deprecated. Use redact_sensitive_data from
+    logging_formatters module for more comprehensive redaction.
+    
+    Args:
+        data: Data to redact
+        
+    Returns:
+        Redacted data
+    """
+    from proxywhirl.logging_formatters import redact_sensitive_data
+    
+    return redact_sensitive_data(data)
 
 
 def _redact_url_credentials(url: str) -> str:
-    """Redact credentials from URLs."""
+    """
+    Redact credentials from URLs.
+    
+    Note: This function is deprecated. URL redaction is now handled
+    automatically by redact_sensitive_data from logging_formatters module.
+    
+    Args:
+        url: URL string
+        
+    Returns:
+        URL with credentials redacted
+    """
     try:
         parsed = urlparse(url)
         if parsed.username or parsed.password:

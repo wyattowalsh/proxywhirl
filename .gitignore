@@ -414,3 +414,11 @@ zsdoc/data
 
 # Custom rules (everything added below won't be overriden by 'Generate .gitignore File' if you use 'Update' option)
 
+# Logging artifacts (Feature 007: Structured Logging System)
+logs/*.log
+logs/*.log.*
+logs/*.jsonl
+logs/*.jsonl.*
+logs/performance_*.txt
+logs/benchmark_*.json
+
