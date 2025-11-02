@@ -1,0 +1,385 @@
+{
+  "title": "ProxyWhirl Performance Dashboard",
+  "uid": "proxywhirl-performance",
+  "timezone": "browser",
+  "schemaVersion": 16,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m"],
+    "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "7d", "30d"]
+  },
+  "tags": ["proxywhirl", "performance", "monitoring"],
+  "templating": {
+    "list": [
+      {
+        "name": "pool",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(proxywhirl_requests_total, pool)",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*"
+      },
+      {
+        "name": "region",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(proxywhirl_requests_total, region)",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Success Rate",
+      "type": "graph",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "proxywhirl:pool_success_rate:5m{pool=~\"$pool\", region=~\"$region\"}",
+          "legendFormat": "{{ pool }} - {{ region }}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        {
+          "format": "short"
+        }
+      ],
+      "thresholds": [
+        {
+          "value": 0.95,
+          "colorMode": "critical",
+          "fill": false,
+          "line": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "P95 Request Latency",
+      "type": "graph",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "proxywhirl:pool_latency_p95:5m{pool=~\"$pool\", region=~\"$region\"}",
+          "legendFormat": "{{ pool }} - {{ region }}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "s",
+          "min": 0
+        },
+        {
+          "format": "short"
+        }
+      ],
+      "thresholds": [
+        {
+          "value": 5.0,
+          "colorMode": "critical",
+          "fill": false,
+          "line": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Request Rate (req/s)",
+      "type": "graph",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "proxywhirl:pool_request_rate:1m{pool=~\"$pool\", region=~\"$region\"}",
+          "legendFormat": "{{ pool }} - {{ region }}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "reqps",
+          "min": 0
+        },
+        {
+          "format": "short"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Error Rate (errors/s)",
+      "type": "graph",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "expr": "rate(proxywhirl_requests_total{status=\"error\", pool=~\"$pool\", region=~\"$region\"}[5m])",
+          "legendFormat": "{{ pool }} - {{ region }}",
+          "refId": "A"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "ops",
+          "min": 0
+        },
+        {
+          "format": "short"
+        }
+      ],
+      "alert": {
+        "conditions": [
+          {
+            "evaluator": {
+              "params": [0.05],
+              "type": "gt"
+            },
+            "operator": {
+              "type": "and"
+            },
+            "query": {
+              "params": ["A", "5m", "now"]
+            },
+            "reducer": {
+              "params": [],
+              "type": "avg"
+            },
+            "type": "query"
+          }
+        ],
+        "executionErrorState": "alerting",
+        "frequency": "60s",
+        "handler": 1,
+        "name": "High Error Rate",
+        "noDataState": "no_data",
+        "notifications": []
+      }
+    },
+    {
+      "id": 5,
+      "title": "Proxy Pool Size",
+      "type": "stat",
+      "gridPos": {"x": 0, "y": 16, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "sum by (pool) (proxywhirl_pool_proxies{pool=~\"$pool\"})",
+          "legendFormat": "{{ pool }}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "fields": "",
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": null, "color": "red"},
+              {"value": 5, "color": "yellow"},
+              {"value": 10, "color": "green"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Healthy Proxies (%)",
+      "type": "stat",
+      "gridPos": {"x": 6, "y": 16, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "proxywhirl:pool_healthy_percentage{pool=~\"$pool\"} * 100",
+          "legendFormat": "{{ pool }}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "fields": "",
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": null, "color": "red"},
+              {"value": 50, "color": "yellow"},
+              {"value": 80, "color": "green"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "P99 Latency",
+      "type": "stat",
+      "gridPos": {"x": 12, "y": 16, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "proxywhirl:pool_latency_p99:5m{pool=~\"$pool\", region=~\"$region\"}",
+          "legendFormat": "{{ pool }} - {{ region }}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "fields": "",
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": null, "color": "green"},
+              {"value": 5.0, "color": "yellow"},
+              {"value": 10.0, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Active Alerts",
+      "type": "stat",
+      "gridPos": {"x": 18, "y": 16, "w": 6, "h": 4},
+      "targets": [
+        {
+          "expr": "sum(proxywhirl_alerts_active)",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "values": false,
+          "fields": "",
+          "calcs": ["lastNotNull"]
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"value": null, "color": "green"},
+              {"value": 1, "color": "yellow"},
+              {"value": 5, "color": "red"}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Health Check Results",
+      "type": "table",
+      "gridPos": {"x": 0, "y": 20, "w": 24, "h": 8},
+      "targets": [
+        {
+          "expr": "proxywhirl_proxy_health_checks_total{pool=~\"$pool\"}",
+          "instant": true,
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "__name__": true,
+              "instance": true,
+              "job": true
+            },
+            "indexByName": {},
+            "renameByName": {
+              "pool": "Pool",
+              "proxy_id": "Proxy ID",
+              "result": "Result",
+              "Value": "Count"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Request Latency Heatmap",
+      "type": "heatmap",
+      "gridPos": {"x": 0, "y": 28, "w": 24, "h": 8},
+      "targets": [
+        {
+          "expr": "sum(rate(proxywhirl_request_duration_seconds_bucket{pool=~\"$pool\", region=~\"$region\"}[5m])) by (le)",
+          "format": "heatmap",
+          "legendFormat": "{{ le }}",
+          "refId": "A"
+        }
+      ],
+      "dataFormat": "tsbuckets",
+      "yAxis": {
+        "format": "s"
+      },
+      "cards": {
+        "cardPadding": 2,
+        "cardRound": 2
+      },
+      "color": {
+        "mode": "spectrum",
+        "cardColor": "#b4ff00",
+        "colorScale": "sqrt",
+        "exponent": 0.5,
+        "colorScheme": "interpolateSpectral"
+      }
+    }
+  ]
+}
