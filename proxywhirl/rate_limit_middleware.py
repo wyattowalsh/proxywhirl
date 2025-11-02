@@ -5,8 +5,7 @@ Transparently enforces rate limits on all API requests.
 Injects rate limit headers and returns HTTP 429 when limits exceeded.
 """
 
-import re
-from typing import Callable, Optional
+from typing import Callable
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
@@ -144,16 +143,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Returns:
             JSONResponse with 429 status and Retry-After header
         """
+        reset_at = exc.metadata.get("reset_at")
+        reset_at_timestamp = int(reset_at) if isinstance(reset_at, int) else 0
+
         headers = self._build_rate_limit_headers(
             limit=exc.limit,
             remaining=0,
-            reset_at_timestamp=int(
-                (
-                    exc.metadata.get("reset_at")
-                    if isinstance(exc.metadata.get("reset_at"), int)
-                    else 0
-                )
-            ),
+            reset_at_timestamp=reset_at_timestamp,
             tier=exc.tier,
         )
         headers["Retry-After"] = str(exc.retry_after_seconds)

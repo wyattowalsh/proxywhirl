@@ -9,14 +9,13 @@ import asyncio
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Any, DefaultDict, Dict, Optional, Tuple
+from typing import Any, Optional
 from uuid import uuid4
 
 from loguru import logger
 from prometheus_client import Counter, Histogram
-from redis import Redis
-from redis.asyncio import Redis as AsyncRedis
 from redis.asyncio import ConnectionPool as AsyncConnectionPool
+from redis.asyncio import Redis as AsyncRedis
 from redis.exceptions import RedisError
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -26,7 +25,6 @@ from proxywhirl.rate_limit_models import (
     RateLimitResult,
     RateLimitState,
 )
-
 
 # Prometheus metrics
 rate_limit_requests_total = Counter(
@@ -100,8 +98,8 @@ class InMemoryRateLimitStore:
 
     def __init__(self) -> None:
         """Initialize in-memory store with thread-safe locks."""
-        self._store: DefaultDict[str, list[Tuple[int, str]]] = defaultdict(list)
-        self._locks: DefaultDict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
+        self._store: defaultdict[str, list[tuple[int, str]]] = defaultdict(list)
+        self._locks: defaultdict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
 
     async def check_and_increment(
         self,
@@ -110,7 +108,7 @@ class InMemoryRateLimitStore:
         window_size_ms: int,
         limit: int,
         req_id: str,
-    ) -> Tuple[bool, int, int]:
+    ) -> tuple[bool, int, int]:
         """
         Check rate limit and increment counter atomically.
 
@@ -164,17 +162,17 @@ class RateLimiter:
         self._script_sha: Optional[str] = None
         self._memory_store = InMemoryRateLimitStore()
         self._use_redis = config.redis_enabled
-        
+
         # Metrics tracking
         self._metrics_lock = asyncio.Lock()
-        self._metrics_data: Dict[str, int] = {
+        self._metrics_data: dict[str, int] = {
             "total_requests": 0,
             "throttled_requests": 0,
             "allowed_requests": 0,
             "redis_errors": 0,
         }
-        self._metrics_by_tier: Dict[str, int] = {}
-        self._metrics_by_endpoint: Dict[str, int] = {}
+        self._metrics_by_tier: dict[str, int] = {}
+        self._metrics_by_endpoint: dict[str, int] = {}
         self._latency_samples: list[float] = []
 
         # Initialize Redis connection if enabled
@@ -240,7 +238,7 @@ class RateLimiter:
 
     def _get_effective_limit(
         self, tier_name: str, endpoint: str
-    ) -> Tuple[int, int]:
+    ) -> tuple[int, int]:
         """
         Calculate effective rate limit for tier + endpoint.
 
@@ -353,7 +351,7 @@ class RateLimiter:
             rate_limit_redis_errors_total.labels(error_type=type(e).__name__).inc()
             async with self._metrics_lock:
                 self._metrics_data["redis_errors"] += 1
-            
+
             if self.config.fail_open:
                 # Fail open: Allow request but log warning
                 logger.warning(
@@ -445,7 +443,7 @@ class RateLimiter:
         """
         # Start latency timer
         start_time = time.monotonic()
-        
+
         # Check whitelist (FR-015)
         if identifier in self.config.whitelist:
             # Whitelisted identifiers bypass rate limiting
@@ -489,17 +487,17 @@ class RateLimiter:
                 result = await self._check_memory(
                     key, identifier, endpoint, tier, limit, window_size_seconds
                 )
-            
+
             # Record metrics
             await self._record_metrics(result, endpoint, tier, start_time)
             return result
-            
-        except Exception as e:
+
+        except Exception:
             # Record latency even on errors
             latency = time.monotonic() - start_time
             rate_limit_check_duration_seconds.labels(tier=tier, endpoint=endpoint).observe(latency)
             raise
-    
+
     async def _record_metrics(
         self,
         result: RateLimitResult,
@@ -510,15 +508,15 @@ class RateLimiter:
         """Record metrics for rate limit check."""
         # Calculate latency
         latency = time.monotonic() - start_time
-        
+
         # Update Prometheus metrics
         status = "allowed" if result.allowed else "throttled"
         rate_limit_requests_total.labels(tier=tier, endpoint=endpoint, status=status).inc()
         rate_limit_check_duration_seconds.labels(tier=tier, endpoint=endpoint).observe(latency)
-        
+
         if not result.allowed:
             rate_limit_throttled_total.labels(tier=tier, endpoint=endpoint).inc()
-        
+
         # Update internal metrics
         async with self._metrics_lock:
             self._metrics_data["total_requests"] += 1
@@ -528,16 +526,16 @@ class RateLimiter:
                 self._metrics_data["throttled_requests"] += 1
                 self._metrics_by_tier[tier] = self._metrics_by_tier.get(tier, 0) + 1
                 self._metrics_by_endpoint[endpoint] = self._metrics_by_endpoint.get(endpoint, 0) + 1
-            
+
             # Track latency samples (keep last 1000)
             self._latency_samples.append(latency * 1000)  # Convert to ms
             if len(self._latency_samples) > 1000:
                 self._latency_samples.pop(0)
-    
+
     async def get_metrics(self) -> RateLimitMetrics:
         """
         Get aggregated rate limiting metrics.
-        
+
         Returns:
             RateLimitMetrics with current statistics
         """
@@ -551,7 +549,7 @@ class RateLimiter:
             else:
                 avg_latency = 0.0
                 p95_latency = 0.0
-            
+
             return RateLimitMetrics(
                 total_requests=self._metrics_data["total_requests"],
                 throttled_requests=self._metrics_data["throttled_requests"],
@@ -562,14 +560,14 @@ class RateLimiter:
                 p95_check_latency_ms=p95_latency,
                 redis_errors=self._metrics_data["redis_errors"],
             )
-    
-    async def get_status(self, identifier: str) -> Dict[str, Any]:
+
+    async def get_status(self, identifier: str) -> dict[str, Any]:
         """
         Get rate limit status for a specific identifier.
-        
+
         Args:
             identifier: User ID or IP address
-            
+
         Returns:
             Dictionary with rate limit status for all endpoints
         """
@@ -581,7 +579,7 @@ class RateLimiter:
                 "limits": [],
                 "is_whitelisted": True,
             }
-        
+
         # For now, return empty status (would need to query Redis/memory for active windows)
         # This is a simplified implementation
         return {

@@ -9,7 +9,7 @@ import ipaddress
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Optional, Union
 
 import yaml
 from pydantic import (
@@ -21,7 +21,6 @@ from pydantic import (
     model_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic.types import DirectoryPath
 
 
 class RateLimitTierConfig(BaseModel):
@@ -36,14 +35,14 @@ class RateLimitTierConfig(BaseModel):
     window_size_seconds: int = Field(
         ..., ge=1, le=3600, description="Window size (1-3600 seconds)"
     )
-    endpoints: Dict[str, int] = Field(
+    endpoints: dict[str, int] = Field(
         default_factory=dict, description="Per-endpoint limit overrides"
     )
     description: str = Field(default="", description="Human-readable tier description")
 
     @field_validator("endpoints")
     @classmethod
-    def validate_endpoints(cls, v: Dict[str, int]) -> Dict[str, int]:
+    def validate_endpoints(cls, v: dict[str, int]) -> dict[str, int]:
         """Validate endpoint paths and limits."""
         for path, limit in v.items():
             if not path.startswith("/"):
@@ -75,7 +74,7 @@ class RateLimitConfig(BaseSettings):
     default_tier: str = Field(
         default="free", description="Default tier for unauthenticated users"
     )
-    tiers: List[RateLimitTierConfig] = Field(
+    tiers: list[RateLimitTierConfig] = Field(
         ..., description="List of rate limit tier configurations"
     )
     redis_url: SecretStr = Field(
@@ -90,7 +89,7 @@ class RateLimitConfig(BaseSettings):
     header_prefix: str = Field(
         default="X-RateLimit-", description="Prefix for rate limit headers"
     )
-    whitelist: List[str] = Field(
+    whitelist: list[str] = Field(
         default_factory=list, description="User IDs or IPs exempt from rate limiting"
     )
 
@@ -104,7 +103,7 @@ class RateLimitConfig(BaseSettings):
 
     @field_validator("whitelist")
     @classmethod
-    def validate_whitelist_entries(cls, v: List[str]) -> List[str]:
+    def validate_whitelist_entries(cls, v: list[str]) -> list[str]:
         """Validate whitelist entries are UUIDs or IP addresses."""
         for entry in v:
             # Try UUID
@@ -143,7 +142,7 @@ class RateLimitConfig(BaseSettings):
         if not config_path.exists():
             raise FileNotFoundError(f"Config file not found: {config_path}")
 
-        with open(config_path, "r", encoding="utf-8") as f:
+        with open(config_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
         return cls(**data)
@@ -258,10 +257,10 @@ class RateLimitMetrics(BaseModel):
     total_requests: int = Field(..., ge=0, description="Total rate limit checks")
     throttled_requests: int = Field(..., ge=0, description="Total throttled (429)")
     allowed_requests: int = Field(..., ge=0, description="Total allowed requests")
-    by_tier: Dict[str, int] = Field(
+    by_tier: dict[str, int] = Field(
         default_factory=dict, description="Throttled requests by tier"
     )
-    by_endpoint: Dict[str, int] = Field(
+    by_endpoint: dict[str, int] = Field(
         default_factory=dict, description="Throttled requests by endpoint"
     )
     avg_check_latency_ms: float = Field(..., ge=0.0, description="Avg check latency (ms)")
