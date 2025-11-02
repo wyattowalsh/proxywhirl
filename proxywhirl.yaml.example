@@ -1,0 +1,89 @@
+# ProxyWhirl Configuration Example
+# ================================
+#
+# This file demonstrates all available configuration options for ProxyWhirl.
+# Copy this file to proxywhirl.yaml and customize for your environment.
+#
+# Configuration Source Precedence (highest to lowest):
+#   1. Command-line arguments (--timeout 10)
+#   2. Runtime API updates  
+#   3. Environment variables (PROXYWHIRL_TIMEOUT=10)
+#   4. .env file
+#   5. This YAML file
+#   6. Default values
+
+# Request Configuration (Hot-reloadable)
+# =======================================
+
+# Request timeout in seconds (1-300)
+# Default: 5
+timeout: 5
+
+# Maximum retry attempts (0-10)
+# Default: 3
+max_retries: 3
+
+# Logging Configuration (Hot-reloadable)
+# ========================================
+
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+# Default: INFO
+log_level: INFO
+
+# Proxy Configuration (Restart required)
+# ========================================
+
+# HTTP proxy URL with optional credentials
+# Format: http://[user:pass@]host:port
+# Default: null (no proxy)
+# proxy_url: http://proxy.example.com:8080
+
+# Storage Configuration (Restart required)
+# ==========================================
+
+# SQLite database file path
+# Default: proxywhirl.db
+database_path: proxywhirl.db
+
+# Server Configuration (Restart required, if using REST API)
+# =============================================================
+
+# API server bind address
+# Default: 0.0.0.0 (all interfaces)
+server_host: 0.0.0.0
+
+# API server port (1024-65535)
+# Default: 8000
+server_port: 8000
+
+# Rate Limiting (Hot-reloadable)
+# ================================
+
+# Rate limit: requests per minute
+# Default: 100
+rate_limit_requests: 100
+
+# =============================================================================
+# Notes:
+# =============================================================================
+#
+# Hot-reloadable Settings:
+#   These can be updated at runtime via API or file reload without restart:
+#   - timeout
+#   - max_retries
+#   - log_level
+#   - rate_limit_requests
+#
+# Restart-required Settings:
+#   These require application restart when changed:
+#   - proxy_url
+#   - database_path
+#   - server_host
+#   - server_port
+#
+# Environment Variable Override:
+#   All settings can be overridden with PROXYWHIRL_ prefix:
+#   export PROXYWHIRL_TIMEOUT=10
+#   export PROXYWHIRL_LOG_LEVEL=DEBUG
+#
+# =============================================================================

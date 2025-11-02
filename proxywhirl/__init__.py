@@ -15,6 +15,21 @@ from proxywhirl.cache_models import (
     HealthStatus as CacheHealthStatus,
     TierStatistics,
 )
+from proxywhirl.config import (
+    ConfigurationManager,
+    load_yaml_config,
+    parse_cli_args,
+    validate_config,
+)
+from proxywhirl.config_models import (
+    ConfigUpdate,
+    ConfigurationSnapshot,
+    ConfigurationSource,
+    ProxyWhirlSettings,
+    User,
+    ValidationError,
+    ValidationResult,
+)
 from proxywhirl.exceptions import (
     CacheCorruptionError,
     CacheStorageError,
@@ -104,6 +119,18 @@ __version__ = "1.0.0"
 __all__: list[str] = [
     # Version
     "__version__",
+    # Configuration Management
+    "ConfigurationManager",
+    "ProxyWhirlSettings",
+    "User",
+    "ConfigurationSource",
+    "ConfigurationSnapshot",
+    "ConfigUpdate",
+    "ValidationResult",
+    "ValidationError",
+    "load_yaml_config",
+    "parse_cli_args",
+    "validate_config",
     # Cache Components
     "CacheManager",
     "CacheConfig",
