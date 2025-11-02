@@ -9,7 +9,7 @@ import ipaddress
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import yaml
 from pydantic import (
@@ -125,7 +125,7 @@ class RateLimitConfig(BaseSettings):
         return v
 
     @classmethod
-    def from_yaml(cls, path: Path | str) -> "RateLimitConfig":
+    def from_yaml(cls, path: Union[Path, str]) -> "RateLimitConfig":
         """
         Load configuration from YAML file.
 

@@ -37,6 +37,21 @@ ProxyWhirl is a production-ready Python library for intelligent proxy rotation w
 - ✅ **TTL Expiration**: Automatic proxy expiration based on time-to-live
 - ✅ **Browser Rendering**: JavaScript-heavy sites support via Playwright (optional)
 
+### Rate Limiting (v0.3.0)
+
+- 🚦 **Sliding Window Algorithm**: Accurate rate limiting with atomic Redis operations
+- 🚦 **Distributed State**: Redis-backed state sharing across multiple API instances
+- 🚦 **Tiered Limits**: Free, premium, enterprise, and unlimited tiers
+- 🚦 **Per-Endpoint Control**: Different limits for different API endpoints
+- 🚦 **Whitelist Support**: Exempt specific users or IPs from rate limiting
+- 🚦 **HTTP 429 Responses**: Standard rate limit exceeded responses with Retry-After headers
+- 🚦 **Rate Limit Headers**: X-RateLimit-* headers on all responses
+- 🚦 **Prometheus Metrics**: Track throttling rates, latencies, and errors
+- 🚦 **Fail-Open/Fail-Closed**: Configurable behavior on Redis failures
+- 🚦 **In-Memory Fallback**: Testing and single-instance mode support
+- 🚦 **Hot Reload**: Update configuration without service restart
+- 🚦 **Clock-Skew Resilient**: Uses monotonic time for reliability
+
 ## 📦 Installation
 
 ```bash
