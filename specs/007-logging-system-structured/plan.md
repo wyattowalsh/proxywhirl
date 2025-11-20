@@ -7,7 +7,7 @@
 
 ## Summary
 
-Extend proxywhirl's existing loguru-based logging with structured output formats (JSON, logfmt), configurable handlers (console, file, syslog, HTTP remote), and operational features (rotation, retention, async buffering, contextual metadata). Configuration via environment variables + optional config file using pydantic-settings. Single background thread for async logging with bounded queue and drop counter metrics. Graceful failure handling with fallback to stderr/console.
+Extend proxywhirl's existing loguru-based logging with structured output formats (JSON, logfmt), configurable handlers (console, file, syslog, HTTP remote), and operational features (rotation, retention, async buffering, contextual metadata, component filtering, log sampling). Configuration via environment variables + optional config file using pydantic-settings. Single background thread for async logging with bounded queue and drop counter metrics. Graceful failure handling with fallback to stderr/console, plus instrumentation for health events.
 
 ## Technical Context
 
@@ -15,7 +15,7 @@ Extend proxywhirl's existing loguru-based logging with structured output formats
 **Primary Dependencies**: 
 - loguru>=0.7.0 (already in dependencies - extend configuration)
 - pydantic-settings>=2.0.0 (already in dependencies - for config management)
-- Optional: python-json-logger for structured JSON formatting - NEEDS CLARIFICATION: Decide whether to use this library or implement JSON formatting manually.
+- No additional JSON logging libraries; rely on Loguru’s native serialization per research decision.
 
 **Storage**: File system (rotated log files), optional remote endpoints (syslog, HTTP)
 **Testing**: pytest (unit, integration, property tests with Hypothesis), pytest-benchmark for performance validation
@@ -77,27 +77,36 @@ specs/007-logging-system-structured/
 proxywhirl/                    # Flat package structure (existing)
 ├── logging_config.py          # NEW: Pydantic-settings configuration models
 ├── logging_formatters.py      # NEW: JSON/logfmt structured formatters
-├── logging_handlers.py        # NEW: Multi-destination handlers with fallback
+├── logging_handlers.py        # NEW: Multi-destination handlers with fallback, sampling, filtering
+├── logging_context.py         # NEW: Context binding helpers for correlation metadata
 ├── config.py                  # EXISTING: May extend with logging settings
 ├── rotator.py                 # EXISTING: Will use structured logging
-├── health.py                  # EXISTING (006): Will emit structured health logs
+├── health.py                  # EXISTING (006): Emit structured health events
 └── ...                        # Other existing modules
 
 tests/
 ├── unit/
 │   ├── test_logging_config.py         # NEW: Config model validation
-│   ├── test_logging_formatters.py     # NEW: JSON/logfmt formatting
-│   └── test_logging_handlers.py       # NEW: Handler behavior, fallback
+│   ├── test_logging_formatters.py     # NEW: JSON/logfmt formatting + Unicode safety
+│   ├── test_logging_handlers.py       # NEW: Handler behavior, fallback, sampling
+│   ├── test_logging_levels.py         # NEW: Level precedence validation
+│   ├── test_logging_context.py        # NEW: Context binding utilities
+│   └── test_logging_rotation.py       # NEW: Rotation parsing helpers
 ├── integration/
 │   ├── test_logging_multi_dest.py     # NEW: Multiple outputs simultaneously
-│   └── test_logging_rotation.py       # NEW: File rotation + retention
+│   ├── test_logging_rotation.py       # NEW: File rotation + retention
+│   ├── test_logging_context.py        # NEW: Context propagation
+│   └── test_logging_health.py         # NEW: Health event logging coverage
+├── contract/
+│   └── test_logging_schema.py         # NEW: Structured log schema validation
 ├── property/
-│   └── test_logging_concurrency.py    # NEW: Hypothesis concurrent logging
+│   ├── test_logging_concurrency.py    # NEW: Hypothesis concurrent logging
+│   └── test_logging_sampling.py       # NEW: Sampling behavior validation
 └── benchmarks/
     └── test_logging_performance.py    # NEW: SC-003, SC-005 validation
 ```
 
-**Structure Decision**: Flat module structure per Constitution VII. Adding 3 new modules (logging_config, logging_formatters, logging_handlers) to existing proxywhirl/ package brings total to 19/20 modules (within limit). No nested logging sub-package - keeps architecture simple.
+**Structure Decision**: Flat module structure per Constitution VII. Adding focused logging modules (config, formatters, handlers, context) keeps total modules within the allowed limit and documents updates to existing components (rotator, health). No nested logging sub-package—architecture stays simple.
 
 ## Complexity Tracking
 

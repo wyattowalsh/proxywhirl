@@ -1,0 +1,343 @@
+{
+  "contract_version": "1.0.0",
+  "feature": "005-caching-mechanisms-storage",
+  "description": "Internal API contract for CacheManager - defines the public interface for cache operations",
+  "last_updated": "2025-11-01",
+  "interface": "CacheManager",
+  "methods": [
+    {
+      "name": "get",
+      "description": "Retrieve cached proxy by key with automatic tier promotion",
+      "signature": "def get(self, key: str) -> Optional[CacheEntry]",
+      "parameters": [
+        {
+          "name": "key",
+          "type": "str",
+          "description": "Unique cache key (URL hash)",
+          "required": true,
+          "constraints": ["non-empty", "url-safe characters"]
+        }
+      ],
+      "returns": {
+        "type": "Optional[CacheEntry]",
+        "description": "Cache entry if found and not expired, None otherwise"
+      },
+      "side_effects": [
+        "Updates last_accessed timestamp",
+        "Increments access_count",
+        "Promotes entry to higher tier (L3→L2→L1)",
+        "Updates hit/miss statistics"
+      ],
+      "complexity": "O(1) average case (hash lookup per tier)",
+      "performance": {
+        "l1_hit": "<1ms",
+        "l2_hit": "<20ms",
+        "l3_hit": "<50ms",
+        "miss_all_tiers": "<70ms"
+      }
+    },
+    {
+      "name": "put",
+      "description": "Store proxy in cache with automatic tier distribution",
+      "signature": "def put(self, key: str, entry: CacheEntry) -> bool",
+      "parameters": [
+        {
+          "name": "key",
+          "type": "str",
+          "description": "Unique cache key",
+          "required": true
+        },
+        {
+          "name": "entry",
+          "type": "CacheEntry",
+          "description": "Cache entry to store",
+          "required": true,
+          "validation": ["ttl_seconds >= 0", "expires_at in future", "valid proxy_url"]
+        }
+      ],
+      "returns": {
+        "type": "bool",
+        "description": "True if successfully cached in at least L1, False on failure"
+      },
+      "side_effects": [
+        "Writes to L1 (synchronous)",
+        "Writes to L2 (async, encrypted)",
+        "Writes to L3 (async, encrypted)",
+        "Triggers LRU eviction if tier full",
+        "Updates size statistics"
+      ],
+      "complexity": "O(1) for L1, O(log n) for L3 (SQLite index)",
+      "performance": {
+        "l1_write": "<1ms",
+        "l2_write": "<10ms",
+        "l3_write": "<5ms"
+      }
+    },
+    {
+      "name": "delete",
+      "description": "Remove proxy from all cache tiers",
+      "signature": "def delete(self, key: str) -> bool",
+      "parameters": [
+        {
+          "name": "key",
+          "type": "str",
+          "description": "Cache key to remove",
+          "required": true
+        }
+      ],
+      "returns": {
+        "type": "bool",
+        "description": "True if entry existed and was deleted, False if not found"
+      },
+      "side_effects": [
+        "Removes from all tiers (L1, L2, L3)",
+        "Updates eviction statistics",
+        "Decrements size statistics"
+      ],
+      "complexity": "O(1) average case",
+      "performance": {
+        "total_deletion": "<15ms"
+      }
+    },
+    {
+      "name": "invalidate_by_health",
+      "description": "Invalidate cached proxy based on health check failure",
+      "signature": "def invalidate_by_health(self, key: str) -> bool",
+      "parameters": [
+        {
+          "name": "key",
+          "type": "str",
+          "description": "Cache key of unhealthy proxy",
+          "required": true
+        }
+      ],
+      "returns": {
+        "type": "bool",
+        "description": "True if invalidated, False if not found"
+      },
+      "side_effects": [
+        "Increments failure_count",
+        "Marks health_status as UNHEALTHY",
+        "Removes entry if failure_count >= threshold",
+        "Updates evictions_health statistic"
+      ],
+      "complexity": "O(1)",
+      "performance": {
+        "invalidation": "<5ms"
+      }
+    },
+    {
+      "name": "clear",
+      "description": "Clear all cached entries from all tiers",
+      "signature": "def clear(self) -> int",
+      "parameters": [],
+      "returns": {
+        "type": "int",
+        "description": "Total number of entries cleared across all tiers"
+      },
+      "side_effects": [
+        "Removes all entries from L1, L2, L3",
+        "Resets all statistics",
+        "Closes and reopens storage backends"
+      ],
+      "complexity": "O(n) where n is total entries",
+      "performance": {
+        "clear_10k_entries": "<500ms"
+      }
+    },
+    {
+      "name": "warm_from_file",
+      "description": "Pre-populate cache from proxy list file (cache warming)",
+      "signature": "def warm_from_file(self, file_path: str, ttl_seconds: Optional[int] = None) -> int",
+      "parameters": [
+        {
+          "name": "file_path",
+          "type": "str",
+          "description": "Path to proxy list file (JSON/JSONL/CSV)",
+          "required": true
+        },
+        {
+          "name": "ttl_seconds",
+          "type": "Optional[int]",
+          "description": "Override TTL for imported proxies (uses default if None)",
+          "required": false,
+          "constraints": ["ttl_seconds >= 60 if provided"]
+        }
+      ],
+      "returns": {
+        "type": "int",
+        "description": "Number of proxies successfully imported"
+      },
+      "side_effects": [
+        "Adds entries to cache (all tiers)",
+        "Skips invalid/corrupted entries with warning log",
+        "Updates size statistics"
+      ],
+      "complexity": "O(n) where n is file size",
+      "performance": {
+        "warm_10k_proxies": "<5s (SC-007)"
+      }
+    },
+    {
+      "name": "get_statistics",
+      "description": "Retrieve current cache statistics",
+      "signature": "def get_statistics(self) -> CacheStatistics",
+      "parameters": [],
+      "returns": {
+        "type": "CacheStatistics",
+        "description": "Snapshot of cache metrics across all tiers"
+      },
+      "side_effects": [
+        "Aggregates statistics from all tiers"
+      ],
+      "complexity": "O(1)",
+      "performance": {
+        "stats_retrieval": "<1ms"
+      }
+    },
+    {
+      "name": "export_to_file",
+      "description": "Export all cached proxies to file for backup/migration",
+      "signature": "def export_to_file(self, file_path: str, tier: Optional[str] = None) -> int",
+      "parameters": [
+        {
+          "name": "file_path",
+          "type": "str",
+          "description": "Destination file path (JSONL format)",
+          "required": true
+        },
+        {
+          "name": "tier",
+          "type": "Optional[str]",
+          "description": "Export specific tier ('l1', 'l2', 'l3') or all if None",
+          "required": false,
+          "constraints": ["tier in ['l1', 'l2', 'l3'] if provided"]
+        }
+      ],
+      "returns": {
+        "type": "int",
+        "description": "Number of entries exported"
+      },
+      "side_effects": [
+        "Writes JSONL file with encrypted credentials",
+        "Does not modify cache state"
+      ],
+      "complexity": "O(n) where n is entries to export",
+      "performance": {
+        "export_10k_entries": "<10s"
+      }
+    }
+  ],
+  "properties": [
+    {
+      "name": "config",
+      "type": "CacheConfig",
+      "description": "Cache configuration (read-only after initialization)",
+      "mutable": false
+    },
+    {
+      "name": "statistics",
+      "type": "CacheStatistics",
+      "description": "Live cache statistics (updated continuously)",
+      "mutable": true,
+      "access": "get_statistics() method"
+    }
+  ],
+  "exceptions": [
+    {
+      "name": "CacheCorruptionError",
+      "base": "Exception",
+      "description": "Raised when cache data is corrupted and cannot be recovered",
+      "scenarios": [
+        "Decryption failure (wrong key)",
+        "Invalid JSON in L2 cache file",
+        "SQLite database corruption in L3"
+      ],
+      "recovery": "Log error, evict corrupted entry, continue operation"
+    },
+    {
+      "name": "CacheStorageError",
+      "base": "Exception",
+      "description": "Raised when cache storage backend is unavailable",
+      "scenarios": [
+        "Disk space exhausted (L2/L3)",
+        "File permission denied (L2)",
+        "SQLite database locked (L3)"
+      ],
+      "recovery": "Disable failed tier, continue with degraded mode"
+    },
+    {
+      "name": "CacheValidationError",
+      "base": "ValueError",
+      "description": "Raised when cache entry fails validation",
+      "scenarios": [
+        "Invalid TTL value (<0)",
+        "Malformed proxy URL",
+        "Missing required fields"
+      ],
+      "recovery": "Reject entry, log validation error, raise to caller"
+    }
+  ],
+  "thread_safety": {
+    "level": "thread-safe",
+    "mechanism": "RLock per cache tier",
+    "guarantees": [
+      "No data corruption under concurrent access",
+      "Linearizable operations within same tier",
+      "Cross-tier operations use tier-level locks"
+    ],
+    "limitations": [
+      "No distributed locking (single-process only)",
+      "File locking timeouts possible under high contention"
+    ]
+  },
+  "performance_guarantees": [
+    {
+      "metric": "L1 lookup latency",
+      "target": "<1ms",
+      "test": "benchmark_test_l1_lookup_performance"
+    },
+    {
+      "metric": "L2/L3 lookup latency",
+      "target": "<50ms",
+      "test": "benchmark_test_disk_lookup_performance"
+    },
+    {
+      "metric": "Cache warming (10k proxies)",
+      "target": "<5s",
+      "test": "benchmark_test_cache_warming"
+    },
+    {
+      "metric": "Eviction overhead",
+      "target": "<10ms",
+      "test": "benchmark_test_eviction_performance"
+    },
+    {
+      "metric": "Concurrent operations (100k)",
+      "target": "No corruption",
+      "test": "integration_test_concurrent_access"
+    }
+  ],
+  "security_requirements": [
+    {
+      "requirement": "Credential encryption at rest",
+      "implementation": "Fernet symmetric encryption for L2/L3",
+      "validation": "test_credentials_encrypted_in_storage"
+    },
+    {
+      "requirement": "Never log credentials",
+      "implementation": "SecretStr with *** redaction",
+      "validation": "test_credentials_not_in_logs"
+    },
+    {
+      "requirement": "Secure key management",
+      "implementation": "Environment variable: PROXYWHIRL_CACHE_ENCRYPTION_KEY",
+      "validation": "test_encryption_key_from_env"
+    }
+  ],
+  "backward_compatibility": {
+    "breaking_changes": [],
+    "migration_required": false,
+    "notes": "New feature - no existing cache to migrate"
+  }
+}

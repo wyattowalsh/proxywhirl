@@ -1,0 +1,77 @@
+{
+    "$defs": {
+        "LogHandlerConfig": {
+            "properties": {
+                "type": {
+                    "enum": ["console", "file", "syslog", "http"],
+                    "title": "Type",
+                    "type": "string"
+                },
+                "level": {
+                    "default": "INFO",
+                    "title": "Level",
+                    "type": "string"
+                },
+                "format": {
+                    "default": "default",
+                    "title": "Format",
+                    "type": "string"
+                },
+                "path": {
+                    "anyOf": [{"type": "string"}, {"type": "null"}],
+                    "default": null,
+                    "title": "Path"
+                },
+                "rotation": {
+                    "anyOf": [{"type": "string"}, {"type": "null"}],
+                    "default": null,
+                    "title": "Rotation"
+                },
+                "retention": {
+                    "anyOf": [{"type": "string"}, {"type": "null"}],
+                    "default": null,
+                    "title": "Retention"
+                },
+                "url": {
+                    "anyOf": [{"type": "string"}, {"type": "null"}],
+                    "default": null,
+                    "title": "Url"
+                }
+            },
+            "required": ["type"],
+            "title": "LogHandlerConfig",
+            "type": "object"
+        }
+    },
+    "properties": {
+        "level": {
+            "default": "INFO",
+            "title": "Level",
+            "type": "string"
+        },
+        "async_logging": {
+            "default": true,
+            "title": "Async Logging",
+            "type": "boolean"
+        },
+        "queue_size": {
+            "default": 1000,
+            "title": "Queue Size",
+            "type": "integer"
+        },
+        "drop_on_full": {
+            "default": true,
+            "title": "Drop On Full",
+            "type": "boolean"
+        },
+        "handlers": {
+            "items": {
+                "$ref": "#/$defs/LogHandlerConfig"
+            },
+            "title": "Handlers",
+            "type": "array"
+        }
+    },
+    "title": "LogConfiguration",
+    "type": "object"
+}

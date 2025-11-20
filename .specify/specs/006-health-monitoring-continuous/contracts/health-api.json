@@ -1,0 +1,301 @@
+{
+  "contractVersion": "1.0.0",
+  "feature": "006-health-monitoring-continuous",
+  "description": "Python API contracts for continuous proxy health monitoring",
+  "language": "Python",
+  "framework": "Pure Python Library",
+  
+  "classes": [
+    {
+      "name": "HealthChecker",
+      "module": "proxywhirl.health",
+      "description": "Main health monitoring coordinator managing background checks and status tracking",
+      "constructor": {
+        "signature": "__init__(self, cache: Optional[CacheManager] = None, config: Optional[HealthCheckConfig] = None, on_event: Optional[Callable[[HealthEvent], None]] = None) -> None",
+        "parameters": [
+          {
+            "name": "cache",
+            "type": "Optional[CacheManager]",
+            "description": "Cache manager for persistence and invalidation",
+            "required": false
+          },
+          {
+            "name": "config",
+            "type": "Optional[HealthCheckConfig]",
+            "description": "Health check configuration (uses defaults if None)",
+            "required": false
+          },
+          {
+            "name": "on_event",
+            "type": "Optional[Callable[[HealthEvent], None]]",
+            "description": "Optional callback for health events (for custom notifications)",
+            "required": false
+          }
+        ]
+      },
+      "methods": [
+        {
+          "name": "add_proxy",
+          "signature": "add_proxy(self, proxy: Proxy) -> None",
+          "description": "Register a proxy for health monitoring",
+          "parameters": [
+            {"name": "proxy", "type": "Proxy", "description": "Proxy to monitor"}
+          ],
+          "returns": {"type": "None"},
+          "raises": ["ValueError: If proxy already registered"]
+        },
+        {
+          "name": "remove_proxy",
+          "signature": "remove_proxy(self, proxy_url: str) -> bool",
+          "description": "Stop monitoring a proxy and remove from pool",
+          "parameters": [
+            {"name": "proxy_url", "type": "str", "description": "Proxy URL to remove"}
+          ],
+          "returns": {"type": "bool", "description": "True if removed, False if not found"}
+        },
+        {
+          "name": "check_proxy",
+          "signature": "check_proxy(self, proxy: Proxy) -> HealthCheckResult",
+          "description": "Perform immediate health check on a proxy (synchronous)",
+          "parameters": [
+            {"name": "proxy", "type": "Proxy", "description": "Proxy to check"}
+          ],
+          "returns": {"type": "HealthCheckResult", "description": "Check result with status and timing"},
+          "raises": ["TimeoutError: If check exceeds configured timeout"]
+        },
+        {
+          "name": "get_pool_status",
+          "signature": "get_pool_status(self) -> PoolStatus",
+          "description": "Get current pool health statistics (cached for 1 second)",
+          "parameters": [],
+          "returns": {"type": "PoolStatus", "description": "Aggregate pool health metrics"},
+          "performance": "<50ms (SC-004)"
+        },
+        {
+          "name": "get_proxy_status",
+          "signature": "get_proxy_status(self, proxy_url: str) -> Optional[ProxyHealthState]",
+          "description": "Get health state for specific proxy",
+          "parameters": [
+            {"name": "proxy_url", "type": "str", "description": "Proxy URL to query"}
+          ],
+          "returns": {"type": "Optional[ProxyHealthState]", "description": "Health state or None if not found"}
+        },
+        {
+          "name": "get_health_history",
+          "signature": "get_health_history(self, proxy_url: str, hours: int = 24) -> list[HealthCheckResult]",
+          "description": "Retrieve health check history for a proxy",
+          "parameters": [
+            {"name": "proxy_url", "type": "str", "description": "Proxy URL"},
+            {"name": "hours", "type": "int", "description": "Hours of history (default: 24, max: 168)"}
+          ],
+          "returns": {"type": "list[HealthCheckResult]", "description": "Check results sorted by time (newest first)"}
+        },
+        {
+          "name": "start",
+          "signature": "start(self) -> None",
+          "description": "Start background health checking threads",
+          "parameters": [],
+          "returns": {"type": "None"},
+          "raises": ["RuntimeError: If already started"]
+        },
+        {
+          "name": "stop",
+          "signature": "stop(self, timeout: float = 30.0) -> None",
+          "description": "Stop background health checking and wait for threads to finish",
+          "parameters": [
+            {"name": "timeout", "type": "float", "description": "Max seconds to wait for graceful shutdown"}
+          ],
+          "returns": {"type": "None"},
+          "raises": ["TimeoutError: If threads don't stop within timeout"]
+        },
+        {
+          "name": "pause",
+          "signature": "pause(self) -> None",
+          "description": "Pause health checks without stopping threads (FR-019)",
+          "parameters": [],
+          "returns": {"type": "None"}
+        },
+        {
+          "name": "resume",
+          "signature": "resume(self) -> None",
+          "description": "Resume health checks after pause (FR-019)",
+          "parameters": [],
+          "returns": {"type": "None"}
+        }
+      ]
+    },
+    {
+      "name": "HealthWorker",
+      "module": "proxywhirl.health_worker",
+      "description": "Background thread managing health checks for a specific proxy source",
+      "internal": true,
+      "constructor": {
+        "signature": "__init__(self, source: str, proxies: list[Proxy], config: HealthCheckConfig, thread_pool: ThreadPoolExecutor, on_result: Callable[[HealthCheckResult], None]) -> None",
+        "parameters": [
+          {"name": "source", "type": "str", "description": "Proxy source identifier"},
+          {"name": "proxies", "type": "list[Proxy]", "description": "Proxies from this source"},
+          {"name": "config", "type": "HealthCheckConfig", "description": "Check configuration"},
+          {"name": "thread_pool", "type": "ThreadPoolExecutor", "description": "Shared thread pool"},
+          {"name": "on_result", "type": "Callable", "description": "Callback for check results"}
+        ]
+      }
+    }
+  ],
+
+  "models": [
+    {
+      "name": "HealthStatus",
+      "module": "proxywhirl.health_models",
+      "type": "Enum",
+      "description": "Proxy health state enumeration",
+      "values": [
+        {"name": "HEALTHY", "value": "healthy", "description": "Passing health checks"},
+        {"name": "UNHEALTHY", "value": "unhealthy", "description": "Failing checks (under threshold)"},
+        {"name": "CHECKING", "value": "checking", "description": "Check in progress"},
+        {"name": "RECOVERING", "value": "recovering", "description": "In recovery cooldown"},
+        {"name": "PERMANENTLY_FAILED", "value": "failed", "description": "Exceeded max retries"},
+        {"name": "UNKNOWN", "value": "unknown", "description": "Not yet checked"}
+      ]
+    },
+    {
+      "name": "HealthCheckResult",
+      "module": "proxywhirl.health_models",
+      "type": "PydanticModel",
+      "description": "Result of a single health check",
+      "fields": [
+        {"name": "proxy_url", "type": "str", "required": true},
+        {"name": "check_time", "type": "datetime", "required": true, "timezone": "UTC"},
+        {"name": "status", "type": "HealthStatus", "required": true},
+        {"name": "response_time_ms", "type": "Optional[float]", "required": false, "validation": ">= 0"},
+        {"name": "status_code", "type": "Optional[int]", "required": false, "validation": "100-599"},
+        {"name": "error_message", "type": "Optional[str]", "required": false},
+        {"name": "check_url", "type": "str", "required": true}
+      ],
+      "immutable": true
+    },
+    {
+      "name": "HealthEvent",
+      "module": "proxywhirl.health_models",
+      "type": "PydanticModel",
+      "description": "Health state change notification event",
+      "fields": [
+        {"name": "event_type", "type": "str", "required": true, "values": ["proxy_down", "proxy_recovered", "pool_degraded", "pool_recovered"]},
+        {"name": "proxy_url", "type": "Optional[str]", "required": false},
+        {"name": "timestamp", "type": "datetime", "required": true, "default": "utcnow()"},
+        {"name": "previous_status", "type": "Optional[HealthStatus]", "required": false},
+        {"name": "new_status", "type": "HealthStatus", "required": true},
+        {"name": "failure_count", "type": "int", "required": false, "default": 0},
+        {"name": "metadata", "type": "dict[str, Any]", "required": false, "default": {}}
+      ]
+    },
+    {
+      "name": "PoolStatus",
+      "module": "proxywhirl.health_models",
+      "type": "PydanticModel",
+      "description": "Aggregate pool health statistics",
+      "fields": [
+        {"name": "total_proxies", "type": "int", "required": true},
+        {"name": "healthy_count", "type": "int", "required": true},
+        {"name": "unhealthy_count", "type": "int", "required": true},
+        {"name": "checking_count", "type": "int", "required": true},
+        {"name": "recovering_count", "type": "int", "required": true},
+        {"name": "unknown_count", "type": "int", "required": true},
+        {"name": "permanently_failed_count", "type": "int", "required": true},
+        {"name": "last_updated", "type": "datetime", "required": true, "default": "utcnow()"},
+        {"name": "by_source", "type": "dict[str, SourceStatus]", "required": false, "default": {}}
+      ],
+      "computed_properties": [
+        {"name": "health_percentage", "type": "float", "description": "healthy/total * 100"},
+        {"name": "is_degraded", "type": "bool", "description": "health_percentage < 50"}
+      ]
+    },
+    {
+      "name": "HealthCheckConfig",
+      "module": "proxywhirl.health_models",
+      "type": "PydanticModel",
+      "description": "Health check configuration",
+      "fields": [
+        {"name": "check_interval_seconds", "type": "int", "default": 300, "validation": ">= 10"},
+        {"name": "check_timeout_seconds", "type": "int", "default": 10, "validation": "> 0"},
+        {"name": "failure_threshold", "type": "int", "default": 3, "validation": ">= 1"},
+        {"name": "recovery_cooldown_base", "type": "int", "default": 60, "validation": "> 0"},
+        {"name": "max_recovery_attempts", "type": "int", "default": 5, "validation": ">= 0"},
+        {"name": "check_url", "type": "str", "default": "http://httpbin.org/status/200"},
+        {"name": "expected_status_codes", "type": "list[int]", "default": [200]},
+        {"name": "thread_pool_size", "type": "int", "default": 100, "validation": "> 0"},
+        {"name": "enable_jitter", "type": "bool", "default": true},
+        {"name": "history_retention_hours", "type": "int", "default": 24, "validation": "> 0"}
+      ]
+    }
+  ],
+
+  "usage_examples": [
+    {
+      "scenario": "Basic health monitoring setup",
+      "code": "from proxywhirl import ProxyRotator\nfrom proxywhirl.health import HealthChecker\nfrom proxywhirl.health_models import HealthCheckConfig\n\n# Create rotator with health monitoring\nrotator = ProxyRotator()\nchecker = HealthChecker(cache=rotator.cache)\n\n# Add proxies and start monitoring\nrotator.add_proxy(\"http://proxy1.com:8080\")\nchecker.add_proxy(rotator.get_proxy())\nchecker.start()\n\n# Query pool status\nstatus = checker.get_pool_status()\nprint(f\"Health: {status.health_percentage:.1f}%\")\n\n# Cleanup\nchecker.stop()"
+    },
+    {
+      "scenario": "Custom health check configuration",
+      "code": "from proxywhirl.health import HealthChecker\nfrom proxywhirl.health_models import HealthCheckConfig\n\nconfig = HealthCheckConfig(\n    check_interval_seconds=120,  # Check every 2 minutes\n    failure_threshold=5,          # Require 5 failures\n    check_url=\"https://example.com/health\",\n    thread_pool_size=50\n)\n\nchecker = HealthChecker(config=config)\nchecker.start()"
+    },
+    {
+      "scenario": "Health event notifications",
+      "code": "from proxywhirl.health import HealthChecker\nfrom proxywhirl.health_models import HealthEvent\n\ndef on_health_event(event: HealthEvent) -> None:\n    if event.event_type == \"proxy_down\":\n        print(f\"ALERT: {event.proxy_url} is down!\")\n        # Send webhook, email, etc.\n\nchecker = HealthChecker(on_event=on_health_event)\nchecker.start()"
+    },
+    {
+      "scenario": "Manual health check",
+      "code": "from proxywhirl.health import HealthChecker\nfrom proxywhirl.models import Proxy\n\nchecker = HealthChecker()\nproxy = Proxy(url=\"http://proxy1.com:8080\", source=\"test\")\n\n# Immediate synchronous check\nresult = checker.check_proxy(proxy)\nprint(f\"Status: {result.status}\")\nprint(f\"Response time: {result.response_time_ms}ms\")"
+    },
+    {
+      "scenario": "Query health history",
+      "code": "from proxywhirl.health import HealthChecker\n\nchecker = HealthChecker()\nchecker.start()\n\n# Get 24-hour history for proxy\nhistory = checker.get_health_history(\"http://proxy1.com:8080\", hours=24)\n\nfor result in history:\n    print(f\"{result.check_time}: {result.status} ({result.response_time_ms}ms)\")"
+    }
+  ],
+
+  "integration_points": [
+    {
+      "name": "Cache Integration",
+      "description": "Automatic cache invalidation on health failures",
+      "modules": ["cache.py", "cache_models.py"],
+      "method": "CacheManager.invalidate_by_health(key)",
+      "trigger": "When proxy marked UNHEALTHY"
+    },
+    {
+      "name": "Rotator Integration",
+      "description": "Exclude unhealthy proxies from rotation",
+      "modules": ["rotator.py"],
+      "filter": "proxy.health_status == HealthStatus.HEALTHY",
+      "automatic": true
+    },
+    {
+      "name": "Persistence",
+      "description": "Health state persisted in L3 SQLite cache tier",
+      "modules": ["cache_tiers.py"],
+      "tables": ["cache_entries (extended)", "health_history (new)"]
+    }
+  ],
+
+  "performance_guarantees": [
+    {"metric": "SC-001", "description": "Dead proxy detection", "target": "< 1 minute"},
+    {"metric": "SC-003", "description": "CPU overhead", "target": "< 5%"},
+    {"metric": "SC-004", "description": "Status query latency", "target": "< 50ms"},
+    {"metric": "SC-006", "description": "Concurrent checks", "target": "1000 without degradation"},
+    {"metric": "SC-007", "description": "False positive rate", "target": "< 1%"},
+    {"metric": "SC-010", "description": "Scale", "target": "10,000 proxies in 5 minutes"}
+  ],
+
+  "thread_safety": {
+    "mechanism": "threading.RLock (reentrant locks)",
+    "protected_operations": [
+      "Proxy status updates",
+      "Pool status queries",
+      "Worker thread management",
+      "Cache access"
+    ],
+    "lock_free_operations": [
+      "Individual HTTP health checks",
+      "Event logging",
+      "Metric collection"
+    ]
+  }
+}
