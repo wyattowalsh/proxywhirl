@@ -13,7 +13,15 @@ from enum import Enum
 from typing import Any, Generic, Literal, Optional, TypeVar
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, PositiveInt, SecretStr
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    PositiveInt,
+    SecretStr,
+    field_validator,
+)
 
 # Generic type variable for response data
 T = TypeVar("T")
@@ -254,6 +262,79 @@ class ProxiedRequest(BaseModel):
         le=300,
     )
 
+    @field_validator("url")
+    @classmethod
+    def validate_url_scheme(cls, v: HttpUrl) -> HttpUrl:
+        """Validate that URL uses http or https scheme only.
+
+        Args:
+            v: URL to validate
+
+        Returns:
+            Validated URL
+
+        Raises:
+            ValueError: If URL scheme is not http or https
+        """
+        url_str = str(v)
+
+        # Check length limit (2048 chars max for URLs)
+        if len(url_str) > 2048:
+            raise ValueError("URL must be 2048 characters or less")
+
+        # Check scheme (only http/https allowed for target URLs)
+        if hasattr(v, "scheme"):
+            scheme = v.scheme
+        else:
+            scheme = url_str.split("://")[0] if "://" in url_str else ""
+
+        if scheme.lower() not in ("http", "https"):
+            raise ValueError(
+                f"Invalid URL scheme '{scheme}'. "
+                f"Only 'http' and 'https' are allowed for target URLs"
+            )
+
+        return v
+
+    @field_validator("headers")
+    @classmethod
+    def validate_headers(cls, v: dict[str, str]) -> dict[str, str]:
+        """Validate header names and values length.
+
+        Args:
+            v: Headers dict to validate
+
+        Returns:
+            Validated headers
+
+        Raises:
+            ValueError: If header name or value exceeds length limit
+        """
+        for name, value in v.items():
+            if len(name) > 256:
+                raise ValueError(f"Header name '{name[:50]}...' exceeds 256 character limit")
+            if len(value) > 2048:
+                raise ValueError(f"Header value for '{name}' exceeds 2048 character limit")
+        return v
+
+    @field_validator("body")
+    @classmethod
+    def validate_body(cls, v: Optional[str]) -> Optional[str]:
+        """Validate body length.
+
+        Args:
+            v: Body string to validate
+
+        Returns:
+            Validated body
+
+        Raises:
+            ValueError: If body exceeds length limit
+        """
+        if v is not None and len(v) > 1048576:  # 1MB limit
+            raise ValueError("Request body must be 1MB (1,048,576 characters) or less")
+        return v
+
 
 class ProxiedResponse(BaseModel):
     """Response from a proxied HTTP request."""
@@ -296,9 +377,81 @@ class CreateProxyRequest(BaseModel):
         }
     )
 
-    url: HttpUrl = Field(description="Proxy URL (protocol://host:port)")
+    url: str = Field(description="Proxy URL (protocol://host:port)")
     username: Optional[str] = Field(default=None, description="Proxy username")
     password: Optional[SecretStr] = Field(default=None, description="Proxy password")
+
+    @field_validator("url")
+    @classmethod
+    def validate_proxy_url(cls, v: str) -> str:
+        """Validate proxy URL scheme, port, and length.
+
+        Args:
+            v: Proxy URL to validate
+
+        Returns:
+            Validated URL
+
+        Raises:
+            ValueError: If URL is invalid
+        """
+        from urllib.parse import urlparse
+
+        # Check length limit (2048 chars max for URLs)
+        if len(v) > 2048:
+            raise ValueError("Proxy URL must be 2048 characters or less")
+
+        # Parse the URL
+        if "://" not in v:
+            raise ValueError("Proxy URL must include a scheme (e.g., http://proxy:8080)")
+
+        try:
+            parsed = urlparse(v)
+        except Exception as e:
+            raise ValueError(f"Invalid proxy URL format: {e}")
+
+        # Check scheme (http/https/socks4/socks5 allowed for proxies)
+        scheme = parsed.scheme
+        allowed_schemes = ("http", "https", "socks4", "socks5")
+        if scheme.lower() not in allowed_schemes:
+            raise ValueError(
+                f"Invalid proxy URL scheme '{scheme}'. "
+                f"Allowed schemes: {', '.join(allowed_schemes)}"
+            )
+
+        # Check hostname exists and length
+        host = parsed.hostname
+        if not host:
+            raise ValueError("Proxy URL must include a hostname")
+        if len(host) > 256:
+            raise ValueError("Proxy hostname must be 256 characters or less")
+
+        # Check port exists and range (1-65535)
+        port = parsed.port
+        if port is None:
+            raise ValueError("Proxy URL must include a port number")
+        if not (1 <= port <= 65535):
+            raise ValueError(f"Port {port} is out of valid range (1-65535)")
+
+        return v
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, v: Optional[str]) -> Optional[str]:
+        """Validate username length.
+
+        Args:
+            v: Username to validate
+
+        Returns:
+            Validated username
+
+        Raises:
+            ValueError: If username exceeds length limit
+        """
+        if v is not None and len(v) > 256:
+            raise ValueError("Username must be 256 characters or less")
+        return v
 
 
 class ProxyResource(BaseModel):
@@ -562,6 +715,56 @@ class UpdateConfigRequest(BaseModel):
     rate_limits: Optional[RateLimitConfig] = None
     cors_origins: Optional[list[str]] = None
 
+    @field_validator("rotation_strategy")
+    @classmethod
+    def validate_rotation_strategy(cls, v: Optional[str]) -> Optional[str]:
+        """Validate rotation strategy is from allowed set.
+
+        Args:
+            v: Rotation strategy to validate
+
+        Returns:
+            Validated rotation strategy
+
+        Raises:
+            ValueError: If rotation strategy is invalid
+        """
+        if v is not None:
+            # Check length limit
+            if len(v) > 64:
+                raise ValueError("Rotation strategy name must be 64 characters or less")
+
+            # Check against valid strategies
+            valid_strategies = {"round-robin", "random", "weighted", "least-used"}
+            if v.lower() not in valid_strategies:
+                raise ValueError(
+                    f"Invalid rotation strategy '{v}'. "
+                    f"Allowed strategies: {', '.join(sorted(valid_strategies))}"
+                )
+        return v
+
+    @field_validator("cors_origins")
+    @classmethod
+    def validate_cors_origins(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+        """Validate CORS origins length.
+
+        Args:
+            v: CORS origins to validate
+
+        Returns:
+            Validated CORS origins
+
+        Raises:
+            ValueError: If any origin exceeds length limit
+        """
+        if v is not None:
+            for origin in v:
+                if len(origin) > 256:
+                    raise ValueError(
+                        f"CORS origin '{origin[:50]}...' must be 256 characters or less"
+                    )
+        return v
+
 
 # ============================================================================
 # EXPORT API MODELS
@@ -588,31 +791,31 @@ class ExportRequest(BaseModel):
 
     export_type: str = Field(description="Type of data to export (proxies, metrics, logs, configuration, health_status, cache_data)")
     export_format: str = Field(description="Output format (csv, json, jsonl, yaml, text, markdown)")
-    
+
     # Destination
     destination_type: str = Field("local_file", description="Destination type (local_file, memory)")
     file_path: Optional[str] = Field(None, description="File path for local_file destination")
     overwrite: bool = Field(False, description="Overwrite existing file")
-    
+
     # Compression
     compression: str = Field("none", description="Compression type (none, gzip, zip)")
-    
+
     # Filters (optional, depending on export type)
     health_status: Optional[list[str]] = Field(None, description="Filter proxies by health status")
     source: Optional[list[str]] = Field(None, description="Filter proxies by source")
     protocol: Optional[list[str]] = Field(None, description="Filter proxies by protocol")
     min_success_rate: Optional[float] = Field(None, description="Minimum success rate for proxy filter")
-    
+
     # Metrics filters
     start_time: Optional[datetime] = Field(None, description="Start time for metrics/logs export")
     end_time: Optional[datetime] = Field(None, description="End time for metrics/logs export")
-    
+
     # Log filters
     log_levels: Optional[list[str]] = Field(None, description="Filter logs by level")
-    
+
     # Config filters
     redact_secrets: bool = Field(True, description="Redact sensitive data in config export")
-    
+
     # Options
     pretty_print: bool = Field(True, description="Pretty-print JSON/YAML")
     include_metadata: bool = Field(True, description="Include export metadata")
@@ -627,18 +830,18 @@ class ExportStatusResponse(BaseModel):
     status: str = Field(description="Current status (pending, running, completed, failed, cancelled)")
     export_type: str = Field(description="Type of data being exported")
     export_format: str = Field(description="Output format")
-    
+
     # Progress
     total_records: int = Field(0, description="Total records to export")
     processed_records: int = Field(0, description="Records processed")
     progress_percentage: float = Field(0.0, description="Progress percentage")
-    
+
     # Timestamps
     created_at: datetime = Field(description="When export was created")
     started_at: Optional[datetime] = Field(None, description="When export started")
     completed_at: Optional[datetime] = Field(None, description="When export completed")
     duration_seconds: Optional[float] = Field(None, description="Export duration")
-    
+
     # Results
     result_path: Optional[str] = Field(None, description="Path to exported file")
     error_message: Optional[str] = Field(None, description="Error message if failed")

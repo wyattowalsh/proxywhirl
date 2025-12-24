@@ -21,11 +21,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Literal, Optional
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 from loguru import logger
+from prometheus_client import REGISTRY, Counter, Gauge, Histogram, generate_latest
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -66,6 +67,43 @@ _config: dict[str, Any] = {}
 
 # Track app start time for uptime calculation
 _app_start_time = datetime.now(timezone.utc)
+
+
+# =============================================================================
+# Prometheus Metrics
+# =============================================================================
+
+# Request metrics
+proxywhirl_requests_total = Counter(
+    "proxywhirl_requests_total",
+    "Total number of HTTP requests",
+    ["endpoint", "method", "status"],
+)
+
+proxywhirl_request_duration_seconds = Histogram(
+    "proxywhirl_request_duration_seconds",
+    "HTTP request duration in seconds",
+    ["endpoint", "method"],
+    buckets=(0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0),
+)
+
+# Proxy pool metrics
+proxywhirl_proxies_total = Gauge(
+    "proxywhirl_proxies_total",
+    "Total number of proxies in the pool",
+)
+
+proxywhirl_proxies_healthy = Gauge(
+    "proxywhirl_proxies_healthy",
+    "Number of healthy proxies in the pool",
+)
+
+# Circuit breaker metrics
+proxywhirl_circuit_breaker_state = Gauge(
+    "proxywhirl_circuit_breaker_state",
+    "Circuit breaker state (0=closed, 1=open, 2=half-open)",
+    ["proxy_id"],
+)
 
 
 # Rate limiter configuration
@@ -146,7 +184,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             "request_endpoint_limit": 50,
         },
         "auth_enabled": os.getenv("PROXYWHIRL_REQUIRE_AUTH", "false").lower() == "true",
-        "cors_origins": os.getenv("PROXYWHIRL_CORS_ORIGINS", "*").split(","),
+        "cors_origins": os.getenv(
+            "PROXYWHIRL_CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000"
+        ).split(","),
     }
 
     logger.info("ProxyWhirl API initialized successfully")
@@ -186,7 +226,18 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # ty
 
 
 # CORS middleware
-cors_origins = os.getenv("PROXYWHIRL_CORS_ORIGINS", "*").split(",")
+cors_origins = os.getenv(
+    "PROXYWHIRL_CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000"
+).split(",")
+
+# Warn if wildcard CORS is configured
+if "*" in cors_origins:
+    logger.warning(
+        "CORS is configured to allow all origins (*). "
+        "This is insecure and should only be used in development. "
+        "Set PROXYWHIRL_CORS_ORIGINS to specific origins for production."
+    )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
@@ -208,6 +259,120 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+# Request logging middleware
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    """Log all HTTP requests with structured JSON logging.
+
+    Logs:
+    - Request method, path, and query parameters (redacted)
+    - Client IP address
+    - Request duration in milliseconds
+    - Response status code
+    - Sensitive data redaction (passwords, tokens, API keys)
+    """
+
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
+        """Process request and log details."""
+        start_time = time.time()
+
+        # Extract client IP
+        client_ip = request.client.host if request.client else "unknown"
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            # Take the first IP in the chain (original client)
+            client_ip = forwarded_for.split(",")[0].strip()
+
+        # Redact sensitive information from URL
+        path = str(request.url.path)
+        query_string = str(request.url.query) if request.url.query else ""
+        if query_string:
+            # Redact sensitive query parameters
+            import re
+
+            query_string = re.sub(
+                r"(password|token|key|secret|auth|api_key|api-key)=[^&]*",
+                r"\1=***",
+                query_string,
+                flags=re.IGNORECASE,
+            )
+            full_path = f"{path}?{query_string}"
+        else:
+            full_path = path
+
+        # Log request start
+        logger.bind(
+            event="request_start",
+            method=request.method,
+            path=full_path,
+            client_ip=client_ip,
+            user_agent=request.headers.get("User-Agent", "unknown"),
+        ).debug("HTTP request started")
+
+        # Process request
+        try:
+            response = await call_next(request)
+            duration_ms = int((time.time() - start_time) * 1000)
+            duration_seconds = time.time() - start_time
+
+            # Record Prometheus metrics (skip /metrics endpoint to avoid recursion)
+            if path != "/metrics":
+                proxywhirl_requests_total.labels(
+                    endpoint=path,
+                    method=request.method,
+                    status=str(response.status_code),
+                ).inc()
+
+                proxywhirl_request_duration_seconds.labels(
+                    endpoint=path,
+                    method=request.method,
+                ).observe(duration_seconds)
+
+            # Log successful request
+            logger.bind(
+                event="request_complete",
+                method=request.method,
+                path=full_path,
+                client_ip=client_ip,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+            ).info(f"{request.method} {path} - {response.status_code} ({duration_ms}ms)")
+
+            return response
+
+        except Exception as exc:
+            duration_ms = int((time.time() - start_time) * 1000)
+            duration_seconds = time.time() - start_time
+
+            # Record Prometheus metrics for failed requests (skip /metrics endpoint)
+            if path != "/metrics":
+                # Use 5xx for uncaught exceptions
+                proxywhirl_requests_total.labels(
+                    endpoint=path,
+                    method=request.method,
+                    status="500",
+                ).inc()
+
+                proxywhirl_request_duration_seconds.labels(
+                    endpoint=path,
+                    method=request.method,
+                ).observe(duration_seconds)
+
+            # Log failed request
+            logger.bind(
+                event="request_failed",
+                method=request.method,
+                path=full_path,
+                client_ip=client_ip,
+                duration_ms=duration_ms,
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            ).error(f"{request.method} {path} - Failed ({duration_ms}ms): {exc}")
+
+            # Re-raise to let FastAPI handle it
+            raise
+
+
+app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
 
@@ -228,14 +393,41 @@ async def not_found_handler(request: Request, exc: Any) -> JSONResponse:
 
 @app.exception_handler(422)
 async def validation_error_handler(request: Request, exc: Any) -> JSONResponse:
-    """Handle 422 Validation errors."""
+    """Handle 422 Validation errors.
+
+    Returns 400 Bad Request for client input validation failures,
+    which is more semantically appropriate than 422 Unprocessable Entity.
+    """
+    # Extract validation errors and make them more user-friendly
+    errors = exc.errors() if hasattr(exc, "errors") else [{"msg": str(exc)}]
+
+    # Format error messages to be more helpful
+    formatted_errors = []
+    for error in errors:
+        field = " -> ".join(str(loc) for loc in error.get("loc", []))
+        message = error.get("msg", "Validation failed")
+
+        # Extract the actual error message from ValueError if present
+        if "Value error," in message:
+            message = message.split("Value error,", 1)[1].strip()
+
+        formatted_errors.append(
+            {
+                "field": field,
+                "message": message,
+                "type": error.get("type", "validation_error"),
+            }
+        )
+
     response: APIResponse[None] = APIResponse.error_response(
         code=ErrorCode.VALIDATION_ERROR,
-        message="Request validation failed",
-        details={"errors": exc.errors() if hasattr(exc, "errors") else str(exc)},
+        message="Request validation failed. Please check your input and try again.",
+        details={"errors": formatted_errors},
     )
+
+    # Return 400 Bad Request instead of 422 for better HTTP semantics
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=status.HTTP_400_BAD_REQUEST,
         content=response.model_dump(mode="json"),
     )
 
@@ -257,14 +449,50 @@ async def internal_error_handler(request: Request, exc: Exception) -> JSONRespon
 
 @app.exception_handler(ProxyWhirlError)
 async def proxy_error_handler(request: Request, exc: ProxyWhirlError) -> JSONResponse:
-    """Handle ProxyWhirlError exceptions."""
+    """Handle ProxyWhirlError exceptions with enhanced error details."""
+    # Log the error with full context
+    logger.bind(
+        error_code=exc.error_code.value if hasattr(exc, "error_code") else "UNKNOWN",
+        error_type=type(exc).__name__,
+        proxy_url=exc.proxy_url if hasattr(exc, "proxy_url") else None,
+        attempt_count=exc.attempt_count if hasattr(exc, "attempt_count") else None,
+        retry_recommended=exc.retry_recommended if hasattr(exc, "retry_recommended") else False,
+    ).error(f"Proxy error: {exc}")
+
+    # Determine HTTP status code based on error type
+    status_code_map = {
+        "ProxyPoolEmptyError": status.HTTP_503_SERVICE_UNAVAILABLE,
+        "ProxyValidationError": status.HTTP_400_BAD_REQUEST,
+        "ProxyAuthenticationError": status.HTTP_502_BAD_GATEWAY,
+        "ProxyConnectionError": status.HTTP_502_BAD_GATEWAY,
+        "ProxyFetchError": status.HTTP_503_SERVICE_UNAVAILABLE,
+        "ProxyStorageError": status.HTTP_500_INTERNAL_SERVER_ERROR,
+    }
+
+    http_status = status_code_map.get(type(exc).__name__, status.HTTP_502_BAD_GATEWAY)
+
+    # Build error response with enhanced details
+    error_details = {
+        "error_type": type(exc).__name__,
+        "error_code": exc.error_code.value if hasattr(exc, "error_code") else "UNKNOWN",
+        "retry_recommended": exc.retry_recommended if hasattr(exc, "retry_recommended") else False,
+    }
+
+    # Add attempt count if available
+    if hasattr(exc, "attempt_count") and exc.attempt_count is not None:
+        error_details["attempt_count"] = exc.attempt_count
+
+    # Add additional metadata if available
+    if hasattr(exc, "metadata") and exc.metadata:
+        error_details.update(exc.metadata)
+
     response: APIResponse[None] = APIResponse.error_response(
         code=ErrorCode.PROXY_ERROR,
         message=str(exc),
-        details={"error_type": type(exc).__name__},
+        details=error_details,
     )
     return JSONResponse(
-        status_code=status.HTTP_502_BAD_GATEWAY,
+        status_code=http_status,
         content=response.model_dump(mode="json"),
     )
 
@@ -305,6 +533,36 @@ def get_config() -> dict[str, Any]:
     return _config
 
 
+def update_prometheus_metrics() -> None:
+    """Update Prometheus metrics for proxy pool and circuit breakers."""
+    if not _rotator:
+        return
+
+    # Update proxy pool metrics
+    total_proxies = len(_rotator.pool.proxies)
+    proxywhirl_proxies_total.set(total_proxies)
+
+    # TODO: Calculate healthy proxies based on actual health checks
+    # For now, assume all proxies are healthy
+    proxywhirl_proxies_healthy.set(total_proxies)
+
+    # Update circuit breaker metrics
+    try:
+        circuit_breakers = _rotator.get_circuit_breaker_states()
+        for proxy_id, cb in circuit_breakers.items():
+            # Map circuit breaker state to numeric value
+            # 0=CLOSED, 1=OPEN, 2=HALF_OPEN
+            state_value = 0
+            if cb.state.value == "OPEN":
+                state_value = 1
+            elif cb.state.value == "HALF_OPEN":
+                state_value = 2
+
+            proxywhirl_circuit_breaker_state.labels(proxy_id=proxy_id).set(state_value)
+    except Exception as e:
+        logger.warning(f"Failed to update circuit breaker metrics: {e}")
+
+
 # OpenAPI customization
 app.openapi_tags = [
     {
@@ -336,6 +594,43 @@ async def root() -> dict[str, str]:
         "redoc": "/redoc",
         "openapi": "/openapi.json",
     }
+
+
+# =============================================================================
+# Prometheus Metrics Endpoint
+# =============================================================================
+
+
+@app.get(
+    "/metrics",
+    tags=["Monitoring"],
+    summary="Prometheus metrics endpoint",
+    response_class=Response,
+    include_in_schema=False,
+)
+async def metrics() -> Response:
+    """Expose Prometheus metrics in text format.
+
+    This endpoint returns metrics in Prometheus exposition format, including:
+    - proxywhirl_requests_total: Total HTTP requests by endpoint, method, and status
+    - proxywhirl_request_duration_seconds: Request duration histogram
+    - proxywhirl_proxies_total: Total proxies in pool
+    - proxywhirl_proxies_healthy: Number of healthy proxies
+    - proxywhirl_circuit_breaker_state: Circuit breaker states (0=closed, 1=open, 2=half-open)
+
+    Returns:
+        Prometheus metrics in text format
+    """
+    # Update proxy pool and circuit breaker metrics before returning
+    update_prometheus_metrics()
+
+    # Generate Prometheus text format
+    metrics_output = generate_latest(REGISTRY)
+
+    return Response(
+        content=metrics_output,
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
 
 
 # =============================================================================
@@ -1002,293 +1297,6 @@ async def update_configuration(
 
 
 # ============================================================================
-# EXPORT ENDPOINTS
-# ============================================================================
-
-
-def get_export_manager() -> "ExportManager":
-    """Dependency to get or create ExportManager instance."""
-    from proxywhirl.export_manager import ExportManager
-    
-    if not hasattr(get_export_manager, "_manager"):
-        if _rotator:
-            get_export_manager._manager = ExportManager(
-                proxy_pool=_rotator.pool,
-                storage=_storage,
-            )
-        else:
-            get_export_manager._manager = ExportManager()
-    
-    return get_export_manager._manager
-
-
-@app.post(
-    "/api/v1/exports",
-    response_model=APIResponse[dict[str, Any]],
-    tags=["Export"],
-    summary="Create data export",
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_export(
-    export_request: "ExportRequest",
-    export_manager: "ExportManager" = Depends(get_export_manager),
-    api_key: None = Depends(verify_api_key),
-) -> APIResponse[dict[str, Any]]:
-    """Create a new data export job.
-    
-    Supports exporting:
-    - Proxy lists (CSV, JSON, JSONL, YAML, text, markdown)
-    - Metrics data with time range filtering
-    - Log data with filtering
-    - System configuration
-    - Health status
-    - Cache data
-    
-    Args:
-        export_request: Export configuration
-        export_manager: ExportManager dependency
-        api_key: API key verification
-        
-    Returns:
-        Export result with job ID and status
-        
-    Raises:
-        HTTPException: If export fails
-    """
-    from proxywhirl.api_models import ExportRequest
-    from proxywhirl.export_manager import ExportError
-    from proxywhirl.export_models import (
-        CompressionType,
-        ConfigurationExportFilter,
-        ExportConfig,
-        ExportFormat,
-        ExportType,
-        LocalFileDestination,
-        LogExportFilter,
-        MemoryDestination,
-        MetricsExportFilter,
-        ProxyExportFilter,
-    )
-    
-    try:
-        # Build export config from request
-        export_type   = ExportType(export_request.export_type)
-        export_format = ExportFormat(export_request.export_format)
-        compression   = CompressionType(export_request.compression)
-        
-        # Build destination
-        if export_request.destination_type == "local_file":
-            if not export_request.file_path:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="file_path required for local_file destination",
-                )
-            destination = LocalFileDestination(
-                file_path=export_request.file_path,
-                overwrite=export_request.overwrite,
-            )
-        else:
-            destination = MemoryDestination()
-        
-        # Build filters based on export type
-        proxy_filter   = None
-        metrics_filter = None
-        log_filter     = None
-        config_filter  = None
-        
-        if export_type == ExportType.PROXIES:
-            proxy_filter = ProxyExportFilter(
-                health_status=export_request.health_status,
-                source=export_request.source,
-                protocol=export_request.protocol,
-                min_success_rate=export_request.min_success_rate,
-            )
-        elif export_type == ExportType.METRICS:
-            if not export_request.start_time or not export_request.end_time:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="start_time and end_time required for metrics export",
-                )
-            metrics_filter = MetricsExportFilter(
-                start_time=export_request.start_time,
-                end_time=export_request.end_time,
-            )
-        elif export_type == ExportType.LOGS:
-            log_filter = LogExportFilter(
-                start_time=export_request.start_time,
-                end_time=export_request.end_time,
-                log_levels=export_request.log_levels,
-            )
-        elif export_type == ExportType.CONFIGURATION:
-            config_filter = ConfigurationExportFilter(
-                redact_secrets=export_request.redact_secrets,
-            )
-        
-        # Create export config
-        config = ExportConfig(
-            export_type=export_type,
-            export_format=export_format,
-            destination=destination,
-            compression=compression,
-            proxy_filter=proxy_filter,
-            metrics_filter=metrics_filter,
-            log_filter=log_filter,
-            config_filter=config_filter,
-            pretty_print=export_request.pretty_print,
-            include_metadata=export_request.include_metadata,
-        )
-        
-        # Execute export
-        result = export_manager.export(config)
-        
-        # Build response
-        response_data = {
-            "job_id": str(result.job_id),
-            "status": "completed" if result.success else "failed",
-            "export_type": result.export_type.value,
-            "export_format": result.export_format.value,
-            "records_exported": result.records_exported,
-            "file_size_bytes": result.file_size_bytes,
-            "duration_seconds": result.duration_seconds,
-            "destination_path": result.destination_path,
-            "error": result.error,
-        }
-        
-        return APIResponse.success(data=response_data)
-        
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid export configuration: {e}",
-        )
-    except ExportError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
-    except Exception as e:
-        logger.exception("Export creation failed")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Export failed: {e}",
-        )
-
-
-@app.get(
-    "/api/v1/exports/{job_id}",
-    response_model=APIResponse["ExportStatusResponse"],
-    tags=["Export"],
-    summary="Get export status",
-)
-async def get_export_status(
-    job_id: str,
-    export_manager: "ExportManager" = Depends(get_export_manager),
-    api_key: None = Depends(verify_api_key),
-) -> APIResponse["ExportStatusResponse"]:
-    """Get status of an export job.
-    
-    Args:
-        job_id: Export job ID
-        export_manager: ExportManager dependency
-        api_key: API key verification
-        
-    Returns:
-        Export job status and progress
-        
-    Raises:
-        HTTPException: If job not found
-    """
-    from uuid import UUID
-    
-    from proxywhirl.api_models import ExportStatusResponse
-    
-    try:
-        job_uuid = UUID(job_id)
-        job = export_manager.get_job_status(job_uuid)
-        
-        if not job:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Export job not found: {job_id}",
-            )
-        
-        # Build response
-        response = ExportStatusResponse(
-            job_id=str(job.job_id),
-            status=job.status.value,
-            export_type=job.config.export_type.value,
-            export_format=job.config.export_format.value,
-            total_records=job.progress.total_records,
-            processed_records=job.progress.processed_records,
-            progress_percentage=job.progress.progress_percentage,
-            created_at=job.created_at,
-            started_at=job.started_at,
-            completed_at=job.completed_at,
-            duration_seconds=job.duration_seconds,
-            result_path=job.result_path,
-            error_message=job.error_message,
-        )
-        
-        return APIResponse.success(data=response)
-        
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid job ID format: {job_id}",
-        )
-    except Exception as e:
-        logger.exception("Failed to get export status")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
-
-
-@app.get(
-    "/api/v1/exports/history",
-    response_model=APIResponse["ExportHistoryResponse"],
-    tags=["Export"],
-    summary="Get export history",
-)
-async def get_export_history(
-    limit: int = 100,
-    export_manager: "ExportManager" = Depends(get_export_manager),
-    api_key: None = Depends(verify_api_key),
-) -> APIResponse["ExportHistoryResponse"]:
-    """Get export history.
-    
-    Args:
-        limit: Maximum number of entries to return (default: 100)
-        export_manager: ExportManager dependency
-        api_key: API key verification
-        
-    Returns:
-        List of export history entries
-    """
-    from proxywhirl.api_models import ExportHistoryResponse
-    
-    try:
-        history = export_manager.get_export_history(limit=limit)
-        
-        # Convert to dict
-        history_dicts = [entry.model_dump() for entry in history]
-        
-        response = ExportHistoryResponse(
-            total_exports=len(history_dicts),
-            exports=history_dicts,
-        )
-        
-        return APIResponse.success(data=response)
-        
-    except Exception as e:
-        logger.exception("Failed to get export history")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
-
-
-# ============================================================================
 # RETRY & FAILOVER API ENDPOINTS
 # ============================================================================
 
@@ -1350,7 +1358,7 @@ async def update_retry_policy(
     Returns:
         Updated retry policy
     """
-    from proxywhirl.api_models import RetryPolicyRequest, RetryPolicyResponse
+    from proxywhirl.api_models import RetryPolicyResponse
     from proxywhirl.retry_policy import BackoffStrategy, RetryPolicy
 
     if not _rotator:
@@ -1640,9 +1648,7 @@ async def get_retry_metrics(
 
     response = RetryMetricsResponse(
         total_retries=summary["total_retries"],
-        success_by_attempt={
-            str(k): v for k, v in summary["success_by_attempt"].items()
-        },
+        success_by_attempt={str(k): v for k, v in summary["success_by_attempt"].items()},
         circuit_breaker_events_count=summary["circuit_breaker_events_count"],
         retention_hours=summary["retention_hours"],
     )
@@ -1724,10 +1730,7 @@ async def get_retry_stats_by_proxy(
     metrics = _rotator.get_retry_metrics()
     stats_by_proxy = metrics.get_by_proxy(hours=hours)
 
-    proxies = {
-        proxy_id: ProxyRetryStats(**stats)
-        for proxy_id, stats in stats_by_proxy.items()
-    }
+    proxies = {proxy_id: ProxyRetryStats(**stats) for proxy_id, stats in stats_by_proxy.items()}
 
     response = ProxyRetryStatsResponse(proxies=proxies)
 

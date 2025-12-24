@@ -7,9 +7,9 @@ from collections import deque
 from datetime import datetime, timezone
 from enum import Enum
 from threading import Lock
-from typing import Deque
+from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 
 class CircuitBreakerState(str, Enum):
@@ -26,17 +26,17 @@ class CircuitBreaker(BaseModel):
     proxy_id:         str
     state:            CircuitBreakerState = CircuitBreakerState.CLOSED
     failure_count:    int                 = Field(default=0, ge=0)
-    failure_window:   Deque[float]        = Field(default_factory=deque)
+    failure_window:   deque[float]        = Field(default_factory=deque)
     failure_threshold: int                = Field(default=5, ge=1)
     window_duration:  float               = Field(default=60.0, gt=0)
     timeout_duration: float               = Field(default=30.0, gt=0)
-    next_test_time:   float | None        = None
+    next_test_time:   Optional[float]     = None
     last_state_change: datetime           = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )
 
     # Runtime lock (not serialized)
-    _lock: Lock = Field(default_factory=Lock, exclude=True, repr=False)
+    _lock: Lock = PrivateAttr(default_factory=Lock)
 
     class Config:
         arbitrary_types_allowed = True  # For Lock and deque

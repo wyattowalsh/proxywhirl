@@ -5,50 +5,20 @@ A production-ready library for intelligent proxy rotation with auto-fetching,
 validation, and persistence capabilities.
 """
 
-from proxywhirl.analytics_engine import AnalyticsEngine
-from proxywhirl.analytics_models import (
-    AnalysisConfig,
-    AnalysisReport,
-    AnalysisType,
-    AnalyticsQuery,
-    Anomaly,
-    AnomalyType,
-    ExportFormat,
-    FailureCluster,
-    PerformanceScore,
-    Prediction,
-    ProxyPerformanceMetrics,
-    Recommendation,
-    RecommendationPriority,
-    TimeSeriesData,
-    TrendDirection,
-    UsagePattern,
-)
+from proxywhirl.async_client import AsyncProxyRotator
 from proxywhirl.browser import BrowserRenderer
-from proxywhirl.circuit_breaker import CircuitBreaker, CircuitBreakerState
-from proxywhirl.retry_executor import RetryExecutor
-from proxywhirl.retry_metrics import (
-    CircuitBreakerEvent,
-    HourlyAggregate,
-    RetryAttempt,
-    RetryMetrics,
-    RetryOutcome,
-)
-from proxywhirl.retry_policy import BackoffStrategy, RetryPolicy
 from proxywhirl.cache import CacheManager
-from proxywhirl.cost_analyzer import CostAnalyzer
-from proxywhirl.failure_analyzer import FailureAnalyzer
-from proxywhirl.pattern_detector import PatternDetector
-from proxywhirl.performance_analyzer import PerformanceAnalyzer
-from proxywhirl.predictive_analytics import PredictiveAnalytics
 from proxywhirl.cache_models import (
     CacheConfig,
     CacheEntry,
     CacheStatistics,
     CacheTierConfig,
-    HealthStatus as CacheHealthStatus,
     TierStatistics,
 )
+from proxywhirl.cache_models import (
+    HealthStatus as CacheHealthStatus,
+)
+from proxywhirl.circuit_breaker import CircuitBreaker, CircuitBreakerState
 from proxywhirl.exceptions import (
     CacheCorruptionError,
     CacheStorageError,
@@ -61,29 +31,6 @@ from proxywhirl.exceptions import (
     ProxyValidationError,
     ProxyWhirlError,
 )
-from proxywhirl.export_manager import ExportManager
-from proxywhirl.export_models import (
-    CompressionType,
-    ConfigurationExportFilter,
-    ExportConfig,
-    ExportDestination,
-    ExportDestinationType,
-    ExportFormat,
-    ExportHistoryEntry,
-    ExportJob,
-    ExportMetadata,
-    ExportProgress,
-    ExportResult,
-    ExportStatus,
-    ExportType,
-    HTTPDestination,
-    LocalFileDestination,
-    LogExportFilter,
-    MemoryDestination,
-    MetricsExportFilter,
-    ProxyExportFilter,
-    S3Destination,
-)
 from proxywhirl.fetchers import (
     CSVParser,
     HTMLTableParser,
@@ -93,21 +40,11 @@ from proxywhirl.fetchers import (
     ProxyValidator,
     deduplicate_proxies,
 )
-# Health monitoring (Feature 006)
-from proxywhirl.health import HealthChecker
-from proxywhirl.health_models import (
-    HealthCheckConfig,
-    HealthCheckResult,
-    HealthEvent,
-    HealthStatus as HealthMonitoringStatus,
-    PoolStatus,
-    ProxyHealthState,
-    SourceStatus,
-)
 from proxywhirl.models import (
     HealthMonitor,
     HealthStatus,
     Proxy,
+    ProxyChain,
     ProxyConfiguration,
     ProxyCredentials,
     ProxyFormat,
@@ -118,6 +55,15 @@ from proxywhirl.models import (
     SourceStats,
     ValidationLevel,
 )
+from proxywhirl.retry_executor import RetryExecutor
+from proxywhirl.retry_metrics import (
+    CircuitBreakerEvent,
+    HourlyAggregate,
+    RetryAttempt,
+    RetryMetrics,
+    RetryOutcome,
+)
+from proxywhirl.retry_policy import BackoffStrategy, RetryPolicy
 from proxywhirl.rotator import ProxyRotator
 from proxywhirl.sources import (
     ALL_HTTP_SOURCES,
@@ -183,30 +129,6 @@ __all__: list[str] = [
     "RetryOutcome",
     "CircuitBreakerEvent",
     "HourlyAggregate",
-    # Analytics Components
-    "AnalyticsEngine",
-    "PerformanceAnalyzer",
-    "PatternDetector",
-    "FailureAnalyzer",
-    "CostAnalyzer",
-    "PredictiveAnalytics",
-    # Analytics Models
-    "AnalysisConfig",
-    "AnalysisReport",
-    "AnalysisType",
-    "AnalyticsQuery",
-    "ProxyPerformanceMetrics",
-    "PerformanceScore",
-    "UsagePattern",
-    "FailureCluster",
-    "Prediction",
-    "Recommendation",
-    "RecommendationPriority",
-    "Anomaly",
-    "AnomalyType",
-    "TimeSeriesData",
-    "TrendDirection",
-    "ExportFormat",
     # Cache Components
     "CacheManager",
     "CacheConfig",
@@ -215,15 +137,6 @@ __all__: list[str] = [
     "CacheTierConfig",
     "TierStatistics",
     "CacheHealthStatus",
-    # Health Monitoring (Feature 006)
-    "HealthChecker",
-    "HealthCheckConfig",
-    "HealthCheckResult",
-    "HealthEvent",
-    "HealthMonitoringStatus",
-    "PoolStatus",
-    "SourceStatus",
-    "ProxyHealthState",
     # Exceptions
     "ProxyWhirlError",
     "ProxyValidationError",
@@ -237,6 +150,7 @@ __all__: list[str] = [
     "CacheValidationError",
     # Models
     "Proxy",
+    "ProxyChain",
     "ProxyCredentials",
     "ProxyConfiguration",
     "ProxySourceConfig",
@@ -251,6 +165,7 @@ __all__: list[str] = [
     "ValidationLevel",
     # Core Classes
     "ProxyRotator",
+    "AsyncProxyRotator",
     "ProxyFetcher",
     "ProxyValidator",
     "BrowserRenderer",
@@ -283,29 +198,6 @@ __all__: list[str] = [
     "proxy_to_dict",
     "create_proxy_from_url",
     "deduplicate_proxies",
-    # Export Components
-    "ExportManager",
-    "ExportConfig",
-    "ExportJob",
-    "ExportResult",
-    "ExportMetadata",
-    "ExportProgress",
-    "ExportHistoryEntry",
-    "ProxyExportFilter",
-    "MetricsExportFilter",
-    "LogExportFilter",
-    "ConfigurationExportFilter",
-    "LocalFileDestination",
-    "MemoryDestination",
-    "S3Destination",
-    "HTTPDestination",
-    "ExportDestination",
-    # Export Enums
-    "ExportType",
-    "ExportFormat",
-    "ExportStatus",
-    "CompressionType",
-    "ExportDestinationType",
     # Built-in Proxy Sources (Individual)
     "FREE_PROXY_LIST",
     "PROXY_SCRAPE_HTTP",

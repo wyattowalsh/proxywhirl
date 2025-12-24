@@ -12,7 +12,7 @@ from pydantic import SecretStr
 
 from proxywhirl.cache import CacheManager
 from proxywhirl.cache_crypto import CredentialEncryptor
-from proxywhirl.cache_models import CacheConfig, CacheEntry, HealthStatus
+from proxywhirl.cache_models import CacheConfig, CacheEntry, CacheTierConfig, HealthStatus
 
 
 class TestCorruptionDetection:
@@ -25,7 +25,7 @@ class TestCorruptionDetection:
         cache_dir.mkdir(parents=True)
 
         config = CacheConfig(
-            l2_config=CacheConfig.model_fields["l2_config"].default.__class__(enabled=True),
+            l2_config=CacheTierConfig(enabled=True),
             l2_cache_dir=str(cache_dir),
             l3_database_path=str(tmp_path / "cache.db"),
             encryption_key=SecretStr(encryptor.key.decode("utf-8")),

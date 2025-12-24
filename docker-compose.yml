@@ -32,7 +32,10 @@ services:
     volumes:
       # Persistent storage for proxy pool (if using SQLite)
       - proxywhirl-data:/data
-      
+
+      # Development: Mount source code for live reloading (uncomment for dev mode)
+      # - ./proxywhirl:/app/proxywhirl:ro
+
       # Optional: Mount custom configuration
       # - ./config:/app/config:ro
     

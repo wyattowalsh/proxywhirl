@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING, Any, Literal, Optional
 
 if TYPE_CHECKING:
-    from playwright.async_api import Browser, BrowserContext, Page  # type: ignore[import-not-found]
+    from playwright.async_api import Browser, BrowserContext, Page
 
 
 class BrowserRenderer:

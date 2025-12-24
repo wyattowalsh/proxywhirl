@@ -4,7 +4,7 @@ Retry policy configuration and backoff strategies.
 
 import random
 from enum import Enum
-from typing import List
+from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -26,13 +26,13 @@ class RetryPolicy(BaseModel):
     multiplier:          float           = Field(default=2.0, gt=1, le=10)
     max_backoff_delay:   float           = Field(default=30.0, gt=0, le=300)
     jitter:              bool            = Field(default=False)
-    retry_status_codes:  List[int]       = Field(default=[502, 503, 504])
-    timeout:             float | None    = Field(default=None, gt=0)
+    retry_status_codes:  list[int]       = Field(default=[502, 503, 504])
+    timeout:             Optional[float] = Field(default=None, gt=0)
     retry_non_idempotent: bool           = Field(default=False)
 
     @field_validator("retry_status_codes")
     @classmethod
-    def validate_status_codes(cls, v: List[int]) -> List[int]:
+    def validate_status_codes(cls, v: list[int]) -> list[int]:
         """Validate that status codes are 5xx errors."""
         if not all(500 <= code < 600 for code in v):
             raise ValueError("Status codes must be 5xx errors")

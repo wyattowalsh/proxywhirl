@@ -22,6 +22,9 @@ FROM python:3.11-slim
 # Set working directory
 WORKDIR /app
 
+# Create non-root user for security
+RUN groupadd -r proxywhirl && useradd -r -g proxywhirl proxywhirl
+
 # Copy virtual environment from builder
 COPY --from=builder /app/.venv /app/.venv
 
@@ -29,10 +32,16 @@ COPY --from=builder /app/.venv /app/.venv
 COPY proxywhirl/ /app/proxywhirl/
 COPY pyproject.toml README.md /app/
 
+# Create data directory and set ownership
+RUN mkdir -p /data && chown -R proxywhirl:proxywhirl /app /data
+
 # Set environment variables
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
+
+# Switch to non-root user
+USER proxywhirl
 
 # Expose API port
 EXPOSE 8000
