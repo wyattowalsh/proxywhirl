@@ -15,6 +15,7 @@ from pydantic import (
     ConfigDict,
     Field,
     HttpUrl,
+    PrivateAttr,
     SecretStr,
     field_validator,
     model_validator,
@@ -509,6 +510,74 @@ class Proxy(BaseModel):
         return elapsed >= self.window_duration_seconds
 
 
+class ProxyChain(BaseModel):
+    """Represents a chain of proxies for tunneling requests.
+
+    A proxy chain allows requests to be routed through multiple proxies in sequence,
+    where each proxy connects to the next one in the chain. This is useful for:
+    - Enhanced anonymity through multi-hop routing
+    - Geographic routing through specific locations
+    - Bypassing network restrictions
+
+    Note: Full CONNECT tunneling implementation requires additional infrastructure.
+    This model provides the data structure and basic support for chaining.
+
+    Example:
+        >>> chain = ProxyChain(
+        ...     proxies=[
+        ...         Proxy(url="http://proxy1.com:8080"),
+        ...         Proxy(url="http://proxy2.com:8080"),
+        ...     ],
+        ...     name="geo_chain",
+        ...     description="Route through US then UK"
+        ... )
+    """
+
+    proxies: list[Proxy] = Field(
+        ...,
+        min_length=2,
+        description="Ordered list of proxies to chain (minimum 2 required)"
+    )
+    name: Optional[str] = Field(
+        default=None,
+        description="Human-readable name for this chain"
+    )
+    description: Optional[str] = Field(
+        default=None,
+        description="Description of the chain's purpose or routing"
+    )
+
+    @model_validator(mode="after")
+    def validate_chain_length(self) -> "ProxyChain":
+        """Ensure chain has at least 2 proxies."""
+        if len(self.proxies) < 2:
+            raise ValueError("Proxy chain must contain at least 2 proxies")
+        return self
+
+    @property
+    def entry_proxy(self) -> Proxy:
+        """Get the first proxy in the chain (entry point)."""
+        return self.proxies[0]
+
+    @property
+    def exit_proxy(self) -> Proxy:
+        """Get the last proxy in the chain (exit point)."""
+        return self.proxies[-1]
+
+    @property
+    def chain_length(self) -> int:
+        """Get the number of proxies in the chain."""
+        return len(self.proxies)
+
+    def get_chain_urls(self) -> list[str]:
+        """Get list of proxy URLs in chain order.
+
+        Returns:
+            List of proxy URLs from entry to exit
+        """
+        return [proxy.url for proxy in self.proxies]
+
+
 class ProxyConfiguration(BaseSettings):
     """Global configuration settings for the proxy system."""
 
@@ -518,6 +587,7 @@ class ProxyConfiguration(BaseSettings):
     follow_redirects: bool = True
     pool_connections: int = 10
     pool_max_keepalive: int = 20
+    pool_timeout: int = 30
     health_check_enabled: bool = True
     health_check_interval_seconds: int = 300
     health_check_url: HttpUrl = Field(default="http://httpbin.org/ip")  # type: ignore
@@ -528,7 +598,7 @@ class ProxyConfiguration(BaseSettings):
     storage_backend: Literal["memory", "sqlite", "file"] = "memory"
     storage_path: Optional[Path] = None
 
-    @field_validator("timeout", "max_retries", "pool_connections")
+    @field_validator("timeout", "max_retries", "pool_connections", "pool_timeout")
     @classmethod
     def validate_positive(cls, v: int) -> int:
         """Ensure value is positive."""
@@ -593,6 +663,9 @@ class ProxyPool(BaseModel):
     dead_proxy_threshold: int = 5
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    # Runtime lock (not serialized)
+    _lock: threading.RLock = PrivateAttr(default_factory=threading.RLock)
 
     def __init__(self, **data: Any) -> None:
         """Initialize ProxyPool with thread lock."""

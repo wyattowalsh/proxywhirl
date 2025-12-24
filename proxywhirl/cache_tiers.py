@@ -397,7 +397,7 @@ class SQLiteCacheTier(CacheTier):
     def _init_db(self) -> None:
         """Initialize database schema with health monitoring fields."""
         conn = sqlite3.connect(str(self.db_path))
-        
+
         # Create cache_entries table
         conn.execute("""
             CREATE TABLE IF NOT EXISTS cache_entries (
@@ -426,10 +426,10 @@ class SQLiteCacheTier(CacheTier):
                 total_health_check_failures INTEGER DEFAULT 0
             )
         """)
-        
+
         # Migrate existing tables to add health columns (T008)
         self._migrate_health_columns(conn)
-        
+
         # Create health_history table (T007)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS health_history (
@@ -443,7 +443,7 @@ class SQLiteCacheTier(CacheTier):
                 FOREIGN KEY (proxy_key) REFERENCES cache_entries(key) ON DELETE CASCADE
             )
         """)
-        
+
         # Create indexes
         conn.execute("CREATE INDEX IF NOT EXISTS idx_expires_at ON cache_entries(expires_at)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_source ON cache_entries(source)")
@@ -451,10 +451,10 @@ class SQLiteCacheTier(CacheTier):
         conn.execute("CREATE INDEX IF NOT EXISTS idx_last_accessed ON cache_entries(last_accessed)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_health_history_proxy ON health_history(proxy_key)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_health_history_time ON health_history(check_time)")
-        
+
         conn.commit()
         conn.close()
-    
+
     def _migrate_health_columns(self, conn: sqlite3.Connection) -> None:
         """Add health monitoring columns to existing cache_entries table if they don't exist (T008)."""
         # Get existing columns
@@ -545,7 +545,7 @@ class SQLiteCacheTier(CacheTier):
 
             # Convert timestamps to UNIX epoch
             now = datetime.now(timezone.utc).timestamp()
-            
+
             # Helper to convert optional datetime to timestamp
             def to_timestamp(dt: Optional[datetime]) -> Optional[float]:
                 return dt.timestamp() if dt is not None else None
@@ -612,7 +612,8 @@ class SQLiteCacheTier(CacheTier):
         try:
             conn = sqlite3.connect(str(self.db_path))
             cursor = conn.execute("SELECT COUNT(*) FROM cache_entries")
-            count = cursor.fetchone()[0]
+            result = cursor.fetchone()
+            count: int = result[0] if result else 0
             conn.execute("DELETE FROM cache_entries")
             conn.commit()
             conn.close()

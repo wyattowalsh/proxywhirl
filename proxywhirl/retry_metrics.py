@@ -2,14 +2,13 @@
 Retry metrics collection and aggregation.
 """
 
-import time
 from collections import defaultdict, deque
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from threading import Lock
-from typing import Any, Deque, Dict, List
+from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 from proxywhirl.circuit_breaker import CircuitBreakerState
 
@@ -27,14 +26,14 @@ class RetryAttempt(BaseModel):
     """Record of a single retry attempt."""
 
     request_id:    str
-    attempt_number: int            = Field(ge=0)
+    attempt_number: int                = Field(ge=0)
     proxy_id:      str
     timestamp:     datetime
     outcome:       RetryOutcome
-    status_code:   int | None      = None
-    delay_before:  float           = Field(ge=0)
-    latency:       float           = Field(ge=0)
-    error_message: str | None      = None
+    status_code:   Optional[int]       = None
+    delay_before:  float               = Field(ge=0)
+    latency:       float               = Field(ge=0)
+    error_message: Optional[str]       = None
 
 
 class CircuitBreakerEvent(BaseModel):
@@ -53,8 +52,8 @@ class HourlyAggregate(BaseModel):
     hour:                datetime                  # Truncated to hour
     total_requests:      int                      = 0
     total_retries:       int                      = 0
-    success_by_attempt:  Dict[int, int]           = Field(default_factory=dict)
-    failure_by_reason:   Dict[str, int]           = Field(default_factory=dict)
+    success_by_attempt:  dict[int, int]           = Field(default_factory=dict)
+    failure_by_reason:   dict[str, int]           = Field(default_factory=dict)
     avg_latency:         float                    = 0.0
 
 
@@ -62,21 +61,21 @@ class RetryMetrics(BaseModel):
     """Aggregated retry metrics collection."""
 
     # Current period (last hour, raw data)
-    current_attempts:       Deque[RetryAttempt]                = Field(default_factory=deque)
+    current_attempts:       deque[RetryAttempt]                = Field(default_factory=deque)
 
     # Historical data (last 24 hours, aggregated)
-    hourly_aggregates:      Dict[datetime, HourlyAggregate]    = Field(default_factory=dict)
+    hourly_aggregates:      dict[datetime, HourlyAggregate]    = Field(default_factory=dict)
 
     # Circuit breaker events
-    circuit_breaker_events: List[CircuitBreakerEvent]          = Field(default_factory=list)
+    circuit_breaker_events: list[CircuitBreakerEvent]          = Field(default_factory=list)
 
     # Configuration
     retention_hours:        int                                = Field(default=24)
     max_current_attempts:   int                                = Field(default=10000)
 
     # Runtime (not serialized)
-    _lock:                  Lock                               = Field(
-        default_factory=Lock, exclude=True, repr=False
+    _lock:                  Lock                               = PrivateAttr(
+        default_factory=Lock
     )
 
     class Config:
@@ -107,7 +106,7 @@ class RetryMetrics(BaseModel):
             cutoff = now - timedelta(hours=self.retention_hours)
 
             # Group attempts by hour
-            attempts_by_hour: Dict[datetime, List[RetryAttempt]] = defaultdict(list)
+            attempts_by_hour: dict[datetime, list[RetryAttempt]] = defaultdict(list)
             for attempt in self.current_attempts:
                 if attempt.timestamp >= cutoff:
                     hour = attempt.timestamp.replace(minute=0, second=0, microsecond=0)
@@ -119,7 +118,7 @@ class RetryMetrics(BaseModel):
                     self.hourly_aggregates[hour] = HourlyAggregate(hour=hour)
 
                 agg = self.hourly_aggregates[hour]
-                agg.total_requests += len(set(a.request_id for a in attempts))
+                agg.total_requests += len({a.request_id for a in attempts})
                 agg.total_retries  += len(attempts)
 
                 for attempt in attempts:
@@ -138,14 +137,14 @@ class RetryMetrics(BaseModel):
                 h: agg for h, agg in self.hourly_aggregates.items() if h >= cutoff
             }
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Get metrics summary for API response."""
         with self._lock:
             total_retries = len(self.current_attempts) + sum(
                 agg.total_retries for agg in self.hourly_aggregates.values()
             )
 
-            success_by_attempt: Dict[int, int] = defaultdict(int)
+            success_by_attempt: dict[int, int] = defaultdict(int)
             for agg in self.hourly_aggregates.values():
                 for attempt_num, count in agg.success_by_attempt.items():
                     success_by_attempt[attempt_num] += count
@@ -157,7 +156,7 @@ class RetryMetrics(BaseModel):
                 "retention_hours":             self.retention_hours,
             }
 
-    def get_timeseries(self, hours: int = 24) -> List[Dict[str, Any]]:
+    def get_timeseries(self, hours: int = 24) -> list[dict[str, Any]]:
         """Get time-series data for the specified hours."""
         with self._lock:
             cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
@@ -181,11 +180,11 @@ class RetryMetrics(BaseModel):
 
             return data_points
 
-    def get_by_proxy(self, hours: int = 24) -> Dict[str, Dict[str, Any]]:
+    def get_by_proxy(self, hours: int = 24) -> dict[str, dict[str, Any]]:
         """Get per-proxy retry statistics."""
         with self._lock:
             cutoff        = datetime.now(timezone.utc) - timedelta(hours=hours)
-            proxy_stats: Dict[str, Dict[str, Any]] = defaultdict(
+            proxy_stats: dict[str, dict[str, Any]] = defaultdict(
                 lambda: {
                     "total_attempts":      0,
                     "success_count":       0,

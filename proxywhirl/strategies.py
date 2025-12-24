@@ -5,7 +5,7 @@ Rotation strategies for proxy selection.
 import random
 import threading
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Protocol, runtime_checkable
+from typing import Any, Optional, Protocol, runtime_checkable
 
 from proxywhirl.exceptions import ProxyPoolEmptyError
 from proxywhirl.models import (
@@ -232,12 +232,13 @@ class StrategyRegistry:
 class RotationStrategy(Protocol):
     """Protocol defining interface for proxy rotation strategies."""
 
-    def select(self, pool: ProxyPool) -> Proxy:
+    def select(self, pool: ProxyPool, context: Optional[SelectionContext] = None) -> Proxy:
         """
         Select a proxy from the pool based on strategy logic.
 
         Args:
             pool: The proxy pool to select from
+            context: Optional selection context for filtering
 
         Returns:
             Selected proxy
@@ -1369,7 +1370,7 @@ class CompositeStrategy:
             self.selector.configure(config)
 
     @classmethod
-    def from_config(cls, config: dict) -> "CompositeStrategy":
+    def from_config(cls, config: dict[str, Any]) -> "CompositeStrategy":
         """
         Create CompositeStrategy from configuration dictionary.
 
@@ -1426,7 +1427,7 @@ class CompositeStrategy:
             ValueError: If strategy name not recognized
         """
         # Simple mapping for now - will use StrategyRegistry in T070
-        strategy_map = {
+        strategy_map: dict[str, type[RotationStrategy]] = {
             "round-robin": RoundRobinStrategy,
             "random": RandomStrategy,
             "least-used": LeastUsedStrategy,

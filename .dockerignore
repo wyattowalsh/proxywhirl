@@ -1,6 +1,7 @@
 # Test and coverage artifacts
 tests/
 htmlcov/
+logs/
 .coverage
 .pytest_cache/
 *.cover
@@ -34,19 +35,25 @@ dist/
 docs/
 *.md
 !README.md
+TASKS.md
+CLAUDE.md
 
 # Environment
 .env
 .env.*
 venv/
+.venv/
 env/
 ENV/
 
 # Spec and planning
 .specify/
+specs/
 
-# CI/CD
+# CI/CD and development tools
 .github/
+.codex/
+.cursor/
 
 # Linting and type checking
 .mypy_cache/
@@ -57,7 +64,6 @@ dmypy.json
 # Examples (not needed in production image)
 examples/
 
-# Config files
-pyproject.toml
+# Config files (keep pyproject.toml as it's needed for installation)
 ruff.toml
 mypy.ini

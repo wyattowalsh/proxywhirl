@@ -5,21 +5,13 @@ Retry execution orchestration with intelligent proxy selection.
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Callable, Optional
 
 import httpx
 from loguru import logger
-from tenacity import (
-    RetryCallState,
-    RetryError,
-    Retrying,
-    retry_if_exception,
-    stop_after_attempt,
-    wait_fixed,
-)
 
-from proxywhirl.circuit_breaker import CircuitBreaker, CircuitBreakerState
-from proxywhirl.exceptions import ProxyConnectionError, ProxyPoolEmptyError
+from proxywhirl.circuit_breaker import CircuitBreaker
+from proxywhirl.exceptions import ProxyConnectionError
 from proxywhirl.models import Proxy
 from proxywhirl.retry_metrics import (
     CircuitBreakerEvent,
@@ -50,7 +42,7 @@ class RetryExecutor:
     def __init__(
         self,
         retry_policy: RetryPolicy,
-        circuit_breakers: Dict[str, CircuitBreaker],
+        circuit_breakers: dict[str, CircuitBreaker],
         retry_metrics: RetryMetrics,
     ) -> None:
         """
@@ -105,8 +97,7 @@ class RetryExecutor:
                 )
 
         # Set up retry with tenacity
-        attempt_number = 0
-        last_exception: Exception | None = None
+        last_exception: Optional[Exception] = None
         start_time = time.time()
 
         for attempt in range(self.retry_policy.max_attempts):
@@ -119,7 +110,7 @@ class RetryExecutor:
                         f"after {attempt} attempts"
                     )
                     self._record_attempt(
-                        request_id, attempt, proxy.id, RetryOutcome.TIMEOUT, 0.0, 0.0,
+                        request_id, attempt, str(proxy.id), RetryOutcome.TIMEOUT, 0.0, 0.0,
                         error_message="Total timeout exceeded"
                     )
                     raise ProxyConnectionError(f"Request timeout after {elapsed:.2f}s")
@@ -148,7 +139,7 @@ class RetryExecutor:
                         f"proxy {proxy.id}"
                     )
                     self._record_attempt(
-                        request_id, attempt, proxy.id, RetryOutcome.FAILURE,
+                        request_id, attempt, str(proxy.id), RetryOutcome.FAILURE,
                         delay, latency, error_message=f"Status {response.status_code}"
                     )
                     self._record_proxy_failure(proxy)
@@ -159,7 +150,7 @@ class RetryExecutor:
 
                 # Success!
                 self._record_attempt(
-                    request_id, attempt, proxy.id, RetryOutcome.SUCCESS,
+                    request_id, attempt, str(proxy.id), RetryOutcome.SUCCESS,
                     delay, latency, status_code=response.status_code
                 )
                 self._record_proxy_success(proxy)
@@ -174,7 +165,7 @@ class RetryExecutor:
                 logger.warning(f"Connection error with proxy {proxy.id}: {e}")
 
                 self._record_attempt(
-                    request_id, attempt, proxy.id, RetryOutcome.FAILURE,
+                    request_id, attempt, str(proxy.id), RetryOutcome.FAILURE,
                     delay, latency, error_message=str(e)
                 )
                 self._record_proxy_failure(proxy)
@@ -187,7 +178,7 @@ class RetryExecutor:
                 if self._is_retryable_error(e):
                     logger.warning(f"Retryable error with proxy {proxy.id}: {e}")
                     self._record_attempt(
-                        request_id, attempt, proxy.id, RetryOutcome.FAILURE,
+                        request_id, attempt, str(proxy.id), RetryOutcome.FAILURE,
                         delay, latency, error_message=str(e)
                     )
                     self._record_proxy_failure(proxy)
@@ -196,7 +187,7 @@ class RetryExecutor:
                 else:
                     logger.error(f"Non-retryable error: {e}")
                     self._record_attempt(
-                        request_id, attempt, proxy.id, RetryOutcome.FAILURE,
+                        request_id, attempt, str(proxy.id), RetryOutcome.FAILURE,
                         delay, latency, error_message=str(e)
                     )
                     raise NonRetryableError(str(e)) from e
@@ -230,7 +221,7 @@ class RetryExecutor:
             latency = time.time() - attempt_start
 
             self._record_attempt(
-                request_id, attempt, proxy.id, RetryOutcome.SUCCESS,
+                request_id, attempt, str(proxy.id), RetryOutcome.SUCCESS,
                 delay, latency, status_code=response.status_code
             )
             self._record_proxy_success(proxy)
@@ -239,7 +230,7 @@ class RetryExecutor:
         except Exception as e:
             latency = time.time() - attempt_start
             self._record_attempt(
-                request_id, attempt, proxy.id, RetryOutcome.FAILURE,
+                request_id, attempt, str(proxy.id), RetryOutcome.FAILURE,
                 delay, latency, error_message=str(e)
             )
             self._record_proxy_failure(proxy)
@@ -289,7 +280,7 @@ class RetryExecutor:
 
     def _record_proxy_failure(self, proxy: Proxy) -> None:
         """Record a proxy failure in circuit breaker."""
-        circuit_breaker = self.circuit_breakers.get(proxy.id)
+        circuit_breaker = self.circuit_breakers.get(str(proxy.id))
         if circuit_breaker:
             old_state = circuit_breaker.state
             circuit_breaker.record_failure()
@@ -298,7 +289,7 @@ class RetryExecutor:
             # Record state change if it occurred
             if old_state != new_state:
                 event = CircuitBreakerEvent(
-                    proxy_id      = proxy.id,
+                    proxy_id      = str(proxy.id),
                     from_state    = old_state,
                     to_state      = new_state,
                     timestamp     = datetime.now(timezone.utc),
@@ -312,7 +303,7 @@ class RetryExecutor:
 
     def _record_proxy_success(self, proxy: Proxy) -> None:
         """Record a proxy success in circuit breaker."""
-        circuit_breaker = self.circuit_breakers.get(proxy.id)
+        circuit_breaker = self.circuit_breakers.get(str(proxy.id))
         if circuit_breaker:
             old_state = circuit_breaker.state
             circuit_breaker.record_success()
@@ -321,7 +312,7 @@ class RetryExecutor:
             # Record state change if it occurred
             if old_state != new_state:
                 event = CircuitBreakerEvent(
-                    proxy_id      = proxy.id,
+                    proxy_id      = str(proxy.id),
                     from_state    = old_state,
                     to_state      = new_state,
                     timestamp     = datetime.now(timezone.utc),
@@ -335,10 +326,10 @@ class RetryExecutor:
 
     def select_retry_proxy(
         self,
-        available_proxies: List[Proxy],
+        available_proxies: list[Proxy],
         failed_proxy: Proxy,
         target_region: Optional[str] = None,
-    ) -> Proxy | None:
+    ) -> Optional[Proxy]:
         """
         Select best proxy for retry based on performance metrics.
 
@@ -359,7 +350,7 @@ class RetryExecutor:
             if proxy.id == failed_proxy.id:
                 continue
 
-            circuit_breaker = self.circuit_breakers.get(proxy.id)
+            circuit_breaker = self.circuit_breakers.get(str(proxy.id))
             if circuit_breaker and not circuit_breaker.should_attempt_request():
                 continue
 
@@ -406,7 +397,7 @@ class RetryExecutor:
             success_rate = proxy.success_rate
 
         # Get average latency from recent attempts
-        avg_latency = self._get_proxy_avg_latency(proxy.id)
+        avg_latency = self._get_proxy_avg_latency(str(proxy.id))
 
         # Normalize latency (assuming max latency of 10 seconds)
         max_latency = 10.0

@@ -52,6 +52,7 @@ dependencies = [
     "python-multipart>=0.0.6",
     "portalocker>=2.8.0",
     "pyyaml>=6.0.0",
+    "prometheus-client>=0.19.0",
 ]
 
 [project.optional-dependencies]
@@ -151,6 +152,10 @@ extend-exclude = [".codex", ".cursor", ".github", ".specify"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
 ignore = ["E501", "B904", "SIM105", "B007"]
+
+[tool.ruff.lint.per-file-ignores]
+"proxywhirl/api.py" = ["B008"]  # FastAPI Depends() pattern is intentional
+"proxywhirl/cli.py" = ["B008"]  # Typer Option() pattern is intentional
 
 [tool.ruff.format]
 quote-style = "double"

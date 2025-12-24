@@ -74,6 +74,34 @@ uv sync
 
 - `playwright` - Browser automation for JavaScript rendering
 
+## 📍 Current Status
+
+### ✅ Fully Implemented
+- **Core Rotation** - All rotation strategies (round-robin, random, weighted, least-used, performance-based, session persistence, geo-targeted)
+- **Authentication** - Full credential support with SecretStr protection
+- **Proxy Fetching** - 16+ pre-configured sources with auto-fetch
+- **Validation** - Multi-level validation (BASIC, STANDARD, FULL) with anonymity detection
+- **Storage** - File (JSON) and SQLite backends with encryption
+- **Health Monitoring** - Continuous background checks with auto-eviction
+- **TTL Expiration** - Automatic proxy expiration based on time-to-live
+- **Browser Rendering** - JavaScript execution via Playwright for JS-heavy sites
+- **Retry & Failover** - Circuit breaker pattern with intelligent retry logic
+- **REST API** - Full FastAPI server with Docker support
+- **CLI** - Complete command-line interface with rich output
+
+### 🚧 Coming Soon
+- **Analytics Engine** - Advanced analytics, performance scoring, and usage patterns
+- **Export Manager** - Data export in multiple formats (CSV, JSON, Excel, Parquet)
+- **Predictive Analytics** - ML-based proxy performance prediction
+- **Metrics Dashboard** - Prometheus metrics and Grafana dashboards
+- **Async API** - Full async client implementation
+- **Connection Pooling** - Per-proxy connection pooling for better performance
+
+### 📊 Test Coverage
+- **357 tests** passing across 93 test files
+- **88% code coverage** (excluding CLI and API modules)
+- **Full type coverage** with mypy strict mode
+
 ## 🚀 Quick Start
 
 ### Basic Usage
@@ -117,11 +145,14 @@ with ProxyRotator(proxies=proxies) as rotator:
 ### Custom Rotation Strategy
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyRotator, Proxy
 
 # Use string-based strategy configuration
 rotator = ProxyRotator(
-    proxies=["http://proxy1.com:8080", "http://proxy2.com:8080"],
+    proxies=[
+        Proxy(url="http://proxy1.com:8080"),
+        Proxy(url="http://proxy2.com:8080")
+    ],
     strategy="weighted"  # or "random", "least-used", "round-robin"
 )
 
@@ -200,7 +231,8 @@ asyncio.run(main())
 Validate proxies before using them with configurable validation levels:
 
 ```python
-from proxywhirl.models import Proxy, ValidationLevel, ProxyValidator
+from proxywhirl.models import Proxy, ValidationLevel
+from proxywhirl.fetchers import ProxyValidator
 import asyncio
 
 async def main():
@@ -412,35 +444,31 @@ asyncio.run(main())
 Fetch proxies from JavaScript-heavy websites that require browser execution:
 
 ```python
-from proxywhirl.browser import BrowserRenderer, BrowserConfig, WaitStrategy
-from proxywhirl.fetchers import ProxyFetcher, ProxySourceConfig
-from proxywhirl.models import RenderMode
+from proxywhirl.browser import BrowserRenderer
 import asyncio
 
 async def main():
-    # Option 1: Use BrowserRenderer directly
+    # Option 1: Use BrowserRenderer with default settings
     async with BrowserRenderer() as renderer:
         html = await renderer.render("https://js-heavy-site.com/proxies")
         # Parse HTML manually
-    
-    # Option 2: Use with ProxyFetcher
-    fetcher = ProxyFetcher()
-    source = ProxySourceConfig(
-        url="https://js-heavy-site.com/proxies",
-        format="json",
-        render_mode=RenderMode.BROWSER  # Enable browser rendering
-    )
-    proxies = await fetcher.fetch_from_source(source)
-    
-    # Option 3: Custom browser configuration
-    config = BrowserConfig(
+
+    # Option 2: Custom browser configuration
+    async with BrowserRenderer(
         headless=True,
         browser_type="chromium",
-        timeout=30,
-        wait_strategy=WaitStrategy.NETWORK_IDLE
-    )
-    async with BrowserRenderer(config=config) as renderer:
+        timeout=30000,  # milliseconds
+        wait_until="networkidle"  # or "load", "domcontentloaded"
+    ) as renderer:
         html = await renderer.render("https://example.com/proxies")
+
+    # Option 3: Wait for specific selector
+    async with BrowserRenderer() as renderer:
+        html = await renderer.render(
+            "https://example.com/proxies",
+            wait_for_selector=".proxy-list",  # Wait for this element
+            wait_for_timeout=2000  # Additional 2-second wait
+        )
 
 asyncio.run(main())
 ```

@@ -66,7 +66,7 @@ class CacheEntry(BaseModel):
     expires_at: datetime = Field(..., description="Absolute expiration time")
     health_status: HealthStatus = Field(default=HealthStatus.UNKNOWN)
     failure_count: int = Field(default=0, ge=0, description="Consecutive failures")
-    
+
     # Health monitoring fields (Feature 006)
     last_health_check: Optional[datetime] = Field(None, description="Last health check timestamp")
     consecutive_health_failures: int = Field(default=0, ge=0, description="Consecutive health check failures")
@@ -232,14 +232,14 @@ class TierStatistics(BaseModel):
     evictions_health: int = Field(default=0, ge=0)
     evictions_corruption: int = Field(default=0, ge=0)
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def hit_rate(self) -> float:
         """Cache hit rate (0.0 to 1.0)."""
         total = self.hits + self.misses
         return self.hits / total if total > 0 else 0.0
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def total_evictions(self) -> int:
         """Total evictions across all reasons."""
@@ -277,7 +277,7 @@ class CacheStatistics(BaseModel):
     l2_degraded: bool = Field(default=False, description="L2 tier unavailable")
     l3_degraded: bool = Field(default=False, description="L3 tier unavailable")
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def overall_hit_rate(self) -> float:
         """Overall hit rate across all tiers."""
@@ -290,7 +290,7 @@ class CacheStatistics(BaseModel):
         )
         return total_hits / total_requests if total_requests > 0 else 0.0
 
-    @computed_field  # type: ignore[misc]
+    @computed_field  # type: ignore[prop-decorator]
     @property
     def total_size(self) -> int:
         """Total cached entries across all tiers."""

@@ -171,7 +171,7 @@ async def test_proxy_rotation_multiple_requests(api_client: AsyncClient, setup_t
         data = body["data"]
 
         if data.get("proxy_used"):
-            proxies_used.append(data["proxy_used"]["url"])
+            proxies_used.append(data["proxy_used"])
 
     # Verify rotation occurred (should have used multiple proxies)
     assert len(proxies_used) >= 2, "Multiple proxies should be used with round-robin"
@@ -211,9 +211,12 @@ async def test_proxy_failover_with_dead_proxy(api_client: AsyncClient):
 
     body = response.json()
     if response.status_code == 200:
+        # Success responses use APIResponse structure
         assert body["status"] == "success"
     else:
-        assert body["status"] == "error"
+        # Error responses from HTTPException use FastAPI's default format
+        # which has "detail" instead of APIResponse structure
+        assert "detail" in body
 
     # Cleanup
     if _rotator:

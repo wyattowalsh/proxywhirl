@@ -79,7 +79,7 @@ class TestListProxiesContract:
 
         # Assert
         assert proxy.id == "proxy-123"
-        assert str(proxy.url) == "http://proxy.example.com:8080/"
+        assert proxy.url == "http://proxy.example.com:8080"
         assert proxy.protocol == "http"
 
 
@@ -91,13 +91,13 @@ class TestCreateProxyContract:
         """Test CreateProxyRequest with valid data."""
         # Arrange & Act
         request = CreateProxyRequest(
-            url=HttpUrl("http://proxy.example.com:8080"),
+            url="http://proxy.example.com:8080",
             username="user",
             password="pass",
         )
 
         # Assert
-        assert str(request.url) == "http://proxy.example.com:8080/"
+        assert request.url == "http://proxy.example.com:8080"
         assert request.username == "user"
         assert request.password.get_secret_value() == "pass"
 

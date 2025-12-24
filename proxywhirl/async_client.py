@@ -1,7 +1,8 @@
 """
-Main proxy rotation implementation.
+Async proxy rotation implementation using httpx.AsyncClient.
 """
 
+import asyncio
 import threading
 from typing import Any, Optional, Union
 
@@ -14,7 +15,7 @@ from proxywhirl.exceptions import (
     ProxyConnectionError,
     ProxyPoolEmptyError,
 )
-from proxywhirl.models import Proxy, ProxyChain, ProxyConfiguration, ProxyPool
+from proxywhirl.models import Proxy, ProxyConfiguration, ProxyPool
 from proxywhirl.retry_executor import RetryExecutor
 from proxywhirl.retry_metrics import RetryMetrics
 from proxywhirl.retry_policy import RetryPolicy
@@ -27,23 +28,23 @@ from proxywhirl.strategies import (
 )
 
 
-class ProxyRotator:
+class AsyncProxyRotator:
     """
-    Main class for proxy rotation with automatic failover.
+    Async proxy rotator with automatic failover and intelligent rotation.
 
-    Provides HTTP methods (GET, POST, PUT, DELETE, PATCH) that automatically
+    Provides async HTTP methods (GET, POST, PUT, DELETE, PATCH) that automatically
     rotate through a pool of proxies, with intelligent failover on connection errors.
 
     Example:
         ```python
-        from proxywhirl import ProxyRotator, Proxy
+        from proxywhirl import AsyncProxyRotator, Proxy
 
-        rotator = ProxyRotator()
-        rotator.add_proxy("http://proxy1.example.com:8080")
-        rotator.add_proxy("http://proxy2.example.com:8080")
+        async with AsyncProxyRotator() as rotator:
+            await rotator.add_proxy("http://proxy1.example.com:8080")
+            await rotator.add_proxy("http://proxy2.example.com:8080")
 
-        response = rotator.get("https://httpbin.org/ip")
-        print(response.json())
+            response = await rotator.get("https://httpbin.org/ip")
+            print(response.json())
         ```
     """
 
@@ -55,7 +56,7 @@ class ProxyRotator:
         retry_policy: Optional[RetryPolicy] = None,
     ) -> None:
         """
-        Initialize ProxyRotator.
+        Initialize AsyncProxyRotator.
 
         Args:
             proxies: Initial list of proxies (optional)
@@ -66,7 +67,6 @@ class ProxyRotator:
             retry_policy: Retry policy configuration (default: RetryPolicy())
         """
         self.pool = ProxyPool(name="default", proxies=proxies or [])
-        self.chains: list[ProxyChain] = []  # Track registered proxy chains
 
         # Parse strategy string or use provided instance
         if strategy is None:
@@ -87,15 +87,14 @@ class ProxyRotator:
         else:
             self.strategy = strategy
 
-        self.config       = config or ProxyConfiguration()
-        self._client:     Optional[httpx.Client] = None
-        self._client_pool: dict[str, httpx.Client] = {}  # Map proxy_id -> httpx.Client
+        self.config = config or ProxyConfiguration()
+        self._client: Optional[httpx.AsyncClient] = None
 
         # Retry and circuit breaker components
-        self.retry_policy     = retry_policy or RetryPolicy()
+        self.retry_policy = retry_policy or RetryPolicy()
         self.circuit_breakers: dict[str, CircuitBreaker] = {}
-        self.retry_metrics    = RetryMetrics()
-        self.retry_executor   = RetryExecutor(
+        self.retry_metrics = RetryMetrics()
+        self.retry_executor = RetryExecutor(
             self.retry_policy, self.circuit_breakers, self.retry_metrics
         )
 
@@ -117,9 +116,9 @@ class ProxyRotator:
                 redact_credentials=self.config.log_redact_credentials,
             )
 
-    def __enter__(self) -> "ProxyRotator":
-        """Enter context manager."""
-        self._client = httpx.Client(
+    async def __aenter__(self) -> "AsyncProxyRotator":
+        """Enter async context manager."""
+        self._client = httpx.AsyncClient(
             timeout=self.config.timeout,
             verify=self.config.verify_ssl,
             follow_redirects=self.config.follow_redirects,
@@ -130,40 +129,18 @@ class ProxyRotator:
         )
         return self
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Exit context manager."""
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit async context manager."""
         if self._client:
-            self._client.close()
+            await self._client.aclose()
             self._client = None
-
-        # Close all pooled clients
-        self._close_all_clients()
 
         # Cancel aggregation timer
         if self._aggregation_timer:
             self._aggregation_timer.cancel()
             self._aggregation_timer = None
 
-    def __del__(self) -> None:
-        """Destructor to ensure clients are closed."""
-        self._close_all_clients()
-
-        # Cancel aggregation timer
-        if hasattr(self, '_aggregation_timer') and self._aggregation_timer:
-            self._aggregation_timer.cancel()
-
-    def _close_all_clients(self) -> None:
-        """Close all pooled clients and clear the pool."""
-        for proxy_id, client in self._client_pool.items():
-            try:
-                client.close()
-                logger.debug("Closed pooled client", proxy_id=proxy_id)
-            except Exception as e:
-                logger.warning(f"Error closing client for proxy {proxy_id}: {e}")
-
-        self._client_pool.clear()
-
-    def add_proxy(self, proxy: Union[Proxy, str]) -> None:
+    async def add_proxy(self, proxy: Union[Proxy, str]) -> None:
         """
         Add a proxy to the pool.
 
@@ -182,7 +159,7 @@ class ProxyRotator:
 
         logger.info(f"Added proxy to pool: {proxy.url}", proxy_id=str(proxy.id))
 
-    def remove_proxy(self, proxy_id: str) -> None:
+    async def remove_proxy(self, proxy_id: str) -> None:
         """
         Remove a proxy from the pool.
 
@@ -191,110 +168,20 @@ class ProxyRotator:
         """
         from uuid import UUID
 
-        # Close and remove the client for this proxy if it exists
-        if proxy_id in self._client_pool:
-            try:
-                self._client_pool[proxy_id].close()
-                logger.debug("Closed client for removed proxy", proxy_id=proxy_id)
-            except Exception as e:
-                logger.warning(f"Error closing client for proxy {proxy_id}: {e}")
-            finally:
-                del self._client_pool[proxy_id]
-
         self.pool.remove_proxy(UUID(proxy_id))
         logger.info(f"Removed proxy from pool: {proxy_id}")
 
-    def add_chain(self, chain: ProxyChain) -> None:
+    async def get_proxy(self) -> Proxy:
         """
-        Add a proxy chain to the rotator.
-
-        This method registers a proxy chain for potential use in routing.
-        The entry proxy (first proxy in the chain) is added to the pool
-        for selection by rotation strategies.
-
-        Note: Full CONNECT tunneling implementation is not yet supported.
-        Currently, only the entry proxy is used for routing, with chain
-        metadata stored for future multi-hop implementation.
-
-        Args:
-            chain: ProxyChain instance to register
-
-        Example:
-            >>> rotator = ProxyRotator()
-            >>> chain = ProxyChain(
-            ...     proxies=[
-            ...         Proxy(url="http://proxy1.com:8080"),
-            ...         Proxy(url="http://proxy2.com:8080"),
-            ...     ],
-            ...     name="my_chain"
-            ... )
-            >>> rotator.add_chain(chain)
-        """
-        # Store the chain for future reference
-        self.chains.append(chain)
-
-        # Add entry proxy to the pool for selection
-        entry_proxy = chain.entry_proxy
-
-        # Tag the entry proxy to indicate it's part of a chain
-        if not hasattr(entry_proxy, 'tags'):
-            entry_proxy.tags = set()
-        entry_proxy.tags.add("chain_entry")
-
-        # Store chain metadata in proxy metadata
-        entry_proxy.metadata["chain_name"] = chain.name
-        entry_proxy.metadata["chain_length"] = chain.chain_length
-        entry_proxy.metadata["chain_urls"] = chain.get_chain_urls()
-
-        # Add to pool
-        self.pool.add_proxy(entry_proxy)
-
-        # Initialize circuit breaker for the entry proxy
-        self.circuit_breakers[str(entry_proxy.id)] = CircuitBreaker(proxy_id=str(entry_proxy.id))
-
-        logger.info(
-            "Added proxy chain to rotator",
-            chain_name=chain.name or "unnamed",
-            chain_length=chain.chain_length,
-            entry_proxy=str(entry_proxy.url)
-        )
-
-    def get_chains(self) -> list[ProxyChain]:
-        """
-        Get all registered proxy chains.
+        Get the next proxy from the pool using the rotation strategy.
 
         Returns:
-            List of ProxyChain instances
+            Next proxy to use
+
+        Raises:
+            ProxyPoolEmptyError: If no healthy proxies available
         """
-        return self.chains.copy()
-
-    def remove_chain(self, chain_name: str) -> bool:
-        """
-        Remove a proxy chain by name.
-
-        Args:
-            chain_name: Name of the chain to remove
-
-        Returns:
-            True if chain was found and removed, False otherwise
-        """
-        for i, chain in enumerate(self.chains):
-            if chain.name == chain_name:
-                # Remove the entry proxy from the pool
-                entry_proxy_id = str(chain.entry_proxy.id)
-                try:
-                    self.remove_proxy(entry_proxy_id)
-                except Exception as e:
-                    logger.warning(f"Could not remove entry proxy: {e}")
-
-                # Remove the chain
-                self.chains.pop(i)
-
-                logger.info(f"Removed proxy chain: {chain_name}")
-                return True
-
-        logger.warning(f"Chain not found: {chain_name}")
-        return False
+        return self._select_proxy_with_circuit_breaker()
 
     def set_strategy(self, strategy: Union[RotationStrategy, str], *, atomic: bool = True) -> None:
         """
@@ -314,10 +201,10 @@ class ProxyRotator:
                    immediate replacement (faster but may affect in-flight requests)
 
         Example:
-            >>> rotator = ProxyRotator(strategy="round-robin")
-            >>> # ... after some requests ...
-            >>> rotator.set_strategy("performance-based")  # Hot-swap
-            >>> # New requests now use performance-based strategy
+            >>> async with AsyncProxyRotator(strategy="round-robin") as rotator:
+            ...     # ... after some requests ...
+            ...     rotator.set_strategy("performance-based")  # Hot-swap
+            ...     # New requests now use performance-based strategy
 
         Thread Safety:
             Thread-safe via atomic reference swap. Multiple threads can
@@ -327,7 +214,6 @@ class ProxyRotator:
             Target: <100ms for hot-swap completion (SC-009)
             Typical: <10ms for strategy instance creation and assignment
         """
-        import threading
         import time
 
         start_time = time.perf_counter()
@@ -453,7 +339,7 @@ class ProxyRotator:
         stats["source_breakdown"] = self.pool.get_source_breakdown()
         return stats
 
-    def clear_unhealthy_proxies(self) -> int:
+    async def clear_unhealthy_proxies(self) -> int:
         """
         Remove all unhealthy and dead proxies from the pool.
 
@@ -469,51 +355,6 @@ class ProxyRotator:
         )
 
         return removed_count
-
-    def _get_or_create_client(self, proxy: Proxy, proxy_dict: dict[str, str]) -> httpx.Client:
-        """
-        Get or create a pooled httpx.Client for the given proxy.
-
-        This method implements connection pooling by maintaining a cache of clients
-        per proxy. Clients are configured with connection pool settings from the
-        configuration and are reused across multiple requests to the same proxy.
-
-        Args:
-            proxy: Proxy instance to get/create client for
-            proxy_dict: Proxy dictionary for httpx configuration
-
-        Returns:
-            Configured httpx.Client instance with connection pooling
-        """
-        proxy_id = str(proxy.id)
-
-        # Return existing client if available
-        if proxy_id in self._client_pool:
-            return self._client_pool[proxy_id]
-
-        # Create new client with connection pooling settings
-        client = httpx.Client(
-            proxy=proxy_dict.get("http://"),
-            timeout=self.config.timeout,
-            verify=self.config.verify_ssl,
-            follow_redirects=self.config.follow_redirects,
-            limits=httpx.Limits(
-                max_connections=self.config.pool_connections,
-                max_keepalive_connections=self.config.pool_max_keepalive,
-            ),
-        )
-
-        # Store in pool for reuse
-        self._client_pool[proxy_id] = client
-
-        logger.debug(
-            "Created new pooled client for proxy",
-            proxy_id=proxy_id,
-            pool_connections=self.config.pool_connections,
-            pool_max_keepalive=self.config.pool_max_keepalive,
-        )
-
-        return client
 
     def _get_proxy_dict(self, proxy: Proxy) -> dict[str, str]:
         """
@@ -543,7 +384,7 @@ class ProxyRotator:
             "https://": url,
         }
 
-    def _make_request(
+    async def _make_request(
         self,
         method: str,
         url: str,
@@ -551,7 +392,7 @@ class ProxyRotator:
         **kwargs: Any,
     ) -> httpx.Response:
         """
-        Make HTTP request with automatic proxy rotation, retry, and circuit breakers.
+        Make async HTTP request with automatic proxy rotation, retry, and circuit breakers.
 
         Args:
             method: HTTP method
@@ -581,39 +422,39 @@ class ProxyRotator:
             proxy_url=str(proxy.url),
         )
 
-        # Get or create pooled client for this proxy
-        client = self._get_or_create_client(proxy, proxy_dict)
+        # Define async request function for retry executor
+        async def request_fn() -> httpx.Response:
+            # Create temporary async client with proxy
+            async with httpx.AsyncClient(
+                proxy=proxy_dict.get("http://"),
+                timeout=self.config.timeout,
+                verify=self.config.verify_ssl,
+                follow_redirects=self.config.follow_redirects,
+            ) as client:
+                response = await client.request(method, url, **kwargs)
 
-        # Define request function for retry executor
-        def request_fn() -> httpx.Response:
-            # Use pooled client (no context manager - client is reused)
-            response = client.request(method, url, **kwargs)
+                # Check for 407 Proxy Authentication Required
+                if response.status_code == 407:
+                    logger.error(
+                        f"Proxy authentication failed: {proxy.url}",
+                        proxy_id=str(proxy.id),
+                        status_code=407,
+                    )
+                    raise ProxyAuthenticationError(
+                        f"Proxy authentication required (407) for {proxy.url}. "
+                        "Please provide valid credentials (username and password)."
+                    )
 
-            # Check for 407 Proxy Authentication Required
-            if response.status_code == 407:
-                logger.error(
-                    f"Proxy authentication failed: {proxy.url}",
-                    proxy_id=str(proxy.id),
-                    status_code=407,
-                )
-                raise ProxyAuthenticationError(
-                    f"Proxy authentication required (407) for {proxy.url}. "
-                    "Please provide valid credentials (username and password)."
-                )
+                return response
 
-            return response
-
-        # Create a temporary retry executor with effective policy if different from global
-        if retry_policy is not None:
-            executor = RetryExecutor(
-                retry_policy, self.circuit_breakers, self.retry_metrics
-            )
-        else:
-            executor = self.retry_executor
-
-        # Execute with retry
+        # Execute with retry - note that retry_executor.execute_with_retry is sync
+        # We'll need to handle the async nature here
         try:
-            response = executor.execute_with_retry(request_fn, proxy, method, url)
+            # Since the retry executor is sync, we need to adapt it for async
+            # For now, we'll call the async request_fn directly with basic retry logic
+            response = await self._execute_async_with_retry(
+                request_fn, proxy, method, url, retry_policy
+            )
 
             # Record success in strategy
             self.strategy.record_result(proxy, success=True, response_time_ms=0.0)
@@ -641,36 +482,99 @@ class ProxyRotator:
 
             raise ProxyConnectionError(f"Request failed: {e}") from e
 
-    def get(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Make GET request."""
-        return self._make_request("GET", url, **kwargs)
+    async def _execute_async_with_retry(
+        self,
+        request_fn: Any,
+        proxy: Proxy,
+        method: str,
+        url: str,
+        retry_policy: Optional[RetryPolicy] = None,
+    ) -> httpx.Response:
+        """
+        Execute async request with retry logic.
 
-    def post(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Make POST request."""
-        return self._make_request("POST", url, **kwargs)
+        Args:
+            request_fn: Async function to execute
+            proxy: Proxy being used
+            method: HTTP method
+            url: Target URL
+            retry_policy: Optional retry policy override
 
-    def put(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Make PUT request."""
-        return self._make_request("PUT", url, **kwargs)
+        Returns:
+            HTTP response
 
-    def delete(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Make DELETE request."""
-        return self._make_request("DELETE", url, **kwargs)
+        Raises:
+            Exception: If all retry attempts fail
+        """
+        policy = retry_policy or self.retry_policy
+        circuit_breaker = self.circuit_breakers.get(str(proxy.id))
 
-    def patch(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Make PATCH request."""
-        return self._make_request("PATCH", url, **kwargs)
+        if circuit_breaker and not circuit_breaker.should_attempt_request():
+            raise ProxyConnectionError("Circuit breaker is open for this proxy")
 
-    def head(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Make HEAD request."""
-        return self._make_request("HEAD", url, **kwargs)
+        last_exception = None
+        for attempt in range(policy.max_retries):
+            try:
+                response = await request_fn()
 
-    def options(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Make OPTIONS request."""
-        return self._make_request("OPTIONS", url, **kwargs)
+                # Record success in circuit breaker
+                if circuit_breaker:
+                    circuit_breaker.record_success()
+
+                return response
+            except Exception as e:
+                last_exception = e
+
+                # Record failure in circuit breaker
+                if circuit_breaker:
+                    circuit_breaker.record_failure()
+
+                # Check if we should retry
+                if attempt < policy.max_retries - 1:
+                    # Calculate backoff delay
+                    delay = policy.calculate_backoff(attempt)
+                    logger.debug(
+                        f"Retry attempt {attempt + 1}/{policy.max_retries} after {delay}s",
+                        proxy_id=str(proxy.id),
+                    )
+                    await asyncio.sleep(delay)
+                else:
+                    break
+
+        # All retries exhausted
+        raise last_exception if last_exception else ProxyConnectionError("Request failed")
+
+    async def get(self, url: str, **kwargs: Any) -> httpx.Response:
+        """Make async GET request."""
+        return await self._make_request("GET", url, **kwargs)
+
+    async def post(self, url: str, **kwargs: Any) -> httpx.Response:
+        """Make async POST request."""
+        return await self._make_request("POST", url, **kwargs)
+
+    async def put(self, url: str, **kwargs: Any) -> httpx.Response:
+        """Make async PUT request."""
+        return await self._make_request("PUT", url, **kwargs)
+
+    async def delete(self, url: str, **kwargs: Any) -> httpx.Response:
+        """Make async DELETE request."""
+        return await self._make_request("DELETE", url, **kwargs)
+
+    async def patch(self, url: str, **kwargs: Any) -> httpx.Response:
+        """Make async PATCH request."""
+        return await self._make_request("PATCH", url, **kwargs)
+
+    async def head(self, url: str, **kwargs: Any) -> httpx.Response:
+        """Make async HEAD request."""
+        return await self._make_request("HEAD", url, **kwargs)
+
+    async def options(self, url: str, **kwargs: Any) -> httpx.Response:
+        """Make async OPTIONS request."""
+        return await self._make_request("OPTIONS", url, **kwargs)
 
     def _start_aggregation_timer(self) -> None:
         """Start periodic metrics aggregation timer (every 5 minutes)."""
+
         def aggregate() -> None:
             self.retry_metrics.aggregate_hourly()
             self._start_aggregation_timer()  # Schedule next aggregation
