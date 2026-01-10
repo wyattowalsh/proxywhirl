@@ -104,7 +104,33 @@ print(response.json())  # {"origin": "185.x.x.47"}
 
 ## 📦 Installation
 
-### From PyPI (Recommended)
+### Using uv (Recommended)
+
+```bash
+# Install with uv
+uv pip install proxywhirl
+
+# With all extras
+uv pip install "proxywhirl[all]"
+
+# Or add to your project
+uv add proxywhirl
+uv add "proxywhirl[all]"
+```
+
+### Using uvx (Run without installing)
+
+```bash
+# Run CLI directly without installation
+uvx proxywhirl --help
+uvx proxywhirl fetch --timeout 5
+uvx proxywhirl export --stats-only
+
+# With extras
+uvx --from "proxywhirl[js]" proxywhirl fetch
+```
+
+### Using pip
 
 | Package | What You Get |
 |:--------|:-------------|
@@ -116,11 +142,11 @@ print(response.json())  # {"origin": "185.x.x.47"}
 ### From GitHub (Latest Development)
 
 ```bash
-# Install latest from main branch
-pip install git+https://github.com/wyattowalsh/proxywhirl.git
+# With uv
+uv pip install "proxywhirl @ git+https://github.com/wyattowalsh/proxywhirl.git"
 
-# Install with extras
-pip install "proxywhirl[all] @ git+https://github.com/wyattowalsh/proxywhirl.git"
+# With pip
+pip install git+https://github.com/wyattowalsh/proxywhirl.git
 ```
 
 ---
