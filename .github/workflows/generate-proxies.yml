@@ -1,0 +1,78 @@
+name: Generate Proxy Lists
+
+on:
+  schedule:
+    # Run every 2 hours for fresher proxies
+    - cron: '0 */2 * * *'
+  workflow_dispatch: # Allow manual triggers
+
+# Ensure only one instance runs at a time to prevent database conflicts
+concurrency:
+  group: proxy-generation
+  cancel-in-progress: false
+
+jobs:
+  generate-proxy-lists:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        # Fetch with token that has write access for pushing
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv venv
+        uv pip install -e .
+
+    - name: Fetch and validate proxies
+      run: |
+        uv run proxywhirl fetch --timeout 5 --concurrency 500
+
+    - name: Export data for web dashboard
+      run: |
+        uv run proxywhirl export
+
+    - name: Commit and push if changes
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+
+        # Add proxy lists and database (Vercel handles web build)
+        git add docs/proxy-lists/ proxywhirl.db
+
+        # Only commit if there are changes
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "chore: Update proxy lists and database - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+          # Pull with rebase to handle any concurrent changes, then push
+          git pull --rebase origin main
+          git push
+        fi
+
+    - name: Upload proxy lists as artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: proxy-lists-${{ github.run_number }}
+        path: docs/proxy-lists/
+        retention-days: 7
+
+    - name: Upload database as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: proxywhirl-db-${{ github.run_number }}
+        path: proxywhirl.db
+        retention-days: 30

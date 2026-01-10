@@ -1,0 +1,85 @@
+name: Update README Stats
+
+on:
+  # Trigger after CI completes on main (to get latest test count/coverage)
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - main
+
+  # Also trigger on direct pushes to stats-affecting files
+  push:
+    branches:
+      - main
+    paths:
+      - "proxywhirl/sources.py"
+      - "proxywhirl/strategies.py"
+      - "proxywhirl/fetchers.py"
+      - "tests/**"
+      - "scripts/update_readme_stats.py"
+
+  # Manual trigger
+  workflow_dispatch:
+
+# Prevent concurrent runs
+concurrency:
+  group: update-readme-stats
+  cancel-in-progress: true
+
+jobs:
+  update-stats:
+    name: Update README Stats
+    runs-on: ubuntu-latest
+    # Only run if CI succeeded (when triggered by workflow_run)
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+
+      - name: Generate coverage report
+        run: |
+          uv run pytest --cov=proxywhirl --cov-report=html:logs/htmlcov --cov-report=term -q || true
+
+      - name: Run stats updater
+        run: uv run python scripts/update_readme_stats.py
+
+      - name: Check for changes
+        id: git-check
+        run: |
+          git diff --quiet README.md docs/assets/*.svg || echo "changes=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push changes
+        if: steps.git-check.outputs.changes == 'true'
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add README.md docs/assets/*.svg
+          git commit -m "chore: Update README stats [skip ci]"
+          git push
