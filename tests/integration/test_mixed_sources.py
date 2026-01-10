@@ -8,7 +8,6 @@ Tests cover:
 """
 
 import httpx
-import pytest
 import respx
 
 from proxywhirl.fetchers import ProxyFetcher, ProxySourceConfig
@@ -20,7 +19,6 @@ from proxywhirl.strategies import WeightedStrategy
 class TestMixedProxySources:
     """Test mixing user-provided and fetched proxies."""
 
-    @pytest.mark.asyncio
     @respx.mock
     async def test_pool_contains_user_and_fetched_with_distinct_tags(self) -> None:
         """T114/SC1: Pool contains proxies from both sources with distinct tags."""
@@ -101,12 +99,12 @@ class TestMixedProxySources:
         # With weighted rotation and 1 user vs 3 fetched proxies:
         # User should get at least 30% of selections (expected ~40%)
         # Fetched should get at least 50% collectively (expected ~60%)
-        assert user_selections >= 100, (
-            f"Expected user proxy selected >=100 times, got {user_selections}"
-        )
-        assert fetched_selections >= 200, (
-            f"Expected fetched proxies selected >=200 times, got {fetched_selections}"
-        )
+        assert (
+            user_selections >= 100
+        ), f"Expected user proxy selected >=100 times, got {user_selections}"
+        assert (
+            fetched_selections >= 200
+        ), f"Expected fetched proxies selected >=200 times, got {fetched_selections}"
         assert user_selections + fetched_selections == 500
 
     def test_statistics_indicate_source_for_each_proxy(self) -> None:
@@ -154,7 +152,6 @@ class TestMixedProxySources:
         assert fetched_proxy.total_successes == 1
         assert fetched_proxy.total_failures == 1
 
-    @pytest.mark.asyncio
     @respx.mock
     async def test_fetched_proxies_can_be_refreshed_without_affecting_user_proxies(self) -> None:
         """Verify refresh updates fetched proxies but preserves user proxies."""

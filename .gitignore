@@ -34,9 +34,6 @@ CMakeUserPresets.json
 profile_default/
 ipython_config.py
 
-# Remove previous ipynb_checkpoints
-#   git rm -r .ipynb_checkpoints/
-
 ### Node ###
 # Logs
 logs
@@ -46,6 +43,22 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 .pnpm-debug.log*
+
+# yarn v2
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+### Node Patch ###
+# Serverless Webpack directories
+.webpack/
+
+# Optional stylelint cache
+
+# SvelteKit build / generate output
+.svelte-kit
 
 ### dotenv ###
 .env
@@ -64,20 +77,6 @@ lerna-debug.log*
 *_BASE_*.txt
 *_LOCAL_*.txt
 *_REMOTE_*.txt
-
-### JupyterNotebooks ###
-# gitignore template for Jupyter Notebooks
-# website: http://jupyter.org/
-
-.ipynb_checkpoints
-*/.ipynb_checkpoints/*
-
-# IPython
-profile_default/
-ipython_config.py
-
-# Remove previous ipynb_checkpoints
-#   git rm -r .ipynb_checkpoints/
 
 ### Linux ###
 *~
@@ -124,19 +123,6 @@ ipython_config.py
 .idea/**/gradle.xml
 .idea/**/libraries
 
-# Gradle and Maven with auto-import
-# When using Gradle or Maven with auto-import, you should exclude module files,
-# since they will be recreated, and may cause churn.  Uncomment if using
-# auto-import.
-# .idea/artifacts
-# .idea/compiler.xml
-# .idea/jarRepositories.xml
-# .idea/modules.xml
-# .idea/*.iml
-# .idea/modules
-# *.iml
-# *.ipr
-
 # CMake
 cmake-build-*/
 
@@ -174,37 +160,24 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 
 ### PyCharm Patch ###
-# Comment Reason: https://github.com/joeblau/gitignore.io/issues/186#issuecomment-215987721
-
-# *.iml
-# modules.xml
-# .idea/misc.xml
-# *.ipr
-
 # Sonarlint plugin
-# https://plugins.jetbrains.com/plugin/7973-sonarlint
 .idea/**/sonarlint/
 
 # SonarQube Plugin
-# https://plugins.jetbrains.com/plugin/7238-sonarqube-community-plugin
 .idea/**/sonarIssues.xml
 
 # Markdown Navigator plugin
-# https://plugins.jetbrains.com/plugin/7896-markdown-navigator-enhanced
 .idea/**/markdown-navigator.xml
 .idea/**/markdown-navigator-enh.xml
 .idea/**/markdown-navigator/
 
 # Cache file creation bug
-# See https://youtrack.jetbrains.com/issue/JBR-2257
 .idea/$CACHE_FILE$
 
 # CodeStream plugin
-# https://plugins.jetbrains.com/plugin/12206-codestream
 .idea/codestream.xml
 
 # Azure Toolkit for IntelliJ plugin
-# https://plugins.jetbrains.com/plugin/8053-azure-toolkit-for-intellij
 .idea/**/azureSettings.xml
 
 ### pydev ###
@@ -240,8 +213,6 @@ share/python-wheels/
 MANIFEST
 
 # PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
 *.manifest
 *.spec
 
@@ -269,7 +240,6 @@ cover/
 *.pot
 
 # Django stuff:
-*.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
@@ -281,7 +251,6 @@ instance/
 # Scrapy stuff:
 .scrapy
 
-<<<<<<< HEAD
 # Sphinx documentation
 docs/_build/
 
@@ -290,38 +259,20 @@ docs/_build/
 target/
 
 # Jupyter Notebook
-=======
-# vuepress v2.x temp and cache directory
-.temp
->>>>>>> 008-metrics-observability-performance
 
 # IPython
 
 # pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
 # .python-version
 
 # pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
 #Pipfile.lock
 
 # poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
 #poetry.lock
 
 # pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
 #pdm.lock
-#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
-#   in version control.
-#   https://pdm.fming.dev/#use-with-ide
 .pdm.toml
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
@@ -352,10 +303,8 @@ venv.bak/
 # mkdocs documentation
 /site
 
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
+# ty (type checker)
+.ty_cache/
 
 # Pyre type checker
 .pyre/
@@ -366,15 +315,8 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
-
 ### Python Patch ###
-# Poetry local configuration file - https://python-poetry.org/docs/configuration/#local-configuration
+# Poetry local configuration file
 poetry.toml
 
 # ruff
@@ -385,7 +327,6 @@ pyrightconfig.json
 
 ### venv ###
 # Virtualenv
-# http://iamzed.com/2009/05/07/a-primer-on-virtualenv/
 [Bb]in
 [Ii]nclude
 [Ll]ib
@@ -394,10 +335,6 @@ pyrightconfig.json
 [Ss]cripts
 pyvenv.cfg
 pip-selfcheck.json
-
-### VirtualEnv ###
-# Virtualenv
-# http://iamzed.com/2009/05/07/a-primer-on-virtualenv/
 
 ### Windows ###
 # Windows thumbnail cache files
@@ -450,11 +387,7 @@ $RECYCLE.BIN/
 zsdoc/data
 
 # robbyrussell/oh-my-zsh/plugins/per-directory-history plugin's files
-# (when set-up to store the history in the local directory)
 .directory_history
-
-# MichaelAquilina/zsh-autoswitch-virtualenv plugin's files
-# (for Zsh plugins using Python)
 
 # Zunit tests' output
 /tests/_output/*
@@ -464,192 +397,28 @@ zsdoc/data
 
 # Custom rules (everything added below won't be overriden by 'Generate .gitignore File' if you use 'Update' option)
 
-<<<<<<< HEAD
-=======
-# yarn v2
-.yarn/cache
-.yarn/unplugged
-.yarn/build-state.yml
-.yarn/install-state.gz
-.pnp.*
+# vuepress v2.x temp and cache directory
+.temp
 
-### Node Patch ###
-# Serverless Webpack directories
-.webpack/
+# =========================================
+# PROXYWHIRL: Track the database in git
+# =========================================
+# We explicitly track proxywhirl.db for long-running analytics
+# The database is updated by CI/CD workflows
+!proxywhirl.db
 
-# Optional stylelint cache
+# But ignore SQLite journal files (created during writes)
+*.db-journal
+*.db-wal
+*.db-shm
 
-# SvelteKit build / generate output
-.svelte-kit
+# =========================================
+# PYTEST-BENCHMARK: Track baseline, ignore test runs
+# =========================================
+# Ignore all benchmark results first
+.benchmarks/**/*.json
+benchmark-histogram*
 
-### Python ###
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[cod]
-*$py.class
-
-# C extensions
-*.so
-
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
-
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-cover/
-
-# Translations
-*.mo
-*.pot
-
-# Django stuff:
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-
-# Flask stuff:
-instance/
-.webassets-cache
-
-# Scrapy stuff:
-.scrapy
-
-# Sphinx documentation
-docs/_build/
-
-# PyBuilder
-.pybuilder/
-target/
-
-# Jupyter Notebook
-
-# IPython
-
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
-
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-#Pipfile.lock
-
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
-
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#pdm.lock
-#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
-#   in version control.
-#   https://pdm.fming.dev/#use-with-ide
-.pdm.toml
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
-
-# Celery stuff
-celerybeat-schedule
-celerybeat.pid
-
-# SageMath parsed files
-*.sage.py
-
-# Environments
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# Spyder project settings
-.spyderproject
-.spyproject
-
-# Rope project settings
-.ropeproject
-
-# mkdocs documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
-
-### Python Patch ###
-# Poetry local configuration file - https://python-poetry.org/docs/configuration/#local-configuration
-poetry.toml
-
-# ruff
-.ruff_cache/
-
-# LSP config files
-pyrightconfig.json
-
-# End of https://www.toptal.com/developers/gitignore/api/cmake,jupyternotebooks,node,python
-
-# Custom rules (everything added below won't be overriden by 'Generate .gitignore File' if you use 'Update' option)
-
->>>>>>> 008-metrics-observability-performance
+# Then explicitly track baseline and README
+!.benchmarks/**/0001_baseline.json
+!.benchmarks/README.md

@@ -7,15 +7,12 @@ Tests SC-011: Proxy validation processes 100+ proxies per second.
 import time
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
 from proxywhirl.fetchers import ProxyValidator
 
 
 class TestProxyValidationPerformance:
     """Performance benchmarks for proxy validation (SC-011)."""
 
-    @pytest.mark.asyncio
     async def test_validation_meets_100_proxies_per_second_requirement(self) -> None:
         """SC-011: Validate 100+ proxies per second in parallel."""
         # Generate 150 test proxies
@@ -43,7 +40,6 @@ class TestProxyValidationPerformance:
 
         assert rate >= 100, f"Expected ≥100 proxies/sec, got {rate:.1f}"
 
-    @pytest.mark.asyncio
     async def test_validation_scales_with_larger_batches(self) -> None:
         """Verify validation scales efficiently with larger proxy batches."""
         # Test with 500 proxies

@@ -18,35 +18,30 @@ async def api_client():
 
 # T027-T031: Integration tests for US2
 @pytest.mark.skip(reason="Requires implementation - placeholder for future work")
-@pytest.mark.asyncio
 async def test_list_proxies(api_client: AsyncClient):
     """T027: Test listing proxies with pagination."""
     pass
 
 
 @pytest.mark.skip(reason="Requires implementation - placeholder for future work")
-@pytest.mark.asyncio
 async def test_add_proxy(api_client: AsyncClient):
     """T028: Test adding new proxy to pool."""
     pass
 
 
 @pytest.mark.skip(reason="Requires implementation - placeholder for future work")
-@pytest.mark.asyncio
 async def test_get_proxy_by_id(api_client: AsyncClient):
     """T029: Test retrieving specific proxy by ID."""
     pass
 
 
 @pytest.mark.skip(reason="Requires implementation - placeholder for future work")
-@pytest.mark.asyncio
 async def test_delete_proxy(api_client: AsyncClient):
     """T030: Test removing proxy from pool."""
     pass
 
 
 @pytest.mark.skip(reason="Requires implementation - placeholder for future work")
-@pytest.mark.asyncio
 async def test_health_check(api_client: AsyncClient):
     """T031: Test health check endpoint."""
     pass

@@ -47,7 +47,6 @@ def setup_test_proxies():
 
 
 # T012: Integration test for proxied GET request
-@pytest.mark.asyncio
 @respx.mock
 async def test_proxied_get_request_success(api_client: AsyncClient, setup_test_proxies):
     """Test successful proxied GET request to httpbin.org/get.
@@ -95,7 +94,6 @@ async def test_proxied_get_request_success(api_client: AsyncClient, setup_test_p
 
 
 # T013: Integration test for proxied POST request
-@pytest.mark.asyncio
 @respx.mock
 async def test_proxied_post_request_with_body(api_client: AsyncClient, setup_test_proxies):
     """Test successful proxied POST request with JSON body.
@@ -143,7 +141,6 @@ async def test_proxied_post_request_with_body(api_client: AsyncClient, setup_tes
 
 
 # T014: Integration test for proxy rotation
-@pytest.mark.asyncio
 @respx.mock
 async def test_proxy_rotation_multiple_requests(api_client: AsyncClient, setup_test_proxies):
     """Test proxy rotation across multiple sequential requests.
@@ -180,7 +177,6 @@ async def test_proxy_rotation_multiple_requests(api_client: AsyncClient, setup_t
 
 
 # T015: Integration test for proxy failover
-@pytest.mark.asyncio
 @respx.mock
 async def test_proxy_failover_with_dead_proxy(api_client: AsyncClient):
     """Test proxy failover when first proxy fails.

@@ -60,7 +60,6 @@ class TestHealthMonitorInit:
 class TestHealthMonitorScheduler:
     """Test background task scheduling."""
 
-    @pytest.mark.asyncio
     async def test_monitor_start_schedules_task(self) -> None:
         """start() creates background task and sets is_running."""
         pool = ProxyPool(name="test_pool")
@@ -79,7 +78,6 @@ class TestHealthMonitorScheduler:
         # Cleanup
         await monitor.stop()
 
-    @pytest.mark.asyncio
     async def test_monitor_stop_cancels_task(self) -> None:
         """stop() cancels background task and sets is_running to False."""
         pool = ProxyPool(name="test_pool")
@@ -95,7 +93,6 @@ class TestHealthMonitorScheduler:
         assert monitor.is_running is False
         assert monitor._task is None or monitor._task.cancelled()
 
-    @pytest.mark.asyncio
     async def test_monitor_checks_run_periodically(self) -> None:
         """Health checks run periodically at configured interval."""
         pool = ProxyPool(name="test_pool")
@@ -122,7 +119,6 @@ class TestHealthMonitorScheduler:
         # Should have run at least 2 checks
         assert check_count >= 2
 
-    @pytest.mark.asyncio
     async def test_monitor_start_idempotent(self) -> None:
         """Calling start() twice doesn't create multiple tasks."""
         pool = ProxyPool(name="test_pool")
@@ -141,7 +137,6 @@ class TestHealthMonitorScheduler:
 
         await monitor.stop()
 
-    @pytest.mark.asyncio
     async def test_monitor_stop_idempotent(self) -> None:
         """Calling stop() when not running is safe."""
         pool = ProxyPool(name="test_pool")
@@ -156,7 +151,6 @@ class TestHealthMonitorScheduler:
 class TestHealthMonitorFailureTracking:
     """Test failure tracking and auto-eviction."""
 
-    @pytest.mark.asyncio
     async def test_monitor_tracks_consecutive_failures(self) -> None:
         """Monitor tracks consecutive failures per proxy."""
         pool = ProxyPool(name="test_pool")
@@ -178,7 +172,6 @@ class TestHealthMonitorFailureTracking:
         monitor._record_failure(proxy2)
         assert monitor._failure_counts[proxy2.url] == 1
 
-    @pytest.mark.asyncio
     async def test_monitor_evicts_after_threshold(self) -> None:
         """Proxy is evicted after reaching failure threshold."""
         pool = ProxyPool(name="test_pool")
@@ -195,7 +188,6 @@ class TestHealthMonitorFailureTracking:
         monitor._record_failure(proxy)  # Reaches threshold
         assert pool.size == 0  # Evicted
 
-    @pytest.mark.asyncio
     async def test_monitor_resets_failures_on_success(self) -> None:
         """Successful health check resets failure count."""
         pool = ProxyPool(name="test_pool")
@@ -213,7 +205,6 @@ class TestHealthMonitorFailureTracking:
         monitor._record_success(proxy)
         assert monitor._failure_counts.get(proxy.url, 0) == 0
 
-    @pytest.mark.asyncio
     async def test_monitor_eviction_updates_pool(self) -> None:
         """Evicted proxies are removed from pool."""
         pool = ProxyPool(name="test_pool")
@@ -260,7 +251,6 @@ class TestHealthMonitorStatus:
         assert len(status["failure_counts"]) == 1
         assert status["failure_counts"][proxy1.url] == 2
 
-    @pytest.mark.asyncio
     async def test_monitor_status_includes_runtime(self) -> None:
         """Status includes uptime when monitor is running."""
         pool = ProxyPool(name="test_pool")

@@ -5,6 +5,8 @@ A production-ready library for intelligent proxy rotation with auto-fetching,
 validation, and persistence capabilities.
 """
 
+from __future__ import annotations
+
 from proxywhirl.async_client import AsyncProxyRotator
 from proxywhirl.browser import BrowserRenderer
 from proxywhirl.cache import CacheManager
@@ -19,6 +21,8 @@ from proxywhirl.cache_models import (
     HealthStatus as CacheHealthStatus,
 )
 from proxywhirl.circuit_breaker import CircuitBreaker, CircuitBreakerState
+from proxywhirl.circuit_breaker_async import AsyncCircuitBreaker
+from proxywhirl.config import DataStorageConfig
 from proxywhirl.exceptions import (
     CacheCorruptionError,
     CacheStorageError,
@@ -30,6 +34,7 @@ from proxywhirl.exceptions import (
     ProxyStorageError,
     ProxyValidationError,
     ProxyWhirlError,
+    RequestQueueFullError,
 )
 from proxywhirl.fetchers import (
     CSVParser,
@@ -41,6 +46,7 @@ from proxywhirl.fetchers import (
     deduplicate_proxies,
 )
 from proxywhirl.models import (
+    CircuitBreakerConfig,
     HealthMonitor,
     HealthStatus,
     Proxy,
@@ -52,10 +58,13 @@ from proxywhirl.models import (
     ProxySource,
     ProxySourceConfig,
     RenderMode,
+    SelectionContext,
+    Session,
     SourceStats,
+    StrategyConfig,
     ValidationLevel,
 )
-from proxywhirl.retry_executor import RetryExecutor
+from proxywhirl.retry_executor import NonRetryableError, RetryableError, RetryExecutor
 from proxywhirl.retry_metrics import (
     CircuitBreakerEvent,
     HourlyAggregate,
@@ -65,25 +74,28 @@ from proxywhirl.retry_metrics import (
 )
 from proxywhirl.retry_policy import BackoffStrategy, RetryPolicy
 from proxywhirl.rotator import ProxyRotator
+from proxywhirl.safe_regex import RegexComplexityError, RegexTimeoutError
 from proxywhirl.sources import (
     ALL_HTTP_SOURCES,
     ALL_SOCKS4_SOURCES,
     ALL_SOCKS5_SOURCES,
     ALL_SOURCES,
     API_SOURCES,
-    FREE_PROXY_LIST,
     GEONODE_HTTP,
     GEONODE_SOCKS4,
     GEONODE_SOCKS5,
-    GITHUB_CLARKETM_HTTP,
-    GITHUB_HOOKZOF_HTTP,
+    GITHUB_KOMUTAN_HTTP,
+    GITHUB_KOMUTAN_SOCKS4,
+    GITHUB_KOMUTAN_SOCKS5,
     GITHUB_MONOSANS_HTTP,
     GITHUB_MONOSANS_SOCKS4,
     GITHUB_MONOSANS_SOCKS5,
-    GITHUB_THESPECBAY_HTTP,
-    GITHUB_THESPECBAY_SOCKS4,
-    GITHUB_THESPECBAY_SOCKS5,
-    PROXY_NOVA,
+    GITHUB_PROXIFLY_HTTP,
+    GITHUB_PROXIFLY_SOCKS4,
+    GITHUB_PROXIFLY_SOCKS5,
+    GITHUB_THESPEEDX_HTTP,
+    GITHUB_THESPEEDX_SOCKS4,
+    GITHUB_THESPEEDX_SOCKS5,
     PROXY_SCRAPE_HTTP,
     PROXY_SCRAPE_SOCKS4,
     PROXY_SCRAPE_SOCKS5,
@@ -91,6 +103,7 @@ from proxywhirl.sources import (
 )
 from proxywhirl.strategies import (
     CompositeStrategy,
+    CostAwareStrategy,
     GeoTargetedStrategy,
     LeastUsedStrategy,
     PerformanceBasedStrategy,
@@ -118,10 +131,14 @@ __version__ = "1.0.0"
 __all__: list[str] = [
     # Version
     "__version__",
+    # Configuration
+    "DataStorageConfig",
     # Retry & Failover Components
     "RetryPolicy",
     "BackoffStrategy",
     "CircuitBreaker",
+    "AsyncCircuitBreaker",
+    "CircuitBreakerConfig",
     "CircuitBreakerState",
     "RetryExecutor",
     "RetryMetrics",
@@ -148,13 +165,21 @@ __all__: list[str] = [
     "CacheCorruptionError",
     "CacheStorageError",
     "CacheValidationError",
+    "RequestQueueFullError",
+    "RetryableError",
+    "NonRetryableError",
+    "RegexTimeoutError",
+    "RegexComplexityError",
     # Models
     "Proxy",
     "ProxyChain",
     "ProxyCredentials",
     "ProxyConfiguration",
     "ProxySourceConfig",
+    "SelectionContext",
+    "Session",
     "SourceStats",
+    "StrategyConfig",
     "ProxyPool",
     "HealthMonitor",
     # Enums
@@ -175,6 +200,7 @@ __all__: list[str] = [
     "StrategyRegistry",
     # Strategies
     "CompositeStrategy",
+    "CostAwareStrategy",
     "RoundRobinStrategy",
     "RandomStrategy",
     "WeightedStrategy",
@@ -199,22 +225,24 @@ __all__: list[str] = [
     "create_proxy_from_url",
     "deduplicate_proxies",
     # Built-in Proxy Sources (Individual)
-    "FREE_PROXY_LIST",
     "PROXY_SCRAPE_HTTP",
     "PROXY_SCRAPE_SOCKS4",
     "PROXY_SCRAPE_SOCKS5",
     "GEONODE_HTTP",
     "GEONODE_SOCKS4",
     "GEONODE_SOCKS5",
-    "PROXY_NOVA",
-    "GITHUB_CLARKETM_HTTP",
-    "GITHUB_THESPECBAY_HTTP",
-    "GITHUB_THESPECBAY_SOCKS4",
-    "GITHUB_THESPECBAY_SOCKS5",
+    "GITHUB_THESPEEDX_HTTP",
+    "GITHUB_THESPEEDX_SOCKS4",
+    "GITHUB_THESPEEDX_SOCKS5",
     "GITHUB_MONOSANS_HTTP",
     "GITHUB_MONOSANS_SOCKS4",
     "GITHUB_MONOSANS_SOCKS5",
-    "GITHUB_HOOKZOF_HTTP",
+    "GITHUB_PROXIFLY_HTTP",
+    "GITHUB_PROXIFLY_SOCKS4",
+    "GITHUB_PROXIFLY_SOCKS5",
+    "GITHUB_KOMUTAN_HTTP",
+    "GITHUB_KOMUTAN_SOCKS4",
+    "GITHUB_KOMUTAN_SOCKS5",
     # Built-in Proxy Sources (Collections)
     "ALL_HTTP_SOURCES",
     "ALL_SOCKS4_SOURCES",

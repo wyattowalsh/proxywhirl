@@ -173,8 +173,8 @@ class TestRetryPolicyCalculateDelay:
         # Attempt 4: would be 16.0, but capped at 5.0
         assert policy.calculate_delay(4) == 5.0
 
-    def test_jitter_adds_randomness(self):
-        """Test jitter adds randomness to delay."""
+    def test_jitter_first_attempt_spreads_delays(self):
+        """Test first attempt jitter spreads delays from 0 to base delay."""
         policy = RetryPolicy(
             backoff_strategy=BackoffStrategy.EXPONENTIAL,
             base_delay=4.0,
@@ -182,15 +182,117 @@ class TestRetryPolicyCalculateDelay:
             jitter=True,
         )
 
-        # Calculate delay multiple times for the same attempt
+        # Calculate delay multiple times for the first attempt (no previous_delay)
         delays = [policy.calculate_delay(0) for _ in range(100)]
 
-        # Base delay for attempt 0 is 4.0
-        # With jitter, it should be between 2.0 (4.0 * 0.5) and 6.0 (4.0 * 1.5)
-        assert all(2.0 <= d <= 6.0 for d in delays)
+        # First attempt with jitter: uniform(0, min(base, max_backoff_delay))
+        # Base for attempt 0 is 4.0, so delays should be in [0, 4.0)
+        assert all(0 <= d <= 4.0 for d in delays)
 
         # Delays should vary (not all the same)
         assert len(set(delays)) > 1
+
+        # Check reasonable spread across the range
+        min_delay = min(delays)
+        max_delay = max(delays)
+        assert max_delay - min_delay > 1.0  # Should have reasonable spread
+
+    def test_decorrelated_jitter_depends_on_previous_delay(self):
+        """Test decorrelated jitter depends on previous delay value."""
+        policy = RetryPolicy(
+            backoff_strategy=BackoffStrategy.EXPONENTIAL,
+            base_delay=1.0,
+            multiplier=2.0,
+            max_backoff_delay=30.0,
+            jitter=True,
+        )
+
+        # With small previous_delay, range is [base_delay, previous_delay * 3]
+        small_previous = 2.0
+        delays_small = [
+            policy.calculate_delay(1, previous_delay=small_previous) for _ in range(100)
+        ]
+        # Range should be [1.0, 6.0]
+        assert all(1.0 <= d <= 6.0 for d in delays_small)
+
+        # With larger previous_delay, range expands
+        large_previous = 10.0
+        delays_large = [
+            policy.calculate_delay(1, previous_delay=large_previous) for _ in range(100)
+        ]
+        # Range should be [1.0, 30.0] (capped at max_backoff_delay)
+        assert all(1.0 <= d <= 30.0 for d in delays_large)
+
+        # Larger previous should produce larger average delay
+        avg_small = sum(delays_small) / len(delays_small)
+        avg_large = sum(delays_large) / len(delays_large)
+        assert avg_large > avg_small
+
+    def test_decorrelated_jitter_respects_max_backoff_cap(self):
+        """Test decorrelated jitter respects max_backoff_delay cap."""
+        policy = RetryPolicy(
+            backoff_strategy=BackoffStrategy.EXPONENTIAL,
+            base_delay=1.0,
+            multiplier=2.0,
+            max_backoff_delay=5.0,  # Low cap
+            jitter=True,
+        )
+
+        # Even with very large previous_delay, cap is respected
+        large_previous = 100.0
+        delays = [policy.calculate_delay(2, previous_delay=large_previous) for _ in range(100)]
+
+        # All delays must be <= max_backoff_delay
+        assert all(d <= 5.0 for d in delays)
+        # Delays should still be >= base_delay
+        assert all(d >= 1.0 for d in delays)
+
+    def test_decorrelated_jitter_statistical_distribution(self):
+        """Test decorrelated jitter produces well-distributed delays."""
+        policy = RetryPolicy(
+            backoff_strategy=BackoffStrategy.EXPONENTIAL,
+            base_delay=1.0,
+            multiplier=2.0,
+            max_backoff_delay=30.0,
+            jitter=True,
+        )
+
+        # Simulate a sequence of retries with decorrelated jitter
+        previous_delay = None
+        all_delays = []
+
+        for _ in range(1000):
+            delay = policy.calculate_delay(1, previous_delay=previous_delay)
+            all_delays.append(delay)
+            previous_delay = delay
+
+        # Check distribution properties
+        min_d = min(all_delays)
+        max_d = max(all_delays)
+
+        # Delays should cover a range (not clustered)
+        assert max_d - min_d > 5.0  # Reasonable spread
+
+        # Check that we don't have synchronized values (thundering herd prevention)
+        unique_delays = {round(d, 2) for d in all_delays}
+        assert len(unique_delays) > 100  # Many distinct values
+
+    def test_decorrelated_jitter_first_vs_subsequent_attempts(self):
+        """Test first attempt uses different logic than subsequent attempts."""
+        policy = RetryPolicy(
+            backoff_strategy=BackoffStrategy.EXPONENTIAL,
+            base_delay=2.0,
+            multiplier=2.0,
+            jitter=True,
+        )
+
+        # First attempt (no previous_delay): uniform(0, base)
+        first_delays = [policy.calculate_delay(0) for _ in range(100)]
+        assert all(0 <= d <= 2.0 for d in first_delays)  # Range is [0, base]
+
+        # Subsequent attempt with previous_delay: uniform(base, previous * 3)
+        subsequent_delays = [policy.calculate_delay(1, previous_delay=2.0) for _ in range(100)]
+        assert all(2.0 <= d <= 6.0 for d in subsequent_delays)  # Range is [base, prev*3]
 
     def test_linear_backoff_with_cap(self):
         """Test linear backoff respects max_backoff_delay cap."""

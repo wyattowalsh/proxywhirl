@@ -11,7 +11,6 @@ from proxywhirl.models import RenderMode
 class TestBrowserFetching:
     """Test ProxyFetcher with browser rendering mode."""
 
-    @pytest.mark.asyncio
     async def test_fetcher_with_browser_mode(self) -> None:
         """ProxyFetcher uses BrowserRenderer when render_mode=BROWSER."""
         # Create source with BROWSER render mode
@@ -46,7 +45,6 @@ class TestBrowserFetching:
             assert len(proxies) == 1
             assert proxies[0]["host"] == "1.2.3.4"
 
-    @pytest.mark.asyncio
     async def test_fetcher_static_mode_no_browser(self) -> None:
         """ProxyFetcher uses HTTP client when render_mode=STATIC."""
         import respx
@@ -72,7 +70,6 @@ class TestBrowserFetching:
             assert len(proxies) == 1
             assert proxies[0]["host"] == "5.6.7.8"
 
-    @pytest.mark.asyncio
     async def test_browser_mode_import_error(self) -> None:
         """ProxyFetcher raises helpful error if Playwright not installed."""
         from proxywhirl.exceptions import ProxyFetchError
@@ -91,7 +88,6 @@ class TestBrowserFetching:
                 with pytest.raises(ProxyFetchError, match="Browser rendering requires Playwright"):
                     await fetcher.fetch_from_source(source)
 
-    @pytest.mark.asyncio
     async def test_browser_timeout_handling(self) -> None:
         """ProxyFetcher handles browser timeout errors gracefully."""
         from proxywhirl.exceptions import ProxyFetchError
@@ -118,7 +114,6 @@ class TestBrowserFetching:
             with pytest.raises(ProxyFetchError, match="Browser timeout"):
                 await fetcher.fetch_from_source(source)
 
-    @pytest.mark.asyncio
     async def test_browser_runtime_error_handling(self) -> None:
         """ProxyFetcher handles browser runtime errors gracefully."""
         from proxywhirl.exceptions import ProxyFetchError
@@ -145,7 +140,6 @@ class TestBrowserFetching:
             with pytest.raises(ProxyFetchError, match="Browser error"):
                 await fetcher.fetch_from_source(source)
 
-    @pytest.mark.asyncio
     async def test_fetch_all_with_mixed_render_modes(self) -> None:
         """ProxyFetcher handles sources with different render modes."""
         import respx

@@ -3,15 +3,12 @@
 import asyncio
 from unittest.mock import AsyncMock
 
-import pytest
-
 from proxywhirl.models import HealthMonitor, HealthStatus, Proxy, ProxyPool
 
 
 class TestHealthMonitorIntegration:
     """Integration tests for HealthMonitor with real proxy pool operations."""
 
-    @pytest.mark.asyncio
     async def test_monitor_with_real_proxies(self) -> None:
         """HealthMonitor works with real ProxyPool operations."""
         pool = ProxyPool(name="integration_pool")
@@ -42,7 +39,6 @@ class TestHealthMonitorIntegration:
         monitor._record_success(proxy2)
         assert monitor._failure_counts.get(proxy2.url, 0) == 0
 
-    @pytest.mark.asyncio
     async def test_monitor_evicts_dead_proxies(self) -> None:
         """HealthMonitor evicts proxies that fail consistently."""
         pool = ProxyPool(name="eviction_pool")
@@ -85,7 +81,6 @@ class TestHealthMonitorIntegration:
         monitor._record_success(proxy2)
         assert monitor._failure_counts.get(proxy2.url, 0) == 0
 
-    @pytest.mark.asyncio
     async def test_monitor_cpu_overhead_under_5_percent(self) -> None:
         """HealthMonitor has minimal CPU overhead during monitoring."""
         import time
@@ -118,7 +113,6 @@ class TestHealthMonitorIntegration:
         # This is a simple check - in production you'd use psutil or similar
         assert elapsed < 4.0  # Some overhead is acceptable
 
-    @pytest.mark.asyncio
     async def test_monitor_handles_empty_pool(self) -> None:
         """HealthMonitor handles empty pools gracefully."""
         pool = ProxyPool(name="empty_pool")
@@ -136,7 +130,6 @@ class TestHealthMonitorIntegration:
         await monitor.stop()
         assert monitor.is_running is False
 
-    @pytest.mark.asyncio
     async def test_monitor_concurrent_operations(self) -> None:
         """HealthMonitor handles concurrent operations correctly."""
         pool = ProxyPool(name="concurrent_pool")
@@ -167,7 +160,6 @@ class TestHealthMonitorIntegration:
 
         assert pool.size == 10  # All still in pool
 
-    @pytest.mark.asyncio
     async def test_monitor_status_updates_during_runtime(self) -> None:
         """get_status() reflects current state during monitoring."""
         pool = ProxyPool(name="status_pool")
@@ -204,7 +196,6 @@ class TestHealthMonitorIntegration:
         status = monitor.get_status()
         assert status["is_running"] is False
 
-    @pytest.mark.asyncio
     async def test_monitor_mixed_health_statuses(self) -> None:
         """HealthMonitor works with different proxy health statuses."""
         pool = ProxyPool(name="mixed_health_pool")

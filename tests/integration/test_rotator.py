@@ -257,6 +257,6 @@ class TestProxyRotatorWithContextManager:
             rotator.get("https://example.com")
             rotator.get("https://example.com")
 
-        # Note: Each request creates a new client to support proxy rotation
-        # Plus one client created in __enter__, so 3 total
-        assert mock_client_class.call_count == 3
+        # Note: The client pool reuses clients for the same proxy
+        # One client created in __enter__, one for the proxy
+        assert mock_client_class.call_count == 2

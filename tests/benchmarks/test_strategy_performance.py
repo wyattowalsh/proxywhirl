@@ -283,11 +283,10 @@ class TestConcurrentSelectionBenchmarks:
         # Allow 25% variance in highly concurrent scenario
         for count in request_counts:
             variance = abs(count - avg_count) / avg_count
-            assert variance < 0.25, (
-                f"High load imbalance: count={count}, avg={avg_count}, variance={variance:.2%}"
-            )
+            assert (
+                variance < 0.25
+            ), f"High load imbalance: count={count}, avg={avg_count}, variance={variance:.2%}"
 
-    @pytest.mark.asyncio
     async def test_async_concurrent_selections(self, concurrent_pool):
         """
         Stress test: Async concurrent selections.

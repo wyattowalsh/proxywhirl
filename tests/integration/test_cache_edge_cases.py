@@ -11,7 +11,7 @@ import pytest
 from pydantic import SecretStr
 
 from proxywhirl.cache import CacheManager
-from proxywhirl.cache_crypto import CredentialEncryptor
+from proxywhirl.cache.crypto import CredentialEncryptor
 from proxywhirl.cache_models import CacheConfig, CacheEntry, CacheTierConfig, HealthStatus
 
 

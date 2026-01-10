@@ -1,11 +1,21 @@
 """
 Retry execution orchestration with intelligent proxy selection.
+
+Provides both synchronous and asynchronous retry execution:
+- execute_with_retry: Synchronous execution with time.sleep
+- execute_with_retry_async: Asynchronous execution with asyncio.sleep
+
+The async variant avoids blocking the event loop during backoff delays.
 """
 
+from __future__ import annotations
+
+import asyncio
 import time
 import uuid
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
-from typing import Callable, Optional
+from itertools import islice
 
 import httpx
 from loguru import logger
@@ -37,6 +47,12 @@ class NonRetryableError(Exception):
 class RetryExecutor:
     """
     Orchestrates retry logic with exponential backoff and circuit breaker integration.
+
+    Provides both synchronous and asynchronous execution methods:
+    - execute_with_retry: Synchronous with time.sleep (for sync contexts)
+    - execute_with_retry_async: Asynchronous with asyncio.sleep (for async contexts)
+
+    The async variant avoids blocking the event loop during backoff delays.
     """
 
     def __init__(
@@ -53,9 +69,9 @@ class RetryExecutor:
             circuit_breakers: Circuit breakers by proxy ID
             retry_metrics: Metrics collection instance
         """
-        self.retry_policy     = retry_policy
+        self.retry_policy = retry_policy
         self.circuit_breakers = circuit_breakers
-        self.retry_metrics    = retry_metrics
+        self.retry_metrics = retry_metrics
 
     def execute_with_retry(
         self,
@@ -63,10 +79,14 @@ class RetryExecutor:
         proxy: Proxy,
         method: str,
         url: str,
-        request_id: Optional[str] = None,
+        request_id: str | None = None,
     ) -> httpx.Response:
         """
-        Execute a request with retry logic.
+        Execute a request with retry logic (SYNCHRONOUS).
+
+        This method uses time.sleep for backoff delays and should only be called
+        from synchronous contexts. For async execution, use
+        AsyncProxyClient._execute_async_with_retry instead.
 
         Args:
             request_fn: Function that executes the request
@@ -92,13 +112,12 @@ class RetryExecutor:
             )
             if not self.retry_policy.retry_non_idempotent:
                 # Execute once without retry
-                return self._execute_single_attempt(
-                    request_fn, proxy, request_id, 0, 0.0
-                )
+                return self._execute_single_attempt(request_fn, proxy, request_id, 0, 0.0)
 
         # Set up retry with tenacity
-        last_exception: Optional[Exception] = None
+        last_exception: Exception | None = None
         start_time = time.time()
+        previous_delay: float | None = None  # Track for decorrelated jitter
 
         for attempt in range(self.retry_policy.max_attempts):
             # Check timeout
@@ -110,21 +129,33 @@ class RetryExecutor:
                         f"after {attempt} attempts"
                     )
                     self._record_attempt(
-                        request_id, attempt, str(proxy.id), RetryOutcome.TIMEOUT, 0.0, 0.0,
-                        error_message="Total timeout exceeded"
+                        request_id,
+                        attempt,
+                        str(proxy.id),
+                        RetryOutcome.TIMEOUT,
+                        0.0,
+                        0.0,
+                        error_message="Total timeout exceeded",
                     )
                     raise ProxyConnectionError(f"Request timeout after {elapsed:.2f}s")
 
-            # Calculate delay for this attempt
+            # Calculate delay for this attempt using decorrelated jitter
             if attempt > 0:
-                delay = self.retry_policy.calculate_delay(attempt - 1)
+                delay = self.retry_policy.calculate_delay(
+                    attempt - 1, previous_delay=previous_delay
+                )
                 logger.info(
                     f"Retry attempt {attempt + 1}/{self.retry_policy.max_attempts} "
                     f"after {delay:.2f}s delay"
                 )
+                # SYNCHRONOUS sleep - this is intentional as RetryExecutor is sync-only.
+                # For async contexts, use AsyncProxyClient._execute_async_with_retry
+                # which uses asyncio.sleep instead.
                 time.sleep(delay)
+                previous_delay = delay  # Track for decorrelated jitter
             else:
                 delay = 0.0
+                previous_delay = None
 
             # Execute attempt
             attempt_start = time.time()
@@ -135,29 +166,34 @@ class RetryExecutor:
                 # Check if status code is retryable
                 if response.status_code in self.retry_policy.retry_status_codes:
                     logger.warning(
-                        f"Received retryable status {response.status_code} from "
-                        f"proxy {proxy.id}"
+                        f"Received retryable status {response.status_code} from proxy {proxy.id}"
                     )
                     self._record_attempt(
-                        request_id, attempt, str(proxy.id), RetryOutcome.FAILURE,
-                        delay, latency, error_message=f"Status {response.status_code}"
+                        request_id,
+                        attempt,
+                        str(proxy.id),
+                        RetryOutcome.FAILURE,
+                        delay,
+                        latency,
+                        error_message=f"Status {response.status_code}",
                     )
                     self._record_proxy_failure(proxy)
-                    last_exception = ProxyConnectionError(
-                        f"Status code {response.status_code}"
-                    )
+                    last_exception = ProxyConnectionError(f"Status code {response.status_code}")
                     continue
 
                 # Success!
                 self._record_attempt(
-                    request_id, attempt, str(proxy.id), RetryOutcome.SUCCESS,
-                    delay, latency, status_code=response.status_code
+                    request_id,
+                    attempt,
+                    str(proxy.id),
+                    RetryOutcome.SUCCESS,
+                    delay,
+                    latency,
+                    status_code=response.status_code,
                 )
                 self._record_proxy_success(proxy)
 
-                logger.info(
-                    f"Request succeeded on attempt {attempt + 1} using proxy {proxy.id}"
-                )
+                logger.info(f"Request succeeded on attempt {attempt + 1} using proxy {proxy.id}")
                 return response
 
             except (httpx.ConnectError, httpx.TimeoutException) as e:
@@ -165,8 +201,13 @@ class RetryExecutor:
                 logger.warning(f"Connection error with proxy {proxy.id}: {e}")
 
                 self._record_attempt(
-                    request_id, attempt, str(proxy.id), RetryOutcome.FAILURE,
-                    delay, latency, error_message=str(e)
+                    request_id,
+                    attempt,
+                    str(proxy.id),
+                    RetryOutcome.FAILURE,
+                    delay,
+                    latency,
+                    error_message=str(e),
                 )
                 self._record_proxy_failure(proxy)
                 last_exception = e
@@ -178,8 +219,13 @@ class RetryExecutor:
                 if self._is_retryable_error(e):
                     logger.warning(f"Retryable error with proxy {proxy.id}: {e}")
                     self._record_attempt(
-                        request_id, attempt, str(proxy.id), RetryOutcome.FAILURE,
-                        delay, latency, error_message=str(e)
+                        request_id,
+                        attempt,
+                        str(proxy.id),
+                        RetryOutcome.FAILURE,
+                        delay,
+                        latency,
+                        error_message=str(e),
                     )
                     self._record_proxy_failure(proxy)
                     last_exception = e
@@ -187,8 +233,196 @@ class RetryExecutor:
                 else:
                     logger.error(f"Non-retryable error: {e}")
                     self._record_attempt(
-                        request_id, attempt, str(proxy.id), RetryOutcome.FAILURE,
-                        delay, latency, error_message=str(e)
+                        request_id,
+                        attempt,
+                        str(proxy.id),
+                        RetryOutcome.FAILURE,
+                        delay,
+                        latency,
+                        error_message=str(e),
+                    )
+                    raise NonRetryableError(str(e)) from e
+
+        # All retries exhausted
+        logger.error(
+            f"All {self.retry_policy.max_attempts} retry attempts exhausted "
+            f"for request {request_id}"
+        )
+        if last_exception:
+            raise ProxyConnectionError(
+                f"Request failed after {self.retry_policy.max_attempts} attempts"
+            ) from last_exception
+        else:
+            raise ProxyConnectionError(
+                f"Request failed after {self.retry_policy.max_attempts} attempts"
+            )
+
+    async def execute_with_retry_async(
+        self,
+        request_fn: Callable[[], Awaitable[httpx.Response]],
+        proxy: Proxy,
+        method: str,
+        url: str,
+        request_id: str | None = None,
+    ) -> httpx.Response:
+        """
+        Execute a request with retry logic (ASYNCHRONOUS).
+
+        This is the async variant of execute_with_retry that uses asyncio.sleep
+        for non-blocking backoff delays instead of time.sleep.
+
+        Args:
+            request_fn: Async function that executes the request
+            proxy: Initial proxy to use
+            method: HTTP method
+            url: Request URL
+            request_id: Optional request ID for tracking
+
+        Returns:
+            HTTP response
+
+        Raises:
+            ProxyConnectionError: If all retries exhausted
+            NonRetryableError: If error is not retryable
+        """
+        if request_id is None:
+            request_id = str(uuid.uuid4())
+
+        # Check if request is idempotent
+        if not self._is_retryable_method(method):
+            logger.debug(
+                f"Non-idempotent method {method} - retries disabled unless explicitly enabled"
+            )
+            if not self.retry_policy.retry_non_idempotent:
+                # Execute once without retry
+                return await self._execute_single_attempt_async(
+                    request_fn, proxy, request_id, 0, 0.0
+                )
+
+        # Set up retry with tenacity
+        last_exception: Exception | None = None
+        start_time = time.time()
+        previous_delay: float | None = None  # Track for decorrelated jitter
+
+        for attempt in range(self.retry_policy.max_attempts):
+            # Check timeout
+            if self.retry_policy.timeout:
+                elapsed = time.time() - start_time
+                if elapsed >= self.retry_policy.timeout:
+                    logger.warning(
+                        f"Request timeout exceeded ({self.retry_policy.timeout}s) "
+                        f"after {attempt} attempts"
+                    )
+                    self._record_attempt(
+                        request_id,
+                        attempt,
+                        str(proxy.id),
+                        RetryOutcome.TIMEOUT,
+                        0.0,
+                        0.0,
+                        error_message="Total timeout exceeded",
+                    )
+                    raise ProxyConnectionError(f"Request timeout after {elapsed:.2f}s")
+
+            # Calculate delay for this attempt using decorrelated jitter
+            if attempt > 0:
+                delay = self.retry_policy.calculate_delay(
+                    attempt - 1, previous_delay=previous_delay
+                )
+                logger.info(
+                    f"Retry attempt {attempt + 1}/{self.retry_policy.max_attempts} "
+                    f"after {delay:.2f}s delay"
+                )
+                # ASYNC sleep - non-blocking delay for event loop
+                await asyncio.sleep(delay)
+                previous_delay = delay  # Track for decorrelated jitter
+            else:
+                delay = 0.0
+                previous_delay = None
+
+            # Execute attempt
+            attempt_start = time.time()
+            try:
+                response = await request_fn()
+                latency = time.time() - attempt_start
+
+                # Check if status code is retryable
+                if response.status_code in self.retry_policy.retry_status_codes:
+                    logger.warning(
+                        f"Received retryable status {response.status_code} from proxy {proxy.id}"
+                    )
+                    self._record_attempt(
+                        request_id,
+                        attempt,
+                        str(proxy.id),
+                        RetryOutcome.FAILURE,
+                        delay,
+                        latency,
+                        error_message=f"Status {response.status_code}",
+                    )
+                    self._record_proxy_failure(proxy)
+                    last_exception = ProxyConnectionError(f"Status code {response.status_code}")
+                    continue
+
+                # Success!
+                self._record_attempt(
+                    request_id,
+                    attempt,
+                    str(proxy.id),
+                    RetryOutcome.SUCCESS,
+                    delay,
+                    latency,
+                    status_code=response.status_code,
+                )
+                self._record_proxy_success(proxy)
+
+                logger.info(f"Request succeeded on attempt {attempt + 1} using proxy {proxy.id}")
+                return response
+
+            except (httpx.ConnectError, httpx.TimeoutException) as e:
+                latency = time.time() - attempt_start
+                logger.warning(f"Connection error with proxy {proxy.id}: {e}")
+
+                self._record_attempt(
+                    request_id,
+                    attempt,
+                    str(proxy.id),
+                    RetryOutcome.FAILURE,
+                    delay,
+                    latency,
+                    error_message=str(e),
+                )
+                self._record_proxy_failure(proxy)
+                last_exception = e
+                continue
+
+            except Exception as e:
+                latency = time.time() - attempt_start
+                # Check if error is retryable
+                if self._is_retryable_error(e):
+                    logger.warning(f"Retryable error with proxy {proxy.id}: {e}")
+                    self._record_attempt(
+                        request_id,
+                        attempt,
+                        str(proxy.id),
+                        RetryOutcome.FAILURE,
+                        delay,
+                        latency,
+                        error_message=str(e),
+                    )
+                    self._record_proxy_failure(proxy)
+                    last_exception = e
+                    continue
+                else:
+                    logger.error(f"Non-retryable error: {e}")
+                    self._record_attempt(
+                        request_id,
+                        attempt,
+                        str(proxy.id),
+                        RetryOutcome.FAILURE,
+                        delay,
+                        latency,
+                        error_message=str(e),
                     )
                     raise NonRetryableError(str(e)) from e
 
@@ -221,8 +455,13 @@ class RetryExecutor:
             latency = time.time() - attempt_start
 
             self._record_attempt(
-                request_id, attempt, str(proxy.id), RetryOutcome.SUCCESS,
-                delay, latency, status_code=response.status_code
+                request_id,
+                attempt,
+                str(proxy.id),
+                RetryOutcome.SUCCESS,
+                delay,
+                latency,
+                status_code=response.status_code,
             )
             self._record_proxy_success(proxy)
             return response
@@ -230,8 +469,53 @@ class RetryExecutor:
         except Exception as e:
             latency = time.time() - attempt_start
             self._record_attempt(
-                request_id, attempt, str(proxy.id), RetryOutcome.FAILURE,
-                delay, latency, error_message=str(e)
+                request_id,
+                attempt,
+                str(proxy.id),
+                RetryOutcome.FAILURE,
+                delay,
+                latency,
+                error_message=str(e),
+            )
+            self._record_proxy_failure(proxy)
+            raise
+
+    async def _execute_single_attempt_async(
+        self,
+        request_fn: Callable[[], Awaitable[httpx.Response]],
+        proxy: Proxy,
+        request_id: str,
+        attempt: int,
+        delay: float,
+    ) -> httpx.Response:
+        """Execute a single async request attempt without retry."""
+        attempt_start = time.time()
+        try:
+            response = await request_fn()
+            latency = time.time() - attempt_start
+
+            self._record_attempt(
+                request_id,
+                attempt,
+                str(proxy.id),
+                RetryOutcome.SUCCESS,
+                delay,
+                latency,
+                status_code=response.status_code,
+            )
+            self._record_proxy_success(proxy)
+            return response
+
+        except Exception as e:
+            latency = time.time() - attempt_start
+            self._record_attempt(
+                request_id,
+                attempt,
+                str(proxy.id),
+                RetryOutcome.FAILURE,
+                delay,
+                latency,
+                error_message=str(e),
             )
             self._record_proxy_failure(proxy)
             raise
@@ -261,20 +545,20 @@ class RetryExecutor:
         outcome: RetryOutcome,
         delay_before: float,
         latency: float,
-        status_code: Optional[int] = None,
-        error_message: Optional[str] = None,
+        status_code: int | None = None,
+        error_message: str | None = None,
     ) -> None:
         """Record a retry attempt in metrics."""
         attempt = RetryAttempt(
-            request_id     = request_id,
-            attempt_number = attempt_number,
-            proxy_id       = proxy_id,
-            timestamp      = datetime.now(timezone.utc),
-            outcome        = outcome,
-            status_code    = status_code,
-            delay_before   = delay_before,
-            latency        = latency,
-            error_message  = error_message,
+            request_id=request_id,
+            attempt_number=attempt_number,
+            proxy_id=proxy_id,
+            timestamp=datetime.now(timezone.utc),
+            outcome=outcome,
+            status_code=status_code,
+            delay_before=delay_before,
+            latency=latency,
+            error_message=error_message,
         )
         self.retry_metrics.record_attempt(attempt)
 
@@ -289,11 +573,11 @@ class RetryExecutor:
             # Record state change if it occurred
             if old_state != new_state:
                 event = CircuitBreakerEvent(
-                    proxy_id      = str(proxy.id),
-                    from_state    = old_state,
-                    to_state      = new_state,
-                    timestamp     = datetime.now(timezone.utc),
-                    failure_count = circuit_breaker.failure_count,
+                    proxy_id=str(proxy.id),
+                    from_state=old_state,
+                    to_state=new_state,
+                    timestamp=datetime.now(timezone.utc),
+                    failure_count=circuit_breaker.failure_count,
                 )
                 self.retry_metrics.record_circuit_breaker_event(event)
                 logger.warning(
@@ -312,11 +596,11 @@ class RetryExecutor:
             # Record state change if it occurred
             if old_state != new_state:
                 event = CircuitBreakerEvent(
-                    proxy_id      = str(proxy.id),
-                    from_state    = old_state,
-                    to_state      = new_state,
-                    timestamp     = datetime.now(timezone.utc),
-                    failure_count = circuit_breaker.failure_count,
+                    proxy_id=str(proxy.id),
+                    from_state=old_state,
+                    to_state=new_state,
+                    timestamp=datetime.now(timezone.utc),
+                    failure_count=circuit_breaker.failure_count,
                 )
                 self.retry_metrics.record_circuit_breaker_event(event)
                 logger.info(
@@ -328,8 +612,8 @@ class RetryExecutor:
         self,
         available_proxies: list[Proxy],
         failed_proxy: Proxy,
-        target_region: Optional[str] = None,
-    ) -> Optional[Proxy]:
+        target_region: str | None = None,
+    ) -> Proxy | None:
         """
         Select best proxy for retry based on performance metrics.
 
@@ -374,7 +658,7 @@ class RetryExecutor:
     def _calculate_proxy_score(
         self,
         proxy: Proxy,
-        target_region: Optional[str] = None,
+        target_region: str | None = None,
     ) -> float:
         """
         Calculate performance score for a proxy.
@@ -390,11 +674,8 @@ class RetryExecutor:
         """
         # Get success rate from proxy metrics
         total_requests = proxy.total_requests
-        if total_requests == 0:
-            # No history - give neutral score
-            success_rate = 0.5
-        else:
-            success_rate = proxy.success_rate
+        # No history - give neutral score
+        success_rate = 0.5 if total_requests == 0 else proxy.success_rate
 
         # Get average latency from recent attempts
         avg_latency = self._get_proxy_avg_latency(str(proxy.id))
@@ -425,10 +706,14 @@ class RetryExecutor:
         Returns:
             Average latency in seconds (last 100 attempts)
         """
-        # Get recent attempts for this proxy
+        # Get last 100 attempts efficiently using islice (O(100) instead of O(n))
+        deque_len = len(self.retry_metrics.current_attempts)
+        start_idx = max(0, deque_len - 100)
+
+        # Use islice to get last 100 elements without converting entire deque to list
         recent_attempts = [
             attempt
-            for attempt in list(self.retry_metrics.current_attempts)[-100:]
+            for attempt in islice(self.retry_metrics.current_attempts, start_idx, None)
             if attempt.proxy_id == proxy_id and attempt.outcome == RetryOutcome.SUCCESS
         ]
 

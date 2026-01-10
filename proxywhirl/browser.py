@@ -1,6 +1,8 @@
 """Browser-based rendering for JavaScript-heavy proxy sources using Playwright."""
 
-from typing import TYPE_CHECKING, Any, Literal, Optional
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from playwright.async_api import Browser, BrowserContext, Page
@@ -29,8 +31,8 @@ class BrowserRenderer:
         browser_type: Literal["chromium", "firefox", "webkit"] = "chromium",
         timeout: int = 30000,
         wait_until: Literal["load", "domcontentloaded", "networkidle"] = "load",
-        user_agent: Optional[str] = None,
-        viewport: Optional[dict[str, int]] = None,
+        user_agent: str | None = None,
+        viewport: dict[str, int] | None = None,
     ) -> None:
         """Initialize browser renderer.
 
@@ -49,9 +51,9 @@ class BrowserRenderer:
         self.user_agent = user_agent
         self.viewport = viewport or {"width": 1280, "height": 720}
 
-        self._playwright: Optional[Any] = None
-        self._browser: Optional[Browser] = None
-        self._context: Optional[BrowserContext] = None
+        self._playwright: Any | None = None
+        self._browser: Browser | None = None
+        self._context: BrowserContext | None = None
         self._is_started = False
 
     async def start(self) -> None:
@@ -115,8 +117,8 @@ class BrowserRenderer:
     async def render(
         self,
         url: str,
-        wait_for_selector: Optional[str] = None,
-        wait_for_timeout: Optional[int] = None,
+        wait_for_selector: str | None = None,
+        wait_for_timeout: int | None = None,
     ) -> str:
         """Render a page and return its HTML content.
 
@@ -156,7 +158,7 @@ class BrowserRenderer:
         finally:
             await page.close()
 
-    async def __aenter__(self) -> "BrowserRenderer":
+    async def __aenter__(self) -> BrowserRenderer:
         """Context manager entry - starts the browser."""
         await self.start()
         return self

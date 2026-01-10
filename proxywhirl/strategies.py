@@ -2,10 +2,13 @@
 Rotation strategies for proxy selection.
 """
 
+from __future__ import annotations
+
 import random
 import threading
+from collections import OrderedDict
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from proxywhirl.exceptions import ProxyPoolEmptyError
 from proxywhirl.models import (
@@ -52,7 +55,7 @@ class StrategyRegistry:
         Validation: <1ms per strategy (SC-010)
     """
 
-    _instance: Optional["StrategyRegistry"] = None
+    _instance: StrategyRegistry | None = None
     _lock = threading.RLock()
 
     def __init__(self) -> None:
@@ -63,7 +66,7 @@ class StrategyRegistry:
         if not hasattr(self, "_registry_lock"):
             self._registry_lock = threading.RLock()
 
-    def __new__(cls) -> "StrategyRegistry":
+    def __new__(cls) -> StrategyRegistry:
         """Ensure singleton pattern with thread-safe double-checked locking."""
         if cls._instance is None:
             with cls._lock:
@@ -232,7 +235,7 @@ class StrategyRegistry:
 class RotationStrategy(Protocol):
     """Protocol defining interface for proxy rotation strategies."""
 
-    def select(self, pool: ProxyPool, context: Optional[SelectionContext] = None) -> Proxy:
+    def select(self, pool: ProxyPool, context: SelectionContext | None = None) -> Proxy:
         """
         Select a proxy from the pool based on strategy logic.
 
@@ -267,14 +270,20 @@ class RoundRobinStrategy:
     Selects proxies in sequential order, wrapping around to the first
     proxy after reaching the end of the list. Only selects healthy proxies.
     Supports filtering based on SelectionContext (e.g., failed_proxy_ids).
+
+    Thread Safety:
+        Uses threading.Lock to protect _current_index access, ensuring atomic
+        index increment and preventing proxy skipping or duplicate selection
+        in multi-threaded environments.
     """
 
     def __init__(self) -> None:
         """Initialize round-robin strategy."""
         self._current_index: int = 0
-        self.config: Optional[StrategyConfig] = None
+        self._lock = threading.Lock()
+        self.config: StrategyConfig | None = None
 
-    def select(self, pool: ProxyPool, context: Optional[SelectionContext] = None) -> Proxy:
+    def select(self, pool: ProxyPool, context: SelectionContext | None = None) -> Proxy:
         """
         Select next proxy in round-robin order.
 
@@ -303,11 +312,16 @@ class RoundRobinStrategy:
                     "No healthy proxies available after filtering failed proxies"
                 )
 
-        # Select proxy at current index (with wraparound)
-        proxy = healthy_proxies[self._current_index % len(healthy_proxies)]
+        # Select proxy at current index (with wraparound) - thread-safe
+        with self._lock:
+            index = self._current_index % len(healthy_proxies)
+            self._current_index = (self._current_index + 1) % len(healthy_proxies)
 
-        # Increment index for next selection
-        self._current_index = (self._current_index + 1) % len(healthy_proxies)
+        proxy = healthy_proxies[index]
+
+        # Apply strategy configuration to proxy (e.g., ema_alpha)
+        if self.config is not None:
+            proxy.ema_alpha = self.config.ema_alpha
 
         # Update proxy metadata to track request start
         proxy.start_request()
@@ -366,9 +380,9 @@ class RandomStrategy:
 
     def __init__(self) -> None:
         """Initialize random strategy."""
-        self.config: Optional[StrategyConfig] = None
+        self.config: StrategyConfig | None = None
 
-    def select(self, pool: ProxyPool, context: Optional[SelectionContext] = None) -> Proxy:
+    def select(self, pool: ProxyPool, context: SelectionContext | None = None) -> Proxy:
         """
         Select a random healthy proxy.
 
@@ -398,6 +412,10 @@ class RandomStrategy:
                 )
 
         proxy = random.choice(healthy_proxies)
+
+        # Apply strategy configuration to proxy (e.g., ema_alpha)
+        if self.config is not None:
+            proxy.ema_alpha = self.config.ema_alpha
 
         # Update proxy metadata to track request start
         proxy.start_request()
@@ -431,18 +449,118 @@ class WeightedStrategy:
     - Fallback to success_rate-based weights
     - Minimum weight (0.1) to ensure all proxies have selection chance
     - SelectionContext for filtering (e.g., failed_proxy_ids)
+    - Weight caching to avoid O(n) recalculation on every selection
 
-    Thread Safety: Uses Python's random.choices() which is thread-safe
-    via GIL-protected random number generation. No additional locking required.
+    Thread Safety:
+        Uses threading.Lock to protect weight cache access, ensuring atomic
+        cache validation and update operations. Prevents race conditions where
+        multiple threads could trigger duplicate weight recalculations or
+        inconsistent cache states.
     """
 
     def __init__(self) -> None:
         """Initialize weighted strategy."""
-        self.config: Optional[StrategyConfig] = None
+        self.config: StrategyConfig | None = None
+        self._cached_weights: list[float] | None = None
+        self._cached_proxy_ids: list[str] | None = None
+        self._cache_valid: bool = False
+        self._cache_lock = threading.Lock()
 
-    def select(self, pool: ProxyPool, context: Optional[SelectionContext] = None) -> Proxy:
+    def _invalidate_cache(self) -> None:
+        """
+        Invalidate the weight cache, forcing recalculation on next selection.
+
+        Thread-safe: Acquires cache lock to ensure atomicity of invalidation.
+        """
+        with self._cache_lock:
+            self._cache_valid = False
+            self._cached_weights = None
+            self._cached_proxy_ids = None
+
+    def _calculate_weights(self, proxies: list[Proxy]) -> list[float]:
+        """
+        Calculate weights for the given proxies.
+
+        Weights are always normalized to sum to 1.0 to maintain the invariant
+        that total weight sum equals 1.0, even when proxies are removed.
+
+        Args:
+            proxies: List of proxies to calculate weights for
+
+        Returns:
+            List of normalized weights corresponding to each proxy (sum = 1.0)
+        """
+        weights = []
+        for proxy in proxies:
+            if self.config and self.config.weights:
+                # Use custom weights from config
+                custom_weight = self.config.weights.get(proxy.url, None)
+                if custom_weight is not None and custom_weight > 0:
+                    weights.append(custom_weight)
+                else:
+                    # Fallback to success rate or minimum weight
+                    weights.append(max(proxy.success_rate, 0.1))
+            else:
+                # Use success rates as weights
+                # Add small base weight (0.1) to give all proxies a chance
+                weights.append(max(proxy.success_rate, 0.1))
+
+        # Handle edge case: all weights are zero/negative (shouldn't happen with max(0.1))
+        if all(w <= 0 for w in weights):
+            # Fallback to uniform weights
+            weights = [1.0] * len(weights)
+
+        # Normalize weights to sum to 1.0
+        # This ensures the invariant is maintained even when proxies are removed
+        total_weight = sum(weights)
+        if total_weight > 0:
+            weights = [w / total_weight for w in weights]
+        else:
+            # Fallback to uniform normalized weights
+            weights = [1.0 / len(weights)] * len(weights)
+
+        return weights
+
+    def _get_weights(self, proxies: list[Proxy]) -> list[float]:
+        """
+        Get weights for proxies, using cache if valid.
+
+        Thread-safe: Acquires cache lock to ensure atomic cache check and update.
+        Prevents race conditions where multiple threads could trigger duplicate
+        weight recalculations.
+
+        Args:
+            proxies: List of proxies to get weights for
+
+        Returns:
+            List of weights corresponding to each proxy
+        """
+        # Generate proxy ID list for cache validation
+        current_proxy_ids = [str(proxy.id) for proxy in proxies]
+
+        # Protect cache access with lock
+        with self._cache_lock:
+            # Check if cache is valid
+            if self._cache_valid and self._cached_proxy_ids == current_proxy_ids:
+                # Cache hit - return cached weights
+                return self._cached_weights  # type: ignore[return-value]
+
+            # Cache miss - recalculate weights
+            weights = self._calculate_weights(proxies)
+
+            # Update cache atomically
+            self._cached_weights = weights
+            self._cached_proxy_ids = current_proxy_ids
+            self._cache_valid = True
+
+            return weights
+
+    def select(self, pool: ProxyPool, context: SelectionContext | None = None) -> Proxy:
         """
         Select a proxy weighted by custom weights or success rate.
+
+        Uses cached weights when possible to avoid O(n) recalculation on every call.
+        Cache is invalidated when the proxy set changes (different IDs).
 
         Args:
             pool: The proxy pool to select from
@@ -469,29 +587,15 @@ class WeightedStrategy:
                     "No healthy proxies available after filtering failed proxies"
                 )
 
-        # Calculate weights
-        if self.config and self.config.weights:
-            # Use custom weights from config
-            weights = []
-            for proxy in healthy_proxies:
-                custom_weight = self.config.weights.get(proxy.url, None)
-                if custom_weight is not None and custom_weight > 0:
-                    weights.append(custom_weight)
-                else:
-                    # Fallback to success rate or minimum weight
-                    weights.append(max(proxy.success_rate, 0.1))
-        else:
-            # Use success rates as weights
-            # Add small base weight (0.1) to give all proxies a chance
-            weights = [max(proxy.success_rate, 0.1) for proxy in healthy_proxies]
-
-        # Handle edge case: all weights are zero/negative (shouldn't happen with max(0.1))
-        if all(w <= 0 for w in weights):
-            # Fallback to uniform weights
-            weights = [1.0] * len(weights)
+        # Get weights (from cache if valid, otherwise recalculate)
+        weights = self._get_weights(healthy_proxies)
 
         # Use random.choices for weighted selection
         selected = random.choices(healthy_proxies, weights=weights, k=1)[0]
+
+        # Apply strategy configuration to proxy (e.g., ema_alpha)
+        if self.config is not None:
+            selected.ema_alpha = self.config.ema_alpha
 
         # Update proxy metadata to track request start
         selected.start_request()
@@ -502,10 +606,14 @@ class WeightedStrategy:
         """
         Configure the strategy with custom settings.
 
+        Invalidates the weight cache since configuration changes may affect weights.
+
         Args:
             config: Strategy configuration object with optional custom weights
         """
         self.config = config
+        # Invalidate cache when configuration changes
+        self._invalidate_cache()
 
     def validate_metadata(self, pool: ProxyPool) -> bool:
         """
@@ -525,7 +633,8 @@ class WeightedStrategy:
         """
         Record the result of using a proxy.
 
-        Updates proxy statistics based on request outcome.
+        Updates proxy statistics based on request outcome and invalidates the
+        weight cache since success rates may have changed.
 
         Args:
             proxy: The proxy that was used
@@ -534,6 +643,8 @@ class WeightedStrategy:
         """
         # Use complete_request for proper tracking
         proxy.complete_request(success=success, response_time_ms=response_time_ms)
+        # Invalidate cache since success rate may have changed
+        self._invalidate_cache()
 
 
 class LeastUsedStrategy:
@@ -541,17 +652,69 @@ class LeastUsedStrategy:
     Least-used proxy selection strategy with SelectionContext support.
 
     Selects the proxy with the fewest started requests, helping to
-    balance load across all available proxies. Uses requests_started
-    counter to determine least-used proxy.
+    balance load across all available proxies. Uses min-heap for
+    efficient O(log n) selection.
+
+    Performance:
+        - O(log n) selection using min-heap
+        - O(n) heap rebuild when pool composition changes
+        - Lazy heap invalidation for optimal performance
+
+    Thread Safety:
+        Uses threading.Lock to ensure atomic select-and-mark operations,
+        preventing TOCTOU race conditions where multiple threads could
+        select the same "least used" proxy simultaneously.
+
+    Implementation:
+        Uses a min-heap with lazy invalidation. The heap is rebuilt when:
+        1. Pool composition changes (detected via proxy ID set)
+        2. Heap becomes empty after filtering
+        The heap stores tuples of (requests_started, proxy_id, proxy) for
+        efficient comparison and retrieval.
     """
 
     def __init__(self) -> None:
         """Initialize least-used strategy."""
-        self.config: Optional[StrategyConfig] = None
+        self.config: StrategyConfig | None = None
+        self._lock = threading.Lock()
+        self._heap: list[tuple[int, str, Proxy]] = []
+        self._proxy_id_set: set[str] = set()  # Track pool composition
 
-    def select(self, pool: ProxyPool, context: Optional[SelectionContext] = None) -> Proxy:
+    def _rebuild_heap(self, proxies: list[Proxy]) -> None:
         """
-        Select the least-used healthy proxy.
+        Rebuild the min-heap with current proxy states.
+
+        Args:
+            proxies: List of proxies to build heap from
+        """
+        import heapq
+
+        self._heap = [(proxy.requests_started, str(proxy.id), proxy) for proxy in proxies]
+        heapq.heapify(self._heap)
+        self._proxy_id_set = {str(proxy.id) for proxy in proxies}
+
+    def _needs_rebuild(self, current_proxy_ids: set[str]) -> bool:
+        """
+        Check if heap needs rebuilding due to pool composition change.
+
+        Args:
+            current_proxy_ids: Set of current proxy IDs in filtered pool
+
+        Returns:
+            True if heap needs rebuilding
+        """
+        return self._proxy_id_set != current_proxy_ids or not self._heap
+
+    def select(self, pool: ProxyPool, context: SelectionContext | None = None) -> Proxy:
+        """
+        Select the least-used healthy proxy using min-heap.
+
+        Uses min-heap for O(log n) selection. The heap is lazily rebuilt when
+        pool composition changes, providing optimal performance for stable pools.
+
+        The selection and usage marking are performed atomically under a lock
+        to prevent TOCTOU race conditions where multiple threads could select
+        the same "least used" proxy simultaneously.
 
         Args:
             pool: The proxy pool to select from
@@ -563,28 +726,74 @@ class LeastUsedStrategy:
         Raises:
             ProxyPoolEmptyError: If no healthy proxies are available
         """
-        healthy_proxies = pool.get_healthy_proxies()
+        import heapq
 
-        if not healthy_proxies:
-            raise ProxyPoolEmptyError("No healthy proxies available in pool")
-
-        # Filter out failed proxies if context provided
-        if context and context.failed_proxy_ids:
-            failed_ids = set(context.failed_proxy_ids)
-            healthy_proxies = [p for p in healthy_proxies if str(p.id) not in failed_ids]
+        # Atomic select-and-mark to prevent TOCTOU race condition
+        with self._lock:
+            healthy_proxies = pool.get_healthy_proxies()
 
             if not healthy_proxies:
-                raise ProxyPoolEmptyError(
-                    "No healthy proxies available after filtering failed proxies"
-                )
+                raise ProxyPoolEmptyError("No healthy proxies available in pool")
 
-        # Select proxy with minimum requests_started (new comprehensive tracking)
-        proxy = min(healthy_proxies, key=lambda p: p.requests_started)
+            # Filter out failed proxies if context provided
+            if context and context.failed_proxy_ids:
+                failed_ids = set(context.failed_proxy_ids)
+                healthy_proxies = [p for p in healthy_proxies if str(p.id) not in failed_ids]
 
-        # Update proxy metadata to track request start
-        proxy.start_request()
+                if not healthy_proxies:
+                    raise ProxyPoolEmptyError(
+                        "No healthy proxies available after filtering failed proxies"
+                    )
 
-        return proxy
+            # Check if heap needs rebuilding
+            current_proxy_ids = {str(p.id) for p in healthy_proxies}
+            if self._needs_rebuild(current_proxy_ids):
+                self._rebuild_heap(healthy_proxies)
+
+            # Extract minimum from heap (O(log n))
+            # The heap may contain stale entries (old requests_started values)
+            # so we keep popping until we find a valid proxy from our filtered set
+            while self._heap:
+                requests_started, proxy_id, proxy = heapq.heappop(self._heap)
+
+                # Verify proxy is still in our filtered set
+                if proxy_id in current_proxy_ids:
+                    # Re-push other proxies back onto heap
+                    # Note: This proxy's requests_started will be incremented,
+                    # so we rebuild heap on next call when composition changes
+
+                    # Apply strategy configuration to proxy (e.g., ema_alpha)
+                    if self.config is not None:
+                        proxy.ema_alpha = self.config.ema_alpha
+
+                    # Update proxy metadata to track request start (atomic with selection)
+                    proxy.start_request()
+
+                    # Invalidate heap since we modified a proxy's state
+                    # This forces rebuild on next selection
+                    self._proxy_id_set = set()
+
+                    return proxy
+
+            # If we get here, heap was empty after filtering - rebuild and retry
+            self._rebuild_heap(healthy_proxies)
+            if not self._heap:
+                raise ProxyPoolEmptyError("No healthy proxies available")
+
+            # Extract minimum from rebuilt heap
+            requests_started, proxy_id, proxy = heapq.heappop(self._heap)
+
+            # Apply strategy configuration to proxy (e.g., ema_alpha)
+            if self.config is not None:
+                proxy.ema_alpha = self.config.ema_alpha
+
+            # Update proxy metadata to track request start (atomic with selection)
+            proxy.start_request()
+
+            # Invalidate heap since we modified a proxy's state
+            self._proxy_id_set = set()
+
+            return proxy
 
     def configure(self, config: StrategyConfig) -> None:
         """Configure the strategy with custom settings."""
@@ -617,19 +826,32 @@ class PerformanceBasedStrategy:
     This adaptively favors better-performing proxies while still giving
     all proxies a chance to be selected.
 
+    Cold Start Handling:
+    New proxies without performance data are given exploration trials
+    (default: 3-5 trials) before being deprioritized. This ensures new
+    proxies can build up performance data and prevents proxy starvation.
+
     Thread Safety: Uses Python's random.choices() which is thread-safe
     via GIL-protected random number generation. No additional locking required.
     """
 
-    def __init__(self) -> None:
-        """Initialize performance-based strategy."""
-        self.config: Optional[StrategyConfig] = None
+    def __init__(self, exploration_count: int = 5) -> None:
+        """Initialize performance-based strategy.
 
-    def select(self, pool: ProxyPool, context: Optional[SelectionContext] = None) -> Proxy:
+        Args:
+            exploration_count: Minimum trials for new proxies before performance-based
+                selection applies. Default is 5 trials. Set to 0 to disable exploration.
+        """
+        self.config: StrategyConfig | None = None
+        self.exploration_count = exploration_count
+
+    def select(self, pool: ProxyPool, context: SelectionContext | None = None) -> Proxy:
         """
         Select a proxy weighted by inverse EMA response time.
 
         Faster proxies (lower EMA) receive higher weights for selection.
+        New proxies with insufficient trials (< exploration_count) are given
+        priority to ensure they can build performance data.
 
         Args:
             pool: The proxy pool to select from
@@ -639,45 +861,53 @@ class PerformanceBasedStrategy:
             Performance-weighted selected healthy proxy with EMA data
 
         Raises:
-            ProxyPoolEmptyError: If no healthy proxies with EMA data are available
+            ProxyPoolEmptyError: If no healthy proxies are available
         """
         healthy_proxies = pool.get_healthy_proxies()
 
         if not healthy_proxies:
             raise ProxyPoolEmptyError("No healthy proxies available in pool")
 
-        # Filter proxies with EMA data
-        proxies_with_ema = [
-            p
-            for p in healthy_proxies
-            if p.ema_response_time_ms is not None and p.ema_response_time_ms > 0
-        ]
-
-        if not proxies_with_ema:
-            raise ProxyPoolEmptyError(
-                "No proxies with EMA data available. "
-                "Proxies need historical performance data for performance-based selection."
-            )
-
         # Filter out failed proxies if context provided
         if context and context.failed_proxy_ids:
             failed_ids = set(context.failed_proxy_ids)
-            proxies_with_ema = [p for p in proxies_with_ema if str(p.id) not in failed_ids]
+            healthy_proxies = [p for p in healthy_proxies if str(p.id) not in failed_ids]
 
-            if not proxies_with_ema:
+            if not healthy_proxies:
                 raise ProxyPoolEmptyError(
-                    "No healthy proxies with EMA data available after filtering failed proxies"
+                    "No healthy proxies available after filtering failed proxies"
                 )
 
-        # Calculate inverse weights (lower EMA = higher weight)
-        # Use 1/ema_response_time as the weight
-        weights = [
-            1.0 / p.ema_response_time_ms  # type: ignore[operator]
-            for p in proxies_with_ema
-        ]
+        # Separate proxies into exploration and exploitation groups
+        exploration_proxies = []  # New proxies needing exploration trials
+        exploitation_proxies = []  # Proxies with sufficient performance data
 
-        # Use random.choices for weighted selection
-        selected = random.choices(proxies_with_ema, weights=weights, k=1)[0]
+        for p in healthy_proxies:
+            # Proxies with insufficient trials need exploration
+            if p.total_requests < self.exploration_count:
+                exploration_proxies.append(p)
+            # Only include proxies with valid EMA data in exploitation
+            elif p.ema_response_time_ms is not None and p.ema_response_time_ms > 0:
+                exploitation_proxies.append(p)
+
+        # Prioritize exploration: if we have new proxies, select from them first
+        if exploration_proxies:
+            # Use random selection for exploration (equal opportunity)
+            selected = random.choice(exploration_proxies)
+        elif exploitation_proxies:
+            # Use performance-based selection for exploitation
+            # Calculate inverse weights (lower EMA = higher weight)
+            weights = [1.0 / p.ema_response_time_ms for p in exploitation_proxies]  # type: ignore[operator]
+            selected = random.choices(exploitation_proxies, weights=weights, k=1)[0]
+        else:
+            # No proxies with EMA data and no exploration candidates
+            # This can happen if all proxies have been tried but none have EMA yet
+            # (e.g., all requests failed). Fall back to random selection.
+            selected = random.choice(healthy_proxies)
+
+        # Apply strategy configuration to proxy (e.g., ema_alpha)
+        if self.config is not None:
+            selected.ema_alpha = self.config.ema_alpha
 
         # Track request start
         selected.start_request()
@@ -685,21 +915,30 @@ class PerformanceBasedStrategy:
         return selected
 
     def configure(self, config: StrategyConfig) -> None:
-        """Configure the strategy with custom settings."""
+        """Configure the strategy with custom settings.
+
+        Args:
+            config: Strategy configuration with optional exploration_count
+        """
         self.config = config
+        # Allow configuration of exploration_count
+        if config.exploration_count is not None:
+            self.exploration_count = config.exploration_count
 
     def validate_metadata(self, pool: ProxyPool) -> bool:
         """
-        Validate that proxies have EMA data for performance-based selection.
+        Validate that pool is usable for performance-based selection.
+
+        With exploration support, we only need at least one healthy proxy.
+        Returns True if pool has healthy proxies (exploration will handle cold start).
 
         Returns:
-            True if at least one proxy has EMA data, False otherwise
+            True if pool has at least one healthy proxy
         """
         healthy_proxies = pool.get_healthy_proxies()
-        return any(
-            p.ema_response_time_ms is not None and p.ema_response_time_ms > 0
-            for p in healthy_proxies
-        )
+        # With exploration, we can work with any healthy proxies
+        # No longer require EMA data to be present
+        return len(healthy_proxies) > 0
 
     def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
         """
@@ -727,12 +966,25 @@ class SessionManager:
 
     Manages the mapping between session IDs and their assigned proxies,
     with automatic expiration and cleanup. All operations are thread-safe.
+
+    Features:
+    - Automatic TTL-based expiration
+    - LRU eviction when max_sessions limit is reached
+    - Periodic cleanup of expired sessions
     """
 
-    def __init__(self) -> None:
-        """Initialize the session manager."""
-        self._sessions: dict[str, Session] = {}
+    def __init__(self, max_sessions: int = 10000, auto_cleanup_threshold: int = 100) -> None:
+        """Initialize the session manager.
+
+        Args:
+            max_sessions: Maximum number of active sessions (default: 10000)
+            auto_cleanup_threshold: Trigger cleanup after this many operations (default: 100)
+        """
+        self._sessions: OrderedDict[str, Session] = OrderedDict()
         self._lock = threading.RLock()
+        self._max_sessions = max_sessions
+        self._auto_cleanup_threshold = auto_cleanup_threshold
+        self._operation_counter = 0
 
     def create_session(
         self,
@@ -751,6 +1003,13 @@ class SessionManager:
             The created/updated Session object
         """
         with self._lock:
+            # Auto-cleanup check
+            self._maybe_auto_cleanup()
+
+            # Check if we need to evict old sessions (LRU)
+            if len(self._sessions) >= self._max_sessions:
+                self._evict_lru_session()
+
             now = datetime.now(timezone.utc)
             expires_at = now + timedelta(seconds=timeout_seconds)
 
@@ -766,7 +1025,7 @@ class SessionManager:
             self._sessions[session_id] = session
             return session
 
-    def get_session(self, session_id: str) -> Optional[Session]:
+    def get_session(self, session_id: str) -> Session | None:
         """Get an active session by ID.
 
         Args:
@@ -785,6 +1044,9 @@ class SessionManager:
             if session.is_expired():
                 del self._sessions[session_id]
                 return None
+
+            # Mark as recently used (move to end of OrderedDict)
+            self._sessions.move_to_end(session_id)
 
             return session
 
@@ -863,6 +1125,61 @@ class SessionManager:
         with self._lock:
             self._sessions.clear()
 
+    def _maybe_auto_cleanup(self) -> None:
+        """Perform automatic cleanup if threshold is reached.
+
+        This is called periodically to clean up expired sessions without
+        requiring manual intervention. Thread-safe (assumes caller holds lock).
+        """
+        self._operation_counter += 1
+
+        if self._operation_counter >= self._auto_cleanup_threshold:
+            self._operation_counter = 0
+            # Clean up expired sessions
+            expired_count = self._cleanup_expired_unsafe()
+            if expired_count > 0:
+                from loguru import logger
+
+                logger.debug(
+                    f"Auto-cleanup removed {expired_count} expired sessions",
+                    expired_count=expired_count,
+                    total_sessions=len(self._sessions),
+                )
+
+    def _cleanup_expired_unsafe(self) -> int:
+        """Internal cleanup method (assumes caller holds lock).
+
+        Returns:
+            Number of expired sessions removed
+        """
+        expired_ids = [sid for sid, session in self._sessions.items() if session.is_expired()]
+
+        for sid in expired_ids:
+            del self._sessions[sid]
+
+        return len(expired_ids)
+
+    def _evict_lru_session(self) -> None:
+        """Evict the least recently used session (LRU eviction) in O(1) time.
+
+        This is called when max_sessions limit is reached. Removes the session
+        at the front of the OrderedDict (oldest/least recently used).
+        Thread-safe (assumes caller holds lock).
+        """
+        if not self._sessions:
+            return
+
+        # Remove oldest (first) item in O(1) time
+        lru_session_id, _ = self._sessions.popitem(last=False)
+
+        from loguru import logger
+
+        logger.debug(
+            f"LRU eviction removed session {lru_session_id}",
+            evicted_session_id=lru_session_id,
+            total_sessions=len(self._sessions),
+        )
+
 
 class SessionPersistenceStrategy:
     """
@@ -888,19 +1205,30 @@ class SessionPersistenceStrategy:
         O(1) session lookup, <1ms overhead for session management
     """
 
-    def __init__(self) -> None:
-        """Initialize session persistence strategy."""
-        self._session_manager = SessionManager()
+    def __init__(self, max_sessions: int = 10000, auto_cleanup_threshold: int = 100) -> None:
+        """Initialize session persistence strategy.
+
+        Args:
+            max_sessions: Maximum number of active sessions before LRU eviction (default: 10000)
+            auto_cleanup_threshold: Number of operations between auto-cleanups (default: 100)
+        """
+        self._session_manager = SessionManager(
+            max_sessions=max_sessions, auto_cleanup_threshold=auto_cleanup_threshold
+        )
         self._fallback_strategy: RotationStrategy = RoundRobinStrategy()
         self._session_timeout_seconds: int = 3600  # 1 hour default
+        self.config: StrategyConfig | None = None
 
-    def configure(self, config: "StrategyConfig") -> None:
+    def configure(self, config: StrategyConfig) -> None:
         """
         Configure session persistence parameters.
 
         Args:
             config: Strategy configuration with session_stickiness_duration_seconds
         """
+        # Store config for later use
+        self.config = config
+
         # Use session_stickiness_duration_seconds from config
         if config.session_stickiness_duration_seconds is not None:
             self._session_timeout_seconds = config.session_stickiness_duration_seconds
@@ -910,7 +1238,7 @@ class SessionPersistenceStrategy:
             # In a real implementation, you'd instantiate the strategy from name
             pass
 
-    def validate_metadata(self, pool: "ProxyPool") -> bool:
+    def validate_metadata(self, pool: ProxyPool) -> bool:
         """
         Validate that pool has necessary metadata for strategy.
 
@@ -924,7 +1252,7 @@ class SessionPersistenceStrategy:
         """
         return True
 
-    def select(self, pool: "ProxyPool", context: Optional["SelectionContext"] = None) -> "Proxy":
+    def select(self, pool: ProxyPool, context: SelectionContext | None = None) -> Proxy:
         """
         Select a proxy with session persistence.
 
@@ -966,6 +1294,10 @@ class SessionPersistenceStrategy:
                 ):
                     # Update session last_used
                     self._session_manager.touch_session(session_id)
+                    # Apply strategy configuration to proxy (e.g., ema_alpha)
+                    # Note: We configure even cached sessions to ensure consistency
+                    if hasattr(self, "config") and self.config is not None:
+                        assigned_proxy.ema_alpha = self.config.ema_alpha
                     # Mark proxy as in-use
                     assigned_proxy.start_request()
                     return assigned_proxy
@@ -995,12 +1327,16 @@ class SessionPersistenceStrategy:
             session_id=session_id, proxy=new_proxy, timeout_seconds=self._session_timeout_seconds
         )
 
+        # Apply strategy configuration to proxy (e.g., ema_alpha)
+        if hasattr(self, "config") and self.config is not None:
+            new_proxy.ema_alpha = self.config.ema_alpha
+
         # Mark proxy as in-use
         new_proxy.start_request()
 
         return new_proxy
 
-    def record_result(self, proxy: "Proxy", success: bool, response_time_ms: float) -> None:
+    def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
         """
         Record the result of a request through a proxy.
 
@@ -1031,6 +1367,22 @@ class SessionPersistenceStrategy:
         """
         return self._session_manager.cleanup_expired()
 
+    def get_session_stats(self) -> dict[str, int]:
+        """
+        Get session statistics.
+
+        Returns:
+            Dictionary with session statistics:
+            - total_sessions: Total number of active sessions
+            - max_sessions: Maximum session limit
+            - auto_cleanup_threshold: Operations between auto-cleanups
+        """
+        return {
+            "total_sessions": len(self._session_manager._sessions),
+            "max_sessions": self._session_manager._max_sessions,
+            "auto_cleanup_threshold": self._session_manager._auto_cleanup_threshold,
+        }
+
 
 class GeoTargetedStrategy:
     """
@@ -1060,14 +1412,18 @@ class GeoTargetedStrategy:
         """Initialize geo-targeted strategy."""
         self._fallback_enabled: bool = True
         self._secondary_strategy: RotationStrategy = RoundRobinStrategy()
+        self.config: StrategyConfig | None = None
 
-    def configure(self, config: "StrategyConfig") -> None:
+    def configure(self, config: StrategyConfig) -> None:
         """
         Configure geo-targeting parameters.
 
         Args:
             config: Strategy configuration with geo settings
         """
+        # Store config for later use
+        self.config = config
+
         if config.geo_fallback_enabled is not None:
             self._fallback_enabled = config.geo_fallback_enabled
 
@@ -1082,7 +1438,7 @@ class GeoTargetedStrategy:
                 self._secondary_strategy = LeastUsedStrategy()
             # Default to round_robin if unknown
 
-    def validate_metadata(self, pool: "ProxyPool") -> bool:
+    def validate_metadata(self, pool: ProxyPool) -> bool:
         """
         Validate that pool has geo metadata.
 
@@ -1097,7 +1453,7 @@ class GeoTargetedStrategy:
         """
         return True
 
-    def select(self, pool: "ProxyPool", context: Optional["SelectionContext"] = None) -> "Proxy":
+    def select(self, pool: ProxyPool, context: SelectionContext | None = None) -> Proxy:
         """
         Select a proxy based on geographical targeting.
 
@@ -1180,12 +1536,16 @@ class GeoTargetedStrategy:
         temp_pool = ProxyPool(name="geo_filtered", proxies=filtered_proxies)
         selected_proxy = self._secondary_strategy.select(temp_pool)
 
+        # Apply strategy configuration to proxy (e.g., ema_alpha)
+        if self.config is not None:
+            selected_proxy.ema_alpha = self.config.ema_alpha
+
         # Mark proxy as in-use
         selected_proxy.start_request()
 
         return selected_proxy
 
-    def record_result(self, proxy: "Proxy", success: bool, response_time_ms: float) -> None:
+    def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
         """
         Record the result of a request through a proxy.
 
@@ -1193,6 +1553,164 @@ class GeoTargetedStrategy:
 
         Args:
             proxy: The proxy that handled the request
+            success: Whether the request succeeded
+            response_time_ms: Response time in milliseconds
+        """
+        proxy.complete_request(success=success, response_time_ms=response_time_ms)
+
+
+class CostAwareStrategy:
+    """
+    Cost-aware proxy selection strategy.
+
+    Prioritizes free proxies over paid ones, with configurable cost thresholds.
+    Uses weighted random selection based on inverse cost - lower cost proxies
+    are more likely to be selected.
+
+    Features:
+    - Free proxies (cost_per_request = 0.0) are heavily favored
+    - Paid proxies are selected based on inverse cost weighting
+    - Configurable cost threshold to filter out expensive proxies
+    - Supports fallback to any proxy when no low-cost options available
+
+    Thread Safety:
+        Uses Python's random.choices() which is thread-safe via GIL.
+
+    Example:
+        >>> from proxywhirl.strategies import CostAwareStrategy
+        >>> strategy = CostAwareStrategy()
+        >>> config = StrategyConfig(metadata={"max_cost_per_request": 0.5})
+        >>> strategy.configure(config)
+        >>> proxy = strategy.select(pool)  # Selects cheapest available proxy
+    """
+
+    def __init__(self, max_cost_per_request: float | None = None) -> None:
+        """Initialize cost-aware strategy.
+
+        Args:
+            max_cost_per_request: Maximum acceptable cost per request.
+                Proxies exceeding this cost will be filtered out.
+                None means no cost limit (default).
+        """
+        self.config: StrategyConfig | None = None
+        self.max_cost_per_request = max_cost_per_request
+        self._free_proxy_boost: float = 10.0  # Weight multiplier for free proxies
+
+    def configure(self, config: StrategyConfig) -> None:
+        """Configure cost-aware parameters.
+
+        Args:
+            config: Strategy configuration with optional metadata:
+                - max_cost_per_request: Maximum cost threshold
+                - free_proxy_boost: Weight multiplier for free proxies (default: 10.0)
+        """
+        self.config = config
+
+        # Extract max cost from metadata if present
+        if config.metadata and "max_cost_per_request" in config.metadata:
+            self.max_cost_per_request = float(config.metadata["max_cost_per_request"])
+
+        # Extract free proxy boost from metadata if present
+        if config.metadata and "free_proxy_boost" in config.metadata:
+            self._free_proxy_boost = float(config.metadata["free_proxy_boost"])
+
+    def validate_metadata(self, pool: ProxyPool) -> bool:
+        """Validate that pool has cost metadata.
+
+        Cost field is optional, so always returns True.
+        Proxies without cost data are treated as free (cost = 0.0).
+
+        Args:
+            pool: The proxy pool to validate
+
+        Returns:
+            Always True - cost data is optional
+        """
+        return True
+
+    def select(self, pool: ProxyPool, context: SelectionContext | None = None) -> Proxy:
+        """Select a proxy based on cost optimization.
+
+        Selection logic:
+        1. Get healthy proxies
+        2. Filter by context.failed_proxy_ids if present
+        3. Filter by max_cost_per_request threshold if configured
+        4. Apply inverse cost weighting (lower cost = higher weight)
+        5. Free proxies get boost multiplier (default 10x weight)
+        6. Use weighted random selection
+
+        Args:
+            pool: The proxy pool to select from
+            context: Optional selection context for filtering
+
+        Returns:
+            Cost-optimized proxy selection
+
+        Raises:
+            ProxyPoolEmptyError: If no proxies meet criteria
+        """
+        healthy_proxies = pool.get_healthy_proxies()
+
+        if not healthy_proxies:
+            raise ProxyPoolEmptyError("No healthy proxies available")
+
+        # Filter by context failed proxies
+        if context and context.failed_proxy_ids:
+            failed_ids = set(context.failed_proxy_ids)
+            healthy_proxies = [p for p in healthy_proxies if str(p.id) not in failed_ids]
+
+            if not healthy_proxies:
+                raise ProxyPoolEmptyError(
+                    "No healthy proxies available after filtering failed proxies"
+                )
+
+        # Filter by cost threshold if configured
+        if self.max_cost_per_request is not None:
+            cost_filtered = [
+                p
+                for p in healthy_proxies
+                if (p.cost_per_request or 0.0) <= self.max_cost_per_request
+            ]
+
+            # If filtering eliminates all proxies, raise error
+            if not cost_filtered:
+                raise ProxyPoolEmptyError(
+                    f"No proxies available with cost <= {self.max_cost_per_request}"
+                )
+
+            healthy_proxies = cost_filtered
+
+        # Calculate inverse cost weights
+        weights = []
+        for proxy in healthy_proxies:
+            cost = proxy.cost_per_request or 0.0
+
+            # Free proxy gets boost, paid proxy gets inverse cost weight
+            weight = self._free_proxy_boost if cost == 0.0 else 1.0 / (cost + 0.001)
+
+            weights.append(weight)
+
+        # Normalize weights
+        total_weight = sum(weights)
+        if total_weight > 0:
+            weights = [w / total_weight for w in weights]
+        else:
+            # Fallback to uniform weights (shouldn't happen with free proxy boost)
+            weights = [1.0 / len(weights)] * len(weights)
+
+        # Weighted random selection
+        selected = random.choices(healthy_proxies, weights=weights, k=1)[0]
+
+        # Mark proxy as in-use
+        selected.start_request()
+
+        return selected
+
+    def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
+        """Record the result of using a proxy.
+
+        Args:
+            proxy: The proxy that was used
             success: Whether the request succeeded
             response_time_ms: Response time in milliseconds
         """
@@ -1226,8 +1744,8 @@ class CompositeStrategy:
 
     def __init__(
         self,
-        filters: Optional[list["RotationStrategy"]] = None,
-        selector: Optional["RotationStrategy"] = None,
+        filters: list[RotationStrategy] | None = None,
+        selector: RotationStrategy | None = None,
     ):
         """
         Initialize composite strategy.
@@ -1246,7 +1764,7 @@ class CompositeStrategy:
         if not self.filters and selector is None:
             raise ValueError("CompositeStrategy requires at least one filter or a selector")
 
-    def select(self, pool: "ProxyPool", context: Optional["SelectionContext"] = None) -> "Proxy":
+    def select(self, pool: ProxyPool, context: SelectionContext | None = None) -> Proxy:
         """
         Select a proxy by applying filters then selector.
 
@@ -1313,7 +1831,7 @@ class CompositeStrategy:
 
         return self.selector.select(final_pool, context)
 
-    def _matches_filter(self, proxy: "Proxy", filter_result: "Proxy") -> bool:
+    def _matches_filter(self, proxy: Proxy, filter_result: Proxy) -> bool:
         """
         Check if proxy matches filter criteria based on filter result.
 
@@ -1338,7 +1856,7 @@ class CompositeStrategy:
         # If no specific criteria, include all
         return True
 
-    def record_result(self, proxy: "Proxy", success: bool, response_time_ms: float) -> None:
+    def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
         """
         Record result by delegating to selector strategy.
 
@@ -1355,7 +1873,7 @@ class CompositeStrategy:
             if hasattr(filter_strategy, "record_result"):
                 filter_strategy.record_result(proxy, success, response_time_ms)
 
-    def configure(self, config: "StrategyConfig") -> None:
+    def configure(self, config: StrategyConfig) -> None:
         """
         Configure all component strategies.
 
@@ -1370,7 +1888,7 @@ class CompositeStrategy:
             self.selector.configure(config)
 
     @classmethod
-    def from_config(cls, config: dict[str, Any]) -> "CompositeStrategy":
+    def from_config(cls, config: dict[str, Any]) -> CompositeStrategy:
         """
         Create CompositeStrategy from configuration dictionary.
 
@@ -1413,7 +1931,7 @@ class CompositeStrategy:
         return cls(filters=filters, selector=selector)
 
     @staticmethod
-    def _strategy_from_name(name: str) -> "RotationStrategy":
+    def _strategy_from_name(name: str) -> RotationStrategy:
         """
         Convert strategy name to strategy instance.
 

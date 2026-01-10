@@ -6,6 +6,7 @@ Tests the complete health invalidation workflow including:
 - Bulk health-based eviction
 - Health status persistence across tiers
 """
+
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -14,7 +15,7 @@ import pytest
 from pydantic import SecretStr
 
 from proxywhirl.cache import CacheManager
-from proxywhirl.cache_crypto import CredentialEncryptor
+from proxywhirl.cache.crypto import CredentialEncryptor
 from proxywhirl.cache_models import CacheConfig, CacheEntry, HealthStatus
 
 
@@ -169,10 +170,7 @@ class TestBulkHealthEviction:
         manager = CacheManager(cache_config)
 
         # Add 5 proxies
-        entries = [
-            _create_entry(f"proxy{i}.example.com:8080", encryption_key)
-            for i in range(1, 6)
-        ]
+        entries = [_create_entry(f"proxy{i}.example.com:8080", encryption_key) for i in range(1, 6)]
         for entry in entries:
             manager.put(entry.key, entry)
 
@@ -224,9 +222,7 @@ class TestBulkHealthEviction:
 
         # Close manager
 
-    def test_custom_failure_threshold(
-        self, cache_config: CacheConfig, encryption_key: str
-    ) -> None:
+    def test_custom_failure_threshold(self, cache_config: CacheConfig, encryption_key: str) -> None:
         """Test custom failure threshold is respected.
 
         Scenario:

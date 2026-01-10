@@ -245,16 +245,15 @@ class TestBackoffStrategyVariants:
         def mock_sleep(delay):
             delays.append(delay)
 
-        with patch("httpx.Client") as mock_client_class:
-            with patch("time.sleep", mock_sleep):
-                mock_client = Mock()
-                mock_client.request = mock_request
-                mock_client.__enter__ = Mock(return_value=mock_client)
-                mock_client.__exit__ = Mock(return_value=False)
-                mock_client_class.return_value = mock_client
+        with patch("httpx.Client") as mock_client_class, patch("time.sleep", mock_sleep):
+            mock_client = Mock()
+            mock_client.request = mock_request
+            mock_client.__enter__ = Mock(return_value=mock_client)
+            mock_client.__exit__ = Mock(return_value=False)
+            mock_client_class.return_value = mock_client
 
-                with pytest.raises(ProxyConnectionError):
-                    rotator.get("https://httpbin.org/get")
+            with pytest.raises(ProxyConnectionError):
+                rotator.get("https://httpbin.org/get")
 
         # Should have exponential delays: 1, 2, 4
         assert len(delays) >= 2
@@ -283,16 +282,15 @@ class TestBackoffStrategyVariants:
         def mock_sleep(delay):
             delays.append(delay)
 
-        with patch("httpx.Client") as mock_client_class:
-            with patch("time.sleep", mock_sleep):
-                mock_client = Mock()
-                mock_client.request = mock_request
-                mock_client.__enter__ = Mock(return_value=mock_client)
-                mock_client.__exit__ = Mock(return_value=False)
-                mock_client_class.return_value = mock_client
+        with patch("httpx.Client") as mock_client_class, patch("time.sleep", mock_sleep):
+            mock_client = Mock()
+            mock_client.request = mock_request
+            mock_client.__enter__ = Mock(return_value=mock_client)
+            mock_client.__exit__ = Mock(return_value=False)
+            mock_client_class.return_value = mock_client
 
-                with pytest.raises(ProxyConnectionError):
-                    rotator.get("https://httpbin.org/get")
+            with pytest.raises(ProxyConnectionError):
+                rotator.get("https://httpbin.org/get")
 
         # Should have linear delays: 2, 4, 6
         assert len(delays) >= 2
@@ -321,16 +319,15 @@ class TestBackoffStrategyVariants:
         def mock_sleep(delay):
             delays.append(delay)
 
-        with patch("httpx.Client") as mock_client_class:
-            with patch("time.sleep", mock_sleep):
-                mock_client = Mock()
-                mock_client.request = mock_request
-                mock_client.__enter__ = Mock(return_value=mock_client)
-                mock_client.__exit__ = Mock(return_value=False)
-                mock_client_class.return_value = mock_client
+        with patch("httpx.Client") as mock_client_class, patch("time.sleep", mock_sleep):
+            mock_client = Mock()
+            mock_client.request = mock_request
+            mock_client.__enter__ = Mock(return_value=mock_client)
+            mock_client.__exit__ = Mock(return_value=False)
+            mock_client_class.return_value = mock_client
 
-                with pytest.raises(ProxyConnectionError):
-                    rotator.get("https://httpbin.org/get")
+            with pytest.raises(ProxyConnectionError):
+                rotator.get("https://httpbin.org/get")
 
         # Should have fixed delays: 3, 3, 3
         assert all(d == pytest.approx(3.0, abs=0.1) for d in delays)

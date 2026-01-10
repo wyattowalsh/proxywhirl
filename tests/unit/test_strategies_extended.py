@@ -8,6 +8,45 @@ from proxywhirl.exceptions import ProxyPoolEmptyError
 from proxywhirl.models import HealthStatus, Proxy, ProxyPool
 from proxywhirl.strategies import LeastUsedStrategy, RandomStrategy, WeightedStrategy
 
+# ==============================================================================
+# Parametrized Tests for Common Strategy Behaviors
+# ==============================================================================
+
+
+@pytest.mark.parametrize(
+    "strategy_class",
+    [RandomStrategy, WeightedStrategy, LeastUsedStrategy],
+    ids=["random", "weighted", "least_used"],
+)
+class TestStrategyCommonBehavior:
+    """Parametrized tests for behaviors common to all strategies."""
+
+    def test_empty_pool_raises_error(self, strategy_class):
+        """Test that empty pool raises ProxyPoolEmptyError for all strategies."""
+        pool = ProxyPool(name="test-pool")
+        strategy = strategy_class()
+
+        with pytest.raises(ProxyPoolEmptyError):
+            strategy.select(pool)
+
+    def test_skips_unhealthy_proxies(self, strategy_class):
+        """Test that all strategies skip unhealthy proxies."""
+        pool = ProxyPool(name="test-pool")
+        healthy = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)  # type: ignore
+        pool.add_proxy(healthy)
+        pool.add_proxy(Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.DEAD))  # type: ignore
+
+        strategy = strategy_class()
+
+        # Should only select healthy proxy
+        for _ in range(10):
+            assert strategy.select(pool).id == healthy.id
+
+
+# ==============================================================================
+# RandomStrategy Tests
+# ==============================================================================
+
 
 class TestRandomStrategy:
     """Test RandomStrategy implementation."""
@@ -50,26 +89,10 @@ class TestRandomStrategy:
         assert counts[proxy1.id] > 0
         assert counts[proxy2.id] > 0
 
-    def test_empty_pool_raises_error(self):
-        """Test that empty pool raises error."""
-        pool = ProxyPool(name="test-pool")
-        strategy = RandomStrategy()
 
-        with pytest.raises(ProxyPoolEmptyError):
-            strategy.select(pool)
-
-    def test_skips_unhealthy_proxies(self):
-        """Test that random strategy skips unhealthy proxies."""
-        pool = ProxyPool(name="test-pool")
-        healthy = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)  # type: ignore
-        pool.add_proxy(healthy)
-        pool.add_proxy(Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.DEAD))  # type: ignore
-
-        strategy = RandomStrategy()
-
-        # Should only select healthy proxy
-        for _ in range(10):
-            assert strategy.select(pool).id == healthy.id
+# ==============================================================================
+# WeightedStrategy Tests
+# ==============================================================================
 
 
 class TestWeightedStrategy:
@@ -144,13 +167,10 @@ class TestWeightedStrategy:
         assert counts[proxy1.id] > 20  # At least 20%
         assert counts[proxy2.id] > 20
 
-    def test_empty_pool_raises_error(self):
-        """Test that empty pool raises error."""
-        pool = ProxyPool(name="test-pool")
-        strategy = WeightedStrategy()
 
-        with pytest.raises(ProxyPoolEmptyError):
-            strategy.select(pool)
+# ==============================================================================
+# LeastUsedStrategy Tests
+# ==============================================================================
 
 
 class TestLeastUsedStrategy:
@@ -197,9 +217,9 @@ class TestLeastUsedStrategy:
         # First 10 selections should all be proxy2 (0→10 vs proxy1 at 10)
         for i in range(10):
             selected = strategy.select(pool)
-            assert selected.id == proxy2.id, f"Selection {i+1} should be proxy2"
+            assert selected.id == proxy2.id, f"Selection {i + 1} should be proxy2"
         # After 10 selections, proxy2.requests_started is now 10 (equal to proxy1)
-        
+
         # Next selection should be proxy1 (both at 10, but proxy1 was added first)
         # Actually, when equal, min() returns the first one in the list
         selected_11 = strategy.select(pool)
@@ -224,29 +244,3 @@ class TestLeastUsedStrategy:
         # Should select one of them (both have same usage)
         selected = strategy.select(pool)
         assert selected in [proxy1, proxy2]
-
-    def test_empty_pool_raises_error(self):
-        """Test that empty pool raises error."""
-        pool = ProxyPool(name="test-pool")
-        strategy = LeastUsedStrategy()
-
-        with pytest.raises(ProxyPoolEmptyError):
-            strategy.select(pool)
-
-    def test_skips_unhealthy_proxies(self):
-        """Test that strategy skips unhealthy proxies."""
-        pool = ProxyPool(name="test-pool")
-
-        healthy = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)  # type: ignore
-        healthy.total_requests = 100
-
-        dead = Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.DEAD)  # type: ignore
-        dead.total_requests = 0  # Would normally be selected
-
-        pool.add_proxy(healthy)
-        pool.add_proxy(dead)
-
-        strategy = LeastUsedStrategy()
-
-        # Should select healthy proxy even though it has more requests
-        assert strategy.select(pool).id == healthy.id

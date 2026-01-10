@@ -99,14 +99,14 @@ uv run -- ruff format . --check
 
 ### Type Checking
 
-We use `mypy` in strict mode for type safety:
+We use `ty` (Astral's fast type checker) for type safety:
 
 ```bash
 # Run type checking
-uv run -- mypy proxywhirl/
+uv run ty check proxywhirl/
 
 # Type check specific file
-uv run -- mypy proxywhirl/rotator.py
+uv run ty check proxywhirl/rotator.py
 ```
 
 ### Code Style Rules
@@ -262,7 +262,7 @@ uv run -- pytest -x
    uv run -- ruff check .
 
    # Type checking
-   uv run -- mypy proxywhirl/
+   uv run ty check proxywhirl/
 
    # Tests
    uv run -- pytest
@@ -366,6 +366,96 @@ Add integration tests for:
    - Reference issues: `Closes #123`, `Fixes #456`
    - Note breaking changes: `BREAKING CHANGE: description`
 
+## Automated Commit Validation
+
+ProxyWhirl uses [Commitizen](https://commitizen-tools.github.io/commitizen/) to enforce conventional commits and automate versioning.
+
+### Setup
+
+After cloning the repository, install the pre-commit hooks:
+
+```bash
+# Install pre-commit hooks (one-time setup)
+uv run pre-commit install --hook-type commit-msg --hook-type pre-commit
+```
+
+### Making Commits
+
+You have two options for creating compliant commits:
+
+#### Option 1: Interactive Commit (Recommended)
+
+```bash
+make commit
+# or directly:
+uv run cz commit
+```
+
+This launches an interactive prompt that guides you through creating a properly formatted commit message.
+
+#### Option 2: Manual Commit
+
+Write your commit message following the conventional commits format. The pre-commit hook will validate it:
+
+```bash
+git commit -m "feat(rotator): add geo-targeting support"
+```
+
+If the message doesn't comply, the commit will be rejected with guidance on the correct format.
+
+### Releasing New Versions
+
+Version bumps are done manually via the CLI:
+
+```bash
+# Dry run to see what would happen
+make bump-dry
+
+# Actual bump (auto-detects patch/minor/major from commits)
+make bump
+
+# Force a specific bump type
+make bump-minor
+make bump-major
+```
+
+This will:
+1. Analyze commits since the last tag
+2. Determine the appropriate version bump (patch/minor/major)
+3. Update version in `pyproject.toml` and `proxywhirl/__init__.py`
+4. Update `CHANGELOG.md` with new entries
+5. Create a git commit and annotated tag
+
+After bumping, push the tag to trigger the CD workflow:
+
+```bash
+git push origin main --tags
+```
+
+### Version Bump Rules
+
+| Commit Type | Description | Version Impact |
+|-------------|-------------|----------------|
+| `feat` | New feature | MINOR bump |
+| `fix` | Bug fix | PATCH bump |
+| `docs` | Documentation | No bump |
+| `style` | Formatting | No bump |
+| `refactor` | Code refactoring | No bump |
+| `perf` | Performance | PATCH bump |
+| `test` | Tests | No bump |
+| `chore` | Maintenance | No bump |
+| `BREAKING CHANGE` | Breaking change | MAJOR bump |
+
+### Bypassing Validation (Emergency Only)
+
+In rare cases where you need to bypass validation:
+
+```bash
+git commit -m "message" --no-verify
+```
+
+**Warning:** Use sparingly. CI may still reject non-compliant commits.
+
 ## Project Structure
 
 Understanding the codebase:
@@ -402,7 +492,7 @@ proxywhirl/
 ### Key Design Principles
 
 1. **Flat Structure**: No nested packages - everything in `proxywhirl/`
-2. **Type Safety**: Full type hints, mypy strict mode
+2. **Type Safety**: Full type hints with ty type checking
 3. **Async Support**: Async operations for I/O-bound tasks
 4. **Pydantic Models**: Data validation and serialization
 5. **Minimal Dependencies**: Only essential packages
@@ -432,7 +522,7 @@ echo "Running linter..."
 uv run -- ruff check .
 
 echo "Running type checker..."
-uv run -- mypy proxywhirl/
+uv run ty check proxywhirl/
 
 echo "Running tests..."
 uv run -- pytest -x

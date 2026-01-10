@@ -3,15 +3,12 @@
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from proxywhirl.models import HealthStatus, Proxy, ProxySource
 
 
 class TestSQLiteStorage:
     """Tests for SQLiteStorage backend."""
 
-    @pytest.mark.asyncio
     async def test_sqlite_create_tables(self) -> None:
         """T058: Test that tables are created on initialization."""
         from proxywhirl.storage import SQLiteStorage
@@ -29,7 +26,6 @@ class TestSQLiteStorage:
             # Clean up
             await storage.close()
 
-    @pytest.mark.asyncio
     async def test_sqlite_save_single_proxy(self) -> None:
         """T061: Test saving a single proxy."""
         from proxywhirl.storage import SQLiteStorage
@@ -49,7 +45,6 @@ class TestSQLiteStorage:
 
             await storage.close()
 
-    @pytest.mark.asyncio
     async def test_sqlite_save_multiple_proxies(self) -> None:
         """T062: Test saving multiple proxies."""
         from proxywhirl.storage import SQLiteStorage
@@ -71,7 +66,6 @@ class TestSQLiteStorage:
 
             await storage.close()
 
-    @pytest.mark.asyncio
     async def test_sqlite_load_all_proxies(self) -> None:
         """T063: Test loading all proxies."""
         from proxywhirl.storage import SQLiteStorage
@@ -91,7 +85,6 @@ class TestSQLiteStorage:
 
             await storage.close()
 
-    @pytest.mark.asyncio
     async def test_sqlite_query_by_source(self) -> None:
         """T064: Test querying proxies by source."""
         from proxywhirl.storage import SQLiteStorage
@@ -115,7 +108,6 @@ class TestSQLiteStorage:
 
             await storage.close()
 
-    @pytest.mark.asyncio
     async def test_sqlite_query_by_health_status(self) -> None:
         """T065: Test querying proxies by health status."""
         from proxywhirl.storage import SQLiteStorage
@@ -139,7 +131,6 @@ class TestSQLiteStorage:
 
             await storage.close()
 
-    @pytest.mark.asyncio
     async def test_sqlite_delete_proxy(self) -> None:
         """T066: Test deleting a proxy by URL."""
         from proxywhirl.storage import SQLiteStorage
@@ -164,7 +155,6 @@ class TestSQLiteStorage:
 
             await storage.close()
 
-    @pytest.mark.asyncio
     async def test_sqlite_update_existing_proxy(self) -> None:
         """Test updating an existing proxy (upsert)."""
         from proxywhirl.storage import SQLiteStorage
@@ -189,7 +179,6 @@ class TestSQLiteStorage:
 
             await storage.close()
 
-    @pytest.mark.asyncio
     async def test_sqlite_concurrent_access(self) -> None:
         """T072: Test concurrent read/write operations."""
         import asyncio

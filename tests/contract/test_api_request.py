@@ -8,7 +8,6 @@ from proxywhirl.api import app
 from proxywhirl.api_models import APIResponse, ProxiedRequest, ProxiedResponse
 
 
-@pytest.mark.asyncio
 async def test_proxied_request_schema_valid():
     """T011: Validate ProxiedRequest schema accepts valid data."""
     # Valid request data
@@ -28,7 +27,6 @@ async def test_proxied_request_schema_valid():
     assert request.timeout == 30
 
 
-@pytest.mark.asyncio
 async def test_proxied_request_schema_invalid_url():
     """T011: Validate ProxiedRequest rejects invalid URL."""
     with pytest.raises(ValidationError) as exc_info:
@@ -40,7 +38,6 @@ async def test_proxied_request_schema_invalid_url():
     assert "url" in str(exc_info.value).lower()
 
 
-@pytest.mark.asyncio
 async def test_proxied_request_schema_invalid_method():
     """T011: Validate ProxiedRequest rejects invalid HTTP method."""
     with pytest.raises(ValidationError) as exc_info:
@@ -52,7 +49,6 @@ async def test_proxied_request_schema_invalid_method():
     assert "method" in str(exc_info.value).lower()
 
 
-@pytest.mark.asyncio
 async def test_proxied_request_schema_invalid_timeout():
     """T011: Validate ProxiedRequest rejects negative timeout."""
     with pytest.raises(ValidationError) as exc_info:
@@ -65,7 +61,6 @@ async def test_proxied_request_schema_invalid_timeout():
     assert "timeout" in str(exc_info.value).lower()
 
 
-@pytest.mark.asyncio
 async def test_proxied_response_schema():
     """T011: Validate ProxiedResponse schema structure."""
     response_data = {
@@ -83,7 +78,6 @@ async def test_proxied_response_schema():
     assert response.elapsed_ms == 150
 
 
-@pytest.mark.asyncio
 async def test_api_response_envelope_success():
     """T011: Validate APIResponse envelope for successful response."""
     response_data = ProxiedResponse(
@@ -101,7 +95,6 @@ async def test_api_response_envelope_success():
     assert api_response.error is None
 
 
-@pytest.mark.asyncio
 async def test_api_response_envelope_error():
     """T011: Validate APIResponse envelope for error response."""
     api_response = APIResponse.error_response(
@@ -117,7 +110,6 @@ async def test_api_response_envelope_error():
     assert api_response.error.message == "All proxies failed"
 
 
-@pytest.mark.asyncio
 async def test_post_request_endpoint_contract():
     """T011: Contract test for POST /api/v1/request endpoint response structure."""
     # Note: This test will fail until proxies are added to the pool

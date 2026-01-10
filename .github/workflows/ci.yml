@@ -42,6 +42,34 @@ jobs:
       - name: Run Ruff formatter check
         run: uv run ruff format --check .
 
+  commitlint:
+    name: Validate Commit Messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required for commit history
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install commitizen
+        run: uv pip install commitizen
+
+      - name: Validate commit messages
+        run: |
+          # Check all commits in the PR
+          uv run cz check --rev-range origin/${{ github.base_ref }}..HEAD
+
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
@@ -64,8 +92,8 @@ jobs:
           uv venv
           uv pip install -e ".[dev]"
 
-      - name: Run mypy
-        run: uv run mypy proxywhirl
+      - name: Run ty
+        run: uv run ty check proxywhirl
 
   test:
     name: Test - Python ${{ matrix.python-version }}
@@ -131,6 +159,48 @@ jobs:
 
       - name: Run tests
         run: uv run pytest
+
+  benchmark:
+    name: Benchmark Performance Regression
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Required to access baseline from git
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+
+      - name: Run benchmarks with regression check
+        run: |
+          # Run benchmarks and compare against baseline
+          # Fails if any benchmark regresses by >10% from baseline (min:10%)
+          uv run pytest tests/benchmarks/ \
+            --benchmark-only \
+            --benchmark-compare=0001 \
+            --benchmark-compare-fail=min:10%
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            .benchmarks/
+            benchmark-histogram*
 
   build:
     name: Build distribution

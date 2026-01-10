@@ -10,7 +10,7 @@ import respx
 from pydantic import SecretStr
 
 from proxywhirl import Proxy, ProxyRotator
-from proxywhirl.exceptions import ProxyAuthenticationError, ProxyConnectionError
+from proxywhirl.exceptions import ProxyConnectionError
 
 
 class TestAuthenticatedRequests:

@@ -282,16 +282,12 @@ class TestCreateProxyRequestValidation:
 
     def test_create_proxy_accepts_http_scheme(self):
         """Test CreateProxyRequest accepts HTTP proxy URLs."""
-        request = CreateProxyRequest(
-            url="http://proxy.example.com:8080"
-        )
+        request = CreateProxyRequest(url="http://proxy.example.com:8080")
         assert request.url.startswith("http://")
 
     def test_create_proxy_accepts_https_scheme(self):
         """Test CreateProxyRequest accepts HTTPS proxy URLs."""
-        request = CreateProxyRequest(
-            url="https://proxy.example.com:8080"
-        )
+        request = CreateProxyRequest(url="https://proxy.example.com:8080")
         assert request.url.startswith("https://")
 
     def test_create_proxy_accepts_socks4_scheme(self):
@@ -340,16 +336,12 @@ class TestCreateProxyRequestValidation:
 
     def test_create_proxy_accepts_port_1(self):
         """Test CreateProxyRequest accepts minimum valid port (1)."""
-        request = CreateProxyRequest(
-            url="http://proxy.example.com:1"
-        )
+        request = CreateProxyRequest(url="http://proxy.example.com:1")
         assert ":1" in request.url
 
     def test_create_proxy_accepts_port_65535(self):
         """Test CreateProxyRequest accepts maximum valid port (65535)."""
-        request = CreateProxyRequest(
-            url="http://proxy.example.com:65535"
-        )
+        request = CreateProxyRequest(url="http://proxy.example.com:65535")
         assert ":65535" in request.url
 
     def test_create_proxy_rejects_url_too_long(self):

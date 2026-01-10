@@ -17,7 +17,7 @@ from proxywhirl.cache_models import CacheConfig, CacheEntry
 @pytest.fixture
 def encryption_key() -> SecretStr:
     """Generate valid Fernet encryption key for tests."""
-    from proxywhirl.cache_crypto import CredentialEncryptor
+    from proxywhirl.cache.crypto import CredentialEncryptor
 
     encryptor = CredentialEncryptor()
     return SecretStr(encryptor.key.decode("utf-8"))
@@ -60,7 +60,9 @@ class TestLazyExpiration:
         retrieved = manager.get(entry.key)
         assert retrieved is None, "Expired entry should return None"
 
-    def test_non_expired_entry_returns_value(self, tmp_path: Path, encryption_key: SecretStr) -> None:
+    def test_non_expired_entry_returns_value(
+        self, tmp_path: Path, encryption_key: SecretStr
+    ) -> None:
         """Test that getting a non-expired entry returns the value."""
         from proxywhirl.cache import CacheManager
 
@@ -92,7 +94,9 @@ class TestLazyExpiration:
         assert retrieved is not None, "Non-expired entry should be retrieved"
         assert retrieved.key == entry.key
 
-    def test_expired_entry_deleted_from_all_tiers(self, tmp_path: Path, encryption_key: SecretStr) -> None:
+    def test_expired_entry_deleted_from_all_tiers(
+        self, tmp_path: Path, encryption_key: SecretStr
+    ) -> None:
         """Test that expired entries are deleted from all cache tiers."""
         from proxywhirl.cache import CacheManager
 
@@ -120,9 +124,11 @@ class TestLazyExpiration:
         manager.put(entry.key, entry)
 
         # Verify entry exists in at least one tier
-        assert manager.l1_tier.get(entry.key) is not None or \
-               manager.l2_tier.get(entry.key) is not None or \
-               manager.l3_tier.get(entry.key) is not None
+        assert (
+            manager.l1_tier.get(entry.key) is not None
+            or manager.l2_tier.get(entry.key) is not None
+            or manager.l3_tier.get(entry.key) is not None
+        )
 
         # Get on expired entry should delete from all tiers
         retrieved = manager.get(entry.key)
@@ -137,7 +143,9 @@ class TestLazyExpiration:
 class TestBackgroundCleanup:
     """Test background TTL cleanup thread."""
 
-    def test_background_cleanup_enabled_by_config(self, tmp_path: Path, encryption_key: SecretStr) -> None:
+    def test_background_cleanup_enabled_by_config(
+        self, tmp_path: Path, encryption_key: SecretStr
+    ) -> None:
         """Test that background cleanup can be enabled via config."""
         from proxywhirl.cache import CacheManager
 
@@ -154,7 +162,9 @@ class TestBackgroundCleanup:
         assert hasattr(manager, "ttl_manager"), "TTLManager should exist"
         assert manager.ttl_manager is not None
 
-    def test_background_cleanup_removes_expired_entries(self, tmp_path: Path, encryption_key: SecretStr) -> None:
+    def test_background_cleanup_removes_expired_entries(
+        self, tmp_path: Path, encryption_key: SecretStr
+    ) -> None:
         """Test that background cleanup removes expired entries."""
         from proxywhirl.cache import CacheManager
 
@@ -194,7 +204,9 @@ class TestBackgroundCleanup:
 class TestTTLConfiguration:
     """Test TTL configuration updates."""
 
-    def test_default_ttl_applied_to_entries(self, tmp_path: Path, encryption_key: SecretStr) -> None:
+    def test_default_ttl_applied_to_entries(
+        self, tmp_path: Path, encryption_key: SecretStr
+    ) -> None:
         """Test that default TTL is applied to new cache entries."""
         from proxywhirl.cache import CacheManager
 
@@ -266,7 +278,9 @@ class TestTTLConfiguration:
 class TestPerSourceTTL:
     """Test per-source TTL configuration."""
 
-    def test_per_source_ttl_overrides_default(self, tmp_path: Path, encryption_key: SecretStr) -> None:
+    def test_per_source_ttl_overrides_default(
+        self, tmp_path: Path, encryption_key: SecretStr
+    ) -> None:
         """Test that per-source TTL overrides default TTL."""
         from proxywhirl.cache import CacheManager
 
@@ -302,7 +316,9 @@ class TestPerSourceTTL:
         assert retrieved.ttl_seconds == source_ttl
         assert retrieved.source == "premium_source"
 
-    def test_default_ttl_used_for_unknown_source(self, tmp_path: Path, encryption_key: SecretStr) -> None:
+    def test_default_ttl_used_for_unknown_source(
+        self, tmp_path: Path, encryption_key: SecretStr
+    ) -> None:
         """Test that default TTL is used when source has no specific TTL."""
         from proxywhirl.cache import CacheManager
 

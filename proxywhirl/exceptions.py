@@ -4,9 +4,11 @@ Custom exceptions for ProxyWhirl.
 All exceptions support additional metadata for debugging and retry logic.
 """
 
+from __future__ import annotations
+
 import re
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 
@@ -25,6 +27,7 @@ class ProxyErrorCode(str, Enum):
     TIMEOUT = "TIMEOUT"
     NETWORK_ERROR = "NETWORK_ERROR"
     INVALID_CONFIGURATION = "INVALID_CONFIGURATION"
+    QUEUE_FULL = "QUEUE_FULL"
 
 
 def redact_url(url: str) -> str:
@@ -75,11 +78,11 @@ class ProxyWhirlError(Exception):
         self,
         message: str,
         *,
-        proxy_url: Optional[str] = None,
-        error_type: Optional[str] = None,
-        error_code: Optional[ProxyErrorCode] = None,
+        proxy_url: str | None = None,
+        error_type: str | None = None,
+        error_code: ProxyErrorCode | None = None,
         retry_recommended: bool = False,
-        attempt_count: Optional[int] = None,
+        attempt_count: int | None = None,
         **metadata: Any,
     ) -> None:
         """
@@ -290,3 +293,26 @@ class CacheValidationError(ValueError, ProxyWhirlError):
     def __init__(self, message: str, **kwargs: Any) -> None:
         """Initialize with cache validation-specific defaults."""
         super().__init__(message, retry_recommended=False, **kwargs)
+
+
+class RequestQueueFullError(ProxyWhirlError):
+    """Raised when the request queue is full and cannot accept more requests.
+
+    Actionable guidance:
+    - Wait for pending requests to complete
+    - Increase queue_size in configuration
+    - Reduce request rate to avoid overloading the queue
+    - Consider implementing request batching or throttling
+    """
+
+    error_code = ProxyErrorCode.QUEUE_FULL
+
+    def __init__(
+        self, message: str = "Request queue is full", queue_size: int | None = None, **kwargs: Any
+    ) -> None:
+        """Initialize with queue-specific defaults."""
+        if queue_size is not None:
+            message += f" (max size: {queue_size})"
+        if "wait" not in message.lower() and "reduce" not in message.lower():
+            message += ". Wait for requests to complete or increase queue_size."
+        super().__init__(message, retry_recommended=True, **kwargs)

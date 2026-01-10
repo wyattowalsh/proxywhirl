@@ -5,10 +5,12 @@ This module provides tools for fetching proxies from various sources and
 parsing different formats (JSON, CSV, plain text, HTML tables).
 """
 
+from __future__ import annotations
+
 import asyncio
 import csv
 import json
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from proxywhirl.models import ValidationLevel
@@ -16,21 +18,10 @@ from urllib.parse import urlparse
 
 import httpx
 from bs4 import BeautifulSoup
-from pydantic import BaseModel
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from proxywhirl.exceptions import ProxyFetchError, ProxyValidationError
-from proxywhirl.models import RenderMode
-
-
-class ProxySourceConfig(BaseModel):
-    """Configuration for a proxy source."""
-
-    url: str
-    format: str = "json"  # json, csv, text, html
-    refresh_interval: int = 3600  # seconds
-    custom_parser: Optional[Any] = None
-    render_mode: RenderMode = RenderMode.STATIC  # Page rendering mode
+from proxywhirl.models import ProxySourceConfig, RenderMode
 
 
 class JSONParser:
@@ -38,8 +29,8 @@ class JSONParser:
 
     def __init__(
         self,
-        key: Optional[str] = None,
-        required_fields: Optional[list[str]] = None,
+        key: str | None = None,
+        required_fields: list[str] | None = None,
     ) -> None:
         """
         Initialize JSON parser.
@@ -96,7 +87,7 @@ class CSVParser:
     def __init__(
         self,
         has_header: bool = True,
-        columns: Optional[list[str]] = None,
+        columns: list[str] | None = None,
         skip_invalid: bool = False,
     ) -> None:
         """
@@ -222,8 +213,8 @@ class HTMLTableParser:
     def __init__(
         self,
         table_selector: str = "table",
-        column_map: Optional[dict[str, str]] = None,
-        column_indices: Optional[dict[str, int]] = None,
+        column_map: dict[str, str] | None = None,
+        column_indices: dict[str, int] | None = None,
     ) -> None:
         """
         Initialize HTML table parser.
@@ -329,7 +320,7 @@ class ProxyValidator:
         self,
         timeout: float = 5.0,
         test_url: str = "http://httpbin.org/ip",
-        level: Optional["ValidationLevel"] = None,
+        level: ValidationLevel | None = None,
         concurrency: int = 50,
     ) -> None:
         """
@@ -347,6 +338,60 @@ class ProxyValidator:
         self.test_url = test_url
         self.level = level or ValidationLevel.STANDARD
         self.concurrency = concurrency
+        self._client: httpx.AsyncClient | None = None
+        self._socks_client: httpx.AsyncClient | None = None
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """
+        Get or create the shared HTTP client.
+
+        Returns:
+            Shared httpx.AsyncClient instance
+        """
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                timeout=self.timeout,
+                limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+            )
+        return self._client
+
+    async def _get_socks_client(self, proxy_url: str) -> httpx.AsyncClient:
+        """
+        Get or create the shared SOCKS client.
+
+        Args:
+            proxy_url: SOCKS proxy URL
+
+        Returns:
+            Shared httpx.AsyncClient instance configured for SOCKS
+        """
+        if self._socks_client is None:
+            from httpx_socks import AsyncProxyTransport
+
+            transport = AsyncProxyTransport.from_url(proxy_url)
+            self._socks_client = httpx.AsyncClient(
+                transport=transport,
+                timeout=self.timeout,
+                limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+            )
+        return self._socks_client
+
+    async def close(self) -> None:
+        """Close all client connections and cleanup resources."""
+        if self._client:
+            await self._client.aclose()
+            self._client = None
+        if self._socks_client:
+            await self._socks_client.aclose()
+            self._socks_client = None
+
+    async def __aenter__(self) -> ProxyValidator:
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        """Async context manager exit."""
+        await self.close()
 
     async def _validate_tcp_connectivity(self, host: str, port: int) -> bool:
         """
@@ -370,9 +415,9 @@ class ProxyValidator:
             # Connection failed - timeout, refused, DNS error, or network unreachable
             return False
 
-    async def _validate_http_request(self, proxy_url: Optional[str] = None) -> bool:
+    async def _validate_http_request(self, proxy_url: str | None = None) -> bool:
         """
-        Validate HTTP request through proxy.
+        Validate HTTP request through proxy using shared client.
 
         Args:
             proxy_url: Full proxy URL (e.g., "http://proxy.example.com:8080")
@@ -382,13 +427,15 @@ class ProxyValidator:
             True if HTTP request succeeds, False otherwise
         """
         try:
-            client_kwargs: dict[str, Any] = {"timeout": self.timeout}
-            if proxy_url:
-                client_kwargs["proxies"] = proxy_url
+            client = await self._get_client()
 
-            async with httpx.AsyncClient(**client_kwargs) as client:
+            # Use proxy parameter for the request if provided
+            if proxy_url:
+                response = await client.get(self.test_url, proxy=proxy_url)
+            else:
                 response = await client.get(self.test_url)
-                return response.status_code == 200
+
+            return response.status_code == 200
         except (
             httpx.TimeoutException,
             httpx.ConnectError,
@@ -398,9 +445,9 @@ class ProxyValidator:
             # Request failed - timeout, connection error, network error, or other
             return False
 
-    async def check_anonymity(self, proxy_url: Optional[str] = None) -> Optional[str]:
+    async def check_anonymity(self, proxy_url: str | None = None) -> str | None:
         """
-        Check proxy anonymity level by detecting IP leakage.
+        Check proxy anonymity level by detecting IP leakage using shared client.
 
         Tests if the proxy reveals the real IP address or proxy usage through
         HTTP headers like X-Forwarded-For, Via, X-Real-IP, etc.
@@ -427,38 +474,39 @@ class ProxyValidator:
         }
 
         try:
-            client_kwargs: dict[str, Any] = {"timeout": self.timeout}
-            if proxy_url:
-                client_kwargs["proxies"] = proxy_url
+            client = await self._get_client()
 
-            async with httpx.AsyncClient(**client_kwargs) as client:
+            # Use proxy parameter for the request if provided
+            if proxy_url:
+                response = await client.get(self.test_url, proxy=proxy_url)
+            else:
                 response = await client.get(self.test_url)
 
-                if response.status_code != 200:
-                    return "unknown"
+            if response.status_code != 200:
+                return "unknown"
 
-                # Try to parse JSON response for IP and headers
-                try:
-                    data = response.json()
-                    headers = data.get("headers", {})
+            # Try to parse JSON response for IP and headers
+            try:
+                data = response.json()
+                headers = data.get("headers", {})
 
-                    # Convert header keys to lowercase for case-insensitive comparison
-                    headers_lower = {k.lower(): v for k, v in headers.items()}
+                # Convert header keys to lowercase for case-insensitive comparison
+                headers_lower = {k.lower(): v for k, v in headers.items()}
 
-                    # Check for headers that leak real IP (transparent proxy)
-                    if "x-forwarded-for" in headers_lower or "x-real-ip" in headers_lower:
-                        return "transparent"
+                # Check for headers that leak real IP (transparent proxy)
+                if "x-forwarded-for" in headers_lower or "x-real-ip" in headers_lower:
+                    return "transparent"
 
-                    # Check for headers that reveal proxy usage (anonymous proxy)
-                    if any(header in headers_lower for header in proxy_headers):
-                        return "anonymous"
+                # Check for headers that reveal proxy usage (anonymous proxy)
+                if any(header in headers_lower for header in proxy_headers):
+                    return "anonymous"
 
-                    # No proxy-revealing headers found (elite proxy)
-                    return "elite"
+                # No proxy-revealing headers found (elite proxy)
+                return "elite"
 
-                except (ValueError, KeyError):
-                    # Could not parse response or missing expected fields
-                    return "unknown"
+            except (ValueError, KeyError):
+                # Could not parse response or missing expected fields
+                return "unknown"
 
         except (
             httpx.TimeoutException,
@@ -471,10 +519,10 @@ class ProxyValidator:
 
     async def validate(self, proxy: dict[str, Any]) -> bool:
         """
-        Validate proxy connectivity.
+        Validate proxy connectivity with fast TCP pre-check.
 
         Args:
-            proxy: Proxy dictionary to validate
+            proxy: Proxy dictionary with 'url' key (e.g., "http://1.2.3.4:8080")
 
         Returns:
             True if proxy is working, False otherwise
@@ -484,17 +532,41 @@ class ProxyValidator:
             return False
 
         try:
-            # HTTPX requires proxy as string in environment variable format
-            # or using mounts. For now, use simple approach.
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                # Try to connect through proxy by setting it as default
-                response = await client.get(
-                    self.test_url,
-                    extensions={"proxy": proxy_url},
+            # Parse host:port from URL
+            from urllib.parse import urlparse
+
+            parsed = urlparse(proxy_url)
+            host = parsed.hostname
+            port = parsed.port
+
+            if not host or not port:
+                return False
+
+            # Fast TCP pre-check (async) - skip HTTP if port isn't even open
+            try:
+                _, writer = await asyncio.wait_for(
+                    asyncio.open_connection(host, port),
+                    timeout=min(1.0, self.timeout / 2),  # Quick TCP timeout
                 )
+                writer.close()
+                await writer.wait_closed()
+            except (asyncio.TimeoutError, OSError, ConnectionRefusedError):
+                return False
+
+            # TCP passed - now test actual proxy functionality using shared client
+            is_socks = proxy_url.startswith(("socks4://", "socks5://"))
+
+            if is_socks:
+                # Use shared SOCKS client
+                client = await self._get_socks_client(proxy_url)
+                response = await client.get(self.test_url)
+                return response.status_code == 200
+            else:
+                # Use shared HTTP client with per-request proxy
+                client = await self._get_client()
+                response = await client.get(self.test_url, proxy=proxy_url)
                 return response.status_code == 200
         except Exception:
-            # Any error means proxy is not working
             return False
 
     async def validate_batch(self, proxies: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -551,8 +623,8 @@ class ProxyFetcher:
 
     def __init__(
         self,
-        sources: Optional[list["ProxySourceConfig"]] = None,
-        validator: Optional[ProxyValidator] = None,
+        sources: list[ProxySourceConfig] | None = None,
+        validator: ProxyValidator | None = None,
     ) -> None:
         """
         Initialize proxy fetcher.
@@ -566,11 +638,15 @@ class ProxyFetcher:
         self._parsers = {
             "json": JSONParser,
             "csv": CSVParser,
+            "plain_text": PlainTextParser,
+            "html_table": HTMLTableParser,
+            # Legacy aliases for backwards compatibility
             "text": PlainTextParser,
             "html": HTMLTableParser,
         }
+        self._client: httpx.AsyncClient | None = None
 
-    def add_source(self, source: "ProxySourceConfig") -> None:
+    def add_source(self, source: ProxySourceConfig) -> None:
         """
         Add a proxy source.
 
@@ -586,14 +662,45 @@ class ProxyFetcher:
         Args:
             url: URL of source to remove
         """
-        self.sources = [s for s in self.sources if s.url != url]
+        self.sources = [s for s in self.sources if str(s.url) != url]
+
+    async def _get_client(self) -> httpx.AsyncClient:
+        """
+        Get or create the shared HTTP client.
+
+        Returns:
+            Shared httpx.AsyncClient instance
+        """
+        if self._client is None:
+            self._client = httpx.AsyncClient(
+                timeout=httpx.Timeout(30.0),
+                limits=httpx.Limits(max_connections=50, max_keepalive_connections=10),
+            )
+        return self._client
+
+    async def close(self) -> None:
+        """Close client connection and cleanup resources."""
+        if self._client:
+            await self._client.aclose()
+            self._client = None
+        # Also close validator's clients
+        if self.validator:
+            await self.validator.close()
+
+    async def __aenter__(self) -> ProxyFetcher:
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        """Async context manager exit."""
+        await self.close()
 
     @retry(
         stop=stop_after_attempt(3),
         wait=wait_exponential(multiplier=1, min=2, max=10),
         retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)),
     )
-    async def fetch_from_source(self, source: "ProxySourceConfig") -> list[dict[str, Any]]:
+    async def fetch_from_source(self, source: ProxySourceConfig) -> list[dict[str, Any]]:
         """
         Fetch proxies from a single source.
 
@@ -629,16 +736,22 @@ class ProxyFetcher:
                     raise ProxyFetchError(f"Browser error fetching from {source.url}: {e}") from e
             else:
                 # Use standard HTTP client for static pages
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    response = await client.get(source.url)
-                    response.raise_for_status()
-                    html_content = response.text
+                client = await self._get_client()
+                response = await client.get(source.url)
+                response.raise_for_status()
+                html_content = response.text
 
-            # Get parser
+            # Use custom parser if provided
             if source.custom_parser:
-                parser = source.custom_parser
-            elif source.format in self._parsers:
-                parser_class = self._parsers[source.format]
+                proxies_list: list[dict[str, Any]] = source.custom_parser.parse(html_content)
+                return proxies_list
+
+            # Otherwise use format-based parser
+            # Note: parser field in ProxySourceConfig is now a string identifier, not an object
+            # Custom parsers should be registered via _parsers dict
+            format_key = source.format.value if hasattr(source.format, "value") else source.format
+            if format_key in self._parsers:
+                parser_class = self._parsers[format_key]
                 parser = parser_class()
             else:
                 raise ProxyFetchError(f"Unsupported format: {source.format}")
@@ -691,8 +804,8 @@ class ProxyFetcher:
 
     async def start_periodic_refresh(
         self,
-        callback: Optional[Any] = None,
-        interval: Optional[int] = None,
+        callback: Any | None = None,
+        interval: int | None = None,
     ) -> None:
         """
         Start periodic proxy refresh.

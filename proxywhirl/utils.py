@@ -2,10 +2,12 @@
 Utility functions for logging, validation, and encryption.
 """
 
+from __future__ import annotations
+
 import json
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlparse
 
 from loguru import logger
@@ -71,14 +73,26 @@ def configure_logging(
 
 def _redact_sensitive_data(data: Any) -> Any:
     """Recursively redact sensitive data from log entries."""
-    if isinstance(data, dict):
+    from pydantic import SecretStr
+
+    # Handle SecretStr objects
+    if isinstance(data, SecretStr):
+        return "***"
+    elif isinstance(data, dict):
         redacted = {}
         for key, value in data.items():
             if any(
                 sensitive in key.lower()
-                for sensitive in ["password", "secret", "token", "api_key", "credential"]
+                for sensitive in [
+                    "password",
+                    "secret",
+                    "token",
+                    "api_key",
+                    "credential",
+                    "username",
+                ]
             ):
-                redacted[key] = "**REDACTED**"
+                redacted[key] = "***"
             else:
                 redacted[key] = _redact_sensitive_data(value)
         return redacted
@@ -95,15 +109,106 @@ def _redact_url_credentials(url: str) -> str:
     try:
         parsed = urlparse(url)
         if parsed.username or parsed.password:
-            # Replace credentials with ****
+            # Replace credentials with ***
             netloc_without_creds = parsed.hostname
             if parsed.port:
                 netloc_without_creds = f"{netloc_without_creds}:{parsed.port}"
-            netloc_with_redacted = f"****:****@{netloc_without_creds}"
+            netloc_with_redacted = f"***:***@{netloc_without_creds}"
             return parsed._replace(netloc=netloc_with_redacted).geturl()
     except Exception:
         pass
     return url
+
+
+def mask_proxy_url(url: str) -> str:
+    """
+    Mask credentials in a proxy URL for safe display in verbose/debug output.
+
+    Replaces username:password with ***:*** to prevent credential exposure.
+
+    Args:
+        url: Proxy URL that may contain credentials
+
+    Returns:
+        URL with credentials masked
+
+    Example:
+        >>> mask_proxy_url("http://user:pass@proxy.com:8080")
+        "http://***:***@proxy.com:8080"
+    """
+    return _redact_url_credentials(url)
+
+
+def mask_secret_str(secret: Any) -> str:
+    """
+    Mask a SecretStr or string value for safe display.
+
+    Args:
+        secret: SecretStr instance or string to mask
+
+    Returns:
+        Masked string showing "***"
+    """
+    from pydantic import SecretStr
+
+    if isinstance(secret, SecretStr):
+        return "***"
+    elif isinstance(secret, str):
+        return "***" if secret else ""
+    return "***"
+
+
+def scrub_credentials_from_dict(data: dict[str, Any]) -> dict[str, Any]:
+    """
+    Recursively scrub credentials from a dictionary for safe output.
+
+    Masks:
+    - Proxy URLs with credentials
+    - SecretStr values
+    - Dict keys containing sensitive terms (password, secret, token, etc.)
+
+    Args:
+        data: Dictionary that may contain sensitive data
+
+    Returns:
+        New dictionary with credentials masked
+    """
+    from pydantic import SecretStr
+
+    scrubbed = {}
+    for key, value in data.items():
+        # Check if key indicates sensitive data
+        if any(
+            sensitive in key.lower()
+            for sensitive in ["password", "secret", "token", "api_key", "credential", "username"]
+        ):
+            if isinstance(value, SecretStr) or value is not None:
+                scrubbed[key] = "***"
+            else:
+                scrubbed[key] = None
+        # Check for proxy URL values
+        elif isinstance(value, str) and ("://" in value and "@" in value):
+            scrubbed[key] = mask_proxy_url(value)
+        # Handle SecretStr values
+        elif isinstance(value, SecretStr):
+            scrubbed[key] = "***"
+        # Recursively scrub nested dicts
+        elif isinstance(value, dict):
+            scrubbed[key] = scrub_credentials_from_dict(value)
+        # Recursively scrub lists
+        elif isinstance(value, list):
+            scrubbed[key] = [
+                scrub_credentials_from_dict(item)
+                if isinstance(item, dict)
+                else mask_proxy_url(item)
+                if isinstance(item, str) and ("://" in item and "@" in item)
+                else item
+                for item in value
+            ]
+        else:
+            scrubbed[key] = value
+
+    return scrubbed
 
 
 # ============================================================================
@@ -112,6 +217,103 @@ def _redact_url_credentials(url: str) -> str:
 
 
 PROXY_URL_PATTERN = re.compile(r"^(https?|socks4|socks5)://(?:([^:@]+):([^@]+)@)?([^:]+):(\d+)/?$")
+
+
+def validate_target_url_safe(url: str, allow_private: bool = False) -> None:
+    """Validate a target URL to prevent SSRF attacks (API-safe version).
+
+    This function validates URLs to prevent Server-Side Request Forgery (SSRF) attacks
+    by blocking access to:
+    - Localhost and loopback addresses (127.0.0.0/8, ::1)
+    - Private IP ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+    - Link-local addresses (169.254.0.0/16)
+    - Internal domain names (.local, .internal, .lan, .corp)
+
+    Args:
+        url: The URL to validate
+        allow_private: If True, allow private/internal IP addresses (default: False)
+
+    Raises:
+        ValueError: If the URL is invalid or potentially dangerous
+
+    Example:
+        >>> validate_target_url_safe("https://example.com")  # OK
+        >>> validate_target_url_safe("http://localhost:8080")  # Raises ValueError
+        >>> validate_target_url_safe("http://192.168.1.1")  # Raises ValueError
+        >>> validate_target_url_safe("http://192.168.1.1", allow_private=True)  # OK
+    """
+    # Parse the URL
+    try:
+        parsed = urlparse(url)
+    except Exception as e:
+        raise ValueError(f"Invalid URL format: {e}") from e
+
+    # Validate scheme (only http/https allowed for target URLs)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(
+            f"Invalid URL scheme '{parsed.scheme}'. Only http:// and https:// are allowed. "
+            f"Rejected schemes: file://, data://, gopher://, ftp://, etc."
+        )
+
+    # Validate hostname exists
+    if not parsed.hostname:
+        raise ValueError("URL must include a valid hostname")
+
+    # Check for localhost/private addresses (SSRF protection)
+    if not allow_private:
+        hostname_lower = parsed.hostname.lower()
+
+        # Block localhost variations
+        localhost_patterns = [
+            "localhost",
+            "127.",  # 127.0.0.1, etc.
+            "0.0.0.0",
+            "[::",  # IPv6 localhost variations
+            "::1",
+        ]
+
+        if any(hostname_lower.startswith(pattern) for pattern in localhost_patterns):
+            raise ValueError(
+                f"Access to localhost/loopback addresses is not allowed: {parsed.hostname}. "
+                f"This is blocked to prevent SSRF attacks."
+            )
+
+        # Block private IP ranges (RFC 1918)
+        private_ip_patterns = [
+            "10.",  # 10.0.0.0/8
+            "172.16.",
+            "172.17.",
+            "172.18.",
+            "172.19.",  # 172.16.0.0/12
+            "172.20.",
+            "172.21.",
+            "172.22.",
+            "172.23.",
+            "172.24.",
+            "172.25.",
+            "172.26.",
+            "172.27.",
+            "172.28.",
+            "172.29.",
+            "172.30.",
+            "172.31.",
+            "192.168.",  # 192.168.0.0/16
+            "169.254.",  # Link-local
+        ]
+
+        if any(hostname_lower.startswith(pattern) for pattern in private_ip_patterns):
+            raise ValueError(
+                f"Access to private IP addresses is not allowed: {parsed.hostname}. "
+                f"This is blocked to prevent SSRF attacks."
+            )
+
+        # Block internal domain names
+        internal_domains = [".local", ".internal", ".lan", ".corp"]
+        if any(hostname_lower.endswith(domain) for domain in internal_domains):
+            raise ValueError(
+                f"Access to internal domain names is not allowed: {parsed.hostname}. "
+                f"This is blocked to prevent SSRF attacks."
+            )
 
 
 def is_valid_proxy_url(url: str) -> bool:
@@ -194,7 +396,7 @@ def validate_proxy_model(proxy: Proxy) -> list[str]:
 # ============================================================================
 
 
-def encrypt_credentials(plaintext: str, key: Optional[str] = None) -> str:
+def encrypt_credentials(plaintext: str, key: str | None = None) -> str:
     """
     Encrypt credentials using Fernet symmetric encryption.
 
@@ -317,7 +519,7 @@ def proxy_to_dict(proxy: Proxy, include_stats: bool = True) -> dict[str, Any]:
 
 
 def create_proxy_from_url(
-    url: str, source: ProxySource = ProxySource.USER, tags: Optional[set[str]] = None
+    url: str, source: ProxySource = ProxySource.USER, tags: set[str] | None = None
 ) -> Proxy:
     """
     Create a Proxy instance from a URL string.
@@ -343,6 +545,52 @@ def create_proxy_from_url(
 
 
 # ============================================================================
+# FILE OPERATION UTILITIES
+# ============================================================================
+
+
+def atomic_write(path: Path, content: str, encoding: str = "utf-8") -> None:
+    """Write content atomically using temp file + rename.
+
+    This prevents partial writes and corruption if the process is
+    interrupted during the write operation.
+
+    Args:
+        path: Target file path
+        content: Content to write
+        encoding: File encoding (default: utf-8)
+
+    Raises:
+        OSError: If write or rename fails
+    """
+    import os
+    import uuid
+
+    temp_path = path.with_suffix(f".tmp.{uuid.uuid4().hex[:8]}")
+    try:
+        with open(temp_path, "w", encoding=encoding) as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())  # Ensure data is on disk
+        temp_path.replace(path)  # Atomic on POSIX
+    except Exception:
+        temp_path.unlink(missing_ok=True)
+        raise
+
+
+def atomic_write_json(path: Path, data: Any, **json_kwargs: Any) -> None:
+    """Write JSON data atomically.
+
+    Args:
+        path: Target file path
+        data: Data to serialize as JSON
+        **json_kwargs: Arguments to pass to json.dumps()
+    """
+    content = json.dumps(data, **json_kwargs)
+    atomic_write(path, content)
+
+
+# ============================================================================
 # CLI UTILITIES
 # ============================================================================
 
@@ -362,7 +610,7 @@ class CLILock:
         self.lock = FileLock(self.lock_path, timeout=0)
         self._lock_data_path = config_dir / ".proxywhirl.lock.json"
 
-    def __enter__(self) -> "CLILock":
+    def __enter__(self) -> CLILock:
         """Acquire lock or raise Typer exit."""
         import os
         import sys

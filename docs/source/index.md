@@ -21,14 +21,14 @@ title: ProxyWhirl Docs
 ::: {grid-item}
 ```{card} Intelligent rotation
 :class-card: sd-shadow-lg
-Add round-robin, random, weighted, and least-used strategies without re-architecting your stack.
+Choose from 8 strategies: round-robin, random, weighted, least-used, performance-based, session-persistence, geo-targeted, and composite.
 ```
 :::
 
 ::: {grid-item}
 ```{card} Runtime observability
 :class-card: sd-shadow-lg
-Health metrics, EMA latency, and proxy/session lifecycle analytics ship out-of-the-box.
+Health metrics, EMA latency, circuit breakers, multi-tier caching, and proxy lifecycle analytics out-of-the-box.
 ```
 :::
 

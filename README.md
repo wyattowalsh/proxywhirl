@@ -1,1234 +1,731 @@
-# ProxyWhirl 🌀
+<!--
+  ██████╗ ██████╗  ██████╗ ██╗  ██╗██╗   ██╗██╗    ██╗██╗  ██╗██╗██████╗ ██╗
+  ██╔══██╗██╔══██╗██╔═══██╗╚██╗██╔╝╚██╗ ██╔╝██║    ██║██║  ██║██║██╔══██╗██║
+  ██████╔╝██████╔╝██║   ██║ ╚███╔╝  ╚████╔╝ ██║ █╗ ██║███████║██║██████╔╝██║
+  ██╔═══╝ ██╔══██╗██║   ██║ ██╔██╗   ╚██╔╝  ██║███╗██║██╔══██║██║██╔══██╗██║
+  ██║     ██║  ██║╚██████╔╝██╔╝ ██╗   ██║   ╚███╔███╔╝██║  ██║██║██║  ██║███████╗
+  ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝    ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝╚═╝  ╚═╝╚══════╝
+-->
 
-**Advanced Python Proxy Rotation Library**
+<div align="center">
 
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+<!-- Animated main visualization -->
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/whirl.svg">
+  <source media="(prefers-color-scheme: light)" srcset="docs/assets/whirl.svg">
+  <img src="docs/assets/whirl.svg" alt="ProxyWhirl - Intelligent Proxy Rotation" width="800"/>
+</picture>
 
-ProxyWhirl is a production-ready Python library for intelligent proxy rotation with multiple strategies, authentication support, and runtime pool management.
+<br/>
 
-## ✨ Features
+<!-- Status badges with custom colors -->
+[![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-00d4ff?style=for-the-badge&logo=python&logoColor=white&labelColor=0d1117)](https://python.org)
+[![License](https://img.shields.io/badge/license-MIT-a855f7?style=for-the-badge&labelColor=0d1117)](LICENSE)
+[![Tests](https://img.shields.io/badge/tests-1622_passing-22c55e?style=for-the-badge&labelColor=0d1117)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-26%25-f97316?style=for-the-badge&labelColor=0d1117)](logs/htmlcov/)
+[![CI](https://github.com/wyattowalsh/proxywhirl/actions/workflows/ci.yml/badge.svg)](https://github.com/wyattowalsh/proxywhirl/actions/workflows/ci.yml)
 
-### Core Features (v0.1.0)
+<!-- Animated stats dashboard -->
+<img src="docs/assets/stats-animated.svg" alt="Project Stats" width="800"/>
 
-- 🔄 **Smart Rotation**: Round-robin, random, weighted, and least-used strategies
-- 🔐 **Authentication**: Built-in credential handling for authenticated proxies
-- 🎯 **Runtime Management**: Add/remove proxies without restarting
-- 📊 **Pool Statistics**: Track health, success rates, and performance metrics
-- 🌐 **Built-in Proxy Sources**: 16+ pre-configured free proxy APIs and lists
-- 📡 **Auto-Fetch**: Fetch proxies from JSON, CSV, plain text, and HTML sources
-- ⚡ **High Performance**: <50ms overhead, tested with concurrent requests
-- 🛡️ **Resilient**: Automatic failover with retry logic using tenacity
-- 🔒 **Secure**: Credential protection with SecretStr, never logged
-- 🧪 **Well-Tested**: 357 tests passing, 88% code coverage
-- 📦 **Type-Safe**: Full type hints with py.typed marker
-- 🔧 **Production-Ready**: Context manager support, structured logging
+<br/>
 
-### Validation & Storage (v0.2.0)
+<!-- Quick navigation -->
+**[Quick Start](#-quick-start)** · **[Features](#-features)** · **[Strategies](#-seven-strategies)** · **[Use Cases](#-use-cases)** · **[Docs](docs/)**
 
-- ✅ **Multi-Level Validation**: BASIC (connectivity), STANDARD (HTTP), FULL (anonymity)
-- ✅ **Anonymity Detection**: Detect transparent/anonymous/elite proxies
-- ✅ **Batch Validation**: Parallel validation with concurrency control (100+ proxies/sec)
-- ✅ **File Storage**: JSON persistence with atomic writes and encryption
-- ✅ **SQLite Storage**: Async backend with advanced querying and indexing
-- ✅ **Query Support**: Filter by source, health status, protocol
-- ✅ **Encryption**: Fernet-based credential encryption at rest
-- ✅ **Health Monitoring**: Continuous background health checks with auto-eviction
-- ✅ **TTL Expiration**: Automatic proxy expiration based on time-to-live
-- ✅ **Browser Rendering**: JavaScript-heavy sites support via Playwright (optional)
+</div>
+
+---
+
+<img src="docs/assets/divider-animated.svg" alt="" width="100%"/>
+
+## The Problem
+
+```diff
+- Your proxies are dead
+- Your requests are blocked
+- Your IP is burned
+- You're drowning in 403s and 429s
+```
+
+## The Solution
+
+<div align="center">
+<img src="docs/assets/comparison.svg" alt="Before vs After ProxyWhirl" width="800"/>
+</div>
+
+---
+
+## 🚀 How It Works
+
+<div align="center">
+<img src="docs/assets/how-it-works.svg" alt="How ProxyWhirl Works" width="800"/>
+</div>
+
+---
+
+## Prerequisites
+
+- **Python:** 3.9 or higher
+- **For browser rendering (`[js]` extras):**
+  ```bash
+  playwright install chromium  # Downloads ~100MB
+  ```
+
+> [!NOTE]
+> Browser rendering features require Playwright browser binaries.
+
+---
+
+## ⚡ Quick Start
+
+```bash
+pip install proxywhirl
+```
+
+```python
+from proxywhirl import ProxyRotator
+
+# Synchronous API
+rotator = ProxyRotator(proxies=["http://p1:8080", "http://p2:8080"])
+response = rotator.get("https://httpbin.org/ip")
+print(response.json())  # {"origin": "185.x.x.47"}
+```
+
+**That's it.** Dead proxies get ejected. Slow ones deprioritized. Fast ones get more traffic.
+
+> [!IMPORTANT]
+> Use responsibly. Respect `robots.txt`, rate limits, and website Terms of Service.
+
+> [!TIP]
+> Use `strategy="performance-based"` to automatically route traffic to your fastest proxies.
+
+---
 
 ## 📦 Installation
 
-```bash
-# Basic installation
-pip install proxywhirl
+| Package | What You Get |
+|:--------|:-------------|
+| `pip install proxywhirl` | Core rotation engine |
+| `pip install "proxywhirl[storage,security]"` | + SQLite persistence, Fernet encryption |
+| `pip install "proxywhirl[js]"` | + Playwright browser rendering |
+| `pip install "proxywhirl[all]"` | Everything |
 
-# With validation and storage support (Phase 2)
-pip install "proxywhirl[storage]"
+---
 
-# With browser rendering support (Phase 2.5, requires Playwright)
-pip install "proxywhirl[js]"
-playwright install chromium
+## ✨ Features
 
-# All features
-pip install "proxywhirl[storage,js]"
-playwright install chromium
+<div align="center">
+<img src="docs/assets/features-grid.svg" alt="Features Overview" width="800"/>
+</div>
 
-# Development installation with uv (faster)
-uv pip install proxywhirl
+---
 
-# Or clone and install from source
-git clone https://github.com/wyattowalsh/proxywhirl.git
-cd proxywhirl
-uv sync
-```
+## 🌐 Protocol Support
 
-**Phase 2 Dependencies** (included with `[storage]` extra):
+<div align="center">
+<img src="docs/assets/protocols.svg" alt="Supported Protocols" width="800"/>
+</div>
 
-- `cryptography` - File encryption support
-- `sqlmodel` - SQLite ORM with Pydantic integration
-- `aiosqlite` - Async SQLite operations
-- `greenlet` - SQLAlchemy async compatibility
+---
 
-**Browser Rendering** (included with `[js]` extra):
+## 🎯 Nine Strategies
 
-- `playwright` - Browser automation for JavaScript rendering
+<div align="center">
+<img src="docs/assets/benchmarks.svg" alt="Strategy Benchmarks" width="800"/>
+</div>
 
-## 📍 Current Status
+<table>
+<tr>
+<td width="50%">
 
-### ✅ Fully Implemented
-- **Core Rotation** - All rotation strategies (round-robin, random, weighted, least-used, performance-based, session persistence, geo-targeted)
-- **Authentication** - Full credential support with SecretStr protection
-- **Proxy Fetching** - 16+ pre-configured sources with auto-fetch
-- **Validation** - Multi-level validation (BASIC, STANDARD, FULL) with anonymity detection
-- **Storage** - File (JSON) and SQLite backends with encryption
-- **Health Monitoring** - Continuous background checks with auto-eviction
-- **TTL Expiration** - Automatic proxy expiration based on time-to-live
-- **Browser Rendering** - JavaScript execution via Playwright for JS-heavy sites
-- **Retry & Failover** - Circuit breaker pattern with intelligent retry logic
-- **REST API** - Full FastAPI server with Docker support
-- **CLI** - Complete command-line interface with rich output
+| Strategy | Behavior |
+|:---------|:---------|
+| `round-robin` | A → B → C → A → ... |
+| `random` | Shuffle each request |
+| `weighted` | Winners get more traffic |
+| `least-used` | Even distribution |
+| `cost-aware` | Prioritize free/cheap proxies |
 
-### 🚧 Coming Soon
-- **Analytics Engine** - Advanced analytics, performance scoring, and usage patterns
-- **Export Manager** - Data export in multiple formats (CSV, JSON, Excel, Parquet)
-- **Predictive Analytics** - ML-based proxy performance prediction
-- **Metrics Dashboard** - Prometheus metrics and Grafana dashboards
-- **Async API** - Full async client implementation
-- **Connection Pooling** - Per-proxy connection pooling for better performance
+</td>
+<td width="50%">
 
-### 📊 Test Coverage
-- **357 tests** passing across 93 test files
-- **88% code coverage** (excluding CLI and API modules)
-- **Full type coverage** with mypy strict mode
+| Strategy | Behavior |
+|:---------|:---------|
+| `performance-based` | Fastest proxies first |
+| `session-persistence` | Sticky sessions |
+| `geo-targeted` | Route by region |
+| `composite` | Filter + select chains |
 
-## 🚀 Quick Start
-
-### Basic Usage
+</td>
+</tr>
+</table>
 
 ```python
-from proxywhirl import ProxyRotator, Proxy
-
-# Initialize with a list of proxy URLs
-with ProxyRotator(proxies=[
-    "http://proxy1.example.com:8080",
-    "http://proxy2.example.com:8080",
-]) as rotator:
-    response = rotator.get("https://httpbin.org/ip")
-    print(response.json())
+# Hot-swap strategies at runtime (< 100ms)
+rotator = ProxyRotator(proxies=my_proxies, strategy="weighted")
+rotator.set_strategy("geo-targeted")
 ```
 
-### Authenticated Proxies
-
-```python
-from proxywhirl import ProxyRotator, Proxy
-from pydantic import SecretStr
-
-# Create proxies with authentication
-proxies = [
-    Proxy(
-        url="http://proxy1.example.com:8080",
-        username="user1",
-        password=SecretStr("pass1")
-    ),
-    Proxy(
-        url="http://proxy2.example.com:8080",
-        username="user2",
-        password=SecretStr("pass2")
-    ),
-]
-
-with ProxyRotator(proxies=proxies) as rotator:
-    response = rotator.get("https://api.example.com")
-```
-
-### Custom Rotation Strategy
-
-```python
-from proxywhirl import ProxyRotator, Proxy
-
-# Use string-based strategy configuration
-rotator = ProxyRotator(
-    proxies=[
-        Proxy(url="http://proxy1.com:8080"),
-        Proxy(url="http://proxy2.com:8080")
-    ],
-    strategy="weighted"  # or "random", "least-used", "round-robin"
-)
-
-# Make requests
-response = rotator.get("https://example.com")
-```
-
-### Runtime Pool Management
-
-```python
-from proxywhirl import ProxyRotator
-
-rotator = ProxyRotator()
-
-# Add proxies at runtime
-rotator.add_proxy("http://proxy1.example.com:8080")
-rotator.add_proxy("http://proxy2.example.com:8080")
-
-# Get pool statistics
-stats = rotator.get_pool_stats()
-print(f"Total proxies: {stats['total_proxies']}")
-print(f"Healthy: {stats['healthy_proxies']}")
-print(f"Success rate: {stats['average_success_rate']:.2%}")
-
-# Remove unhealthy proxies
-removed = rotator.clear_unhealthy_proxies()
-print(f"Removed {removed} unhealthy proxies")
-```
-
-### Auto-Fetch from Built-in Sources
-
-ProxyWhirl includes 16+ pre-configured proxy sources for easy bootstrapping:
-
-```python
-from proxywhirl import ProxyRotator, ProxyFetcher, Proxy
-from proxywhirl import RECOMMENDED_SOURCES, ALL_HTTP_SOURCES
-from proxywhirl.models import ProxySource
-import asyncio
-
-async def main():
-    # Fetch from recommended sources (fast, reliable)
-    fetcher = ProxyFetcher(sources=RECOMMENDED_SOURCES)
-    proxy_dicts = await fetcher.fetch_all(validate=True)
-    
-    # Create rotator with fetched proxies
-    rotator = ProxyRotator()
-    for proxy_dict in proxy_dicts:
-        proxy = Proxy(
-            url=proxy_dict["url"],
-            source=ProxySource.FETCHED  # Tag as fetched
-        )
-        rotator.add_proxy(proxy)
-    
-    # Mix with your own proxies
-    rotator.add_proxy(Proxy(
-        url="http://my-premium-proxy.com:8080",
-        source=ProxySource.USER,  # Tag as user-provided
-        username="myuser",
-        password="mypass"
-    ))
-    
-    # Get source breakdown
-    stats = rotator.get_statistics()
-    print(f"User proxies: {stats['source_breakdown']['USER']}")
-    print(f"Fetched proxies: {stats['source_breakdown']['FETCHED']}")
-    
-    # Use rotator
-    response = rotator.get("https://httpbin.org/ip")
-    print(response.json())
-
-asyncio.run(main())
-```
-
-### Proxy Validation (Phase 2)
-
-Validate proxies before using them with configurable validation levels:
-
-```python
-from proxywhirl.models import Proxy, ValidationLevel
-from proxywhirl.fetchers import ProxyValidator
-import asyncio
-
-async def main():
-    proxies = [
-        Proxy(url="http://proxy1.example.com:8080"),
-        Proxy(url="http://proxy2.example.com:8080"),
-        Proxy(url="http://proxy3.example.com:8080"),
-    ]
-    
-    # BASIC: Quick connectivity check (~100ms)
-    validator = ProxyValidator(level=ValidationLevel.BASIC)
-    validated = await validator.validate_batch(proxies)
-    
-    # STANDARD: TCP + HTTP validation (~500ms)
-    validator = ProxyValidator(level=ValidationLevel.STANDARD)
-    validated = await validator.validate_batch(proxies)
-    
-    # FULL: TCP + HTTP + anonymity detection (~1s)
-    validator = ProxyValidator(level=ValidationLevel.FULL)
-    validated = await validator.validate_batch(proxies, max_concurrent=5)
-    
-    # Filter healthy proxies
-    healthy = [p for p in validated if p.health_status == "healthy"]
-    print(f"{len(healthy)}/{len(proxies)} proxies are healthy")
-    
-    # Check anonymity level
-    for proxy in validated:
-        if proxy.anonymity_level:
-            print(f"{proxy.url}: {proxy.anonymity_level}")
-
-asyncio.run(main())
-```
-
-### File Storage with Encryption (Phase 2)
-
-Persist proxies to disk with optional credential encryption:
-
-```python
-from proxywhirl.storage import FileStorage
-from proxywhirl.models import Proxy
-from cryptography.fernet import Fernet
-import asyncio
-
-async def main():
-    # Generate encryption key (save this securely!)
-    key = Fernet.generate_key()
-    
-    # Create storage with encryption
-    storage = FileStorage("proxies.json", encryption_key=key)
-    
-    # Proxies with credentials
-    proxies = [
-        Proxy(url="http://proxy.com:8080", username="user", password="secret123"),
-    ]
-    
-    # Save - credentials encrypted at rest
-    await storage.save(proxies)
-    
-    # Load - automatic decryption
-    loaded = await storage.load()
-    print(loaded[0].username.get_secret_value())  # "user"
-
-asyncio.run(main())
-```
-
-### SQLite Storage (Phase 2)
-
-High-performance SQLite backend with advanced querying:
-
-```python
-from proxywhirl.storage import SQLiteStorage
-from proxywhirl.models import Proxy
-import asyncio
-
-async def main():
-    storage = SQLiteStorage("proxies.db")
-    await storage.initialize()
-    
-    # Save proxies
-    proxies = [
-        Proxy(url="http://proxy1.com:8080", source="user"),
-        Proxy(url="http://proxy2.com:8080", source="fetched"),
-    ]
-    await storage.save(proxies)
-    
-    # Query by source
-    user_proxies = await storage.query(source="user")
-    print(f"Found {len(user_proxies)} user proxies")
-    
-    # Query by health status
-    healthy = await storage.query(health_status="healthy")
-    
-    # Load all proxies
-    all_proxies = await storage.load()
-    
-    # Delete specific proxy
-    await storage.delete("http://proxy1.com:8080")
-    
-    await storage.close()
-
-asyncio.run(main())
-```
-
-### Health Monitoring (Phase 2.4)
-
-Continuous background health monitoring with automatic eviction:
-
-```python
-import asyncio
-from proxywhirl.models import HealthMonitor, Proxy, ProxyPool
-
-async def main():
-    # Create pool with proxies
-    pool = ProxyPool(name="monitored_pool")
-    pool.add_proxy(Proxy(url="http://proxy1.com:8080"))
-    pool.add_proxy(Proxy(url="http://proxy2.com:8080"))
-    
-    # Create monitor with custom settings
-    monitor = HealthMonitor(
-        pool=pool,
-        check_interval=30,  # Check every 30 seconds
-        failure_threshold=5  # Evict after 5 consecutive failures
-    )
-    
-    # Start background monitoring
-    await monitor.start()
-    
-    # Use pool normally - dead proxies are evicted automatically
-    # ... your application code ...
-    
-    # Check monitoring status
-    status = monitor.get_status()
-    print(f"Running: {status['is_running']}")
-    print(f"Healthy proxies: {status['healthy_proxies']}/{status['total_proxies']}")
-    print(f"Uptime: {status['uptime_seconds']}s")
-    
-    # Stop monitoring
-    await monitor.stop()
-
-asyncio.run(main())
-```
-
-### TTL Expiration (Phase 2.6)
-
-Automatic proxy expiration based on time-to-live:
-
-```python
-from proxywhirl.models import Proxy, ProxyPool
-from datetime import datetime, timedelta, timezone
-
-# Proxy with 1-hour TTL
-proxy1 = Proxy(url="http://proxy.com:8080", ttl=3600)
-
-# Proxy with explicit expiration
-tomorrow = datetime.now(timezone.utc) + timedelta(days=1)
-proxy2 = Proxy(url="http://proxy2.com:8080", expires_at=tomorrow)
-
-# Permanent proxy (no TTL)
-proxy3 = Proxy(url="http://permanent.com:8080")
-
-# Pool automatically filters expired proxies
-pool = ProxyPool(name="ttl_pool")
-pool.add_proxy(proxy1)
-pool.add_proxy(proxy2)
-pool.add_proxy(proxy3)
-
-# Check expiration
-if proxy1.is_expired:
-    print("Proxy expired!")
-
-# Clean up expired proxies
-removed = pool.clear_expired()
-print(f"Removed {removed} expired proxies")
-```
-
-### Health Monitoring (Phase 2.4)
-
-Continuous background health checks with automatic eviction of failing proxies:
-
-```python
-from proxywhirl.models import HealthMonitor, ProxyPool, Proxy
-import asyncio
-
-async def main():
-    # Create pool with proxies
-    pool = ProxyPool(name="monitored_pool")
-    pool.add_proxy(Proxy(url="http://proxy1.example.com:8080"))
-    pool.add_proxy(Proxy(url="http://proxy2.example.com:8080"))
-    
-    # Start health monitoring
-    monitor = HealthMonitor(
-        pool=pool,
-        check_interval=60,      # Check every 60 seconds
-        failure_threshold=3     # Evict after 3 consecutive failures
-    )
-    
-    await monitor.start()       # Runs in background
-    
-    # Your application runs here...
-    # Monitor automatically evicts unhealthy proxies
-    
-    await monitor.stop()        # Clean shutdown
-
-asyncio.run(main())
-```
-
-### Browser Rendering (Phase 2.5)
-
-Fetch proxies from JavaScript-heavy websites that require browser execution:
-
-```python
-from proxywhirl.browser import BrowserRenderer
-import asyncio
-
-async def main():
-    # Option 1: Use BrowserRenderer with default settings
-    async with BrowserRenderer() as renderer:
-        html = await renderer.render("https://js-heavy-site.com/proxies")
-        # Parse HTML manually
-
-    # Option 2: Custom browser configuration
-    async with BrowserRenderer(
-        headless=True,
-        browser_type="chromium",
-        timeout=30000,  # milliseconds
-        wait_until="networkidle"  # or "load", "domcontentloaded"
-    ) as renderer:
-        html = await renderer.render("https://example.com/proxies")
-
-    # Option 3: Wait for specific selector
-    async with BrowserRenderer() as renderer:
-        html = await renderer.render(
-            "https://example.com/proxies",
-            wait_for_selector=".proxy-list",  # Wait for this element
-            wait_for_timeout=2000  # Additional 2-second wait
-        )
-
-asyncio.run(main())
-```
-
-**Installation for browser rendering:**
-```bash
-pip install "proxywhirl[js]"
-playwright install chromium
-```
-
-**Available Source Collections:**
-
-- `RECOMMENDED_SOURCES` - Best quality/speed (4 sources)
-- `ALL_HTTP_SOURCES` - All HTTP/HTTPS proxies (6 sources)
-- `ALL_SOCKS4_SOURCES` - All SOCKS4 proxies (4 sources)
-- `ALL_SOCKS5_SOURCES` - All SOCKS5 proxies (5 sources)
-- `ALL_SOURCES` - Everything (15 sources)
-- `API_SOURCES` - API-based sources only (6 sources)
-
-**Individual Sources:**
-
-```python
-from proxywhirl import (
-    FREE_PROXY_LIST,
-    PROXY_SCRAPE_HTTP,
-    GEONODE_HTTP,
-    GITHUB_MONOSANS_HTTP,
-    # ... and 12 more
-)
-```
-
-See `proxywhirl/sources.py` for the complete list.
-
-## 📚 Documentation
-
-See [specs/001-core-python-package/](specs/001-core-python-package/) for complete documentation:
-
-- **[Quickstart Guide](specs/001-core-python-package/quickstart.md)**: Get started in 5 minutes
-- **[Feature Spec](specs/001-core-python-package/spec.md)**: Full requirements and user stories
-- **[Data Model](specs/001-core-python-package/data-model.md)**: Entity definitions
-- **[API Contracts](specs/001-core-python-package/contracts/)**: Detailed API reference
-- **[Research](specs/001-core-python-package/research.md)**: Technical decisions and optimizations
-- **[Implementation Plan](specs/001-core-python-package/plan.md)**: Development roadmap
-
-## 🎯 Intelligent Rotation Strategies (v0.2.0)
-
-ProxyWhirl supports 7 advanced rotation strategies with comprehensive metadata tracking, performance monitoring, and intelligent selection. All strategies support health checking, failover, and can be hot-swapped at runtime.
-
-### Available Strategies
-
-#### 1. Round-Robin Strategy
-**Use Case**: Fair distribution, predictable rotation  
-**Performance**: ~3μs per selection  
-**Features**: Perfect distribution (±1 request variance), automatic health filtering
-
-```python
-from proxywhirl import ProxyRotator
-
-rotator = ProxyRotator(proxies=proxies, strategy="round-robin")
-# Sequential: proxy0 → proxy1 → proxy2 → proxy0 → ...
-```
-
-#### 2. Random Strategy
-**Use Case**: Unpredictable patterns, load testing  
-**Performance**: ~7μs per selection  
-**Features**: Uniform distribution (~20% variance over 1000 requests)
-
-```python
-rotator = ProxyRotator(proxies=proxies, strategy="random")
-# Random selection from healthy proxies
-```
-
-#### 3. Weighted Strategy
-**Use Case**: Prefer high-performing proxies  
-**Performance**: ~9μs per selection  
-**Features**: Success-rate based weights, automatic adjustment
-
-```python
-from proxywhirl.strategies import WeightedStrategy, StrategyConfig
-
-config = StrategyConfig(
-    weights={"proxy1": 0.5, "proxy2": 0.3, "proxy3": 0.2}
-)
-rotator = ProxyRotator(proxies=proxies, strategy=WeightedStrategy(config=config))
-# Higher success rate = higher selection probability
-```
-
-#### 4. Least-Used Strategy
-**Use Case**: Perfect load balancing  
-**Performance**: ~3μs per selection  
-**Features**: Tracks request counts, evens out load automatically
-
-```python
-rotator = ProxyRotator(proxies=proxies, strategy="least-used")
-# Always selects proxy with fewest completed requests
-```
-
-#### 5. Performance-Based Strategy
-**Use Case**: Minimize latency, optimize response times  
-**Performance**: ~5μs per selection  
-**Features**: EMA tracking, 15-25% faster than round-robin
-
-```python
-from proxywhirl.strategies import PerformanceBasedStrategy, StrategyConfig
-
-config = StrategyConfig(ema_alpha=0.2)  # Smoothing factor
-rotator = ProxyRotator(
-    proxies=proxies, 
-    strategy=PerformanceBasedStrategy(config=config)
-)
-# Prefers proxies with lower response times
-```
-
-#### 6. Session Persistence Strategy
-**Use Case**: Maintain same proxy for related requests (cookies, sessions)  
-**Performance**: ~3μs per selection  
-**Features**: 99.9% same-proxy guarantee, automatic failover, configurable TTL
-
-```python
-from proxywhirl.strategies import SessionPersistenceStrategy, SelectionContext
-from proxywhirl import ProxyRotator
-
-rotator = ProxyRotator(proxies=proxies, strategy=SessionPersistenceStrategy())
-
-# Create session
-context = SelectionContext(session_id="user-123")
-response1 = rotator.get("https://example.com", context=context)
-response2 = rotator.get("https://example.com/page2", context=context)
-# Both requests use the same proxy
-```
-
-#### 7. Geo-Targeted Strategy
-**Use Case**: Region-specific content access  
-**Performance**: ~5μs per selection  
-**Features**: Country/region filtering, automatic fallback
-
-```python
-from proxywhirl.strategies import GeoTargetedStrategy, SelectionContext
-from proxywhirl.models import Proxy
-
-# Create proxies with geo-location data
-proxies = [
-    Proxy(url="http://us-proxy.com:8080", country_code="US", region="California"),
-    Proxy(url="http://uk-proxy.com:8080", country_code="GB", region="London"),
-    Proxy(url="http://jp-proxy.com:8080", country_code="JP", region="Tokyo"),
-]
-
-rotator = ProxyRotator(proxies=proxies, strategy=GeoTargetedStrategy())
-
-# Target specific country
-context = SelectionContext(target_country="US")
-response = rotator.get("https://us-only-content.com", context=context)
-
-# Target specific region
-context = SelectionContext(target_country="GB", target_region="London")
-response = rotator.get("https://uk-content.com", context=context)
-```
-
-### Advanced Features
-
-#### Strategy Composition
-Combine multiple strategies for complex selection logic:
-
-```python
-from proxywhirl.strategies import CompositeStrategy, GeoTargetedStrategy, PerformanceBasedStrategy
-
-# First filter by geo-location, then select best performer
-strategy = CompositeStrategy(strategies=[
-    GeoTargetedStrategy(),
-    PerformanceBasedStrategy()
-])
-
-rotator = ProxyRotator(proxies=proxies, strategy=strategy)
-```
-
-#### Hot-Swapping Strategies
-Switch strategies at runtime without dropping requests:
-
-```python
-from proxywhirl.strategies import RoundRobinStrategy, PerformanceBasedStrategy
-
-rotator = ProxyRotator(proxies=proxies, strategy="round-robin")
-
-# Make some requests...
-for _ in range(100):
-    rotator.get("https://example.com")
-
-# Switch to performance-based for remaining requests
-rotator.set_strategy(PerformanceBasedStrategy())
-# < 100ms transition, no dropped requests
-```
-
-#### Custom Strategy Plugin
-Create your own rotation strategy:
+<details>
+<summary><kbd>💡 Custom Strategy Example</kbd></summary>
 
 ```python
 from proxywhirl.strategies import RotationStrategy, StrategyRegistry
-from proxywhirl.models import Proxy, ProxyPool, SelectionContext
-from typing import Optional
 
-class MyCustomStrategy(RotationStrategy):
-    """Custom strategy implementation."""
-    
-    def select(self, pool: ProxyPool, context: Optional[SelectionContext] = None) -> Proxy:
-        # Your selection logic here
-        healthy_proxies = pool.get_healthy_proxies()
-        return healthy_proxies[0]  # Example: always select first
-    
-    def record_result(self, proxy: Proxy, success: bool, response_time_ms: Optional[float] = None) -> None:
-        # Track results for adaptive behavior
-        if success:
-            proxy.complete_request(success=True, response_time_ms=response_time_ms)
+class AlwaysFastest(RotationStrategy):
+    """Always pick the proxy with lowest latency."""
 
-# Register and use
-StrategyRegistry.register("my-custom", MyCustomStrategy)
-rotator = ProxyRotator(proxies=proxies, strategy="my-custom")
+    def select(self, pool, context=None):
+        healthy = pool.get_healthy_proxies()
+        return min(healthy, key=lambda p: p.avg_response_time)
+
+StrategyRegistry.register("always-fastest", AlwaysFastest)
+rotator = ProxyRotator(strategy="always-fastest")
 ```
 
-### Performance Comparison
+</details>
 
-All strategies tested with 10,000 concurrent selections:
+---
 
-| Strategy | Selection Time | Use Case | Distribution |
-|----------|---------------|----------|--------------|
-| Round-Robin | 2.8-5.6μs | Fair rotation | Perfect (±1 request) |
-| Random | 6.7-14μs | Unpredictable | Uniform (~20% variance) |
-| Weighted | 8.5-15μs | Prefer best | Success-rate weighted |
-| Least-Used | 2.8-17μs | Load balance | Perfect (±1 request) |
-| Performance-Based | 4.5-26μs | Minimize latency | EMA-weighted |
-| Session Persistence | 3.2-12μs | Sticky sessions | 99.9% same-proxy |
-| Geo-Targeted | 5.1-18μs | Region-specific | 100% correct region |
+## Comparison
 
-**All strategies exceed performance targets**: <5ms overhead (5000μs target vs 2.8-26μs actual = 192-1785x faster)
+| Feature | ProxyWhirl | httpx | requests | scrapy |
+|:--------|:----------:|:-----:|:--------:|:------:|
+| Proxy Rotation | 9 strategies | Manual | Manual | Basic |
+| Auto-Fetch | 73 sources | No | No | No |
+| Health Monitoring | Auto-eject | No | No | Middleware |
+| Persistence | SQLite + encryption | No | No | Custom |
+| Async Support | Native | Native | No | Twisted |
+| Browser Rendering | Playwright | No | No | Splash |
 
-### Metadata Tracking
+---
 
-All strategies automatically track comprehensive proxy metadata:
+## 💼 Use Cases
+
+<div align="center">
+<img src="docs/assets/use-cases.svg" alt="Use Cases" width="800"/>
+</div>
+
+---
+
+## 🎣 Auto-Fetch Proxies
+
+**73 sources** · **100+/sec validation** · **Zero config**
+
+```python
+from proxywhirl import ProxyFetcher, RECOMMENDED_SOURCES
+
+fetcher = ProxyFetcher(sources=RECOMMENDED_SOURCES)
+proxies = await fetcher.fetch_all(validate=True)
+# → 312 healthy proxies ready to use
+```
+
+> [!NOTE]
+> Validation runs in parallel with configurable concurrency. Set `max_concurrent=50` for aggressive fetching.
+
+<details>
+<summary><kbd>📋 Available Source Groups</kbd></summary>
+
+| Group | Description | Count |
+|:------|:------------|:-----:|
+| `RECOMMENDED_SOURCES` | Curated, reliable sources | 5 |
+| `ALL_HTTP_SOURCES` | All HTTP/HTTPS proxy sources | 35 |
+| `ALL_SOCKS4_SOURCES` | SOCKS4 proxy sources | 17 |
+| `ALL_SOCKS5_SOURCES` | SOCKS5 proxy sources | 21 |
+| `API_SOURCES` | API-based premium providers | 6 |
+
+</details>
+
+---
+
+## 🏥 Self-Healing Pool
+
+```python
+from proxywhirl.models import HealthMonitor
+
+monitor = HealthMonitor(
+    pool=rotator.pool,
+    check_interval=60,    # Check every 60s
+    failure_threshold=3   # 3 strikes → ejected
+)
+await monitor.start()
+```
+
+```mermaid
+stateDiagram-v2
+    [*] --> Healthy: Add Proxy
+    Healthy --> Warning: 1-2 Failures
+    Warning --> Healthy: Success
+    Warning --> Ejected: 3rd Failure
+    Ejected --> Recovering: Health Check Pass
+    Recovering --> Healthy: Consistent Success
+    Recovering --> Ejected: Failure
+```
+
+| Feature | Description |
+|:--------|:------------|
+| **Auto-ejection** | Dead proxies removed instantly |
+| **Health scoring** | Latency + success rate tracking |
+| **Auto-recovery** | Ejected proxies rejoin when healthy |
+| **Circuit breaker** | Prevents cascade failures |
+
+---
+
+## 🏗️ Architecture
+
+<div align="center">
+<img src="docs/assets/architecture.svg" alt="Architecture Diagram" width="800"/>
+</div>
+
+<details>
+<summary><kbd>📊 Sequence Diagram</kbd></summary>
+
+```mermaid
+sequenceDiagram
+    participant App as Your App
+    participant PR as ProxyRotator
+    participant Pool as Proxy Pool
+    participant Strategy as Strategy
+    participant Target as Target Server
+
+    App->>PR: request(url)
+    PR->>Pool: get_healthy_proxies()
+    Pool-->>PR: [proxy1, proxy2, ...]
+    PR->>Strategy: select(proxies)
+    Strategy-->>PR: best_proxy
+    PR->>Target: GET url via proxy
+    Target-->>PR: 200 OK
+    PR->>Pool: record_success(proxy)
+    PR-->>App: Response
+```
+
+</details>
+
+---
+
+## 🖥️ Interfaces
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### REST API
+
+```bash
+docker-compose up -d
+```
+
+```bash
+curl -X POST localhost:8000/api/v1/request \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://httpbin.org/ip"}'
+```
+
+**Endpoints:**
+| Method | Path | Description |
+|:-------|:-----|:------------|
+| `POST` | `/api/v1/request` | Proxied request |
+| `GET` | `/api/v1/pool` | List all proxies |
+| `GET` | `/api/v1/health` | Pool health stats |
+| `POST` | `/api/v1/pool/add` | Add proxy |
+| `DELETE` | `/api/v1/pool/{id}` | Remove proxy |
+
+</td>
+<td width="50%" valign="top">
+
+### CLI
+
+```bash
+# Make requests
+proxywhirl request https://httpbin.org/get
+
+# Manage pool
+proxywhirl pool list
+proxywhirl pool add http://proxy:8080
+proxywhirl pool remove http://proxy:8080
+
+# Monitor health
+proxywhirl health --continuous
+
+# Fetch proxies
+proxywhirl fetch --sources recommended
+```
+
+**Commands:**
+| Command | Description |
+|:--------|:------------|
+| `request` | Make proxied HTTP request |
+| `pool` | Manage proxy pool |
+| `health` | Monitor pool health |
+| `fetch` | Fetch from sources |
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🤖 MCP Server
+
+ProxyWhirl provides an MCP (Model Context Protocol) server for AI assistants to manage proxies programmatically.
+
+```bash
+# Install with MCP support (Python 3.10+ required)
+pip install "proxywhirl[mcp]"
+
+# Run the MCP server
+python -m proxywhirl.mcp.server
+```
+
+The unified `proxywhirl` tool supports these actions:
+
+| Action | Description |
+|:-------|:------------|
+| `list` | List all proxies in pool |
+| `rotate` | Get next proxy using rotation strategy |
+| `status` | Get status of specific proxy |
+| `recommend` | Get best proxy for criteria |
+| `health` | Get pool health overview |
+| `reset_cb` | Reset circuit breaker for proxy |
+
+<details>
+<summary><kbd>Claude Desktop Integration</kbd></summary>
+
+Add to your Claude Desktop config:
+
+```json
+{
+  "mcpServers": {
+    "proxywhirl": {
+      "command": "python",
+      "args": ["-m", "proxywhirl.mcp.server"]
+    }
+  }
+}
+```
+
+</details>
+
+See the [MCP Server Guide](docs/source/guides/mcp-server.md) for full documentation.
+
+---
+
+## 🔧 Advanced Features
+
+<details>
+<summary><kbd>💾 Persistent Storage</kbd></summary>
+
+> [!WARNING]
+> **Never commit encryption keys to git.** Use environment variables or a secrets manager.
+
+```python
+import os
+from cryptography.fernet import Fernet
+from proxywhirl import ProxyRotator
+from proxywhirl.storage import SQLiteStorage
+
+# Generate key once: key = Fernet.generate_key()
+# Store in .env: PROXYWHIRL_ENCRYPTION_KEY=<key>
+
+storage = SQLiteStorage(
+    "proxies.db",
+    encryption_key=os.getenv("PROXYWHIRL_ENCRYPTION_KEY")
+)
+rotator = ProxyRotator(storage=storage)
+
+# Proxies persist across restarts
+# Stats and health data preserved
+# Credentials encrypted with Fernet (AES-128-CBC)
+```
+
+</details>
+
+<details>
+<summary><kbd>🌐 Browser Rendering</kbd></summary>
+
+```python
+from proxywhirl.browser import BrowserRenderer
+
+async with BrowserRenderer() as browser:
+    # Render JavaScript-heavy pages
+    html = await browser.render(
+        "https://spa-website.com",
+        proxy="http://proxy:8080",
+        wait_for="networkidle",
+        timeout=30000
+    )
+
+    # Take screenshots
+    await browser.screenshot("https://example.com", path="screenshot.png")
+```
+
+> [!IMPORTANT]
+> Requires `pip install "proxywhirl[js]"` for Playwright support.
+
+</details>
+
+<details>
+<summary><kbd>⏱️ Rate Limiting</kbd></summary>
+
+```python
+from proxywhirl.rate_limiting import RateLimiter
+
+limiter = RateLimiter(
+    requests_per_second=10,
+    burst_size=20,
+    per_proxy=True  # Limit per-proxy, not global
+)
+rotator = ProxyRotator(rate_limiter=limiter)
+```
+
+</details>
+
+<details>
+<summary><kbd>🔄 Retry Logic</kbd></summary>
 
 ```python
 from proxywhirl import ProxyRotator
 
-rotator = ProxyRotator(proxies=proxies, strategy="performance-based")
-
-# Make requests
-for _ in range(100):
-    response = rotator.get("https://httpbin.org/delay/1")
-
-# Check proxy statistics
-for proxy in rotator.pool.get_all_proxies():
-    print(f"Proxy: {proxy.url}")
-    print(f"  Requests: {proxy.requests_completed}")
-    print(f"  Success rate: {proxy.success_rate:.2%}")
-    print(f"  Avg response time: {proxy.ema_response_time_ms:.1f}ms")
-    print(f"  Health: {proxy.health_status}")
-```
-
-### Configuration
-
-Strategies support flexible configuration via `StrategyConfig`:
-
-```python
-from proxywhirl.strategies import StrategyConfig
-
-config = StrategyConfig(
-    # Weighted strategy: custom weights
-    weights={"proxy1": 0.5, "proxy2": 0.3, "proxy3": 0.2},
-    
-    # Performance-based: EMA smoothing factor (0-1)
-    ema_alpha=0.2,
-    
-    # Session persistence: TTL in seconds
-    session_ttl=3600,
-    
-    # Geo-targeted: fallback behavior
-    geo_fallback_enabled=True,
-    geo_secondary_strategy="round-robin"
+rotator = ProxyRotator(
+    max_retries=3,
+    retry_on=[403, 429, 500, 502, 503],
+    backoff_factor=0.5,  # Exponential backoff
+    retry_on_timeout=True
 )
 ```
 
-### Examples
-
-See [examples/rotation_strategies_example.py](examples/rotation_strategies_example.py) for complete usage examples of all strategies, composition, hot-swapping, and custom plugins.
-
-## 🛣️ Roadmap
-
-### ✅ Phase 1 - Core Package (v0.1.0) - **COMPLETE**
-
-- Core proxy rotation with multiple strategies (round-robin, random, weighted, least-used)
-- Authentication support with SecretStr credential protection
-- Runtime pool management (add/remove/update proxies)
-- Auto-fetch proxies from 16+ pre-configured sources
-- Multi-format parsing (JSON, CSV, plain text, HTML tables)
-- Source tagging (USER vs FETCHED) and statistics
-- Advanced error handling with metadata and retry recommendations
-- Comprehensive test coverage (300 tests, 88% coverage)
-
-### ✅ Phase 2 - Validation & Storage (v0.2.0) - **COMPLETE**
-
-- ✅ **Multi-level validation**: BASIC (connectivity), STANDARD (HTTP), FULL (anonymity detection)
-- ✅ **File storage**: JSON persistence with optional Fernet encryption
-- ✅ **SQLite storage**: High-performance async backend with advanced querying
-- ✅ **Batch validation**: Parallel validation with concurrency control (100+ proxies/sec)
-- ✅ **Health Monitoring**: Continuous background health checks with auto-eviction (Phase 2.4)
-- ✅ **Browser Rendering**: JavaScript execution with Playwright for JS-heavy sites (Phase 2.5)
-- ✅ **TTL Expiration**: Automatic proxy expiration based on time-to-live (Phase 2.6)
-
-**New in v0.2.0**: See [docs/PHASE2_STATUS.md](docs/PHASE2_STATUS.md) for API reference and migration guide.
-**Examples**: See [examples/health_monitoring_example.py](examples/health_monitoring_example.py) and [examples/browser_rendering_example.py](examples/browser_rendering_example.py)
-
-## 🌐 REST API Server (v0.3.0)
-
-ProxyWhirl now includes a production-ready REST API server built with FastAPI for remote proxy pool management and proxied requests.
-
-### Quick Start with Docker
-
-```bash
-# Using Docker Compose (recommended)
-docker-compose up -d
-
-# Access the API at http://localhost:8000
-# Interactive docs at http://localhost:8000/docs
+```mermaid
+flowchart LR
+    A[Request] --> B{Success?}
+    B -->|Yes| C[Return Response]
+    B -->|No| D{Retries Left?}
+    D -->|Yes| E[Switch Proxy]
+    E --> F[Backoff Wait]
+    F --> A
+    D -->|No| G[Raise Error]
 ```
 
-### Manual Start
+</details>
 
-```bash
-# Install with API dependencies
-pip install "proxywhirl[storage]"
-
-# Start the API server
-uv run uvicorn proxywhirl.api:app --host 0.0.0.0 --port 8000
-
-# Or in development mode with auto-reload
-uv run uvicorn proxywhirl.api:app --reload
-```
-
-### API Features
-
-- **Proxied Requests**: Make HTTP requests through rotating proxies via REST API
-- **Pool Management**: CRUD operations for proxy pool (add, remove, list, health check)
-- **Monitoring**: Health checks, readiness probes, metrics, and status endpoints
-- **Configuration**: Runtime configuration updates without restart
-- **Security**: Optional API key authentication, rate limiting, CORS support
-- **Documentation**: Auto-generated OpenAPI/Swagger docs
-
-### API Endpoints
-
-#### Make Proxied Requests
-
-```bash
-# POST /api/v1/request - Make a proxied HTTP request
-curl -X POST http://localhost:8000/api/v1/request \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://httpbin.org/ip",
-    "method": "GET",
-    "timeout": 30
-  }'
-```
-
-#### Manage Proxy Pool
-
-```bash
-# GET /api/v1/proxies - List all proxies with pagination
-curl http://localhost:8000/api/v1/proxies?page=1&page_size=50
-
-# POST /api/v1/proxies - Add new proxy
-curl -X POST http://localhost:8000/api/v1/proxies \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "http://proxy.example.com:8080",
-    "username": "user",
-    "password": "pass"
-  }'
-
-# GET /api/v1/proxies/{id} - Get specific proxy
-curl http://localhost:8000/api/v1/proxies/proxy-123
-
-# DELETE /api/v1/proxies/{id} - Remove proxy
-curl -X DELETE http://localhost:8000/api/v1/proxies/proxy-123
-
-# POST /api/v1/proxies/test - Run health check
-curl -X POST http://localhost:8000/api/v1/proxies/test \
-  -H "Content-Type: application/json" \
-  -d '{"proxy_ids": ["proxy-123", "proxy-456"]}'
-```
-
-#### Monitoring
-
-```bash
-# GET /api/v1/health - Health check
-curl http://localhost:8000/api/v1/health
-
-# GET /api/v1/ready - Readiness probe (for Kubernetes)
-curl http://localhost:8000/api/v1/ready
-
-# GET /api/v1/status - Pool status and statistics
-curl http://localhost:8000/api/v1/status
-
-# GET /api/v1/metrics - Performance metrics
-curl http://localhost:8000/api/v1/metrics
-```
-
-#### Configuration
-
-```bash
-# GET /api/v1/config - Get current configuration
-curl http://localhost:8000/api/v1/config
-
-# PUT /api/v1/config - Update configuration
-curl -X PUT http://localhost:8000/api/v1/config \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rotation_strategy": "round-robin",
-    "timeout": 30,
-    "max_retries": 3
-  }'
-```
-
-### Configuration
-
-Configure the API using environment variables:
-
-```bash
-# Rotation strategy
-export PROXYWHIRL_STRATEGY=round-robin  # round-robin, random, weighted, least-used
-
-# Request timeout (seconds)
-export PROXYWHIRL_TIMEOUT=30
-
-# Maximum retry attempts
-export PROXYWHIRL_MAX_RETRIES=3
-
-# Optional: API key authentication
-export PROXYWHIRL_REQUIRE_AUTH=true
-export PROXYWHIRL_API_KEY=your-secret-key
-
-# Optional: CORS origins (comma-separated)
-export PROXYWHIRL_CORS_ORIGINS=http://localhost:3000,https://app.example.com
-
-# Optional: SQLite storage for persistence
-export PROXYWHIRL_STORAGE_PATH=/data/proxies.db
-```
-
-### Python Client Example
+<details>
+<summary><kbd>🔐 Authentication</kbd></summary>
 
 ```python
-import httpx
-import asyncio
+from proxywhirl import ProxyRotator
 
-async def main():
-    async with httpx.AsyncClient(base_url="http://localhost:8000") as client:
-        # Make proxied request
-        response = await client.post(
-            "/api/v1/request",
-            json={
-                "url": "https://httpbin.org/ip",
-                "method": "GET",
-                "timeout": 30
-            }
-        )
-        print(response.json())
-        
-        # Add proxy to pool
-        response = await client.post(
-            "/api/v1/proxies",
-            json={
-                "url": "http://proxy.example.com:8080",
-                "username": "user",
-                "password": "pass"
-            }
-        )
-        print(response.json())
-        
-        # Get pool status
-        response = await client.get("/api/v1/status")
-        print(response.json())
+# Basic auth
+rotator = ProxyRotator(proxies=[
+    "http://user:pass@proxy1:8080",
+    "http://user:pass@proxy2:8080"
+])
 
-asyncio.run(main())
+# Or with Proxy objects
+from proxywhirl.models import Proxy
+
+proxy = Proxy(
+    host="proxy.example.com",
+    port=8080,
+    username="user",
+    password="secret"
+)
 ```
 
-### Rate Limiting
+</details>
 
-The API includes built-in rate limiting:
-- Default: 100 requests/minute per IP
-- Proxied requests (`/api/v1/request`): 50 requests/minute per IP
-- Returns HTTP 429 with `Retry-After` header when exceeded
+<details>
+<summary><kbd>🌍 Geo-Targeting</kbd></summary>
 
-### API Documentation
+```python
+from proxywhirl import ProxyRotator
 
-Interactive API documentation is available at:
-- **Swagger UI**: <http://localhost:8000/docs>
-- **ReDoc**: <http://localhost:8000/redoc>
-- **OpenAPI JSON**: <http://localhost:8000/openapi.json>
+rotator = ProxyRotator(
+    strategy="geo-targeted",
+    geo_preferences={
+        "US": ["proxy-us-1", "proxy-us-2"],
+        "EU": ["proxy-eu-1", "proxy-de-1"],
+        "APAC": ["proxy-jp-1", "proxy-sg-1"]
+    }
+)
 
-For more details, see [docs/003-REST-API-PROGRESS.md](docs/003-REST-API-PROGRESS.md).
-
-## 🖥️ Command-Line Interface (CLI)
-
-ProxyWhirl includes a powerful CLI built with Typer and Rich for beautiful terminal output.
-
-### Installation
-
-The CLI is included with the base package:
-
-```bash
-pip install proxywhirl
+# Route by target domain
+response = rotator.get(
+    "https://amazon.de/product",
+    geo_hint="EU"  # Uses EU proxies
+)
 ```
 
-### Quick Start
+</details>
 
-```bash
-# Show help
-proxywhirl --help
+---
 
-# Make an HTTP request through proxies
-proxywhirl request https://httpbin.org/get
-
-# List proxies in pool
-proxywhirl pool list
-
-# Add a proxy
-proxywhirl pool add http://proxy1.example.com:8080
-
-# Check proxy health
-proxywhirl health
-```
-
-### Commands
-
-#### Configuration Management
-
-```bash
-# Initialize config file
-proxywhirl config init
-
-# Show all settings
-proxywhirl config show
-
-# Get specific value
-proxywhirl config get rotation_strategy
-
-# Update value
-proxywhirl config set max_retries 5
-```
-
-#### Pool Management
-
-```bash
-# List all proxies
-proxywhirl pool list
-
-# Add proxy without authentication
-proxywhirl pool add http://proxy.example.com:8080
-
-# Add proxy with authentication
-proxywhirl pool add http://proxy.example.com:8080 -u username -p password
-
-# Test a proxy
-proxywhirl pool test http://proxy.example.com:8080
-
-# Remove a proxy
-proxywhirl pool remove http://proxy.example.com:8080
-```
-
-#### HTTP Requests
-
-```bash
-# Simple GET request
-proxywhirl request https://httpbin.org/get
-
-# POST with JSON data
-proxywhirl request --method POST --data '{"key":"value"}' https://httpbin.org/post
-
-# Add custom headers
-proxywhirl request --header "Authorization: Bearer token" https://api.example.com
-
-# Override proxy for single request
-proxywhirl request --proxy http://custom-proxy.com:8080 https://httpbin.org/ip
-
-# Configure retries
-proxywhirl request --retries 5 https://httpbin.org/get
-```
-
-#### Health Monitoring
-
-```bash
-# Single health check
-proxywhirl health
-
-# Continuous monitoring (every 60 seconds)
-proxywhirl health --continuous --interval 60
-```
-
-### Output Formats
-
-All commands support multiple output formats:
-
-```bash
-# Human-readable with colors (default)
-proxywhirl pool list
-
-# JSON for scripting
-proxywhirl --format json pool list
-
-# CSV for spreadsheets
-proxywhirl --format csv pool list
-```
-
-### Global Options
-
-```bash
-# Use specific config file
-proxywhirl --config /path/to/config.toml pool list
-
-# Enable verbose logging
-proxywhirl --verbose request https://httpbin.org/get
-
-# Disable file locking (use with caution)
-proxywhirl --no-lock pool list
-```
-
-### Configuration File
-
-ProxyWhirl auto-discovers configuration files in this order:
-
-1. `.proxywhirl.toml` in current directory
-2. `~/.config/proxywhirl/config.toml` (user config)
-3. Built-in defaults
-
-**Example `.proxywhirl.toml`:**
-
-```toml
-[tool.proxywhirl]
-rotation_strategy = "round_robin"
-health_check_interval = 300
-timeout = 30
-max_retries = 3
-follow_redirects = true
-verify_ssl = true
-default_format = "text"
-color = true
-verbose = false
-storage_backend = "memory"
-encrypt_credentials = false
-
-[[tool.proxywhirl.proxies]]
-url = "http://proxy1.example.com:8080"
-
-[[tool.proxywhirl.proxies]]
-url = "http://proxy2.example.com:8080"
-username = "user"
-password = "pass"
-```
-
-### Examples
-
-See [examples/cli_examples.sh](examples/cli_examples.sh) for a complete collection of CLI usage examples.
-
-### 🔜 Phase 3 - Async & Monitoring (v0.3.0) - Planned
-
-- Full async API support
-- Event hooks and monitoring
-- Circuit breaker pattern
-- Rate limiting per proxy
-- Advanced metrics and profiling
-
-### 🔜 Phase 4 - Production Features (v0.4.0) - Planned
-
-- Redis caching support
-- Kubernetes deployment guides
-- Docker container examples
-- Performance optimization (caching, connection pooling)
-
-## 🏗️ Architecture
+## 📁 Project Structure
 
 ```
 proxywhirl/
-├── models.py       # Data models (Pydantic v2)
-├── rotator.py      # Core rotation logic
-├── strategies.py   # Rotation algorithms
-├── fetchers.py     # Proxy fetching & parsing
-├── storage.py      # Storage backends
-├── utils.py        # Helper functions
-└── exceptions.py   # Custom exceptions
+├── rotator.py         # Core rotation engine
+├── strategies.py      # 9 rotation strategies
+├── fetchers.py        # 73 proxy sources
+├── storage.py         # SQLite + Fernet encryption
+├── models.py          # Pydantic data models
+├── cache/             # Multi-tier caching
+├── rate_limiting/     # Rate limiter
+├── api.py             # FastAPI REST API
+└── cli.py             # Typer CLI
+
+tests/
+├── unit/              # Unit tests (1500+)
+├── integration/       # Integration tests
+├── property/          # Hypothesis property tests
+└── benchmarks/        # Performance benchmarks
 ```
 
-**Design Philosophy**: Flat, elegant structure. No nested packages. Easy to navigate and extend.
+---
 
-## 🧪 Testing
-
-All tests must be run using `uv` to ensure proper dependency isolation:
+## 🧪 Development
 
 ```bash
-# Run all tests with uv
-uv run -- pytest
-
-# Run with coverage
-uv run -- pytest --cov=proxywhirl --cov-report=html
-
-# Run specific test file
-uv run -- pytest tests/unit/test_models.py
-
-# Run benchmarks
-uv run -- pytest tests/benchmarks/ -v
-
-# Type checking
-uv run -- mypy proxywhirl/
-
-# Linting
-uv run -- ruff check .
-
-# Formatting
-uv run -- black .
-```
-
-**Why `uv run --`?** This ensures all commands execute in the correct virtual environment with proper dependencies, preventing system/global Python conflicts.
-
-## 🛠️ Development Setup
-
-```bash
-# Install uv (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Clone and setup project
+# Clone and install
 git clone https://github.com/wyattowalsh/proxywhirl.git
 cd proxywhirl
 uv sync
 
 # Run tests
-uv run -- pytest
+uv run pytest
+
+# Type check
+uv run ty check proxywhirl/
+
+# Lint and format
+uv run ruff check .
+uv run ruff format .
+
+# Full quality check
+make quality-gates
 ```
 
-## 📊 Performance
-
-- **Proxy Selection**: <1ms (O(1) for most strategies)
-- **Request Overhead**: <50ms
-- **Validation Speed**: 100+ proxies/second (parallel)
-- **Storage I/O**: 10-50ms for 100 proxies (JSON)
-- **Concurrency**: 1000+ simultaneous requests
-
-## 🤝 Contributing
-
-Contributions welcome! This project follows a specification-driven development process. See [specs/](specs/) for active features.
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details
-
-## 🔗 Links
-
-- **Issues**: [GitHub Issues](https://github.com/wyattowalsh/proxywhirl/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/wyattowalsh/proxywhirl/discussions)
+> [!CAUTION]
+> Always run `make quality-gates` before submitting a PR. CI will reject commits that fail type checking or linting.
 
 ---
 
-**Status**: ✅ Phase 2 Complete (v0.2.0) - 357 tests passing, 88% coverage
+## 🗺️ Roadmap
 
-**Phase 1**: Core rotation, authentication, pool management, proxy fetching (US1-US7 complete)
+- [x] 9 rotation strategies
+- [x] 73 proxy sources
+- [x] SQLite persistence
+- [x] Fernet encryption
+- [x] Health monitoring
+- [x] REST API
+- [x] CLI interface
+- [ ] Redis storage backend
+- [ ] Prometheus metrics
+- [ ] Kubernetes operator
+- [ ] WebUI dashboard
 
-**Phase 2**: Multi-level validation, file/SQLite storage, anonymity detection (US1-US4 complete)
+---
 
-See [docs/PHASE2_STATUS.md](docs/PHASE2_STATUS.md) for detailed Phase 2 documentation and migration guide.
+## Troubleshooting
+
+<details>
+<summary><kbd>All proxies failed validation</kbd></summary>
+
+Free proxy lists have high failure rates. Use curated sources:
+```python
+from proxywhirl.sources import RECOMMENDED_SOURCES
+fetcher = ProxyFetcher(sources=RECOMMENDED_SOURCES)
+```
+</details>
+
+<details>
+<summary><kbd>Playwright browser not found</kbd></summary>
+
+Install Playwright browsers:
+```bash
+playwright install chromium
+```
+</details>
+
+<details>
+<summary><kbd>Encryption key format error</kbd></summary>
+
+Generate a valid Fernet key:
+```python
+from cryptography.fernet import Fernet
+print(Fernet.generate_key().decode())
+```
+</details>
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please read the [contributing guidelines](CONTRIBUTING.md) first.
+
+```bash
+# Fork, clone, and create a branch
+git checkout -b feature/amazing-feature
+
+# Make changes, test, and commit
+uv run pytest
+git commit -m "feat: add amazing feature"
+
+# Push and open a PR
+git push origin feature/amazing-feature
+```
+
+---
+
+## 📚 Documentation
+
+| Resource | Description |
+|:---------|:------------|
+| [Getting Started](docs/getting_started.md) | Quick start guide |
+| [Configuration](docs/configuration.md) | All config options |
+| [API Reference](docs/) | Full API docs |
+| [Examples](examples/) | Code examples |
+| [Notebooks](examples/notebooks/) | Interactive tutorials |
+
+---
+
+<div align="center">
+
+<img src="docs/assets/divider-animated.svg" alt="" width="100%"/>
+
+<br/>
+
+### 🌟 Star History
+
+<a href="https://star-history.com/#wyattowalsh/proxywhirl&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=wyattowalsh/proxywhirl&type=Date&theme=dark" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=wyattowalsh/proxywhirl&type=Date" />
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=wyattowalsh/proxywhirl&type=Date" width="600"/>
+  </picture>
+</a>
+
+<br/><br/>
+
+**[Issues](https://github.com/wyattowalsh/proxywhirl/issues)** · **[Discussions](https://github.com/wyattowalsh/proxywhirl/discussions)** · **[MIT License](LICENSE)**
+
+<sub>Built for web scraping, authorized testing, automation, and legitimate proxy rotation use cases</sub>
+
+<br/>
+
+<!-- Tech stack badges -->
+[![Python](https://img.shields.io/badge/python-3776ab?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![httpx](https://img.shields.io/badge/httpx-00d4ff?style=flat-square)](https://www.python-httpx.org/)
+[![Pydantic](https://img.shields.io/badge/pydantic-e92063?style=flat-square&logo=pydantic&logoColor=white)](https://pydantic.dev/)
+[![FastAPI](https://img.shields.io/badge/fastapi-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![SQLite](https://img.shields.io/badge/sqlite-003b57?style=flat-square&logo=sqlite&logoColor=white)](https://sqlite.org/)
+[![Playwright](https://img.shields.io/badge/playwright-2ead33?style=flat-square&logo=playwright&logoColor=white)](https://playwright.dev/python/)
+
+<br/>
+
+<!-- Final footer badges -->
+[![Made with Love](https://img.shields.io/badge/made_with-❤️-ec4899?style=flat-square&labelColor=0d1117)](https://github.com/wyattowalsh)
+[![Async Ready](https://img.shields.io/badge/async-ready-00d4ff?style=flat-square&labelColor=0d1117)](https://docs.python.org/3/library/asyncio.html)
+[![Type Hints](https://img.shields.io/badge/types-strict-a855f7?style=flat-square&labelColor=0d1117)](https://docs.python.org/3/library/typing.html)
+[![Zero Bloat](https://img.shields.io/badge/bloat-zero-22c55e?style=flat-square&labelColor=0d1117)](pyproject.toml)
+
+</div>

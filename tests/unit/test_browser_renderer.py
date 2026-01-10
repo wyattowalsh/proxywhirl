@@ -55,30 +55,28 @@ class TestBrowserRendererInit:
 class TestBrowserRendererLifecycle:
     """Test browser lifecycle management."""
 
-    @pytest.mark.asyncio
     async def test_browser_start_requires_playwright(self) -> None:
         """start() raises ImportError if playwright not installed."""
+        from unittest.mock import patch
+
         from proxywhirl.browser import BrowserRenderer
 
         renderer = BrowserRenderer()
 
-        # Mock playwright module to raise ImportError
-        import sys
+        # Use builtins.__import__ to simulate ImportError when importing playwright
+        original_import = (
+            __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+        )
 
-        original = sys.modules.get("playwright.async_api")
-        try:
-            # Remove playwright from modules to simulate it not being installed
-            if "playwright.async_api" in sys.modules:
-                del sys.modules["playwright.async_api"]
+        def mock_import(name, *args, **kwargs):
+            if name == "playwright.async_api":
+                raise ImportError("No module named 'playwright'")
+            return original_import(name, *args, **kwargs)
 
+        with patch("builtins.__import__", side_effect=mock_import):
             with pytest.raises(ImportError, match="Playwright is required for browser rendering"):
                 await renderer.start()
-        finally:
-            # Restore original state
-            if original is not None:
-                sys.modules["playwright.async_api"] = original
 
-    @pytest.mark.asyncio
     async def test_browser_start_launches_browser(self) -> None:
         """start() launches browser and creates context."""
         from proxywhirl.browser import BrowserRenderer
@@ -115,7 +113,6 @@ class TestBrowserRendererLifecycle:
 
             await renderer.close()
 
-    @pytest.mark.asyncio
     async def test_browser_start_idempotent(self) -> None:
         """Calling start() multiple times is safe."""
         from proxywhirl.browser import BrowserRenderer
@@ -152,7 +149,6 @@ class TestBrowserRendererLifecycle:
 
             await renderer.close()
 
-    @pytest.mark.asyncio
     async def test_browser_close_cleans_up(self) -> None:
         """close() properly cleans up resources."""
         from proxywhirl.browser import BrowserRenderer
@@ -193,7 +189,6 @@ class TestBrowserRendererLifecycle:
             mock_browser.close.assert_called_once()
             mock_playwright.stop.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_browser_close_idempotent(self) -> None:
         """Calling close() when not started is safe."""
         from proxywhirl.browser import BrowserRenderer
@@ -208,7 +203,6 @@ class TestBrowserRendererLifecycle:
 class TestBrowserRendererRender:
     """Test page rendering."""
 
-    @pytest.mark.asyncio
     async def test_render_requires_started_browser(self) -> None:
         """render() raises RuntimeError if browser not started."""
         from proxywhirl.browser import BrowserRenderer
@@ -218,7 +212,6 @@ class TestBrowserRendererRender:
         with pytest.raises(RuntimeError, match="Browser not started"):
             await renderer.render("https://example.com")
 
-    @pytest.mark.asyncio
     async def test_render_simple_page(self) -> None:
         """render() returns HTML content from page."""
         from proxywhirl.browser import BrowserRenderer
@@ -247,7 +240,6 @@ class TestBrowserRendererRender:
         mock_page.content.assert_called_once()
         mock_page.close.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_render_with_wait_strategy(self) -> None:
         """render() uses configured wait strategy."""
         from proxywhirl.browser import BrowserRenderer
@@ -271,7 +263,6 @@ class TestBrowserRendererRender:
             "https://example.com", timeout=60000, wait_until="networkidle"
         )
 
-    @pytest.mark.asyncio
     async def test_render_with_selector_wait(self) -> None:
         """render() can wait for specific selector."""
         from proxywhirl.browser import BrowserRenderer
@@ -294,7 +285,6 @@ class TestBrowserRendererRender:
 
         mock_page.wait_for_selector.assert_called_once_with(".proxy-list", timeout=30000)
 
-    @pytest.mark.asyncio
     async def test_render_timeout(self) -> None:
         """render() handles timeout errors."""
         from proxywhirl.browser import BrowserRenderer
@@ -321,7 +311,6 @@ class TestBrowserRendererRender:
 class TestBrowserRendererContextManager:
     """Test context manager protocol."""
 
-    @pytest.mark.asyncio
     async def test_context_manager_starts_and_stops(self) -> None:
         """Context manager automatically starts and stops browser."""
         from proxywhirl.browser import BrowserRenderer

@@ -13,12 +13,18 @@ The API uses:
 - Singleton ProxyRotator for proxy management
 """
 
+from __future__ import annotations
+
+import asyncio
+import hashlib
 import os
+import secrets
 import time
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import httpx
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
@@ -29,7 +35,6 @@ from loguru import logger
 from prometheus_client import REGISTRY, Counter, Gauge, Histogram, generate_latest
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from proxywhirl.api_models import (
@@ -59,14 +64,44 @@ from proxywhirl.api_models import (
 from proxywhirl.exceptions import ProxyWhirlError
 from proxywhirl.rotator import ProxyRotator
 from proxywhirl.storage import SQLiteStorage
+from proxywhirl.utils import validate_target_url_safe
 
 # Global singleton instances
-_rotator: Optional[ProxyRotator] = None
-_storage: Optional[SQLiteStorage] = None
+_rotator: ProxyRotator | None = None
+_storage: SQLiteStorage | None = None
 _config: dict[str, Any] = {}
 
 # Track app start time for uptime calculation
 _app_start_time = datetime.now(timezone.utc)
+
+# Track last rotation time (updated on each proxy selection)
+_last_rotation_time: datetime | None = None
+_last_rotation_lock = asyncio.Lock()
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+
+def _get_proxy_id(proxy: Any) -> str:
+    """Get stable identifier for a proxy.
+
+    Uses proxy.id if available, otherwise generates a hash from the URL.
+    This ensures IDs remain stable across application restarts.
+
+    Args:
+        proxy: Proxy instance
+
+    Returns:
+        Stable string identifier for the proxy
+    """
+    # Try to get proxy.id safely using getattr
+    proxy_id = getattr(proxy, "id", None)
+    if proxy_id:
+        return str(proxy_id)
+    # Fallback: hash of URL for stability
+    return hashlib.sha256(str(proxy.url).encode()).hexdigest()[:16]
 
 
 # =============================================================================
@@ -106,15 +141,63 @@ proxywhirl_circuit_breaker_state = Gauge(
 )
 
 
+# =============================================================================
+# Rate Limiting - Per-API-Key Strategy
+# =============================================================================
+
+
+def get_rate_limit_key(request: Request) -> str:
+    """Extract rate limit key from request.
+
+    SECURITY: This function is designed to prevent rate limit bypass attacks.
+
+    For authenticated requests (with API key):
+        - Uses hashed API key as rate limit key
+        - This ensures rate limiting is per-API-key, not per-IP
+
+    For unauthenticated requests:
+        - Uses ONLY direct client IP (request.client.host)
+        - NEVER trusts X-Forwarded-For header to prevent spoofing attacks
+        - Attackers cannot bypass rate limits by sending fake X-Forwarded-For headers
+
+    Note: If you need to trust X-Forwarded-For (e.g., behind a reverse proxy),
+    configure your reverse proxy to set the real client IP in request.client,
+    or use a trusted proxy middleware that validates the header chain.
+
+    Args:
+        request: FastAPI Request object
+
+    Returns:
+        Rate limit key in format "apikey:{hash}" or "ip:{address}"
+    """
+    # Check for API key first (primary identifier for authenticated requests)
+    api_key = request.headers.get("X-API-Key")
+    if api_key:
+        # Hash the API key to avoid exposing it in logs
+        key_hash = hashlib.sha256(api_key.encode()).hexdigest()[:16]
+        return f"apikey:{key_hash}"
+
+    # SECURITY: For unauthenticated requests, use direct client IP only.
+    # NEVER trust X-Forwarded-For header as it can be spoofed by attackers
+    # to bypass rate limits.
+    client_ip = request.client.host if request.client else "unknown"
+    return f"ip:{client_ip}"
+
+
 # Rate limiter configuration
-limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+# Use per-API-key rate limiting to prevent X-Forwarded-For bypass
+# Default limit can be overridden via environment variables
+_default_rate_limit = os.getenv("PROXYWHIRL_RATE_LIMIT", "100/minute")
+_api_key_rate_limit = os.getenv("PROXYWHIRL_API_KEY_RATE_LIMIT", _default_rate_limit)
+
+limiter = Limiter(key_func=get_rate_limit_key, default_limits=[_default_rate_limit])
 
 
 # API key authentication (optional)
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
-def verify_api_key(api_key: Optional[str] = Depends(api_key_header)) -> None:
+def verify_api_key(api_key: str | None = Depends(api_key_header)) -> None:
     """Verify API key if authentication is required.
 
     Args:
@@ -130,14 +213,41 @@ def verify_api_key(api_key: Optional[str] = Depends(api_key_header)) -> None:
 
     expected_key = os.getenv("PROXYWHIRL_API_KEY")
     if not expected_key:
-        logger.warning("PROXYWHIRL_REQUIRE_AUTH=true but PROXYWHIRL_API_KEY not set")
-        return
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="API authentication not configured",
+        )
 
-    if not api_key or api_key != expected_key:
+    if not api_key or not secrets.compare_digest(api_key, expected_key):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key",
         )
+
+
+def validate_proxied_request_url(request_data: ProxiedRequest) -> ProxiedRequest:
+    """Dependency to validate target URL for SSRF protection.
+
+    This dependency runs BEFORE other dependencies to ensure SSRF validation
+    happens first, preventing malicious URLs from being processed.
+
+    Args:
+        request_data: The proxied request data
+
+    Returns:
+        The validated request data
+
+    Raises:
+        HTTPException: If URL is invalid or blocked for security reasons
+    """
+    try:
+        validate_target_url_safe(str(request_data.url), allow_private=False)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
+        ) from e
+    return request_data
 
 
 @asynccontextmanager
@@ -175,6 +285,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.warning(f"Failed to load proxies from storage: {e}")
 
     # Load initial configuration
+    cors_origins_raw = os.getenv(
+        "PROXYWHIRL_CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000"
+    )
+    cors_origins_config = [
+        origin.strip()
+        for origin in cors_origins_raw.split(",")
+        if origin.strip()  # Filter empty strings from trailing commas or double commas
+    ]
     _config = {
         "rotation_strategy": os.getenv("PROXYWHIRL_STRATEGY", "round-robin"),
         "timeout": int(os.getenv("PROXYWHIRL_TIMEOUT", "30")),
@@ -184,9 +302,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             "request_endpoint_limit": 50,
         },
         "auth_enabled": os.getenv("PROXYWHIRL_REQUIRE_AUTH", "false").lower() == "true",
-        "cors_origins": os.getenv(
-            "PROXYWHIRL_CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000"
-        ).split(","),
+        "cors_origins": cors_origins_config,
     }
 
     logger.info("ProxyWhirl API initialized successfully")
@@ -199,7 +315,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Save state if storage configured
     if _storage and _rotator:
         logger.info("Saving proxy pool state...")
-        await _storage.save(_rotator.pool.proxies)
+        # Use thread-safe snapshot for saving
+        await _storage.save(_rotator.pool.get_all_proxies())
 
     logger.info("ProxyWhirl API shutdown complete")
 
@@ -226,9 +343,14 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # ty
 
 
 # CORS middleware
-cors_origins = os.getenv(
+cors_origins_raw = os.getenv(
     "PROXYWHIRL_CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000"
-).split(",")
+)
+cors_origins = [
+    origin.strip()
+    for origin in cors_origins_raw.split(",")
+    if origin.strip()  # Filter empty strings from trailing commas or double commas
+]
 
 # Warn if wildcard CORS is configured
 if "*" in cors_origins:
@@ -253,9 +375,46 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Any) -> Any:
         response = await call_next(request)
+        # Basic security headers
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
+        # HSTS - enforce HTTPS with 1-year max-age
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        # CSP - restrict resource loading to same origin, prevent framing
+        response.headers["Content-Security-Policy"] = "default-src 'self'; frame-ancestors 'none'"
+        # Referrer-Policy - send origin only on cross-origin requests
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        # Permissions-Policy - disable sensitive browser features
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        return response
+
+
+# Request ID middleware for request tracing
+class RequestIDMiddleware(BaseHTTPMiddleware):
+    """Add request ID correlation for request tracing.
+
+    This middleware ensures every request has a unique identifier that can be
+    used for tracing requests through the retry/cache/circuit-breaker chain.
+
+    The request ID is:
+    - Taken from the X-Request-ID header if provided by the client
+    - Generated as a new UUID v4 if not provided
+    - Added to loguru context for all downstream logging
+    - Included in the response X-Request-ID header
+    """
+
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
+        """Process request and add request ID correlation."""
+        # Use existing header or generate new UUID
+        request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+
+        # Add to loguru context for all downstream logging
+        with logger.contextualize(request_id=request_id):
+            response = await call_next(request)
+
+        # Include in response headers
+        response.headers["X-Request-ID"] = request_id
         return response
 
 
@@ -374,6 +533,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestIDMiddleware)
 
 
 # Exception handlers
@@ -515,7 +675,7 @@ def get_rotator() -> ProxyRotator:
     return _rotator
 
 
-def get_storage() -> Optional[SQLiteStorage]:
+def get_storage() -> SQLiteStorage | None:
     """Get the optional SQLiteStorage instance.
 
     Returns:
@@ -538,13 +698,13 @@ def update_prometheus_metrics() -> None:
     if not _rotator:
         return
 
-    # Update proxy pool metrics
-    total_proxies = len(_rotator.pool.proxies)
+    # Update proxy pool metrics (use thread-safe method)
+    total_proxies = _rotator.pool.size
     proxywhirl_proxies_total.set(total_proxies)
 
-    # TODO: Calculate healthy proxies based on actual health checks
-    # For now, assume all proxies are healthy
-    proxywhirl_proxies_healthy.set(total_proxies)
+    # Calculate healthy proxies based on actual health status
+    healthy_proxies = _rotator.pool.healthy_count
+    proxywhirl_proxies_healthy.set(healthy_proxies)
 
     # Update circuit breaker metrics
     try:
@@ -646,8 +806,8 @@ async def metrics() -> Response:
 )
 @limiter.limit("50/minute")
 async def make_proxied_request(
-    request_data: ProxiedRequest,
     request: Request,
+    request_data: ProxiedRequest = Depends(validate_proxied_request_url),
     rotator: ProxyRotator = Depends(get_rotator),
     api_key: None = Depends(verify_api_key),
 ) -> APIResponse[ProxiedResponse]:
@@ -656,8 +816,16 @@ async def make_proxied_request(
     This endpoint routes your HTTP request through the proxy pool, automatically
     handling rotation and failover.
 
+    SECURITY: All target URLs are validated to prevent SSRF attacks. The following
+    are blocked by default:
+    - Localhost and loopback addresses (127.0.0.0/8, ::1)
+    - Private IP ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+    - Link-local addresses (169.254.0.0/16)
+    - Internal domain names (.local, .internal, .lan, .corp)
+    - Non-HTTP/HTTPS schemes (file://, data://, etc.)
+
     Args:
-        request_data: Request details (URL, method, headers, body, timeout)
+        request_data: Request details (URL, method, headers, body, timeout) - validated for SSRF
         rotator: ProxyRotator dependency injection
         api_key: API key verification dependency
 
@@ -665,11 +833,14 @@ async def make_proxied_request(
         APIResponse with proxied response data
 
     Raises:
-        HTTPException: For various error conditions
+        HTTPException: For various error conditions including SSRF protection
     """
+
+    global _last_rotation_time
+
     start_time = time.time()
     max_retries = 3
-    last_error: Optional[Exception] = None
+    last_error: Exception | None = None
 
     for attempt in range(max_retries):
         try:
@@ -680,6 +851,9 @@ async def make_proxied_request(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail="No proxies available in the pool",
                 )
+
+            # Track last rotation time
+            _last_rotation_time = datetime.now(timezone.utc)
 
             # Build proxy URL for httpx
             proxy_url = str(proxy.url)
@@ -718,14 +892,14 @@ async def make_proxied_request(
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=str(e),
-            )
+            ) from e
 
         except Exception as e:
             logger.error(f"Unexpected error in proxied request: {e}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Unexpected error: {str(e)}",
-            )
+            ) from e
 
     # All retries exhausted
     raise HTTPException(
@@ -748,7 +922,7 @@ async def make_proxied_request(
 async def list_proxies(
     page: int = 1,
     page_size: int = 50,
-    status_filter: Optional[str] = None,
+    status_filter: str | None = None,
     rotator: ProxyRotator = Depends(get_rotator),
     api_key: None = Depends(verify_api_key),
 ) -> APIResponse[PaginatedResponse[ProxyResource]]:
@@ -770,13 +944,25 @@ async def list_proxies(
     if page_size < 1 or page_size > 100:
         raise HTTPException(status_code=400, detail="Page size must be between 1 and 100")
 
-    # Get all proxies
-    all_proxies = rotator.pool.proxies
+    # Get all proxies (thread-safe snapshot)
+    all_proxies = rotator.pool.get_all_proxies()
 
     # Apply status filter if provided
     if status_filter:
-        # TODO: Implement status filtering based on health status
-        pass
+        status_lower = status_filter.lower()
+        if status_lower == "healthy":
+            all_proxies = [p for p in all_proxies if p.is_healthy]
+        elif status_lower == "unhealthy":
+            all_proxies = [p for p in all_proxies if not p.is_healthy]
+        elif status_lower == "active":
+            # Active means proxy is available (not in a failed circuit breaker state)
+            circuit_breakers = rotator.get_circuit_breaker_states()
+            all_proxies = [
+                p
+                for p in all_proxies
+                if _get_proxy_id(p) not in circuit_breakers
+                or circuit_breakers[_get_proxy_id(p)].state.value != "OPEN"
+            ]
 
     # Calculate pagination
     total = len(all_proxies)
@@ -786,21 +972,36 @@ async def list_proxies(
 
     # Convert to ProxyResource models
     proxy_resources = []
+    circuit_breakers = rotator.get_circuit_breaker_states()
     for proxy in page_proxies:
+        proxy_id = _get_proxy_id(proxy)
+        cb = circuit_breakers.get(proxy_id)
+
+        # Determine status based on circuit breaker state
+        if cb and cb.state.value == "OPEN":
+            proxy_status = "failed"
+        elif cb and cb.state.value == "HALF_OPEN":
+            proxy_status = "degraded"
+        else:
+            proxy_status = "active"
+
+        # Map health status to string
+        health_value = proxy.health_status.value if proxy.health_status else "unknown"
+
         resource = ProxyResource(
-            id=str(id(proxy)),  # Use object ID as temporary ID
+            id=proxy_id,
             url=str(proxy.url),
             protocol=proxy.protocol or "http",
-            status="active",  # TODO: Get actual status
-            health="healthy",  # TODO: Get actual health
+            status=proxy_status,
+            health=health_value,
             stats={
-                "total_requests": 0,  # TODO: Track these metrics
-                "successful_requests": 0,
-                "failed_requests": 0,
-                "avg_latency_ms": 0,
+                "total_requests": proxy.requests_started,
+                "successful_requests": proxy.requests_completed,
+                "failed_requests": proxy.total_failures,
+                "avg_latency_ms": int(proxy.average_response_time_ms or 0),
             },
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=proxy.created_at,
+            updated_at=proxy.updated_at,
         )
         proxy_resources.append(resource)
 
@@ -824,7 +1025,9 @@ async def list_proxies(
     tags=["Pool Management"],
     summary="Add new proxy",
 )
+@limiter.limit("10/minute")
 async def add_proxy(
+    request: Request,
     proxy_data: CreateProxyRequest,
     rotator: ProxyRotator = Depends(get_rotator),
     api_key: None = Depends(verify_api_key),
@@ -841,9 +1044,9 @@ async def add_proxy(
     """
     from proxywhirl.models import Proxy
 
-    # Check for duplicate
+    # Check for duplicate (thread-safe snapshot)
     proxy_url_str = str(proxy_data.url)
-    for existing_proxy in rotator.pool.proxies:
+    for existing_proxy in rotator.pool.get_all_proxies():
         if str(existing_proxy.url) == proxy_url_str:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -864,20 +1067,23 @@ async def add_proxy(
         rotator.add_proxy(new_proxy)
 
         # Build response
+        proxy_id = _get_proxy_id(new_proxy)
+        health_value = new_proxy.health_status.value if new_proxy.health_status else "unknown"
+
         resource = ProxyResource(
-            id=str(id(new_proxy)),
+            id=proxy_id,
             url=str(new_proxy.url),
             protocol=new_proxy.protocol or "http",
             status="active",
-            health="healthy",
+            health=health_value,
             stats={
-                "total_requests": 0,
-                "successful_requests": 0,
-                "failed_requests": 0,
-                "avg_latency_ms": 0,
+                "total_requests": new_proxy.requests_started,
+                "successful_requests": new_proxy.requests_completed,
+                "failed_requests": new_proxy.total_failures,
+                "avg_latency_ms": int(new_proxy.average_response_time_ms or 0),
             },
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=new_proxy.created_at,
+            updated_at=new_proxy.updated_at,
         )
 
         return APIResponse.success(data=resource)
@@ -887,7 +1093,127 @@ async def add_proxy(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid proxy: {str(e)}",
+        ) from e
+
+
+async def _check_proxy_health(
+    proxy: Any,
+    test_url: str,
+    timeout: float = 10.0,
+) -> HealthCheckResult:
+    """Check health of a single proxy.
+
+    Args:
+        proxy: Proxy instance to check
+        test_url: URL to use for health check
+        timeout: Request timeout in seconds
+
+    Returns:
+        HealthCheckResult with test outcome
+
+    Note:
+        Each proxy check creates its own client since httpx requires
+        proxy configuration at client instantiation time.
+    """
+    start_time = time.time()
+    try:
+        # Create client with proxy configuration
+        # Note: httpx requires proxy to be set at client creation time
+        async with httpx.AsyncClient(
+            proxy=str(proxy.url),
+            timeout=timeout,
+        ) as client:
+            response = await client.get(test_url)
+
+        latency_ms = int((time.time() - start_time) * 1000)
+
+        return HealthCheckResult(
+            proxy_id=_get_proxy_id(proxy),
+            status="working" if response.status_code == 200 else "failed",
+            latency_ms=latency_ms,
+            error=None,
+            tested_at=datetime.now(timezone.utc),
         )
+    except Exception as e:
+        latency_ms = int((time.time() - start_time) * 1000)
+        return HealthCheckResult(
+            proxy_id=_get_proxy_id(proxy),
+            status="failed",
+            latency_ms=latency_ms,
+            error=str(e),
+            tested_at=datetime.now(timezone.utc),
+        )
+
+
+@app.post(
+    "/api/v1/proxies/health-check",
+    response_model=APIResponse[list[HealthCheckResult]],
+    tags=["Pool Management"],
+    summary="Health check proxies",
+)
+async def health_check_proxies(
+    request_data: HealthCheckRequest,
+    rotator: ProxyRotator = Depends(get_rotator),
+    api_key: None = Depends(verify_api_key),
+) -> APIResponse[list[HealthCheckResult]]:
+    """Run health checks on specified proxies.
+
+    Args:
+        request_data: Optional list of proxy IDs to check
+        rotator: ProxyRotator dependency
+        api_key: API key verification
+
+    Returns:
+        List of health check results
+    """
+    # Determine which proxies to check (thread-safe snapshot)
+    all_proxies = rotator.pool.get_all_proxies()
+    proxies_to_check = all_proxies
+    if request_data.proxy_ids:
+        proxies_to_check = [p for p in all_proxies if _get_proxy_id(p) in request_data.proxy_ids]
+
+    test_url = "https://httpbin.org/get"
+
+    # Run health checks concurrently
+    # Note: Each proxy check creates its own client since httpx requires
+    # proxy configuration at client instantiation time (not per-request)
+    tasks = [_check_proxy_health(proxy, test_url) for proxy in proxies_to_check]
+    results = await asyncio.gather(*tasks, return_exceptions=False)
+
+    return APIResponse.success(data=results)
+
+
+# Deprecated - kept for backward compatibility
+@app.post(
+    "/api/v1/proxies/test",
+    response_model=APIResponse[list[HealthCheckResult]],
+    tags=["Pool Management"],
+    summary="Health check proxies (deprecated)",
+    deprecated=True,
+)
+async def health_check_proxies_deprecated(
+    request_data: HealthCheckRequest,
+    rotator: ProxyRotator = Depends(get_rotator),
+    api_key: None = Depends(verify_api_key),
+) -> APIResponse[list[HealthCheckResult]]:
+    """Run health checks on specified proxies.
+
+    **DEPRECATED:** Use `/api/v1/proxies/health-check` instead.
+    This endpoint is kept for backward compatibility and will be removed in a future version.
+
+    Args:
+        request_data: Optional list of proxy IDs to check
+        rotator: ProxyRotator dependency
+        api_key: API key verification
+
+    Returns:
+        List of health check results
+    """
+    logger.warning(
+        "Deprecated endpoint used: POST /api/v1/proxies/test. "
+        "Please migrate to /api/v1/proxies/health-check"
+    )
+    return await health_check_proxies(request_data, rotator, api_key)
 
 
 @app.get(
@@ -911,23 +1237,37 @@ async def get_proxy(
     Returns:
         Proxy resource
     """
-    # Find proxy by ID
-    for proxy in rotator.pool.proxies:
-        if str(id(proxy)) == proxy_id:
+    # Find proxy by ID (thread-safe snapshot)
+    circuit_breakers = rotator.get_circuit_breaker_states()
+    for proxy in rotator.pool.get_all_proxies():
+        if _get_proxy_id(proxy) == proxy_id:
+            cb = circuit_breakers.get(proxy_id)
+
+            # Determine status based on circuit breaker state
+            if cb and cb.state.value == "OPEN":
+                proxy_status = "failed"
+            elif cb and cb.state.value == "HALF_OPEN":
+                proxy_status = "degraded"
+            else:
+                proxy_status = "active"
+
+            # Map health status to string
+            health_value = proxy.health_status.value if proxy.health_status else "unknown"
+
             resource = ProxyResource(
-                id=str(id(proxy)),
+                id=proxy_id,
                 url=str(proxy.url),
                 protocol=proxy.protocol or "http",
-                status="active",
-                health="healthy",
+                status=proxy_status,
+                health=health_value,
                 stats={
-                    "total_requests": 0,
-                    "successful_requests": 0,
-                    "failed_requests": 0,
-                    "avg_latency_ms": 0,
+                    "total_requests": proxy.requests_started,
+                    "successful_requests": proxy.requests_completed,
+                    "failed_requests": proxy.total_failures,
+                    "avg_latency_ms": int(proxy.average_response_time_ms or 0),
                 },
-                created_at=datetime.now(timezone.utc),
-                updated_at=datetime.now(timezone.utc),
+                created_at=proxy.created_at,
+                updated_at=proxy.updated_at,
             )
             return APIResponse.success(data=resource)
 
@@ -946,7 +1286,7 @@ async def get_proxy(
 async def delete_proxy(
     proxy_id: str,
     rotator: ProxyRotator = Depends(get_rotator),
-    storage: Optional[SQLiteStorage] = Depends(get_storage),
+    storage: SQLiteStorage | None = Depends(get_storage),
     api_key: None = Depends(verify_api_key),
 ) -> None:
     """Remove a proxy from the pool.
@@ -957,81 +1297,28 @@ async def delete_proxy(
         storage: Optional storage dependency
         api_key: API key verification
     """
-    # Find and remove proxy
-    for i, proxy in enumerate(rotator.pool.proxies):
-        if str(id(proxy)) == proxy_id:
-            rotator.pool.proxies.pop(i)
+    # Find and remove proxy (thread-safe)
+    # First find the proxy by ID
+    target_proxy = None
+    for proxy in rotator.pool.get_all_proxies():
+        if _get_proxy_id(proxy) == proxy_id:
+            target_proxy = proxy
+            break
 
-            # Persist if storage configured
-            if storage:
-                await storage.save(rotator.pool.proxies)
+    if target_proxy:
+        # Use thread-safe remove method
+        rotator.pool.remove_proxy(target_proxy.id)
 
-            return
+        # Persist if storage configured
+        if storage:
+            await storage.save(rotator.pool.get_all_proxies())
+
+        return
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail=f"Proxy not found: {proxy_id}",
     )
-
-
-@app.post(
-    "/api/v1/proxies/test",
-    response_model=APIResponse[list[HealthCheckResult]],
-    tags=["Pool Management"],
-    summary="Health check proxies",
-)
-async def health_check_proxies(
-    request_data: HealthCheckRequest,
-    rotator: ProxyRotator = Depends(get_rotator),
-    api_key: None = Depends(verify_api_key),
-) -> APIResponse[list[HealthCheckResult]]:
-    """Run health checks on specified proxies.
-
-    Args:
-        request_data: Optional list of proxy IDs to check
-        rotator: ProxyRotator dependency
-        api_key: API key verification
-
-    Returns:
-        List of health check results
-    """
-    import httpx
-
-    # Determine which proxies to check
-    proxies_to_check = rotator.pool.proxies
-    if request_data.proxy_ids:
-        proxies_to_check = [p for p in rotator.pool.proxies if str(id(p)) in request_data.proxy_ids]
-
-    results = []
-    test_url = "https://httpbin.org/get"
-
-    for proxy in proxies_to_check:
-        start_time = time.time()
-        try:
-            async with httpx.AsyncClient(proxy=str(proxy.url), timeout=10.0) as client:
-                response = await client.get(test_url)
-                latency_ms = int((time.time() - start_time) * 1000)
-
-                result = HealthCheckResult(
-                    proxy_id=str(id(proxy)),
-                    status="working" if response.status_code == 200 else "failed",
-                    latency_ms=latency_ms,
-                    error=None,
-                    tested_at=datetime.now(timezone.utc),
-                )
-        except Exception as e:
-            latency_ms = int((time.time() - start_time) * 1000)
-            result = HealthCheckResult(
-                proxy_id=str(id(proxy)),
-                status="failed",
-                latency_ms=latency_ms,
-                error=str(e),
-                tested_at=datetime.now(timezone.utc),
-            )
-
-        results.append(result)
-
-    return APIResponse.success(data=results)
 
 
 # =============================================================================
@@ -1060,15 +1347,25 @@ async def health_check(
     """
     uptime_seconds = int((datetime.now(timezone.utc) - _app_start_time).total_seconds())
 
-    # Determine health based on proxy pool
-    total_proxies = len(rotator.pool.proxies)
+    # Determine health based on proxy pool (use thread-safe property)
+    total_proxies = rotator.pool.size
     if total_proxies == 0:
         health_status: Literal["healthy", "degraded", "unhealthy"] = "unhealthy"
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     else:
-        # TODO: Check actual health of proxies
-        health_status = "healthy"
-        status_code = status.HTTP_200_OK
+        # Check actual health of proxies
+        healthy_proxies = rotator.pool.healthy_count
+        unhealthy_proxies = rotator.pool.unhealthy_count
+
+        if healthy_proxies == 0:
+            health_status = "unhealthy"
+            status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        elif unhealthy_proxies > healthy_proxies:
+            health_status = "degraded"
+            status_code = status.HTTP_200_OK
+        else:
+            health_status = "healthy"
+            status_code = status.HTTP_200_OK
 
     health_response = HealthResponse(
         status=health_status,
@@ -1091,7 +1388,7 @@ async def health_check(
 )
 async def readiness_check(
     rotator: ProxyRotator = Depends(get_rotator),
-    storage: Optional[SQLiteStorage] = Depends(get_storage),
+    storage: SQLiteStorage | None = Depends(get_storage),
 ) -> JSONResponse:
     """Check if API is ready to serve requests.
 
@@ -1131,7 +1428,7 @@ async def readiness_check(
 )
 async def get_status(
     rotator: ProxyRotator = Depends(get_rotator),
-    storage: Optional[SQLiteStorage] = Depends(get_storage),
+    storage: SQLiteStorage | None = Depends(get_storage),
     config: dict[str, Any] = Depends(get_config),
 ) -> APIResponse[StatusResponse]:
     """Get detailed system status including pool stats.
@@ -1146,18 +1443,21 @@ async def get_status(
     """
     from proxywhirl.api_models import ProxyPoolStats
 
-    total = len(rotator.pool.proxies)
-    # TODO: Calculate active/failed based on actual health checks
-    active = total
-    failed = 0
-    healthy_percentage = (active / total * 100) if total > 0 else 0.0
+    # Use thread-safe property
+    total = rotator.pool.size
+    # Calculate active/failed based on circuit breaker states and health checks
+    circuit_breakers = rotator.get_circuit_breaker_states()
+    failed = sum(1 for cb in circuit_breakers.values() if cb.state.value == "OPEN")
+    healthy = rotator.pool.healthy_count
+    active = total - failed
+    healthy_percentage = (healthy / total * 100) if total > 0 else 0.0
 
     pool_stats = ProxyPoolStats(
         total=total,
         active=active,
         failed=failed,
         healthy_percentage=healthy_percentage,
-        last_rotation=None,  # TODO: Track last rotation time
+        last_rotation=_last_rotation_time,
     )
 
     storage_backend = "memory"
@@ -1175,29 +1475,73 @@ async def get_status(
 
 
 @app.get(
-    "/api/v1/metrics",
+    "/api/v1/stats",
     response_model=APIResponse[MetricsResponse],
     tags=["Monitoring"],
-    summary="Get performance metrics",
+    summary="Get performance statistics",
 )
-async def get_metrics(
+async def get_stats(
     rotator: ProxyRotator = Depends(get_rotator),
 ) -> APIResponse[MetricsResponse]:
-    """Get API performance metrics.
+    """Get API performance statistics (general aggregate metrics).
+
+    This endpoint provides high-level performance statistics for the API,
+    distinct from the detailed Prometheus metrics available at /metrics.
 
     Args:
         rotator: ProxyRotator dependency
 
     Returns:
-        Performance metrics response
+        Performance statistics response
+
+    Note:
+        This endpoint provides aggregate metrics. For detailed metrics, use:
+        - /metrics - Prometheus format metrics
+        - /api/v1/metrics/retries - Retry-specific metrics
+        - /metrics/retry - Comprehensive retry metrics with JSON/Prometheus format
     """
-    # TODO: Implement actual metrics tracking
+    from proxywhirl.api_models import ProxyStats
+
+    # Calculate aggregate metrics from all proxies (thread-safe snapshot)
+    all_proxies = rotator.pool.get_all_proxies()
+    total_requests = sum(p.requests_started for p in all_proxies)
+    total_completed = sum(p.requests_completed for p in all_proxies)
+    total_failed = sum(p.total_failures for p in all_proxies)
+
+    # Calculate overall error rate
+    error_rate = (total_failed / total_requests * 100) if total_requests > 0 else 0.0
+
+    # Calculate weighted average latency (average_response_time_ms is already in ms)
+    total_latency_weighted = sum(
+        (p.average_response_time_ms or 0) * p.requests_completed
+        for p in all_proxies
+        if p.average_response_time_ms
+    )
+    avg_latency_ms = total_latency_weighted / total_completed if total_completed > 0 else 0.0
+
+    # Calculate requests per second based on uptime
+    uptime_seconds = (datetime.now(timezone.utc) - _app_start_time).total_seconds()
+    requests_per_second = total_requests / uptime_seconds if uptime_seconds > 0 else 0.0
+
+    # Build per-proxy stats
+    proxy_stats_list = []
+    for proxy in all_proxies:
+        proxy_stats_list.append(
+            ProxyStats(
+                proxy_id=_get_proxy_id(proxy),
+                requests=proxy.requests_started,
+                successes=proxy.requests_completed,
+                failures=proxy.total_failures,
+                avg_latency_ms=int(proxy.average_response_time_ms or 0),
+            )
+        )
+
     metrics_response = MetricsResponse(
-        requests_total=0,
-        requests_per_second=0.0,
-        avg_latency_ms=0.0,
-        error_rate=0.0,
-        proxy_stats=[],
+        requests_total=total_requests,
+        requests_per_second=round(requests_per_second, 2),
+        avg_latency_ms=round(avg_latency_ms, 2),
+        error_rate=round(error_rate, 2),
+        proxy_stats=proxy_stats_list,
     )
 
     return APIResponse.success(data=metrics_response)
@@ -1247,7 +1591,9 @@ async def get_configuration(
     tags=["Configuration"],
     summary="Update configuration",
 )
+@limiter.limit("5/minute")
 async def update_configuration(
+    request: Request,
     update_data: UpdateConfigRequest,
     config: dict[str, Any] = Depends(get_config),
     rotator: ProxyRotator = Depends(get_rotator),
@@ -1269,7 +1615,15 @@ async def update_configuration(
     # Apply updates
     if update_data.rotation_strategy is not None:
         config["rotation_strategy"] = update_data.rotation_strategy
-        # TODO: Update rotator strategy
+        # Update rotator strategy dynamically using hot-swap
+        try:
+            rotator.set_strategy(update_data.rotation_strategy, atomic=True)
+            logger.info(f"Rotation strategy updated to: {update_data.rotation_strategy}")
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid rotation strategy: {str(e)}",
+            ) from e
 
     if update_data.timeout is not None:
         config["timeout"] = update_data.timeout
@@ -1309,7 +1663,7 @@ async def update_configuration(
 )
 async def get_retry_policy(
     api_key: None = Depends(verify_api_key),
-) -> APIResponse["RetryPolicyResponse"]:
+) -> APIResponse[RetryPolicyResponse]:
     """Get the current global retry policy configuration.
 
     Returns:
@@ -1347,9 +1701,9 @@ async def get_retry_policy(
     summary="Update global retry policy",
 )
 async def update_retry_policy(
-    policy_request: "RetryPolicyRequest",
+    policy_request: RetryPolicyRequest,
     api_key: None = Depends(verify_api_key),
-) -> APIResponse["RetryPolicyResponse"]:
+) -> APIResponse[RetryPolicyResponse]:
     """Update the global retry policy configuration.
 
     Args:
@@ -1423,7 +1777,7 @@ async def update_retry_policy(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid policy configuration: {e}",
-        )
+        ) from e
 
 
 @app.get(
@@ -1434,7 +1788,7 @@ async def update_retry_policy(
 )
 async def list_circuit_breakers(
     api_key: None = Depends(verify_api_key),
-) -> APIResponse[list["CircuitBreakerResponse"]]:
+) -> APIResponse[list[CircuitBreakerResponse]]:
     """Get circuit breaker states for all proxies.
 
     Returns:
@@ -1471,6 +1825,50 @@ async def list_circuit_breakers(
 
 
 @app.get(
+    "/api/v1/circuit-breakers/metrics",
+    response_model=APIResponse[list["CircuitBreakerEventResponse"]],
+    tags=["Retry & Failover"],
+    summary="Get circuit breaker metrics",
+)
+async def get_circuit_breaker_metrics(
+    hours: int = 24,
+    api_key: None = Depends(verify_api_key),
+) -> APIResponse[list[CircuitBreakerEventResponse]]:
+    """Get circuit breaker state change events.
+
+    Args:
+        hours: Number of hours to retrieve (default: 24)
+
+    Returns:
+        List of circuit breaker events
+    """
+    from proxywhirl.api_models import CircuitBreakerEventResponse
+
+    if not _rotator:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Rotator not initialized",
+        )
+
+    metrics = _rotator.get_retry_metrics()
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+    events = [
+        CircuitBreakerEventResponse(
+            proxy_id=event.proxy_id,
+            from_state=event.from_state.value,
+            to_state=event.to_state.value,
+            timestamp=event.timestamp,
+            failure_count=event.failure_count,
+        )
+        for event in metrics.circuit_breaker_events
+        if event.timestamp >= cutoff
+    ]
+
+    return APIResponse.success(data=events)
+
+
+@app.get(
     "/api/v1/circuit-breakers/{proxy_id}",
     response_model=APIResponse["CircuitBreakerResponse"],
     tags=["Retry & Failover"],
@@ -1479,7 +1877,7 @@ async def list_circuit_breakers(
 async def get_circuit_breaker(
     proxy_id: str,
     api_key: None = Depends(verify_api_key),
-) -> APIResponse["CircuitBreakerResponse"]:
+) -> APIResponse[CircuitBreakerResponse]:
     """Get circuit breaker state for a specific proxy.
 
     Args:
@@ -1528,10 +1926,12 @@ async def get_circuit_breaker(
     tags=["Retry & Failover"],
     summary="Manually reset circuit breaker",
 )
+@limiter.limit("10/minute")
 async def reset_circuit_breaker(
+    request: Request,
     proxy_id: str,
     api_key: None = Depends(verify_api_key),
-) -> APIResponse["CircuitBreakerResponse"]:
+) -> APIResponse[CircuitBreakerResponse]:
     """Manually reset a circuit breaker to CLOSED state.
 
     Args:
@@ -1578,50 +1978,6 @@ async def reset_circuit_breaker(
 
 
 @app.get(
-    "/api/v1/circuit-breakers/metrics",
-    response_model=APIResponse[list["CircuitBreakerEventResponse"]],
-    tags=["Retry & Failover"],
-    summary="Get circuit breaker metrics",
-)
-async def get_circuit_breaker_metrics(
-    hours: int = 24,
-    api_key: None = Depends(verify_api_key),
-) -> APIResponse[list["CircuitBreakerEventResponse"]]:
-    """Get circuit breaker state change events.
-
-    Args:
-        hours: Number of hours to retrieve (default: 24)
-
-    Returns:
-        List of circuit breaker events
-    """
-    from proxywhirl.api_models import CircuitBreakerEventResponse
-
-    if not _rotator:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Rotator not initialized",
-        )
-
-    metrics = _rotator.get_retry_metrics()
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
-
-    events = [
-        CircuitBreakerEventResponse(
-            proxy_id=event.proxy_id,
-            from_state=event.from_state.value,
-            to_state=event.to_state.value,
-            timestamp=event.timestamp,
-            failure_count=event.failure_count,
-        )
-        for event in metrics.circuit_breaker_events
-        if event.timestamp >= cutoff
-    ]
-
-    return APIResponse.success(data=events)
-
-
-@app.get(
     "/api/v1/metrics/retries",
     response_model=APIResponse["RetryMetricsResponse"],
     tags=["Retry & Failover"],
@@ -1629,7 +1985,7 @@ async def get_circuit_breaker_metrics(
 )
 async def get_retry_metrics(
     api_key: None = Depends(verify_api_key),
-) -> APIResponse["RetryMetricsResponse"]:
+) -> APIResponse[RetryMetricsResponse]:
     """Get aggregated retry metrics.
 
     Returns:
@@ -1644,7 +2000,8 @@ async def get_retry_metrics(
         )
 
     metrics = _rotator.get_retry_metrics()
-    summary = metrics.get_summary()
+    # Use asyncio.to_thread to avoid blocking event loop with threading.Lock
+    summary = await asyncio.to_thread(metrics.get_summary)
 
     response = RetryMetricsResponse(
         total_retries=summary["total_retries"],
@@ -1665,7 +2022,7 @@ async def get_retry_metrics(
 async def get_retry_timeseries(
     hours: int = 24,
     api_key: None = Depends(verify_api_key),
-) -> APIResponse["TimeSeriesResponse"]:
+) -> APIResponse[TimeSeriesResponse]:
     """Get hourly retry metrics for the specified time range.
 
     Args:
@@ -1683,7 +2040,8 @@ async def get_retry_timeseries(
         )
 
     metrics = _rotator.get_retry_metrics()
-    timeseries_data = metrics.get_timeseries(hours=hours)
+    # Use asyncio.to_thread to avoid blocking event loop with threading.Lock
+    timeseries_data = await asyncio.to_thread(metrics.get_timeseries, hours=hours)
 
     data_points = [
         TimeSeriesDataPoint(
@@ -1710,7 +2068,7 @@ async def get_retry_timeseries(
 async def get_retry_stats_by_proxy(
     hours: int = 24,
     api_key: None = Depends(verify_api_key),
-) -> APIResponse["ProxyRetryStatsResponse"]:
+) -> APIResponse[ProxyRetryStatsResponse]:
     """Get retry statistics grouped by proxy.
 
     Args:
@@ -1728,10 +2086,352 @@ async def get_retry_stats_by_proxy(
         )
 
     metrics = _rotator.get_retry_metrics()
-    stats_by_proxy = metrics.get_by_proxy(hours=hours)
+    # Use asyncio.to_thread to avoid blocking event loop with threading.Lock
+    stats_by_proxy = await asyncio.to_thread(metrics.get_by_proxy, hours=hours)
 
     proxies = {proxy_id: ProxyRetryStats(**stats) for proxy_id, stats in stats_by_proxy.items()}
 
     response = ProxyRetryStatsResponse(proxies=proxies)
 
     return APIResponse.success(data=response)
+
+
+# =============================================================================
+# TASK-701: Expose Retry Metrics via REST API
+# =============================================================================
+
+
+@app.get(
+    "/metrics/retry",
+    tags=["Monitoring"],
+    summary="Get retry statistics with optional Prometheus format",
+)
+async def get_retry_metrics_endpoint(
+    format: str | None = None,
+    hours: int = 24,
+    api_key: None = Depends(verify_api_key),
+) -> Response:
+    """Get retry statistics in JSON or Prometheus format.
+
+    This endpoint provides comprehensive retry metrics including:
+    - Total retry attempts
+    - Success rate by attempt number
+    - Time-series data (hourly aggregates)
+    - Per-proxy statistics
+
+    Args:
+        format: Output format ('prometheus' for Prometheus text format, default: JSON)
+        hours: Number of hours of data to include (default: 24)
+        api_key: API key verification
+
+    Returns:
+        Retry metrics in requested format
+
+    Example Prometheus format:
+        # HELP proxywhirl_retry_total Total number of retry attempts
+        # TYPE proxywhirl_retry_total counter
+        proxywhirl_retry_total 1250
+
+        # HELP proxywhirl_retry_success_by_attempt Successful requests by attempt number
+        # TYPE proxywhirl_retry_success_by_attempt gauge
+        proxywhirl_retry_success_by_attempt{attempt="0"} 850
+        proxywhirl_retry_success_by_attempt{attempt="1"} 300
+    """
+    if not _rotator:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Rotator not initialized",
+        )
+
+    metrics = _rotator.get_retry_metrics()
+
+    # Get all metrics data
+    summary = metrics.get_summary()
+    timeseries_data = metrics.get_timeseries(hours=hours)
+    stats_by_proxy = metrics.get_by_proxy(hours=hours)
+
+    # Prometheus format
+    if format and format.lower() == "prometheus":
+        lines = []
+
+        # Total retries
+        lines.append("# HELP proxywhirl_retry_total Total number of retry attempts")
+        lines.append("# TYPE proxywhirl_retry_total counter")
+        lines.append(f"proxywhirl_retry_total {summary['total_retries']}")
+        lines.append("")
+
+        # Success by attempt
+        lines.append(
+            "# HELP proxywhirl_retry_success_by_attempt Successful requests by attempt number"
+        )
+        lines.append("# TYPE proxywhirl_retry_success_by_attempt gauge")
+        for attempt_num, count in summary["success_by_attempt"].items():
+            lines.append(f'proxywhirl_retry_success_by_attempt{{attempt="{attempt_num}"}} {count}')
+        lines.append("")
+
+        # Circuit breaker events count
+        lines.append(
+            "# HELP proxywhirl_circuit_breaker_events_total Total circuit breaker state changes"
+        )
+        lines.append("# TYPE proxywhirl_circuit_breaker_events_total counter")
+        lines.append(
+            f"proxywhirl_circuit_breaker_events_total {summary['circuit_breaker_events_count']}"
+        )
+        lines.append("")
+
+        # Per-proxy metrics
+        lines.append("# HELP proxywhirl_retry_proxy_attempts Total retry attempts per proxy")
+        lines.append("# TYPE proxywhirl_retry_proxy_attempts gauge")
+        for proxy_id, stats in stats_by_proxy.items():
+            # Escape proxy_id for Prometheus label
+            safe_proxy_id = proxy_id.replace('"', '\\"')
+            lines.append(
+                f'proxywhirl_retry_proxy_attempts{{proxy_id="{safe_proxy_id}"}} {stats["total_attempts"]}'
+            )
+        lines.append("")
+
+        lines.append("# HELP proxywhirl_retry_proxy_success Total successful requests per proxy")
+        lines.append("# TYPE proxywhirl_retry_proxy_success gauge")
+        for proxy_id, stats in stats_by_proxy.items():
+            safe_proxy_id = proxy_id.replace('"', '\\"')
+            lines.append(
+                f'proxywhirl_retry_proxy_success{{proxy_id="{safe_proxy_id}"}} {stats["success_count"]}'
+            )
+        lines.append("")
+
+        lines.append("# HELP proxywhirl_retry_proxy_failure Total failed requests per proxy")
+        lines.append("# TYPE proxywhirl_retry_proxy_failure gauge")
+        for proxy_id, stats in stats_by_proxy.items():
+            safe_proxy_id = proxy_id.replace('"', '\\"')
+            lines.append(
+                f'proxywhirl_retry_proxy_failure{{proxy_id="{safe_proxy_id}"}} {stats["failure_count"]}'
+            )
+        lines.append("")
+
+        lines.append(
+            "# HELP proxywhirl_retry_proxy_avg_latency Average latency per proxy in seconds"
+        )
+        lines.append("# TYPE proxywhirl_retry_proxy_avg_latency gauge")
+        for proxy_id, stats in stats_by_proxy.items():
+            safe_proxy_id = proxy_id.replace('"', '\\"')
+            lines.append(
+                f'proxywhirl_retry_proxy_avg_latency{{proxy_id="{safe_proxy_id}"}} {stats["avg_latency"]:.6f}'
+            )
+        lines.append("")
+
+        prometheus_output = "\n".join(lines)
+        return Response(
+            content=prometheus_output,
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
+
+    # JSON format (default)
+
+    # Build comprehensive response
+    response_data = {
+        "summary": {
+            "total_retries": summary["total_retries"],
+            "success_by_attempt": {str(k): v for k, v in summary["success_by_attempt"].items()},
+            "circuit_breaker_events_count": summary["circuit_breaker_events_count"],
+            "retention_hours": summary["retention_hours"],
+        },
+        "timeseries": [
+            {
+                "timestamp": point["timestamp"],
+                "total_requests": point["total_requests"],
+                "total_retries": point["total_retries"],
+                "success_rate": point["success_rate"],
+                "avg_latency": point["avg_latency"],
+            }
+            for point in timeseries_data
+        ],
+        "by_proxy": {
+            proxy_id: {
+                "proxy_id": stats["proxy_id"],
+                "total_attempts": stats["total_attempts"],
+                "success_count": stats["success_count"],
+                "failure_count": stats["failure_count"],
+                "avg_latency": stats["avg_latency"],
+                "circuit_breaker_opens": stats["circuit_breaker_opens"],
+            }
+            for proxy_id, stats in stats_by_proxy.items()
+        },
+    }
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=APIResponse.success(data=response_data).model_dump(mode="json"),
+    )
+
+
+@app.get(
+    "/metrics/circuit-breaker",
+    tags=["Monitoring"],
+    summary="Get circuit breaker states with optional Prometheus format",
+)
+async def get_circuit_breaker_metrics_endpoint(
+    format: str | None = None,
+    hours: int = 24,
+    api_key: None = Depends(verify_api_key),
+) -> Response:
+    """Get circuit breaker states and events in JSON or Prometheus format.
+
+    This endpoint provides circuit breaker information including:
+    - Current state of all circuit breakers
+    - State change events (history)
+    - Failure counts and thresholds
+
+    Args:
+        format: Output format ('prometheus' for Prometheus text format, default: JSON)
+        hours: Number of hours of event history to include (default: 24)
+        api_key: API key verification
+
+    Returns:
+        Circuit breaker metrics in requested format
+
+    Example Prometheus format:
+        # HELP proxywhirl_circuit_breaker_state Circuit breaker state (0=closed, 1=open, 2=half_open)
+        # TYPE proxywhirl_circuit_breaker_state gauge
+        proxywhirl_circuit_breaker_state{proxy_id="proxy1:8080"} 0
+
+        # HELP proxywhirl_circuit_breaker_failure_count Current failure count
+        # TYPE proxywhirl_circuit_breaker_failure_count gauge
+        proxywhirl_circuit_breaker_failure_count{proxy_id="proxy1:8080"} 2
+    """
+    if not _rotator:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Rotator not initialized",
+        )
+
+    # Get circuit breaker states
+    circuit_breakers = _rotator.get_circuit_breaker_states()
+
+    # Get circuit breaker events
+    metrics = _rotator.get_retry_metrics()
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    events = [event for event in metrics.circuit_breaker_events if event.timestamp >= cutoff]
+
+    # Prometheus format
+    if format and format.lower() == "prometheus":
+        lines = []
+
+        # Circuit breaker state
+        lines.append(
+            "# HELP proxywhirl_circuit_breaker_state Circuit breaker state (0=closed, 1=open, 2=half_open)"
+        )
+        lines.append("# TYPE proxywhirl_circuit_breaker_state gauge")
+        for proxy_id, cb in circuit_breakers.items():
+            safe_proxy_id = proxy_id.replace('"', '\\"')
+            # Map state to numeric value
+            state_value = 0
+            if cb.state.value == "open":
+                state_value = 1
+            elif cb.state.value == "half_open":
+                state_value = 2
+            lines.append(
+                f'proxywhirl_circuit_breaker_state{{proxy_id="{safe_proxy_id}"}} {state_value}'
+            )
+        lines.append("")
+
+        # Failure count
+        lines.append(
+            "# HELP proxywhirl_circuit_breaker_failure_count Current failure count within window"
+        )
+        lines.append("# TYPE proxywhirl_circuit_breaker_failure_count gauge")
+        for proxy_id, cb in circuit_breakers.items():
+            safe_proxy_id = proxy_id.replace('"', '\\"')
+            lines.append(
+                f'proxywhirl_circuit_breaker_failure_count{{proxy_id="{safe_proxy_id}"}} {cb.failure_count}'
+            )
+        lines.append("")
+
+        # Failure threshold
+        lines.append(
+            "# HELP proxywhirl_circuit_breaker_failure_threshold Failure threshold before opening"
+        )
+        lines.append("# TYPE proxywhirl_circuit_breaker_failure_threshold gauge")
+        for proxy_id, cb in circuit_breakers.items():
+            safe_proxy_id = proxy_id.replace('"', '\\"')
+            lines.append(
+                f'proxywhirl_circuit_breaker_failure_threshold{{proxy_id="{safe_proxy_id}"}} {cb.failure_threshold}'
+            )
+        lines.append("")
+
+        # State change events count
+        lines.append(
+            "# HELP proxywhirl_circuit_breaker_state_changes_total Total state changes in time window"
+        )
+        lines.append("# TYPE proxywhirl_circuit_breaker_state_changes_total counter")
+        lines.append(f"proxywhirl_circuit_breaker_state_changes_total {len(events)}")
+        lines.append("")
+
+        # Count of opens per proxy
+        from collections import defaultdict
+
+        opens_by_proxy: dict[str, int] = defaultdict(int)
+        for event in events:
+            if event.to_state.value == "open":
+                opens_by_proxy[event.proxy_id] += 1
+
+        lines.append(
+            "# HELP proxywhirl_circuit_breaker_opens_total Total circuit breaker opens per proxy"
+        )
+        lines.append("# TYPE proxywhirl_circuit_breaker_opens_total counter")
+        for proxy_id, count in opens_by_proxy.items():
+            safe_proxy_id = proxy_id.replace('"', '\\"')
+            lines.append(
+                f'proxywhirl_circuit_breaker_opens_total{{proxy_id="{safe_proxy_id}"}} {count}'
+            )
+        lines.append("")
+
+        prometheus_output = "\n".join(lines)
+        return Response(
+            content=prometheus_output,
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
+
+    # JSON format (default)
+    from proxywhirl.api_models import CircuitBreakerEventResponse, CircuitBreakerResponse
+
+    # Build circuit breaker states response
+    states = []
+    for proxy_id, cb in circuit_breakers.items():
+        states.append(
+            CircuitBreakerResponse(
+                proxy_id=proxy_id,
+                state=cb.state.value,
+                failure_count=cb.failure_count,
+                failure_threshold=cb.failure_threshold,
+                window_duration=cb.window_duration,
+                timeout_duration=cb.timeout_duration,
+                next_test_time=datetime.fromtimestamp(cb.next_test_time, timezone.utc)
+                if cb.next_test_time
+                else None,
+                last_state_change=cb.last_state_change,
+            )
+        )
+
+    # Build events response
+    event_responses = [
+        CircuitBreakerEventResponse(
+            proxy_id=event.proxy_id,
+            from_state=event.from_state.value,
+            to_state=event.to_state.value,
+            timestamp=event.timestamp,
+            failure_count=event.failure_count,
+        )
+        for event in events
+    ]
+
+    response_data = {
+        "states": [state.model_dump(mode="json") for state in states],
+        "events": [event.model_dump(mode="json") for event in event_responses],
+        "total_events": len(event_responses),
+        "hours": hours,
+    }
+
+    return JSONResponse(
+        status_code=status.HTTP_200_OK,
+        content=APIResponse.success(data=response_data).model_dump(mode="json"),
+    )

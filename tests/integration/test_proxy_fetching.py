@@ -13,7 +13,6 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 
 import httpx
-import pytest
 import respx
 
 from proxywhirl.fetchers import (
@@ -31,7 +30,6 @@ class TestFetchFromSource:
     """Test proxy retrieval from various source URLs."""
 
     @respx.mock
-    @pytest.mark.asyncio
     async def test_fetch_json_source_successfully(self) -> None:
         """SC1: Fetch proxies from JSON source URL."""
         # Mock HTTP response
@@ -54,7 +52,6 @@ class TestFetchFromSource:
         assert proxies[1]["url"] == "http://proxy2.example.com:3128"
 
     @respx.mock
-    @pytest.mark.asyncio
     async def test_fetch_csv_source_successfully(self) -> None:
         """SC1: Fetch proxies from CSV source URL."""
         csv_data = "ip,port,country\n1.2.3.4,8080,US\n5.6.7.8,3128,UK"
@@ -73,7 +70,6 @@ class TestFetchFromSource:
         assert proxies[1]["country"] == "UK"
 
     @respx.mock
-    @pytest.mark.asyncio
     async def test_fetch_text_source_successfully(self) -> None:
         """SC1: Fetch proxies from plain text source URL."""
         text_data = "http://proxy1.example.com:8080\nhttp://proxy2.example.com:3128"
@@ -90,7 +86,6 @@ class TestFetchFromSource:
         assert proxies[0]["url"] == "http://proxy1.example.com:8080"
 
     @respx.mock
-    @pytest.mark.asyncio
     async def test_fetch_html_table_source_successfully(self) -> None:
         """SC1: Fetch proxies from HTML table source URL."""
         html_data = """
@@ -121,7 +116,6 @@ class TestFetchFromSource:
         assert proxies[1]["port"] == "3128"
 
     @respx.mock
-    @pytest.mark.asyncio
     async def test_fetch_handles_http_errors(self) -> None:
         """SC1: Handle HTTP errors gracefully."""
         respx.get("https://proxy-source.example.com/list.json").mock(
@@ -137,7 +131,6 @@ class TestFetchFromSource:
 class TestValidateBeforeAdding:
     """Test proxy validation before pool addition."""
 
-    @pytest.mark.asyncio
     async def test_only_valid_proxies_pass_validation(self) -> None:
         """SC2: Only validated proxies are added to pool."""
         proxies = [
@@ -160,7 +153,6 @@ class TestValidateBeforeAdding:
         assert validated[0]["url"] == "http://proxy1.example.com:8080"
         assert validated[1]["url"] == "http://proxy2.example.com:3128"
 
-    @pytest.mark.asyncio
     async def test_validation_timeout_rejects_slow_proxies(self) -> None:
         """SC2: Slow proxies are rejected during validation."""
         proxy = {"url": "http://slow-proxy.example.com:8080"}
@@ -173,7 +165,6 @@ class TestValidateBeforeAdding:
 
         assert result is False
 
-    @pytest.mark.asyncio
     async def test_batch_validation_processes_all_proxies(self) -> None:
         """SC2: Batch validation processes all proxies."""
         proxies = [
@@ -198,7 +189,6 @@ class TestAggregateMultipleSources:
     """Test aggregation and deduplication from multiple sources."""
 
     @respx.mock
-    @pytest.mark.asyncio
     async def test_aggregate_proxies_from_multiple_sources(self) -> None:
         """SC3: Aggregate proxies from multiple sources."""
         # Mock multiple sources
@@ -270,7 +260,6 @@ class TestAggregateMultipleSources:
 class TestPeriodicRefresh:
     """Test periodic refresh functionality."""
 
-    @pytest.mark.asyncio
     async def test_periodic_refresh_triggers_at_interval(self) -> None:
         """SC4: Periodic refresh triggers at configured interval."""
         refresh_count = 0
@@ -287,7 +276,6 @@ class TestPeriodicRefresh:
 
         assert refresh_count == 3
 
-    @pytest.mark.asyncio
     async def test_refresh_updates_proxy_pool(self) -> None:
         """SC4: Refresh updates the proxy pool with new proxies."""
         # Initial pool
@@ -309,7 +297,6 @@ class TestPeriodicRefresh:
         assert pool[0]["url"] == "http://new-proxy1.example.com:8080"
         assert pool[1]["url"] == "http://new-proxy2.example.com:3128"
 
-    @pytest.mark.asyncio
     async def test_refresh_deduplicates_with_existing_pool(self) -> None:
         """SC4: Refresh deduplicates new proxies with existing pool."""
         existing = [
@@ -334,7 +321,6 @@ class TestPeriodicRefresh:
 class TestWorkingProxiesOnly:
     """Test that only working proxies are added to pool."""
 
-    @pytest.mark.asyncio
     async def test_dead_proxies_filtered_out(self) -> None:
         """SC5: Dead proxies are filtered out after validation."""
         proxies = [
@@ -358,7 +344,6 @@ class TestWorkingProxiesOnly:
         assert validated[0]["url"] == "http://working1.example.com:8080"
         assert validated[1]["url"] == "http://working2.example.com:80"
 
-    @pytest.mark.asyncio
     async def test_validation_performance_meets_requirements(self) -> None:
         """SC5: Validation meets performance requirements (SC-011: 100+ proxies/sec)."""
         # Generate 150 proxies
@@ -380,7 +365,6 @@ class TestWorkingProxiesOnly:
         # (Being generous here since it's mocked)
         assert elapsed < 2.0
 
-    @pytest.mark.asyncio
     async def test_partial_validation_failure_preserves_working_proxies(self) -> None:
         """SC5: Partial validation failures preserve working proxies."""
         proxies = [
@@ -406,7 +390,6 @@ class TestCompleteProxyFetchingWorkflow:
     """Test complete proxy fetching workflow (all scenarios combined)."""
 
     @respx.mock
-    @pytest.mark.asyncio
     async def test_end_to_end_proxy_fetching_workflow(self) -> None:
         """
         Complete workflow:

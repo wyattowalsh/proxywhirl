@@ -3,8 +3,6 @@
 import socket
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from proxywhirl.fetchers import ProxyValidator
 from proxywhirl.models import ValidationLevel
 
@@ -12,7 +10,6 @@ from proxywhirl.models import ValidationLevel
 class TestTCPConnectivity:
     """Test TCP connectivity validation."""
 
-    @pytest.mark.asyncio
     async def test_tcp_connect_success(self) -> None:
         """T006: Test successful TCP connection to proxy."""
         validator = ProxyValidator(level=ValidationLevel.BASIC)
@@ -30,7 +27,6 @@ class TestTCPConnectivity:
             )
             mock_socket.close.assert_called_once()
 
-    @pytest.mark.asyncio
     async def test_tcp_connect_timeout(self) -> None:
         """T007: Test TCP connection timeout."""
         validator = ProxyValidator(level=ValidationLevel.BASIC, timeout=2.0)
@@ -43,7 +39,6 @@ class TestTCPConnectivity:
 
             assert result is False
 
-    @pytest.mark.asyncio
     async def test_tcp_connect_refused(self) -> None:
         """T008: Test TCP connection refused."""
         validator = ProxyValidator(level=ValidationLevel.BASIC)
@@ -56,7 +51,6 @@ class TestTCPConnectivity:
 
             assert result is False
 
-    @pytest.mark.asyncio
     async def test_tcp_connect_invalid_host(self) -> None:
         """Test TCP connection with invalid hostname."""
         validator = ProxyValidator(level=ValidationLevel.BASIC)
@@ -69,7 +63,6 @@ class TestTCPConnectivity:
 
             assert result is False
 
-    @pytest.mark.asyncio
     async def test_tcp_connect_network_unreachable(self) -> None:
         """Test TCP connection when network is unreachable."""
         validator = ProxyValidator(level=ValidationLevel.BASIC)

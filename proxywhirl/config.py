@@ -7,11 +7,10 @@ for the CLI interface.
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
-from typing import Optional
 
 from cryptography.fernet import Fernet
+from loguru import logger
 from pydantic import BaseModel, Field, SecretStr, field_validator
 
 try:
@@ -23,12 +22,116 @@ import tomli_w
 from platformdirs import user_config_dir
 
 
+class DataStorageConfig(BaseModel):
+    """Configuration for what data to persist to the database.
+
+    All fields are configurable to allow users to:
+    - Reduce storage by disabling less-critical fields
+    - Improve privacy by opting out of geo/IP data
+    - Balance performance vs analytics granularity
+    """
+
+    # Storage backend driver configuration
+    async_driver: bool = Field(
+        default=True,
+        description="Enable async SQLite driver (aiosqlite) for non-blocking I/O. "
+        "Currently always uses aiosqlite; this option is reserved for "
+        "future compatibility enhancements and configuration consistency.",
+    )
+
+    # Connection pooling configuration
+    pool_size: int = Field(
+        default=5,
+        ge=1,
+        le=100,
+        description="SQLite connection pool size (max concurrent connections)",
+    )
+    pool_max_overflow: int = Field(
+        default=10, ge=0, le=100, description="Max overflow connections beyond pool_size"
+    )
+    pool_timeout: float = Field(
+        default=30.0,
+        ge=1.0,
+        le=300.0,
+        description="Timeout in seconds when getting connection from pool",
+    )
+    pool_recycle: int = Field(
+        default=3600, ge=-1, description="Recycle connections after N seconds (-1 to disable)"
+    )
+
+    # Request timing analytics
+    persist_latency_percentiles: bool = Field(
+        default=True, description="Store P50, P95, P99 response time percentiles"
+    )
+    persist_response_time_stats: bool = Field(
+        default=True, description="Store min/max/stddev response times"
+    )
+
+    # Error tracking
+    persist_error_types: bool = Field(
+        default=True, description="Store error type counts (timeout, ssl, etc.)"
+    )
+    persist_error_messages: bool = Field(
+        default=True, description="Store last error message for debugging"
+    )
+    max_error_history: int = Field(
+        default=20, ge=0, le=100, description="Maximum error history entries to keep"
+    )
+
+    # Geographic & IP intelligence (privacy-sensitive)
+    persist_geo_data: bool = Field(
+        default=False, description="Store country/region/city (opt-in for privacy)"
+    )
+    persist_ip_intelligence: bool = Field(
+        default=False, description="Store is_residential/is_datacenter/is_vpn flags"
+    )
+    persist_coordinates: bool = Field(
+        default=False, description="Store latitude/longitude coordinates"
+    )
+
+    # Protocol details
+    persist_protocol_details: bool = Field(default=True, description="Store HTTP/TLS version info")
+    persist_capabilities: bool = Field(
+        default=True, description="Store supports_https/http2/connect flags"
+    )
+
+    # Health tracking
+    persist_health_transitions: bool = Field(
+        default=True, description="Store health status change history"
+    )
+    persist_consecutive_streaks: bool = Field(
+        default=True, description="Store success/failure streak counts"
+    )
+    max_health_transitions: int = Field(
+        default=50, ge=0, le=500, description="Maximum health transitions to keep in history"
+    )
+
+    # Source metadata
+    persist_source_metadata: bool = Field(
+        default=True, description="Store source name, fetch time, validation info"
+    )
+    persist_fetch_duration: bool = Field(default=True, description="Store how long fetch took")
+
+    # Advanced (expensive storage)
+    persist_request_logs: bool = Field(
+        default=False, description="Store individual request logs (heavy storage)"
+    )
+    persist_daily_aggregates: bool = Field(
+        default=False, description="Store daily aggregate statistics"
+    )
+
+    class Config:
+        """Pydantic config."""
+
+        extra = "forbid"
+
+
 class ProxyConfig(BaseModel):
     """Configuration for a single proxy."""
 
     url: str
-    username: Optional[SecretStr] = None
-    password: Optional[SecretStr] = None
+    username: SecretStr | None = None
+    password: SecretStr | None = None
 
     @field_validator("url")
     @classmethod
@@ -47,7 +150,7 @@ class CLIConfig(BaseModel):
 
     # Proxy pool
     proxies: list[ProxyConfig] = Field(default_factory=list, description="List of proxies")
-    proxy_file: Optional[Path] = Field(None, description="Path to proxy list file")
+    proxy_file: Path | None = Field(None, description="Path to proxy list file")
 
     # Rotation settings
     rotation_strategy: str = Field("round-robin", description="Rotation strategy")
@@ -68,24 +171,50 @@ class CLIConfig(BaseModel):
 
     # Storage settings
     storage_backend: str = Field("file", description="Storage backend type")
-    storage_path: Optional[Path] = Field(None, description="Path for file/sqlite storage")
+    storage_path: Path | None = Field(None, description="Path for file/sqlite storage")
 
     # Cache settings (005-caching-mechanisms-storage)
     cache_enabled: bool = Field(True, description="Enable three-tier caching system")
     cache_l1_max_entries: int = Field(1000, description="L1 (memory) max entries")
     cache_l2_max_entries: int = Field(5000, description="L2 (JSONL) max entries")
-    cache_l3_max_entries: Optional[int] = Field(None, description="L3 (SQLite) max entries (None=unlimited)")
+    cache_l3_max_entries: int | None = Field(
+        None, description="L3 (SQLite) max entries (None=unlimited)"
+    )
     cache_default_ttl: int = Field(3600, ge=60, description="Default cache TTL in seconds")
-    cache_cleanup_interval: int = Field(60, ge=10, description="Background cleanup interval (seconds)")
+    cache_cleanup_interval: int = Field(
+        60, ge=10, description="Background cleanup interval (seconds)"
+    )
     cache_l2_dir: str = Field(".cache/proxies", description="L2 cache directory")
     cache_l3_db_path: str = Field(".cache/db/proxywhirl.db", description="L3 SQLite database path")
-    cache_encryption_key_env: str = Field("PROXYWHIRL_CACHE_ENCRYPTION_KEY", description="Env var for cache encryption key")
-    cache_health_invalidation: bool = Field(True, description="Auto-invalidate on health check failure")
+    cache_encryption_key_env: str = Field(
+        "PROXYWHIRL_CACHE_ENCRYPTION_KEY", description="Env var for cache encryption key"
+    )
+    cache_health_invalidation: bool = Field(
+        True, description="Auto-invalidate on health check failure"
+    )
     cache_failure_threshold: int = Field(3, ge=1, description="Failures before health invalidation")
 
     # Security
     encrypt_credentials: bool = Field(True, description="Encrypt credentials in config file")
     encryption_key_env: str = Field("PROXYWHIRL_KEY", description="Env var for encryption key")
+
+    # API Rate Limiting
+    rate_limit_by_key: bool = Field(
+        True, description="Enable per-API-key rate limiting (prevents X-Forwarded-For bypass)"
+    )
+    rate_limit_per_key: str = Field(
+        "100/minute", description="Rate limit per API key (format: 'N/minute' or 'N/hour')"
+    )
+    rate_limit_per_ip: str = Field(
+        "100/minute",
+        description="Rate limit per IP address when no API key provided (format: 'N/minute' or 'N/hour')",
+    )
+
+    # Data Storage Configuration
+    data_storage: DataStorageConfig = Field(
+        default_factory=DataStorageConfig,
+        description="Configure which fields get persisted to the database",
+    )
 
     @field_validator("rotation_strategy")
     @classmethod
@@ -111,7 +240,7 @@ class CLIConfig(BaseModel):
         use_enum_values = True
 
 
-def discover_config(explicit_path: Optional[Path] = None) -> Optional[Path]:
+def discover_config(explicit_path: Path | None = None) -> Path | None:
     """Discover configuration file location.
 
     Args:
@@ -151,7 +280,7 @@ def discover_config(explicit_path: Optional[Path] = None) -> Optional[Path]:
     return None
 
 
-def load_config(path: Optional[Path] = None) -> CLIConfig:
+def load_config(path: Path | None = None) -> CLIConfig:
     """Load and validate TOML configuration.
 
     Args:
@@ -212,17 +341,33 @@ def save_config(config: CLIConfig, path: Path) -> None:
     else:
         output_dict = config_dict
 
-    # Write TOML
+    # Write TOML atomically
     path.parent.mkdir(parents=True, exist_ok=True)
-    with open(path, "wb") as f:
-        tomli_w.dump(output_dict, f)
+
+    # Import atomic_write functionality
+    import io
+
+    # Serialize TOML to string first
+    buffer = io.BytesIO()
+    tomli_w.dump(output_dict, buffer)
+    toml_content = buffer.getvalue().decode("utf-8")
+
+    # Write atomically using temp file + rename
+    from proxywhirl.utils import atomic_write
+
+    atomic_write(path, toml_content, encoding="utf-8")
 
     # Set permissions to 600 (owner read/write only)
     os.chmod(path, 0o600)
 
 
 def get_encryption_key(config: CLIConfig) -> bytes:
-    """Get or generate encryption key from environment.
+    """Get or create the encryption key.
+
+    Priority:
+    1. Environment variable (if set)
+    2. Persisted key file (~/.config/proxywhirl/key.enc)
+    3. Generate new key and persist it
 
     Args:
         config: CLI configuration
@@ -231,17 +376,43 @@ def get_encryption_key(config: CLIConfig) -> bytes:
         Encryption key bytes
     """
     key_env = config.encryption_key_env
+
+    # 1. Check environment variable first
     if key_env in os.environ:
         return os.environ[key_env].encode()
 
-    # Generate new key and warn user
+    # 2. Check for persisted key file
+    key_file = Path.home() / ".config" / "proxywhirl" / "key.enc"
+
+    if key_file.exists():
+        try:
+            return key_file.read_bytes()
+        except Exception as e:
+            logger.warning(f"Failed to read encryption key from {key_file}: {e}")
+
+    # 3. Generate and persist new key
+    key_file.parent.mkdir(parents=True, exist_ok=True)
     new_key = Fernet.generate_key()
-    print(
-        f"Warning: No encryption key found in {key_env}. "
-        f"Generated new key. Set it in your environment:\n"
-        f"export {key_env}='{new_key.decode()}'",
-        file=sys.stderr,
-    )
+
+    try:
+        # Write key atomically to prevent corruption
+        import uuid
+
+        temp_key_file = key_file.with_suffix(f".tmp.{uuid.uuid4().hex[:8]}")
+        try:
+            temp_key_file.write_bytes(new_key)
+            temp_key_file.chmod(0o600)  # Owner read/write only
+            temp_key_file.replace(key_file)  # Atomic on POSIX
+        except Exception:
+            temp_key_file.unlink(missing_ok=True)
+            raise
+
+        logger.info(f"Generated new encryption key saved to {key_file}")
+        logger.info(f"For portability, set: export {key_env}=$(cat {key_file})")
+    except Exception as e:
+        logger.warning(f"Could not persist key to {key_file}: {e}")
+        logger.warning("Key will be regenerated on next run - credentials may be lost!")
+
     return new_key
 
 
@@ -299,18 +470,24 @@ def decrypt_credentials(config: CLIConfig) -> CLIConfig:
                     proxy.username.get_secret_value().encode()
                 ).decode()
                 decrypted_proxy.username = SecretStr(decrypted_username)
-            except Exception:
+            except Exception as e:
                 # Not encrypted or invalid encryption - use as-is
-                pass
+                logger.warning(
+                    f"Failed to decrypt username for proxy {proxy.url}: {e}. "
+                    "Using value as-is (may be plaintext or encrypted with different key)."
+                )
         if proxy.password:
             try:
                 decrypted_password = fernet.decrypt(
                     proxy.password.get_secret_value().encode()
                 ).decode()
                 decrypted_proxy.password = SecretStr(decrypted_password)
-            except Exception:
+            except Exception as e:
                 # Not encrypted or invalid encryption - use as-is
-                pass
+                logger.warning(
+                    f"Failed to decrypt password for proxy {proxy.url}: {e}. "
+                    "Using value as-is (may be plaintext or encrypted with different key)."
+                )
         decrypted_proxies.append(decrypted_proxy)
 
     config.proxies = decrypted_proxies

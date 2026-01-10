@@ -17,7 +17,7 @@ from proxywhirl.cache_models import CacheConfig, CacheEntry
 @pytest.fixture
 def encryption_key() -> SecretStr:
     """Generate valid Fernet encryption key for tests."""
-    from proxywhirl.cache_crypto import CredentialEncryptor
+    from proxywhirl.cache.crypto import CredentialEncryptor
 
     encryptor = CredentialEncryptor()
     return SecretStr(encryptor.key.decode("utf-8"))
@@ -68,7 +68,7 @@ def test_ttl_expiration_timing(tmp_path: Path, encryption_key: SecretStr) -> Non
 
 def test_expired_proxy_unavailable(tmp_path: Path, encryption_key: SecretStr) -> None:
     """Test that expired proxies are treated as unavailable.
-    
+
     Verifies that expired proxies cannot be retrieved or used.
     """
     from proxywhirl.cache import CacheManager

@@ -2,8 +2,13 @@
 Main proxy rotation implementation.
 """
 
+from __future__ import annotations
+
+import queue
 import threading
-from typing import Any, Optional, Union
+import time
+from collections import OrderedDict
+from typing import TYPE_CHECKING, Any
 
 import httpx
 from loguru import logger
@@ -13,11 +18,13 @@ from proxywhirl.exceptions import (
     ProxyAuthenticationError,
     ProxyConnectionError,
     ProxyPoolEmptyError,
+    RequestQueueFullError,
 )
 from proxywhirl.models import Proxy, ProxyChain, ProxyConfiguration, ProxyPool
-from proxywhirl.retry_executor import RetryExecutor
+from proxywhirl.retry_executor import NonRetryableError, RetryExecutor
 from proxywhirl.retry_metrics import RetryMetrics
 from proxywhirl.retry_policy import RetryPolicy
+from proxywhirl.rotator_base import ProxyRotatorBase
 from proxywhirl.strategies import (
     LeastUsedStrategy,
     RandomStrategy,
@@ -25,9 +32,134 @@ from proxywhirl.strategies import (
     RoundRobinStrategy,
     WeightedStrategy,
 )
+from proxywhirl.utils import mask_proxy_url
+
+if TYPE_CHECKING:
+    from proxywhirl.rate_limiting import SyncRateLimiter
 
 
-class ProxyRotator:
+class LRUClientPool:
+    """
+    LRU cache for httpx.Client instances with automatic eviction.
+
+    When the pool reaches maxsize, the least recently used client is
+    closed and removed to prevent unbounded memory growth.
+
+    Supports dictionary-like access for backward compatibility with tests.
+    """
+
+    def __init__(self, maxsize: int = 100) -> None:
+        """
+        Initialize LRU client pool.
+
+        Args:
+            maxsize: Maximum number of clients to cache (default: 100)
+        """
+        self._clients: OrderedDict[str, httpx.Client] = OrderedDict()
+        self._maxsize = maxsize
+        self._lock = threading.Lock()
+
+    def get(self, proxy_id: str) -> httpx.Client | None:
+        """
+        Get a client from the pool, marking it as recently used.
+
+        Args:
+            proxy_id: Proxy ID to look up
+
+        Returns:
+            Client if found, None otherwise
+        """
+        with self._lock:
+            if proxy_id in self._clients:
+                # Move to end (most recently used)
+                self._clients.move_to_end(proxy_id)
+                return self._clients[proxy_id]
+            return None
+
+    def put(self, proxy_id: str, client: httpx.Client) -> None:
+        """
+        Add a client to the pool, evicting LRU client if at capacity.
+
+        Args:
+            proxy_id: Proxy ID to store under
+            client: Client instance to store
+        """
+        with self._lock:
+            if proxy_id in self._clients:
+                # Already exists, move to end
+                self._clients.move_to_end(proxy_id)
+            else:
+                # Check if we need to evict
+                if len(self._clients) >= self._maxsize:
+                    # Evict least recently used (first item)
+                    lru_proxy_id, lru_client = self._clients.popitem(last=False)
+                    try:
+                        lru_client.close()
+                        logger.debug(
+                            "Evicted LRU client from pool",
+                            evicted_proxy_id=lru_proxy_id,
+                            pool_size=len(self._clients),
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Error closing evicted client for proxy {lru_proxy_id}: {e}"
+                        )
+
+                # Add new client
+                self._clients[proxy_id] = client
+
+    def remove(self, proxy_id: str) -> None:
+        """
+        Remove and close a client from the pool.
+
+        Args:
+            proxy_id: Proxy ID to remove
+        """
+        with self._lock:
+            if proxy_id in self._clients:
+                client = self._clients.pop(proxy_id)
+                try:
+                    client.close()
+                    logger.debug("Removed client from pool", proxy_id=proxy_id)
+                except Exception as e:
+                    logger.warning(f"Error closing client for proxy {proxy_id}: {e}")
+
+    def clear(self) -> None:
+        """Close all clients and clear the pool."""
+        with self._lock:
+            for proxy_id, client in self._clients.items():
+                try:
+                    client.close()
+                    logger.debug("Closed pooled client", proxy_id=proxy_id)
+                except Exception as e:
+                    logger.warning(f"Error closing client for proxy {proxy_id}: {e}")
+            self._clients.clear()
+
+    def __len__(self) -> int:
+        """Return number of clients in pool."""
+        with self._lock:
+            return len(self._clients)
+
+    def __contains__(self, proxy_id: str) -> bool:
+        """Check if proxy_id is in pool (supports 'in' operator)."""
+        with self._lock:
+            return proxy_id in self._clients
+
+    def __getitem__(self, proxy_id: str) -> httpx.Client:
+        """Get client by proxy_id (supports dict-like access for tests)."""
+        with self._lock:
+            return self._clients[proxy_id]
+
+    def __setitem__(self, proxy_id: str, client: httpx.Client) -> None:
+        """Set client for proxy_id (supports dict-like access for tests)."""
+        self.put(proxy_id, client)
+
+    def __delitem__(self, proxy_id: str) -> None:
+        """Delete client for proxy_id (supports dict-like deletion)."""
+        self.remove(proxy_id)
+
+
+class ProxyRotator(ProxyRotatorBase):
     """
     Main class for proxy rotation with automatic failover.
 
@@ -49,10 +181,11 @@ class ProxyRotator:
 
     def __init__(
         self,
-        proxies: Optional[list[Proxy]] = None,
-        strategy: Union[RotationStrategy, str, None] = None,
-        config: Optional[ProxyConfiguration] = None,
-        retry_policy: Optional[RetryPolicy] = None,
+        proxies: list[Proxy] | None = None,
+        strategy: RotationStrategy | str | None = None,
+        config: ProxyConfiguration | None = None,
+        retry_policy: RetryPolicy | None = None,
+        rate_limiter: SyncRateLimiter | None = None,
     ) -> None:
         """
         Initialize ProxyRotator.
@@ -64,6 +197,7 @@ class ProxyRotator:
                      Default: RoundRobinStrategy
             config: Configuration settings (default: ProxyConfiguration())
             retry_policy: Retry policy configuration (default: RetryPolicy())
+            rate_limiter: Synchronous rate limiter for controlling request rates (optional)
         """
         self.pool = ProxyPool(name="default", proxies=proxies or [])
         self.chains: list[ProxyChain] = []  # Track registered proxy chains
@@ -87,24 +221,37 @@ class ProxyRotator:
         else:
             self.strategy = strategy
 
-        self.config       = config or ProxyConfiguration()
-        self._client:     Optional[httpx.Client] = None
-        self._client_pool: dict[str, httpx.Client] = {}  # Map proxy_id -> httpx.Client
+        self.config = config or ProxyConfiguration()
+        self._client: httpx.Client | None = None
+        self._client_pool = LRUClientPool(maxsize=100)  # LRU cache with max 100 clients
 
         # Retry and circuit breaker components
-        self.retry_policy     = retry_policy or RetryPolicy()
+        self.retry_policy = retry_policy or RetryPolicy()
         self.circuit_breakers: dict[str, CircuitBreaker] = {}
-        self.retry_metrics    = RetryMetrics()
-        self.retry_executor   = RetryExecutor(
+        self.retry_metrics = RetryMetrics()
+        self.retry_executor = RetryExecutor(
             self.retry_policy, self.circuit_breakers, self.retry_metrics
         )
 
+        # Rate limiting
+        self.rate_limiter = rate_limiter
+
+        # Request queuing (optional, disabled by default)
+        self._request_queue: queue.Queue[Any] | None = None
+        if self.config.queue_enabled:
+            self._request_queue = queue.Queue(maxsize=self.config.queue_size)
+            logger.info("Request queuing enabled", queue_size=self.config.queue_size)
+
         # Initialize circuit breakers for existing proxies (all start CLOSED per FR-021)
-        for proxy in self.pool.proxies:
+        # Use get_all_proxies() for consistency, even though this is during init
+        for proxy in self.pool.get_all_proxies():
             self.circuit_breakers[str(proxy.id)] = CircuitBreaker(proxy_id=str(proxy.id))
 
+        # Initialize strategy lock for atomic strategy swapping
+        self._strategy_lock = threading.RLock()
+
         # Start periodic metrics aggregation timer (every 5 minutes)
-        self._aggregation_timer: Optional[threading.Timer] = None
+        self._aggregation_timer: threading.Timer | None = None
         self._start_aggregation_timer()
 
         # Configure logging
@@ -117,7 +264,7 @@ class ProxyRotator:
                 redact_credentials=self.config.log_redact_credentials,
             )
 
-    def __enter__(self) -> "ProxyRotator":
+    def __enter__(self) -> ProxyRotator:
         """Enter context manager."""
         self._client = httpx.Client(
             timeout=self.config.timeout,
@@ -146,24 +293,20 @@ class ProxyRotator:
 
     def __del__(self) -> None:
         """Destructor to ensure clients are closed."""
-        self._close_all_clients()
+        # Only cleanup if initialization completed
+        if hasattr(self, "_client_pool"):
+            self._close_all_clients()
 
         # Cancel aggregation timer
-        if hasattr(self, '_aggregation_timer') and self._aggregation_timer:
+        if hasattr(self, "_aggregation_timer") and self._aggregation_timer:
             self._aggregation_timer.cancel()
 
     def _close_all_clients(self) -> None:
         """Close all pooled clients and clear the pool."""
-        for proxy_id, client in self._client_pool.items():
-            try:
-                client.close()
-                logger.debug("Closed pooled client", proxy_id=proxy_id)
-            except Exception as e:
-                logger.warning(f"Error closing client for proxy {proxy_id}: {e}")
+        if hasattr(self, "_client_pool"):
+            self._client_pool.clear()
 
-        self._client_pool.clear()
-
-    def add_proxy(self, proxy: Union[Proxy, str]) -> None:
+    def add_proxy(self, proxy: Proxy | str) -> None:
         """
         Add a proxy to the pool.
 
@@ -180,7 +323,9 @@ class ProxyRotator:
         # Initialize circuit breaker for new proxy (starts CLOSED per FR-021)
         self.circuit_breakers[str(proxy.id)] = CircuitBreaker(proxy_id=str(proxy.id))
 
-        logger.info(f"Added proxy to pool: {proxy.url}", proxy_id=str(proxy.id))
+        # Mask credentials in log output
+        masked_url = mask_proxy_url(proxy.url)
+        logger.info(f"Added proxy to pool: {masked_url}", proxy_id=str(proxy.id))
 
     def remove_proxy(self, proxy_id: str) -> None:
         """
@@ -192,14 +337,12 @@ class ProxyRotator:
         from uuid import UUID
 
         # Close and remove the client for this proxy if it exists
-        if proxy_id in self._client_pool:
-            try:
-                self._client_pool[proxy_id].close()
-                logger.debug("Closed client for removed proxy", proxy_id=proxy_id)
-            except Exception as e:
-                logger.warning(f"Error closing client for proxy {proxy_id}: {e}")
-            finally:
-                del self._client_pool[proxy_id]
+        self._client_pool.remove(proxy_id)
+
+        # Clean up circuit breaker to prevent memory leak
+        if proxy_id in self.circuit_breakers:
+            del self.circuit_breakers[proxy_id]
+            logger.debug(f"Removed circuit breaker for proxy: {proxy_id}")
 
         self.pool.remove_proxy(UUID(proxy_id))
         logger.info(f"Removed proxy from pool: {proxy_id}")
@@ -237,7 +380,7 @@ class ProxyRotator:
         entry_proxy = chain.entry_proxy
 
         # Tag the entry proxy to indicate it's part of a chain
-        if not hasattr(entry_proxy, 'tags'):
+        if not hasattr(entry_proxy, "tags"):
             entry_proxy.tags = set()
         entry_proxy.tags.add("chain_entry")
 
@@ -256,7 +399,7 @@ class ProxyRotator:
             "Added proxy chain to rotator",
             chain_name=chain.name or "unnamed",
             chain_length=chain.chain_length,
-            entry_proxy=str(entry_proxy.url)
+            entry_proxy=str(entry_proxy.url),
         )
 
     def get_chains(self) -> list[ProxyChain]:
@@ -296,7 +439,7 @@ class ProxyRotator:
         logger.warning(f"Chain not found: {chain_name}")
         return False
 
-    def set_strategy(self, strategy: Union[RotationStrategy, str], *, atomic: bool = True) -> None:
+    def set_strategy(self, strategy: RotationStrategy | str, *, atomic: bool = True) -> None:
         """
         Hot-swap the rotation strategy without restarting.
 
@@ -327,7 +470,6 @@ class ProxyRotator:
             Target: <100ms for hot-swap completion (SC-009)
             Typical: <10ms for strategy instance creation and assignment
         """
-        import threading
         import time
 
         start_time = time.perf_counter()
@@ -367,9 +509,6 @@ class ProxyRotator:
 
         if atomic:
             # Use a lock to ensure atomic swap
-            if not hasattr(self, "_strategy_lock"):
-                self._strategy_lock = threading.RLock()
-
             with self._strategy_lock:
                 self.strategy = new_strategy
         else:
@@ -410,23 +549,26 @@ class ProxyRotator:
         """
         from proxywhirl.models import HealthStatus
 
+        # Take a snapshot to avoid race conditions during iteration
+        proxies_snapshot = self.pool.get_all_proxies()
+
         healthy_count = sum(
             1
-            for p in self.pool.proxies
+            for p in proxies_snapshot
             if p.health_status
             in (HealthStatus.HEALTHY, HealthStatus.UNKNOWN, HealthStatus.DEGRADED)
         )
         unhealthy_count = sum(
-            1 for p in self.pool.proxies if p.health_status == HealthStatus.UNHEALTHY
+            1 for p in proxies_snapshot if p.health_status == HealthStatus.UNHEALTHY
         )
-        dead_count = sum(1 for p in self.pool.proxies if p.health_status == HealthStatus.DEAD)
+        dead_count = sum(1 for p in proxies_snapshot if p.health_status == HealthStatus.DEAD)
 
-        total_requests = sum(p.total_requests for p in self.pool.proxies)
-        total_successes = sum(p.total_successes for p in self.pool.proxies)
-        total_failures = sum(p.total_failures for p in self.pool.proxies)
+        total_requests = sum(p.total_requests for p in proxies_snapshot)
+        total_successes = sum(p.total_successes for p in proxies_snapshot)
+        total_failures = sum(p.total_failures for p in proxies_snapshot)
 
         # Calculate average success rate
-        success_rates = [p.success_rate for p in self.pool.proxies if p.total_requests > 0]
+        success_rates = [p.success_rate for p in proxies_snapshot if p.total_requests > 0]
         avg_success_rate = sum(success_rates) / len(success_rates) if success_rates else 0.0
 
         return {
@@ -460,7 +602,25 @@ class ProxyRotator:
         Returns:
             Number of proxies removed
         """
+        from proxywhirl.models import HealthStatus
+
+        # Take a snapshot to avoid race conditions during iteration
+        proxies_snapshot = self.pool.get_all_proxies()
+
+        # Capture IDs of proxies to be removed before clearing
+        removed_proxy_ids = [
+            str(p.id)
+            for p in proxies_snapshot
+            if p.health_status in (HealthStatus.DEAD, HealthStatus.UNHEALTHY)
+        ]
+
         removed_count = self.pool.clear_unhealthy()
+
+        # Clean up circuit breakers for removed proxies to prevent memory leak
+        for proxy_id in removed_proxy_ids:
+            if proxy_id in self.circuit_breakers:
+                del self.circuit_breakers[proxy_id]
+                logger.debug(f"Removed circuit breaker for unhealthy proxy: {proxy_id}")
 
         logger.info(
             "Cleared unhealthy proxies from pool",
@@ -478,6 +638,9 @@ class ProxyRotator:
         per proxy. Clients are configured with connection pool settings from the
         configuration and are reused across multiple requests to the same proxy.
 
+        The pool has a maximum size limit (default: 100). When the limit is reached,
+        the least recently used client is evicted to prevent unbounded memory growth.
+
         Args:
             proxy: Proxy instance to get/create client for
             proxy_dict: Proxy dictionary for httpx configuration
@@ -487,9 +650,10 @@ class ProxyRotator:
         """
         proxy_id = str(proxy.id)
 
-        # Return existing client if available
-        if proxy_id in self._client_pool:
-            return self._client_pool[proxy_id]
+        # Try to get existing client from LRU pool
+        existing_client = self._client_pool.get(proxy_id)
+        if existing_client is not None:
+            return existing_client
 
         # Create new client with connection pooling settings
         client = httpx.Client(
@@ -503,14 +667,15 @@ class ProxyRotator:
             ),
         )
 
-        # Store in pool for reuse
-        self._client_pool[proxy_id] = client
+        # Store in LRU pool (automatically evicts LRU if at capacity)
+        self._client_pool.put(proxy_id, client)
 
         logger.debug(
             "Created new pooled client for proxy",
             proxy_id=proxy_id,
             pool_connections=self.config.pool_connections,
             pool_max_keepalive=self.config.pool_max_keepalive,
+            client_pool_size=len(self._client_pool),
         )
 
         return client
@@ -547,7 +712,7 @@ class ProxyRotator:
         self,
         method: str,
         url: str,
-        retry_policy: Optional[RetryPolicy] = None,
+        retry_policy: RetryPolicy | None = None,
         **kwargs: Any,
     ) -> httpx.Response:
         """
@@ -565,20 +730,47 @@ class ProxyRotator:
         Raises:
             ProxyPoolEmptyError: If no healthy proxies available
             ProxyConnectionError: If all retry attempts fail
+            RequestQueueFullError: If queue is full and cannot accept request
         """
         # Select proxy with circuit breaker filtering
         try:
             proxy = self._select_proxy_with_circuit_breaker()
-        except ProxyPoolEmptyError as e:
+        except ProxyPoolEmptyError:
             logger.error("No healthy proxies available or all circuit breakers open")
-            raise e
+            raise
+
+        # Check rate limit before making request
+        if self.rate_limiter is not None:
+            proxy_id = str(proxy.id)
+            # Check rate limit (synchronous call)
+            allowed = self.rate_limiter.check_limit(proxy_id)
+            if not allowed:
+                # Mask proxy URL in log output
+                masked_url = mask_proxy_url(str(proxy.url))
+                logger.warning(
+                    f"Rate limit exceeded for proxy {proxy_id}",
+                    proxy_id=proxy_id,
+                    proxy_url=masked_url,
+                )
+
+                # If queuing is enabled, try to queue the request
+                if self.config.queue_enabled and self._request_queue is not None:
+                    return self._queue_request(method, url, proxy, retry_policy, **kwargs)
+
+                # Otherwise, raise error
+                raise ProxyConnectionError(
+                    f"Rate limit exceeded for proxy {proxy_id}. "
+                    "Please wait before making more requests."
+                )
 
         proxy_dict = self._get_proxy_dict(proxy)
 
+        # Mask proxy URL in log output
+        masked_url = mask_proxy_url(str(proxy.url))
         logger.info(
             f"Making {method} request to {url}",
             proxy_id=str(proxy.id),
-            proxy_url=str(proxy.url),
+            proxy_url=masked_url,
         )
 
         # Get or create pooled client for this proxy
@@ -589,15 +781,15 @@ class ProxyRotator:
             # Use pooled client (no context manager - client is reused)
             response = client.request(method, url, **kwargs)
 
-            # Check for 407 Proxy Authentication Required
-            if response.status_code == 407:
+            # Check for authentication errors (401 Unauthorized, 407 Proxy Auth Required)
+            if response.status_code in (401, 407):
                 logger.error(
                     f"Proxy authentication failed: {proxy.url}",
                     proxy_id=str(proxy.id),
-                    status_code=407,
+                    status_code=response.status_code,
                 )
                 raise ProxyAuthenticationError(
-                    f"Proxy authentication required (407) for {proxy.url}. "
+                    f"Proxy authentication failed ({response.status_code}) for {proxy.url}. "
                     "Please provide valid credentials (username and password)."
                 )
 
@@ -605,30 +797,58 @@ class ProxyRotator:
 
         # Create a temporary retry executor with effective policy if different from global
         if retry_policy is not None:
-            executor = RetryExecutor(
-                retry_policy, self.circuit_breakers, self.retry_metrics
-            )
+            executor = RetryExecutor(retry_policy, self.circuit_breakers, self.retry_metrics)
         else:
             executor = self.retry_executor
 
         # Execute with retry
         try:
+            request_start_time = time.time()
             response = executor.execute_with_retry(request_fn, proxy, method, url)
+            response_time_ms = (time.time() - request_start_time) * 1000
 
             # Record success in strategy
-            self.strategy.record_result(proxy, success=True, response_time_ms=0.0)
+            self.strategy.record_result(proxy, success=True, response_time_ms=response_time_ms)
 
             logger.info(
                 f"Request successful: {method} {url}",
                 proxy_id=str(proxy.id),
                 status_code=response.status_code,
+                response_time_ms=response_time_ms,
             )
 
             return response
 
-        except ProxyAuthenticationError:
+        except ProxyAuthenticationError as e:
+            # Record auth errors as failures
+            self.strategy.record_result(proxy, success=False, response_time_ms=0.0)
+            logger.error(
+                f"Authentication error for proxy {proxy.id}",
+                proxy_id=str(proxy.id),
+                error=str(e),
+            )
             # Re-raise auth errors without wrapping
             raise
+        except NonRetryableError as e:
+            # Check if this wraps a ProxyAuthenticationError
+            if isinstance(e.__cause__, ProxyAuthenticationError):
+                # Record auth errors as failures
+                self.strategy.record_result(proxy, success=False, response_time_ms=0.0)
+                logger.error(
+                    f"Authentication error for proxy {proxy.id}",
+                    proxy_id=str(proxy.id),
+                    error=str(e.__cause__),
+                )
+                # Re-raise the original auth error
+                raise e.__cause__
+            # For other non-retryable errors, record failure and convert to ProxyConnectionError
+            self.strategy.record_result(proxy, success=False, response_time_ms=0.0)
+            logger.warning(
+                f"Request failed after retries: {method} {url}",
+                proxy_id=str(proxy.id),
+                error=str(e),
+            )
+            raise ProxyConnectionError(f"Request failed: {e}") from e
         except Exception as e:
             # Record failure in strategy
             self.strategy.record_result(proxy, success=False, response_time_ms=0.0)
@@ -640,6 +860,167 @@ class ProxyRotator:
             )
 
             raise ProxyConnectionError(f"Request failed: {e}") from e
+
+    def _queue_request(
+        self,
+        method: str,
+        url: str,
+        proxy: Proxy,
+        retry_policy: RetryPolicy | None = None,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        """
+        Queue a request when rate limited.
+
+        Args:
+            method: HTTP method
+            url: URL to request
+            proxy: Proxy to use
+            retry_policy: Optional retry policy
+            **kwargs: Additional request parameters
+
+        Returns:
+            HTTP response after queuing
+
+        Raises:
+            RequestQueueFullError: If queue is full
+        """
+        if self._request_queue is None:
+            raise RuntimeError("Request queue not initialized")
+
+        # Check if queue has space (non-blocking check for backpressure)
+        if self._request_queue.full():
+            logger.error(
+                "Request queue is full - backpressure triggered",
+                queue_size=self.config.queue_size,
+                current_size=self._request_queue.qsize(),
+            )
+            raise RequestQueueFullError(
+                "Request queue is full. Cannot accept more requests.",
+                queue_size=self.config.queue_size,
+            )
+
+        # Create request task
+        request_data = {
+            "method": method,
+            "url": url,
+            "proxy": proxy,
+            "retry_policy": retry_policy,
+            "kwargs": kwargs,
+        }
+
+        # Queue the request (blocking put)
+        try:
+            # Use put_nowait to avoid blocking (raises QueueFull if full)
+            self._request_queue.put_nowait(request_data)
+
+            logger.info(
+                "Request queued",
+                method=method,
+                url=url,
+                queue_size=self._request_queue.qsize(),
+                proxy_id=str(proxy.id),
+            )
+
+            # Process the queue and execute the request
+            return self._process_queue_sync()
+
+        except queue.Full as e:
+            logger.error("Queue is full - cannot add request")
+            raise RequestQueueFullError(
+                "Queue is full - cannot add request", queue_size=self.config.queue_size
+            ) from e
+
+    def _process_queue_sync(self) -> httpx.Response:
+        """
+        Process queued requests synchronously.
+
+        Returns:
+            HTTP response from processed request
+
+        Raises:
+            ProxyConnectionError: If request processing fails
+        """
+        if self._request_queue is None or self._request_queue.empty():
+            raise RuntimeError("No requests in queue to process")
+
+        # Get next request from queue (non-blocking)
+        try:
+            request_data = self._request_queue.get_nowait()
+        except queue.Empty as e:
+            raise ProxyConnectionError("No requests in queue") from e
+
+        # Extract request parameters
+        method = request_data["method"]
+        url = request_data["url"]
+        proxy = request_data["proxy"]
+        retry_policy = request_data["retry_policy"]
+        kwargs = request_data["kwargs"]
+
+        logger.info(
+            "Processing queued request",
+            method=method,
+            url=url,
+            remaining_queue_size=self._request_queue.qsize(),
+        )
+
+        # Execute the request using the existing logic
+        proxy_dict = self._get_proxy_dict(proxy)
+        client = self._get_or_create_client(proxy, proxy_dict)
+
+        # Define request function for retry executor
+        def request_fn() -> httpx.Response:
+            response = client.request(method, url, **kwargs)
+
+            # Check for authentication errors
+            if response.status_code in (401, 407):
+                logger.error(
+                    f"Proxy authentication failed: {proxy.url}",
+                    proxy_id=str(proxy.id),
+                    status_code=response.status_code,
+                )
+                raise ProxyAuthenticationError(
+                    f"Proxy authentication failed ({response.status_code}) for {proxy.url}. "
+                    "Please provide valid credentials (username and password)."
+                )
+
+            return response
+
+        # Create executor with appropriate policy
+        if retry_policy is not None:
+            executor = RetryExecutor(retry_policy, self.circuit_breakers, self.retry_metrics)
+        else:
+            executor = self.retry_executor
+
+        # Execute with retry
+        try:
+            request_start_time = time.time()
+            response = executor.execute_with_retry(request_fn, proxy, method, url)
+            response_time_ms = (time.time() - request_start_time) * 1000
+
+            # Record success in strategy
+            self.strategy.record_result(proxy, success=True, response_time_ms=response_time_ms)
+
+            logger.info(
+                f"Queued request successful: {method} {url}",
+                proxy_id=str(proxy.id),
+                status_code=response.status_code,
+                response_time_ms=response_time_ms,
+            )
+
+            return response
+
+        except Exception as e:
+            # Record failure in strategy
+            self.strategy.record_result(proxy, success=False, response_time_ms=0.0)
+
+            logger.warning(
+                f"Queued request failed: {method} {url}",
+                proxy_id=str(proxy.id),
+                error=str(e),
+            )
+
+            raise ProxyConnectionError(f"Queued request failed: {e}") from e
 
     def get(self, url: str, **kwargs: Any) -> httpx.Response:
         """Make GET request."""
@@ -671,6 +1052,7 @@ class ProxyRotator:
 
     def _start_aggregation_timer(self) -> None:
         """Start periodic metrics aggregation timer (every 5 minutes)."""
+
         def aggregate() -> None:
             self.retry_metrics.aggregate_hourly()
             self._start_aggregation_timer()  # Schedule next aggregation
@@ -713,6 +1095,59 @@ class ProxyRotator:
         """
         return self.retry_metrics
 
+    def get_queue_stats(self) -> dict[str, Any]:
+        """
+        Get statistics about the request queue.
+
+        Returns:
+            Dictionary containing queue statistics:
+            - enabled: Whether queuing is enabled
+            - size: Current number of queued requests
+            - max_size: Maximum queue capacity
+            - is_full: Whether queue is at capacity
+            - is_empty: Whether queue is empty
+        """
+        if not self.config.queue_enabled or self._request_queue is None:
+            return {
+                "enabled": False,
+                "size": 0,
+                "max_size": 0,
+                "is_full": False,
+                "is_empty": True,
+            }
+
+        return {
+            "enabled": True,
+            "size": self._request_queue.qsize(),
+            "max_size": self.config.queue_size,
+            "is_full": self._request_queue.full(),
+            "is_empty": self._request_queue.empty(),
+        }
+
+    def clear_queue(self) -> int:
+        """
+        Clear all pending requests from the queue.
+
+        Returns:
+            Number of requests cleared
+
+        Raises:
+            RuntimeError: If queue is not enabled
+        """
+        if not self.config.queue_enabled or self._request_queue is None:
+            raise RuntimeError("Request queue is not enabled")
+
+        count = 0
+        while not self._request_queue.empty():
+            try:
+                self._request_queue.get_nowait()
+                count += 1
+            except queue.Empty:
+                break
+
+        logger.info(f"Cleared {count} requests from queue")
+        return count
+
     def _select_proxy_with_circuit_breaker(self) -> Proxy:
         """
         Select a proxy while respecting circuit breaker states.
@@ -724,8 +1159,11 @@ class ProxyRotator:
             ProxyPoolEmptyError: If no healthy proxies available or all circuit breakers open
         """
         # Check if all circuit breakers are open (FR-019)
+        # Take a snapshot to avoid race conditions during iteration
+        proxies_snapshot = self.pool.get_all_proxies()
+
         available_proxies = []
-        for proxy in self.pool.proxies:
+        for proxy in proxies_snapshot:
             circuit_breaker = self.circuit_breakers.get(str(proxy.id))
             if circuit_breaker and circuit_breaker.should_attempt_request():
                 available_proxies.append(proxy)

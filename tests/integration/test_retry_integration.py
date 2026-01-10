@@ -10,7 +10,6 @@ import pytest
 from proxywhirl import Proxy, ProxyRotator, RetryPolicy
 from proxywhirl.circuit_breaker import CircuitBreakerState
 from proxywhirl.exceptions import ProxyConnectionError
-from proxywhirl.retry_policy import BackoffStrategy
 
 
 class TestRetryExecution:
@@ -190,14 +189,14 @@ class TestCircuitBreakerIntegration:
         )
 
         # Manually open circuit breaker for proxy1
-        cb1 = rotator.circuit_breakers[proxy1.id]
+        cb1 = rotator.circuit_breakers[str(proxy1.id)]
         for _ in range(5):  # Threshold is 5
             cb1.record_failure()
 
         assert cb1.state == CircuitBreakerState.OPEN
 
         # Circuit breaker for proxy2 should be closed
-        cb2 = rotator.circuit_breakers[proxy2.id]
+        cb2 = rotator.circuit_breakers[str(proxy2.id)]
         assert cb2.state == CircuitBreakerState.CLOSED
 
         # Request should only try proxy2 (proxy1 circuit is open)
@@ -228,7 +227,7 @@ class TestCircuitBreakerIntegration:
 
         # Open both circuit breakers
         for proxy in [proxy1, proxy2]:
-            cb = rotator.circuit_breakers[proxy.id]
+            cb = rotator.circuit_breakers[str(proxy.id)]
             for _ in range(5):
                 cb.record_failure()
             assert cb.state == CircuitBreakerState.OPEN
@@ -244,33 +243,35 @@ class TestCircuitBreakerIntegration:
         rotator = ProxyRotator(proxies=[proxy])
 
         # Open circuit breaker
-        cb = rotator.circuit_breakers[proxy.id]
+        cb = rotator.circuit_breakers[str(proxy.id)]
         with patch("time.time", return_value=100.0):
             for _ in range(5):
                 cb.record_failure()
 
         assert cb.state == CircuitBreakerState.OPEN
 
-        # Wait for timeout
+        # Wait for timeout - keep time patch active for entire test request
+        # Don't call should_attempt_request() directly - it consumes the
+        # one allowed test request slot in HALF_OPEN state
         with patch("time.time", return_value=130.0):  # 30 seconds later
-            assert cb.should_attempt_request() is True
+            # Verify we've waited past the timeout
+            assert cb.next_test_time is not None
+            assert cb.next_test_time <= 130.0
 
-        assert cb.state == CircuitBreakerState.HALF_OPEN
+            # Successful request should transition to HALF_OPEN then CLOSED
+            def mock_request(*args, **kwargs):
+                response = Mock(spec=httpx.Response)
+                response.status_code = 200
+                return response
 
-        # Successful request should close circuit
-        def mock_request(*args, **kwargs):
-            response = Mock(spec=httpx.Response)
-            response.status_code = 200
-            return response
+            with patch("httpx.Client") as mock_client_class:
+                mock_client = Mock()
+                mock_client.request = mock_request
+                mock_client.__enter__ = Mock(return_value=mock_client)
+                mock_client.__exit__ = Mock(return_value=False)
+                mock_client_class.return_value = mock_client
 
-        with patch("httpx.Client") as mock_client_class:
-            mock_client = Mock()
-            mock_client.request = mock_request
-            mock_client.__enter__ = Mock(return_value=mock_client)
-            mock_client.__exit__ = Mock(return_value=False)
-            mock_client_class.return_value = mock_client
+                response = rotator.get("https://httpbin.org/ip")
 
-            response = rotator.get("https://httpbin.org/ip")
-
-        assert response.status_code == 200
-        assert cb.state == CircuitBreakerState.CLOSED
+            assert response.status_code == 200
+            assert cb.state == CircuitBreakerState.CLOSED

@@ -7,7 +7,6 @@ cross-tier synchronization, and data durability.
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-import pytest
 from pydantic import SecretStr
 
 from proxywhirl.cache_models import CacheConfig, CacheEntry, HealthStatus
@@ -19,7 +18,7 @@ def test_persistence_across_restarts(tmp_path: Path) -> None:
     This tests the core User Story 1 requirement: persistent caching.
     """
     from proxywhirl.cache import CacheManager
-    from proxywhirl.cache_crypto import CredentialEncryptor
+    from proxywhirl.cache.crypto import CredentialEncryptor
 
     # Generate shared encryption key for both sessions
     encryptor = CredentialEncryptor()
@@ -68,7 +67,7 @@ def test_update_existing_entries(tmp_path: Path) -> None:
     Verifies that updates work correctly across all tiers.
     """
     from proxywhirl.cache import CacheManager
-    from proxywhirl.cache_crypto import CredentialEncryptor
+    from proxywhirl.cache.crypto import CredentialEncryptor
 
     # Generate shared encryption key
     encryptor = CredentialEncryptor()

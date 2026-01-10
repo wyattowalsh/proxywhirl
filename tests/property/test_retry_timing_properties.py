@@ -2,7 +2,8 @@
 Property-based tests for retry timing with Hypothesis.
 """
 
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from proxywhirl.retry_policy import BackoffStrategy, RetryPolicy
 
@@ -30,9 +31,7 @@ def test_exponential_backoff_never_exceeds_max(
 
     delay = policy.calculate_delay(attempt)
 
-    assert delay <= max_backoff_delay, (
-        f"Delay {delay} exceeds max {max_backoff_delay}"
-    )
+    assert delay <= max_backoff_delay, f"Delay {delay} exceeds max {max_backoff_delay}"
 
 
 @given(
@@ -94,7 +93,14 @@ def test_jitter_stays_within_bounds(
     max_backoff_delay: float,
     attempt: int,
 ) -> None:
-    """Property: Jitter keeps delay within 50%-150% of calculated delay."""
+    """Property: AWS decorrelated jitter stays within expected bounds.
+
+    The AWS decorrelated jitter algorithm works as follows:
+    - First attempt (no previous_delay): uniform(0, min(base, max_backoff_delay))
+    - Subsequent attempts: min(cap, uniform(base_delay, previous_delay * 3))
+
+    For first attempts without previous_delay, delays are in [0, base].
+    """
     policy = RetryPolicy(
         backoff_strategy=BackoffStrategy.EXPONENTIAL,
         base_delay=base_delay,
@@ -103,30 +109,37 @@ def test_jitter_stays_within_bounds(
         jitter=True,
     )
 
-    # Calculate delays multiple times
-    delays = [policy.calculate_delay(attempt) for _ in range(10)]
+    # Test first attempt without previous_delay
+    first_delays = [policy.calculate_delay(attempt) for _ in range(10)]
 
-    # All delays should be positive and within max
-    assert all(0 < d <= max_backoff_delay for d in delays)
+    # Calculate the base delay for this attempt
+    base_calculated = base_delay * (multiplier**attempt)
+    expected_max = min(base_calculated, max_backoff_delay)
 
-    # Without jitter, what would the delay be?
-    policy_no_jitter = RetryPolicy(
-        backoff_strategy=BackoffStrategy.EXPONENTIAL,
-        base_delay=base_delay,
-        multiplier=multiplier,
-        max_backoff_delay=max_backoff_delay,
-        jitter=False,
-    )
-    base_calculated = policy_no_jitter.calculate_delay(attempt)
+    # First attempts with jitter: uniform(0, min(base_calculated, max_backoff_delay))
+    # All delays should be non-negative and within expected_max
+    for delay in first_delays:
+        assert (
+            0 <= delay <= expected_max
+        ), f"First attempt delay {delay} outside bounds [0, {expected_max}]"
 
-    # With jitter, delays should be between 50% and 150% of base
-    min_expected = base_calculated * 0.5
-    max_expected = min(base_calculated * 1.5, max_backoff_delay)
+    # Test decorrelated jitter with previous_delay
+    # Use a small previous_delay that's guaranteed to work with the cap
+    previous_delay = min(base_delay, max_backoff_delay)
+    correlated_delays = [
+        policy.calculate_delay(attempt, previous_delay=previous_delay) for _ in range(10)
+    ]
 
-    for delay in delays:
-        assert min_expected <= delay <= max_expected, (
-            f"Delay {delay} outside jitter bounds [{min_expected}, {max_expected}]"
-        )
+    # Decorrelated jitter: min(cap, uniform(base_delay, previous_delay * 3))
+    # The lower bound is base_delay, but if base_delay > max_backoff_delay,
+    # all delays are capped at max_backoff_delay
+    correlated_min = min(base_delay, max_backoff_delay)
+    correlated_max = min(max_backoff_delay, previous_delay * 3)
+
+    for delay in correlated_delays:
+        assert (
+            correlated_min <= delay <= correlated_max
+        ), f"Correlated delay {delay} outside bounds [{correlated_min}, {correlated_max}]"
 
 
 @given(
@@ -142,7 +155,7 @@ def test_exponential_backoff_is_monotonic_until_cap(
         backoff_strategy=BackoffStrategy.EXPONENTIAL,
         base_delay=base_delay,
         multiplier=multiplier,
-        max_backoff_delay=1000.0,  # High cap to test monotonicity
+        max_backoff_delay=300.0,  # Max allowed by RetryPolicy validation
         jitter=False,
     )
 
@@ -151,9 +164,7 @@ def test_exponential_backoff_is_monotonic_until_cap(
 
     # Should be strictly increasing (or equal if capped)
     for i in range(len(delays) - 1):
-        assert delays[i] <= delays[i + 1], (
-            f"Delay decreased: {delays[i]} -> {delays[i + 1]}"
-        )
+        assert delays[i] <= delays[i + 1], f"Delay decreased: {delays[i]} -> {delays[i + 1]}"
 
 
 @given(
@@ -166,7 +177,7 @@ def test_linear_backoff_is_strictly_monotonic(
     policy = RetryPolicy(
         backoff_strategy=BackoffStrategy.LINEAR,
         base_delay=base_delay,
-        max_backoff_delay=1000.0,  # High cap
+        max_backoff_delay=300.0,  # Max allowed by RetryPolicy validation
         jitter=False,
     )
 
@@ -175,9 +186,7 @@ def test_linear_backoff_is_strictly_monotonic(
 
     # Should be strictly increasing
     for i in range(len(delays) - 1):
-        assert delays[i] < delays[i + 1], (
-            f"Delay not increasing: {delays[i]} -> {delays[i + 1]}"
-        )
+        assert delays[i] < delays[i + 1], f"Delay not increasing: {delays[i]} -> {delays[i + 1]}"
 
 
 @given(

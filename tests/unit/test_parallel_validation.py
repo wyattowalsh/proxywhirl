@@ -4,7 +4,6 @@ import asyncio
 from unittest.mock import patch
 
 import httpx
-import pytest
 
 from proxywhirl.fetchers import ProxyValidator
 from proxywhirl.models import ValidationLevel
@@ -13,7 +12,6 @@ from proxywhirl.models import ValidationLevel
 class TestParallelValidation:
     """Test batch validation with concurrency control."""
 
-    @pytest.mark.asyncio
     async def test_validate_batch_parallel(self) -> None:
         """T021: Test batch validation runs proxies in parallel."""
         validator = ProxyValidator(level=ValidationLevel.STANDARD, concurrency=10)
@@ -39,7 +37,6 @@ class TestParallelValidation:
             time_spread = max(call_times) - min(call_times)
             assert time_spread < 0.05  # All should start within 50ms
 
-    @pytest.mark.asyncio
     async def test_validate_batch_concurrency_limit(self) -> None:
         """T022: Test batch validation respects concurrency limit."""
         validator = ProxyValidator(level=ValidationLevel.STANDARD, concurrency=2)
@@ -66,7 +63,6 @@ class TestParallelValidation:
             # Should never exceed concurrency limit
             assert max_concurrent <= 2
 
-    @pytest.mark.asyncio
     async def test_validate_batch_partial_failures(self) -> None:
         """T023: Test batch validation handles partial failures correctly."""
         validator = ProxyValidator(level=ValidationLevel.STANDARD)
@@ -90,7 +86,6 @@ class TestParallelValidation:
             assert len(results) == 2
             assert all("good" in p["url"] for p in results)
 
-    @pytest.mark.asyncio
     async def test_validate_batch_timeout_handling(self) -> None:
         """T024: Test batch validation handles timeouts gracefully."""
         validator = ProxyValidator(level=ValidationLevel.STANDARD, timeout=0.1)
@@ -117,7 +112,6 @@ class TestParallelValidation:
             assert len(results) == 2
             assert not any("slow" in p["url"] for p in results)
 
-    @pytest.mark.asyncio
     async def test_validate_batch_empty_list(self) -> None:
         """Test batch validation with empty proxy list."""
         validator = ProxyValidator(level=ValidationLevel.STANDARD)
@@ -126,7 +120,6 @@ class TestParallelValidation:
 
         assert results == []
 
-    @pytest.mark.asyncio
     async def test_validate_batch_single_proxy(self) -> None:
         """Test batch validation with single proxy."""
         validator = ProxyValidator(level=ValidationLevel.STANDARD)
@@ -139,7 +132,6 @@ class TestParallelValidation:
             assert len(results) == 1
             assert results[0]["url"] == "http://proxy.example.com:8080"
 
-    @pytest.mark.asyncio
     async def test_validate_batch_all_failures(self) -> None:
         """Test batch validation when all proxies fail."""
         validator = ProxyValidator(level=ValidationLevel.STANDARD)
@@ -154,7 +146,6 @@ class TestParallelValidation:
 
             assert results == []
 
-    @pytest.mark.asyncio
     async def test_validate_batch_exception_handling(self) -> None:
         """Test batch validation handles exceptions in individual validations."""
         validator = ProxyValidator(level=ValidationLevel.STANDARD)

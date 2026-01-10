@@ -1,8 +1,6 @@
 """Unit tests for HTTP request validation."""
 
-
 import httpx
-import pytest
 import respx
 
 from proxywhirl.fetchers import ProxyValidator
@@ -12,7 +10,6 @@ from proxywhirl.models import ValidationLevel
 class TestHTTPValidation:
     """Test HTTP request validation."""
 
-    @pytest.mark.asyncio
     async def test_http_request_success(self) -> None:
         """T011: Test successful HTTP request through proxy."""
         validator = ProxyValidator(level=ValidationLevel.STANDARD)
@@ -25,7 +22,6 @@ class TestHTTPValidation:
 
             assert result is True
 
-    @pytest.mark.asyncio
     async def test_http_request_timeout(self) -> None:
         """T012: Test HTTP request timeout."""
         validator = ProxyValidator(level=ValidationLevel.STANDARD, timeout=2.0)
@@ -40,7 +36,6 @@ class TestHTTPValidation:
 
             assert result is False
 
-    @pytest.mark.asyncio
     async def test_http_request_invalid_response(self) -> None:
         """T013: Test HTTP request with invalid response."""
         validator = ProxyValidator(level=ValidationLevel.STANDARD)
@@ -53,7 +48,6 @@ class TestHTTPValidation:
 
             assert result is False
 
-    @pytest.mark.asyncio
     async def test_http_request_connection_error(self) -> None:
         """Test HTTP request with connection error."""
         validator = ProxyValidator(level=ValidationLevel.STANDARD)
@@ -66,7 +60,6 @@ class TestHTTPValidation:
 
             assert result is False
 
-    @pytest.mark.asyncio
     async def test_http_request_network_error(self) -> None:
         """Test HTTP request with network error."""
         validator = ProxyValidator(level=ValidationLevel.STANDARD)

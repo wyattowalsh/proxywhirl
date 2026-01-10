@@ -4,8 +4,6 @@ import asyncio
 import time
 from unittest.mock import patch
 
-import pytest
-
 from proxywhirl.fetchers import ProxyValidator
 from proxywhirl.models import ValidationLevel
 
@@ -13,7 +11,6 @@ from proxywhirl.models import ValidationLevel
 class TestValidationPerformance:
     """Test validation performance benchmarks."""
 
-    @pytest.mark.asyncio
     async def test_batch_validation_throughput(self) -> None:
         """T028: Test batch validation processes 100+ proxies per second."""
         validator = ProxyValidator(level=ValidationLevel.BASIC, concurrency=50)
@@ -43,7 +40,6 @@ class TestValidationPerformance:
             throughput = len(results) / elapsed_time
             assert throughput >= 100, f"Throughput {throughput:.1f}/s, expected >= 100/s"
 
-    @pytest.mark.asyncio
     async def test_batch_validation_scaling(self) -> None:
         """T029: Test batch validation scales with concurrency."""
         # Test with different concurrency levels
@@ -78,11 +74,10 @@ class TestValidationPerformance:
 
         # High concurrency should be at least 20% faster (allow some overhead/variance)
         improvement_ratio = high_concurrency_time / low_concurrency_time
-        assert improvement_ratio < 0.9, (
-            f"Higher concurrency should be faster: {high_concurrency_time:.3f}s vs {low_concurrency_time:.3f}s (ratio: {improvement_ratio:.2f})"
-        )
+        assert (
+            improvement_ratio < 0.9
+        ), f"Higher concurrency should be faster: {high_concurrency_time:.3f}s vs {low_concurrency_time:.3f}s (ratio: {improvement_ratio:.2f})"
 
-    @pytest.mark.asyncio
     async def test_validation_overhead(self) -> None:
         """T030: Test validation overhead is minimal."""
         validator = ProxyValidator(level=ValidationLevel.BASIC, concurrency=100)
@@ -107,7 +102,6 @@ class TestValidationPerformance:
             # Allow up to 100ms total
             assert elapsed_time < 0.1, f"Overhead too high: {elapsed_time:.3f}s for 10 proxies"
 
-    @pytest.mark.asyncio
     async def test_large_batch_validation(self) -> None:
         """Test validation handles large batches efficiently."""
         validator = ProxyValidator(level=ValidationLevel.BASIC, concurrency=100)

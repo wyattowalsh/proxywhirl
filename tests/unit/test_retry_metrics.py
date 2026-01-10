@@ -4,8 +4,6 @@ Unit tests for RetryMetrics.
 
 from datetime import datetime, timedelta, timezone
 
-import pytest
-
 from proxywhirl.circuit_breaker import CircuitBreakerState
 from proxywhirl.retry_metrics import (
     CircuitBreakerEvent,
@@ -156,8 +154,7 @@ class TestRetryMetricsAggregateHourly:
 
         # Should only have recent aggregates (old ones removed)
         assert all(
-            agg.hour >= now - timedelta(hours=24)
-            for agg in metrics.hourly_aggregates.values()
+            agg.hour >= now - timedelta(hours=24) for agg in metrics.hourly_aggregates.values()
         )
 
     def test_counts_unique_requests(self):

@@ -452,3 +452,273 @@ class TestLeastUsedStrategyProperties:
                 f"Only healthy proxies should be selected. "
                 f"Got proxy with health status: {proxy.health_status}"
             )
+
+
+# ============================================================================
+# UNIVERSAL STRATEGY PROPERTIES
+# ============================================================================
+
+
+class TestUniversalStrategyProperties:
+    """Property-based tests that apply to ALL rotation strategies."""
+
+    @given(st.integers(min_value=1, max_value=20))
+    def test_strategy_always_returns_valid_proxy_from_pool_roundrobin(self, num_proxies: int):
+        """Property: RoundRobinStrategy always returns a proxy that exists in the pool."""
+        pool = ProxyPool(name="test-pool")
+        pool_proxy_ids = set()
+
+        for i in range(num_proxies):
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080")
+            proxy.health_status = HealthStatus.HEALTHY
+            pool.add_proxy(proxy)
+            pool_proxy_ids.add(proxy.id)
+
+        strategy = RoundRobinStrategy()
+
+        # Select many times and verify each result is from the pool
+        for _ in range(num_proxies * 3):
+            selected = strategy.select(pool)
+            assert selected is not None, "Strategy should return a proxy"
+            assert (
+                selected.id in pool_proxy_ids
+            ), f"Selected proxy {selected.id} not in pool. Pool contains: {pool_proxy_ids}"
+
+    @given(st.integers(min_value=1, max_value=20))
+    def test_strategy_always_returns_valid_proxy_from_pool_random(self, num_proxies: int):
+        """Property: RandomStrategy always returns a proxy that exists in the pool."""
+        pool = ProxyPool(name="test-pool")
+        pool_proxy_ids = set()
+
+        for i in range(num_proxies):
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080")
+            proxy.health_status = HealthStatus.HEALTHY
+            pool.add_proxy(proxy)
+            pool_proxy_ids.add(proxy.id)
+
+        strategy = RandomStrategy()
+
+        # Select many times and verify each result is from the pool
+        for _ in range(num_proxies * 3):
+            selected = strategy.select(pool)
+            assert selected is not None, "Strategy should return a proxy"
+            assert (
+                selected.id in pool_proxy_ids
+            ), f"Selected proxy {selected.id} not in pool. Pool contains: {pool_proxy_ids}"
+
+    @given(st.integers(min_value=1, max_value=20))
+    def test_strategy_always_returns_valid_proxy_from_pool_weighted(self, num_proxies: int):
+        """Property: WeightedStrategy always returns a proxy that exists in the pool."""
+        pool = ProxyPool(name="test-pool")
+        pool_proxy_ids = set()
+
+        for i in range(num_proxies):
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080")
+            proxy.health_status = HealthStatus.HEALTHY
+            # Give some variety in success rates for weighting
+            proxy.total_requests = 100
+            proxy.total_successes = 50 + (i * 5) % 50  # 50-100 successes
+            pool.add_proxy(proxy)
+            pool_proxy_ids.add(proxy.id)
+
+        strategy = WeightedStrategy()
+
+        # Select many times and verify each result is from the pool
+        for _ in range(num_proxies * 3):
+            selected = strategy.select(pool)
+            assert selected is not None, "Strategy should return a proxy"
+            assert (
+                selected.id in pool_proxy_ids
+            ), f"Selected proxy {selected.id} not in pool. Pool contains: {pool_proxy_ids}"
+
+    @given(st.integers(min_value=1, max_value=20))
+    def test_strategy_always_returns_valid_proxy_from_pool_least_used(self, num_proxies: int):
+        """Property: LeastUsedStrategy always returns a proxy that exists in the pool."""
+        pool = ProxyPool(name="test-pool")
+        pool_proxy_ids = set()
+
+        for i in range(num_proxies):
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080")
+            proxy.health_status = HealthStatus.HEALTHY
+            pool.add_proxy(proxy)
+            pool_proxy_ids.add(proxy.id)
+
+        strategy = LeastUsedStrategy()
+
+        # Select many times and verify each result is from the pool
+        for _ in range(num_proxies * 3):
+            selected = strategy.select(pool)
+            assert selected is not None, "Strategy should return a proxy"
+            assert (
+                selected.id in pool_proxy_ids
+            ), f"Selected proxy {selected.id} not in pool. Pool contains: {pool_proxy_ids}"
+            # Mark as used for the strategy to work properly
+            selected.total_requests += 1
+
+
+class TestWeightedStrategyDistribution:
+    """Property tests for WeightedStrategy weight distribution."""
+
+    @given(st.integers(min_value=2, max_value=8))
+    def test_weighted_strategy_respects_weight_distribution(self, num_proxies: int):
+        """Property: WeightedStrategy selection distribution respects weights over many calls."""
+        pool = ProxyPool(name="test-pool")
+        proxies = []
+
+        # Create proxies with deliberately different success rates
+        # First proxy: 100% success rate (should be selected most)
+        # Others: decreasing success rates
+        for i in range(num_proxies):
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080")
+            proxy.health_status = HealthStatus.HEALTHY
+            proxy.total_requests = 100
+
+            if i == 0:
+                proxy.total_successes = 100  # 100% success rate
+            else:
+                # Decreasing success rates: 50%, 40%, 30%, etc.
+                proxy.total_successes = max(10, 60 - i * 10)
+
+            pool.add_proxy(proxy)
+            proxies.append(proxy)
+
+        strategy = WeightedStrategy()
+
+        # Track selection counts
+        selection_counts = {str(p.id): 0 for p in proxies}
+
+        # Many selections to observe distribution
+        num_selections = 2000
+        for _ in range(num_selections):
+            selected = strategy.select(pool)
+            selection_counts[str(selected.id)] += 1
+
+        # The highest success rate proxy should be selected most often
+        best_proxy_id = str(proxies[0].id)
+        best_count = selection_counts[best_proxy_id]
+
+        # It should have the highest selection count
+        for proxy_id, count in selection_counts.items():
+            if proxy_id != best_proxy_id:
+                assert best_count >= count, (
+                    f"Best proxy (100% success) should be selected at least as often "
+                    f"as others. Best: {best_count}, Other: {count}"
+                )
+
+    @given(
+        weights=st.lists(
+            st.floats(min_value=0.1, max_value=10.0),
+            min_size=2,
+            max_size=5,
+        )
+    )
+    def test_custom_weights_influence_distribution(self, weights: list[float]):
+        """Property: Custom weights directly influence selection probability."""
+        pool = ProxyPool(name="test-pool")
+        proxies = []
+
+        for i, weight in enumerate(weights):
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080")
+            proxy.health_status = HealthStatus.HEALTHY
+            pool.add_proxy(proxy)
+            proxies.append(proxy)
+
+        # Create strategy with custom weights
+        from proxywhirl.models import StrategyConfig
+
+        weight_dict = {proxy.url: weight for proxy, weight in zip(proxies, weights)}
+        config = StrategyConfig(weights=weight_dict)
+
+        strategy = WeightedStrategy()
+        strategy.configure(config)
+
+        # Track selection counts
+        selection_counts = {str(p.id): 0 for p in proxies}
+
+        # Many selections
+        num_selections = 1000
+        for _ in range(num_selections):
+            selected = strategy.select(pool)
+            selection_counts[str(selected.id)] += 1
+
+        # Find the proxy with the highest custom weight
+        max_weight_idx = weights.index(max(weights))
+        max_weight_proxy_id = str(proxies[max_weight_idx].id)
+
+        # The highest weighted proxy should have a high selection count
+        # Allow for statistical variation, but it should be above average
+        avg_count = num_selections / len(weights)
+        high_weight_count = selection_counts[max_weight_proxy_id]
+
+        # It should be selected at least as often as average (statistical variation allowed)
+        assert high_weight_count >= avg_count * 0.5, (
+            f"Highest weighted proxy should be selected frequently. "
+            f"Expected at least {avg_count * 0.5:.0f}, got {high_weight_count}"
+        )
+
+
+class TestRoundRobinCycleProperties:
+    """Additional property tests for RoundRobin cycling behavior."""
+
+    @given(st.integers(min_value=2, max_value=15))
+    def test_roundrobin_cycles_through_all_proxies_exactly(self, num_proxies: int):
+        """Property: RoundRobin visits each proxy exactly once per complete cycle."""
+        pool = ProxyPool(name="test-pool")
+        proxies = []
+
+        for i in range(num_proxies):
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080")
+            proxy.health_status = HealthStatus.HEALTHY
+            pool.add_proxy(proxy)
+            proxies.append(proxy)
+
+        strategy = RoundRobinStrategy()
+
+        # Track one complete cycle
+        cycle_ids = []
+        for _ in range(num_proxies):
+            selected = strategy.select(pool)
+            cycle_ids.append(selected.id)
+
+        # Should have visited exactly N unique proxies
+        unique_ids = set(cycle_ids)
+        expected_ids = {p.id for p in proxies}
+
+        assert unique_ids == expected_ids, (
+            f"RoundRobin should cycle through all {num_proxies} proxies exactly once. "
+            f"Expected {expected_ids}, got {unique_ids}"
+        )
+
+        # No duplicates in a single cycle
+        assert len(cycle_ids) == len(unique_ids), (
+            f"No duplicates should occur in one cycle. Got {len(cycle_ids)} selections "
+            f"but only {len(unique_ids)} unique"
+        )
+
+    @given(st.integers(min_value=2, max_value=10), st.integers(min_value=2, max_value=5))
+    def test_roundrobin_repeats_pattern_across_cycles(self, num_proxies: int, num_cycles: int):
+        """Property: RoundRobin repeats the same pattern across multiple cycles."""
+        pool = ProxyPool(name="test-pool")
+
+        for i in range(num_proxies):
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080")
+            proxy.health_status = HealthStatus.HEALTHY
+            pool.add_proxy(proxy)
+
+        strategy = RoundRobinStrategy()
+
+        # Collect all selections
+        all_urls = []
+        for _ in range(num_proxies * num_cycles):
+            selected = strategy.select(pool)
+            all_urls.append(selected.url)
+
+        # Split into cycles
+        cycles = [all_urls[i * num_proxies : (i + 1) * num_proxies] for i in range(num_cycles)]
+
+        # All cycles should have the same pattern
+        first_cycle = cycles[0]
+        for i, cycle in enumerate(cycles[1:], start=2):
+            assert (
+                cycle == first_cycle
+            ), f"Cycle {i} should match cycle 1. Cycle 1: {first_cycle}, Cycle {i}: {cycle}"

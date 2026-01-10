@@ -13,7 +13,7 @@ import pytest
 from pydantic import SecretStr
 
 from proxywhirl.cache import CacheManager
-from proxywhirl.cache_crypto import CredentialEncryptor
+from proxywhirl.cache.crypto import CredentialEncryptor
 from proxywhirl.cache_models import CacheConfig
 
 
@@ -61,10 +61,10 @@ class TestCacheWarming:
         json_file.write_text(json.dumps(proxies))
 
         # Warm cache
-        count = cache_manager.warm_from_file(str(json_file))
+        result = cache_manager.warm_from_file(str(json_file))
 
-        # Verify loaded
-        assert count == 2, "Should load 2 proxies"
+        # Verify loaded (warm_from_file returns dict with 'loaded', 'failed', 'skipped')
+        assert result["loaded"] == 2, "Should load 2 proxies"
         assert cache_manager.l1_tier.size() == 2, "L1 should have 2 entries"
 
     def test_warm_from_json_with_credentials(
@@ -125,9 +125,9 @@ class TestCacheWarmingJSONL:
         ]
         jsonl_file.write_text("\n".join(lines))
 
-        count = cache_manager.warm_from_file(str(jsonl_file))
+        result = cache_manager.warm_from_file(str(jsonl_file))
 
-        assert count == 3, "Should load 3 proxies"
+        assert result["loaded"] == 3, "Should load 3 proxies"
         assert cache_manager.l1_tier.size() == 3, "L1 should have 3 entries"
 
 
@@ -147,9 +147,9 @@ http://proxy3.example.com:8080,user3,pass3,csv_import
 """
         csv_file.write_text(csv_content)
 
-        count = cache_manager.warm_from_file(str(csv_file))
+        result = cache_manager.warm_from_file(str(csv_file))
 
-        assert count == 3, "Should load 3 proxies"
+        assert result["loaded"] == 3, "Should load 3 proxies"
         assert cache_manager.l1_tier.size() == 3, "L1 should have 3 entries"
 
     def test_warm_from_csv_with_header(self, cache_manager: CacheManager, tmp_path: Path) -> None:
@@ -160,9 +160,9 @@ http://proxy1.example.com:8080,user1,pass1,csv_import
 """
         csv_file.write_text(csv_content)
 
-        count = cache_manager.warm_from_file(str(csv_file))
+        result = cache_manager.warm_from_file(str(csv_file))
 
-        assert count == 1, "Should load 1 proxy (not header)"
+        assert result["loaded"] == 1, "Should load 1 proxy (not header)"
         # Verify header not loaded as proxy
         entry = cache_manager.get("proxy_url")
         assert entry is None, "Header should not be loaded as entry"
@@ -192,10 +192,10 @@ class TestCacheWarmingErrors:
         ]
         json_file.write_text(json.dumps(proxies))
 
-        count = cache_manager.warm_from_file(str(json_file))
+        result = cache_manager.warm_from_file(str(json_file))
 
         # Should load only valid entries
-        assert count == 2, "Should load 2 valid proxies, skip 1 invalid"
+        assert result["loaded"] == 2, "Should load 2 valid proxies, skip 1 invalid"
         assert cache_manager.l1_tier.size() == 2
 
     def test_warm_handles_malformed_json(self, cache_manager: CacheManager, tmp_path: Path) -> None:
@@ -203,18 +203,18 @@ class TestCacheWarmingErrors:
         json_file = tmp_path / "bad.json"
         json_file.write_text("{invalid json")
 
-        count = cache_manager.warm_from_file(str(json_file))
+        result = cache_manager.warm_from_file(str(json_file))
 
-        assert count == 0, "Should load 0 proxies from malformed JSON"
+        assert result["loaded"] == 0, "Should load 0 proxies from malformed JSON"
         assert cache_manager.l1_tier.size() == 0
 
     def test_warm_handles_missing_file(self, cache_manager: CacheManager, tmp_path: Path) -> None:
         """Test that missing file is handled gracefully."""
         missing_file = tmp_path / "nonexistent.json"
 
-        count = cache_manager.warm_from_file(str(missing_file))
+        result = cache_manager.warm_from_file(str(missing_file))
 
-        assert count == 0, "Should return 0 for missing file"
+        assert result["loaded"] == 0, "Should return 0 for missing file"
 
 
 class TestCacheWarmingMetadata:

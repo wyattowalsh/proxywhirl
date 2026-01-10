@@ -2,10 +2,10 @@
 Property-based tests for CircuitBreaker state machine with Hypothesis.
 """
 
-import time
 from unittest.mock import patch
 
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from proxywhirl.circuit_breaker import CircuitBreaker, CircuitBreakerState
 

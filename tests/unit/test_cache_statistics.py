@@ -10,8 +10,8 @@ from pathlib import Path
 from pydantic import SecretStr
 
 from proxywhirl.cache import CacheManager
-from proxywhirl.cache_crypto import CredentialEncryptor
-from proxywhirl.cache_models import CacheConfig, CacheEntry, HealthStatus
+from proxywhirl.cache.crypto import CredentialEncryptor
+from proxywhirl.cache_models import CacheConfig, CacheEntry, CacheTierConfig, HealthStatus
 
 
 class TestHitMissTracking:
@@ -83,9 +83,7 @@ class TestEvictionCounters:
         """Test that LRU evictions increment the LRU eviction counter."""
         encryptor = CredentialEncryptor()
         config = CacheConfig(
-            l1_config=CacheConfig.model_fields["l1_config"].default.__class__(
-                enabled=True, max_entries=2
-            ),
+            l1_config=CacheTierConfig(enabled=True, max_entries=2),
             l2_cache_dir=str(tmp_path / "cache"),
             l3_database_path=str(tmp_path / "cache.db"),
             encryption_key=SecretStr(encryptor.key.decode("utf-8")),

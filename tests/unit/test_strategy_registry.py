@@ -51,14 +51,10 @@ class TestStrategyRegistry:
         """Test registering a valid strategy."""
 
         class ValidStrategy:
-            def select(
-                self, pool: ProxyPool, context: Optional[SelectionContext] = None
-            ) -> Proxy:
+            def select(self, pool: ProxyPool, context: Optional[SelectionContext] = None) -> Proxy:
                 return pool.get_all_proxies()[0]
 
-            def record_result(
-                self, proxy: Proxy, success: bool, response_time_ms: float
-            ) -> None:
+            def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
                 pass
 
         registry = StrategyRegistry()
@@ -72,6 +68,7 @@ class TestStrategyRegistry:
         class IncompleteStrategy:
             def select(self, pool: ProxyPool) -> Proxy:
                 return pool.get_all_proxies()[0]
+
             # Missing record_result method
 
         registry = StrategyRegistry()
@@ -83,9 +80,7 @@ class TestStrategyRegistry:
         """Test registering strategy missing select method fails."""
 
         class MissingSelect:
-            def record_result(
-                self, proxy: Proxy, success: bool, response_time_ms: float
-            ) -> None:
+            def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
                 pass
 
         registry = StrategyRegistry()
@@ -112,9 +107,7 @@ class TestStrategyRegistry:
             def select(self, pool: ProxyPool) -> Proxy:
                 return pool.get_all_proxies()[0]
 
-            def record_result(
-                self, proxy: Proxy, success: bool, response_time_ms: float
-            ) -> None:
+            def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
                 pass
 
         class StrategyV2:
@@ -123,9 +116,7 @@ class TestStrategyRegistry:
             def select(self, pool: ProxyPool) -> Proxy:
                 return pool.get_all_proxies()[0]
 
-            def record_result(
-                self, proxy: Proxy, success: bool, response_time_ms: float
-            ) -> None:
+            def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
                 pass
 
         registry = StrategyRegistry()
@@ -142,9 +133,7 @@ class TestStrategyRegistry:
             def select(self, pool: ProxyPool) -> Proxy:
                 return pool.get_all_proxies()[0]
 
-            def record_result(
-                self, proxy: Proxy, success: bool, response_time_ms: float
-            ) -> None:
+            def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
                 pass
 
         registry = StrategyRegistry()
@@ -171,18 +160,14 @@ class TestStrategyRegistry:
             def select(self, pool: ProxyPool) -> Proxy:
                 return pool.get_all_proxies()[0]
 
-            def record_result(
-                self, proxy: Proxy, success: bool, response_time_ms: float
-            ) -> None:
+            def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
                 pass
 
         class Strategy2:
             def select(self, pool: ProxyPool) -> Proxy:
                 return pool.get_all_proxies()[0]
 
-            def record_result(
-                self, proxy: Proxy, success: bool, response_time_ms: float
-            ) -> None:
+            def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
                 pass
 
         registry = StrategyRegistry()
@@ -201,9 +186,7 @@ class TestStrategyRegistry:
             def select(self, pool: ProxyPool) -> Proxy:
                 return pool.get_all_proxies()[0]
 
-            def record_result(
-                self, proxy: Proxy, success: bool, response_time_ms: float
-            ) -> None:
+            def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
                 pass
 
         registry = StrategyRegistry()
@@ -226,9 +209,7 @@ class TestStrategyRegistry:
             def select(self, pool: ProxyPool) -> Proxy:
                 return pool.get_all_proxies()[0]
 
-            def record_result(
-                self, proxy: Proxy, success: bool, response_time_ms: float
-            ) -> None:
+            def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
                 pass
 
         registry = StrategyRegistry()
@@ -262,9 +243,7 @@ class TestStrategyRegistry:
             pass
 
         registry = StrategyRegistry()
-        with pytest.raises(
-            TypeError, match="missing required methods: select, record_result"
-        ):
+        with pytest.raises(TypeError, match="missing required methods: select, record_result"):
             registry._validate_strategy(InvalidStrategy)
 
     def test_reset_registry(self):
@@ -274,9 +253,7 @@ class TestStrategyRegistry:
             def select(self, pool: ProxyPool) -> Proxy:
                 return pool.get_all_proxies()[0]
 
-            def record_result(
-                self, proxy: Proxy, success: bool, response_time_ms: float
-            ) -> None:
+            def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
                 pass
 
         registry = StrategyRegistry()

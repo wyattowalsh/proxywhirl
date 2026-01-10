@@ -4,7 +4,6 @@ Unit tests for SessionPersistenceStrategy.
 Following TDD: These tests are written FIRST and should FAIL before implementation.
 """
 
-
 import pytest
 
 from proxywhirl.exceptions import ProxyPoolEmptyError

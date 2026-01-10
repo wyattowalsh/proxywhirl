@@ -8,9 +8,11 @@ core domain models in models.py. These models define the API contract including:
 - API-specific entities (ProxyResource, etc.)
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Generic, Literal, Optional, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 from uuid import uuid4
 
 from pydantic import (
@@ -74,7 +76,7 @@ class ErrorDetail(BaseModel):
 
     code: ErrorCode = Field(description="Machine-readable error code for client handling")
     message: str = Field(description="Human-readable error message")
-    details: Optional[dict[str, Any]] = Field(
+    details: dict[str, Any] | None = Field(
         default=None,
         description="Additional context about the error (e.g., validation failures)",
     )
@@ -170,11 +172,11 @@ class APIResponse(BaseModel, Generic[T]):
     )
 
     status: str = Field(description="Response status: 'success' or 'error'")
-    data: Optional[T] = Field(
+    data: T | None = Field(
         default=None,
         description="Response payload (present on success)",
     )
-    error: Optional[ErrorDetail] = Field(
+    error: ErrorDetail | None = Field(
         default=None,
         description="Error details (present on failure)",
         serialization_alias="error",
@@ -185,7 +187,7 @@ class APIResponse(BaseModel, Generic[T]):
     )
 
     @classmethod
-    def success(cls, data: T, **kwargs: Any) -> "APIResponse[T]":
+    def success(cls, data: T, **kwargs: Any) -> APIResponse[T]:
         """Create a successful response with data payload.
 
         Args:
@@ -202,9 +204,9 @@ class APIResponse(BaseModel, Generic[T]):
         cls,
         code: ErrorCode,
         message: str,
-        details: Optional[dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
         **kwargs: Any,
-    ) -> "APIResponse[T]":
+    ) -> APIResponse[T]:
         """Create an error response with error details.
 
         Args:
@@ -252,7 +254,7 @@ class ProxiedRequest(BaseModel):
         default_factory=dict,
         description="Request headers to pass through",
     )
-    body: Optional[str] = Field(
+    body: str | None = Field(
         default=None,
         description="Request body (for POST/PUT/PATCH)",
     )
@@ -319,7 +321,7 @@ class ProxiedRequest(BaseModel):
 
     @field_validator("body")
     @classmethod
-    def validate_body(cls, v: Optional[str]) -> Optional[str]:
+    def validate_body(cls, v: str | None) -> str | None:
         """Validate body length.
 
         Args:
@@ -354,7 +356,7 @@ class ProxiedResponse(BaseModel):
     status_code: int = Field(description="HTTP status code from target")
     headers: dict[str, str] = Field(description="Response headers from target")
     body: str = Field(description="Response body from target")
-    proxy_used: Optional[str] = Field(
+    proxy_used: str | None = Field(
         default=None,
         description="Proxy URL that was used for this request",
     )
@@ -378,8 +380,8 @@ class CreateProxyRequest(BaseModel):
     )
 
     url: str = Field(description="Proxy URL (protocol://host:port)")
-    username: Optional[str] = Field(default=None, description="Proxy username")
-    password: Optional[SecretStr] = Field(default=None, description="Proxy password")
+    username: str | None = Field(default=None, description="Proxy username")
+    password: SecretStr | None = Field(default=None, description="Proxy password")
 
     @field_validator("url")
     @classmethod
@@ -408,7 +410,7 @@ class CreateProxyRequest(BaseModel):
         try:
             parsed = urlparse(v)
         except Exception as e:
-            raise ValueError(f"Invalid proxy URL format: {e}")
+            raise ValueError(f"Invalid proxy URL format: {e}") from e
 
         # Check scheme (http/https/socks4/socks5 allowed for proxies)
         scheme = parsed.scheme
@@ -437,7 +439,7 @@ class CreateProxyRequest(BaseModel):
 
     @field_validator("username")
     @classmethod
-    def validate_username(cls, v: Optional[str]) -> Optional[str]:
+    def validate_username(cls, v: str | None) -> str | None:
         """Validate username length.
 
         Args:
@@ -498,7 +500,7 @@ class HealthCheckRequest(BaseModel):
         }
     )
 
-    proxy_ids: Optional[list[str]] = Field(
+    proxy_ids: list[str] | None = Field(
         default=None,
         description="Specific proxy IDs to check (null = check all)",
     )
@@ -521,8 +523,8 @@ class HealthCheckResult(BaseModel):
 
     proxy_id: str
     status: Literal["working", "failed"]
-    latency_ms: Optional[int] = None
-    error: Optional[str] = None
+    latency_ms: int | None = None
+    error: str | None = None
     tested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -599,7 +601,17 @@ class ProxyPoolStats(BaseModel):
     active: int
     failed: int
     healthy_percentage: float
-    last_rotation: Optional[datetime] = None
+    last_rotation: datetime | None = None
+
+
+class ProxyStats(BaseModel):
+    """Per-proxy statistics for metrics endpoints."""
+
+    proxy_id: str
+    requests: int
+    successes: int
+    failures: int
+    avg_latency_ms: int
 
 
 class StatusResponse(BaseModel):
@@ -624,7 +636,7 @@ class StatusResponse(BaseModel):
 
     pool_stats: ProxyPoolStats
     rotation_strategy: str
-    storage_backend: Optional[str] = None
+    storage_backend: str | None = None
     config_source: str = "defaults"
 
 
@@ -635,7 +647,7 @@ class ProxyMetrics(BaseModel):
     requests: int
     success_rate: float
     avg_latency_ms: float
-    last_used: Optional[datetime] = None
+    last_used: datetime | None = None
 
 
 class MetricsResponse(BaseModel):
@@ -657,7 +669,7 @@ class MetricsResponse(BaseModel):
     requests_per_second: float
     avg_latency_ms: float
     error_rate: float
-    proxy_stats: list[ProxyMetrics]
+    proxy_stats: list[ProxyStats]
 
 
 # --- US4: Configure Settings ---
@@ -709,15 +721,15 @@ class UpdateConfigRequest(BaseModel):
         }
     )
 
-    rotation_strategy: Optional[str] = None
-    timeout: Optional[PositiveInt] = Field(default=None, le=300)
-    max_retries: Optional[PositiveInt] = Field(default=None, le=10)
-    rate_limits: Optional[RateLimitConfig] = None
-    cors_origins: Optional[list[str]] = None
+    rotation_strategy: str | None = None
+    timeout: PositiveInt | None = Field(default=None, le=300)
+    max_retries: PositiveInt | None = Field(default=None, le=10)
+    rate_limits: RateLimitConfig | None = None
+    cors_origins: list[str] | None = None
 
     @field_validator("rotation_strategy")
     @classmethod
-    def validate_rotation_strategy(cls, v: Optional[str]) -> Optional[str]:
+    def validate_rotation_strategy(cls, v: str | None) -> str | None:
         """Validate rotation strategy is from allowed set.
 
         Args:
@@ -745,7 +757,7 @@ class UpdateConfigRequest(BaseModel):
 
     @field_validator("cors_origins")
     @classmethod
-    def validate_cors_origins(cls, v: Optional[list[str]]) -> Optional[list[str]]:
+    def validate_cors_origins(cls, v: list[str] | None) -> list[str] | None:
         """Validate CORS origins length.
 
         Args:
@@ -786,32 +798,36 @@ class ExportRequest(BaseModel):
                 "health_status": ["healthy"],
                 "pretty_print": True,
             }
-        }
+        },
     )
 
-    export_type: str = Field(description="Type of data to export (proxies, metrics, logs, configuration, health_status, cache_data)")
+    export_type: str = Field(
+        description="Type of data to export (proxies, metrics, logs, configuration, health_status, cache_data)"
+    )
     export_format: str = Field(description="Output format (csv, json, jsonl, yaml, text, markdown)")
 
     # Destination
     destination_type: str = Field("local_file", description="Destination type (local_file, memory)")
-    file_path: Optional[str] = Field(None, description="File path for local_file destination")
+    file_path: str | None = Field(None, description="File path for local_file destination")
     overwrite: bool = Field(False, description="Overwrite existing file")
 
     # Compression
     compression: str = Field("none", description="Compression type (none, gzip, zip)")
 
     # Filters (optional, depending on export type)
-    health_status: Optional[list[str]] = Field(None, description="Filter proxies by health status")
-    source: Optional[list[str]] = Field(None, description="Filter proxies by source")
-    protocol: Optional[list[str]] = Field(None, description="Filter proxies by protocol")
-    min_success_rate: Optional[float] = Field(None, description="Minimum success rate for proxy filter")
+    health_status: list[str] | None = Field(None, description="Filter proxies by health status")
+    source: list[str] | None = Field(None, description="Filter proxies by source")
+    protocol: list[str] | None = Field(None, description="Filter proxies by protocol")
+    min_success_rate: float | None = Field(
+        None, description="Minimum success rate for proxy filter"
+    )
 
     # Metrics filters
-    start_time: Optional[datetime] = Field(None, description="Start time for metrics/logs export")
-    end_time: Optional[datetime] = Field(None, description="End time for metrics/logs export")
+    start_time: datetime | None = Field(None, description="Start time for metrics/logs export")
+    end_time: datetime | None = Field(None, description="End time for metrics/logs export")
 
     # Log filters
-    log_levels: Optional[list[str]] = Field(None, description="Filter logs by level")
+    log_levels: list[str] | None = Field(None, description="Filter logs by level")
 
     # Config filters
     redact_secrets: bool = Field(True, description="Redact sensitive data in config export")
@@ -827,7 +843,9 @@ class ExportStatusResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     job_id: str = Field(description="Export job ID")
-    status: str = Field(description="Current status (pending, running, completed, failed, cancelled)")
+    status: str = Field(
+        description="Current status (pending, running, completed, failed, cancelled)"
+    )
     export_type: str = Field(description="Type of data being exported")
     export_format: str = Field(description="Output format")
 
@@ -838,13 +856,13 @@ class ExportStatusResponse(BaseModel):
 
     # Timestamps
     created_at: datetime = Field(description="When export was created")
-    started_at: Optional[datetime] = Field(None, description="When export started")
-    completed_at: Optional[datetime] = Field(None, description="When export completed")
-    duration_seconds: Optional[float] = Field(None, description="Export duration")
+    started_at: datetime | None = Field(None, description="When export started")
+    completed_at: datetime | None = Field(None, description="When export completed")
+    duration_seconds: float | None = Field(None, description="Export duration")
 
     # Results
-    result_path: Optional[str] = Field(None, description="Path to exported file")
-    error_message: Optional[str] = Field(None, description="Error message if failed")
+    result_path: str | None = Field(None, description="Path to exported file")
+    error_message: str | None = Field(None, description="Error message if failed")
 
 
 class ExportHistoryResponse(BaseModel):
@@ -881,24 +899,24 @@ class RetryPolicyRequest(BaseModel):
         },
     )
 
-    max_attempts: Optional[int] = Field(None, ge=1, le=10, description="Maximum retry attempts")
-    backoff_strategy: Optional[str] = Field(
+    max_attempts: int | None = Field(None, ge=1, le=10, description="Maximum retry attempts")
+    backoff_strategy: str | None = Field(
         None,
         description="Backoff strategy (exponential, linear, fixed)",
     )
-    base_delay: Optional[float] = Field(None, gt=0, le=60, description="Base delay in seconds")
-    multiplier: Optional[float] = Field(
+    base_delay: float | None = Field(None, gt=0, le=60, description="Base delay in seconds")
+    multiplier: float | None = Field(
         None, gt=1, le=10, description="Multiplier for exponential backoff"
     )
-    max_backoff_delay: Optional[float] = Field(
+    max_backoff_delay: float | None = Field(
         None, gt=0, le=300, description="Maximum backoff delay in seconds"
     )
-    jitter: Optional[bool] = Field(None, description="Enable random jitter")
-    retry_status_codes: Optional[list[int]] = Field(
+    jitter: bool | None = Field(None, description="Enable random jitter")
+    retry_status_codes: list[int] | None = Field(
         None, description="HTTP status codes that trigger retries"
     )
-    timeout: Optional[float] = Field(None, gt=0, description="Total request timeout in seconds")
-    retry_non_idempotent: Optional[bool] = Field(
+    timeout: float | None = Field(None, gt=0, description="Total request timeout in seconds")
+    retry_non_idempotent: bool | None = Field(
         None, description="Allow retries for non-idempotent requests (POST, PUT)"
     )
 
@@ -930,7 +948,7 @@ class RetryPolicyResponse(BaseModel):
     max_backoff_delay: float
     jitter: bool
     retry_status_codes: list[int]
-    timeout: Optional[float]
+    timeout: float | None
     retry_non_idempotent: bool
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -959,9 +977,7 @@ class CircuitBreakerResponse(BaseModel):
     failure_threshold: int = Field(ge=1)
     window_duration: float = Field(gt=0, description="Failure window duration in seconds")
     timeout_duration: float = Field(gt=0, description="Timeout before half-open in seconds")
-    next_test_time: Optional[datetime] = Field(
-        None, description="Next recovery test time (ISO 8601)"
-    )
+    next_test_time: datetime | None = Field(None, description="Next recovery test time (ISO 8601)")
     last_state_change: datetime
 
 

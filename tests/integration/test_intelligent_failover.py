@@ -3,11 +3,8 @@ Integration tests for intelligent failover selection.
 """
 
 from datetime import datetime, timezone
-from unittest.mock import Mock, patch
 
-import pytest
-
-from proxywhirl import Proxy, ProxyRotator, RetryPolicy
+from proxywhirl import Proxy, ProxyRotator
 from proxywhirl.retry_metrics import RetryAttempt, RetryOutcome
 
 

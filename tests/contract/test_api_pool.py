@@ -5,11 +5,12 @@ Tests the API contract for /api/v1/proxies endpoints:
 - POST /api/v1/proxies - Add new proxy
 - GET /api/v1/proxies/{id} - Get specific proxy
 - DELETE /api/v1/proxies/{id} - Remove proxy
-- POST /api/v1/proxies/test - Health check proxies
+- POST /api/v1/proxies/health-check - Health check proxies
+- POST /api/v1/proxies/test - Health check proxies (deprecated)
 """
 
 import pytest
-from pydantic import HttpUrl, ValidationError
+from pydantic import ValidationError
 
 from proxywhirl.api_models import (
     CreateProxyRequest,
@@ -124,7 +125,7 @@ def test_delete_proxy_contract():
     pass
 
 
-# T026: Contract test for POST /api/v1/proxies/test
+# T026: Contract test for POST /api/v1/proxies/health-check (and deprecated /test)
 class TestHealthCheckContract:
     """Test HealthCheckRequest/Result schemas."""
 
