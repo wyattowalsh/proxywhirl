@@ -422,3 +422,32 @@ benchmark-histogram*
 # Then explicitly track baseline and README
 !.benchmarks/**/0001_baseline.json
 !.benchmarks/README.md
+
+# =========================================
+# IDE/TOOL DIRECTORIES: Ignore all
+# =========================================
+.amazonq/
+.codex/
+.cursor/
+.playwright-mcp/
+.idea/
+
+# =========================================
+# GENERATED FILES: Ignore
+# =========================================
+coverage.json
+audit-reports/
+
+# =========================================
+# STALE COMPLETION/TASK FILES: Ignore pattern
+# =========================================
+*-COMPLETION.md
+*_COMPLETION.md
+TASK*.md
+ASYNC*.md
+CMPLX*.md
+PERF*.md
+DEAD*.md
+REGEX*.md
+VULNERABILITY*.md
+verify_*.py
