@@ -1,0 +1,263 @@
+# Logging Configuration Contract
+# Feature: 007-logging-system-structured
+# Purpose: Define configuration schema for structured logging system
+
+# Valid configuration examples
+valid_configs:
+  minimal:
+    description: Minimal configuration (all defaults)
+    config: {}
+    expected_behavior: 
+      - INFO level logging
+      - JSON format
+      - Console and file output enabled
+      - Async logging enabled with 1000 entry queue
+  
+  console_only:
+    description: Console-only logging with custom level
+    config:
+      level: "DEBUG"
+      console_enabled: true
+      file_enabled: false
+    expected_behavior:
+      - DEBUG level to console
+      - No file output
+      - Colorized output
+  
+  production:
+    description: Production-ready configuration
+    config:
+      level: "INFO"
+      format: "json"
+      console_enabled: true
+      console_level: "WARNING"
+      file_enabled: true
+      file_path: "/var/log/proxywhirl/app.log"
+      file_level: "DEBUG"
+      rotation_size: "100 MB"
+      rotation_time: "00:00"
+      retention: "30 days"
+      compression: "gz"
+      async_enabled: true
+      queue_size: 5000
+      enable_redaction: true
+    expected_behavior:
+      - WARNING+ to console
+      - DEBUG+ to file with rotation
+      - Files compressed after rotation
+      - 30-day retention
+      - Sensitive data redacted
+  
+  remote_logging:
+    description: HTTP remote logging configuration
+    config:
+      level: "INFO"
+      format: "json"
+      console_enabled: true
+      file_enabled: true
+      http_enabled: true
+      http_url: "https://logs.example.com/ingest"
+      http_method: "POST"
+      http_timeout: 10.0
+    expected_behavior:
+      - Logs to console, file, and HTTP endpoint
+      - 10 second timeout for HTTP
+      - Fallback to stderr on HTTP failure
+  
+  syslog:
+    description: Syslog configuration for containerized environments
+    config:
+      level: "INFO"
+      format: "logfmt"
+      console_enabled: false
+      file_enabled: false
+      syslog_enabled: true
+      syslog_address: "/dev/log"
+      syslog_facility: 16  # LOG_LOCAL0
+    expected_behavior:
+      - All logs to syslog
+      - logfmt format
+      - No console/file output
+
+# Invalid configurations
+invalid_configs:
+  invalid_level:
+    config:
+      level: "VERBOSE"  # Not a valid level
+    error: "ValidationError: level must be one of DEBUG, INFO, WARNING, ERROR, CRITICAL"
+  
+  invalid_queue_size:
+    config:
+      queue_size: 50  # Below minimum 100
+    error: "ValidationError: queue_size must be >= 100"
+  
+  invalid_http_url:
+    config:
+      http_enabled: true
+      http_url: "ftp://logs.example.com"  # Wrong protocol
+    error: "ValidationError: HTTP URL must start with http:// or https://"
+  
+  invalid_timeout:
+    config:
+      http_timeout: -5.0  # Negative timeout
+    error: "ValidationError: http_timeout must be > 0"
+  
+  invalid_syslog_facility:
+    config:
+      syslog_enabled: true
+      syslog_facility: 99  # Out of range
+    error: "ValidationError: syslog_facility must be 0-23"
+
+# Environment variable mapping
+environment_variables:
+  PROXYWHIRL_LOG_LEVEL:
+    type: string
+    valid_values: ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+    default: "INFO"
+    example: "export PROXYWHIRL_LOG_LEVEL=DEBUG"
+  
+  PROXYWHIRL_LOG_FORMAT:
+    type: string
+    valid_values: ["json", "logfmt", "text"]
+    default: "json"
+    example: "export PROXYWHIRL_LOG_FORMAT=logfmt"
+  
+  PROXYWHIRL_LOG_ASYNC_ENABLED:
+    type: boolean
+    valid_values: ["true", "false", "1", "0"]
+    default: "true"
+    example: "export PROXYWHIRL_LOG_ASYNC_ENABLED=true"
+  
+  PROXYWHIRL_LOG_QUEUE_SIZE:
+    type: integer
+    constraints: "100 <= value <= 10000"
+    default: "1000"
+    example: "export PROXYWHIRL_LOG_QUEUE_SIZE=5000"
+  
+  PROXYWHIRL_LOG_CONSOLE_ENABLED:
+    type: boolean
+    default: "true"
+    example: "export PROXYWHIRL_LOG_CONSOLE_ENABLED=true"
+  
+  PROXYWHIRL_LOG_FILE_ENABLED:
+    type: boolean
+    default: "true"
+    example: "export PROXYWHIRL_LOG_FILE_ENABLED=true"
+  
+  PROXYWHIRL_LOG_FILE_PATH:
+    type: string
+    default: "logs/proxywhirl.log"
+    example: "export PROXYWHIRL_LOG_FILE_PATH=/var/log/proxywhirl/app.log"
+  
+  PROXYWHIRL_LOG_ROTATION_SIZE:
+    type: string
+    format: "loguru rotation format"
+    default: "100 MB"
+    examples:
+      - "export PROXYWHIRL_LOG_ROTATION_SIZE='500 MB'"
+      - "export PROXYWHIRL_LOG_ROTATION_SIZE='1 GB'"
+  
+  PROXYWHIRL_LOG_ROTATION_TIME:
+    type: string
+    format: "loguru rotation format"
+    default: "1 day"
+    examples:
+      - "export PROXYWHIRL_LOG_ROTATION_TIME='00:00'"  # Midnight
+      - "export PROXYWHIRL_LOG_ROTATION_TIME='1 week'"
+  
+  PROXYWHIRL_LOG_RETENTION:
+    type: string
+    format: "loguru retention format"
+    default: "7 days"
+    examples:
+      - "export PROXYWHIRL_LOG_RETENTION='30 days'"
+      - "export PROXYWHIRL_LOG_RETENTION='10'"  # Keep 10 files
+  
+  PROXYWHIRL_LOG_HTTP_ENABLED:
+    type: boolean
+    default: "false"
+    example: "export PROXYWHIRL_LOG_HTTP_ENABLED=true"
+  
+  PROXYWHIRL_LOG_HTTP_URL:
+    type: string
+    format: "http:// or https:// URL"
+    example: "export PROXYWHIRL_LOG_HTTP_URL=https://logs.example.com/ingest"
+  
+  PROXYWHIRL_LOG_ENABLE_REDACTION:
+    type: boolean
+    default: "true"
+    example: "export PROXYWHIRL_LOG_ENABLE_REDACTION=true"
+
+# JSON config file schema
+json_config_schema:
+  path: "~/.proxywhirl/logging.json"
+  format: "JSON"
+  schema:
+    type: object
+    properties:
+      level:
+        type: string
+        enum: ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+      format:
+        type: string
+        enum: ["json", "logfmt", "text"]
+      async_enabled:
+        type: boolean
+      queue_size:
+        type: integer
+        minimum: 100
+        maximum: 10000
+      console_enabled:
+        type: boolean
+      console_level:
+        type: string
+        enum: ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+      file_enabled:
+        type: boolean
+      file_path:
+        type: string
+      rotation_size:
+        type: string
+      rotation_time:
+        type: string
+      retention:
+        type: string
+      http_enabled:
+        type: boolean
+      http_url:
+        type: string
+        format: uri
+      enable_redaction:
+        type: boolean
+
+# Configuration precedence
+precedence:
+  order:
+    - 1: "Environment variables (highest priority)"
+    - 2: "JSON config file"
+    - 3: "Default values (lowest priority)"
+  
+  example:
+    scenario: "PROXYWHIRL_LOG_LEVEL=DEBUG in env, level: INFO in config file"
+    result: "Level set to DEBUG (env var wins)"
+  
+  note: "Environment variables override config file which overrides defaults"
+
+# Runtime reload behavior
+reload:
+  trigger:
+    - "SIGHUP signal (Unix)"
+    - "API call to /api/v1/config/reload endpoint"
+    - "Manual call to LoggingConfig.reload()"
+  
+  behavior:
+    - "Re-read environment variables"
+    - "Re-read config file if present"
+    - "Re-configure loguru handlers"
+    - "Log warning on reload failure"
+    - "Keep existing config on failure"
+  
+  performance:
+    - "Reload completes in <1 second (SC-002)"
+    - "No dropped logs during reload"
+    - "Atomic handler swap"

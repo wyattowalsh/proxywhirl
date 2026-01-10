@@ -1,0 +1,284 @@
+/* ProxyWhirl TUI Stylesheet */
+
+/* Color scheme */
+$primary: #00d4ff;
+$secondary: #ff00ff;
+$success: #00ff00;
+$warning: #ffaa00;
+$error: #ff0055;
+$bg-dark: #0a0e14;
+$bg-panel: #151a21;
+$bg-widget: #1f2430;
+$text: #d9d9d9;
+$text-dim: #6d7a8e;
+$border: #2d3541;
+
+/* App background */
+Screen {
+    background: $bg-dark;
+}
+
+/* Headers and Footers */
+Header {
+    background: $primary;
+    color: $bg-dark;
+    text-style: bold;
+    padding: 1;
+}
+
+Footer {
+    background: $bg-panel;
+    color: $text-dim;
+    padding: 1;
+}
+
+/* Panels */
+.left-panel {
+    width: 35%;
+    height: 100%;
+    padding: 1;
+}
+
+.right-panel {
+    width: 65%;
+    height: 100%;
+    padding: 1;
+}
+
+/* Container styling */
+Vertical, Horizontal, Container {
+    background: $bg-panel;
+    border: solid $border;
+    border-title-color: $primary;
+    padding: 1;
+    margin: 1;
+}
+
+#fetch-container,
+#export-container,
+#strategy-container,
+#request-container,
+#analytics-container {
+    background: $bg-widget;
+    border: round $primary;
+    padding: 2;
+    height: auto;
+}
+
+/* Labels */
+Label {
+    color: $text;
+    padding: 0 1;
+}
+
+.panel-title {
+    text-style: bold;
+    color: $primary;
+    background: $bg-widget;
+    padding: 1;
+    margin-bottom: 1;
+}
+
+/* Inputs */
+Input {
+    background: $bg-dark;
+    border: tall $border;
+    color: $text;
+    padding: 1;
+    margin: 1 0;
+}
+
+Input:focus {
+    border: tall $primary;
+}
+
+/* Select widgets */
+Select {
+    background: $bg-dark;
+    border: tall $border;
+    color: $text;
+    padding: 1;
+    margin: 1 0;
+}
+
+Select:focus {
+    border: tall $primary;
+}
+
+/* Buttons */
+Button {
+    background: $bg-widget;
+    color: $text;
+    border: tall $border;
+    margin: 1;
+    min-width: 16;
+    padding: 1 2;
+}
+
+Button:hover {
+    background: $primary;
+    color: $bg-dark;
+    border: tall $primary;
+    text-style: bold;
+}
+
+Button.variant-primary {
+    background: $primary;
+    color: $bg-dark;
+    border: tall $primary;
+    text-style: bold;
+}
+
+Button.variant-primary:hover {
+    background: #33ddff;
+}
+
+Button.variant-success {
+    background: $success;
+    color: $bg-dark;
+    border: tall $success;
+    text-style: bold;
+}
+
+Button.variant-success:hover {
+    background: #33ff33;
+}
+
+Button.variant-error {
+    background: $error;
+    color: white;
+    border: tall $error;
+    text-style: bold;
+}
+
+.button-row {
+    height: auto;
+    align: center middle;
+    margin: 1 0;
+}
+
+/* DataTable */
+DataTable {
+    background: $bg-widget;
+    border: round $primary;
+    height: 100%;
+}
+
+DataTable > .datatable--header {
+    background: $bg-panel;
+    color: $primary;
+    text-style: bold;
+}
+
+DataTable > .datatable--cursor {
+    background: $primary 30%;
+}
+
+DataTable:focus > .datatable--cursor {
+    background: $primary 50%;
+}
+
+/* Static text containers */
+Static {
+    background: $bg-widget;
+    color: $text;
+    padding: 1;
+}
+
+#metrics-panel {
+    background: $bg-widget;
+    border: round $success;
+    padding: 2;
+    height: 20;
+    margin-bottom: 1;
+}
+
+#fetch-status,
+#export-status,
+#strategy-status {
+    background: $bg-dark;
+    color: $text;
+    border: tall $border;
+    padding: 1;
+    margin: 1 0;
+    min-height: 3;
+}
+
+#response-output,
+#fetch-results,
+#export-preview,
+#analytics-content {
+    background: $bg-dark;
+    color: $text;
+    border: tall $border;
+    padding: 2;
+    min-height: 20;
+    overflow-y: auto;
+}
+
+#response-scroll {
+    height: 100%;
+    overflow-y: auto;
+}
+
+/* TabbedContent */
+TabbedContent {
+    background: $bg-panel;
+    border: none;
+    padding: 0;
+}
+
+TabPane {
+    background: $bg-panel;
+    padding: 1;
+}
+
+Tabs {
+    background: $bg-widget;
+    dock: top;
+}
+
+Tab {
+    background: $bg-widget;
+    color: $text-dim;
+    border: none;
+    padding: 1 2;
+}
+
+Tab:hover {
+    background: $bg-panel;
+    color: $text;
+}
+
+Tab.-active {
+    background: $primary;
+    color: $bg-dark;
+    text-style: bold;
+}
+
+/* Scrollbars */
+VerticalScroll {
+    scrollbar-background: $bg-dark;
+    scrollbar-color: $primary;
+    scrollbar-color-hover: #33ddff;
+    scrollbar-color-active: #66e6ff;
+}
+
+/* Notifications */
+Toast {
+    background: $bg-widget;
+    color: $text;
+    border: thick $primary;
+}
+
+Toast.-information {
+    border: thick $primary;
+}
+
+Toast.-warning {
+    border: thick $warning;
+}
+
+Toast.-error {
+    border: thick $error;
+}

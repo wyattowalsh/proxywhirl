@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640">
+  <style>
+    .title { font-family: system-ui, -apple-system, sans-serif; font-weight: 800; }
+    .subtitle { font-family: system-ui, -apple-system, sans-serif; font-weight: 400; }
+    .tag { font-family: monospace; }
+  </style>
+
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0d1117"/>
+      <stop offset="50%" style="stop-color:#161b22"/>
+      <stop offset="100%" style="stop-color:#0d1117"/>
+    </linearGradient>
+    <linearGradient id="titleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#06b6d4"/>
+      <stop offset="50%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#ec4899"/>
+    </linearGradient>
+    <filter id="titleGlow">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <pattern id="gridPattern" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="640" fill="url(#bgGrad)"/>
+
+  <!-- Grid pattern -->
+  <rect width="1280" height="640" fill="url(#gridPattern)" opacity="0.3"/>
+
+  <!-- Decorative circles -->
+  <circle cx="100" cy="100" r="200" fill="none" stroke="#06b6d4" stroke-width="1" opacity="0.1"/>
+  <circle cx="1180" cy="540" r="250" fill="none" stroke="#8b5cf6" stroke-width="1" opacity="0.1"/>
+  <circle cx="640" cy="320" r="350" fill="none" stroke="#ec4899" stroke-width="0.5" opacity="0.05"/>
+
+  <!-- Animated whirl logo -->
+  <g transform="translate(200, 320)">
+    <!-- Outer ring -->
+    <circle r="100" fill="none" stroke="url(#titleGrad)" stroke-width="4" stroke-dasharray="150 480" filter="url(#titleGlow)">
+      <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="6s" repeatCount="indefinite"/>
+    </circle>
+    <!-- Middle ring -->
+    <circle r="75" fill="none" stroke="url(#titleGrad)" stroke-width="3" stroke-dasharray="100 370" opacity="0.7">
+      <animateTransform attributeName="transform" type="rotate" from="360" to="0" dur="4s" repeatCount="indefinite"/>
+    </circle>
+    <!-- Inner ring -->
+    <circle r="50" fill="none" stroke="url(#titleGrad)" stroke-width="2" stroke-dasharray="60 255" opacity="0.5">
+      <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="3s" repeatCount="indefinite"/>
+    </circle>
+    <!-- Center -->
+    <circle r="20" fill="url(#titleGrad)" filter="url(#titleGlow)">
+      <animate attributeName="r" values="20;25;20" dur="2s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- Orbiting nodes -->
+    <g>
+      <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="8s" repeatCount="indefinite"/>
+      <circle cx="100" cy="0" r="12" fill="#22c55e">
+        <animate attributeName="opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+    <g>
+      <animateTransform attributeName="transform" type="rotate" from="120" to="480" dur="8s" repeatCount="indefinite"/>
+      <circle cx="100" cy="0" r="12" fill="#22c55e">
+        <animate attributeName="opacity" values="1;0.5;1" dur="1.2s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+    <g>
+      <animateTransform attributeName="transform" type="rotate" from="240" to="600" dur="8s" repeatCount="indefinite"/>
+      <circle cx="100" cy="0" r="12" fill="#eab308">
+        <animate attributeName="opacity" values="1;0.5;1" dur="0.8s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+  </g>
+
+  <!-- Main title -->
+  <text x="640" y="280" text-anchor="middle" class="title" font-size="96" fill="url(#titleGrad)" filter="url(#titleGlow)">PROXYWHIRL</text>
+
+  <!-- Subtitle -->
+  <text x="640" y="360" text-anchor="middle" class="subtitle" font-size="32" fill="#94a3b8">Intelligent Proxy Rotation for Python</text>
+
+  <!-- Feature tags -->
+  <g transform="translate(640, 430)" text-anchor="middle">
+    <!-- Tag 1 -->
+    <g transform="translate(-300, 0)">
+      <rect x="-70" y="-18" width="140" height="36" rx="18" fill="#1e293b" stroke="#06b6d4" stroke-width="1"/>
+      <text y="6" class="tag" font-size="14" fill="#06b6d4">8 Strategies</text>
+    </g>
+    <!-- Tag 2 -->
+    <g transform="translate(-100, 0)">
+      <rect x="-70" y="-18" width="140" height="36" rx="18" fill="#1e293b" stroke="#8b5cf6" stroke-width="1"/>
+      <text y="6" class="tag" font-size="14" fill="#8b5cf6">81 Sources</text>
+    </g>
+    <!-- Tag 3 -->
+    <g transform="translate(100, 0)">
+      <rect x="-70" y="-18" width="140" height="36" rx="18" fill="#1e293b" stroke="#22c55e" stroke-width="1"/>
+      <text y="6" class="tag" font-size="14" fill="#22c55e">Self-Healing</text>
+    </g>
+    <!-- Tag 4 -->
+    <g transform="translate(300, 0)">
+      <rect x="-70" y="-18" width="140" height="36" rx="18" fill="#1e293b" stroke="#ec4899" stroke-width="1"/>
+      <text y="6" class="tag" font-size="14" fill="#ec4899">&lt;5μs Select</text>
+    </g>
+  </g>
+
+  <!-- Install command -->
+  <g transform="translate(640, 520)">
+    <rect x="-200" y="-25" width="400" height="50" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+    <text y="8" text-anchor="middle" class="tag" font-size="20" fill="#8b949e">$ pip install proxywhirl</text>
+  </g>
+
+  <!-- GitHub badge -->
+  <g transform="translate(640, 590)">
+    <text text-anchor="middle" class="subtitle" font-size="16" fill="#64748b">github.com/wyattowalsh/proxywhirl</text>
+  </g>
+
+  <!-- Python badge -->
+  <g transform="translate(1180, 60)">
+    <rect x="-50" y="-15" width="100" height="30" rx="4" fill="#3776ab"/>
+    <text y="6" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="bold" fill="white">Python 3.9+</text>
+  </g>
+</svg>

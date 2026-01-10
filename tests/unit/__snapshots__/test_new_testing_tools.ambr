@@ -1,0 +1,20 @@
+# serializer version: 1
+# name: TestSnapshotTesting.test_pool_summary_snapshot
+  dict({
+    'degraded': 2,
+    'healthy': 7,
+    'sources': dict({
+      'fetched': 6,
+      'user': 4,
+    }),
+    'total_proxies': 10,
+    'unhealthy': 1,
+  })
+# ---
+# name: TestSnapshotTesting.test_proxy_serialization_snapshot
+  dict({
+    'health_status': 'healthy',
+    'protocol': 'http',
+    'url': 'http://test.proxy.com:8080',
+  })
+# ---

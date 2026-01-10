@@ -1,0 +1,215 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 400" width="800" height="400">
+  <style>
+    .bg { fill: #0d1117; }
+    .module { fill: #161b22; stroke: #30363d; }
+    .module-text { fill: #f0f6fc; font-family: system-ui, sans-serif; font-weight: 600; }
+    .module-sub { fill: #8b949e; font-family: monospace; }
+    .arrow { stroke: #30363d; fill: none; }
+    @media (prefers-color-scheme: light) {
+      .bg { fill: #ffffff; }
+      .module { fill: #f8fafc; stroke: #e2e8f0; }
+      .module-text { fill: #1e293b; }
+      .module-sub { fill: #64748b; }
+      .arrow { stroke: #cbd5e1; }
+    }
+  </style>
+
+  <defs>
+    <linearGradient id="arch1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4"/>
+      <stop offset="100%" style="stop-color:#0891b2"/>
+    </linearGradient>
+    <linearGradient id="arch2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="arch3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#16a34a"/>
+    </linearGradient>
+    <linearGradient id="arch4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ec4899"/>
+      <stop offset="100%" style="stop-color:#db2777"/>
+    </linearGradient>
+    <linearGradient id="arch5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f97316"/>
+      <stop offset="100%" style="stop-color:#ea580c"/>
+    </linearGradient>
+    <marker id="archArrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L0,8 L8,4 z" fill="#64748b"/>
+    </marker>
+    <marker id="archArrowCyan" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L0,8 L8,4 z" fill="#06b6d4"/>
+    </marker>
+    <marker id="archArrowGreen" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0,0 L0,8 L8,4 z" fill="#22c55e"/>
+    </marker>
+    <filter id="moduleShadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="400" class="bg"/>
+
+  <!-- Title -->
+  <text x="400" y="30" text-anchor="middle" font-family="system-ui" font-size="18" font-weight="bold" fill="#f0f6fc">Architecture Overview</text>
+
+  <!-- User/Client -->
+  <g transform="translate(50, 150)" filter="url(#moduleShadow)">
+    <rect width="100" height="80" rx="12" fill="#1e293b" stroke="url(#arch1)" stroke-width="2"/>
+    <text x="50" y="35" text-anchor="middle" class="module-text" font-size="12">Your App</text>
+    <text x="50" y="55" text-anchor="middle" class="module-sub" font-size="9">requests</text>
+    <!-- Pulsing indicator -->
+    <circle cx="50" cy="70" r="3" fill="#06b6d4">
+      <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Arrow to Rotator -->
+  <g>
+    <path d="M155,190 L200,190" class="arrow" stroke-width="2" marker-end="url(#archArrow)">
+      <animate attributeName="stroke-dasharray" values="0,100;100,0" dur="1s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- ProxyRotator (Main) -->
+  <g transform="translate(210, 120)" filter="url(#moduleShadow)">
+    <rect width="160" height="140" rx="16" fill="#1e293b" stroke="url(#arch2)" stroke-width="2"/>
+    <rect x="0" y="0" width="160" height="35" rx="16" fill="url(#arch2)"/>
+    <rect x="0" y="17" width="160" height="18" fill="url(#arch2)"/>
+    <text x="80" y="24" text-anchor="middle" font-family="system-ui" font-size="13" font-weight="bold" fill="white">ProxyRotator</text>
+    <text x="80" y="55" text-anchor="middle" class="module-sub" font-size="9">rotator.py</text>
+
+    <!-- Internal components -->
+    <g transform="translate(15, 70)">
+      <rect width="55" height="25" rx="4" fill="#2d3748" stroke="#8b5cf6" stroke-width="1"/>
+      <text x="27" y="17" text-anchor="middle" class="module-sub" font-size="8">Strategy</text>
+    </g>
+    <g transform="translate(85, 70)">
+      <rect width="55" height="25" rx="4" fill="#2d3748" stroke="#8b5cf6" stroke-width="1"/>
+      <text x="27" y="17" text-anchor="middle" class="module-sub" font-size="8">Pool</text>
+    </g>
+    <g transform="translate(15, 105)">
+      <rect width="125" height="25" rx="4" fill="#2d3748" stroke="#8b5cf6" stroke-width="1"/>
+      <text x="62" y="17" text-anchor="middle" class="module-sub" font-size="8">Health Monitor</text>
+    </g>
+  </g>
+
+  <!-- Arrow to Strategies -->
+  <g>
+    <path d="M290,265 L290,310" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#archArrow)"/>
+  </g>
+
+  <!-- Strategies Module -->
+  <g transform="translate(210, 320)" filter="url(#moduleShadow)">
+    <rect width="160" height="60" rx="12" fill="#1e293b" stroke="url(#arch3)" stroke-width="2"/>
+    <text x="80" y="25" text-anchor="middle" class="module-text" font-size="11">Strategies</text>
+    <text x="80" y="42" text-anchor="middle" class="module-sub" font-size="9">7 rotation modes</text>
+    <!-- Rotating indicator -->
+    <g transform="translate(140, 15)">
+      <circle r="8" fill="none" stroke="#22c55e" stroke-width="2" stroke-dasharray="15 35">
+        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+  </g>
+
+  <!-- Arrow to Proxy Pool -->
+  <g>
+    <path d="M375,190 L430,190" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#archArrow)">
+      <animate attributeName="stroke-dasharray" values="0,100;100,0" dur="1s" begin="0.3s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- Proxy Pool -->
+  <g transform="translate(440, 140)" filter="url(#moduleShadow)">
+    <rect width="140" height="100" rx="12" fill="#1e293b" stroke="url(#arch4)" stroke-width="2"/>
+    <text x="70" y="25" text-anchor="middle" class="module-text" font-size="11">Proxy Pool</text>
+    <text x="70" y="42" text-anchor="middle" class="module-sub" font-size="9">models.py</text>
+
+    <!-- Animated proxy dots -->
+    <g transform="translate(20, 60)">
+      <circle r="6" fill="#22c55e">
+        <animate attributeName="opacity" values="1;0.5;1" dur="0.8s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="25" r="6" fill="#22c55e">
+        <animate attributeName="opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite" begin="0.2s"/>
+      </circle>
+      <circle cx="50" r="6" fill="#22c55e">
+        <animate attributeName="opacity" values="1;0.5;1" dur="0.9s" repeatCount="indefinite" begin="0.4s"/>
+      </circle>
+      <circle cx="75" r="6" fill="#eab308">
+        <animate attributeName="opacity" values="1;0.5;1" dur="0.5s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="100" r="6" fill="#ef4444" opacity="0.4"/>
+    </g>
+    <text x="70" y="85" text-anchor="middle" class="module-sub" font-size="8">healthy: 312 | dead: 1</text>
+  </g>
+
+  <!-- Arrow to Target -->
+  <g>
+    <path d="M585,190 L640,190" stroke="#22c55e" stroke-width="2" fill="none" marker-end="url(#archArrowGreen)">
+      <animate attributeName="stroke-dasharray" values="0,100;100,0" dur="1s" begin="0.6s" repeatCount="indefinite"/>
+    </path>
+  </g>
+
+  <!-- Target Server -->
+  <g transform="translate(650, 150)" filter="url(#moduleShadow)">
+    <rect width="100" height="80" rx="12" fill="#1e293b" stroke="url(#arch3)" stroke-width="2"/>
+    <text x="50" y="35" text-anchor="middle" class="module-text" font-size="12">Target</text>
+    <text x="50" y="55" text-anchor="middle" class="module-sub" font-size="9">httpbin.org</text>
+    <!-- Success pulse -->
+    <circle cx="50" cy="70" r="3" fill="#22c55e">
+      <animate attributeName="r" values="3;6;3" dur="1.5s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+
+  <!-- Fetchers -->
+  <g transform="translate(440, 310)" filter="url(#moduleShadow)">
+    <rect width="140" height="70" rx="12" fill="#1e293b" stroke="url(#arch5)" stroke-width="2"/>
+    <text x="70" y="25" text-anchor="middle" class="module-text" font-size="11">Fetchers</text>
+    <text x="70" y="42" text-anchor="middle" class="module-sub" font-size="9">81 sources</text>
+    <text x="70" y="58" text-anchor="middle" class="module-sub" font-size="8">fetchers.py</text>
+    <!-- Download indicator -->
+    <g transform="translate(115, 20)">
+      <line x1="0" y1="-5" x2="0" y2="5" stroke="#f97316" stroke-width="2">
+        <animate attributeName="y2" values="5;-2;5" dur="0.8s" repeatCount="indefinite"/>
+      </line>
+      <polyline points="-4,2 0,7 4,2" fill="none" stroke="#f97316" stroke-width="2">
+        <animate attributeName="transform" values="translate(0,0);translate(0,-7);translate(0,0)" dur="0.8s" repeatCount="indefinite"/>
+      </polyline>
+    </g>
+  </g>
+
+  <!-- Arrow from Fetchers to Pool -->
+  <g>
+    <path d="M510,310 L510,245" stroke="#f97316" stroke-width="2" fill="none" marker-end="url(#archArrow)"/>
+  </g>
+
+  <!-- Storage -->
+  <g transform="translate(630, 310)" filter="url(#moduleShadow)">
+    <rect width="120" height="70" rx="12" fill="#1e293b" stroke="url(#arch1)" stroke-width="2"/>
+    <text x="60" y="25" text-anchor="middle" class="module-text" font-size="11">Storage</text>
+    <text x="60" y="42" text-anchor="middle" class="module-sub" font-size="9">SQLite + Fernet</text>
+    <text x="60" y="58" text-anchor="middle" class="module-sub" font-size="8">storage.py</text>
+    <!-- DB icon -->
+    <g transform="translate(100, 20)">
+      <ellipse rx="8" ry="4" fill="none" stroke="#06b6d4" stroke-width="1.5"/>
+      <path d="M-8,0 L-8,12 Q-8,16 0,16 Q8,16 8,12 L8,0" fill="none" stroke="#06b6d4" stroke-width="1.5"/>
+    </g>
+  </g>
+
+  <!-- Arrow from Pool to Storage -->
+  <g>
+    <path d="M545,245 L630,310" stroke="#64748b" stroke-width="1.5" fill="none" stroke-dasharray="4,2"/>
+  </g>
+
+  <!-- Legend -->
+  <g transform="translate(30, 360)" font-family="system-ui" font-size="9">
+    <text fill="#64748b">Legend:</text>
+    <circle cx="60" cy="-3" r="4" fill="#22c55e"/><text x="70" fill="#8b949e">healthy</text>
+    <circle cx="110" cy="-3" r="4" fill="#eab308"/><text x="120" fill="#8b949e">slow</text>
+    <circle cx="150" cy="-3" r="4" fill="#ef4444" opacity="0.4"/><text x="160" fill="#8b949e">dead</text>
+  </g>
+</svg>

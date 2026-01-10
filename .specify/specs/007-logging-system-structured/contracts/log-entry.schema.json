@@ -1,0 +1,202 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://proxywhirl.dev/schemas/log-entry.json",
+  "title": "ProxyWhirl Structured Log Entry",
+  "description": "Schema for structured JSON log entries produced by proxywhirl logging system",
+  "type": "object",
+  "required": [
+    "timestamp",
+    "level",
+    "message",
+    "module",
+    "function",
+    "line"
+  ],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of log entry",
+      "examples": [
+        "2025-11-01T12:34:56.789Z",
+        "2025-11-01T12:34:56.789+00:00"
+      ]
+    },
+    "level": {
+      "type": "string",
+      "enum": [
+        "DEBUG",
+        "INFO",
+        "WARNING",
+        "ERROR",
+        "CRITICAL"
+      ],
+      "description": "Log level"
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable log message",
+      "minLength": 1
+    },
+    "module": {
+      "type": "string",
+      "description": "Python module name where log originated",
+      "examples": [
+        "proxywhirl.rotator",
+        "proxywhirl.strategies"
+      ]
+    },
+    "function": {
+      "type": "string",
+      "description": "Function name where log originated",
+      "examples": [
+        "select_proxy",
+        "check_health"
+      ]
+    },
+    "line": {
+      "type": "integer",
+      "description": "Line number in source file",
+      "minimum": 0
+    },
+    "request_id": {
+      "type": ["string", "null"],
+      "description": "Unique request/operation ID for correlation",
+      "format": "uuid",
+      "examples": [
+        "550e8400-e29b-41d4-a716-446655440000"
+      ]
+    },
+    "operation": {
+      "type": ["string", "null"],
+      "description": "Operation type identifier",
+      "examples": [
+        "proxy_selection",
+        "health_check",
+        "rotation_strategy",
+        "cache_lookup"
+      ]
+    },
+    "proxy_url": {
+      "type": ["string", "null"],
+      "description": "Proxy URL if operation involves proxy (may be redacted)",
+      "examples": [
+        "http://proxy1.example.com:8080",
+        "http://user:***@proxy2.example.com:3128"
+      ]
+    },
+    "strategy": {
+      "type": ["string", "null"],
+      "description": "Rotation strategy name",
+      "examples": [
+        "round_robin",
+        "weighted",
+        "least_used",
+        "performance_based"
+      ]
+    },
+    "source": {
+      "type": ["string", "null"],
+      "description": "Proxy source identifier",
+      "examples": [
+        "free_proxy_list",
+        "premium_provider",
+        "manual"
+      ]
+    },
+    "user_id": {
+      "type": ["string", "null"],
+      "description": "User identifier for multi-tenant scenarios"
+    },
+    "exception": {
+      "type": ["object", "null"],
+      "description": "Exception details for error logs",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Exception class name"
+        },
+        "message": {
+          "type": "string",
+          "description": "Exception message"
+        },
+        "traceback": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Stack trace lines"
+        }
+      },
+      "required": ["type", "message"]
+    },
+    "extra": {
+      "type": "object",
+      "description": "Additional structured fields",
+      "additionalProperties": true,
+      "examples": [
+        {
+          "proxy_weight": 0.75,
+          "selection_time_ms": 2.5,
+          "cache_hit": true
+        }
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "examples": [
+    {
+      "timestamp": "2025-11-01T12:34:56.789Z",
+      "level": "INFO",
+      "message": "Proxy selected successfully",
+      "module": "proxywhirl.rotator",
+      "function": "select_proxy",
+      "line": 145,
+      "request_id": "550e8400-e29b-41d4-a716-446655440000",
+      "operation": "proxy_selection",
+      "proxy_url": "http://proxy1.example.com:8080",
+      "strategy": "weighted",
+      "extra": {
+        "proxy_weight": 0.75,
+        "selection_time_ms": 2.5
+      }
+    },
+    {
+      "timestamp": "2025-11-01T12:35:10.123Z",
+      "level": "ERROR",
+      "message": "Health check failed for proxy",
+      "module": "proxywhirl.health",
+      "function": "check_proxy",
+      "line": 89,
+      "request_id": "550e8400-e29b-41d4-a716-446655440001",
+      "operation": "health_check",
+      "proxy_url": "http://proxy2.example.com:8080",
+      "exception": {
+        "type": "TimeoutError",
+        "message": "Connection timed out after 5 seconds",
+        "traceback": [
+          "File \"/app/proxywhirl/health.py\", line 89, in check_proxy",
+          "  response = await client.get(url, timeout=5.0)",
+          "..."
+        ]
+      },
+      "extra": {
+        "timeout_seconds": 5,
+        "retry_count": 3
+      }
+    },
+    {
+      "timestamp": "2025-11-01T12:36:00.456Z",
+      "level": "WARNING",
+      "message": "Dropped 10 log entries due to queue overflow",
+      "module": "proxywhirl.logging",
+      "function": "bounded_queue_handler",
+      "line": 56,
+      "operation": "queue_management",
+      "extra": {
+        "dropped_count": 10,
+        "queue_size": 1000
+      }
+    }
+  ]
+}

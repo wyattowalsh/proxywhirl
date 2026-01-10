@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 280" width="600" height="280">
+  <style>
+    .term-bg { fill: #0d1117; }
+    .term-header { fill: #161b22; }
+    .term-border { stroke: #30363d; }
+    .code { font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace; font-size: 12px; }
+    .comment { fill: #6e7681; }
+    .keyword { fill: #ff7b72; }
+    .function { fill: #d2a8ff; }
+    .string { fill: #a5d6ff; }
+    .class { fill: #79c0ff; }
+    .text { fill: #c9d1d9; }
+    .success { fill: #3fb950; }
+    .number { fill: #f2cc60; }
+  </style>
+
+  <defs>
+    <filter id="termShadow">
+      <feDropShadow dx="0" dy="8" stdDeviation="16" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+    <clipPath id="termClip">
+      <rect x="0" y="0" width="600" height="280" rx="12"/>
+    </clipPath>
+  </defs>
+
+  <g filter="url(#termShadow)">
+    <g clip-path="url(#termClip)">
+      <!-- Terminal background -->
+      <rect width="600" height="280" rx="12" class="term-bg term-border" stroke-width="1"/>
+
+      <!-- Terminal header bar -->
+      <rect width="600" height="36" class="term-header"/>
+      <line x1="0" y1="36" x2="600" y2="36" class="term-border" stroke-width="1"/>
+
+      <!-- Traffic light buttons -->
+      <circle cx="20" cy="18" r="6" fill="#ff5f56"/>
+      <circle cx="40" cy="18" r="6" fill="#ffbd2e"/>
+      <circle cx="60" cy="18" r="6" fill="#27c93f"/>
+
+      <!-- Terminal title -->
+      <text x="300" y="23" text-anchor="middle" class="code" fill="#8b949e">python3 — proxywhirl</text>
+
+      <!-- Code content with typing animation -->
+      <g class="code" transform="translate(20, 60)">
+        <!-- Line 1 -->
+        <text y="0">
+          <tspan class="keyword">from</tspan>
+          <tspan class="text"> proxywhirl </tspan>
+          <tspan class="keyword">import</tspan>
+          <tspan class="class"> ProxyRotator</tspan>
+        </text>
+
+        <!-- Line 2 (blank) -->
+
+        <!-- Line 3 -->
+        <text y="36">
+          <tspan class="keyword">with</tspan>
+          <tspan class="function"> ProxyRotator</tspan>
+          <tspan class="text">(</tspan>
+        </text>
+
+        <!-- Line 4 -->
+        <text y="54" x="20">
+          <tspan class="text">strategy=</tspan>
+          <tspan class="string">"performance-based"</tspan>
+          <tspan class="text">,</tspan>
+        </text>
+
+        <!-- Line 5 -->
+        <text y="72" x="20">
+          <tspan class="text">auto_fetch=</tspan>
+          <tspan class="keyword">True</tspan>
+        </text>
+
+        <!-- Line 6 -->
+        <text y="90">
+          <tspan class="text">) </tspan>
+          <tspan class="keyword">as</tspan>
+          <tspan class="text"> whirl:</tspan>
+        </text>
+
+        <!-- Line 7 -->
+        <text y="108" x="20">
+          <tspan class="text">response = whirl.</tspan>
+          <tspan class="function">get</tspan>
+          <tspan class="text">(</tspan>
+          <tspan class="string">"https://api.example.com"</tspan>
+          <tspan class="text">)</tspan>
+        </text>
+
+        <!-- Line 8 (blank) -->
+
+        <!-- Output section -->
+        <text y="144" class="comment"># Output:</text>
+
+        <!-- Animated output with pulsing effect -->
+        <g>
+          <text y="162" class="success">
+            ✓ Fetched 847 proxies from 16 sources
+            <animate attributeName="opacity" values="0;1" dur="0.5s" begin="0.5s" fill="freeze"/>
+          </text>
+          <text y="180" class="success">
+            ✓ Validated 312 healthy proxies
+            <animate attributeName="opacity" values="0;1" dur="0.5s" begin="1s" fill="freeze"/>
+          </text>
+          <text y="198" class="success">
+            ✓ Response: 200 OK via 185.x.x.47
+            <animate attributeName="opacity" values="0;1" dur="0.5s" begin="1.5s" fill="freeze"/>
+          </text>
+        </g>
+      </g>
+
+      <!-- Animated cursor -->
+      <rect x="455" y="158" width="8" height="14" fill="#58a6ff">
+        <animate attributeName="opacity" values="1;0;1" dur="1s" repeatCount="indefinite"/>
+      </rect>
+    </g>
+  </g>
+</svg>

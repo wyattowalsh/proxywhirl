@@ -1,0 +1,183 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 320" width="800" height="320">
+  <style>
+    .card { fill: #1e293b; }
+    .card-border { stroke: #334155; }
+    .title { fill: #f1f5f9; font-family: system-ui, sans-serif; font-weight: 600; }
+    .desc { fill: #94a3b8; font-family: system-ui, sans-serif; }
+    @media (prefers-color-scheme: light) {
+      .card { fill: #f8fafc; }
+      .card-border { stroke: #e2e8f0; }
+      .title { fill: #1e293b; }
+      .desc { fill: #64748b; }
+    }
+  </style>
+
+  <defs>
+    <linearGradient id="feat1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4"/>
+      <stop offset="100%" style="stop-color:#0891b2"/>
+    </linearGradient>
+    <linearGradient id="feat2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="feat3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ec4899"/>
+      <stop offset="100%" style="stop-color:#db2777"/>
+    </linearGradient>
+    <linearGradient id="feat4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#16a34a"/>
+    </linearGradient>
+    <linearGradient id="feat5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f97316"/>
+      <stop offset="100%" style="stop-color:#ea580c"/>
+    </linearGradient>
+    <linearGradient id="feat6" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#2563eb"/>
+    </linearGradient>
+    <filter id="cardShadow2">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+    <filter id="iconGlow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Feature 1: Auto-Rotation -->
+  <g transform="translate(20, 20)" filter="url(#cardShadow2)">
+    <rect width="240" height="130" rx="16" class="card card-border" stroke-width="1">
+      <animate attributeName="opacity" values="0;1" dur="0.3s" fill="freeze"/>
+    </rect>
+    <!-- Icon: Rotating arrows -->
+    <g transform="translate(30, 35)" filter="url(#iconGlow)">
+      <circle r="20" fill="none" stroke="url(#feat1)" stroke-width="3" stroke-dasharray="40 86">
+        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2s" repeatCount="indefinite"/>
+      </circle>
+      <polygon points="18,-8 18,2 28,-3" fill="#06b6d4">
+        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2s" repeatCount="indefinite"/>
+      </polygon>
+    </g>
+    <text x="70" y="32" class="title" font-size="14">Auto-Rotation</text>
+    <text x="70" y="50" class="desc" font-size="11">8 strategies, hot-swap</text>
+    <text x="30" y="85" class="desc" font-size="10">Round-robin, weighted, performance,</text>
+    <text x="30" y="100" class="desc" font-size="10">geo-targeted, session-sticky...</text>
+    <text x="30" y="118" font-family="monospace" font-size="10" fill="#06b6d4">3μs selection time</text>
+  </g>
+
+  <!-- Feature 2: Auto-Fetch -->
+  <g transform="translate(280, 20)" filter="url(#cardShadow2)">
+    <rect width="240" height="130" rx="16" class="card card-border" stroke-width="1">
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="0.1s" fill="freeze"/>
+    </rect>
+    <!-- Icon: Download/cloud -->
+    <g transform="translate(30, 35)" filter="url(#iconGlow)">
+      <path d="M-12,5 Q-12,-8 0,-8 Q12,-8 12,5 L12,8 L-12,8 Z" fill="none" stroke="url(#feat2)" stroke-width="2.5"/>
+      <line x1="0" y1="0" x2="0" y2="12" stroke="#8b5cf6" stroke-width="2.5">
+        <animate attributeName="y2" values="12;5;12" dur="1s" repeatCount="indefinite"/>
+      </line>
+      <polyline points="-5,7 0,12 5,7" fill="none" stroke="#8b5cf6" stroke-width="2.5" stroke-linecap="round">
+        <animate attributeName="transform" values="translate(0,0);translate(0,-7);translate(0,0)" dur="1s" repeatCount="indefinite"/>
+      </polyline>
+    </g>
+    <text x="70" y="32" class="title" font-size="14">Auto-Fetch</text>
+    <text x="70" y="50" class="desc" font-size="11">81 sources built-in</text>
+    <text x="30" y="85" class="desc" font-size="10">Automatic proxy discovery from</text>
+    <text x="30" y="100" class="desc" font-size="10">public lists and premium APIs</text>
+    <text x="30" y="118" font-family="monospace" font-size="10" fill="#8b5cf6">100+ proxies/sec validation</text>
+  </g>
+
+  <!-- Feature 3: Self-Healing -->
+  <g transform="translate(540, 20)" filter="url(#cardShadow2)">
+    <rect width="240" height="130" rx="16" class="card card-border" stroke-width="1">
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="0.2s" fill="freeze"/>
+    </rect>
+    <!-- Icon: Heart with pulse -->
+    <g transform="translate(30, 35)" filter="url(#iconGlow)">
+      <path d="M0,8 C-15,-10 -25,5 0,18 C25,5 15,-10 0,8" fill="none" stroke="url(#feat3)" stroke-width="2.5">
+        <animate attributeName="transform" values="scale(1);scale(1.1);scale(1)" dur="1s" repeatCount="indefinite"/>
+      </path>
+      <!-- Pulse line -->
+      <polyline points="-15,0 -8,0 -4,-8 0,8 4,-4 8,0 15,0" fill="none" stroke="#ec4899" stroke-width="1.5" stroke-linecap="round">
+        <animate attributeName="stroke-dasharray" values="0,60;60,0" dur="1.5s" repeatCount="indefinite"/>
+      </polyline>
+    </g>
+    <text x="70" y="32" class="title" font-size="14">Self-Healing</text>
+    <text x="70" y="50" class="desc" font-size="11">Auto-eject dead proxies</text>
+    <text x="30" y="85" class="desc" font-size="10">Health monitoring, failure detection,</text>
+    <text x="30" y="100" class="desc" font-size="10">automatic recovery when healthy</text>
+    <text x="30" y="118" font-family="monospace" font-size="10" fill="#ec4899">3 strikes → ejected</text>
+  </g>
+
+  <!-- Feature 4: Persistence -->
+  <g transform="translate(20, 170)" filter="url(#cardShadow2)">
+    <rect width="240" height="130" rx="16" class="card card-border" stroke-width="1">
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="0.3s" fill="freeze"/>
+    </rect>
+    <!-- Icon: Database -->
+    <g transform="translate(30, 35)" filter="url(#iconGlow)">
+      <ellipse cx="0" cy="-8" rx="14" ry="6" fill="none" stroke="url(#feat4)" stroke-width="2.5"/>
+      <path d="M-14,-8 L-14,8 Q-14,14 0,14 Q14,14 14,8 L14,-8" fill="none" stroke="url(#feat4)" stroke-width="2.5"/>
+      <ellipse cx="0" cy="0" rx="14" ry="6" fill="none" stroke="#22c55e" stroke-width="1.5" opacity="0.5">
+        <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite"/>
+      </ellipse>
+    </g>
+    <text x="70" y="32" class="title" font-size="14">Persistence</text>
+    <text x="70" y="50" class="desc" font-size="11">SQLite + Fernet encryption</text>
+    <text x="30" y="85" class="desc" font-size="10">Proxies and stats survive restarts</text>
+    <text x="30" y="100" class="desc" font-size="10">Encrypted storage for credentials</text>
+    <text x="30" y="118" font-family="monospace" font-size="10" fill="#22c55e">AES-128-CBC encryption</text>
+  </g>
+
+  <!-- Feature 5: Browser Rendering -->
+  <g transform="translate(280, 170)" filter="url(#cardShadow2)">
+    <rect width="240" height="130" rx="16" class="card card-border" stroke-width="1">
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="0.4s" fill="freeze"/>
+    </rect>
+    <!-- Icon: Browser window -->
+    <g transform="translate(30, 35)" filter="url(#iconGlow)">
+      <rect x="-16" y="-12" width="32" height="24" rx="3" fill="none" stroke="url(#feat5)" stroke-width="2.5"/>
+      <line x1="-16" y1="-5" x2="16" y2="-5" stroke="#f97316" stroke-width="1.5"/>
+      <circle cx="-11" cy="-8.5" r="2" fill="#ef4444"/>
+      <circle cx="-5" cy="-8.5" r="2" fill="#eab308"/>
+      <circle cx="1" cy="-8.5" r="2" fill="#22c55e"/>
+      <!-- Loading bar -->
+      <rect x="-12" y="0" width="0" height="3" rx="1" fill="#f97316">
+        <animate attributeName="width" values="0;24;0" dur="2s" repeatCount="indefinite"/>
+      </rect>
+    </g>
+    <text x="70" y="32" class="title" font-size="14">JS Rendering</text>
+    <text x="70" y="50" class="desc" font-size="11">Playwright integration</text>
+    <text x="30" y="85" class="desc" font-size="10">Execute JavaScript, handle SPAs,</text>
+    <text x="30" y="100" class="desc" font-size="10">wait for network idle state</text>
+    <text x="30" y="118" font-family="monospace" font-size="10" fill="#f97316">Chromium / Firefox / WebKit</text>
+  </g>
+
+  <!-- Feature 6: Multi-Protocol -->
+  <g transform="translate(540, 170)" filter="url(#cardShadow2)">
+    <rect width="240" height="130" rx="16" class="card card-border" stroke-width="1">
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="0.5s" fill="freeze"/>
+    </rect>
+    <!-- Icon: Network nodes -->
+    <g transform="translate(30, 35)" filter="url(#iconGlow)">
+      <circle cx="0" cy="0" r="6" fill="url(#feat6)">
+        <animate attributeName="r" values="6;8;6" dur="1.5s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="-14" cy="-10" r="4" fill="#3b82f6" opacity="0.7"/>
+      <circle cx="14" cy="-10" r="4" fill="#3b82f6" opacity="0.7"/>
+      <circle cx="-14" cy="10" r="4" fill="#3b82f6" opacity="0.7"/>
+      <circle cx="14" cy="10" r="4" fill="#3b82f6" opacity="0.7"/>
+      <line x1="0" y1="0" x2="-14" y2="-10" stroke="#3b82f6" stroke-width="1.5" opacity="0.5"/>
+      <line x1="0" y1="0" x2="14" y2="-10" stroke="#3b82f6" stroke-width="1.5" opacity="0.5"/>
+      <line x1="0" y1="0" x2="-14" y2="10" stroke="#3b82f6" stroke-width="1.5" opacity="0.5"/>
+      <line x1="0" y1="0" x2="14" y2="10" stroke="#3b82f6" stroke-width="1.5" opacity="0.5"/>
+    </g>
+    <text x="70" y="32" class="title" font-size="14">Multi-Protocol</text>
+    <text x="70" y="50" class="desc" font-size="11">HTTP, HTTPS, SOCKS4/5</text>
+    <text x="30" y="85" class="desc" font-size="10">Full protocol support with</text>
+    <text x="30" y="100" class="desc" font-size="10">automatic detection and routing</text>
+    <text x="30" y="118" font-family="monospace" font-size="10" fill="#3b82f6">httpx + PySocks backend</text>
+  </g>
+</svg>
