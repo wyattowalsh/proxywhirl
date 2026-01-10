@@ -36,18 +36,25 @@ repos:
       - id: ruff-format
         name: Ruff formatter
 
-  # MyPy - Static type checking (optional, can be slow)
-  # Uncomment below to enable mypy in pre-commit
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.13.0
+  # Commitizen - Conventional commits validation
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.1.0
+    hooks:
+      - id: commitizen
+        name: Validate commit message
+        stages: [commit-msg]
+
+  # ty - Type checking (optional, can be slow)
+  # Uncomment below to enable ty in pre-commit
+  # Note: ty doesn't have official pre-commit hooks yet,
+  # so we use local system hook
+  # - repo: local
   #   hooks:
-  #     - id: mypy
-  #       name: MyPy type checking
-  #       additional_dependencies:
-  #         - httpx>=0.25.0
-  #         - pydantic>=2.0.0
-  #         - types-requests>=2.32.4.20250913
-  #       args: [--config-file=pyproject.toml]
+  #     - id: ty
+  #       name: ty type checking
+  #       entry: uv run ty check
+  #       language: system
+  #       types: [python]
   #       pass_filenames: false
 
 # Global settings
