@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "proxywhirl"
-version = "0.1.0"
+version = "0.1.1"
 description = "Advanced Python proxy rotation library with auto-fetching, validation, and persistence"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -138,8 +138,9 @@ Documentation = "https://proxywhirl.readthedocs.io"
 Repository = "https://github.com/wyattowalsh/proxywhirl"
 Issues = "https://github.com/wyattowalsh/proxywhirl/issues"
 
-[tool.setuptools]
-packages = ["proxywhirl"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["proxywhirl", "proxywhirl.*"]
 
 [tool.setuptools.package-data]
 proxywhirl = ["py.typed"]
@@ -363,7 +364,7 @@ docs = [
 # Commitizen configuration for conventional commits and semantic versioning
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.1.0"
+version = "0.1.1"
 tag_format = "v$version"
 version_files = [
     "pyproject.toml:^version",
