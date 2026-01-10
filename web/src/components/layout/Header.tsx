@@ -1,0 +1,85 @@
+import { Link, useLocation } from "react-router-dom"
+import { Github, Moon, Sun, Wifi } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { useEffect, useState } from "react"
+
+export function Header() {
+  const location = useLocation()
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== "undefined") {
+      return document.documentElement.classList.contains("dark")
+    }
+    return true
+  })
+
+  useEffect(() => {
+    // Check system preference on mount
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
+    const stored = localStorage.getItem("theme")
+    const shouldBeDark = stored ? stored === "dark" : prefersDark
+    setIsDark(shouldBeDark)
+    document.documentElement.classList.toggle("dark", shouldBeDark)
+  }, [])
+
+  const toggleTheme = () => {
+    const newIsDark = !isDark
+    setIsDark(newIsDark)
+    document.documentElement.classList.toggle("dark", newIsDark)
+    localStorage.setItem("theme", newIsDark ? "dark" : "light")
+  }
+
+  const navItems = [
+    { path: "/", label: "Proxies" },
+    { path: "/dashboard", label: "Dashboard" },
+  ]
+
+  return (
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-14 items-center">
+        <Link to="/" className="mr-6 flex items-center space-x-2">
+          <Wifi className="h-6 w-6 text-primary" />
+          <span className="font-bold">ProxyWhirl</span>
+        </Link>
+
+        <nav className="flex items-center space-x-6 text-sm font-medium">
+          {navItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={cn(
+                "transition-colors hover:text-foreground/80",
+                location.pathname === item.path
+                  ? "text-foreground"
+                  : "text-foreground/60"
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex flex-1 items-center justify-end space-x-2">
+          <Button variant="ghost" size="icon" onClick={toggleTheme}>
+            {isDark ? (
+              <Sun className="h-5 w-5" />
+            ) : (
+              <Moon className="h-5 w-5" />
+            )}
+            <span className="sr-only">Toggle theme</span>
+          </Button>
+          <Button variant="ghost" size="icon" asChild>
+            <a
+              href="https://github.com/wyattowalsh/proxywhirl"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Github className="h-5 w-5" />
+              <span className="sr-only">GitHub</span>
+            </a>
+          </Button>
+        </div>
+      </div>
+    </header>
+  )
+}
