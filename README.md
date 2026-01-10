@@ -104,12 +104,24 @@ print(response.json())  # {"origin": "185.x.x.47"}
 
 ## 📦 Installation
 
+### From PyPI (Recommended)
+
 | Package | What You Get |
 |:--------|:-------------|
 | `pip install proxywhirl` | Core rotation engine |
 | `pip install "proxywhirl[storage,security]"` | + SQLite persistence, Fernet encryption |
 | `pip install "proxywhirl[js]"` | + Playwright browser rendering |
 | `pip install "proxywhirl[all]"` | Everything |
+
+### From GitHub (Latest Development)
+
+```bash
+# Install latest from main branch
+pip install git+https://github.com/wyattowalsh/proxywhirl.git
+
+# Install with extras
+pip install "proxywhirl[all] @ git+https://github.com/wyattowalsh/proxywhirl.git"
+```
 
 ---
 
