@@ -8,6 +8,7 @@ Tests cover:
 """
 
 import pytest
+from pydantic import ValidationError
 
 from proxywhirl.exceptions import (
     ProxyAuthenticationError,
@@ -74,15 +75,15 @@ class TestErrorHandling:
         assert error.proxy_url == proxy_url
 
     def test_invalid_proxy_url_raises_validation_error(self) -> None:
-        """Edge case: Invalid proxy URL raises ProxyValidationError."""
+        """Edge case: Invalid proxy URL raises ProxyValidationError or ValidationError."""
         # Pydantic validation will catch invalid URLs
         # For now, test that extremely malformed URLs are caught
         try:
             proxy = Proxy(url="not-a-valid-url")
             # If it doesn't raise, that's okay - Pydantic is lenient
             assert proxy.url == "not-a-valid-url"
-        except ProxyValidationError:
-            # This is also acceptable
+        except (ProxyValidationError, ValidationError):
+            # This is also acceptable - Pydantic raises ValidationError
             pass
 
     def test_missing_authentication_raises_auth_error(self) -> None:
@@ -176,7 +177,7 @@ class TestErrorHandling:
             proxy = Proxy(url="://missing-scheme.com:8080")
             # Pydantic may allow this - verify it's stored
             assert "://" in proxy.url
-        except ProxyValidationError:
+        except (ProxyValidationError, ValidationError):
             # Also acceptable if validation is strict
             pass
 

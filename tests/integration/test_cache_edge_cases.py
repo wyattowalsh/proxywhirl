@@ -244,9 +244,7 @@ class TestConcurrentOperations:
         """Test that cache can handle 100k+ operations (SC-010)."""
         encryptor = CredentialEncryptor()
         config = CacheConfig(
-            l1_config=CacheConfig.model_fields["l1_config"].default.__class__(
-                enabled=True, max_entries=10000
-            ),
+            l1_config=CacheTierConfig(enabled=True, max_entries=10000),
             l2_cache_dir=str(tmp_path / "cache"),
             l3_database_path=str(tmp_path / "cache.db"),
             encryption_key=SecretStr(encryptor.key.decode("utf-8")),

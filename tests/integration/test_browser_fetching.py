@@ -62,7 +62,7 @@ class TestBrowserFetching:
         mock_json = '[{"host": "5.6.7.8", "port": 3128}]'
 
         with respx.mock:
-            respx.get(source.url).mock(return_value=Response(200, text=mock_json))
+            respx.get(str(source.url)).mock(return_value=Response(200, text=mock_json))
 
             proxies = await fetcher.fetch_from_source(source)
 
@@ -170,7 +170,7 @@ class TestBrowserFetching:
         mock_renderer.__aexit__ = AsyncMock(return_value=None)
 
         with respx.mock:
-            respx.get(source_static.url).mock(return_value=Response(200, text=mock_static_json))
+            respx.get(str(source_static.url)).mock(return_value=Response(200, text=mock_static_json))
 
             # Mock the browser module
             mock_browser_module = MagicMock()

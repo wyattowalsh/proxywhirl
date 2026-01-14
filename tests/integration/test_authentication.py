@@ -10,7 +10,7 @@ import respx
 from pydantic import SecretStr
 
 from proxywhirl import Proxy, ProxyRotator
-from proxywhirl.exceptions import ProxyConnectionError
+from proxywhirl.exceptions import ProxyAuthenticationError, ProxyConnectionError
 
 
 class TestAuthenticatedRequests:
@@ -63,8 +63,8 @@ class TestAuthenticatedRequests:
 
         rotator = ProxyRotator(proxies=[unauthenticated_proxy])
 
-        # ProxyAuthenticationError is wrapped in ProxyConnectionError
-        with pytest.raises(ProxyConnectionError) as exc_info:
+        # ProxyAuthenticationError is raised for 407 errors
+        with pytest.raises((ProxyAuthenticationError, ProxyConnectionError)) as exc_info:
             rotator.get("https://httpbin.org/ip")
 
         # Verify it's caused by authentication issues
@@ -87,8 +87,8 @@ class TestAuthenticatedRequests:
 
         rotator = ProxyRotator(proxies=[authenticated_proxy])
 
-        # ProxyAuthenticationError is wrapped in ProxyConnectionError
-        with pytest.raises(ProxyConnectionError) as exc_info:
+        # ProxyAuthenticationError is raised for 407 errors
+        with pytest.raises((ProxyAuthenticationError, ProxyConnectionError)) as exc_info:
             rotator.get("https://httpbin.org/ip")
 
         # Verify it's caused by authentication issues

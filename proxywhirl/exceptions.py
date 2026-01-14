@@ -186,7 +186,8 @@ class ProxyConnectionError(ProxyWhirlError):
         """Initialize with connection-specific defaults."""
         if "timeout" in message.lower():
             kwargs.setdefault("error_code", ProxyErrorCode.TIMEOUT)
-        super().__init__(message, retry_recommended=True, **kwargs)
+        kwargs.setdefault("retry_recommended", True)
+        super().__init__(message, **kwargs)
 
 
 class ProxyAuthenticationError(ProxyWhirlError):
@@ -205,7 +206,8 @@ class ProxyAuthenticationError(ProxyWhirlError):
         """Initialize with auth-specific defaults."""
         if "verify credentials" not in message.lower():
             message += ". Verify username and password are correct."
-        super().__init__(message, retry_recommended=False, **kwargs)
+        kwargs.setdefault("retry_recommended", False)
+        super().__init__(message, **kwargs)
 
 
 class ProxyFetchError(ProxyWhirlError):
