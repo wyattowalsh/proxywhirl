@@ -58,18 +58,25 @@ jobs:
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
 
-        # Add proxy lists and database (Vercel handles web build)
+        # Add all generated files
         git add docs/proxy-lists/ proxywhirl.db
+        
+        # Stash any other changes to avoid rebase conflicts
+        git stash --include-untracked || true
 
-        # Only commit if there are changes
+        # Only commit if there are staged changes
         if git diff --staged --quiet; then
           echo "No changes to commit"
+          git stash pop || true
         else
           git commit -m "chore: Update proxy lists and database - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
           # Pull with rebase to handle any concurrent changes, then push
-          git pull --rebase origin main
+          git pull --rebase origin main || true
           git push
+          
+          # Restore stashed changes
+          git stash pop || true
         fi
 
     - name: Upload proxy lists as artifacts
