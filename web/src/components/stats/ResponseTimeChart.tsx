@@ -10,6 +10,8 @@ import {
   Cell,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Clock } from "lucide-react"
 import type { Proxy } from "@/types"
 
 interface ResponseTimeChartProps {
@@ -49,7 +51,21 @@ export function ResponseTimeChart({ proxies }: ResponseTimeChartProps) {
   const totalWithTiming = data.reduce((sum, bin) => sum + bin.count, 0)
 
   if (totalWithTiming === 0) {
-    return null
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Response Time Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            icon={Clock}
+            title="No timing data available"
+            description="Proxies haven't been tested yet"
+            className="h-[250px]"
+          />
+        </CardContent>
+      </Card>
+    )
   }
 
   return (

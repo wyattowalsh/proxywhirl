@@ -10,6 +10,8 @@ import {
   Cell,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Server } from "lucide-react"
 import type { Proxy } from "@/types"
 
 interface PortChartProps {
@@ -64,7 +66,21 @@ export function PortChart({ proxies }: PortChartProps) {
   }, [proxies])
 
   if (data.length === 0) {
-    return null
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Port Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            icon={Server}
+            title="No port data available"
+            description="No proxies loaded yet"
+            className="h-[250px]"
+          />
+        </CardContent>
+      </Card>
+    )
   }
 
   return (

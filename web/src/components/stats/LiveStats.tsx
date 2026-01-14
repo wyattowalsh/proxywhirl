@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo, useRef } from "react"
+import { motion } from "motion/react"
 import { Globe, Wifi, Zap, Clock } from "lucide-react"
 import type { Proxy } from "@/types"
+import { staggerContainer, slideUp, cardInteraction } from "@/lib/animations"
 
 interface LiveStatsProps {
   proxies: Proxy[]
@@ -75,8 +77,17 @@ export function LiveStats({ proxies, generatedAt }: LiveStatsProps) {
   }, [generatedAt])
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20">
+    <motion.div
+      className="grid grid-cols-2 md:grid-cols-4 gap-4"
+      variants={staggerContainer}
+      initial="hidden"
+      animate="visible"
+    >
+      <motion.div
+        className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20"
+        variants={slideUp}
+        {...cardInteraction}
+      >
         <div className="p-2 rounded-lg bg-blue-500/20">
           <Wifi className="h-5 w-5 text-blue-500" />
         </div>
@@ -86,9 +97,13 @@ export function LiveStats({ proxies, generatedAt }: LiveStatsProps) {
           </p>
           <p className="text-xs text-muted-foreground">Total Proxies</p>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20">
+      <motion.div
+        className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20"
+        variants={slideUp}
+        {...cardInteraction}
+      >
         <div className="p-2 rounded-lg bg-green-500/20">
           <Globe className="h-5 w-5 text-green-500" />
         </div>
@@ -98,9 +113,13 @@ export function LiveStats({ proxies, generatedAt }: LiveStatsProps) {
           </p>
           <p className="text-xs text-muted-foreground">Countries</p>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20">
+      <motion.div
+        className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20"
+        variants={slideUp}
+        {...cardInteraction}
+      >
         <div className="p-2 rounded-lg bg-amber-500/20">
           <Zap className="h-5 w-5 text-amber-500" />
         </div>
@@ -114,9 +133,13 @@ export function LiveStats({ proxies, generatedAt }: LiveStatsProps) {
           </p>
           <p className="text-xs text-muted-foreground">Avg Response</p>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20">
+      <motion.div
+        className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20"
+        variants={slideUp}
+        {...cardInteraction}
+      >
         <div className="p-2 rounded-lg bg-purple-500/20">
           <Clock className="h-5 w-5 text-purple-500" />
         </div>
@@ -124,7 +147,7 @@ export function LiveStats({ proxies, generatedAt }: LiveStatsProps) {
           <p className="text-2xl font-bold">{timeSince}</p>
           <p className="text-xs text-muted-foreground">Last Updated</p>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   )
 }

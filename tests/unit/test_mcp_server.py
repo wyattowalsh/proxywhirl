@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import sys
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -1732,9 +1731,18 @@ class TestEdgeCases:
             await cleanup_rotator()
 
 
+# Import to check if FastMCP is available
+try:
+    from proxywhirl.mcp.server import ProxyWhirlAuthMiddleware as _AuthMiddleware
+
+    _FASTMCP_AVAILABLE = _AuthMiddleware is not None
+except ImportError:
+    _FASTMCP_AVAILABLE = False
+
+
 @pytest.mark.skipif(
-    sys.version_info < (3, 10),
-    reason="ProxyWhirlAuthMiddleware requires Python 3.10+ (FastMCP dependency)",
+    not _FASTMCP_AVAILABLE,
+    reason="ProxyWhirlAuthMiddleware requires FastMCP (install with [mcp] extra)",
 )
 class TestAuthMiddleware:
     """Test ProxyWhirlAuthMiddleware."""

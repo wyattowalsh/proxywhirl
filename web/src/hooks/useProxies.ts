@@ -3,38 +3,6 @@ import type { Protocol, RichProxyData, Proxy } from "@/types"
 
 const BASE_URL = import.meta.env.BASE_URL + "proxy-lists/"
 
-export function useProxies(protocol: Protocol) {
-  const [proxies, setProxies] = useState<string[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    setLoading(true)
-    fetch(`${BASE_URL}${protocol}.txt`)
-      .then((res) => {
-        if (!res.ok) throw new Error(`Failed to fetch ${protocol} proxies`)
-        return res.text()
-      })
-      .then((text) => {
-        const lines = text
-          .split("\n")
-          .map((line) => line.trim())
-          .filter((line) => line && !line.startsWith("#"))
-        setProxies(lines)
-        setError(null)
-      })
-      .catch((err) => {
-        setError(err.message)
-        setProxies([])
-      })
-      .finally(() => {
-        setLoading(false)
-      })
-  }, [protocol])
-
-  return { proxies, loading, error }
-}
-
 export function useRichProxies() {
   const [data, setData] = useState<RichProxyData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -142,18 +110,3 @@ export function sortProxies(
   })
 }
 
-export function useDownload() {
-  const download = (protocol: Protocol | "all") => {
-    const filename = protocol === "all" ? "all.txt" : `${protocol}.txt`
-    const url = `${BASE_URL}${filename}`
-
-    const link = document.createElement("a")
-    link.href = url
-    link.download = filename
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
-
-  return { download }
-}

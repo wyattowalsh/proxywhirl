@@ -24,7 +24,9 @@ import { useStats } from "@/hooks/useStats"
 import { useRichProxies } from "@/hooks/useProxies"
 import { formatBytes } from "@/lib/utils"
 import { copyToClipboard } from "@/lib/clipboard"
+import { slideUp, staggerContainer } from "@/lib/animations"
 import { PROTOCOLS, PROTOCOL_LABELS, type Protocol } from "@/types"
+import { motion } from "motion/react"
 
 const FEATURES = [
   {
@@ -62,27 +64,35 @@ export function Home() {
   return (
     <div className="space-y-16">
       {/* Hero Section */}
-      <section className="py-8 md:py-16 text-center space-y-6">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-muted/50 text-sm">
+      <motion.section
+        className="py-8 md:py-16 text-center space-y-6"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.div
+          className="inline-flex items-center gap-2 px-3 py-1 rounded-full border bg-muted/50 text-sm"
+          variants={slideUp}
+        >
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
           </span>
           {stats ? `${stats.proxies.total.toLocaleString()} proxies • Updated every 6 hours` : "Updated every 6 hours"}
-        </div>
+        </motion.div>
 
-        <h1 className="text-4xl md:text-6xl font-bold tracking-tight">
+        <motion.h1 className="text-4xl md:text-6xl font-bold tracking-tight" variants={slideUp}>
           <span className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
             ProxyWhirl
           </span>
-        </h1>
+        </motion.h1>
 
-        <p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto">
+        <motion.p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto" variants={slideUp}>
           Production-grade proxy rotation for Python. Auto-fetching, validation,
           circuit breakers, and 8 rotation strategies out of the box.
-        </p>
+        </motion.p>
 
-        <div className="flex flex-wrap justify-center gap-4">
+        <motion.div className="flex flex-wrap justify-center gap-4" variants={slideUp}>
           <Button size="lg" asChild>
             <a href={`${import.meta.env.BASE_URL}docs/`}>
               <BookOpen className="mr-2 h-5 w-5" />
@@ -99,10 +109,10 @@ export function Home() {
               GitHub
             </a>
           </Button>
-        </div>
+        </motion.div>
 
         {/* Install snippet */}
-        <div className="max-w-md mx-auto">
+        <motion.div className="max-w-md mx-auto" variants={slideUp}>
           <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-4 py-3 font-mono text-sm">
             <Terminal className="h-4 w-4 text-muted-foreground shrink-0" />
             <code className="flex-1 text-left">pip install proxywhirl</code>
@@ -126,8 +136,8 @@ export function Home() {
               </svg>
             </button>
           </div>
-        </div>
-      </section>
+        </motion.div>
+      </motion.section>
 
       {/* Quick Downloads - Prominent placement */}
       {!statsLoading && !statsError && stats && (

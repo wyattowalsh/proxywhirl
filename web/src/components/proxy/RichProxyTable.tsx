@@ -7,6 +7,12 @@ import type { Proxy, Protocol } from "@/types"
 import { filterProxies, sortProxies, type SortField, type SortDirection, type ProxyFilters } from "@/hooks/useProxies"
 import { PROTOCOLS, PROTOCOL_LABELS } from "@/types"
 import { copyToClipboard } from "@/lib/clipboard"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
 
 interface RichProxyTableProps {
   proxies: Proxy[]
@@ -166,7 +172,8 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
               variant={showFilters ? "secondary" : "outline"}
               size="icon"
               onClick={() => setShowFilters((s) => !s)}
-              title="Toggle filters"
+              aria-label="Toggle filters"
+              aria-expanded={showFilters}
             >
               <Filter className="h-4 w-4" />
             </Button>
@@ -174,7 +181,7 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
               variant="outline"
               size="icon"
               onClick={handleCopyAll}
-              title={`Copy all ${sortedProxies.length} proxies to clipboard`}
+              aria-label={`Copy all ${sortedProxies.length} proxies to clipboard`}
             >
               {copiedAll ? (
                 <Check className="h-4 w-4 text-green-500" />
@@ -182,33 +189,24 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
                 <Clipboard className="h-4 w-4" />
               )}
             </Button>
-            <div className="relative group">
-              <Button variant="outline" size="icon" title="Export filtered proxies">
-                <Download className="h-4 w-4" />
-              </Button>
-              <div className="absolute right-0 top-full mt-1 hidden group-hover:block z-10">
-                <div className="bg-popover border rounded-md shadow-lg py-1 min-w-[120px]">
-                  <button
-                    className="w-full px-3 py-2 text-sm text-left hover:bg-muted transition-colors"
-                    onClick={() => exportProxies(sortedProxies, "txt")}
-                  >
-                    Export as TXT
-                  </button>
-                  <button
-                    className="w-full px-3 py-2 text-sm text-left hover:bg-muted transition-colors"
-                    onClick={() => exportProxies(sortedProxies, "csv")}
-                  >
-                    Export as CSV
-                  </button>
-                  <button
-                    className="w-full px-3 py-2 text-sm text-left hover:bg-muted transition-colors"
-                    onClick={() => exportProxies(sortedProxies, "json")}
-                  >
-                    Export as JSON
-                  </button>
-                </div>
-              </div>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" aria-label="Export filtered proxies">
+                  <Download className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => exportProxies(sortedProxies, "txt")}>
+                  Export as TXT
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportProxies(sortedProxies, "csv")}>
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => exportProxies(sortedProxies, "json")}>
+                  Export as JSON
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 

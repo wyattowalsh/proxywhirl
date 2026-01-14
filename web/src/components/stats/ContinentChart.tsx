@@ -1,6 +1,8 @@
 import { useMemo } from "react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Globe } from "lucide-react"
 import type { Proxy } from "@/types"
 
 interface ContinentChartProps {
@@ -40,7 +42,21 @@ export function ContinentChart({ proxies }: ContinentChartProps) {
   const total = data.reduce((sum, d) => sum + d.value, 0)
 
   if (total === 0) {
-    return null
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle>Continents</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            icon={Globe}
+            title="No geographic data available"
+            description="Location data not available for proxies"
+            className="h-[180px]"
+          />
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
