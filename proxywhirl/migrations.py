@@ -35,12 +35,12 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
-
-from alembic import command
 from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
+from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+
+from alembic import command
 
 
 def _get_alembic_config(database_url: str | None = None) -> Config:

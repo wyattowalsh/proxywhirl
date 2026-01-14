@@ -236,9 +236,9 @@ class TestSyncRWLockDeadlockFree:
 
         # All operations should have completed
         expected_operations = num_rounds * (num_readers + num_writers)
-        assert (
-            len(completed_operations) == expected_operations
-        ), f"Expected {expected_operations} operations, got {len(completed_operations)}"
+        assert len(completed_operations) == expected_operations, (
+            f"Expected {expected_operations} operations, got {len(completed_operations)}"
+        )
 
     @given(sequence=st.lists(st.booleans(), min_size=5, max_size=20))
     @settings(deadline=None, max_examples=50)
@@ -410,9 +410,9 @@ class TestSyncRWLockWriterPreference:
                 future.result()
 
         # All writers should have completed
-        assert (
-            len(writer_completed) == num_writers
-        ), f"Expected {num_writers} writers to complete, got {len(writer_completed)}"
+        assert len(writer_completed) == num_writers, (
+            f"Expected {num_writers} writers to complete, got {len(writer_completed)}"
+        )
 
     def test_writer_waits_for_readers_to_finish(self):
         """Property: Writer must wait for all active readers to finish."""
@@ -447,9 +447,9 @@ class TestSyncRWLockWriterPreference:
 
         assert reader_finished.is_set(), "Reader should have finished"
         assert writer_started.is_set(), "Writer should have started"
-        assert (
-            reader_was_finished_when_writer_started
-        ), "Reader should have been finished when writer started"
+        assert reader_was_finished_when_writer_started, (
+            "Reader should have been finished when writer started"
+        )
 
     def test_readers_wait_for_writer_to_finish(self):
         """Property: Readers must wait for active writer to finish."""
@@ -484,6 +484,6 @@ class TestSyncRWLockWriterPreference:
 
         # All readers should have started after writer finished
         assert len(readers_started) == num_readers
-        assert all(
-            finished for _, finished in readers_started
-        ), f"Some readers started before writer finished: {readers_started}"
+        assert all(finished for _, finished in readers_started), (
+            f"Some readers started before writer finished: {readers_started}"
+        )

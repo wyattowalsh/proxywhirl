@@ -119,9 +119,9 @@ def test_jitter_stays_within_bounds(
     # First attempts with jitter: uniform(0, min(base_calculated, max_backoff_delay))
     # All delays should be non-negative and within expected_max
     for delay in first_delays:
-        assert (
-            0 <= delay <= expected_max
-        ), f"First attempt delay {delay} outside bounds [0, {expected_max}]"
+        assert 0 <= delay <= expected_max, (
+            f"First attempt delay {delay} outside bounds [0, {expected_max}]"
+        )
 
     # Test decorrelated jitter with previous_delay
     # Use a small previous_delay that's guaranteed to work with the cap
@@ -137,9 +137,9 @@ def test_jitter_stays_within_bounds(
     correlated_max = min(max_backoff_delay, previous_delay * 3)
 
     for delay in correlated_delays:
-        assert (
-            correlated_min <= delay <= correlated_max
-        ), f"Correlated delay {delay} outside bounds [{correlated_min}, {correlated_max}]"
+        assert correlated_min <= delay <= correlated_max, (
+            f"Correlated delay {delay} outside bounds [{correlated_min}, {correlated_max}]"
+        )
 
 
 @given(

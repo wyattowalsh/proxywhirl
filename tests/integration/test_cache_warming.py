@@ -68,9 +68,9 @@ def test_cache_warming_performance(tmp_path: Path) -> None:
         elapsed = time.perf_counter() - start_time
 
         # Validate results
-        assert (
-            result["loaded"] == num_proxies
-        ), f"Expected {num_proxies} proxies loaded, got {result['loaded']}"
+        assert result["loaded"] == num_proxies, (
+            f"Expected {num_proxies} proxies loaded, got {result['loaded']}"
+        )
         assert result["skipped"] == 0, "Should have no skipped entries"
         # Allow 10 seconds for 1,000 proxies (scales to ~100 seconds for 10,000)
         assert elapsed < 10.0, f"Cache warming took {elapsed:.2f}s, should be <10s"

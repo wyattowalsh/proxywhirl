@@ -1013,9 +1013,9 @@ class TestRequestIDMiddleware:
             for endpoint in endpoints:
                 response = client.get(endpoint)
                 assert response.status_code in [200, 503]  # May fail if no rotator
-                assert (
-                    "X-Request-ID" in response.headers
-                ), f"X-Request-ID missing from response headers for {endpoint}"
+                assert "X-Request-ID" in response.headers, (
+                    f"X-Request-ID missing from response headers for {endpoint}"
+                )
 
     def test_request_id_is_valid_uuid_format(self, client, mock_rotator):
         """Test that generated request ID is a valid UUID format."""

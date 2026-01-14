@@ -480,9 +480,9 @@ class TestUniversalStrategyProperties:
         for _ in range(num_proxies * 3):
             selected = strategy.select(pool)
             assert selected is not None, "Strategy should return a proxy"
-            assert (
-                selected.id in pool_proxy_ids
-            ), f"Selected proxy {selected.id} not in pool. Pool contains: {pool_proxy_ids}"
+            assert selected.id in pool_proxy_ids, (
+                f"Selected proxy {selected.id} not in pool. Pool contains: {pool_proxy_ids}"
+            )
 
     @given(st.integers(min_value=1, max_value=20))
     def test_strategy_always_returns_valid_proxy_from_pool_random(self, num_proxies: int):
@@ -502,9 +502,9 @@ class TestUniversalStrategyProperties:
         for _ in range(num_proxies * 3):
             selected = strategy.select(pool)
             assert selected is not None, "Strategy should return a proxy"
-            assert (
-                selected.id in pool_proxy_ids
-            ), f"Selected proxy {selected.id} not in pool. Pool contains: {pool_proxy_ids}"
+            assert selected.id in pool_proxy_ids, (
+                f"Selected proxy {selected.id} not in pool. Pool contains: {pool_proxy_ids}"
+            )
 
     @given(st.integers(min_value=1, max_value=20))
     def test_strategy_always_returns_valid_proxy_from_pool_weighted(self, num_proxies: int):
@@ -527,9 +527,9 @@ class TestUniversalStrategyProperties:
         for _ in range(num_proxies * 3):
             selected = strategy.select(pool)
             assert selected is not None, "Strategy should return a proxy"
-            assert (
-                selected.id in pool_proxy_ids
-            ), f"Selected proxy {selected.id} not in pool. Pool contains: {pool_proxy_ids}"
+            assert selected.id in pool_proxy_ids, (
+                f"Selected proxy {selected.id} not in pool. Pool contains: {pool_proxy_ids}"
+            )
 
     @given(st.integers(min_value=1, max_value=20))
     def test_strategy_always_returns_valid_proxy_from_pool_least_used(self, num_proxies: int):
@@ -549,9 +549,9 @@ class TestUniversalStrategyProperties:
         for _ in range(num_proxies * 3):
             selected = strategy.select(pool)
             assert selected is not None, "Strategy should return a proxy"
-            assert (
-                selected.id in pool_proxy_ids
-            ), f"Selected proxy {selected.id} not in pool. Pool contains: {pool_proxy_ids}"
+            assert selected.id in pool_proxy_ids, (
+                f"Selected proxy {selected.id} not in pool. Pool contains: {pool_proxy_ids}"
+            )
             # Mark as used for the strategy to work properly
             selected.total_requests += 1
 
@@ -719,6 +719,6 @@ class TestRoundRobinCycleProperties:
         # All cycles should have the same pattern
         first_cycle = cycles[0]
         for i, cycle in enumerate(cycles[1:], start=2):
-            assert (
-                cycle == first_cycle
-            ), f"Cycle {i} should match cycle 1. Cycle 1: {first_cycle}, Cycle {i}: {cycle}"
+            assert cycle == first_cycle, (
+                f"Cycle {i} should match cycle 1. Cycle 1: {first_cycle}, Cycle {i}: {cycle}"
+            )

@@ -61,9 +61,9 @@ class TestAsyncRWLockProperties:
                 active_operations.append(f"writer_{writer_id}")
                 max_concurrent = max(max_concurrent, len(active_operations))
                 # Invariant: Only one operation (this writer) should be active
-                assert (
-                    len(active_operations) == 1
-                ), f"Writer {writer_id} should have exclusive access. Active: {active_operations}"
+                assert len(active_operations) == 1, (
+                    f"Writer {writer_id} should have exclusive access. Active: {active_operations}"
+                )
                 await asyncio.sleep(0.01)
                 active_operations.remove(f"writer_{writer_id}")
 
@@ -181,9 +181,9 @@ class TestAsyncRWLockProperties:
         await asyncio.gather(writer_task, *reader_tasks)
 
         # All readers should have started after writer finished
-        assert all(
-            finished for _, finished in readers_started
-        ), f"Some readers started before writer finished: {readers_started}"
+        assert all(finished for _, finished in readers_started), (
+            f"Some readers started before writer finished: {readers_started}"
+        )
 
     @given(sequence=st.lists(st.booleans(), min_size=5, max_size=20))
     async def test_alternating_reads_writes(self, sequence: list[bool]):
