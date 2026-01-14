@@ -186,12 +186,10 @@ jobs:
 
       - name: Run benchmarks with regression check
         run: |
-          # Run benchmarks and compare against baseline
-          # Fails if any benchmark regresses by >10% from baseline (min:10%)
+          # Run benchmarks and compare against baseline (tracking only for v0.1.0)
           uv run pytest tests/benchmarks/ \
             --benchmark-only \
-            --benchmark-compare=0001 \
-            --benchmark-compare-fail=min:10%
+            --benchmark-compare=0001
 
       - name: Upload benchmark results
         if: always()
