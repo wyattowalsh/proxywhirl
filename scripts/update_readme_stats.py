@@ -53,7 +53,18 @@ def get_test_count() -> int:
 
 
 def get_coverage_percent() -> float:
-    """Get coverage percentage from HTML report or run coverage."""
+    """Get coverage percentage from JSON report, HTML report, or run coverage."""
+    # Try JSON report first (from CI artifact)
+    for json_path in [Path("coverage.json"), Path(".coverage.json")]:
+        if json_path.exists():
+            try:
+                data = json.loads(json_path.read_text())
+                # coverage.py JSON format has totals.percent_covered
+                if "totals" in data:
+                    return data["totals"].get("percent_covered", 0.0)
+            except (json.JSONDecodeError, KeyError):
+                pass
+
     # Try reading from existing HTML report
     coverage_index = Path("logs/htmlcov/index.html")
     if coverage_index.exists():
@@ -62,27 +73,19 @@ def get_coverage_percent() -> float:
         if match:
             return float(match.group(1))
 
-    # Try JSON report
-    coverage_json = Path(".coverage.json")
-    if coverage_json.exists():
+    # Fallback: run coverage report (if .coverage file exists)
+    if Path(".coverage").exists():
         try:
-            data = json.loads(coverage_json.read_text())
-            return data.get("totals", {}).get("percent_covered", 0.0)
-        except (json.JSONDecodeError, KeyError):
+            result = subprocess.run(
+                ["uv", "run", "coverage", "report", "--format=total"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+            )
+            if result.returncode == 0:
+                return float(result.stdout.strip())
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
             pass
-
-    # Fallback: run coverage
-    try:
-        result = subprocess.run(
-            ["uv", "run", "coverage", "report", "--format=total"],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if result.returncode == 0:
-            return float(result.stdout.strip())
-    except (subprocess.TimeoutExpired, FileNotFoundError, ValueError):
-        pass
 
     return 0.0
 

@@ -1,24 +1,13 @@
 name: Update README Stats
 
 on:
-  # Trigger after CI completes on main (to get latest test count/coverage)
+  # Trigger after CI completes on main (to get latest coverage artifact)
   workflow_run:
     workflows: ["CI"]
     types:
       - completed
     branches:
       - main
-
-  # Also trigger on direct pushes to stats-affecting files
-  push:
-    branches:
-      - main
-    paths:
-      - "proxywhirl/sources.py"
-      - "proxywhirl/strategies.py"
-      - "proxywhirl/fetchers.py"
-      - "tests/**"
-      - "scripts/update_readme_stats.py"
 
   # Manual trigger
   workflow_dispatch:
@@ -32,15 +21,15 @@ jobs:
   update-stats:
     name: Update README Stats
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     # Only run if CI succeeded (when triggered by workflow_run)
     if: >
       github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'push' ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     permissions:
       contents: write
+      actions: read
 
     steps:
       - name: Checkout code
@@ -48,6 +37,14 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
+
+      - name: Download coverage artifact from CI
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-data
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+        continue-on-error: true
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -63,10 +60,6 @@ jobs:
         run: |
           uv venv
           uv pip install -e ".[dev]"
-
-      - name: Generate coverage report
-        run: |
-          uv run pytest -m "not slow" --cov=proxywhirl --cov-report=html:logs/htmlcov --cov-report=term -q || true
 
       - name: Run stats updater
         run: uv run python scripts/update_readme_stats.py
