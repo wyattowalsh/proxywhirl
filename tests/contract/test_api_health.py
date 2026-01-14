@@ -301,13 +301,14 @@ class TestMetricsResponseContract:
 
     def test_metrics_response_multiple_proxies(self):
         """Test MetricsResponse with multiple proxy statistics."""
-        # Arrange
+        # Arrange - Use ProxyStats, not ProxyMetrics
         proxy_stats = [
-            ProxyMetrics(
+            ProxyStats(
                 proxy_id=f"proxy-{i}",
                 requests=100 * i,
-                success_rate=0.9 + i * 0.01,
-                avg_latency_ms=200.0 + i * 10,
+                successes=90 * i,
+                failures=10 * i,
+                avg_latency_ms=200 + i * 10,
             )
             for i in range(1, 4)
         ]

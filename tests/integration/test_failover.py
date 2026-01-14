@@ -95,7 +95,7 @@ class TestProxyFailover:
 
         # Make request - should succeed on retry with same proxy
         response = rotator.get("https://example.com")
-        
+
         # Should succeed
         assert response.status_code == 200
         # At least 2 calls - initial fail + retry success

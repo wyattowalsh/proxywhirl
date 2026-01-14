@@ -38,8 +38,8 @@ class TestBrowserFetching:
         with patch.dict("sys.modules", {"proxywhirl.browser": mock_browser_module}):
             proxies = await fetcher.fetch_from_source(source)
 
-            # Verify browser was used
-            mock_renderer.render.assert_called_once_with(source.url)
+            # Verify browser was used (URL is converted to string)
+            mock_renderer.render.assert_called_once_with(str(source.url))
 
             # Verify proxies were parsed
             assert len(proxies) == 1
@@ -170,7 +170,9 @@ class TestBrowserFetching:
         mock_renderer.__aexit__ = AsyncMock(return_value=None)
 
         with respx.mock:
-            respx.get(str(source_static.url)).mock(return_value=Response(200, text=mock_static_json))
+            respx.get(str(source_static.url)).mock(
+                return_value=Response(200, text=mock_static_json)
+            )
 
             # Mock the browser module
             mock_browser_module = MagicMock()

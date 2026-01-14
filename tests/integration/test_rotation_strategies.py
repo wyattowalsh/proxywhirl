@@ -704,7 +704,9 @@ class TestStrategyComposition:
         # We relax this to: fastest should be in top 3 selections
         sorted_selections = sorted(selections.items(), key=lambda x: x[1], reverse=True)
         top_3_urls = [url for url, _ in sorted_selections[:3]]
-        assert "http://us-proxy0.com:8080" in top_3_urls, "Fastest proxy should be frequently selected"
+        assert "http://us-proxy0.com:8080" in top_3_urls, (
+            "Fastest proxy should be frequently selected"
+        )
 
     def test_geo_filter_plus_least_used_composition(self):
         """
