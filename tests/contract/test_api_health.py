@@ -17,6 +17,7 @@ from proxywhirl.api_models import (
     MetricsResponse,
     ProxyMetrics,
     ProxyPoolStats,
+    ProxyStats,
     ReadinessResponse,
     StatusResponse,
 )
@@ -272,13 +273,13 @@ class TestMetricsResponseContract:
 
     def test_metrics_response_with_stats(self):
         """Test MetricsResponse with populated statistics."""
-        # Arrange
-        proxy_stat = ProxyMetrics(
+        # Arrange - ProxyStats has different fields than ProxyMetrics
+        proxy_stat = ProxyStats(
             proxy_id="proxy-123",
             requests=100,
-            success_rate=0.95,
-            avg_latency_ms=250.5,
-            last_used=datetime.now(timezone.utc),
+            successes=95,
+            failures=5,
+            avg_latency_ms=250,
         )
 
         # Act
