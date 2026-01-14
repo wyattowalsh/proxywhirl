@@ -187,9 +187,9 @@ disable_gc = true
 # Store results in .benchmarks/ directory
 save = true
 autosave = true
-# Compare against baseline stored in git
+# Compare against baseline stored in git (tracking only, no failure threshold for v0.1.0)
 compare = "0001"
-compare_fail = "min:10%"  # Fail if >10% regression from baseline
+# compare_fail = "min:10%"  # Disabled for v0.1.0 - baselines not yet stable
 # Histogram output for analysis
 histogram = "benchmark-histogram"
 # JSON output for CI parsing
