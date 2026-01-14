@@ -173,10 +173,16 @@ class PlainTextParser:
 
         Args:
             data: Plain text string with one proxy per line
+                  Supports formats: IP:PORT, http://IP:PORT, socks5://IP:PORT
 
         Returns:
             List of proxy dictionaries with 'url' key
         """
+        import re
+
+        # Pattern for IP:PORT (without scheme)
+        ip_port_pattern = re.compile(r"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)$")
+
         proxies = []
 
         for line in data.split("\n"):
@@ -189,6 +195,10 @@ class PlainTextParser:
             # Skip comments
             if line.startswith("#"):
                 continue
+
+            # Handle IP:PORT format (prepend http://)
+            if ip_port_pattern.match(line):
+                line = f"http://{line}"
 
             # Validate URL format
             try:
