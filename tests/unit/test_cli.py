@@ -1754,6 +1754,8 @@ class TestURLValidation:
                 "request",
                 "http://192.168.1.1:8080",
                 "--allow-private",
+                "--timeout",
+                "1",  # Short timeout since we expect connection failure
             ],
         )
         # Should pass URL validation (may fail on actual connection)
