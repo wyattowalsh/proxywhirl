@@ -999,16 +999,23 @@ async def _save_results(proxies: list[Any], db_path: Path) -> None:
     """Save fetched proxies to database.
 
     Args:
-        proxies: List of Proxy objects to save
+        proxies: List of proxy dicts or Proxy objects to save
         db_path: Path to SQLite database file
     """
+    from proxywhirl.models import Proxy
     from proxywhirl.storage import SQLiteStorage
 
     storage = SQLiteStorage(db_path)
     await storage.initialize()
     try:
-        for proxy in proxies:
-            await storage.save(proxy)
+        # Convert dicts to Proxy objects if needed
+        proxy_objects = []
+        for p in proxies:
+            if isinstance(p, dict):
+                proxy_objects.append(Proxy.model_validate(p))
+            else:
+                proxy_objects.append(p)
+        await storage.save(proxy_objects)
     finally:
         await storage.close()
 
