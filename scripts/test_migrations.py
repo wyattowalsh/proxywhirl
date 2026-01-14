@@ -11,16 +11,16 @@ from proxywhirl.migrations import (
     get_current_revision,
     get_head_revision,
     initialize_database,
-    run_migrations,
 )
+
+__all__ = ["test_migrations"]
 
 
 async def test_migrations():
     """Test basic migration functionality."""
     # Create temporary database
-    temp_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    temp_file.close()
-    db_path = Path(temp_file.name)
+    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as temp_file:
+        db_path = Path(temp_file.name)
     db_url = f"sqlite+aiosqlite:///{db_path}"
 
     try:
@@ -68,9 +68,7 @@ async def test_migrations():
 
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-        )
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
         tables = [t[0] for t in cursor.fetchall()]
         conn.close()
         print(f"✓ Tables created: {', '.join(tables)}")
