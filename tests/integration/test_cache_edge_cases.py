@@ -235,6 +235,7 @@ class TestConcurrentOperations:
         valid_results = [r for r in results if r is not None]
         assert len(valid_results) >= 900, "Most entries should be readable"
 
+    @pytest.mark.slow
     @pytest.mark.timeout(120)
     def test_large_scale_operations(self, tmp_path: Path) -> None:
         """Test that cache can handle 100k+ operations (SC-010)."""

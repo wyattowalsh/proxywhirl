@@ -373,6 +373,7 @@ class TestConcurrentAsyncThroughputStress:
         # Should complete in reasonable time
         assert elapsed < 2.0, f"1,000 concurrent selections took {elapsed:.3f}s, should be <2s"
 
+    @pytest.mark.slow
     async def test_concurrent_get_proxy_throughput_10k(
         self, async_rotator_sync: AsyncProxyRotator
     ) -> None:
@@ -405,6 +406,7 @@ class TestConcurrentAsyncThroughputStress:
             f"10,000 concurrent selections took {elapsed:.3f}s, should be <10s (no deadlocks)"
         )
 
+    @pytest.mark.slow
     async def test_batched_concurrent_throughput(
         self, async_rotator_sync: AsyncProxyRotator
     ) -> None:
@@ -505,6 +507,7 @@ class TestConcurrentAsyncThroughputStress:
 class TestLRUClientPoolStress:
     """Stress tests for LRU client pool under high load."""
 
+    @pytest.mark.slow
     async def test_client_pool_eviction_under_load(self) -> None:
         """
         Stress test: LRU eviction performance under load.
