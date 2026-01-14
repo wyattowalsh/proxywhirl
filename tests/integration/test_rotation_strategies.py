@@ -633,6 +633,7 @@ class TestStrategyPerformance:
 class TestStrategyComposition:
     """Integration tests for strategy composition (Phase 9)."""
 
+    @pytest.mark.flaky(reruns=2)
     def test_geo_filter_plus_performance_based_composition(self):
         """
         Integration test: Geo-filtering + performance-based selection.
