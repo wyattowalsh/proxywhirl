@@ -146,6 +146,8 @@ jobs:
   test-all-extras:
     name: Test with all extras - Python 3.11
     runs-on: ubuntu-latest
+    # Only run on PRs and main to avoid redundant test runs
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -171,6 +173,8 @@ jobs:
   benchmark:
     name: Benchmark Performance Regression
     runs-on: ubuntu-latest
+    # Only run benchmarks on PRs and main, not feature branches
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
