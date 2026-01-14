@@ -253,9 +253,9 @@ class TestStatisticsInvariants:
             stats = manager.get_statistics()
 
             # Should have at least num_evictions evictions
-            assert (
-                stats.l1_stats.evictions_lru >= num_evictions
-            ), f"Expected at least {num_evictions} evictions, got {stats.l1_stats.evictions_lru}"
+            assert stats.l1_stats.evictions_lru >= num_evictions, (
+                f"Expected at least {num_evictions} evictions, got {stats.l1_stats.evictions_lru}"
+            )
 
 
 class TestCacheMaxSizeInvariant:
@@ -359,9 +359,9 @@ class TestCacheMaxSizeInvariant:
                 manager.put(entry.key, entry)
 
             stats = manager.get_statistics()
-            assert (
-                stats.l1_stats.current_size <= max_entries
-            ), f"L1 cache size ({stats.l1_stats.current_size}) exceeded max ({max_entries})"
+            assert stats.l1_stats.current_size <= max_entries, (
+                f"L1 cache size ({stats.l1_stats.current_size}) exceeded max ({max_entries})"
+            )
 
 
 class TestTTLExpirationMonotonicity:
@@ -405,9 +405,9 @@ class TestTTLExpirationMonotonicity:
 
             # After expiration, should not be retrievable
             retrieved_after = manager.get(entry.key)
-            assert (
-                retrieved_after is None
-            ), f"Entry should NOT be retrievable after TTL ({ttl}s) expires"
+            assert retrieved_after is None, (
+                f"Entry should NOT be retrievable after TTL ({ttl}s) expires"
+            )
 
     @given(ttl=ttl_seconds)
     @settings(max_examples=30, deadline=timedelta(milliseconds=1000))
@@ -436,14 +436,14 @@ class TestTTLExpirationMonotonicity:
         expired_check_3 = entry.is_expired
 
         # All checks should return the same value
-        assert (
-            expired_check_1 == expired_check_2 == expired_check_3
-        ), "is_expired should be deterministic"
+        assert expired_check_1 == expired_check_2 == expired_check_3, (
+            "is_expired should be deterministic"
+        )
 
         # Since we just created it, it should not be expired
-        assert (
-            not expired_check_1
-        ), f"Entry with TTL={ttl}s should not be expired immediately after creation"
+        assert not expired_check_1, (
+            f"Entry with TTL={ttl}s should not be expired immediately after creation"
+        )
 
     @given(
         base_ttl=st.integers(min_value=60, max_value=3600),
@@ -476,11 +476,11 @@ class TestTTLExpirationMonotonicity:
 
         if delta_seconds >= 0:
             # At or after expiration time, should be expired
-            assert (
-                is_expired_at_check_time
-            ), f"Entry should be expired at check_time={check_time} (expires_at={expires_at})"
+            assert is_expired_at_check_time, (
+                f"Entry should be expired at check_time={check_time} (expires_at={expires_at})"
+            )
         else:
             # Before expiration time, should not be expired
-            assert (
-                not is_expired_at_check_time
-            ), f"Entry should NOT be expired at check_time={check_time} (expires_at={expires_at})"
+            assert not is_expired_at_check_time, (
+                f"Entry should NOT be expired at check_time={check_time} (expires_at={expires_at})"
+            )

@@ -332,9 +332,9 @@ class TestLeastUsedIntegration:
         max_final = max(final_counts)
 
         # Variance should be significantly reduced
-        assert (
-            max_final - min_final <= 20
-        ), f"Load not properly rebalanced. Final distribution: {final_counts}"
+        assert max_final - min_final <= 20, (
+            f"Load not properly rebalanced. Final distribution: {final_counts}"
+        )
 
 
 class TestPerformanceBasedIntegration:
@@ -441,12 +441,12 @@ class TestPerformanceBasedIntegration:
         ) + selection_counts.get("http://slow2.example.com:8080", 0)
 
         # Fast proxies should be selected MUCH more than slow ones
-        assert (
-            fast_count > medium_count
-        ), f"Fast proxies ({fast_count}) should be selected more than medium ({medium_count})"
-        assert (
-            medium_count > slow_count
-        ), f"Medium proxies ({medium_count}) should be selected more than slow ({slow_count})"
+        assert fast_count > medium_count, (
+            f"Fast proxies ({fast_count}) should be selected more than medium ({medium_count})"
+        )
+        assert medium_count > slow_count, (
+            f"Medium proxies ({medium_count}) should be selected more than slow ({slow_count})"
+        )
 
         # Calculate average response time
         avg_response_time = total_response_time / num_requests
@@ -705,9 +705,9 @@ class TestStrategyComposition:
         # We relax this to: fastest should be in top 4 selections (of 5 US proxies)
         sorted_selections = sorted(selections.items(), key=lambda x: x[1], reverse=True)
         top_4_urls = [url for url, _ in sorted_selections[:4]]
-        assert (
-            "http://us-proxy0.com:8080" in top_4_urls
-        ), f"Fastest proxy should be frequently selected. Selections: {dict(selections)}"
+        assert "http://us-proxy0.com:8080" in top_4_urls, (
+            f"Fastest proxy should be frequently selected. Selections: {dict(selections)}"
+        )
 
     @pytest.mark.flaky(reruns=2)
     def test_geo_filter_plus_least_used_composition(self):
@@ -801,9 +801,9 @@ class TestStrategyComposition:
         avg_ms = ((end_time - start_time) * 1000) / 1000
 
         # Assert - Should be reasonable (target <5ms, allow up to 10ms for CI variance)
-        assert (
-            avg_ms < 10.0
-        ), f"Composed strategy overhead: {avg_ms:.2f}ms (target: <5ms, max: 10ms)"
+        assert avg_ms < 10.0, (
+            f"Composed strategy overhead: {avg_ms:.2f}ms (target: <5ms, max: 10ms)"
+        )
         #
         # strategy = CompositeStrategy(
         #     filters=[GeoTargetedStrategy()],

@@ -341,9 +341,9 @@ class TestAsyncCircuitBreakerConcurrency:
         print(f"  Throughput: {ops_per_second:.0f} ops/sec")
 
         # Should handle at least 10,000 ops/sec with RWLock
-        assert (
-            ops_per_second > 10000
-        ), f"Throughput {ops_per_second:.0f} ops/sec is too low (expected > 10,000)"
+        assert ops_per_second > 10000, (
+            f"Throughput {ops_per_second:.0f} ops/sec is too low (expected > 10,000)"
+        )
 
     async def test_concurrent_state_transitions(self):
         """Test that concurrent operations maintain state consistency."""

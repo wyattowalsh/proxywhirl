@@ -19,9 +19,11 @@ import { ContinentChart } from "@/components/stats/ContinentChart"
 import { LiveStats } from "@/components/stats/LiveStats"
 import { LastUpdated } from "@/components/stats/LastUpdated"
 import { RichProxyTable } from "@/components/proxy/RichProxyTable"
+import { ErrorBoundary, ChartErrorFallback } from "@/components/ErrorBoundary"
 import { useStats } from "@/hooks/useStats"
 import { useRichProxies } from "@/hooks/useProxies"
 import { formatBytes } from "@/lib/utils"
+import { copyToClipboard } from "@/lib/clipboard"
 import { PROTOCOLS, PROTOCOL_LABELS, type Protocol } from "@/types"
 
 const FEATURES = [
@@ -105,7 +107,7 @@ export function Home() {
             <Terminal className="h-4 w-4 text-muted-foreground shrink-0" />
             <code className="flex-1 text-left">pip install proxywhirl</code>
             <button
-              onClick={() => navigator.clipboard.writeText("pip install proxywhirl")}
+              onClick={() => copyToClipboard("pip install proxywhirl")}
               className="text-muted-foreground hover:text-foreground transition-colors"
               title="Copy to clipboard"
             >
@@ -197,16 +199,26 @@ export function Home() {
           <h2 className="text-2xl font-bold tracking-tight">Analytics</h2>
 
           <div className="grid gap-6 md:grid-cols-2">
-            <ResponseTimeChart proxies={proxyData.proxies} />
-            <ProtocolChart stats={stats} />
+            <ErrorBoundary fallback={<ChartErrorFallback title="response time chart" />}>
+              <ResponseTimeChart proxies={proxyData.proxies} />
+            </ErrorBoundary>
+            <ErrorBoundary fallback={<ChartErrorFallback title="protocol chart" />}>
+              <ProtocolChart stats={stats} />
+            </ErrorBoundary>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
-            <PortChart proxies={proxyData.proxies} />
-            <ContinentChart proxies={proxyData.proxies} />
+            <ErrorBoundary fallback={<ChartErrorFallback title="port chart" />}>
+              <PortChart proxies={proxyData.proxies} />
+            </ErrorBoundary>
+            <ErrorBoundary fallback={<ChartErrorFallback title="continent chart" />}>
+              <ContinentChart proxies={proxyData.proxies} />
+            </ErrorBoundary>
           </div>
 
-          <GeoMap proxies={proxyData.proxies} />
+          <ErrorBoundary fallback={<ChartErrorFallback title="geographic map" />}>
+            <GeoMap proxies={proxyData.proxies} />
+          </ErrorBoundary>
         </section>
       )}
 

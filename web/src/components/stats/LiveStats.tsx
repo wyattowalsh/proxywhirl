@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useRef } from "react"
 import { Globe, Wifi, Zap, Clock } from "lucide-react"
 import type { Proxy } from "@/types"
 
@@ -9,6 +9,7 @@ interface LiveStatsProps {
 
 function AnimatedNumber({ value, duration = 1500 }: { value: number; duration?: number }) {
   const [displayValue, setDisplayValue] = useState(0)
+  const frameRef = useRef<number | null>(null)
 
   useEffect(() => {
     const startTime = Date.now()
@@ -23,11 +24,17 @@ function AnimatedNumber({ value, duration = 1500 }: { value: number; duration?: 
       setDisplayValue(current)
 
       if (progress < 1) {
-        requestAnimationFrame(animate)
+        frameRef.current = requestAnimationFrame(animate)
       }
     }
 
-    requestAnimationFrame(animate)
+    frameRef.current = requestAnimationFrame(animate)
+
+    return () => {
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current)
+      }
+    }
   }, [value, duration])
 
   return <span className="tabular-nums">{displayValue.toLocaleString()}</span>

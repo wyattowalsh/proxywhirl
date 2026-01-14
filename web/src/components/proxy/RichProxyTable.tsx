@@ -1,17 +1,19 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef } from "react"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { Copy, Check, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, Download, Clipboard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Proxy, Protocol } from "@/types"
 import { filterProxies, sortProxies, type SortField, type SortDirection, type ProxyFilters } from "@/hooks/useProxies"
 import { PROTOCOLS, PROTOCOL_LABELS } from "@/types"
+import { copyToClipboard } from "@/lib/clipboard"
 
 interface RichProxyTableProps {
   proxies: Proxy[]
   loading: boolean
 }
 
-const PAGE_SIZE = 50
+const ROW_HEIGHT = 48
 
 function exportProxies(proxies: Proxy[], format: "txt" | "json" | "csv") {
   let content: string
@@ -48,7 +50,7 @@ function exportProxies(proxies: Proxy[], format: "txt" | "json" | "csv") {
 }
 
 export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
-  const [page, setPage] = useState(0)
+  const parentRef = useRef<HTMLDivElement>(null)
   const [copiedProxy, setCopiedProxy] = useState<string | null>(null)
   const [copiedAll, setCopiedAll] = useState(false)
   const [sortField, setSortField] = useState<SortField>("response_time")
@@ -68,24 +70,29 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
     return sortProxies(filteredProxies, sortField, sortDirection)
   }, [filteredProxies, sortField, sortDirection])
 
-  const totalPages = Math.ceil(sortedProxies.length / PAGE_SIZE)
-  const paginatedProxies = sortedProxies.slice(
-    page * PAGE_SIZE,
-    (page + 1) * PAGE_SIZE
-  )
+  const virtualizer = useVirtualizer({
+    count: sortedProxies.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 15,
+  })
 
-  const copyToClipboard = async (proxy: Proxy) => {
+  const handleCopyProxy = async (proxy: Proxy) => {
     const proxyString = `${proxy.ip}:${proxy.port}`
-    await navigator.clipboard.writeText(proxyString)
-    setCopiedProxy(proxyString)
-    setTimeout(() => setCopiedProxy(null), 2000)
+    const success = await copyToClipboard(proxyString)
+    if (success) {
+      setCopiedProxy(proxyString)
+      setTimeout(() => setCopiedProxy(null), 2000)
+    }
   }
 
-  const copyAllToClipboard = async () => {
+  const handleCopyAll = async () => {
     const proxyList = sortedProxies.map((p) => `${p.ip}:${p.port}`).join("\n")
-    await navigator.clipboard.writeText(proxyList)
-    setCopiedAll(true)
-    setTimeout(() => setCopiedAll(false), 2000)
+    const success = await copyToClipboard(proxyList)
+    if (success) {
+      setCopiedAll(true)
+      setTimeout(() => setCopiedAll(false), 2000)
+    }
   }
 
   const handleSort = (field: SortField) => {
@@ -95,7 +102,7 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
       setSortField(field)
       setSortDirection("asc")
     }
-    setPage(0)
+    virtualizer.scrollToIndex(0)
   }
 
   const toggleProtocolFilter = (protocol: Protocol) => {
@@ -105,7 +112,7 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
         ? f.protocols.filter((p) => p !== protocol)
         : [...f.protocols, protocol],
     }))
-    setPage(0)
+    virtualizer.scrollToIndex(0)
   }
 
   const SortIcon = ({ field }: { field: SortField }) => {
@@ -150,7 +157,7 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
                 value={filters.search}
                 onChange={(e) => {
                   setFilters((f) => ({ ...f, search: e.target.value }))
-                  setPage(0)
+                  virtualizer.scrollToIndex(0)
                 }}
                 className="flex h-10 w-full sm:w-[200px] rounded-md border border-input bg-background px-3 py-2 pl-8 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
@@ -166,7 +173,7 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
             <Button
               variant="outline"
               size="icon"
-              onClick={copyAllToClipboard}
+              onClick={handleCopyAll}
               title={`Copy all ${sortedProxies.length} proxies to clipboard`}
             >
               {copiedAll ? (
@@ -229,7 +236,7 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
                   size="sm"
                   onClick={() => {
                     setFilters((f) => ({ ...f, protocols: [] }))
-                    setPage(0)
+                    virtualizer.scrollToIndex(0)
                   }}
                 >
                   Clear filters
@@ -239,10 +246,10 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
           </div>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-0 bg-card z-10">
               <tr className="border-b">
                 <th className="text-left p-2">
                   <Button
@@ -290,115 +297,97 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
                 <th className="text-left p-2 w-10"></th>
               </tr>
             </thead>
-            <tbody>
-              {paginatedProxies.map((proxy) => {
-                const proxyString = `${proxy.ip}:${proxy.port}`
-                return (
-                  <tr
-                    key={proxyString}
-                    className="border-b hover:bg-muted/50 group"
-                  >
-                    <td className="p-2 font-mono">{proxy.ip}</td>
-                    <td className="p-2 font-mono">{proxy.port}</td>
-                    <td className="p-2">
-                      <span className="px-2 py-1 rounded text-xs font-medium bg-primary/10">
-                        {proxy.protocol.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="p-2 text-muted-foreground">
-                      {proxy.country_code ? (
-                        <span
-                          title={[
-                            proxy.country,
-                            proxy.city && proxy.region ? `${proxy.city}, ${proxy.region}` : (proxy.city || proxy.region),
-                            proxy.timezone,
-                          ].filter(Boolean).join("\n") || proxy.country_code}
-                          className="cursor-help"
-                        >
-                          {proxy.country_code}
-                          {proxy.city && (
-                            <span className="text-xs ml-1 opacity-70">{proxy.city}</span>
-                          )}
-                        </span>
-                      ) : proxy.is_private ? (
-                        <span className="text-xs text-amber-500" title="Private IP address">Private</span>
-                      ) : "—"}
-                    </td>
-                    <td className="p-2 font-mono text-muted-foreground">
-                      {proxy.response_time !== null
-                        ? `${proxy.response_time.toFixed(0)}ms`
-                        : "—"}
-                    </td>
-                    <td className="p-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => copyToClipboard(proxy)}
-                      >
-                        {copiedProxy === proxyString ? (
-                          <Check className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
           </table>
+          <div
+            ref={parentRef}
+            className="h-[600px] overflow-auto"
+          >
+            <div
+              style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}
+            >
+              <table className="w-full text-sm">
+                <tbody>
+                  {virtualizer.getVirtualItems().map((virtualRow) => {
+                    const proxy = sortedProxies[virtualRow.index]
+                    const proxyString = `${proxy.ip}:${proxy.port}:${proxy.protocol}`
+                    return (
+                      <tr
+                        key={proxyString}
+                        className="border-b hover:bg-muted/50 group"
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: `${virtualRow.size}px`,
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        <td className="p-2 font-mono" style={{ width: '20%' }}>{proxy.ip}</td>
+                        <td className="p-2 font-mono" style={{ width: '10%' }}>{proxy.port}</td>
+                        <td className="p-2" style={{ width: '15%' }}>
+                          <span className="px-2 py-1 rounded text-xs font-medium bg-primary/10">
+                            {proxy.protocol.toUpperCase()}
+                          </span>
+                        </td>
+                        <td className="p-2 text-muted-foreground" style={{ width: '25%' }}>
+                          {proxy.country_code ? (
+                            <span
+                              title={[
+                                proxy.country,
+                                proxy.city && proxy.region ? `${proxy.city}, ${proxy.region}` : (proxy.city || proxy.region),
+                                proxy.timezone,
+                              ].filter(Boolean).join("\n") || proxy.country_code}
+                              className="cursor-help"
+                            >
+                              {proxy.country_code}
+                              {proxy.city && (
+                                <span className="text-xs ml-1 opacity-70">{proxy.city}</span>
+                              )}
+                            </span>
+                          ) : proxy.is_private ? (
+                            <span className="text-xs text-amber-500" title="Private IP address">Private</span>
+                          ) : "—"}
+                        </td>
+                        <td className="p-2 font-mono text-muted-foreground" style={{ width: '15%' }}>
+                          {proxy.response_time !== null
+                            ? `${proxy.response_time.toFixed(0)}ms`
+                            : "—"}
+                        </td>
+                        <td className="p-2" style={{ width: '15%' }}>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => handleCopyProxy(proxy)}
+                          >
+                            {copiedProxy === `${proxy.ip}:${proxy.port}` ? (
+                              <Check className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
-        {paginatedProxies.length === 0 && (
+        {sortedProxies.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             No proxies match your filters
           </div>
         )}
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4 pt-4 border-t">
-            <p className="text-sm text-muted-foreground">
-              Showing {page * PAGE_SIZE + 1}–
-              {Math.min((page + 1) * PAGE_SIZE, sortedProxies.length)} of{" "}
-              {sortedProxies.length.toLocaleString()}
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(0)}
-                disabled={page === 0}
-              >
-                First
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page >= totalPages - 1}
-              >
-                Next
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(totalPages - 1)}
-                disabled={page >= totalPages - 1}
-              >
-                Last
-              </Button>
-            </div>
-          </div>
-        )}
+        <div className="flex items-center justify-between p-4 border-t">
+          <p className="text-sm text-muted-foreground">
+            {sortedProxies.length.toLocaleString()} proxies
+          </p>
+        </div>
       </CardContent>
     </Card>
   )

@@ -831,9 +831,9 @@ class TestConcurrentRotatorAccess:
         # All tasks should get the same instance (no race condition)
         first_rotator = rotators[0]
         for rotator in rotators:
-            assert (
-                rotator is first_rotator
-            ), "Race condition detected: multiple rotator instances created"
+            assert rotator is first_rotator, (
+                "Race condition detected: multiple rotator instances created"
+            )
 
     async def test_concurrent_set_get_rotator(self, mock_rotator) -> None:
         """Test concurrent set and get operations are properly synchronized."""
