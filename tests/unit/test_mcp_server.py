@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import sys
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -1731,6 +1732,10 @@ class TestEdgeCases:
             await cleanup_rotator()
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 10),
+    reason="ProxyWhirlAuthMiddleware requires Python 3.10+ (FastMCP dependency)",
+)
 class TestAuthMiddleware:
     """Test ProxyWhirlAuthMiddleware."""
 
