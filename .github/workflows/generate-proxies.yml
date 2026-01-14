@@ -36,6 +36,11 @@ jobs:
         uv venv
         uv pip install -e .
 
+    - name: Install Playwright browsers
+      run: |
+        # Required for JS-rendered sources
+        uv run python -m playwright install chromium
+
     - name: Fetch and validate proxies
       run: |
         uv run proxywhirl fetch --timeout 5 --concurrency 500
