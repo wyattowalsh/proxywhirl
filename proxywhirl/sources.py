@@ -13,6 +13,7 @@ Example:
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
@@ -791,3 +792,20 @@ def validate_sources_sync(
     import asyncio
 
     return asyncio.run(validate_sources(sources=sources, timeout=timeout, concurrency=concurrency))
+
+
+async def fetch_all_sources(
+    validate: bool = True,
+    timeout: int = 10,
+    max_concurrent: int = 100,
+    sources: list[ProxySourceConfig] | None = None,
+) -> list[dict[str, Any]]:
+    """Fetch proxies from all built-in sources."""
+    from proxywhirl.fetchers import ProxyFetcher, ProxyValidator
+
+    validator = ProxyValidator(timeout=timeout, concurrency=max_concurrent)
+    fetcher = ProxyFetcher(sources=sources or ALL_SOURCES, validator=validator)
+    try:
+        return await fetcher.fetch_all(validate=validate)
+    finally:
+        await fetcher.close()
