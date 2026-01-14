@@ -21,8 +21,8 @@
 <!-- Status badges with custom colors -->
 [![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-00d4ff?style=for-the-badge&logo=python&logoColor=white&labelColor=0d1117)](https://python.org)
 [![License](https://img.shields.io/badge/license-MIT-a855f7?style=for-the-badge&labelColor=0d1117)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-1622_passing-22c55e?style=for-the-badge&labelColor=0d1117)](tests/)
-[![Coverage](https://img.shields.io/badge/coverage-26%25-f97316?style=for-the-badge&labelColor=0d1117)](logs/htmlcov/)
+[![Tests](https://img.shields.io/badge/tests-2727_passing-22c55e?style=for-the-badge&labelColor=0d1117)](tests/)
+[![Coverage](https://img.shields.io/badge/coverage-0%25-f97316?style=for-the-badge&labelColor=0d1117)](logs/htmlcov/)
 [![CI](https://github.com/wyattowalsh/proxywhirl/actions/workflows/ci.yml/badge.svg)](https://github.com/wyattowalsh/proxywhirl/actions/workflows/ci.yml)
 
 <!-- Animated stats dashboard -->
@@ -167,7 +167,7 @@ pip install git+https://github.com/wyattowalsh/proxywhirl.git
 
 ---
 
-## 🎯 Nine Strategies
+## 🎯 Eight Strategies
 
 <div align="center">
 <img src="docs/assets/benchmarks.svg" alt="Strategy Benchmarks" width="800"/>
@@ -230,7 +230,7 @@ rotator = ProxyRotator(strategy="always-fastest")
 
 | Feature | ProxyWhirl | httpx | requests | scrapy |
 |:--------|:----------:|:-----:|:--------:|:------:|
-| Proxy Rotation | 9 strategies | Manual | Manual | Basic |
+| Proxy Rotation | 8 strategies | Manual | Manual | Basic |
 | Auto-Fetch | 73 sources | No | No | No |
 | Health Monitoring | Auto-eject | No | No | Middleware |
 | Persistence | SQLite + encryption | No | No | Custom |
@@ -249,7 +249,7 @@ rotator = ProxyRotator(strategy="always-fastest")
 
 ## 🎣 Auto-Fetch Proxies
 
-**73 sources** · **100+/sec validation** · **Zero config**
+**75 sources** · **100+/sec validation** · **Zero config**
 
 ```python
 from proxywhirl import ProxyFetcher, RECOMMENDED_SOURCES
@@ -603,7 +603,7 @@ response = rotator.get(
 proxywhirl/
 ├── rotator.py         # Core rotation engine
 ├── strategies.py      # 9 rotation strategies
-├── fetchers.py        # 73 proxy sources
+├── fetchers.py        # 75 proxy sources
 ├── storage.py         # SQLite + Fernet encryption
 ├── models.py          # Pydantic data models
 ├── cache/             # Multi-tier caching
@@ -612,7 +612,7 @@ proxywhirl/
 └── cli.py             # Typer CLI
 
 tests/
-├── unit/              # Unit tests (1500+)
+├── unit/              # Unit tests (2727)
 ├── integration/       # Integration tests
 ├── property/          # Hypothesis property tests
 └── benchmarks/        # Performance benchmarks
