@@ -105,9 +105,9 @@ class TestRoundRobinPropertyTests:
 
         # Assert - All selections should be from healthy set
         selected_urls = {p.url for p in selections}
-        assert selected_urls.issubset(healthy_urls), (
-            f"Selected unhealthy proxy! Selected: {selected_urls}, Healthy: {healthy_urls}"
-        )
+        assert selected_urls.issubset(
+            healthy_urls
+        ), f"Selected unhealthy proxy! Selected: {selected_urls}, Healthy: {healthy_urls}"
 
     @given(
         num_proxies=st.integers(min_value=2, max_value=10),
@@ -135,9 +135,9 @@ class TestRoundRobinPropertyTests:
 
         # Assert - First cycle covers all proxies exactly once
         first_cycle_urls = [p.url for p in first_cycle]
-        assert sorted(first_cycle_urls) == sorted(proxy_urls), (
-            f"First cycle didn't cover all proxies. Got: {first_cycle_urls}"
-        )
+        assert sorted(first_cycle_urls) == sorted(
+            proxy_urls
+        ), f"First cycle didn't cover all proxies. Got: {first_cycle_urls}"
 
         # Assert - Second cycle is identical to first cycle (deterministic)
         second_cycle_urls = [p.url for p in second_cycle]
@@ -214,9 +214,9 @@ class TestRandomPropertyTests:
 
         # Assert
         selected_urls = {p.url for p in selections}
-        assert selected_urls.issubset(healthy_urls), (
-            f"Selected unhealthy proxy! Selected: {selected_urls}, Healthy: {healthy_urls}"
-        )
+        assert selected_urls.issubset(
+            healthy_urls
+        ), f"Selected unhealthy proxy! Selected: {selected_urls}, Healthy: {healthy_urls}"
 
 
 class TestWeightedPropertyTests:
@@ -296,9 +296,9 @@ class TestWeightedPropertyTests:
 
         # Assert - High performer should be selected at least 1.5x more often
         # (Conservative check given 80% vs 20% = 4:1 weight ratio)
-        assert high_count > low_count * 1.5, (
-            f"High performer not favored enough. High: {high_count}, Low: {low_count}"
-        )
+        assert (
+            high_count > low_count * 1.5
+        ), f"High performer not favored enough. High: {high_count}, Low: {low_count}"
 
     @given(
         num_healthy=st.integers(min_value=1, max_value=10),
@@ -337,9 +337,9 @@ class TestWeightedPropertyTests:
 
         # Assert
         selected_urls = {p.url for p in selections}
-        assert selected_urls.issubset(healthy_urls), (
-            f"Selected unhealthy proxy! Selected: {selected_urls}, Healthy: {healthy_urls}"
-        )
+        assert selected_urls.issubset(
+            healthy_urls
+        ), f"Selected unhealthy proxy! Selected: {selected_urls}, Healthy: {healthy_urls}"
 
 
 class TestLeastUsedPropertyTests:
@@ -379,9 +379,9 @@ class TestLeastUsedPropertyTests:
         max_count = max(request_counts)
 
         # Variance should be at most 1 (perfect or near-perfect balance)
-        assert max_count - min_count <= 1, (
-            f"Load imbalance detected. Min: {min_count}, Max: {max_count}. Counts: {request_counts}"
-        )
+        assert (
+            max_count - min_count <= 1
+        ), f"Load imbalance detected. Min: {min_count}, Max: {max_count}. Counts: {request_counts}"
 
     @given(
         num_proxies=st.integers(min_value=2, max_value=10),
@@ -448,6 +448,6 @@ class TestLeastUsedPropertyTests:
 
         # Assert
         selected_urls = {p.url for p in selections}
-        assert selected_urls.issubset(healthy_urls), (
-            f"Selected unhealthy proxy! Selected: {selected_urls}, Healthy: {healthy_urls}"
-        )
+        assert selected_urls.issubset(
+            healthy_urls
+        ), f"Selected unhealthy proxy! Selected: {selected_urls}, Healthy: {healthy_urls}"

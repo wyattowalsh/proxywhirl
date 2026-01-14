@@ -486,9 +486,9 @@ class TestLRUEviction:
 
             # Count should never exceed max
             current_count = len(manager.get_all_sessions())
-            assert current_count <= max_sessions, (
-                f"Session count {current_count} exceeds max {max_sessions}"
-            )
+            assert (
+                current_count <= max_sessions
+            ), f"Session count {current_count} exceeds max {max_sessions}"
 
     @given(max_sessions=st.integers(min_value=3, max_value=10))
     @settings(max_examples=15, deadline=timedelta(milliseconds=2000))
@@ -511,9 +511,9 @@ class TestLRUEviction:
 
         # First session should still exist (use get_all_sessions to avoid LRU update)
         all_sessions = manager.get_all_sessions()
-        assert first_session_id in [s.session_id for s in all_sessions], (
-            "First session should exist before eviction"
-        )
+        assert first_session_id in [
+            s.session_id for s in all_sessions
+        ], "First session should exist before eviction"
 
         # Create one more session (triggers eviction)
         new_sid = f"new-session-{uuid4().hex[:6]}"
@@ -523,9 +523,9 @@ class TestLRUEviction:
         # First session should have been evicted (it's oldest/LRU)
         all_sessions_after = manager.get_all_sessions()
         session_ids_after = [s.session_id for s in all_sessions_after]
-        assert first_session_id not in session_ids_after, (
-            "First session should have been LRU-evicted"
-        )
+        assert (
+            first_session_id not in session_ids_after
+        ), "First session should have been LRU-evicted"
 
         # New session should exist
         assert new_sid in session_ids_after

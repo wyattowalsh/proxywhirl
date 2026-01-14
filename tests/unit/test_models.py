@@ -741,12 +741,12 @@ class TestProxyPoolConcurrentAccess:
         assert not errors, f"Concurrent iteration/modification had errors: {errors}"
 
         # Verify we got valid iteration counts (all should be reasonable)
-        assert len(iteration_counts) == 30, (
-            f"Expected 30 iteration counts, got {len(iteration_counts)}"
-        )
-        assert all(count > 0 for count in iteration_counts), (
-            "All iteration counts should be positive"
-        )
+        assert (
+            len(iteration_counts) == 30
+        ), f"Expected 30 iteration counts, got {len(iteration_counts)}"
+        assert all(
+            count > 0 for count in iteration_counts
+        ), "All iteration counts should be positive"
 
     def test_concurrent_get_by_id(self):
         """Test thread safety of ID lookups.
@@ -1087,9 +1087,9 @@ class TestProxyPoolConcurrentAccess:
         # After clearing, pool should only have healthy, non-expired proxies
         final_proxies = pool.get_all_proxies()
         assert all(p.is_healthy for p in final_proxies), "All remaining proxies should be healthy"
-        assert all(not p.is_expired for p in final_proxies), (
-            "All remaining proxies should not be expired"
-        )
+        assert all(
+            not p.is_expired for p in final_proxies
+        ), "All remaining proxies should not be expired"
 
         # Verify ID index is consistent
         for proxy in final_proxies:

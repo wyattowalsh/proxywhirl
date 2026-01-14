@@ -74,9 +74,9 @@ class TestValidationPerformance:
 
         # High concurrency should be at least 20% faster (allow some overhead/variance)
         improvement_ratio = high_concurrency_time / low_concurrency_time
-        assert improvement_ratio < 0.9, (
-            f"Higher concurrency should be faster: {high_concurrency_time:.3f}s vs {low_concurrency_time:.3f}s (ratio: {improvement_ratio:.2f})"
-        )
+        assert (
+            improvement_ratio < 0.9
+        ), f"Higher concurrency should be faster: {high_concurrency_time:.3f}s vs {low_concurrency_time:.3f}s (ratio: {improvement_ratio:.2f})"
 
     async def test_validation_overhead(self) -> None:
         """T030: Test validation overhead is minimal."""

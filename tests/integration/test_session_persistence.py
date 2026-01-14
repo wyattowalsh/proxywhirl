@@ -190,9 +190,9 @@ def test_concurrent_sessions_thread_safety(
     assert len(results) == 10
     for result in results:
         session_id, proxy_count = result.split(":")
-        assert proxy_count == "1", (
-            f"Session {session_id} used {proxy_count} different proxies, expected 1"
-        )
+        assert (
+            proxy_count == "1"
+        ), f"Session {session_id} used {proxy_count} different proxies, expected 1"
 
 
 def test_failover_when_session_proxy_becomes_unhealthy(

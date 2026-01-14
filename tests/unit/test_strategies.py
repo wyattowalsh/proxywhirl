@@ -1087,9 +1087,9 @@ class TestPerformanceBasedStrategy:
 
         # Assert - Fast proxy should be selected significantly more often
         # With 4:1 inverse weight ratio (200/50), expect at least 2:1 selection ratio
-        assert fast_count > slow_count * 2, (
-            f"Fast proxy not favored enough. Fast: {fast_count}, Slow: {slow_count}"
-        )
+        assert (
+            fast_count > slow_count * 2
+        ), f"Fast proxy not favored enough. Fast: {fast_count}, Slow: {slow_count}"
 
     def test_select_handles_missing_ema_data(self):
         """Test that performance-based handles proxies without EMA data via exploration."""
@@ -1305,9 +1305,9 @@ class TestPerformanceBasedStrategy:
 
         # Assert - Should always select exploring proxy until threshold reached
         # (Since it has fewer requests than exploration_count)
-        assert all(s.url == "http://exploring.com:8080" for s in selections), (
-            "Proxy below exploration threshold should always be selected"
-        )
+        assert all(
+            s.url == "http://exploring.com:8080" for s in selections
+        ), "Proxy below exploration threshold should always be selected"
 
     def test_cold_start_multiple_new_proxies(self):
         """Test that multiple new proxies share exploration opportunities."""
@@ -1368,9 +1368,9 @@ class TestPerformanceBasedStrategy:
         selections = [strategy.select(pool, context) for _ in range(10)]
 
         # Assert - Should only select established proxy (no exploration)
-        assert all(s.url == "http://established.com:8080" for s in selections), (
-            "With exploration_count=0, only proxies with EMA should be selected"
-        )
+        assert all(
+            s.url == "http://established.com:8080" for s in selections
+        ), "With exploration_count=0, only proxies with EMA should be selected"
 
     def test_cold_start_fallback_when_all_proxies_lack_ema(self):
         """Test fallback behavior when all proxies have been tried but lack EMA data."""

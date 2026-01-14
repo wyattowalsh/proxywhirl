@@ -78,9 +78,9 @@ class TestCostAwareStrategy:
 
         # Assert - Cheap > Expensive (free might not always dominate due to variance)
         # But expensive should always be selected least
-        assert cheap_count > expensive_count, (
-            f"Cheap ({cheap_count}) should be > expensive ({expensive_count})"
-        )
+        assert (
+            cheap_count > expensive_count
+        ), f"Cheap ({cheap_count}) should be > expensive ({expensive_count})"
         # Assert free proxy gets significant selections (at least 20%)
         assert free_count >= 200, f"Free proxy should get significant selections, got {free_count}"
 

@@ -450,9 +450,9 @@ class TestTierDemotion:
         assert retrieved.key == "entry_0"
 
         # And should be promoted back to L1
-        assert manager.l1_tier.get("entry_0") is not None, (
-            "Retrieved entry should be promoted to L1"
-        )
+        assert (
+            manager.l1_tier.get("entry_0") is not None
+        ), "Retrieved entry should be promoted to L1"
 
 
 class TestAccessTracking:

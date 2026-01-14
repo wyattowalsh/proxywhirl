@@ -49,9 +49,11 @@ class TestBasicRotation:
         request_counts = [p.total_requests for p in rotator.pool.proxies]
         request_counts.sort()
 
-        assert request_counts == [3, 3, 4], (
-            f"Expected fair distribution [3, 3, 4], got {request_counts}"
-        )
+        assert request_counts == [
+            3,
+            3,
+            4,
+        ], f"Expected fair distribution [3, 3, 4], got {request_counts}"
 
         # Verify all proxies were successful
         for proxy in rotator.pool.proxies:
@@ -88,9 +90,9 @@ class TestBasicRotation:
                 f"Proxy {i} should have handled 4 requests (20 total / 5 proxies), "
                 f"but handled {proxy.total_requests}"
             )
-            assert proxy.total_successes == 4, (
-                f"Proxy {i} should have 4 successes, got {proxy.total_successes}"
-            )
+            assert (
+                proxy.total_successes == 4
+            ), f"Proxy {i} should have 4 successes, got {proxy.total_successes}"
 
     @patch("httpx.Client")
     def test_single_proxy_no_rotation(self, mock_client_class):

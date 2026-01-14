@@ -44,9 +44,9 @@ class TestStrategySwitching:
 
         # With random selection, we should see variation
         unique_sequences = len(set(sequences))
-        assert unique_sequences > 1, (
-            f"Random strategy should produce varied sequences, got {unique_sequences} unique"
-        )
+        assert (
+            unique_sequences > 1
+        ), f"Random strategy should produce varied sequences, got {unique_sequences} unique"
 
     def test_switch_from_random_to_weighted(self):
         """Test switching from random to weighted strategy."""
@@ -212,9 +212,9 @@ class TestStrategyStatePreservation:
 
         # Stats should be preserved
         stats_after = {p.url: (p.total_requests, p.total_successes) for p in proxies}
-        assert stats_after == stats_before, (
-            "Proxy stats should be preserved across strategy changes"
-        )
+        assert (
+            stats_after == stats_before
+        ), "Proxy stats should be preserved across strategy changes"
 
     def test_pool_composition_unchanged_after_strategy_switch(self):
         """Test that the proxy pool itself doesn't change when switching strategies."""

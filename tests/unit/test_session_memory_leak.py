@@ -245,9 +245,9 @@ class TestSessionMemoryManagement:
 
             # Verify we never exceed max_sessions due to LRU eviction
             stats = strategy.get_session_stats()
-            assert stats["total_sessions"] <= 100, (
-                f"Session count {stats['total_sessions']} exceeds max {stats['max_sessions']}"
-            )
+            assert (
+                stats["total_sessions"] <= 100
+            ), f"Session count {stats['total_sessions']} exceeds max {stats['max_sessions']}"
 
         # Final check - should have exactly max_sessions due to LRU eviction
         final_stats = strategy.get_session_stats()
@@ -273,9 +273,9 @@ class TestSessionMemoryManagement:
 
         # Manually trigger cleanup of expired sessions
         removed_count = manager.cleanup_expired()
-        assert removed_count == 50, (
-            f"Expected to remove 50 expired sessions, removed {removed_count}"
-        )
+        assert (
+            removed_count == 50
+        ), f"Expected to remove 50 expired sessions, removed {removed_count}"
 
         # After cleanup, expired sessions should be removed
         remaining_size = len(manager._sessions)
@@ -391,9 +391,9 @@ class TestProxyRotatorMemoryManagement:
 
             # After adding, we have: previous_count + 20
             expected_after_add = 5 * cycle + 20
-            assert len(rotator.circuit_breakers) == expected_after_add, (
-                f"Cycle {cycle}: Expected {expected_after_add} after add, got {len(rotator.circuit_breakers)}"
-            )
+            assert (
+                len(rotator.circuit_breakers) == expected_after_add
+            ), f"Cycle {cycle}: Expected {expected_after_add} after add, got {len(rotator.circuit_breakers)}"
 
             # Remove 15 proxies (net growth of 5 per cycle)
             for i in range(15):
@@ -401,9 +401,9 @@ class TestProxyRotatorMemoryManagement:
 
             # After removing, we have: previous_count + 5
             expected_after_remove = 5 * (cycle + 1)
-            assert len(rotator.circuit_breakers) == expected_after_remove, (
-                f"Cycle {cycle}: Expected {expected_after_remove} after remove, got {len(rotator.circuit_breakers)}"
-            )
+            assert (
+                len(rotator.circuit_breakers) == expected_after_remove
+            ), f"Cycle {cycle}: Expected {expected_after_remove} after remove, got {len(rotator.circuit_breakers)}"
 
         # Final count should be 50 (10 cycles * 5 net growth)
         assert len(rotator.circuit_breakers) == 50

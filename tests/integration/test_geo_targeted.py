@@ -222,9 +222,9 @@ def test_geo_distribution_across_region(
 
     # Should have selected multiple different EU proxies
     eu_proxy_count = len([p for p in multi_region_pool.proxies if p.region == "EU"])
-    assert len(selected_ids) >= 2, (
-        f"Should distribute across EU proxies (got {len(selected_ids)} of {eu_proxy_count})"
-    )
+    assert (
+        len(selected_ids) >= 2
+    ), f"Should distribute across EU proxies (got {len(selected_ids)} of {eu_proxy_count})"
 
 
 def test_country_preference_over_region(

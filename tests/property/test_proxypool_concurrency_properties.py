@@ -179,9 +179,9 @@ class TestProxyPoolConcurrencyInvariants:
 
             # Invariant: Filter results should be a valid subset
             assert len(fast_proxies) <= pool.size, "Filter returned more than pool size"
-            assert all("fast" in p.tags for p in fast_proxies), (
-                "Filter returned proxies without tag"
-            )
+            assert all(
+                "fast" in p.tags for p in fast_proxies
+            ), "Filter returned proxies without tag"
 
             return len(fast_proxies)
 
@@ -191,9 +191,9 @@ class TestProxyPoolConcurrencyInvariants:
             counts = [f.result() for f in as_completed(futures)]
 
         # All filters should return the same count
-        assert all(count == expected_fast_count for count in counts), (
-            f"Inconsistent filter counts: {set(counts)}"
-        )
+        assert all(
+            count == expected_fast_count for count in counts
+        ), f"Inconsistent filter counts: {set(counts)}"
 
     @given(
         num_healthy=st.integers(min_value=10, max_value=50),
@@ -224,9 +224,9 @@ class TestProxyPoolConcurrencyInvariants:
             unhealthy = pool.unhealthy_count
 
             # Invariant: healthy + unhealthy = total
-            assert healthy + unhealthy == size, (
-                f"Health counts don't sum: {healthy} + {unhealthy} != {size}"
-            )
+            assert (
+                healthy + unhealthy == size
+            ), f"Health counts don't sum: {healthy} + {unhealthy} != {size}"
 
             return (size, healthy, unhealthy)
 
@@ -273,9 +273,9 @@ class TestProxyPoolConcurrencyInvariants:
             removed_counts = [f.result() for f in as_completed(futures)]
 
         # Invariant: Total removed should equal unhealthy count
-        assert sum(removed_counts) == num_unhealthy, (
-            f"Removed {sum(removed_counts)} != {num_unhealthy}"
-        )
+        assert (
+            sum(removed_counts) == num_unhealthy
+        ), f"Removed {sum(removed_counts)} != {num_unhealthy}"
 
         # Invariant: Only healthy proxies should remain
         assert pool.size == num_healthy, f"Pool size {pool.size} != {num_healthy}"
@@ -344,9 +344,9 @@ class TestProxyPoolConcurrencyInvariants:
 
         # Invariant: Snapshot length should be valid (either before or during modification)
         snapshot_len = len(snapshots[0])
-        assert initial_proxies <= snapshot_len <= initial_proxies + new_proxies, (
-            f"Invalid snapshot length: {snapshot_len}"
-        )
+        assert (
+            initial_proxies <= snapshot_len <= initial_proxies + new_proxies
+        ), f"Invalid snapshot length: {snapshot_len}"
 
     @given(
         num_proxies=st.integers(min_value=10, max_value=50),
@@ -380,9 +380,9 @@ class TestProxyPoolConcurrencyInvariants:
 
         # Invariant: Should have exactly actual_duplicates + (num_threads * (num_proxies - actual_duplicates))
         expected_unique = actual_duplicates + (num_threads * (num_proxies - actual_duplicates))
-        assert pool.size == expected_unique, (
-            f"Duplicate prevention failed: {pool.size} != {expected_unique}"
-        )
+        assert (
+            pool.size == expected_unique
+        ), f"Duplicate prevention failed: {pool.size} != {expected_unique}"
 
         # Verify no actual duplicates by URL
         urls = [p.url for p in pool.get_all_proxies()]
