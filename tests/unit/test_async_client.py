@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import SecretStr
 
-from proxywhirl.async_client import AsyncProxyRotator
 from proxywhirl.exceptions import ProxyPoolEmptyError
 from proxywhirl.models import HealthStatus, Proxy, ProxyConfiguration
-from proxywhirl.retry_policy import RetryPolicy
+from proxywhirl.retry import RetryPolicy
+from proxywhirl.rotator import AsyncProxyRotator
 from proxywhirl.strategies import (
     LeastUsedStrategy,
     RandomStrategy,

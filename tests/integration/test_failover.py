@@ -8,7 +8,7 @@ import pytest
 from proxywhirl import Proxy, ProxyRotator
 from proxywhirl.exceptions import ProxyConnectionError, ProxyPoolEmptyError
 from proxywhirl.models import HealthStatus
-from proxywhirl.retry_policy import RetryPolicy
+from proxywhirl.retry import RetryPolicy
 
 
 class TestProxyFailover:

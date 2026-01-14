@@ -9,7 +9,7 @@ import pytest
 
 from proxywhirl import Proxy, ProxyRotator, RetryPolicy
 from proxywhirl.exceptions import ProxyConnectionError
-from proxywhirl.retry_policy import BackoffStrategy
+from proxywhirl.retry import BackoffStrategy
 
 
 class TestPerRequestPolicyOverride:

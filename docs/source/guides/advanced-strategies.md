@@ -1438,6 +1438,6 @@ def test_my_use_case():
 
 - {doc}`/guides/retry-failover` — Retry logic and circuit breakers
 - {doc}`/guides/async-client` — Async proxy rotation
-- {doc}`/reference/api` — API reference
+- {doc}`/reference/python-api` — API reference
 - **Integration Tests:** `tests/integration/test_rotation_strategies.py`
 - **Specs:** `.specify/specs/014-retry-failover-logic/`

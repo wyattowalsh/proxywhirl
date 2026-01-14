@@ -13,7 +13,7 @@ from pydantic import SecretStr
 
 from proxywhirl.cache import CacheManager
 from proxywhirl.cache.crypto import CredentialEncryptor
-from proxywhirl.cache_models import CacheConfig, CacheEntry, CacheTierConfig, HealthStatus
+from proxywhirl.cache.models import CacheConfig, CacheEntry, CacheTierConfig, HealthStatus
 
 
 def test_tier_promotion_on_hit(tmp_path: Path) -> None:

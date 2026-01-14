@@ -15,7 +15,16 @@ from typer.testing import CliRunner
 from proxywhirl.cli import app
 
 # Test fixtures - set explicit width to avoid CI terminal width issues
-runner = CliRunner(env={"COLUMNS": "120", "TERM": "dumb"})
+# Pin XDG paths to the repo to avoid sandbox write restrictions.
+runner = CliRunner(
+    env={
+        "COLUMNS": "120",
+        "TERM": "dumb",
+        "XDG_DATA_HOME": str(Path.cwd() / ".cli-test-data"),
+        "XDG_CONFIG_HOME": str(Path.cwd() / ".cli-test-config"),
+        "HOME": str(Path.cwd() / ".cli-test-home"),
+    }
+)
 
 
 class TestCLIHelp:

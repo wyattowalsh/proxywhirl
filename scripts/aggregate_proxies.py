@@ -34,7 +34,7 @@ async def fetch_proxy_list(source_config: Any) -> list[str]:
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             response = await client.get(str(source_config.url))
             response.raise_for_status()
-            
+
             # Parse based on format
             if source_config.format == "plain_text":
                 proxies = [
@@ -46,14 +46,16 @@ async def fetch_proxy_list(source_config: Any) -> list[str]:
                 data = response.json()
                 # Handle different JSON structures
                 if isinstance(data, list):
-                    proxies = [f"{p.get('ip')}:{p.get('port')}" for p in data if p.get('ip')]
-                elif isinstance(data, dict) and 'data' in data:
-                    proxies = [f"{p.get('ip')}:{p.get('port')}" for p in data['data'] if p.get('ip')]
+                    proxies = [f"{p.get('ip')}:{p.get('port')}" for p in data if p.get("ip")]
+                elif isinstance(data, dict) and "data" in data:
+                    proxies = [
+                        f"{p.get('ip')}:{p.get('port')}" for p in data["data"] if p.get("ip")
+                    ]
                 else:
                     proxies = []
             else:
                 proxies = []
-            
+
             logger.info(f"Fetched {len(proxies)} proxies from {source_config.url}")
             return proxies
     except Exception as e:
@@ -125,8 +127,8 @@ async def validate_proxies(
         if protocol == "https":
             continue  # Skip HTTPS, it's same as HTTP
 
-        scheme = "socks5" if protocol == "socks5" else (
-            "socks4" if protocol == "socks4" else "http"
+        scheme = (
+            "socks5" if protocol == "socks5" else ("socks4" if protocol == "socks4" else "http")
         )
 
         for addr in proxy_set:
@@ -142,7 +144,7 @@ async def validate_proxies(
     # Process in batches for progress reporting
     batch_size = 1000
     for i in range(0, total, batch_size):
-        batch = all_proxies[i:i + batch_size]
+        batch = all_proxies[i : i + batch_size]
         batch_dicts = [p[2] for p in batch]
 
         # Validate batch
@@ -184,7 +186,7 @@ def save_proxy_lists(proxies: dict[str, set[str]], output_dir: Path) -> None:
         "total_sources": len(ALL_HTTP_SOURCES) + len(ALL_SOCKS4_SOURCES) + len(ALL_SOCKS5_SOURCES),
         "counts": {protocol: len(proxy_set) for protocol, proxy_set in proxies.items()},
     }
-    
+
     # Save each protocol in TXT format
     for protocol, proxy_set in proxies.items():
         txt_file = output_dir / f"{protocol}.txt"
@@ -192,7 +194,7 @@ def save_proxy_lists(proxies: dict[str, set[str]], output_dir: Path) -> None:
             for proxy in sorted(proxy_set):
                 f.write(f"{proxy}\n")
         logger.info(f"Saved {len(proxy_set)} {protocol} proxies to {txt_file}")
-    
+
     # Save all proxies in one file
     all_txt = output_dir / "all.txt"
     with open(all_txt, "w") as f:
@@ -202,17 +204,17 @@ def save_proxy_lists(proxies: dict[str, set[str]], output_dir: Path) -> None:
                 f.write(f"{proxy}\n")
             f.write("\n")
     logger.info(f"Saved all proxies to {all_txt}")
-    
+
     # Save in JSON format
     json_file = output_dir / "proxies.json"
     json_data = {
         "metadata": metadata,
-        "proxies": {protocol: sorted(list(proxy_set)) for protocol, proxy_set in proxies.items()},
+        "proxies": {protocol: sorted(proxy_set) for protocol, proxy_set in proxies.items()},
     }
     with open(json_file, "w") as f:
         json.dump(json_data, f, indent=2)
     logger.info(f"Saved JSON to {json_file}")
-    
+
     # Save metadata
     meta_file = output_dir / "metadata.json"
     with open(meta_file, "w") as f:
@@ -252,8 +254,10 @@ async def save_to_database(proxies: dict[str, set[str]], db_path: Path) -> int:
 
         for proxy_addr in proxy_set:
             # Build full URL with protocol scheme
-            scheme = "socks5" if protocol_str == "socks5" else (
-                "socks4" if protocol_str == "socks4" else "http"
+            scheme = (
+                "socks5"
+                if protocol_str == "socks5"
+                else ("socks4" if protocol_str == "socks4" else "http")
             )
             url = f"{scheme}://{proxy_addr}"
 
@@ -274,7 +278,7 @@ async def save_to_database(proxies: dict[str, set[str]], db_path: Path) -> int:
     batch_size = 500
     total_saved = 0
     for i in range(0, len(proxy_objects), batch_size):
-        batch = proxy_objects[i:i + batch_size]
+        batch = proxy_objects[i : i + batch_size]
         await storage.save(batch)
         total_saved += len(batch)
         if (i + batch_size) % 5000 == 0:

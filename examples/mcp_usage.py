@@ -8,7 +8,17 @@ Requirements:
     - Python 3.10+ (MCP server requirement)
     - pip install "proxywhirl[mcp]"
 
-Usage:
+CLI Usage:
+    # Run the MCP server
+    proxywhirl-mcp
+
+    # With uvx (no install required)
+    uvx "proxywhirl[mcp]" proxywhirl-mcp
+
+    # With transport option
+    proxywhirl-mcp --transport http
+
+Programmatic Usage:
     python examples/mcp_usage.py
 """
 

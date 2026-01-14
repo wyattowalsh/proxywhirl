@@ -422,7 +422,7 @@ When retries are exhausted, ProxyWhirl automatically selects the best alternativ
 
 The executor scores each candidate proxy using:
 
-```python
+```text
 score = (0.7 × success_rate) + (0.3 × (1 - normalized_latency))
 ```
 

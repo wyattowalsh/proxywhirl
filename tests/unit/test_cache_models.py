@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from proxywhirl.cache_models import (
+from proxywhirl.cache.models import (
     CacheConfig,
     CacheEntry,
     CacheStatistics,

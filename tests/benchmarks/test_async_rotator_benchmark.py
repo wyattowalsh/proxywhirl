@@ -23,14 +23,13 @@ from typing import Any
 import httpx
 import pytest
 
-from proxywhirl.async_client import AsyncProxyRotator, LRUAsyncClientPool
-from proxywhirl.circuit_breaker import CircuitBreaker
-from proxywhirl.circuit_breaker_async import AsyncCircuitBreaker
+from proxywhirl.circuit_breaker import AsyncCircuitBreaker, CircuitBreaker
 from proxywhirl.models import (
     HealthStatus,
     Proxy,
     ProxyPool,
 )
+from proxywhirl.rotator import AsyncProxyRotator, LRUAsyncClientPool
 
 # ============================================================================
 # FIXTURES
@@ -402,9 +401,9 @@ class TestConcurrentAsyncThroughputStress:
         print(f"\n10k concurrent selections: {elapsed:.3f}s ({throughput:.0f} ops/sec)")
 
         # Should complete without timeout (generous limit for CI)
-        assert elapsed < 10.0, (
-            f"10,000 concurrent selections took {elapsed:.3f}s, should be <10s (no deadlocks)"
-        )
+        assert (
+            elapsed < 10.0
+        ), f"10,000 concurrent selections took {elapsed:.3f}s, should be <10s (no deadlocks)"
 
     @pytest.mark.slow
     async def test_batched_concurrent_throughput(
@@ -436,9 +435,9 @@ class TestConcurrentAsyncThroughputStress:
         assert all(isinstance(p, Proxy) for p in all_results)
 
         avg_batch_time_ms = (elapsed / num_batches) * 1000
-        assert avg_batch_time_ms < 100.0, (
-            f"Avg batch time {avg_batch_time_ms:.3f}ms, should be <100ms"
-        )
+        assert (
+            avg_batch_time_ms < 100.0
+        ), f"Avg batch time {avg_batch_time_ms:.3f}ms, should be <100ms"
 
     async def test_concurrent_circuit_breaker_checks(self) -> None:
         """
@@ -528,9 +527,9 @@ class TestLRUClientPoolStress:
         avg_time_ms = (elapsed / iterations) * 1000
 
         # Allow more time for eviction operations (involves async close)
-        assert avg_time_ms < 20.0, (
-            f"PUT with eviction averaged {avg_time_ms:.3f}ms, should be <20ms"
-        )
+        assert (
+            avg_time_ms < 20.0
+        ), f"PUT with eviction averaged {avg_time_ms:.3f}ms, should be <20ms"
 
         # Cleanup
         await pool.clear()

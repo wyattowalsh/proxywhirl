@@ -5,7 +5,7 @@ Integration tests for intelligent failover selection.
 from datetime import datetime, timezone
 
 from proxywhirl import Proxy, ProxyRotator
-from proxywhirl.retry_metrics import RetryAttempt, RetryOutcome
+from proxywhirl.retry import RetryAttempt, RetryOutcome
 
 
 class TestPerformanceBasedSelection:

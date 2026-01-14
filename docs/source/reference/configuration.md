@@ -140,7 +140,7 @@ cache_l2_max_entries = 5000
 cache_l2_dir = ".cache/proxies"
 
 # L3 Cache (SQLite)
-cache_l3_max_entries = null  # null = unlimited
+# cache_l3_max_entries = 100000  # Uncomment to set limit (default: unlimited)
 cache_l3_db_path = ".cache/db/proxywhirl.db"
 
 # Cache TTL and cleanup
@@ -733,6 +733,6 @@ rm ~/.config/proxywhirl/key.enc
 ## Related Documentation
 
 - [Getting Started](../getting-started/index.md) - Initial setup and configuration
-- [CLI Reference](./cli.md) - Command-line interface documentation
+- [CLI Reference](../guides/cli-reference.md) - Command-line interface documentation
 - [REST API Reference](./rest-api.md) - REST API configuration and deployment
 - [Caching Guide](../guides/caching.md) - Cache configuration and optimization

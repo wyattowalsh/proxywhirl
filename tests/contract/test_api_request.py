@@ -5,7 +5,7 @@ from httpx import ASGITransport, AsyncClient
 from pydantic import ValidationError
 
 from proxywhirl.api import app
-from proxywhirl.api_models import APIResponse, ProxiedRequest, ProxiedResponse
+from proxywhirl.api.models import APIResponse, ProxiedRequest, ProxiedResponse
 
 
 async def test_proxied_request_schema_valid():

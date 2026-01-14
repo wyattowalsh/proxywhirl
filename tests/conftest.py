@@ -334,7 +334,7 @@ def sample_healthy_pool() -> ProxyPool:
 @pytest.fixture
 def sample_retry_policy():
     """Sample retry policy for testing."""
-    from proxywhirl.retry_policy import BackoffStrategy, RetryPolicy
+    from proxywhirl.retry import BackoffStrategy, RetryPolicy
 
     return RetryPolicy(
         max_attempts=3,

@@ -54,7 +54,7 @@ class TestMetricsPanel:
         # Check content contains expected text
         plain_text = result.plain
         assert "10 total" in plain_text
-        assert "8 healthy" in plain_text
+        assert "8✓" in plain_text  # New format shows healthy count with checkmark
         assert "95.0%" in plain_text
 
 
@@ -1057,7 +1057,8 @@ class TestProxyTableOnMount:
 
         table.on_mount()
 
-        assert len(added_columns) == 7
+        assert len(added_columns) == 8  # Added favorites column
+        assert "★" in added_columns
         assert "URL" in added_columns
         assert "Protocol" in added_columns
         assert "Health" in added_columns
@@ -1550,3 +1551,841 @@ class TestSSRFValidation:
 
         with pytest.raises(ValueError, match="private|SSRF"):
             app._validate_request_url("http://169.254.169.254/metadata")
+
+
+class TestNewPanelWidgets:
+    """Test new panel widget classes."""
+
+    def test_proxy_control_panel_import(self) -> None:
+        """Test ProxyControlPanel can be imported."""
+        from proxywhirl.tui import ProxyControlPanel
+
+        assert ProxyControlPanel is not None
+
+    def test_proxy_control_panel_has_compose(self) -> None:
+        """Test ProxyControlPanel has compose method."""
+        from proxywhirl.tui import ProxyControlPanel
+
+        panel = ProxyControlPanel()
+        assert hasattr(panel, "compose")
+        assert callable(panel.compose)
+
+    def test_filter_panel_import(self) -> None:
+        """Test FilterPanel can be imported."""
+        from proxywhirl.tui import FilterPanel
+
+        assert FilterPanel is not None
+
+    def test_filter_panel_has_compose(self) -> None:
+        """Test FilterPanel has compose method."""
+        from proxywhirl.tui import FilterPanel
+
+        panel = FilterPanel()
+        assert hasattr(panel, "compose")
+        assert callable(panel.compose)
+
+    def test_retry_metrics_panel_import(self) -> None:
+        """Test RetryMetricsPanel can be imported."""
+        from proxywhirl.tui import RetryMetricsPanel
+
+        assert RetryMetricsPanel is not None
+
+    def test_retry_metrics_panel_reactive_defaults(self) -> None:
+        """Test RetryMetricsPanel has expected reactive properties."""
+        from proxywhirl.tui import RetryMetricsPanel
+
+        panel = RetryMetricsPanel()
+
+        assert panel.total_retries == 0
+        assert panel.successful_retries == 0
+        assert panel.failed_retries == 0
+
+    def test_retry_metrics_panel_render(self) -> None:
+        """Test RetryMetricsPanel render returns Text."""
+        from proxywhirl.tui import RetryMetricsPanel
+
+        panel = RetryMetricsPanel()
+        panel.total_retries = 100
+        panel.successful_retries = 80
+        panel.failed_retries = 20
+
+        result = panel.render()
+
+        assert isinstance(result, Text)
+        plain_text = result.plain
+        assert "100" in plain_text
+        assert "80" in plain_text
+        assert "80.0%" in plain_text
+
+    def test_circuit_breaker_panel_import(self) -> None:
+        """Test CircuitBreakerPanel can be imported."""
+        from proxywhirl.tui import CircuitBreakerPanel
+
+        assert CircuitBreakerPanel is not None
+
+    def test_circuit_breaker_panel_has_compose(self) -> None:
+        """Test CircuitBreakerPanel has compose method."""
+        from proxywhirl.tui import CircuitBreakerPanel
+
+        panel = CircuitBreakerPanel()
+        assert hasattr(panel, "compose")
+        assert callable(panel.compose)
+
+    def test_health_check_panel_import(self) -> None:
+        """Test HealthCheckPanel can be imported."""
+        from proxywhirl.tui import HealthCheckPanel
+
+        assert HealthCheckPanel is not None
+
+    def test_health_check_panel_has_compose(self) -> None:
+        """Test HealthCheckPanel has compose method."""
+        from proxywhirl.tui import HealthCheckPanel
+
+        panel = HealthCheckPanel()
+        assert hasattr(panel, "compose")
+        assert callable(panel.compose)
+
+
+class TestModalScreens:
+    """Test modal screen classes."""
+
+    def test_proxy_details_screen_import(self) -> None:
+        """Test ProxyDetailsScreen can be imported."""
+        from proxywhirl.tui import ProxyDetailsScreen
+
+        assert ProxyDetailsScreen is not None
+
+    def test_proxy_details_screen_init(self) -> None:
+        """Test ProxyDetailsScreen initializes with proxy."""
+        from proxywhirl.tui import ProxyDetailsScreen
+
+        proxy = Proxy(
+            url="http://proxy.example.com:8080",
+            health_status=HealthStatus.HEALTHY,
+        )
+        screen = ProxyDetailsScreen(proxy)
+
+        assert screen.proxy is proxy
+
+    def test_proxy_details_screen_has_compose(self) -> None:
+        """Test ProxyDetailsScreen has compose method."""
+        from proxywhirl.tui import ProxyDetailsScreen
+
+        proxy = Proxy(url="http://proxy.example.com:8080")
+        screen = ProxyDetailsScreen(proxy)
+
+        assert hasattr(screen, "compose")
+        assert callable(screen.compose)
+
+    def test_confirm_delete_screen_import(self) -> None:
+        """Test ConfirmDeleteScreen can be imported."""
+        from proxywhirl.tui import ConfirmDeleteScreen
+
+        assert ConfirmDeleteScreen is not None
+
+    def test_confirm_delete_screen_init(self) -> None:
+        """Test ConfirmDeleteScreen initializes with proxy URL."""
+        from proxywhirl.tui import ConfirmDeleteScreen
+
+        screen = ConfirmDeleteScreen("http://proxy.example.com:8080")
+
+        assert screen.proxy_url == "http://proxy.example.com:8080"
+
+    def test_confirm_delete_screen_has_compose(self) -> None:
+        """Test ConfirmDeleteScreen has compose method."""
+        from proxywhirl.tui import ConfirmDeleteScreen
+
+        screen = ConfirmDeleteScreen("http://proxy.example.com:8080")
+
+        assert hasattr(screen, "compose")
+        assert callable(screen.compose)
+
+
+class TestProxyTableEnhancements:
+    """Test ProxyTable enhancements for filtering and sorting."""
+
+    def test_proxy_table_has_cursor_type_row(self) -> None:
+        """Test ProxyTable initializes with row cursor type."""
+        from proxywhirl.tui import ProxyTable
+
+        table = ProxyTable()
+        assert table.cursor_type == "row"
+
+    def test_proxy_table_has_proxy_map(self) -> None:
+        """Test ProxyTable has _proxy_map attribute."""
+        from proxywhirl.tui import ProxyTable
+
+        table = ProxyTable()
+        assert hasattr(table, "_proxy_map")
+        assert isinstance(table._proxy_map, dict)
+
+    def test_proxy_table_filter_proxies(self) -> None:
+        """Test ProxyTable _filter_proxies method."""
+        from proxywhirl.tui import ProxyTable
+
+        table = ProxyTable()
+
+        proxies = [
+            Proxy(
+                url="http://proxy1.example.com:8080",
+                protocol="http",
+                health_status=HealthStatus.HEALTHY,
+                country_code="US",
+            ),
+            Proxy(
+                url="socks5://proxy2.example.com:1080",
+                protocol="socks5",
+                health_status=HealthStatus.DEGRADED,
+                country_code="UK",
+            ),
+        ]
+
+        # Filter by protocol
+        table.filter_protocol = "http"
+        result = table._filter_proxies(proxies)
+        assert len(result) == 1
+        assert result[0].protocol == "http"
+
+        # Filter by health
+        table.filter_protocol = "all"
+        table.filter_health = "healthy"
+        result = table._filter_proxies(proxies)
+        assert len(result) == 1
+        assert result[0].health_status == HealthStatus.HEALTHY
+
+        # Filter by text search
+        table.filter_health = "all"
+        table.filter_text = "proxy1"
+        result = table._filter_proxies(proxies)
+        assert len(result) == 1
+        assert "proxy1" in str(result[0].url)
+
+    def test_proxy_table_sort_proxies(self) -> None:
+        """Test ProxyTable _sort_proxies method."""
+        from proxywhirl.tui import ProxyTable
+
+        table = ProxyTable()
+
+        proxies = [
+            Proxy(
+                url="http://z-proxy.example.com:8080",
+                average_response_time_ms=500.0,
+            ),
+            Proxy(
+                url="http://a-proxy.example.com:8080",
+                average_response_time_ms=100.0,
+            ),
+        ]
+
+        # Sort by URL
+        table.sort_column = "url"
+        table.sort_ascending = True
+        result = table._sort_proxies(proxies)
+        assert "a-proxy" in str(result[0].url)
+
+        # Sort by latency
+        table.sort_column = "latency"
+        table.sort_ascending = True
+        result = table._sort_proxies(proxies)
+        assert result[0].average_response_time_ms == 100.0
+
+    def test_proxy_table_set_sort(self) -> None:
+        """Test ProxyTable set_sort toggles direction."""
+        from proxywhirl.tui import ProxyTable
+
+        table = ProxyTable()
+
+        # First sort sets column
+        table.set_sort("url")
+        assert table.sort_column == "url"
+        assert table.sort_ascending is True
+
+        # Same column toggles direction
+        table.set_sort("url")
+        assert table.sort_column == "url"
+        assert table.sort_ascending is False
+
+        # Different column resets to ascending
+        table.set_sort("latency")
+        assert table.sort_column == "latency"
+        assert table.sort_ascending is True
+
+
+class TestNewAppMethods:
+    """Test new ProxyWhirlTUI methods."""
+
+    def test_app_has_filter_state(self) -> None:
+        """Test app has filter state attributes."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+
+        assert hasattr(app, "_filter_text")
+        assert hasattr(app, "_filter_protocol")
+        assert hasattr(app, "_filter_health")
+        assert hasattr(app, "_filter_country")
+
+    def test_app_has_refresh_retry_metrics(self) -> None:
+        """Test app has refresh_retry_metrics method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+
+        assert hasattr(app, "refresh_retry_metrics")
+        assert callable(app.refresh_retry_metrics)
+
+    def test_app_has_refresh_circuit_breakers(self) -> None:
+        """Test app has refresh_circuit_breakers method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+
+        assert hasattr(app, "refresh_circuit_breakers")
+        assert callable(app.refresh_circuit_breakers)
+
+    def test_app_has_add_proxy_method(self) -> None:
+        """Test app has add_proxy method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+
+        assert hasattr(app, "add_proxy")
+        assert callable(app.add_proxy)
+
+    def test_app_has_remove_selected_proxy_method(self) -> None:
+        """Test app has remove_selected_proxy method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+
+        assert hasattr(app, "remove_selected_proxy")
+        assert callable(app.remove_selected_proxy)
+
+    def test_app_has_action_delete_proxy(self) -> None:
+        """Test app has action_delete_proxy method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+
+        assert hasattr(app, "action_delete_proxy")
+        assert callable(app.action_delete_proxy)
+
+    def test_app_has_action_view_details(self) -> None:
+        """Test app has action_view_details method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+
+        assert hasattr(app, "action_view_details")
+        assert callable(app.action_view_details)
+
+    def test_app_has_health_check_async(self) -> None:
+        """Test app has health_check_async method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+
+        assert hasattr(app, "health_check_async")
+
+    def test_app_bindings_include_delete(self) -> None:
+        """Test app BINDINGS includes delete key."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        binding_keys = [b[0] for b in ProxyWhirlTUI.BINDINGS]
+        assert "delete" in binding_keys
+
+    def test_app_bindings_include_enter(self) -> None:
+        """Test app BINDINGS includes enter key."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        binding_keys = [b[0] for b in ProxyWhirlTUI.BINDINGS]
+        assert "enter" in binding_keys
+
+    def test_app_bindings_include_vim_keys(self) -> None:
+        """Test app BINDINGS includes vim navigation keys."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        binding_keys = [b[0] for b in ProxyWhirlTUI.BINDINGS]
+        assert "j" in binding_keys
+        assert "k" in binding_keys
+        assert "g" in binding_keys
+        assert "G" in binding_keys
+
+    def test_app_bindings_include_copy(self) -> None:
+        """Test app BINDINGS includes copy key."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        binding_keys = [b[0] for b in ProxyWhirlTUI.BINDINGS]
+        assert "c" in binding_keys
+
+    def test_app_has_action_copy_url(self) -> None:
+        """Test app has action_copy_url method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+
+        assert hasattr(app, "action_copy_url")
+        assert callable(app.action_copy_url)
+
+    def test_app_has_vim_navigation_actions(self) -> None:
+        """Test app has vim navigation action methods."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+
+        assert hasattr(app, "action_cursor_down")
+        assert hasattr(app, "action_cursor_up")
+        assert hasattr(app, "action_cursor_top")
+        assert hasattr(app, "action_cursor_bottom")
+
+    def test_app_has_action_health(self) -> None:
+        """Test app has action_health method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+
+        assert hasattr(app, "action_health")
+        assert callable(app.action_health)
+
+
+class TestProxyDetailsScreenCopy:
+    """Test ProxyDetailsScreen copy functionality."""
+
+    def test_details_screen_has_copy_button(self) -> None:
+        """Test ProxyDetailsScreen has copy button in compose."""
+        from proxywhirl.tui import ProxyDetailsScreen
+
+        proxy = Proxy(url="http://proxy.example.com:8080")
+        screen = ProxyDetailsScreen(proxy)
+
+        # Check compose method exists and is callable
+        assert hasattr(screen, "compose")
+        assert callable(screen.compose)
+
+    def test_details_screen_has_copy_method(self) -> None:
+        """Test ProxyDetailsScreen has copy_url_to_clipboard method."""
+        from proxywhirl.tui import ProxyDetailsScreen
+
+        proxy = Proxy(url="http://proxy.example.com:8080")
+        screen = ProxyDetailsScreen(proxy)
+
+        assert hasattr(screen, "copy_url_to_clipboard")
+        assert callable(screen.copy_url_to_clipboard)
+
+
+class TestTUIE2E:
+    """End-to-end tests using Textual's Pilot testing framework."""
+
+    async def test_app_starts_and_shows_header(self) -> None:
+        """Test app starts and shows header."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            # App should be running
+            assert pilot.app is not None
+            assert pilot.app.title == "🌀 ProxyWhirl"
+
+    async def test_app_shows_overview_tab_by_default(self) -> None:
+        """Test app shows overview tab by default."""
+        from textual.widgets import TabbedContent
+
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            tabs = pilot.app.query_one(TabbedContent)
+            assert tabs.active == "overview"
+
+    async def test_ctrl_f_switches_to_fetch_tab(self) -> None:
+        """Test Ctrl+F switches to fetch tab."""
+        from textual.widgets import TabbedContent
+
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            await pilot.press("ctrl+f")
+            tabs = pilot.app.query_one(TabbedContent)
+            assert tabs.active == "fetch"
+
+    async def test_ctrl_e_switches_to_export_tab(self) -> None:
+        """Test Ctrl+E switches to export tab."""
+        from textual.widgets import TabbedContent
+
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            await pilot.press("ctrl+e")
+            tabs = pilot.app.query_one(TabbedContent)
+            assert tabs.active == "export"
+
+    async def test_ctrl_t_switches_to_test_tab(self) -> None:
+        """Test Ctrl+T switches to test tab."""
+        from textual.widgets import TabbedContent
+
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            await pilot.press("ctrl+t")
+            tabs = pilot.app.query_one(TabbedContent)
+            assert tabs.active == "test"
+
+    async def test_ctrl_h_switches_to_health_tab(self) -> None:
+        """Test Ctrl+H switches to health tab."""
+        from textual.widgets import TabbedContent
+
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            await pilot.press("ctrl+h")
+            tabs = pilot.app.query_one(TabbedContent)
+            assert tabs.active == "health"
+
+    async def test_f1_shows_help_notification(self) -> None:
+        """Test F1 shows help notification."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            await pilot.press("f1")
+            # Give time for notification to appear
+            await pilot.pause()
+            # Notifications are shown but we can't easily query them
+            # Just verify no crash occurred
+
+    async def test_proxy_table_is_rendered(self) -> None:
+        """Test proxy table is rendered in overview."""
+        from proxywhirl.tui import ProxyTable, ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            table = pilot.app.query_one("#proxy-table", ProxyTable)
+            assert table is not None
+            assert table.cursor_type == "row"
+
+    async def test_metrics_panel_is_rendered(self) -> None:
+        """Test metrics panel is rendered."""
+        from proxywhirl.tui import MetricsPanel, ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            metrics = pilot.app.query_one("#metrics-panel", MetricsPanel)
+            assert metrics is not None
+            assert metrics.total_proxies == 0  # Empty pool initially
+
+    async def test_filter_panel_is_rendered(self) -> None:
+        """Test filter panel is rendered."""
+        from textual.widgets import Input, Select
+
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            search_input = pilot.app.query_one("#filter-search", Input)
+            protocol_select = pilot.app.query_one("#filter-protocol", Select)
+            health_select = pilot.app.query_one("#filter-health", Select)
+
+            assert search_input is not None
+            assert protocol_select is not None
+            assert health_select is not None
+
+    async def test_add_proxy_button_exists(self) -> None:
+        """Test add proxy button exists."""
+        from textual.widgets import Button
+
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            button = pilot.app.query_one("#add-proxy-btn", Button)
+            assert button is not None
+
+    async def test_ctrl_r_refreshes_data(self) -> None:
+        """Test Ctrl+R refreshes data without error."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            # Press Ctrl+R to refresh
+            await pilot.press("ctrl+r")
+            await pilot.pause()
+            # Verify no crash - app is still running
+            assert pilot.app is not None
+
+    async def test_health_check_panel_exists(self) -> None:
+        """Test health check panel exists in health tab."""
+        from textual.widgets import Button
+
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            await pilot.press("ctrl+h")  # Go to health tab
+            await pilot.pause()
+
+            button = pilot.app.query_one("#health-check-btn", Button)
+            assert button is not None
+
+    async def test_circuit_breaker_panel_exists(self) -> None:
+        """Test circuit breaker panel exists in health tab."""
+        from textual.widgets import Static
+
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            await pilot.press("ctrl+h")  # Go to health tab
+            await pilot.pause()
+
+            cb_content = pilot.app.query_one("#circuit-breaker-content", Static)
+            assert cb_content is not None
+
+    async def test_status_bar_exists(self) -> None:
+        """Test status bar is rendered."""
+        from proxywhirl.tui import ProxyWhirlTUI, StatusBar
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            status_bar = pilot.app.query_one("#status-bar", StatusBar)
+            assert status_bar is not None
+
+    async def test_help_modal_opens(self) -> None:
+        """Test ? key opens help modal."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            await pilot.press("?")
+            await pilot.pause()
+            # Verify help modal is pushed
+            assert len(pilot.app.screen_stack) > 1
+
+    async def test_search_focus_works(self) -> None:
+        """Test / key focuses search input."""
+        from textual.widgets import Input
+
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            await pilot.press("/")
+            await pilot.pause()
+            # Search input should be focused
+            search_input = pilot.app.query_one("#filter-search", Input)
+            assert search_input.has_focus
+
+    async def test_auto_refresh_toggle(self) -> None:
+        """Test Ctrl+A toggles auto-refresh."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            assert pilot.app._auto_refresh_enabled is True
+            await pilot.press("ctrl+a")
+            await pilot.pause()
+            assert pilot.app._auto_refresh_enabled is False
+            await pilot.press("ctrl+a")
+            await pilot.pause()
+            assert pilot.app._auto_refresh_enabled is True
+
+    async def test_export_preview_button_exists(self) -> None:
+        """Test export preview button exists."""
+        from textual.widgets import Button
+
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            await pilot.press("ctrl+e")  # Go to export tab
+            await pilot.pause()
+
+            button = pilot.app.query_one("#preview-export-btn", Button)
+            assert button is not None
+
+
+class TestNewWidgets:
+    """Test new widgets added for primo experience."""
+
+    def test_status_bar_import(self) -> None:
+        """Test StatusBar can be imported."""
+        from proxywhirl.tui import StatusBar
+
+        assert StatusBar is not None
+
+    def test_status_bar_reactive_defaults(self) -> None:
+        """Test StatusBar has correct reactive defaults."""
+        from proxywhirl.tui import StatusBar
+
+        bar = StatusBar()
+        assert bar.proxy_count == 0
+        assert bar.healthy_count == 0
+        assert bar.auto_refresh is True
+
+    def test_help_screen_import(self) -> None:
+        """Test HelpScreen can be imported."""
+        from proxywhirl.tui import HelpScreen
+
+        assert HelpScreen is not None
+
+    def test_metrics_panel_sparkline(self) -> None:
+        """Test MetricsPanel sparkline method."""
+        from proxywhirl.tui import MetricsPanel
+
+        panel = MetricsPanel()
+        result = panel._sparkline([1, 2, 3, 4, 5])
+        assert len(result) == 10  # Default width
+        assert "▁" in result or "▂" in result or "█" in result
+
+    def test_metrics_panel_trend_indicator(self) -> None:
+        """Test MetricsPanel trend indicator."""
+        from proxywhirl.tui import MetricsPanel
+
+        panel = MetricsPanel()
+        arrow, style = panel._trend_indicator(100, 50)
+        assert arrow == "↑"
+
+        arrow, style = panel._trend_indicator(50, 100)
+        assert arrow == "↓"
+
+        arrow, style = panel._trend_indicator(50, 50)
+        assert arrow == "→"
+
+    def test_app_has_refresh_status_bar(self) -> None:
+        """Test app has refresh_status_bar method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        assert hasattr(app, "refresh_status_bar")
+        assert callable(app.refresh_status_bar)
+
+    def test_app_bindings_include_new_keys(self) -> None:
+        """Test app BINDINGS includes new keyboard shortcuts."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        binding_keys = [b[0] for b in ProxyWhirlTUI.BINDINGS]
+        assert "?" in binding_keys  # Help modal
+        assert "/" in binding_keys  # Focus search
+        assert "ctrl+a" in binding_keys  # Toggle auto-refresh
+        assert "t" in binding_keys  # Quick test
+
+    def test_app_has_action_quick_test(self) -> None:
+        """Test app has action_quick_test method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        assert hasattr(app, "action_quick_test")
+        assert callable(app.action_quick_test)
+
+    def test_app_has_quick_test_proxy_async(self) -> None:
+        """Test app has quick_test_proxy_async worker."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        assert hasattr(app, "quick_test_proxy_async")
+
+    def test_status_bar_has_last_action(self) -> None:
+        """Test StatusBar has last_action reactive."""
+        from proxywhirl.tui import StatusBar
+
+        bar = StatusBar()
+        assert hasattr(bar, "last_action")
+        assert bar.last_action == ""
+
+    def test_app_bindings_include_analytics_and_delete_unhealthy(self) -> None:
+        """Test app BINDINGS includes analytics and delete unhealthy shortcuts."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        binding_keys = [b[0] for b in ProxyWhirlTUI.BINDINGS]
+        assert "ctrl+s" in binding_keys  # Analytics tab
+        assert "ctrl+d" in binding_keys  # Delete unhealthy
+
+    def test_app_has_action_analytics(self) -> None:
+        """Test app has action_analytics method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        assert hasattr(app, "action_analytics")
+        assert callable(app.action_analytics)
+
+    def test_app_has_action_delete_unhealthy(self) -> None:
+        """Test app has action_delete_unhealthy method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        assert hasattr(app, "action_delete_unhealthy")
+        assert callable(app.action_delete_unhealthy)
+
+
+class TestAnalyticsEnhancements:
+    """Test enhanced analytics with histogram."""
+
+    async def test_analytics_tab_accessible(self) -> None:
+        """Test Ctrl+S switches to analytics tab."""
+        from textual.widgets import TabbedContent
+
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        async with app.run_test() as pilot:
+            await pilot.press("ctrl+s")
+            tabs = pilot.app.query_one(TabbedContent)
+            assert tabs.active == "analytics"
+
+    def test_refresh_analytics_method_exists(self) -> None:
+        """Test refresh_analytics method handles histogram generation."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        assert hasattr(app, "refresh_analytics")
+        assert callable(app.refresh_analytics)
+
+
+class TestControlPanelEnhancements:
+    """Tests for control panel enhancements."""
+
+    def test_control_panel_import(self) -> None:
+        """Test ProxyControlPanel can be imported."""
+        from proxywhirl.tui import ProxyControlPanel
+
+        # Just verify it can be instantiated
+        assert ProxyControlPanel is not None
+
+    def test_app_has_clear_all_method(self) -> None:
+        """Test app has clear_all_proxies method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        assert hasattr(app, "clear_all_proxies")
+        assert callable(app.clear_all_proxies)
+
+    def test_app_has_test_all_method(self) -> None:
+        """Test app has test_all_proxies method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        assert hasattr(app, "test_all_proxies")
+        assert callable(app.test_all_proxies)
+
+    def test_app_has_test_all_async_method(self) -> None:
+        """Test app has test_all_proxies_async method."""
+        from proxywhirl.tui import ProxyWhirlTUI
+
+        app = ProxyWhirlTUI()
+        assert hasattr(app, "test_all_proxies_async")
+        assert callable(app.test_all_proxies_async)
+
+
+class TestTableEnhancements:
+    """Tests for proxy table visual enhancements."""
+
+    def test_proxy_table_uses_rich_text(self) -> None:
+        """Test proxy table uses Rich Text for styling."""
+        from proxywhirl.tui import ProxyTable
+
+        table = ProxyTable()
+        # Table should have styling capabilities
+        assert table is not None

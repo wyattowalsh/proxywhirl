@@ -9,7 +9,7 @@ from pathlib import Path
 
 from pydantic import SecretStr
 
-from proxywhirl.cache_models import CacheConfig, CacheEntry, HealthStatus
+from proxywhirl.cache.models import CacheConfig, CacheEntry, HealthStatus
 
 
 def test_persistence_across_restarts(tmp_path: Path) -> None:

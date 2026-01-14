@@ -1165,7 +1165,7 @@ def stats(
     """
     from datetime import datetime, timedelta, timezone
 
-    from proxywhirl.retry_metrics import RetryMetrics
+    from proxywhirl.retry import RetryMetrics
 
     command_ctx = get_context()
 
@@ -1659,6 +1659,43 @@ def sources(
 
         command_ctx.console.print(f"\n[bold]Total: {len(ALL_SOURCES)} sources[/bold]")
         command_ctx.console.print("\n[dim]Use --validate to check source health[/dim]")
+
+
+@app.command()
+def tui() -> None:
+    """Launch the interactive Terminal User Interface (TUI).
+
+    The TUI provides a full-featured dashboard for managing proxies with:
+      - Real-time metrics and sparkline visualizations
+      - Proxy table with filtering, sorting, and health status
+      - Manual proxy management (add/remove)
+      - Health checks with progress bars
+      - Circuit breaker monitoring
+      - Request testing with multiple HTTP methods
+      - Export functionality with format preview
+
+    Keyboard shortcuts:
+      j/k     - Navigate up/down
+      g/G     - Jump to first/last
+      Enter   - View proxy details
+      c       - Copy proxy URL
+      t       - Quick test proxy
+      /       - Focus search
+      ?       - Show help modal
+      Ctrl+A  - Toggle auto-refresh
+      Ctrl+R  - Refresh all data
+      Ctrl+F  - Fetch tab
+      Ctrl+E  - Export tab
+      Ctrl+T  - Test tab
+      Ctrl+H  - Health tab
+
+    Examples:
+      proxywhirl tui
+    """
+    from proxywhirl.tui import run_tui
+
+    # Run the TUI (bypasses normal output formatting)
+    run_tui()
 
 
 if __name__ == "__main__":

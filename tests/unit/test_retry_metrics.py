@@ -1,11 +1,15 @@
 """
 Unit tests for RetryMetrics.
+
+Covers both sync and async usage patterns.
 """
 
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from proxywhirl.circuit_breaker import CircuitBreakerState
-from proxywhirl.retry_metrics import (
+from proxywhirl.retry import (
     CircuitBreakerEvent,
     RetryAttempt,
     RetryMetrics,
@@ -403,3 +407,94 @@ class TestRetryMetricsByProxy:
 
         # Should show 3 circuit breaker opens
         assert stats["proxy-1"]["circuit_breaker_opens"] == 3
+
+
+# ==============================================================================
+# Async Context Usage Tests
+# ==============================================================================
+
+
+class TestRetryMetricsAsyncUsage:
+    """Test RetryMetrics usage in async contexts with asyncio.to_thread.
+
+    These tests verify that RetryMetrics can be safely used from async code
+    via asyncio.to_thread, ensuring threading.Lock doesn't block the event loop.
+    """
+
+    @pytest.fixture
+    def metrics(self) -> RetryMetrics:
+        """Create RetryMetrics instance for testing."""
+        return RetryMetrics()
+
+    @pytest.fixture
+    def sample_attempt(self) -> RetryAttempt:
+        """Create sample retry attempt for testing."""
+        return RetryAttempt(
+            request_id="test-request-1",
+            attempt_number=0,
+            proxy_id="proxy-123",
+            timestamp=datetime.now(timezone.utc),
+            outcome=RetryOutcome.SUCCESS,
+            delay_before=0.1,
+            latency=0.5,
+        )
+
+    async def test_get_summary_in_async_context(
+        self, metrics: RetryMetrics, sample_attempt: RetryAttempt
+    ) -> None:
+        """Test get_summary() called from async context using asyncio.to_thread."""
+        import asyncio
+
+        # Record some attempts
+        for i in range(5):
+            attempt = RetryAttempt(
+                request_id=f"request-{i}",
+                attempt_number=0,
+                proxy_id="proxy-1",
+                timestamp=datetime.now(timezone.utc),
+                outcome=RetryOutcome.SUCCESS,
+                delay_before=0.1,
+                latency=0.5,
+            )
+            metrics.record_attempt(attempt)
+
+        # Call get_summary() via asyncio.to_thread to avoid blocking event loop
+        summary = await asyncio.to_thread(metrics.get_summary)
+
+        assert summary["total_retries"] == 5
+        assert summary["retention_hours"] == 24
+        assert "success_by_attempt" in summary
+        assert "circuit_breaker_events_count" in summary
+
+    async def test_concurrent_async_calls(self, metrics: RetryMetrics) -> None:
+        """Test multiple concurrent async calls don't deadlock or block event loop."""
+        import asyncio
+
+        # Record some test data
+        for i in range(10):
+            attempt = RetryAttempt(
+                request_id=f"request-{i}",
+                attempt_number=0,
+                proxy_id=f"proxy-{i % 3}",
+                timestamp=datetime.now(timezone.utc),
+                outcome=RetryOutcome.SUCCESS,
+                delay_before=0.1,
+                latency=0.5,
+            )
+            metrics.record_attempt(attempt)
+
+        # Run multiple async operations concurrently
+        results = await asyncio.gather(
+            asyncio.to_thread(metrics.get_summary),
+            asyncio.to_thread(metrics.get_timeseries, hours=24),
+            asyncio.to_thread(metrics.get_by_proxy, hours=24),
+            asyncio.to_thread(metrics.get_summary),  # Duplicate call
+        )
+
+        # Verify all calls completed successfully
+        summary1, timeseries, by_proxy, summary2 = results
+
+        assert summary1 == summary2  # Should be consistent
+        assert summary1["total_retries"] == 10
+        assert isinstance(timeseries, list)
+        assert len(by_proxy) == 3  # 3 unique proxies

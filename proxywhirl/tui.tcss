@@ -32,6 +32,16 @@ Footer {
     padding: 1;
 }
 
+/* Status Bar */
+#status-bar {
+    background: $bg-widget;
+    color: $text;
+    height: 1;
+    dock: bottom;
+    padding: 0 1;
+    border-top: solid $primary;
+}
+
 /* Panels */
 .left-panel {
     width: 35%;
@@ -58,11 +68,119 @@ Vertical, Horizontal, Container {
 #export-container,
 #strategy-container,
 #request-container,
-#analytics-container {
+#analytics-container,
+#control-container,
+#circuit-breaker-container,
+#health-check-container {
     background: $bg-widget;
     border: round $primary;
     padding: 2;
     height: auto;
+}
+
+#filter-container {
+    background: $bg-widget;
+    border: round $border;
+    padding: 1;
+    height: auto;
+    margin-bottom: 1;
+}
+
+#filter-container Input {
+    width: 30%;
+}
+
+#filter-container Select {
+    width: 20%;
+}
+
+/* Modal styles */
+#details-modal,
+#confirm-modal,
+#help-modal {
+    background: $bg-panel;
+    border: thick $primary;
+    padding: 2;
+    width: 60;
+    height: auto;
+    max-height: 80%;
+}
+
+#help-modal {
+    width: 70;
+    height: 80%;
+}
+
+#help-scroll {
+    height: 100%;
+    overflow-y: auto;
+    margin: 1 0;
+}
+
+#help-content {
+    background: $bg-widget;
+    padding: 2;
+}
+
+#details-content,
+#confirm-message {
+    background: $bg-widget;
+    padding: 2;
+    margin: 1;
+}
+
+/* Retry metrics panel */
+#retry-metrics-panel {
+    background: $bg-widget;
+    border: round $warning;
+    padding: 2;
+    height: 14;
+    margin-bottom: 1;
+}
+
+/* Circuit breaker content */
+#circuit-breaker-content {
+    background: $bg-dark;
+    padding: 1;
+    min-height: 10;
+    max-height: 30;
+    overflow-y: auto;
+}
+
+/* Health check progress */
+#health-progress {
+    margin: 1 0;
+}
+
+/* TextArea for request body */
+#test-body {
+    background: $bg-dark;
+    border: tall $border;
+    height: 8;
+    margin: 1 0;
+}
+
+#test-body:focus {
+    border: tall $primary;
+}
+
+/* Input labels */
+.input-label {
+    color: $text-dim;
+    padding: 0 1;
+    margin-top: 1;
+}
+
+/* Button variants */
+Button.variant-warning {
+    background: $warning;
+    color: $bg-dark;
+    border: tall $warning;
+    text-style: bold;
+}
+
+Button.variant-warning:hover {
+    background: #ffcc33;
 }
 
 /* Labels */
@@ -281,4 +399,31 @@ Toast.-warning {
 
 Toast.-error {
     border: thick $error;
+}
+
+/* Checkbox styling */
+Checkbox {
+    background: transparent;
+    padding: 0 1;
+}
+
+Checkbox:focus {
+    border: tall $primary;
+}
+
+/* Enhanced Header */
+Header {
+    dock: top;
+    height: 3;
+    content-align: center middle;
+}
+
+/* Favorite column */
+DataTable > .datatable--cursor {
+    background: $primary 30%;
+}
+
+/* Make selected row more prominent */
+DataTable:focus > .datatable--cursor {
+    background: $primary 50%;
 }

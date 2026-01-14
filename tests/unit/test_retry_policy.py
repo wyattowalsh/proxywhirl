@@ -4,7 +4,7 @@ Unit tests for RetryPolicy.
 
 import pytest
 
-from proxywhirl.retry_policy import BackoffStrategy, RetryPolicy
+from proxywhirl.retry import BackoffStrategy, RetryPolicy
 
 
 class TestRetryPolicyValidation:

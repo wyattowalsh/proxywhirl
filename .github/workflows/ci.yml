@@ -243,3 +243,42 @@ jobs:
         with:
           name: python-package-distributions
           path: dist/
+
+  docs:
+    name: Documentation Build & Linkcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[docs]"
+
+      - name: Build documentation
+        run: |
+          cd docs
+          uv run sphinx-build -W --keep-going -b html source build/html
+
+      - name: Check links
+        run: |
+          cd docs
+          uv run sphinx-build -b linkcheck source build/linkcheck
+
+      - name: Upload linkcheck report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linkcheck-report
+          path: docs/build/linkcheck/output.*

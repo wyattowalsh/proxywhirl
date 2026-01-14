@@ -4,9 +4,8 @@ Tests verify that circuit breakers are properly cleaned up when proxies are remo
 preventing unbounded memory growth.
 """
 
-from proxywhirl.async_client import AsyncProxyRotator
 from proxywhirl.models import HealthStatus, Proxy
-from proxywhirl.rotator import ProxyRotator
+from proxywhirl.rotator import AsyncProxyRotator, ProxyRotator
 
 
 class TestCircuitBreakerCleanup:

@@ -94,7 +94,9 @@ if DOCSEARCH_ENABLED:
 html_theme_options = {
     "accent_color": "violet",
     "color_mode": "auto",
-    "dark_code": True,
+    "dark_code": False,
+    "globaltoc_expand_depth": 2,
+    "toctree_titles_only": False,
     "github_url": "https://github.com/wyattowalsh/proxywhirl",
     "nav_links": [
         {"title": "Quickstart", "url": "getting-started/index"},
@@ -102,7 +104,16 @@ html_theme_options = {
         {"title": "API", "url": "reference/index"},
         {"title": "Project", "url": "project/index"},
     ],
-    "announcement": "ProxyWhirl 1.0 ships intelligent rotation, REST automation, and brand-new docs!",
+    "og_image_url": "https://proxywhirl.readthedocs.io/_static/og-image.png",
+    "twitter_creator": "@wyaborern",
+    "twitter_site": "@wyaborern",
+    "light_logo": "_static/logo.svg",
+    "dark_logo": "_static/logo.svg",
+    "announcement": (
+        '<span style="background: linear-gradient(90deg, #6d64ff, #c86bff); '
+        '-webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 600;">'
+        "🚀 ProxyWhirl 1.0</span> — Intelligent rotation, REST API, and brand-new docs!"
+    ),
 }
 
 if DOCSEARCH_ENABLED:
@@ -126,6 +137,9 @@ nitpicky = True
 nitpick_ignore = [
     ("py:class", "Proxy"),
     ("py:class", "ProxyRotator"),
+    ("py:class", "TierType"),
+    ("py:class", "Path"),
+    ("py:class", "SecretStr"),
 ]
 
 nitpick_ignore_regex = [
@@ -133,6 +147,15 @@ nitpick_ignore_regex = [
 ]
 
 todo_include_todos = False
+
+# -- Linkcheck configuration ---------------------------------------------------
+
+linkcheck_ignore = [
+    r"http://localhost.*",  # Local dev server URLs
+    r"http://127\.0\.0\.1.*",  # Local dev server URLs
+    r"https://proxywhirl\.com.*",  # Main site (may not be deployed yet)
+]
+linkcheck_anchors = False  # Don't check anchors (can be slow/flaky)
 
 # -- Mermaid -------------------------------------------------------------------
 

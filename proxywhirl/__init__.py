@@ -7,21 +7,19 @@ validation, and persistence capabilities.
 
 from __future__ import annotations
 
-from proxywhirl.async_client import AsyncProxyRotator
 from proxywhirl.browser import BrowserRenderer
 from proxywhirl.cache import CacheManager
-from proxywhirl.cache_models import (
+from proxywhirl.cache.models import (
     CacheConfig,
     CacheEntry,
     CacheStatistics,
     CacheTierConfig,
     TierStatistics,
 )
-from proxywhirl.cache_models import (
+from proxywhirl.cache.models import (
     HealthStatus as CacheHealthStatus,
 )
-from proxywhirl.circuit_breaker import CircuitBreaker, CircuitBreakerState
-from proxywhirl.circuit_breaker_async import AsyncCircuitBreaker
+from proxywhirl.circuit_breaker import AsyncCircuitBreaker, CircuitBreaker, CircuitBreakerState
 from proxywhirl.config import DataStorageConfig
 from proxywhirl.exceptions import (
     CacheCorruptionError,
@@ -64,16 +62,19 @@ from proxywhirl.models import (
     StrategyConfig,
     ValidationLevel,
 )
-from proxywhirl.retry_executor import NonRetryableError, RetryableError, RetryExecutor
-from proxywhirl.retry_metrics import (
+from proxywhirl.retry import (
+    BackoffStrategy,
     CircuitBreakerEvent,
     HourlyAggregate,
+    NonRetryableError,
+    RetryableError,
     RetryAttempt,
+    RetryExecutor,
     RetryMetrics,
     RetryOutcome,
+    RetryPolicy,
 )
-from proxywhirl.retry_policy import BackoffStrategy, RetryPolicy
-from proxywhirl.rotator import ProxyRotator
+from proxywhirl.rotator import AsyncProxyRotator, ProxyRotator
 from proxywhirl.safe_regex import RegexComplexityError, RegexTimeoutError
 from proxywhirl.sources import (
     ALL_HTTP_SOURCES,
@@ -96,9 +97,6 @@ from proxywhirl.sources import (
     GITHUB_THESPEEDX_HTTP,
     GITHUB_THESPEEDX_SOCKS4,
     GITHUB_THESPEEDX_SOCKS5,
-    PROXY_SCRAPE_HTTP,
-    PROXY_SCRAPE_SOCKS4,
-    PROXY_SCRAPE_SOCKS5,
     RECOMMENDED_SOURCES,
 )
 from proxywhirl.strategies import (
@@ -126,7 +124,7 @@ from proxywhirl.utils import (
     validate_proxy_model,
 )
 
-__version__ = "0.1.1"
+__version__ = "0.1.0"
 
 __all__: list[str] = [
     # Version
@@ -225,9 +223,6 @@ __all__: list[str] = [
     "create_proxy_from_url",
     "deduplicate_proxies",
     # Built-in Proxy Sources (Individual)
-    "PROXY_SCRAPE_HTTP",
-    "PROXY_SCRAPE_SOCKS4",
-    "PROXY_SCRAPE_SOCKS5",
     "GEONODE_HTTP",
     "GEONODE_SOCKS4",
     "GEONODE_SOCKS5",

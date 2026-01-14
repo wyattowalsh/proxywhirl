@@ -34,10 +34,18 @@ uv pip install "proxywhirl[mcp]"
 
 ```bash
 # Run the MCP server with stdio transport (default)
-python -m proxywhirl.mcp.server
+proxywhirl-mcp
 
-# Or use the ProxyWhirlMCPServer class
-python -c "from proxywhirl.mcp import ProxyWhirlMCPServer; ProxyWhirlMCPServer().run()"
+# With uvx (no install required)
+uvx "proxywhirl[mcp]" proxywhirl-mcp
+
+# Specify transport type
+proxywhirl-mcp --transport http
+proxywhirl-mcp --transport sse
+proxywhirl-mcp --transport streamable-http
+
+# Or use the Python module directly
+python -m proxywhirl.mcp.server
 ```
 
 ### Auto-Loading Proxies
@@ -49,7 +57,24 @@ The MCP server automatically loads proxies from `proxywhirl.db` if it exists in 
 proxywhirl fetch --sources recommended --output proxywhirl.db
 
 # Then run MCP server (proxies load automatically)
-python -m proxywhirl.mcp.server
+proxywhirl-mcp
+```
+
+### CLI Options
+
+```bash
+proxywhirl-mcp [OPTIONS]
+
+Options:
+  --transport {stdio,http,sse,streamable-http}  Transport type (default: stdio)
+  --api-key API_KEY     API key for authentication
+  --db DB               Path to proxy database file (default: proxywhirl.db)
+  --log-level {debug,info,warning,error}  Log level (default: info)
+
+Environment Variables:
+  PROXYWHIRL_MCP_API_KEY    API key for authentication
+  PROXYWHIRL_MCP_DB         Path to proxy database file
+  PROXYWHIRL_MCP_LOG_LEVEL  Log level
 ```
 
 ## The `proxywhirl` Tool
@@ -66,6 +91,11 @@ The MCP server exposes a single unified tool called `proxywhirl` that handles al
 | `recommend` | Get best proxy based on criteria | - | `criteria`, `api_key` |
 | `health` | Get pool health overview | - | - |
 | `reset_cb` | Reset circuit breaker for a proxy | `proxy_id` | `api_key` |
+| `add` | Add a new proxy to the pool | `proxy_url` | `api_key` |
+| `remove` | Remove a proxy from the pool | `proxy_id` | `api_key` |
+| `fetch` | Fetch proxies from public sources | - | `criteria.max_proxies`, `api_key` |
+| `validate` | Validate proxy connectivity | - | `proxy_id`, `criteria.timeout`, `api_key` |
+| `set_strategy` | Change rotation strategy | `strategy` | `api_key` |
 
 ### Action Examples
 
@@ -258,11 +288,123 @@ Pool status values:
 }
 ```
 
+#### Add Proxy
+
+```json
+{
+  "action": "add",
+  "proxy_url": "http://newproxy.example.com:8080"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "proxy": {
+    "id": "660e8400-e29b-41d4-a716-446655440001",
+    "url": "http://newproxy.example.com:8080",
+    "protocol": "http",
+    "status": "unknown"
+  },
+  "pool_size": 11
+}
+```
+
+#### Remove Proxy
+
+```json
+{
+  "action": "remove",
+  "proxy_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "proxy_id": "550e8400-e29b-41d4-a716-446655440000",
+  "message": "Proxy 550e8400-e29b-41d4-a716-446655440000 removed successfully",
+  "pool_size": 9
+}
+```
+
+#### Fetch Proxies
+
+```json
+{
+  "action": "fetch",
+  "criteria": {"max_proxies": 50}
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "fetched": 50,
+  "pool_size": 60,
+  "message": "Fetched 50 proxies from public sources"
+}
+```
+
+#### Validate Proxies
+
+```json
+{
+  "action": "validate",
+  "proxy_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+**Response:**
+```json
+{
+  "validated": 1,
+  "valid": 1,
+  "invalid": 0,
+  "results": [
+    {
+      "proxy_id": "550e8400-e29b-41d4-a716-446655440000",
+      "url": "http://proxy1.example.com:8080",
+      "valid": true,
+      "latency_ms": 120.5,
+      "status_code": 200
+    }
+  ],
+  "message": "Validated 1 proxies: 1 valid, 0 invalid"
+}
+```
+
+Omit `proxy_id` to validate all proxies in the pool.
+
+#### Set Strategy
+
+```json
+{
+  "action": "set_strategy",
+  "strategy": "performance-based"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "previous_strategy": "RoundRobinStrategy",
+  "new_strategy": "PerformanceBasedStrategy",
+  "message": "Strategy changed from RoundRobinStrategy to PerformanceBasedStrategy"
+}
+```
+
+Valid strategies: `round-robin`, `random`, `weighted`, `least-used`, `performance-based`, `session-persistence`, `geo-targeted`, `cost-aware`
+
 ## Resources
 
 The MCP server exposes two resources that AI assistants can read for real-time data.
 
-### proxy://health
+### resource://proxywhirl/health
 
 Returns real-time pool health data as JSON. This resource provides the same data as the `health` action but is accessible as a resource that can be subscribed to.
 
@@ -286,7 +428,7 @@ Returns real-time pool health data as JSON. This resource provides the same data
 }
 ```
 
-### proxy://config
+### resource://proxywhirl/config
 
 Returns current configuration settings as JSON.
 
@@ -344,7 +486,7 @@ A diagnostic workflow for debugging proxy issues:
 
 ## Authentication
 
-Authentication is optional. When not configured, all requests are allowed.
+Authentication is optional. When not configured, all requests are allowed. The MCP server uses FastMCP v2 middleware for authentication.
 
 ### Enabling Authentication
 
@@ -368,6 +510,15 @@ When authentication is enabled, include `api_key` in tool calls:
 }
 ```
 
+### Auth Middleware
+
+The server uses FastMCP v2's middleware system to validate API keys on every tool call:
+
+```python
+# Middleware is automatically registered with the MCP server
+# It validates api_key from tool arguments or context
+```
+
 ### Disabling Authentication
 
 ```python
@@ -379,6 +530,18 @@ set_auth(None)
 
 ```{warning}
 Store API keys securely using environment variables or a secrets manager. Never hardcode keys in source code.
+```
+
+## Progress Reporting
+
+Long-running operations (fetch, validate) report progress via FastMCP v2's context:
+
+```python
+# Progress is automatically reported for:
+# - fetch: Reports progress as proxies are fetched from sources
+# - validate: Reports progress as each proxy is validated
+
+# AI assistants can display this progress to users
 ```
 
 ## Transport Options
@@ -415,8 +578,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "proxywhirl": {
-      "command": "python",
-      "args": ["-m", "proxywhirl.mcp.server"]
+      "command": "proxywhirl-mcp"
     }
   }
 }
@@ -430,24 +592,37 @@ Edit `%APPDATA%\Claude\claude_desktop_config.json`:
 {
   "mcpServers": {
     "proxywhirl": {
-      "command": "python",
-      "args": ["-m", "proxywhirl.mcp.server"]
+      "command": "proxywhirl-mcp"
     }
   }
 }
 ```
 
-### With uv
+### With uvx (Recommended)
 
-If using uv for Python management:
+Use uvx to run without a global install:
 
 ```json
 {
   "mcpServers": {
     "proxywhirl": {
-      "command": "uv",
-      "args": ["run", "python", "-m", "proxywhirl.mcp.server"],
-      "cwd": "/path/to/your/proxywhirl/project"
+      "command": "uvx",
+      "args": ["proxywhirl[mcp]", "proxywhirl-mcp"]
+    }
+  }
+}
+```
+
+### With Transport Options
+
+To use a specific transport:
+
+```json
+{
+  "mcpServers": {
+    "proxywhirl": {
+      "command": "proxywhirl-mcp",
+      "args": ["--transport", "http"]
     }
   }
 }
@@ -532,7 +707,7 @@ asyncio.run(main())
 
 ## Lifecycle Management
 
-The MCP server provides proper lifecycle management:
+The MCP server uses FastMCP v2's lifespan management for proper resource initialization and cleanup:
 
 ```python
 from proxywhirl.mcp.server import mcp_lifespan
@@ -540,10 +715,21 @@ from proxywhirl.mcp.server import mcp_lifespan
 async def run_server():
     async with mcp_lifespan():
         # Server is running
-        # Rotator is initialized
+        # Rotator is initialized from database
         # Resources are available
         pass
     # Cleanup is automatic on exit
+```
+
+### How Lifespan Works
+
+1. **Startup**: Initializes the `AsyncProxyRotator`, loads proxies from database if available
+2. **Running**: Rotator is available for all tool calls
+3. **Shutdown**: Cleans up rotator resources automatically
+
+```python
+# The lifespan is automatically passed to FastMCP:
+mcp = FastMCP("ProxyWhirl", lifespan=_mcp_lifespan)
 ```
 
 ### Server Class Usage

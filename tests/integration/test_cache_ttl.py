@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from pydantic import SecretStr
 
-from proxywhirl.cache_models import CacheConfig, CacheEntry
+from proxywhirl.cache.models import CacheConfig, CacheEntry
 
 
 @pytest.fixture

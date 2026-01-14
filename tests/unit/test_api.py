@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from proxywhirl.api import app
 from proxywhirl.circuit_breaker import CircuitBreaker, CircuitBreakerState
-from proxywhirl.retry_metrics import (
+from proxywhirl.retry import (
     CircuitBreakerEvent,
     RetryAttempt,
     RetryMetrics,
@@ -107,7 +107,7 @@ class TestRetryMetricsEndpoint:
 
     def test_get_retry_metrics_json_format(self, client, mock_rotator):
         """Test retry metrics endpoint with JSON format (default)."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             response = client.get("/metrics/retry")
 
             assert response.status_code == 200
@@ -134,7 +134,7 @@ class TestRetryMetricsEndpoint:
 
     def test_get_retry_metrics_json_with_hours_param(self, client, mock_rotator):
         """Test retry metrics endpoint with hours parameter."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             response = client.get("/metrics/retry?hours=12")
 
             assert response.status_code == 200
@@ -143,7 +143,7 @@ class TestRetryMetricsEndpoint:
 
     def test_get_retry_metrics_prometheus_format(self, client, mock_rotator):
         """Test retry metrics endpoint with Prometheus format."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             response = client.get("/metrics/retry?format=prometheus")
 
             assert response.status_code == 200
@@ -172,7 +172,7 @@ class TestRetryMetricsEndpoint:
 
     def test_get_retry_metrics_prometheus_case_insensitive(self, client, mock_rotator):
         """Test that format parameter is case-insensitive."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             # Try uppercase
             response = client.get("/metrics/retry?format=PROMETHEUS")
             assert response.status_code == 200
@@ -185,7 +185,7 @@ class TestRetryMetricsEndpoint:
 
     def test_get_retry_metrics_no_rotator(self, client):
         """Test retry metrics endpoint when rotator is not initialized."""
-        with patch("proxywhirl.api._rotator", None):
+        with patch("proxywhirl.api.core._rotator", None):
             response = client.get("/metrics/retry")
 
             assert response.status_code == 503
@@ -212,7 +212,7 @@ class TestRetryMetricsEndpoint:
         rotator.get_retry_metrics.return_value = metrics
         rotator.get_circuit_breaker_states.return_value = {}
 
-        with patch("proxywhirl.api._rotator", rotator):
+        with patch("proxywhirl.api.core._rotator", rotator):
             response = client.get("/metrics/retry?format=prometheus")
 
             assert response.status_code == 200
@@ -225,7 +225,7 @@ class TestCircuitBreakerMetricsEndpoint:
 
     def test_get_circuit_breaker_metrics_json_format(self, client, mock_rotator):
         """Test circuit breaker metrics endpoint with JSON format (default)."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             response = client.get("/metrics/circuit-breaker")
 
             assert response.status_code == 200
@@ -259,7 +259,7 @@ class TestCircuitBreakerMetricsEndpoint:
 
     def test_get_circuit_breaker_metrics_with_hours_param(self, client, mock_rotator):
         """Test circuit breaker metrics with hours parameter."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             # Request only last 1 hour
             # Event 1 is 1 hour ago (exactly), so may be excluded based on cutoff
             # Events 2 and 3 are within 30 and 15 minutes
@@ -275,7 +275,7 @@ class TestCircuitBreakerMetricsEndpoint:
 
     def test_get_circuit_breaker_metrics_prometheus_format(self, client, mock_rotator):
         """Test circuit breaker metrics endpoint with Prometheus format."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             response = client.get("/metrics/circuit-breaker?format=prometheus")
 
             assert response.status_code == 200
@@ -322,7 +322,7 @@ class TestCircuitBreakerMetricsEndpoint:
 
     def test_get_circuit_breaker_metrics_no_rotator(self, client):
         """Test circuit breaker metrics endpoint when rotator is not initialized."""
-        with patch("proxywhirl.api._rotator", None):
+        with patch("proxywhirl.api.core._rotator", None):
             response = client.get("/metrics/circuit-breaker")
 
             assert response.status_code == 503
@@ -355,7 +355,7 @@ class TestCircuitBreakerMetricsEndpoint:
         }
         rotator.get_retry_metrics.return_value = RetryMetrics()
 
-        with patch("proxywhirl.api._rotator", rotator):
+        with patch("proxywhirl.api.core._rotator", rotator):
             response = client.get("/metrics/circuit-breaker?format=prometheus")
 
             assert response.status_code == 200
@@ -373,7 +373,7 @@ class TestAPIAuthentication:
     def test_retry_metrics_without_auth_when_disabled(self, client, mock_rotator):
         """Test that metrics endpoints work without auth when auth is disabled."""
         with (
-            patch("proxywhirl.api._rotator", mock_rotator),
+            patch("proxywhirl.api.core._rotator", mock_rotator),
             patch.dict("os.environ", {"PROXYWHIRL_REQUIRE_AUTH": "false"}),
         ):
             response = client.get("/metrics/retry")
@@ -382,7 +382,7 @@ class TestAPIAuthentication:
     def test_retry_metrics_with_valid_api_key(self, client, mock_rotator):
         """Test that metrics endpoints work with valid API key."""
         with (
-            patch("proxywhirl.api._rotator", mock_rotator),
+            patch("proxywhirl.api.core._rotator", mock_rotator),
             patch.dict(
                 "os.environ",
                 {
@@ -400,7 +400,7 @@ class TestAPIAuthentication:
     def test_retry_metrics_with_invalid_api_key(self, client, mock_rotator):
         """Test that metrics endpoints reject invalid API key."""
         with (
-            patch("proxywhirl.api._rotator", mock_rotator),
+            patch("proxywhirl.api.core._rotator", mock_rotator),
             patch.dict(
                 "os.environ",
                 {
@@ -418,7 +418,7 @@ class TestAPIAuthentication:
     def test_circuit_breaker_metrics_with_auth(self, client, mock_rotator):
         """Test circuit breaker metrics endpoint respects auth."""
         with (
-            patch("proxywhirl.api._rotator", mock_rotator),
+            patch("proxywhirl.api.core._rotator", mock_rotator),
             patch.dict(
                 "os.environ",
                 {
@@ -441,7 +441,7 @@ class TestAPIAuthentication:
     def test_auth_fails_closed_when_misconfigured(self, client, mock_rotator):
         """Test SEC-004: API fails closed (rejects requests) when auth is required but API key not configured."""
         with (
-            patch("proxywhirl.api._rotator", mock_rotator),
+            patch("proxywhirl.api.core._rotator", mock_rotator),
             patch.dict(
                 "os.environ",
                 {"PROXYWHIRL_REQUIRE_AUTH": "true"},
@@ -468,7 +468,7 @@ class TestProxyIDGeneration:
         """Test that _get_proxy_id returns stable ID using proxy.id (UUID)."""
         from uuid import UUID
 
-        from proxywhirl.api import _get_proxy_id
+        from proxywhirl.api.core import _get_proxy_id
         from proxywhirl.models import Proxy
 
         # Create proxy with explicit UUID
@@ -486,7 +486,7 @@ class TestProxyIDGeneration:
 
     def test_proxy_id_stable_with_url_hash(self):
         """Test that _get_proxy_id returns stable hash-based ID when no UUID."""
-        from proxywhirl.api import _get_proxy_id
+        from proxywhirl.api.core import _get_proxy_id
         from proxywhirl.models import Proxy
 
         # Create proxy without explicit ID (will generate UUID)
@@ -506,7 +506,7 @@ class TestProxyIDGeneration:
         """Test that _get_proxy_id falls back to URL hash when proxy has no id attribute."""
         import hashlib
 
-        from proxywhirl.api import _get_proxy_id
+        from proxywhirl.api.core import _get_proxy_id
 
         # Create mock proxy without id attribute
         class MockProxy:
@@ -529,7 +529,7 @@ class TestProxyIDGeneration:
 
     def test_proxy_id_different_urls_different_ids(self):
         """Test that different proxy URLs generate different IDs."""
-        from proxywhirl.api import _get_proxy_id
+        from proxywhirl.api.core import _get_proxy_id
 
         class MockProxy:
             def __init__(self, url):
@@ -546,7 +546,7 @@ class TestProxyIDGeneration:
 
     def test_proxy_id_same_url_same_id(self):
         """Test that same proxy URL generates same ID across instances."""
-        from proxywhirl.api import _get_proxy_id
+        from proxywhirl.api.core import _get_proxy_id
 
         class MockProxy:
             def __init__(self, url):
@@ -565,7 +565,7 @@ class TestProxyIDGeneration:
         """Test that proxy IDs remain stable across simulated restarts."""
         import hashlib
 
-        from proxywhirl.api import _get_proxy_id
+        from proxywhirl.api.core import _get_proxy_id
 
         class MockProxy:
             def __init__(self, url):
@@ -596,7 +596,7 @@ class TestEdgeCases:
         rotator.get_retry_metrics.return_value = RetryMetrics()
         rotator.get_circuit_breaker_states.return_value = {}
 
-        with patch("proxywhirl.api._rotator", rotator):
+        with patch("proxywhirl.api.core._rotator", rotator):
             # JSON format
             response = client.get("/metrics/retry")
             assert response.status_code == 200
@@ -621,7 +621,7 @@ class TestEdgeCases:
             "proxy.example.com:8080": cb,
         }
 
-        with patch("proxywhirl.api._rotator", rotator):
+        with patch("proxywhirl.api.core._rotator", rotator):
             response = client.get("/metrics/circuit-breaker")
             assert response.status_code == 200
             data = response.json()
@@ -630,7 +630,7 @@ class TestEdgeCases:
 
     def test_invalid_hours_parameter(self, client, mock_rotator):
         """Test that negative hours parameter is handled."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             # Negative hours should still work (metrics layer handles it)
             response = client.get("/metrics/retry?hours=-1")
             # FastAPI will convert -1 to int, metrics layer returns empty data
@@ -638,7 +638,7 @@ class TestEdgeCases:
 
     def test_large_hours_parameter(self, client, mock_rotator):
         """Test that very large hours parameter is handled."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             response = client.get("/metrics/retry?hours=10000")
             assert response.status_code == 200
 
@@ -654,7 +654,7 @@ class TestPerAPIKeyRateLimiting:
         """Test that rate limit key uses API key hash when X-API-Key header is present."""
         from unittest.mock import Mock
 
-        from proxywhirl.api import get_rate_limit_key
+        from proxywhirl.api.core import get_rate_limit_key
 
         # Create mock request with API key
         request = Mock()
@@ -679,7 +679,7 @@ class TestPerAPIKeyRateLimiting:
         """Test that rate limit key falls back to IP when no API key provided."""
         from unittest.mock import Mock
 
-        from proxywhirl.api import get_rate_limit_key
+        from proxywhirl.api.core import get_rate_limit_key
 
         # Create mock request without API key
         request = Mock()
@@ -697,7 +697,7 @@ class TestPerAPIKeyRateLimiting:
         """Test that different API keys get separate rate limit buckets."""
         from unittest.mock import Mock
 
-        from proxywhirl.api import get_rate_limit_key
+        from proxywhirl.api.core import get_rate_limit_key
 
         # Request with API key 1
         request1 = Mock()
@@ -728,7 +728,7 @@ class TestPerAPIKeyRateLimiting:
         """Test that same API key from different IPs shares the same rate limit."""
         from unittest.mock import Mock
 
-        from proxywhirl.api import get_rate_limit_key
+        from proxywhirl.api.core import get_rate_limit_key
 
         # Request 1 from IP A
         request1 = Mock()
@@ -758,7 +758,7 @@ class TestPerAPIKeyRateLimiting:
         """Test that X-Forwarded-For cannot bypass rate limits when using API key."""
         from unittest.mock import Mock
 
-        from proxywhirl.api import get_rate_limit_key
+        from proxywhirl.api.core import get_rate_limit_key
 
         # Request with API key and spoofed X-Forwarded-For
         request1 = Mock()
@@ -802,7 +802,7 @@ class TestPerAPIKeyRateLimiting:
         """
         from unittest.mock import Mock
 
-        from proxywhirl.api import get_rate_limit_key
+        from proxywhirl.api.core import get_rate_limit_key
 
         # Request without API key but with X-Forwarded-For (potential bypass attempt)
         request = Mock()
@@ -830,7 +830,7 @@ class TestPerAPIKeyRateLimiting:
         """
         from unittest.mock import Mock
 
-        from proxywhirl.api import get_rate_limit_key
+        from proxywhirl.api.core import get_rate_limit_key
 
         # Attacker's first request with spoofed X-Forwarded-For
         request1 = Mock()
@@ -875,7 +875,7 @@ class TestPerAPIKeyRateLimiting:
         """Test that rate limit key handles missing client gracefully."""
         from unittest.mock import Mock
 
-        from proxywhirl.api import get_rate_limit_key
+        from proxywhirl.api.core import get_rate_limit_key
 
         # Request without API key and without client
         request = Mock()
@@ -893,7 +893,7 @@ class TestPerAPIKeyRateLimiting:
         import hashlib
         from unittest.mock import Mock
 
-        from proxywhirl.api import get_rate_limit_key
+        from proxywhirl.api.core import get_rate_limit_key
 
         api_key = "test-stable-key"
 
@@ -923,7 +923,7 @@ class TestPerAPIKeyRateLimiting:
         """Test that API key hash does not expose original key value."""
         from unittest.mock import Mock
 
-        from proxywhirl.api import get_rate_limit_key
+        from proxywhirl.api.core import get_rate_limit_key
 
         sensitive_key = "super-secret-api-key-12345"
 
@@ -968,7 +968,7 @@ class TestRequestIDMiddleware:
 
     def test_request_id_generated_when_not_provided(self, client, mock_rotator):
         """Test that X-Request-ID header is generated when not provided."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             response = client.get("/metrics/retry")
 
             assert response.status_code == 200
@@ -989,7 +989,7 @@ class TestRequestIDMiddleware:
 
     def test_request_id_preserved_when_provided(self, client, mock_rotator):
         """Test that X-Request-ID header is preserved when provided by client."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             # Provide a custom request ID
             custom_request_id = str(uuid.uuid4())
 
@@ -1006,20 +1006,20 @@ class TestRequestIDMiddleware:
 
     def test_request_id_appears_in_response_headers(self, client, mock_rotator):
         """Test that X-Request-ID appears in all response headers."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             # Test on different endpoints
             endpoints = ["/metrics/retry", "/metrics/circuit-breaker"]
 
             for endpoint in endpoints:
                 response = client.get(endpoint)
                 assert response.status_code in [200, 503]  # May fail if no rotator
-                assert "X-Request-ID" in response.headers, (
-                    f"X-Request-ID missing from response headers for {endpoint}"
-                )
+                assert (
+                    "X-Request-ID" in response.headers
+                ), f"X-Request-ID missing from response headers for {endpoint}"
 
     def test_request_id_is_valid_uuid_format(self, client, mock_rotator):
         """Test that generated request ID is a valid UUID format."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             # Make multiple requests and verify each has valid UUID
             for _ in range(5):
                 response = client.get("/metrics/retry")
@@ -1038,7 +1038,7 @@ class TestRequestIDMiddleware:
 
     def test_request_id_unique_for_each_request(self, client, mock_rotator):
         """Test that each request gets a unique request ID when not provided."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             request_ids = set()
 
             # Make multiple requests
@@ -1052,7 +1052,7 @@ class TestRequestIDMiddleware:
 
     def test_request_id_preserved_for_custom_non_uuid_value(self, client, mock_rotator):
         """Test that non-UUID request IDs from clients are also preserved."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             # Clients might send non-UUID request IDs
             custom_id = "my-custom-request-id-12345"
 
@@ -1067,7 +1067,7 @@ class TestRequestIDMiddleware:
     def test_request_id_on_error_responses(self, client):
         """Test that X-Request-ID is present even on error responses."""
         # Without mock_rotator, this should return 503
-        with patch("proxywhirl.api._rotator", None):
+        with patch("proxywhirl.api.core._rotator", None):
             custom_id = str(uuid.uuid4())
 
             response = client.get(
@@ -1090,7 +1090,7 @@ class TestRequestIDMiddleware:
         rotator.pool.healthy_count = 8
         rotator.pool.unhealthy_count = 2
 
-        with patch("proxywhirl.api._rotator", rotator):
+        with patch("proxywhirl.api.core._rotator", rotator):
             response = client.get("/api/v1/health")
 
             # Should have request ID regardless of health status
@@ -1102,7 +1102,7 @@ class TestRequestIDMiddleware:
 
     def test_request_id_empty_header_generates_new_uuid(self, client, mock_rotator):
         """Test that empty X-Request-ID header results in new UUID generation."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             # Send empty string as request ID
             response = client.get(
                 "/metrics/retry",
@@ -1128,7 +1128,7 @@ class TestSecurityHeaders:
 
     def test_security_headers_present_on_success_response(self, client, mock_rotator):
         """Test that all security headers are present on successful responses."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             response = client.get("/metrics/retry")
 
             assert response.status_code == 200
@@ -1161,7 +1161,7 @@ class TestSecurityHeaders:
 
     def test_security_headers_present_on_error_response(self, client):
         """Test that security headers are present even on error responses."""
-        with patch("proxywhirl.api._rotator", None):
+        with patch("proxywhirl.api.core._rotator", None):
             response = client.get("/metrics/retry")
 
             # Should be a 503 error
@@ -1193,7 +1193,7 @@ class TestSecurityHeaders:
         rotator.pool.healthy_count = 8
         rotator.pool.unhealthy_count = 2
 
-        with patch("proxywhirl.api._rotator", rotator):
+        with patch("proxywhirl.api.core._rotator", rotator):
             response = client.get("/api/v1/health")
 
             # Security headers should be present regardless of endpoint
@@ -1206,7 +1206,7 @@ class TestSecurityHeaders:
 
     def test_security_headers_on_circuit_breaker_endpoint(self, client, mock_rotator):
         """Test security headers on circuit breaker metrics endpoint."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             response = client.get("/metrics/circuit-breaker")
 
             assert response.status_code == 200
@@ -1231,7 +1231,7 @@ class TestSecurityHeaders:
 
     def test_hsts_prevents_downgrade_attacks(self, client, mock_rotator):
         """Test that HSTS header has proper configuration for security."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             response = client.get("/metrics/retry")
 
             hsts = response.headers.get("Strict-Transport-Security")
@@ -1245,7 +1245,7 @@ class TestSecurityHeaders:
 
     def test_csp_prevents_xss_and_clickjacking(self, client, mock_rotator):
         """Test that CSP header properly restricts resource loading."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             response = client.get("/metrics/retry")
 
             csp = response.headers.get("Content-Security-Policy")
@@ -1259,7 +1259,7 @@ class TestSecurityHeaders:
 
     def test_permissions_policy_disables_sensitive_features(self, client, mock_rotator):
         """Test that Permissions-Policy disables sensitive browser features."""
-        with patch("proxywhirl.api._rotator", mock_rotator):
+        with patch("proxywhirl.api.core._rotator", mock_rotator):
             response = client.get("/metrics/retry")
 
             permissions = response.headers.get("Permissions-Policy")

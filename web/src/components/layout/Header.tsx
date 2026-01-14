@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom"
-import { Github, Moon, Sun, Wifi } from "lucide-react"
+import { Github, Moon, Sun, Wifi, BookOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useEffect, useState } from "react"
@@ -29,10 +29,7 @@ export function Header() {
     localStorage.setItem("theme", newIsDark ? "dark" : "light")
   }
 
-  const navItems = [
-    { path: "/", label: "Proxies" },
-    { path: "/dashboard", label: "Dashboard" },
-  ]
+  const navItems: { path: string; label: string }[] = []
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -57,6 +54,13 @@ export function Header() {
               {item.label}
             </Link>
           ))}
+          <a
+            href={`${import.meta.env.BASE_URL}docs/`}
+            className="flex items-center gap-1 transition-colors hover:text-foreground/80 text-foreground/60"
+          >
+            <BookOpen className="h-4 w-4" />
+            Docs
+          </a>
         </nav>
 
         <div className="flex flex-1 items-center justify-end space-x-2">

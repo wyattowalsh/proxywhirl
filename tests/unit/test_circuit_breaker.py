@@ -4,8 +4,6 @@ Unit tests for CircuitBreaker.
 
 from unittest.mock import patch
 
-import pytest
-
 from proxywhirl.circuit_breaker import CircuitBreaker, CircuitBreakerState
 
 
@@ -389,371 +387,6 @@ class TestCircuitBreakerThreadSafety:
         assert cb.state == CircuitBreakerState.OPEN
 
 
-class TestCircuitBreakerPersistence:
-    """Test CircuitBreaker state persistence."""
-
-    @pytest.fixture
-    async def temp_storage(self):
-        """Create temporary SQLite storage for testing."""
-        import tempfile
-        from pathlib import Path
-
-        from proxywhirl.storage import SQLiteStorage
-
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = Path(tmpdir) / "test.db"
-            storage = SQLiteStorage(db_path)
-            await storage.initialize()
-            yield storage
-            await storage.close()
-
-    async def test_save_state_disabled_by_default(self, temp_storage):
-        """Test that state persistence is disabled by default."""
-        cb = CircuitBreaker(proxy_id="test-proxy")
-        cb.set_storage(temp_storage)
-
-        # Should not persist (persist_state=False by default)
-        await cb.save_state()
-
-        # Verify no state saved
-        cb2 = CircuitBreaker(proxy_id="test-proxy")
-        cb2.set_storage(temp_storage)
-        loaded = await cb2.load_state()
-        assert loaded is False
-
-    async def test_save_and_load_closed_state(self):
-        """Test saving and loading CLOSED state."""
-        from proxywhirl.storage import SQLiteStorage
-
-        storage = SQLiteStorage(":memory:")
-        await storage.initialize()
-
-        # Create circuit breaker with persistence enabled
-        cb = CircuitBreaker(proxy_id="test-proxy", persist_state=True)
-        cb.set_storage(storage)
-
-        # Save state
-        await cb.save_state()
-
-        # Load in new instance
-        cb2 = CircuitBreaker(proxy_id="test-proxy", persist_state=True)
-        cb2.set_storage(storage)
-        loaded = await cb2.load_state()
-
-        assert loaded is True
-        assert cb2.state == CircuitBreakerState.CLOSED
-        assert cb2.failure_count == 0
-        assert len(cb2.failure_window) == 0
-
-        await storage.close()
-
-    async def test_save_and_load_open_state(self):
-        """Test saving and loading OPEN state with failure history."""
-        from proxywhirl.storage import SQLiteStorage
-
-        storage = SQLiteStorage(":memory:")
-        await storage.initialize()
-
-        # Create and open circuit breaker
-        cb = CircuitBreaker(
-            proxy_id="test-proxy",
-            persist_state=True,
-            failure_threshold=3,
-            window_duration=60.0,
-            timeout_duration=30.0,
-        )
-        cb.set_storage(storage)
-
-        # Record failures to open circuit
-        with patch("time.time", return_value=100.0):
-            cb.record_failure()
-            cb.record_failure()
-            cb.record_failure()
-
-        assert cb.state == CircuitBreakerState.OPEN
-        assert cb.failure_count == 3
-        assert cb.next_test_time == 130.0
-
-        # Save state
-        await cb.save_state()
-
-        # Load in new instance
-        cb2 = CircuitBreaker(proxy_id="test-proxy", persist_state=True)
-        cb2.set_storage(storage)
-        loaded = await cb2.load_state()
-
-        assert loaded is True
-        assert cb2.state == CircuitBreakerState.OPEN
-        assert cb2.failure_count == 3
-        assert len(cb2.failure_window) == 3
-        assert cb2.next_test_time == 130.0
-        assert cb2.failure_threshold == 3
-        assert cb2.window_duration == 60.0
-        assert cb2.timeout_duration == 30.0
-
-        await storage.close()
-
-    async def test_save_and_load_half_open_state(self):
-        """Test saving and loading HALF_OPEN state."""
-        from proxywhirl.storage import SQLiteStorage
-
-        storage = SQLiteStorage(":memory:")
-        await storage.initialize()
-
-        # Create circuit breaker
-        cb = CircuitBreaker(
-            proxy_id="test-proxy",
-            persist_state=True,
-            failure_threshold=2,
-            timeout_duration=5.0,
-        )
-        cb.set_storage(storage)
-
-        # Open circuit
-        with patch("time.time", return_value=100.0):
-            cb.record_failure()
-            cb.record_failure()
-
-        assert cb.state == CircuitBreakerState.OPEN
-
-        # Transition to half-open
-        with patch("time.time", return_value=105.0):
-            cb.should_attempt_request()
-
-        assert cb.state == CircuitBreakerState.HALF_OPEN
-
-        # Save state
-        await cb.save_state()
-
-        # Load in new instance
-        cb2 = CircuitBreaker(proxy_id="test-proxy", persist_state=True)
-        cb2.set_storage(storage)
-        loaded = await cb2.load_state()
-
-        assert loaded is True
-        assert cb2.state == CircuitBreakerState.HALF_OPEN
-
-        await storage.close()
-
-    async def test_persistence_across_restarts(self):
-        """Test that state persists across simulated restarts."""
-        import tempfile
-        from pathlib import Path
-
-        from proxywhirl.storage import SQLiteStorage
-
-        # Use a temporary file for storage
-        with tempfile.TemporaryDirectory() as tmpdir:
-            db_path = Path(tmpdir) / "test.db"
-
-            # First "run" - open circuit and persist
-            storage1 = SQLiteStorage(db_path)
-            await storage1.initialize()
-
-            cb1 = CircuitBreaker(
-                proxy_id="proxy-1",
-                persist_state=True,
-                failure_threshold=3,
-            )
-            cb1.set_storage(storage1)
-
-            # Open the circuit
-            with patch("time.time", return_value=100.0):
-                cb1.record_failure()
-                cb1.record_failure()
-                cb1.record_failure()
-
-            assert cb1.state == CircuitBreakerState.OPEN
-            await cb1.save_state()
-            await storage1.close()
-
-            # Second "run" - restore state after restart
-            storage2 = SQLiteStorage(db_path)
-            await storage2.initialize()
-
-            cb2 = CircuitBreaker(proxy_id="proxy-1", persist_state=True)
-            cb2.set_storage(storage2)
-            loaded = await cb2.load_state()
-
-            assert loaded is True
-            assert cb2.state == CircuitBreakerState.OPEN
-            assert cb2.failure_count == 3
-
-            # Circuit should still be open immediately after restart
-            with patch("time.time", return_value=100.5):
-                assert cb2.should_attempt_request() is False
-
-            await storage2.close()
-
-    async def test_create_with_storage_factory(self):
-        """Test create_with_storage factory method."""
-        from proxywhirl.models import CircuitBreakerConfig
-        from proxywhirl.storage import SQLiteStorage
-
-        storage = SQLiteStorage(":memory:")
-        await storage.initialize()
-
-        # Create circuit breaker with config
-        config = CircuitBreakerConfig(
-            persist_state=True,
-            failure_threshold=10,
-            window_duration=120.0,
-            timeout_duration=60.0,
-        )
-
-        cb = await CircuitBreaker.create_with_storage(
-            proxy_id="test-proxy",
-            storage=storage,
-            config=config,
-        )
-
-        assert cb.proxy_id == "test-proxy"
-        assert cb.persist_state is True
-        assert cb.failure_threshold == 10
-        assert cb.window_duration == 120.0
-        assert cb.timeout_duration == 60.0
-
-        await storage.close()
-
-    async def test_create_with_storage_restores_state(self):
-        """Test create_with_storage restores existing state."""
-        from proxywhirl.models import CircuitBreakerConfig
-        from proxywhirl.storage import SQLiteStorage
-
-        storage = SQLiteStorage(":memory:")
-        await storage.initialize()
-
-        # Create and persist an open circuit
-        cb1 = CircuitBreaker(
-            proxy_id="test-proxy",
-            persist_state=True,
-            failure_threshold=2,
-        )
-        cb1.set_storage(storage)
-
-        with patch("time.time", return_value=100.0):
-            cb1.record_failure()
-            cb1.record_failure()
-
-        await cb1.save_state()
-
-        # Create new instance using factory - should restore state
-        config = CircuitBreakerConfig(persist_state=True)
-        cb2 = await CircuitBreaker.create_with_storage(
-            proxy_id="test-proxy",
-            storage=storage,
-            config=config,
-        )
-
-        assert cb2.state == CircuitBreakerState.OPEN
-        assert cb2.failure_count == 2
-
-        await storage.close()
-
-    async def test_delete_state(self):
-        """Test deleting persisted state."""
-        from proxywhirl.storage import SQLiteStorage
-
-        storage = SQLiteStorage(":memory:")
-        await storage.initialize()
-
-        # Create and persist state
-        cb = CircuitBreaker(proxy_id="test-proxy", persist_state=True)
-        cb.set_storage(storage)
-
-        with patch("time.time", return_value=100.0):
-            cb.record_failure()
-            cb.record_failure()
-
-        await cb.save_state()
-
-        # Delete state
-        await cb.delete_state()
-
-        # Verify state is gone
-        cb2 = CircuitBreaker(proxy_id="test-proxy", persist_state=True)
-        cb2.set_storage(storage)
-        loaded = await cb2.load_state()
-        assert loaded is False
-
-        await storage.close()
-
-    async def test_multiple_proxies_independent_state(self):
-        """Test that different proxies maintain independent state."""
-        from proxywhirl.storage import SQLiteStorage
-
-        storage = SQLiteStorage(":memory:")
-        await storage.initialize()
-
-        # Create two circuit breakers
-        cb1 = CircuitBreaker(proxy_id="proxy-1", persist_state=True, failure_threshold=2)
-        cb1.set_storage(storage)
-
-        cb2 = CircuitBreaker(proxy_id="proxy-2", persist_state=True, failure_threshold=2)
-        cb2.set_storage(storage)
-
-        # Open first circuit
-        with patch("time.time", return_value=100.0):
-            cb1.record_failure()
-            cb1.record_failure()
-
-        await cb1.save_state()
-        await cb2.save_state()
-
-        # Load states
-        cb1_new = CircuitBreaker(proxy_id="proxy-1", persist_state=True)
-        cb1_new.set_storage(storage)
-        await cb1_new.load_state()
-
-        cb2_new = CircuitBreaker(proxy_id="proxy-2", persist_state=True)
-        cb2_new.set_storage(storage)
-        await cb2_new.load_state()
-
-        # First should be open, second should be closed
-        assert cb1_new.state == CircuitBreakerState.OPEN
-        assert cb2_new.state == CircuitBreakerState.CLOSED
-
-        await storage.close()
-
-    @pytest.mark.skip(
-        reason="SQLite :memory: with aiosqlite uses separate db per connection; requires file-based db for proper testing"
-    )
-    async def test_auto_persist_on_state_transition(self):
-        """Test that state is automatically persisted on transitions."""
-        import asyncio
-
-        from proxywhirl.storage import SQLiteStorage
-
-        storage = SQLiteStorage(":memory:")
-        await storage.initialize()
-
-        # Create circuit breaker with auto-persistence
-        cb = CircuitBreaker(
-            proxy_id="test-proxy",
-            persist_state=True,
-            failure_threshold=2,
-        )
-        cb.set_storage(storage)
-
-        # Record failures (should auto-persist)
-        with patch("time.time", return_value=100.0):
-            cb.record_failure()
-            cb.record_failure()
-
-        # Give async task time to complete
-        await asyncio.sleep(0.1)
-
-        # Verify state was persisted
-        cb2 = CircuitBreaker(proxy_id="test-proxy", persist_state=True)
-        cb2.set_storage(storage)
-        loaded = await cb2.load_state()
-
-        assert loaded is True
-        assert cb2.state == CircuitBreakerState.OPEN
-
-        await storage.close()
-
-
 class TestCircuitBreakerHalfOpenRaceCondition:
     """Test CircuitBreaker HALF_OPEN state race condition prevention."""
 
@@ -941,3 +574,53 @@ class TestCircuitBreakerHalfOpenRaceCondition:
 
         # Requests should be allowed
         assert cb.should_attempt_request() is True
+
+
+class TestCircuitBreakerCreate:
+    """Test CircuitBreaker.create() class method."""
+
+    def test_from_config_uses_config_values(self):
+        """Test that create uses values from CircuitBreakerConfig."""
+        from proxywhirl.models import CircuitBreakerConfig
+
+        config = CircuitBreakerConfig(
+            failure_threshold=10,
+            window_duration=120.0,
+            timeout_duration=30.0,
+        )
+
+        cb = CircuitBreaker.create("test-proxy", config)
+
+        assert cb.proxy_id == "test-proxy"
+        assert cb.failure_threshold == 10
+        assert cb.window_duration == 120.0
+        assert cb.timeout_duration == 30.0
+
+    def test_from_config_without_config_uses_defaults(self):
+        """Test that create without config uses default values."""
+        cb = CircuitBreaker.create("test-proxy", None)
+
+        assert cb.proxy_id == "test-proxy"
+        assert cb.failure_threshold == 5  # default
+        assert cb.window_duration == 60.0  # default
+        assert cb.timeout_duration == 30.0  # default
+
+    def test_from_config_kwargs_override_config(self):
+        """Test that kwargs override config values."""
+        from proxywhirl.models import CircuitBreakerConfig
+
+        config = CircuitBreakerConfig(
+            failure_threshold=10,
+            window_duration=120.0,
+            timeout_duration=30.0,
+        )
+
+        cb = CircuitBreaker.create(
+            "test-proxy",
+            config,
+            failure_threshold=20,  # Override
+        )
+
+        assert cb.failure_threshold == 20  # From kwargs
+        assert cb.window_duration == 120.0  # From config
+        assert cb.timeout_duration == 30.0  # From config

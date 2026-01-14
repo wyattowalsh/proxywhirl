@@ -3,6 +3,7 @@
 Tests for MemoryCacheTier, JsonlCacheTier, DiskCacheTier, and SQLiteCacheTier.
 """
 
+import json
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -553,6 +554,35 @@ class TestJsonlCacheTier:
         assert tier.get("expired_key") is None
         assert tier.get("valid_key") is not None
 
+    def test_evict_oldest_returns_false_when_empty(
+        self, tier_config: CacheTierConfig, tmp_path: Path
+    ) -> None:
+        """Evicting with no entries should return False."""
+        tier = JsonlCacheTier(tier_config, TierType.L2_FILE, tmp_path)
+        assert tier._evict_oldest() is False
+
+    def test_rebuild_index_skips_corrupted_lines(
+        self, tier_config: CacheTierConfig, tmp_path: Path
+    ) -> None:
+        """Rebuild index should tolerate corrupted JSON and bad timestamps."""
+        tier = JsonlCacheTier(tier_config, TierType.L2_FILE, tmp_path)
+        shard_path = tier._get_shard_path(0)
+        shard_path.write_text(
+            "\n".join(
+                [
+                    '{"key": "ok1", "last_accessed": "not-a-date"}',
+                    '{"key": "ok2"}',
+                    "{bad-json",
+                    "",
+                ]
+            )
+            + "\n"
+        )
+
+        tier._rebuild_index()
+        assert "ok1" in tier._index
+        assert "ok2" in tier._index
+
     def test_health_fields_roundtrip(self, tier_config: CacheTierConfig, tmp_path: Path) -> None:
         """Test all health monitoring fields survive serialization roundtrip."""
         tier = JsonlCacheTier(tier_config, TierType.L2_FILE, tmp_path)
@@ -923,6 +953,73 @@ class TestDiskCacheTier:
         DiskCacheTier(tier_config, TierType.L2_FILE, tmp_path)
         db_path = tmp_path / "l2_cache.db"
         assert db_path.exists()
+
+    def test_cleanup_expired(self, tier_config: CacheTierConfig, tmp_path: Path) -> None:
+        """Disk cache should remove expired entries."""
+        tier = DiskCacheTier(tier_config, TierType.L2_FILE, tmp_path)
+        now = datetime.now(timezone.utc)
+        expired_entry = CacheEntry(
+            key="expired",
+            proxy_url="http://expired.com:8080",
+            source="test",
+            fetch_time=now - timedelta(hours=2),
+            last_accessed=now - timedelta(hours=2),
+            ttl_seconds=60,
+            expires_at=now - timedelta(minutes=1),
+        )
+        valid_entry = CacheEntry(
+            key="valid",
+            proxy_url="http://valid.com:8080",
+            source="test",
+            fetch_time=now,
+            last_accessed=now,
+            ttl_seconds=3600,
+            expires_at=now + timedelta(hours=1),
+        )
+        tier.put(expired_entry.key, expired_entry)
+        tier.put(valid_entry.key, valid_entry)
+
+        removed = tier.cleanup_expired()
+        assert removed == 1
+        assert tier.get("expired") is None
+        assert tier.get("valid") is not None
+
+    def test_migrate_from_jsonl(self, tier_config: CacheTierConfig, tmp_path: Path) -> None:
+        """Migrate JSONL shards into SQLite cache."""
+        tier = DiskCacheTier(tier_config, TierType.L2_FILE, tmp_path)
+        now = datetime.now(timezone.utc)
+
+        username_hex = tier.encryptor.encrypt(SecretStr("user")).hex()
+        password_hex = tier.encryptor.encrypt(SecretStr("pass")).hex()
+        entry = {
+            "key": "migrate-key",
+            "proxy_url": "http://proxy.example.com:8080",
+            "source": "test",
+            "fetch_time": now.isoformat(),
+            "last_accessed": now.isoformat(),
+            "access_count": 0,
+            "ttl_seconds": 3600,
+            "expires_at": (now + timedelta(hours=1)).isoformat(),
+            "health_status": "unknown",
+            "failure_count": 0,
+            "evicted_from_l1": False,
+            "username_encrypted": username_hex,
+            "password_encrypted": password_hex,
+        }
+
+        shard_path = tier.cache_dir / "shard_00.jsonl"
+        shard_path.write_text(
+            "\n".join(
+                [
+                    json.dumps(entry),
+                    "{bad-json",
+                ]
+            )
+            + "\n"
+        )
+
+        migrated = tier.migrate_from_jsonl()
+        assert migrated == 1
 
 
 class TestSQLiteCacheTier:

@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from proxywhirl.api_models import (
+from proxywhirl.api.models import (
     HealthResponse,
     MetricsResponse,
     ProxyMetrics,

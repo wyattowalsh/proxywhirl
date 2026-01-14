@@ -2,8 +2,10 @@
 
 Complete reference for ProxyWhirl's Python API, covering all public classes, functions, and types.
 
-```python
-import proxywhirl
+```{doctest}
+>>> import proxywhirl
+>>> proxywhirl.__name__
+'proxywhirl'
 ```
 
 ## Core Classes
@@ -278,6 +280,13 @@ All strategies implement the `RotationStrategy` protocol with two core methods:
 ### RoundRobinStrategy
 
 Select proxies in sequential order with wraparound (circular rotation).
+
+```{doctest}
+>>> from proxywhirl.strategies import RoundRobinStrategy
+>>> strategy = RoundRobinStrategy()
+>>> hasattr(strategy, 'select')
+True
+```
 
 ```python
 from proxywhirl import RoundRobinStrategy, ProxyRotator
@@ -592,6 +601,16 @@ registry.unregister_strategy("my-strategy")
 ### Proxy
 
 Represents a single proxy server with connection details, performance metrics, and metadata.
+
+```{doctest}
+>>> from proxywhirl import Proxy
+>>> from proxywhirl.models import HealthStatus
+>>> proxy = Proxy(url="http://example.com:8080")
+>>> proxy.protocol
+'http'
+>>> proxy.health_status
+<HealthStatus.UNKNOWN: 'unknown'>
+```
 
 ```python
 from proxywhirl import Proxy

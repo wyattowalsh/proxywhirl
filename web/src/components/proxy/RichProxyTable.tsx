@@ -1,8 +1,7 @@
 import { useState, useMemo } from "react"
-import { Copy, Check, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter } from "lucide-react"
+import { Copy, Check, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, Download, Clipboard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { cn } from "@/lib/utils"
 import type { Proxy, Protocol } from "@/types"
 import { filterProxies, sortProxies, type SortField, type SortDirection, type ProxyFilters } from "@/hooks/useProxies"
 import { PROTOCOLS, PROTOCOL_LABELS } from "@/types"
@@ -14,15 +13,44 @@ interface RichProxyTableProps {
 
 const PAGE_SIZE = 50
 
-const STATUS_COLORS = {
-  healthy: "bg-green-500/20 text-green-600 dark:text-green-400",
-  unhealthy: "bg-red-500/20 text-red-600 dark:text-red-400",
-  unknown: "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400",
+function exportProxies(proxies: Proxy[], format: "txt" | "json" | "csv") {
+  let content: string
+  let mimeType: string
+  let filename: string
+
+  if (format === "txt") {
+    content = proxies.map((p) => `${p.ip}:${p.port}`).join("\n")
+    mimeType = "text/plain"
+    filename = "proxies.txt"
+  } else if (format === "csv") {
+    const headers = "ip,port,protocol,response_time,country_code"
+    const rows = proxies.map((p) =>
+      [p.ip, p.port, p.protocol, p.response_time ?? "", p.country_code ?? ""].join(",")
+    )
+    content = [headers, ...rows].join("\n")
+    mimeType = "text/csv"
+    filename = "proxies.csv"
+  } else {
+    content = JSON.stringify(proxies, null, 2)
+    mimeType = "application/json"
+    filename = "proxies.json"
+  }
+
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
 }
 
 export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
   const [page, setPage] = useState(0)
   const [copiedProxy, setCopiedProxy] = useState<string | null>(null)
+  const [copiedAll, setCopiedAll] = useState(false)
   const [sortField, setSortField] = useState<SortField>("response_time")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   const [filters, setFilters] = useState<ProxyFilters>({
@@ -53,6 +81,13 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
     setTimeout(() => setCopiedProxy(null), 2000)
   }
 
+  const copyAllToClipboard = async () => {
+    const proxyList = sortedProxies.map((p) => `${p.ip}:${p.port}`).join("\n")
+    await navigator.clipboard.writeText(proxyList)
+    setCopiedAll(true)
+    setTimeout(() => setCopiedAll(false), 2000)
+  }
+
   const handleSort = (field: SortField) => {
     if (sortField === field) {
       setSortDirection((d) => (d === "asc" ? "desc" : "asc"))
@@ -69,16 +104,6 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
       protocols: f.protocols.includes(protocol)
         ? f.protocols.filter((p) => p !== protocol)
         : [...f.protocols, protocol],
-    }))
-    setPage(0)
-  }
-
-  const toggleStatusFilter = (status: string) => {
-    setFilters((f) => ({
-      ...f,
-      statuses: f.statuses.includes(status)
-        ? f.statuses.filter((s) => s !== status)
-        : [...f.statuses, status],
     }))
     setPage(0)
   }
@@ -121,22 +146,62 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Search IP, port, source..."
+                placeholder="Search IP, port..."
                 value={filters.search}
                 onChange={(e) => {
                   setFilters((f) => ({ ...f, search: e.target.value }))
                   setPage(0)
                 }}
-                className="flex h-10 w-full sm:w-[250px] rounded-md border border-input bg-background px-3 py-2 pl-8 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="flex h-10 w-full sm:w-[200px] rounded-md border border-input bg-background px-3 py-2 pl-8 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               />
             </div>
             <Button
               variant={showFilters ? "secondary" : "outline"}
               size="icon"
               onClick={() => setShowFilters((s) => !s)}
+              title="Toggle filters"
             >
               <Filter className="h-4 w-4" />
             </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={copyAllToClipboard}
+              title={`Copy all ${sortedProxies.length} proxies to clipboard`}
+            >
+              {copiedAll ? (
+                <Check className="h-4 w-4 text-green-500" />
+              ) : (
+                <Clipboard className="h-4 w-4" />
+              )}
+            </Button>
+            <div className="relative group">
+              <Button variant="outline" size="icon" title="Export filtered proxies">
+                <Download className="h-4 w-4" />
+              </Button>
+              <div className="absolute right-0 top-full mt-1 hidden group-hover:block z-10">
+                <div className="bg-popover border rounded-md shadow-lg py-1 min-w-[120px]">
+                  <button
+                    className="w-full px-3 py-2 text-sm text-left hover:bg-muted transition-colors"
+                    onClick={() => exportProxies(sortedProxies, "txt")}
+                  >
+                    Export as TXT
+                  </button>
+                  <button
+                    className="w-full px-3 py-2 text-sm text-left hover:bg-muted transition-colors"
+                    onClick={() => exportProxies(sortedProxies, "csv")}
+                  >
+                    Export as CSV
+                  </button>
+                  <button
+                    className="w-full px-3 py-2 text-sm text-left hover:bg-muted transition-colors"
+                    onClick={() => exportProxies(sortedProxies, "json")}
+                  >
+                    Export as JSON
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -157,28 +222,13 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
                 ))}
               </div>
             </div>
-            <div className="space-y-2">
-              <p className="text-sm font-medium">Status</p>
-              <div className="flex flex-wrap gap-1">
-                {(["healthy", "unhealthy", "unknown"] as const).map((status) => (
-                  <Button
-                    key={status}
-                    variant={filters.statuses.includes(status) ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleStatusFilter(status)}
-                  >
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </Button>
-                ))}
-              </div>
-            </div>
-            {(filters.protocols.length > 0 || filters.statuses.length > 0) && (
+            {filters.protocols.length > 0 && (
               <div className="flex items-end">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    setFilters((f) => ({ ...f, protocols: [], statuses: [] }))
+                    setFilters((f) => ({ ...f, protocols: [] }))
                     setPage(0)
                   }}
                 >
@@ -225,20 +275,7 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
                   </Button>
                 </th>
                 <th className="text-left p-2">
-                  <span className="font-medium px-3">Type</span>
-                </th>
-                <th className="text-left p-2">
                   <span className="font-medium px-3">Country</span>
-                </th>
-                <th className="text-left p-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="font-medium"
-                    onClick={() => handleSort("status")}
-                  >
-                    Status <SortIcon field="status" />
-                  </Button>
                 </th>
                 <th className="text-left p-2">
                   <Button
@@ -248,16 +285,6 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
                     onClick={() => handleSort("response_time")}
                   >
                     Response <SortIcon field="response_time" />
-                  </Button>
-                </th>
-                <th className="text-left p-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="font-medium"
-                    onClick={() => handleSort("source")}
-                  >
-                    Source <SortIcon field="source" />
                   </Button>
                 </th>
                 <th className="text-left p-2 w-10"></th>
@@ -279,13 +306,6 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
                       </span>
                     </td>
                     <td className="p-2 text-muted-foreground">
-                      {proxy.port_type ? (
-                        <span className="text-xs" title={`Port ${proxy.port} signature`}>
-                          {proxy.port_type}
-                        </span>
-                      ) : "—"}
-                    </td>
-                    <td className="p-2 text-muted-foreground">
                       {proxy.country_code ? (
                         <span
                           title={[
@@ -304,23 +324,10 @@ export function RichProxyTable({ proxies, loading }: RichProxyTableProps) {
                         <span className="text-xs text-amber-500" title="Private IP address">Private</span>
                       ) : "—"}
                     </td>
-                    <td className="p-2">
-                      <span
-                        className={cn(
-                          "px-2 py-1 rounded text-xs font-medium",
-                          STATUS_COLORS[proxy.status]
-                        )}
-                      >
-                        {proxy.status}
-                      </span>
-                    </td>
                     <td className="p-2 font-mono text-muted-foreground">
                       {proxy.response_time !== null
                         ? `${proxy.response_time.toFixed(0)}ms`
                         : "—"}
-                    </td>
-                    <td className="p-2 text-muted-foreground truncate max-w-[150px]">
-                      {proxy.source}
                     </td>
                     <td className="p-2">
                       <Button

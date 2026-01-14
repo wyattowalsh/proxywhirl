@@ -12,7 +12,7 @@ Tests the API contract for /api/v1/proxies endpoints:
 import pytest
 from pydantic import ValidationError
 
-from proxywhirl.api_models import (
+from proxywhirl.api.models import (
     CreateProxyRequest,
     HealthCheckRequest,
     PaginatedResponse,

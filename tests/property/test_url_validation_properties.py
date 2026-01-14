@@ -61,7 +61,7 @@ def public_hostnames(draw: Any) -> str:
         alphabet=st.characters(whitelist_categories=("Ll", "Nd"), blacklist_characters="-"),
         min_size=1,
         max_size=20,
-    ).filter(lambda x: x[0].isalpha() if x else False)
+    ).filter(lambda x: bool(x) and x[0].isalpha() and not x.startswith("localhost"))
 
     parts = draw(st.lists(label, min_size=2, max_size=4))
     return ".".join(parts)

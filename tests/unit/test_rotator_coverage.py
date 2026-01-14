@@ -600,7 +600,7 @@ class TestRotatorMakeRequestWithRetryPolicy:
     @patch("httpx.Client")
     def test_custom_retry_policy(self, mock_client_class: MagicMock) -> None:
         """Test _make_request with per-request retry_policy override."""
-        from proxywhirl.retry_policy import RetryPolicy
+        from proxywhirl.retry import RetryPolicy
 
         mock_response = Mock(spec=httpx.Response)
         mock_response.status_code = 200

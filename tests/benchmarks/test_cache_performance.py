@@ -14,7 +14,7 @@ from pydantic import SecretStr
 
 from proxywhirl.cache import CacheManager
 from proxywhirl.cache.crypto import CredentialEncryptor
-from proxywhirl.cache_models import CacheConfig, CacheEntry, HealthStatus
+from proxywhirl.cache.models import CacheConfig, CacheEntry, HealthStatus
 
 
 def test_l1_lookup_latency(tmp_path: Path) -> None:
@@ -110,7 +110,7 @@ def test_eviction_overhead(tmp_path: Path) -> None:
 
     Measures time to evict oldest entry when L1 reaches capacity.
     """
-    from proxywhirl.cache_models import CacheTierConfig
+    from proxywhirl.cache.models import CacheTierConfig
 
     encryptor = CredentialEncryptor()
     encryption_key = SecretStr(encryptor.key.decode("utf-8"))

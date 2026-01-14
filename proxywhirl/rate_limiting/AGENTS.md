@@ -1,92 +1,45 @@
-# Rate Limiting Subsystem Agent Guidelines
+# Rate Limiting Subsystem
 
 > Extends: [../../AGENTS.md](../../AGENTS.md)
 
-Agent guidelines for the rate limiting subsystem.
+## Modules
 
-## Overview
+| File | Key Classes |
+|------|-------------|
+| `limiter.py` | `RateLimiter`, `SyncRateLimiter`, `AsyncRateLimiter` |
+| `models.py` | `RateLimit`, `RateLimitEvent` |
 
-The rate limiting subsystem provides request throttling to prevent overwhelming proxy sources and target servers.
-
-## Module Structure
-
-| File | Purpose | Key Classes |
-|------|---------|-------------|
-| `__init__.py` | Public exports | `RateLimiter` |
-| `limiter.py` | Main rate limiter | `RateLimiter`, token bucket impl |
-| `models.py` | Configuration models | `RateLimitConfig` |
-
-## Quick Reference
-
-```bash
-# Run rate limiting tests
-uv run pytest tests/unit/test_rate_limiter.py -v
-```
-
-## Key Patterns
-
-### RateLimiter Usage
+## Usage
 
 ```python
-from proxywhirl.rate_limiting import RateLimiter
+from proxywhirl.rate_limiting import RateLimiter, AsyncRateLimiter
 
-limiter = RateLimiter(
-    requests_per_second=10,
-    burst_size=20,
-)
-
-# Check before making request
-if await limiter.acquire():
-    # Make request
-    pass
-else:
-    # Rate limited, wait or skip
+# Sync
+limiter = RateLimiter(requests_per_second=10, burst_size=20)
+with limiter:
+    # Rate-limited request
     pass
 
-# Or use context manager
-async with limiter:
-    # Request is rate-limited
-    pass
-```
-
-### Token Bucket Algorithm
-
-```
-┌──────────────────────────────────────┐
-│           Token Bucket               │
-│  ┌─────────────────────────────────┐ │
-│  │ ● ● ● ● ● ○ ○ ○ ○ ○           │ │
-│  │ (5 tokens available)            │ │
-│  └─────────────────────────────────┘ │
-│                                      │
-│  Refill rate: 10 tokens/second       │
-│  Bucket size: 20 tokens (burst)      │
-└──────────────────────────────────────┘
+# Async
+async_limiter = AsyncRateLimiter(requests_per_second=10)
+async with async_limiter:
+    await make_request()
 ```
 
 ## Boundaries
 
-### Always Do
+**Always:**
+- Rate limit ALL external HTTP requests
+- Configure appropriate limits per proxy source
+- Handle rate limit errors gracefully (retry with backoff)
+- Log rate limit events for monitoring
 
-- Use rate limiting for all external requests
-- Configure appropriate limits per source
-- Handle rate limit errors gracefully
+**Ask First:**
+- Default rate limit changes
+- New rate limiting strategies
+- Burst size modifications
 
-### Ask First
-
-- Changing default rate limits
-- Adding new rate limiting strategies
-
-### Never Touch
-
-- Disabling rate limiting in production code
-
-## Test Coverage
-
-```bash
-# Unit tests
-uv run pytest tests/unit/test_rate_limiter.py -v
-
-# Property tests (if available)
-uv run pytest tests/property/ -k "rate" -v
-```
+**Never:**
+- Disable rate limiting in production code
+- Bypass limiter for "just this one request"
+- Set limits that could overwhelm external services

@@ -11,9 +11,15 @@ import pytest
 from proxywhirl import Proxy
 from proxywhirl.circuit_breaker import CircuitBreaker, CircuitBreakerState
 from proxywhirl.exceptions import ProxyConnectionError
-from proxywhirl.retry_executor import NonRetryableError, RetryableError, RetryExecutor
-from proxywhirl.retry_metrics import RetryAttempt, RetryMetrics, RetryOutcome
-from proxywhirl.retry_policy import RetryPolicy
+from proxywhirl.retry import (
+    NonRetryableError,
+    RetryableError,
+    RetryAttempt,
+    RetryExecutor,
+    RetryMetrics,
+    RetryOutcome,
+    RetryPolicy,
+)
 
 
 class TestIntelligentProxySelection:
@@ -394,7 +400,7 @@ class TestExecuteWithRetryFailures:
 
         with (
             patch("time.sleep"),
-            patch("proxywhirl.retry_executor.time.time", side_effect=mock_time),
+            patch("proxywhirl.retry.executor.time.time", side_effect=mock_time),
             pytest.raises(ProxyConnectionError, match="Request timeout"),
         ):
             executor.execute_with_retry(request_fn, proxy, "GET", "https://example.com")
@@ -873,7 +879,7 @@ class TestAsyncExecuteWithRetry:
             raise httpx.ConnectError("Connection failed")
 
         with (
-            patch("proxywhirl.retry_executor.time.time", side_effect=mock_time),
+            patch("proxywhirl.retry.executor.time.time", side_effect=mock_time),
             pytest.raises(ProxyConnectionError, match="Request timeout"),
         ):
             await executor.execute_with_retry_async(request_fn, proxy, "GET", "https://example.com")

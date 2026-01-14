@@ -1,6 +1,6 @@
 """Unit tests for rate_limiting.limiter module."""
 
-from proxywhirl.rate_limiting.limiter import RateLimiter, SyncRateLimiter
+from proxywhirl.rate_limiting.limiter import AsyncRateLimiter, RateLimiter, SyncRateLimiter
 from proxywhirl.rate_limiting.models import RateLimit
 
 
@@ -256,3 +256,101 @@ class TestSyncRateLimiter:
         assert len(errors) == 0
         # All threads should have gotten results
         assert len(results) == 10
+
+
+class TestAsyncRateLimiter:
+    """Test AsyncRateLimiter class."""
+
+    async def test_init_without_global_limit(self) -> None:
+        """Test initialization without global limit."""
+        limiter = AsyncRateLimiter()
+        assert limiter.global_limit is None
+        assert limiter._global_limiter is None
+
+    async def test_init_with_global_limit(self) -> None:
+        """Test initialization with global limit."""
+        global_limit = RateLimit(max_requests=100, time_window=60)
+        limiter = AsyncRateLimiter(global_limit=global_limit)
+        assert limiter.global_limit == global_limit
+        assert limiter._global_limiter is not None
+
+    async def test_set_proxy_limit(self) -> None:
+        """Test setting per-proxy limit."""
+        limiter = AsyncRateLimiter()
+        limit = RateLimit(max_requests=50, time_window=30)
+
+        await limiter.set_proxy_limit("proxy1", limit)
+
+        assert "proxy1" in limiter._proxy_limiters
+
+    async def test_check_limit_no_limits(self) -> None:
+        """Test check_limit with no limits set."""
+        limiter = AsyncRateLimiter()
+        result = await limiter.check_limit("proxy1")
+        assert result is True
+
+    async def test_check_limit_within_proxy_limit(self) -> None:
+        """Test check_limit within proxy limit."""
+        limiter = AsyncRateLimiter()
+        limit = RateLimit(max_requests=10, time_window=1)
+        await limiter.set_proxy_limit("proxy1", limit)
+
+        # First request should succeed
+        result = await limiter.check_limit("proxy1")
+        assert result is True
+
+    async def test_check_limit_exceeds_proxy_limit(self) -> None:
+        """Test check_limit when exceeding proxy limit."""
+        limiter = AsyncRateLimiter()
+        limit = RateLimit(max_requests=2, time_window=60)
+        await limiter.set_proxy_limit("proxy1", limit)
+
+        # First two requests should succeed
+        assert await limiter.check_limit("proxy1") is True
+        assert await limiter.check_limit("proxy1") is True
+
+        # Third request should fail
+        result = await limiter.check_limit("proxy1")
+        assert result is False
+
+    async def test_check_limit_within_global_limit(self) -> None:
+        """Test check_limit within global limit."""
+        global_limit = RateLimit(max_requests=10, time_window=1)
+        limiter = AsyncRateLimiter(global_limit=global_limit)
+
+        # First request should succeed
+        result = await limiter.check_limit("proxy1")
+        assert result is True
+
+    async def test_check_limit_exceeds_global_limit(self) -> None:
+        """Test check_limit when exceeding global limit."""
+        global_limit = RateLimit(max_requests=2, time_window=60)
+        limiter = AsyncRateLimiter(global_limit=global_limit)
+
+        # First two requests should succeed
+        assert await limiter.check_limit("proxy1") is True
+        assert await limiter.check_limit("proxy2") is True
+
+        # Third request should fail (global limit)
+        result = await limiter.check_limit("proxy3")
+        assert result is False
+
+    async def test_acquire_delegates_to_check_limit(self) -> None:
+        """Test that acquire delegates to check_limit."""
+        limiter = AsyncRateLimiter()
+
+        result = await limiter.acquire("proxy1")
+        assert result is True
+
+    async def test_get_lock_creates_lock_lazily(self) -> None:
+        """Test that _get_lock creates lock lazily."""
+        limiter = AsyncRateLimiter()
+        assert limiter._lock is None
+
+        lock = limiter._get_lock()
+        assert lock is not None
+        assert limiter._lock is lock
+
+        # Second call returns same lock
+        lock2 = limiter._get_lock()
+        assert lock2 is lock

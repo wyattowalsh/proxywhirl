@@ -1,10 +1,19 @@
 """
-Async readers-writer lock implementation for high-concurrency scenarios.
+Readers-writer locks for high-concurrency scenarios.
+
+This module provides both async and sync RWLock implementations for
+allowing multiple concurrent readers but exclusive writer access.
 """
 
 from __future__ import annotations
 
 import asyncio
+import threading
+from collections.abc import Iterator
+from contextlib import asynccontextmanager, contextmanager
+
+from aiorwlock import RWLock as _AioRWLock
+from readerwriterlock import rwlock as _rwlock
 
 
 class AsyncRWLock:
@@ -13,6 +22,9 @@ class AsyncRWLock:
     Allows multiple concurrent readers but exclusive writer access.
     Prevents read operations from blocking each other while maintaining
     data consistency for writes.
+
+    This is a thin wrapper around aiorwlock.RWLock providing a consistent
+    interface with method-based context manager access.
 
     Example:
         >>> rwlock = AsyncRWLock()
@@ -26,77 +38,144 @@ class AsyncRWLock:
 
     def __init__(self) -> None:
         """Initialize the RWLock."""
+        self._lock = _AioRWLock()
+        self._state_lock = asyncio.Lock()
         self._readers = 0
         self._writers = 0
         self._write_waiters = 0
-        self._lock = asyncio.Lock()
-        self._read_ok = asyncio.Condition(self._lock)
-        self._write_ok = asyncio.Condition(self._lock)
 
     async def acquire_read(self) -> None:
-        """Acquire read lock (shared with other readers)."""
-        async with self._lock:
-            # Wait if there's a writer or writers waiting
-            while self._writers > 0 or self._write_waiters > 0:
-                await self._read_ok.wait()
+        """Acquire a read lock."""
+        await self._lock.reader_lock.acquire()
+        async with self._state_lock:
             self._readers += 1
 
     async def release_read(self) -> None:
-        """Release read lock."""
-        async with self._lock:
-            self._readers -= 1
-            # Wake up waiting writers if we're the last reader
-            if self._readers == 0:
-                self._write_ok.notify()
+        """Release a read lock."""
+        try:
+            result = self._lock.reader_lock.release()
+            if asyncio.iscoroutine(result):
+                await result
+        except RuntimeError:
+            return
+        async with self._state_lock:
+            if self._readers > 0:
+                self._readers -= 1
 
     async def acquire_write(self) -> None:
-        """Acquire write lock (exclusive)."""
-        async with self._lock:
+        """Acquire a write lock."""
+        async with self._state_lock:
             self._write_waiters += 1
-            try:
-                # Wait until no readers and no writers
-                while self._readers > 0 or self._writers > 0:
-                    await self._write_ok.wait()
-                self._writers += 1
-            finally:
-                self._write_waiters -= 1
+        await self._lock.writer_lock.acquire()
+        async with self._state_lock:
+            self._write_waiters = max(0, self._write_waiters - 1)
+            self._writers += 1
 
     async def release_write(self) -> None:
-        """Release write lock."""
-        async with self._lock:
-            self._writers -= 1
-            # Prefer waiting writers, but also wake readers
-            self._write_ok.notify()
-            self._read_ok.notify_all()
+        """Release a write lock."""
+        try:
+            result = self._lock.writer_lock.release()
+            if asyncio.iscoroutine(result):
+                await result
+        except RuntimeError:
+            return
+        async with self._state_lock:
+            if self._writers > 0:
+                self._writers -= 1
 
-    class ReadContext:
-        """Context manager for read locks."""
+    @asynccontextmanager
+    async def read_lock(self):
+        """Get read lock async context manager."""
+        await self.acquire_read()
+        try:
+            yield
+        finally:
+            await self.release_read()
 
-        def __init__(self, lock: AsyncRWLock) -> None:
-            self.lock = lock
+    @asynccontextmanager
+    async def write_lock(self):
+        """Get write lock async context manager."""
+        await self.acquire_write()
+        try:
+            yield
+        finally:
+            await self.release_write()
 
-        async def __aenter__(self) -> None:
-            await self.lock.acquire_read()
 
-        async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-            await self.lock.release_read()
+class SyncRWLock:
+    """Synchronous readers-writer lock for high-concurrency scenarios.
 
-    class WriteContext:
-        """Context manager for write locks."""
+    Allows multiple concurrent readers but exclusive writer access.
+    Prevents read operations from blocking each other while maintaining
+    data consistency for writes.
 
-        def __init__(self, lock: AsyncRWLock) -> None:
-            self.lock = lock
+    This is a thin wrapper around readerwriterlock.RWLockFair providing
+    a consistent interface with the async version.
 
-        async def __aenter__(self) -> None:
-            await self.lock.acquire_write()
+    Features:
+    - Multiple readers can hold the lock simultaneously
+    - Writers get exclusive access (no readers or other writers)
+    - Fair scheduling to prevent writer starvation
 
-        async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-            await self.lock.release_write()
+    Example:
+        >>> rwlock = SyncRWLock()
+        >>> with rwlock.read_lock():
+        ...     # Multiple readers can acquire simultaneously
+        ...     value = shared_data.read()
+        >>> with rwlock.write_lock():
+        ...     # Only one writer at a time
+        ...     shared_data.write(new_value)
+    """
 
-    def read_lock(self) -> AsyncRWLock.ReadContext:
-        """Get read lock context manager."""
-        return AsyncRWLock.ReadContext(self)
+    def __init__(self) -> None:
+        """Initialize the SyncRWLock."""
+        self._lock = _rwlock.RWLockFair()
+        self._state_lock = threading.Lock()
+        self._readers = 0
+        self._writers = 0
+        self._write_waiters = 0
 
-    def write_lock(self) -> AsyncRWLock.WriteContext:
-        """Get write lock context manager."""
-        return AsyncRWLock.WriteContext(self)
+    @contextmanager
+    def read_lock(self) -> Iterator[None]:
+        """Context manager for read locks.
+
+        Allows multiple concurrent readers.
+
+        Example:
+            >>> with rwlock.read_lock():
+            ...     # Multiple threads can read simultaneously
+            ...     data = shared_resource.read()
+        """
+        with self._lock.gen_rlock():
+            with self._state_lock:
+                self._readers += 1
+            try:
+                yield
+            finally:
+                with self._state_lock:
+                    if self._readers > 0:
+                        self._readers -= 1
+
+    @contextmanager
+    def write_lock(self) -> Iterator[None]:
+        """Context manager for write locks.
+
+        Provides exclusive access - no concurrent readers or writers.
+
+        Example:
+            >>> with rwlock.write_lock():
+            ...     # Exclusive access guaranteed
+            ...     shared_resource.write(new_data)
+        """
+        with self._state_lock:
+            self._write_waiters += 1
+        with self._lock.gen_wlock():
+            with self._state_lock:
+                self._write_waiters = max(0, self._write_waiters - 1)
+                self._writers += 1
+            try:
+                yield
+            finally:
+                with self._state_lock:
+                    if self._writers > 0:
+                        self._writers -= 1

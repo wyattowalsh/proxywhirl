@@ -684,6 +684,7 @@ L1 in-memory cache using OrderedDict for LRU tracking.
 
 ```{eval-rst}
 .. py:method:: __init__(config: CacheTierConfig, tier_type: TierType, on_evict: Optional[Callable[[str, CacheEntry], None]] = None) -> None
+   :noindex:
 
    Initialize memory cache with LRU tracking.
 
@@ -766,6 +767,7 @@ L2 file-based cache using sharded JSONL files with encryption.
 
 ```{eval-rst}
 .. py:method:: __init__(config: CacheTierConfig, tier_type: TierType, cache_dir: Path, encryptor: Optional[CredentialEncryptor] = None, num_shards: int = 16) -> None
+   :noindex:
 
    Initialize JSONL file cache with sharding and encryption.
 
@@ -857,6 +859,7 @@ L2 SQLite-based cache with encryption and indexed lookups.
 
 ```{eval-rst}
 .. py:method:: __init__(config: CacheTierConfig, tier_type: TierType, cache_dir: Path, encryptor: Optional[CredentialEncryptor] = None) -> None
+   :noindex:
 
    Initialize SQLite-based L2 cache.
 
@@ -959,6 +962,7 @@ L3 SQLite database cache with encrypted credentials and health history.
 
 ```{eval-rst}
 .. py:method:: __init__(config: CacheTierConfig, tier_type: TierType, db_path: Path, encryptor: Optional[CredentialEncryptor] = None) -> None
+   :noindex:
 
    Initialize SQLite cache.
 
@@ -1072,6 +1076,7 @@ Handles encryption/decryption of proxy credentials using Fernet symmetric encryp
 
 ```{eval-rst}
 .. py:method:: __init__(key: Optional[bytes] = None) -> None
+   :noindex:
 
    Initialize encryptor with Fernet key.
 
@@ -1152,6 +1157,7 @@ Main orchestrator for multi-tier proxy caching (stub implementation).
 
 ```{eval-rst}
 .. py:method:: __init__(*args: Any, **kwargs: Any) -> None
+   :noindex:
 
    Initialize cache manager stub.
 
@@ -1332,4 +1338,4 @@ Tiers implement graceful degradation:
 
 - {doc}`/reference/python-api` - Main ProxyRotator API
 - {doc}`/reference/configuration` - Configuration management
-- {doc}`/getting_started` - Getting started guide
+- {doc}`/getting-started/index` - Getting started guide

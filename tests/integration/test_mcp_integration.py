@@ -4,7 +4,6 @@ from uuid import uuid4
 
 import pytest
 
-from proxywhirl.async_client import AsyncProxyRotator
 from proxywhirl.circuit_breaker import CircuitBreaker
 from proxywhirl.mcp.auth import MCPAuth
 from proxywhirl.mcp.server import (
@@ -14,6 +13,7 @@ from proxywhirl.mcp.server import (
     set_rotator,
 )
 from proxywhirl.models import HealthStatus, Proxy, ProxyPool, ProxySource
+from proxywhirl.rotator import AsyncProxyRotator
 
 # Use _proxywhirl_tool for testing as the decorated proxywhirl becomes a
 # FunctionTool object when FastMCP is available and is not directly callable

@@ -24,7 +24,7 @@ from proxywhirl.exceptions import (
     ProxyPoolEmptyError,
 )
 from proxywhirl.models import ProxyChain
-from proxywhirl.retry_policy import RetryPolicy
+from proxywhirl.retry import RetryPolicy
 
 
 class TestProxyRotatorHTTPMethods:

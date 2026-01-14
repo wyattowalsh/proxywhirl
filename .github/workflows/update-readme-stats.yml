@@ -67,13 +67,13 @@ jobs:
       - name: Check for changes
         id: git-check
         run: |
-          git diff --quiet README.md docs/assets/*.svg || echo "changes=true" >> $GITHUB_OUTPUT
+          git diff --quiet README.md docs/assets/*.svg docs/assets/*.json || echo "changes=true" >> $GITHUB_OUTPUT
 
       - name: Commit and push changes
         if: steps.git-check.outputs.changes == 'true'
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add README.md docs/assets/*.svg
+          git add README.md docs/assets/*.svg docs/assets/*.json
           git commit -m "chore: Update README stats [skip ci]"
           git push

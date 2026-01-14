@@ -3,6 +3,7 @@
 import sys
 from io import StringIO
 
+import pytest
 from loguru import logger
 from pydantic import SecretStr
 
@@ -11,7 +12,9 @@ from proxywhirl.utils import (
     configure_logging,
     create_proxy_from_url,
     is_valid_proxy_url,
+    mask_secret_str,
     proxy_to_dict,
+    scrub_credentials_from_dict,
     validate_proxy_model,
 )
 
@@ -125,6 +128,56 @@ class TestProxyToDictConversion:
         # Credentials should not be in the dict for security
         assert "username" not in result
         assert "password" not in result
+
+
+class TestRedactionHelpers:
+    """Tests for redaction and masking helpers."""
+
+    def test_redact_sensitive_data_secretstr(self) -> None:
+        from proxywhirl.utils import _redact_sensitive_data
+
+        assert _redact_sensitive_data(SecretStr("secret")) == "***"
+
+    def test_redact_url_credentials_parse_error(self, monkeypatch) -> None:
+        from proxywhirl import utils as utils_mod
+
+        def _raise(*_args, **_kwargs):
+            raise ValueError("boom")
+
+        monkeypatch.setattr(utils_mod, "urlparse", _raise)
+        assert utils_mod._redact_url_credentials("http://user:pass@host") == "http://user:pass@host"
+
+    def test_mask_secret_str_variants(self) -> None:
+        assert mask_secret_str(SecretStr("secret")) == "***"
+        assert mask_secret_str("value") == "***"
+        assert mask_secret_str("") == ""
+
+    def test_scrub_credentials_from_dict_paths(self) -> None:
+        data = {
+            "password": None,
+            "note": SecretStr("token"),
+            "urls": ["http://user:pass@proxy.example.com:8080"],
+            "nested": {"api_key": "abc"},
+        }
+        scrubbed = scrub_credentials_from_dict(data)
+        assert scrubbed["password"] is None
+        assert scrubbed["note"] == "***"
+        assert scrubbed["urls"][0].startswith("http://***:***@")
+        assert scrubbed["nested"]["api_key"] == "***"
+
+
+class TestValidationEdgeCasesCoverage:
+    """Additional coverage for validation error paths."""
+
+    def test_validate_target_url_safe_parse_error(self, monkeypatch) -> None:
+        from proxywhirl import utils as utils_mod
+
+        def _raise(*_args, **_kwargs):
+            raise ValueError("boom")
+
+        monkeypatch.setattr(utils_mod, "urlparse", _raise)
+        with pytest.raises(ValueError):
+            utils_mod.validate_target_url_safe("not-a-url")
 
     def test_proxy_to_dict_includes_stats(self):
         """Test that dict includes statistics under 'stats' key."""

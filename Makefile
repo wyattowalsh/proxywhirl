@@ -1,6 +1,6 @@
 # Makefile for proxywhirl development tasks
 
-.PHONY: help test test-unit test-integration test-coverage coverage clean lint format type-check quality-gates commit bump bump-dry bump-minor bump-major changelog fetch export test-parallel test-watch test-fast test-slow test-benchmark test-property test-html test-memory test-rerun test-snapshot validate-sources validate-sources-ci sources-list
+.PHONY: help test test-unit test-integration test-coverage coverage clean lint format type-check quality-gates commit bump bump-dry bump-minor bump-major changelog fetch export test-parallel test-watch test-fast test-slow test-benchmark test-property test-html test-memory test-rerun test-snapshot validate-sources validate-sources-ci sources-list docs-html docs-linkcheck docs-clean
 
 help:
 	@echo "Available targets:"
@@ -45,6 +45,11 @@ help:
 	@echo "  sources-list      - List all configured proxy sources"
 	@echo "  validate-sources  - Validate all proxy source URLs are reachable"
 	@echo "  validate-sources-ci - Validate sources (exit 1 if any unhealthy)"
+	@echo ""
+	@echo "Documentation:"
+	@echo "  docs-html         - Build HTML documentation"
+	@echo "  docs-linkcheck    - Check documentation links"
+	@echo "  docs-clean        - Clean documentation build artifacts"
 
 # ============================================================================
 # TESTING TARGETS
@@ -215,3 +220,26 @@ validate-sources:
 validate-sources-ci:
 	@echo "Validating proxy sources (CI mode)..."
 	uv run proxywhirl sources --validate --fail-on-unhealthy
+
+# ============================================================================
+# DOCUMENTATION TARGETS
+# ============================================================================
+
+# Build HTML documentation
+docs-html:
+	@echo "Building HTML documentation..."
+	cd docs && uv run sphinx-build -M html source build
+	@echo ""
+	@echo "Documentation built at docs/build/html/index.html"
+
+# Check documentation links
+docs-linkcheck:
+	@echo "Checking documentation links..."
+	cd docs && uv run sphinx-build -b linkcheck source build/linkcheck
+	@echo ""
+	@echo "Linkcheck results at docs/build/linkcheck/output.txt"
+
+# Clean documentation build artifacts
+docs-clean:
+	@echo "Cleaning documentation build..."
+	rm -rf docs/build

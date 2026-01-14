@@ -25,17 +25,7 @@ from proxywhirl.models import ProxySourceConfig
 
 
 PROXY_SCRAPE_HTTP = ProxySourceConfig(
-    url="https://api.proxyscrape.com/v2/?request=get&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all",
-    format="plain_text",
-)
-
-PROXY_SCRAPE_SOCKS4 = ProxySourceConfig(
-    url="https://api.proxyscrape.com/v2/?request=get&protocol=socks4&timeout=10000&country=all",
-    format="plain_text",
-)
-
-PROXY_SCRAPE_SOCKS5 = ProxySourceConfig(
-    url="https://api.proxyscrape.com/v2/?request=get&protocol=socks5&timeout=10000&country=all",
+    url="https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all",
     format="plain_text",
 )
 
@@ -308,10 +298,6 @@ GITHUB_ZAEEM_SOCKS4 = ProxySourceConfig(
     format="plain_text",
 )
 
-GITHUB_ZAEEM_SOCKS5 = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/Zaeem20/FREE_PROXIES_LIST/master/socks5.txt",
-    format="plain_text",
-)
 
 # proxy4parsing - Regularly validated
 GITHUB_PROXY4PARSING_HTTP = ProxySourceConfig(
@@ -374,22 +360,6 @@ GITHUB_ANONYM0US_SOCKS5 = ProxySourceConfig(
     format="plain_text",
 )
 
-# yemixzy/proxy-list - Updated every 3 hours
-GITHUB_YEMIXZY_HTTP = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/yemixzy/proxy-list/main/proxies/http.txt",
-    format="plain_text",
-)
-
-GITHUB_YEMIXZY_SOCKS4 = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/yemixzy/proxy-list/main/proxies/socks4.txt",
-    format="plain_text",
-)
-
-GITHUB_YEMIXZY_SOCKS5 = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/yemixzy/proxy-list/main/proxies/socks5.txt",
-    format="plain_text",
-)
-
 # hookzof/socks5_list - Well-known SOCKS5 source
 GITHUB_HOOKZOF_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt",
@@ -429,27 +399,6 @@ OPENPROXYLIST_HTTP = ProxySourceConfig(
     format="plain_text",
 )
 
-# ProxyScrape API with different countries (high-quality sources)
-PROXYSCRAPE_US_HTTP = ProxySourceConfig(
-    url="https://api.proxyscrape.com/v2/?request=get&protocol=http&timeout=10000&country=US&ssl=all&anonymity=all",
-    format="plain_text",
-)
-
-PROXYSCRAPE_DE_HTTP = ProxySourceConfig(
-    url="https://api.proxyscrape.com/v2/?request=get&protocol=http&timeout=10000&country=DE&ssl=all&anonymity=all",
-    format="plain_text",
-)
-
-PROXYSCRAPE_FR_HTTP = ProxySourceConfig(
-    url="https://api.proxyscrape.com/v2/?request=get&protocol=http&timeout=10000&country=FR&ssl=all&anonymity=all",
-    format="plain_text",
-)
-
-PROXYSCRAPE_GB_HTTP = ProxySourceConfig(
-    url="https://api.proxyscrape.com/v2/?request=get&protocol=http&timeout=10000&country=GB&ssl=all&anonymity=all",
-    format="plain_text",
-)
-
 # =============================================================================
 # Predefined Source Collections
 # =============================================================================
@@ -457,7 +406,6 @@ PROXYSCRAPE_GB_HTTP = ProxySourceConfig(
 # All HTTP/HTTPS sources
 ALL_HTTP_SOURCES = [
     # API sources
-    PROXY_SCRAPE_HTTP,
     GEONODE_HTTP,
     # GitHub sources
     GITHUB_THESPEEDX_HTTP,
@@ -488,21 +436,15 @@ ALL_HTTP_SOURCES = [
     # New sources (Dec 2025)
     GITHUB_KOMUTAN_HTTP,
     GITHUB_ANONYM0US_HTTP,
-    GITHUB_YEMIXZY_HTTP,
     GITHUB_IMRAZVAN_HTTP,
     PROXYSPACE_HTTP,
     OPENPROXYLIST_HTTP,
-    # ProxyScrape country-specific
-    PROXYSCRAPE_US_HTTP,
-    PROXYSCRAPE_DE_HTTP,
-    PROXYSCRAPE_FR_HTTP,
-    PROXYSCRAPE_GB_HTTP,
+    # ProxyScrape country-specific removed (API invalid)
 ]
 
 # All SOCKS4 sources
 ALL_SOCKS4_SOURCES = [
     # API sources
-    PROXY_SCRAPE_SOCKS4,
     GEONODE_SOCKS4,
     # GitHub sources
     GITHUB_THESPEEDX_SOCKS4,
@@ -523,14 +465,12 @@ ALL_SOCKS4_SOURCES = [
     # New sources (Dec 2025)
     GITHUB_KOMUTAN_SOCKS4,
     GITHUB_ANONYM0US_SOCKS4,
-    GITHUB_YEMIXZY_SOCKS4,
     PROXYSPACE_SOCKS4,
 ]
 
 # All SOCKS5 sources
 ALL_SOCKS5_SOURCES = [
     # API sources
-    PROXY_SCRAPE_SOCKS5,
     GEONODE_SOCKS5,
     # GitHub sources
     GITHUB_THESPEEDX_SOCKS5,
@@ -546,12 +486,10 @@ ALL_SOCKS5_SOURCES = [
     GITHUB_OPENPROXY_SOCKS5,
     # High-quality verified sources
     GITHUB_VAKHOV_SOCKS5,
-    GITHUB_ZAEEM_SOCKS5,
     GITHUB_MURONGPIG_SOCKS5,
     # New sources (Dec 2025)
     GITHUB_KOMUTAN_SOCKS5,
     GITHUB_ANONYM0US_SOCKS5,
-    GITHUB_YEMIXZY_SOCKS5,
     GITHUB_HOOKZOF_SOCKS5,
     GITHUB_IMRAZVAN_SOCKS5,
     PROXYSPACE_SOCKS5,
@@ -571,9 +509,6 @@ RECOMMENDED_SOURCES = [
 
 # API-based sources only (typically faster/more reliable)
 API_SOURCES = [
-    PROXY_SCRAPE_HTTP,
-    PROXY_SCRAPE_SOCKS4,
-    PROXY_SCRAPE_SOCKS5,
     GEONODE_HTTP,
     GEONODE_SOCKS4,
     GEONODE_SOCKS5,

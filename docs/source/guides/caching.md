@@ -549,7 +549,7 @@ print(f"Failed: {result['failed']}")
 
 **Example CSV format:**
 
-```csv
+```text
 proxy_url,username,password,source
 http://proxy1.example.com:8080,,,warmed
 http://proxy2.example.com:8080,user,pass,warmed
@@ -822,6 +822,6 @@ metrics = stats.to_metrics_dict()
 
 ## See Also
 
-- {ref}`/reference/index.md` - API reference for `CacheManager`, `CacheEntry`, `CacheConfig`
-- {ref}`/guides/automation.md` - CI/CD integration for cache monitoring
-- {ref}`/getting-started/index.md` - QuickStart for basic ProxyWhirl usage
+- {doc}`/reference/index` - API reference for `CacheManager`, `CacheEntry`, `CacheConfig`
+- {doc}`/guides/automation` - CI/CD integration for cache monitoring
+- {doc}`/getting-started/index` - QuickStart for basic ProxyWhirl usage

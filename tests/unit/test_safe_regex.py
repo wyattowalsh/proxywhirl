@@ -12,6 +12,7 @@ import time
 import pytest
 import typer
 
+import proxywhirl.safe_regex as safe_regex
 from proxywhirl.safe_regex import (
     MAX_PATTERN_LENGTH,
     MAX_REPETITIONS,
@@ -385,3 +386,61 @@ class TestSecurityScenarios:
 
         with pytest.raises(typer.Exit):
             safe_regex_compile(malicious_filter)
+
+
+class _TimeoutFuture:
+    def result(self, timeout: float | None = None):  # noqa: ANN001 - helper protocol
+        raise safe_regex.FuturesTimeoutError()
+
+
+class _TimeoutExecutor:
+    def __init__(self, *args, **kwargs):  # noqa: ANN002
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):  # noqa: ANN002
+        return False
+
+    def submit(self, *args, **kwargs):  # noqa: ANN002
+        return _TimeoutFuture()
+
+
+class TestSafeRegexTimeoutPaths:
+    """Cover timeout/error branches for safe_regex helpers."""
+
+    def test_compile_with_timeout_raises(self, monkeypatch) -> None:
+        monkeypatch.setattr(safe_regex, "ThreadPoolExecutor", _TimeoutExecutor)
+        with pytest.raises(safe_regex.RegexTimeoutError):
+            safe_regex._compile_with_timeout(r"a+", 0, timeout=0.01)
+
+    def test_match_with_timeout_raises(self, monkeypatch) -> None:
+        monkeypatch.setattr(safe_regex, "ThreadPoolExecutor", _TimeoutExecutor)
+        compiled = re.compile(r"a+")
+        with pytest.raises(safe_regex.RegexTimeoutError):
+            safe_regex._match_with_timeout(compiled, "aaaa", timeout=0.01)
+
+    def test_safe_regex_compile_handles_timeout(self, monkeypatch) -> None:
+        def _raise(*_args, **_kwargs):
+            raise safe_regex.RegexTimeoutError("timeout")
+
+        monkeypatch.setattr(safe_regex, "_compile_with_timeout", _raise)
+        with pytest.raises(typer.Exit) as exc_info:
+            safe_regex.safe_regex_compile(r"a+", validate=False, timeout=0.01)
+        assert exc_info.value.exit_code == 1
+
+    def test_safe_regex_match_handles_timeout(self, monkeypatch) -> None:
+        def _raise(*_args, **_kwargs):
+            raise safe_regex.RegexTimeoutError("timeout")
+
+        monkeypatch.setattr(safe_regex, "_match_with_timeout", _raise)
+        with pytest.raises(typer.Exit) as exc_info:
+            safe_regex.safe_regex_match(re.compile(r"a+"), "aaaa", validate=False, timeout=0.01)
+        assert exc_info.value.exit_code == 1
+
+    def test_safe_regex_findall_timeout(self, monkeypatch) -> None:
+        monkeypatch.setattr(safe_regex, "ThreadPoolExecutor", _TimeoutExecutor)
+        with pytest.raises(typer.Exit) as exc_info:
+            safe_regex.safe_regex_findall(re.compile(r"a+"), "aaaa", validate=False, timeout=0.01)
+        assert exc_info.value.exit_code == 1

@@ -1,101 +1,92 @@
-# MCP Server Subsystem Agent Guidelines
+# MCP Server Subsystem
 
 > Extends: [../../AGENTS.md](../../AGENTS.md)
 
-Agent guidelines for the Model Context Protocol (MCP) server integration.
+**Requires:** Python 3.10+, `uv pip install -e ".[mcp]"`
 
-## Overview
+## Modules
 
-The MCP subsystem exposes proxywhirl functionality as an MCP server, allowing AI assistants to interact with proxy rotation capabilities.
+| File | Key Classes |
+|------|-------------|
+| `server.py` | `MCPServer`, `main()` CLI entry point, `ProxyWhirlAuthMiddleware` |
+| `auth.py` | API key validation |
 
-**Note:** Requires Python 3.10+ and the `[mcp]` optional dependency.
+## FastMCP v2 Features
 
-## Module Structure
+| Feature | Implementation |
+|---------|----------------|
+| **Lifespan** | `_mcp_lifespan` context manager for startup/shutdown |
+| **Middleware** | `ProxyWhirlAuthMiddleware` for API key validation |
+| **Progress** | `ctx.report_progress()` in fetch/validate operations |
+| **Context Logging** | `_async_log()` helper for context-based logging |
+| **Resource URIs** | Standard `resource://proxywhirl/` scheme |
 
-| File | Purpose | Key Classes |
-|------|---------|-------------|
-| `__init__.py` | Public exports | `MCPServer` |
-| `server.py` | MCP server implementation | `MCPServer`, tool definitions |
-| `auth.py` | Authentication | API key validation |
-
-## Quick Reference
+## CLI Usage
 
 ```bash
-# Install MCP dependencies
-uv pip install -e ".[mcp]"
+# Run MCP server (after pip install)
+proxywhirl-mcp
 
-# Run MCP server tests
-uv run pytest tests/unit/test_mcp_server.py -v
-uv run pytest tests/unit/test_mcp_auth.py -v
+# With uvx (no install)
+uvx "proxywhirl[mcp]" proxywhirl-mcp
+
+# With options
+proxywhirl-mcp --transport http --api-key $KEY --db /path/to.db --log-level debug
 ```
 
-## Key Patterns
+## Environment Variables
 
-### MCP Server Tools
+- `PROXYWHIRL_MCP_API_KEY` - API key for authentication
+- `PROXYWHIRL_MCP_DB` - Path to proxy database
+- `PROXYWHIRL_MCP_LOG_LEVEL` - Log level (debug/info/warning/error)
 
-The MCP server exposes these tools:
+## Actions (11 total)
 
-| Tool | Description |
-|------|-------------|
-| `get_proxy` | Get a proxy with optional filters |
-| `validate_proxy` | Validate a specific proxy |
-| `list_proxies` | List available proxies |
-| `get_statistics` | Get proxy pool statistics |
-| `refresh_proxies` | Refresh proxy list from sources |
+| Action | Description |
+|--------|-------------|
+| `list` | List all proxies |
+| `rotate` | Get next proxy |
+| `status` | Get proxy status |
+| `recommend` | Get best proxy for criteria |
+| `health` | Pool health overview |
+| `reset_cb` | Reset circuit breaker |
+| `add` | Add proxy to pool |
+| `remove` | Remove proxy from pool |
+| `fetch` | Fetch from public sources |
+| `validate` | Test proxy connectivity |
+| `set_strategy` | Change rotation strategy |
 
-### Server Configuration
+## Resources
 
-```python
-from proxywhirl.mcp import MCPServer
-
-server = MCPServer(
-    name="proxywhirl",
-    api_key="your-api-key",  # Optional
-)
-
-# Start the server
-await server.start()
-```
+| URI | Description |
+|-----|-------------|
+| `resource://proxywhirl/health` | Real-time pool health |
+| `resource://proxywhirl/config` | Server configuration |
 
 ## Boundaries
 
-### Always Do
-
-- Validate API keys when authentication is enabled
-- Return structured responses for all tools
+**Always:**
+- Validate API keys when auth is enabled (via middleware)
+- Return structured JSON responses for all actions
 - Handle errors gracefully with informative messages
+- Log all action invocations for audit
+- Sanitize proxy data before returning (strip credentials)
+- Use context for logging when available (`_async_log`)
 
-### Ask First
+**Ask First:**
+- Adding new MCP actions
+- Authentication mechanism changes
+- Response schema modifications
+- Environment variable changes
 
-- Adding new MCP tools
-- Changing authentication mechanisms
-- Modifying response schemas
+**Never:**
+- Expose proxy credentials/passwords in responses
+- Bypass authentication checks
+- Return raw internal errors to clients
+- Allow unauthenticated access to write actions (`add`, `remove`, `reset_cb`)
 
-### Never Touch
+## Tests
 
-- Exposing sensitive proxy credentials in tool responses
-- Bypassing authentication
+Skip on Python < 3.10: `@pytest.mark.skipif(sys.version_info < (3, 10), reason="MCP requires 3.10+")`
 
-## Test Coverage
-
-```bash
-# Unit tests
-uv run pytest tests/unit/test_mcp_server.py -v
-uv run pytest tests/unit/test_mcp_auth.py -v
-```
-
-## Python Version Note
-
-MCP requires Python 3.10+. Tests should be skipped on earlier versions:
-
-```python
-import sys
-import pytest
-
-@pytest.mark.skipif(
-    sys.version_info < (3, 10),
-    reason="MCP requires Python 3.10+"
-)
-def test_mcp_feature():
-    ...
-```
+Coverage target: ≥90% (currently at 90.23%)

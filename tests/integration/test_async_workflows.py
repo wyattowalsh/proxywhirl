@@ -25,7 +25,7 @@ from proxywhirl.exceptions import (
     ProxyPoolEmptyError,
 )
 from proxywhirl.models import HealthStatus, Proxy
-from proxywhirl.retry_policy import BackoffStrategy, RetryPolicy
+from proxywhirl.retry import BackoffStrategy, RetryPolicy
 
 
 class TestAsyncRotationWorkflow:

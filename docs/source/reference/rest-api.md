@@ -241,8 +241,8 @@ Make HTTP requests through rotating proxies.
   "status": "success",
   "data": {
     "status_code": 200,
-    "headers": {...},
-    "body": "{...}",
+    "headers": {"Content-Type": "application/json"},
+    "body": "{\"result\": \"data\"}",
     "proxy_used": {
       "id": "proxy-123",
       "url": "http://proxy.example.com:8080"
@@ -337,7 +337,8 @@ Get details for a specific proxy.
   "data": {
     "id": "proxy-123",
     "url": "http://proxy.example.com:8080",
-    ...
+    "protocol": "http",
+    "health": "healthy"
   }
 }
 ```
@@ -728,5 +729,5 @@ curl -X PUT http://localhost:8000/api/v1/config \
 
 For issues and questions:
 - GitHub Issues: https://github.com/wyattowalsh/proxywhirl/issues
-- Documentation: See README.md and docs/
-- Examples: See examples/ directory
+- Documentation: See `README.md` and `docs/`
+- Examples: See `examples/` directory

@@ -6,7 +6,7 @@ Tests the Pydantic validation logic for API request/response models.
 import pytest
 from pydantic import HttpUrl, SecretStr, ValidationError
 
-from proxywhirl.api_models import CreateProxyRequest, ProxiedRequest, UpdateConfigRequest
+from proxywhirl.api.models import CreateProxyRequest, ProxiedRequest, UpdateConfigRequest
 
 
 # T016: Unit test for request validation

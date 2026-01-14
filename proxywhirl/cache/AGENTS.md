@@ -1,119 +1,51 @@
-# Cache Subsystem Agent Guidelines
+# Cache Subsystem
 
 > Extends: [../../AGENTS.md](../../AGENTS.md)
 
-Agent guidelines for the multi-tier caching subsystem.
+## Modules
 
-## Overview
+| File | Key Classes |
+|------|-------------|
+| `manager.py` | `CacheManager` |
+| `tiers.py` | `L1Cache`, `L2Cache` |
+| `crypto.py` | Encrypt/decrypt utilities |
+| `models.py` | `CacheEntry`, `CacheStatistics` |
 
-The cache subsystem provides high-performance, multi-tier caching with encryption support for proxy data and validation results.
+## Architecture
 
-## Module Structure
-
-| File | Purpose | Key Classes |
-|------|---------|-------------|
-| `__init__.py` | Public exports | `CacheManager`, `CacheConfig` |
-| `manager.py` | Main cache manager | `CacheManager` |
-| `tiers.py` | Multi-tier implementation | `L1Cache`, `L2Cache`, tier logic |
-| `crypto.py` | Encryption utilities | Key generation, encrypt/decrypt |
-| `models.py` | Data models | `CacheEntry`, `CacheStatistics` |
-
-## Quick Reference
-
-```bash
-# Run cache-specific tests
-uv run pytest tests/unit/test_cache_*.py -v
-uv run pytest tests/integration/test_cache_*.py -v
-
-# Run cache benchmarks
-uv run pytest tests/benchmarks/test_cache_performance.py --benchmark-only
+```
+L1 (in-memory, fast) → L2 (LRU, encrypted) → Origin (fetch)
 ```
 
-## Key Patterns
-
-### CacheManager Usage
+## Usage
 
 ```python
-from proxywhirl.cache import CacheManager, CacheConfig
-
-config = CacheConfig(
-    l1_max_size=1000,
-    l2_max_size=10000,
-    default_ttl=300,
-    encryption_enabled=True,
-)
-
-cache = CacheManager(config)
-
-# Store and retrieve
+cache = CacheManager(CacheConfig(l1_max_size=1000, encryption_enabled=True))
 await cache.set("key", value, ttl=60)
 result = await cache.get("key")
-
-# Statistics
-stats = cache.get_statistics()
-```
-
-### Multi-Tier Architecture
-
-```
-┌─────────────────┐
-│   L1 Cache      │  ← Fast, in-memory, limited size
-│   (dict-based)  │
-└────────┬────────┘
-         │ miss
-         ▼
-┌─────────────────┐
-│   L2 Cache      │  ← Larger, optional encryption
-│   (LRU-based)   │
-└────────┬────────┘
-         │ miss
-         ▼
-┌─────────────────┐
-│   Origin        │  ← Fetch from source
-│   (ProxyFetcher)│
-└─────────────────┘
 ```
 
 ## Boundaries
 
-### Always Do
-
-- Use TTL for all cache entries
-- Handle cache misses gracefully
+**Always:**
+- Set TTL for all cache entries
+- Handle cache misses gracefully (return None, not raise)
 - Log cache statistics periodically
 - Test with encryption enabled AND disabled
+- Use atomic operations for concurrent access
 
-### Ask First
-
-- Changing cache eviction policies
-- Modifying L1/L2 size defaults
+**Ask First:**
+- Eviction policy changes
+- L1/L2 size default changes
 - Adding new cache tiers
+- Serialization format changes
 
-### Never Touch
+**Never:**
+- Change encryption algorithm without security review
+- Break serialization backwards compatibility
+- Cache sensitive data without encryption
+- Ignore TTL expiration
 
-- Encryption key generation algorithm without security review
-- Cache serialization format (breaks backwards compatibility)
+## Performance Targets
 
-## Test Coverage
-
-```bash
-# Unit tests
-uv run pytest tests/unit/test_cache_manager.py -v
-uv run pytest tests/unit/test_cache_tiers.py -v
-uv run pytest tests/unit/test_cache_crypto.py -v
-uv run pytest tests/unit/test_cache_ttl.py -v
-
-# Integration tests
-uv run pytest tests/integration/test_cache_*.py -v
-
-# Property tests
-uv run pytest tests/property/test_cache_properties.py -v
-```
-
-## Performance Requirements
-
-| Metric | Target | Measurement |
-|--------|--------|-------------|
-| L1 hit latency | < 0.1ms | `test_cache_performance.py` |
-| L2 hit latency | < 1ms | `test_cache_performance.py` |
-| Cache warmup | < 5s for 10k entries | `test_cache_warming.py` |
+L1 hit < 0.1ms, L2 hit < 1ms, warmup < 5s for 10k entries

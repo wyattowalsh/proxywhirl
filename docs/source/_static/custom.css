@@ -1,74 +1,819 @@
+/* ==========================================================================
+   ProxyWhirl Docs — Shibuya Theme Customization
+   Aligned with landing page design system (blue→purple→pink gradient)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   CSS Custom Properties
+   -------------------------------------------------------------------------- */
 :root {
-  --pw-hero-bg: linear-gradient(135deg, rgba(109, 100, 255, 0.12), rgba(200, 107, 255, 0.12));
-  --pw-border: rgba(109, 100, 255, 0.25);
+  /* Brand gradient colors (from logo.svg) */
+  --pw-violet: #6d64ff;
+  --pw-pink: #c86bff;
+  --pw-blue: #3b82f6;
+  --pw-deep: #1f1b57;
+
+  /* Gradients */
+  --pw-gradient: linear-gradient(135deg, var(--pw-violet), var(--pw-pink));
+  --pw-gradient-text: linear-gradient(90deg, var(--pw-blue), var(--pw-violet), var(--pw-pink));
+  --pw-hero-bg: linear-gradient(135deg, rgba(109, 100, 255, 0.08), rgba(200, 107, 255, 0.08));
+  --pw-glow: 0 0 60px rgba(109, 100, 255, 0.15);
+
+  /* Borders & shadows */
+  --pw-border: rgba(109, 100, 255, 0.2);
+  --pw-border-strong: rgba(109, 100, 255, 0.35);
+  --pw-shadow-sm: 0 4px 12px rgba(17, 15, 35, 0.06);
+  --pw-shadow-md: 0 10px 24px rgba(17, 15, 35, 0.08);
+  --pw-shadow-lg: 0 20px 40px rgba(17, 15, 35, 0.12);
+
+  /* Radius system (matches Tailwind) */
+  --pw-radius-sm: 0.375rem;
+  --pw-radius: 0.5rem;
+  --pw-radius-lg: 0.75rem;
+  --pw-radius-xl: 1rem;
+  --pw-radius-2xl: 1.25rem;
+
+  /* Animation */
+  --pw-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Light mode accent overrides */
+html.light {
+  --accent-9: #6d64ff;
+  --accent-a9: rgba(109, 100, 255, 0.92);
+  --color-accent-fg: #6d64ff;
+}
+
+/* Dark mode accent overrides */
+html.dark {
+  --accent-9: #a497ff;
+  --accent-a9: rgba(164, 151, 255, 0.92);
+  --color-accent-fg: #a497ff;
+  --pw-hero-bg: linear-gradient(135deg, rgba(109, 100, 255, 0.12), rgba(200, 107, 255, 0.1));
+  --pw-border: rgba(164, 151, 255, 0.2);
+  --pw-shadow-md: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+/* --------------------------------------------------------------------------
+   Global Typography Enhancements
+   -------------------------------------------------------------------------- */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Gradient text utility */
+.gradient-text,
+.sy-content h1:first-of-type {
+  background: var(--pw-gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   Header & Navigation
+   -------------------------------------------------------------------------- */
+.sy-head {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--pw-border);
+}
+
+/* Fix nav logo text truncation */
+.sy-head-brand {
+  min-width: max-content;
+  flex-shrink: 0;
+}
+
+.sy-head-brand a {
+  white-space: nowrap;
+}
+
+.sy-head-nav a:hover {
+  color: var(--pw-violet);
+}
+
+/* Announcement bar styling */
+.sy-announce {
+  background: linear-gradient(90deg, rgba(109, 100, 255, 0.1), rgba(200, 107, 255, 0.1));
+  border-bottom: 1px solid var(--pw-border);
+  font-size: 0.875rem;
+}
+
+:root.dark .sy-announce {
+  background: linear-gradient(90deg, rgba(109, 100, 255, 0.15), rgba(200, 107, 255, 0.12));
+}
+
+/* --------------------------------------------------------------------------
+   Hero Section (Index Page)
+   -------------------------------------------------------------------------- */
 .sy-hero {
   background: var(--pw-hero-bg);
   border: 1px solid var(--pw-border);
-  border-radius: 1.25rem;
-  padding: 2.4rem clamp(1.5rem, 4vw, 3.2rem);
-  margin-bottom: 2.5rem;
-  box-shadow: 0 18px 40px rgba(17, 15, 35, 0.12);
+  border-radius: var(--pw-radius-2xl);
+  padding: 3rem clamp(1.5rem, 5vw, 4rem);
+  margin-bottom: 3rem;
+  box-shadow: var(--pw-shadow-lg), var(--pw-glow);
+  position: relative;
+  overflow: hidden;
+}
+
+.sy-hero::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  right: -30%;
+  width: 60%;
+  height: 200%;
+  background: radial-gradient(ellipse, rgba(109, 100, 255, 0.08) 0%, transparent 70%);
+  pointer-events: none;
 }
 
 .sy-hero h1 {
-  font-size: clamp(2.4rem, 4vw, 3.4rem);
-  letter-spacing: -0.02em;
-  margin-bottom: 0.6rem;
+  font-size: clamp(2.5rem, 5vw, 3.75rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin-bottom: 1rem;
+  background: var(--pw-gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .sy-hero p {
-  font-size: clamp(1.1rem, 2.2vw, 1.35rem);
-  max-width: 48rem;
-  margin-bottom: 1.6rem;
+  font-size: clamp(1.125rem, 2.5vw, 1.375rem);
+  line-height: 1.6;
+  max-width: 52rem;
+  margin-bottom: 2rem;
+  opacity: 0.9;
 }
 
 .sy-hero .sd-btn {
   font-weight: 600;
   font-size: 1rem;
-  padding-inline: 1.4rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: var(--pw-radius-lg);
+  transition: all var(--pw-transition);
 }
 
+.sy-hero .sd-btn-primary {
+  background: var(--pw-gradient);
+  border: none;
+  box-shadow: 0 4px 14px rgba(109, 100, 255, 0.35);
+}
+
+.sy-hero .sd-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(109, 100, 255, 0.45);
+}
+
+/* --------------------------------------------------------------------------
+   Cards (sphinx-design)
+   -------------------------------------------------------------------------- */
 .sd-card {
-  border-radius: 1.15rem;
-  border: 1px solid rgba(109, 100, 255, 0.16);
-  box-shadow: 0 10px 24px rgba(17, 15, 35, 0.08);
+  border-radius: var(--pw-radius-xl);
+  border: 1px solid var(--pw-border);
+  background: var(--color-background-secondary);
+  box-shadow: var(--pw-shadow-sm);
+  transition: all var(--pw-transition);
+  overflow: hidden;
 }
 
-.sd-card .sd-card-body {
-  padding: 1.6rem 1.5rem 1.8rem;
+.sd-card:hover {
+  border-color: var(--pw-border-strong);
+  box-shadow: var(--pw-shadow-md);
+  transform: translateY(-2px);
+}
+
+.sd-card-header {
+  border-bottom: 1px solid var(--pw-border);
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.04), transparent);
+}
+
+.sd-card-body {
+  padding: 1.75rem 1.5rem;
+}
+
+.sd-card-footer {
+  border-top: 1px solid var(--pw-border);
+  background: rgba(109, 100, 255, 0.02);
+}
+
+/* Card grid improvements */
+.sd-cards-carousel .sd-card,
+.sd-row .sd-card {
+  height: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   Tabs (sphinx-design)
+   -------------------------------------------------------------------------- */
+.sd-tab-set {
+  border-radius: var(--pw-radius-xl);
+  overflow: hidden;
+  border: 1px solid var(--pw-border);
 }
 
 .sd-tab-set > ul {
   border-bottom: 1px solid var(--pw-border);
+  background: rgba(109, 100, 255, 0.03);
+  padding: 0.5rem 0.5rem 0;
+  gap: 0.25rem;
 }
 
 .sd-tab-set > ul li button[role="tab"] {
-  border-radius: 0.75rem 0.75rem 0 0;
+  border-radius: var(--pw-radius-lg) var(--pw-radius-lg) 0 0;
   border: 1px solid transparent;
+  padding: 0.75rem 1.25rem;
+  font-weight: 500;
+  transition: all var(--pw-transition);
+}
+
+.sd-tab-set > ul li button[role="tab"]:hover {
+  background: rgba(109, 100, 255, 0.08);
 }
 
 .sd-tab-set > ul li button[role="tab"][aria-selected="true"] {
   border-color: var(--pw-border);
-  background: rgba(109, 100, 255, 0.12);
+  border-bottom-color: transparent;
+  background: var(--color-background-primary);
+  color: var(--pw-violet);
+  font-weight: 600;
 }
 
-.highlight pre {
-  border-radius: 0.85rem;
-  border: 1px solid rgba(109, 100, 255, 0.1);
+.sd-tab-content {
+  padding: 1.5rem;
 }
 
-.footer .sy-foot-meta {
-  font-size: 0.9rem;
+/* --------------------------------------------------------------------------
+   Code Blocks & Syntax Highlighting
+   -------------------------------------------------------------------------- */
+/* Light mode - clean light code blocks */
+html.light .highlight,
+html.light .literal-block-wrapper {
+  background: #fafafa;
+  border: 1px solid rgba(109, 100, 255, 0.2);
+  border-radius: var(--pw-radius-lg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
-:root.light {
-  --accent-9: #6d64ff;
-  --accent-a9: rgba(109, 100, 255, 0.92);
+html.light .highlight pre {
+  background: transparent;
+  padding: 1.25rem 1.5rem;
+  margin: 0;
+  color: #1e1e1e;
 }
 
-:root.dark {
-  --accent-9: #a497ff;
-  --accent-a9: rgba(164, 151, 255, 0.92);
+/* Light mode syntax colors - vibrant on light bg */
+html.light .highlight .kn,
+html.light .highlight .k,
+html.light .highlight .kc,
+html.light .highlight .kd,
+html.light .highlight .kr,
+html.light .highlight .ow { color: #d946ef !important; } /* magenta/pink for keywords */
+
+html.light .highlight .s,
+html.light .highlight .s1,
+html.light .highlight .s2,
+html.light .highlight .sb,
+html.light .highlight .sc,
+html.light .highlight .sd,
+html.light .highlight .se,
+html.light .highlight .sh,
+html.light .highlight .si,
+html.light .highlight .sx,
+html.light .highlight .sr,
+html.light .highlight .ss { color: #16a34a !important; } /* green for strings */
+
+html.light .highlight .n,
+html.light .highlight .na,
+html.light .highlight .nx { color: #1e1e1e !important; } /* dark for names */
+
+html.light .highlight .nb,
+html.light .highlight .bp { color: #0891b2 !important; } /* cyan for builtins */
+
+html.light .highlight .nc,
+html.light .highlight .nf,
+html.light .highlight .fm { color: #2563eb !important; } /* blue for classes/functions */
+
+html.light .highlight .nn,
+html.light .highlight .ni { color: #7c3aed !important; } /* purple for modules */
+
+html.light .highlight .nv,
+html.light .highlight .no,
+html.light .highlight .nd,
+html.light .highlight .ne,
+html.light .highlight .nl,
+html.light .highlight .nt { color: #1e1e1e !important; } /* dark for other names */
+
+html.light .highlight .c,
+html.light .highlight .c1,
+html.light .highlight .cm,
+html.light .highlight .cp,
+html.light .highlight .cs { color: #6b7280 !important; } /* gray for comments */
+
+html.light .highlight .o,
+html.light .highlight .p { color: #374151 !important; } /* dark gray for operators */
+
+html.light .highlight .m,
+html.light .highlight .mb,
+html.light .highlight .mf,
+html.light .highlight .mh,
+html.light .highlight .mi,
+html.light .highlight .mo { color: #ea580c !important; } /* orange for numbers */
+
+/* Light mode tabs */
+html.light .sd-tab-set {
+  background: #fafafa;
+  border: 1px solid rgba(109, 100, 255, 0.2);
+  border-radius: var(--pw-radius-lg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+html.light .sd-tab-set > input {
+  display: none;
+}
+
+html.light .sd-tab-set > label.sd-tab-label {
+  color: #6b7280 !important;
+  background: #f3f4f6 !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  padding: 0.65rem 1.25rem;
+  margin: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+html.light .sd-tab-set > label.sd-tab-label:hover {
+  color: #1f2937 !important;
+  background: #e5e7eb !important;
+}
+
+html.light .sd-tab-set > input:checked + label.sd-tab-label {
+  color: #1f2937 !important;
+  background: #fafafa !important;
+  border-bottom: 2px solid var(--pw-violet) !important;
+}
+
+html.light .sd-tab-content {
+  background: #fafafa;
+}
+
+html.light .sd-tab-content .highlight {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Dark mode - Dracula theme */
+html.dark .highlight,
+html.dark .literal-block-wrapper {
+  background: #282a36;
+  border: 1px solid rgba(139, 233, 253, 0.15);
+  border-radius: var(--pw-radius-lg);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+html.dark .highlight pre {
+  background: transparent;
+  padding: 1.25rem 1.5rem;
+  margin: 0;
+  color: #f8f8f2;
+}
+
+/* Dark mode Dracula syntax colors */
+html.dark .highlight .kn,
+html.dark .highlight .k,
+html.dark .highlight .kc,
+html.dark .highlight .kd,
+html.dark .highlight .kr,
+html.dark .highlight .ow { color: #ff79c6 !important; } /* pink for keywords */
+
+html.dark .highlight .s,
+html.dark .highlight .s1,
+html.dark .highlight .s2,
+html.dark .highlight .sb,
+html.dark .highlight .sc,
+html.dark .highlight .sd,
+html.dark .highlight .se,
+html.dark .highlight .sh,
+html.dark .highlight .si,
+html.dark .highlight .sx,
+html.dark .highlight .sr,
+html.dark .highlight .ss { color: #f1fa8c !important; } /* yellow for strings */
+
+html.dark .highlight .n,
+html.dark .highlight .na,
+html.dark .highlight .nx { color: #f8f8f2 !important; } /* white for names */
+
+html.dark .highlight .nb,
+html.dark .highlight .bp { color: #8be9fd !important; } /* cyan for builtins */
+
+html.dark .highlight .nc,
+html.dark .highlight .nf,
+html.dark .highlight .fm { color: #50fa7b !important; } /* green for classes/functions */
+
+html.dark .highlight .nn,
+html.dark .highlight .ni { color: #bd93f9 !important; } /* purple for modules */
+
+html.dark .highlight .nv,
+html.dark .highlight .no,
+html.dark .highlight .nd,
+html.dark .highlight .ne,
+html.dark .highlight .nl,
+html.dark .highlight .nt { color: #f8f8f2 !important; } /* white for other names */
+
+html.dark .highlight .c,
+html.dark .highlight .c1,
+html.dark .highlight .cm,
+html.dark .highlight .cp,
+html.dark .highlight .cs { color: #6272a4 !important; } /* muted blue for comments */
+
+html.dark .highlight .o,
+html.dark .highlight .p { color: #f8f8f2 !important; } /* white for operators */
+
+html.dark .highlight .m,
+html.dark .highlight .mb,
+html.dark .highlight .mf,
+html.dark .highlight .mh,
+html.dark .highlight .mi,
+html.dark .highlight .mo { color: #bd93f9 !important; } /* purple for numbers */
+
+/* Dark mode tabs - Dracula style */
+html.dark .sd-tab-set {
+  background: #282a36;
+  border: 1px solid rgba(139, 233, 253, 0.15);
+  border-radius: var(--pw-radius-lg);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+html.dark .sd-tab-set > input {
+  display: none;
+}
+
+html.dark .sd-tab-set > label.sd-tab-label {
+  color: #6272a4 !important;
+  background: #21222c !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  padding: 0.65rem 1.25rem;
+  margin: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+html.dark .sd-tab-set > label.sd-tab-label:hover {
+  color: #f8f8f2 !important;
+  background: #343746 !important;
+}
+
+html.dark .sd-tab-set > input:checked + label.sd-tab-label {
+  color: #f8f8f2 !important;
+  background: #282a36 !important;
+  border-bottom: 2px solid #bd93f9 !important;
+}
+
+html.dark .sd-tab-content {
+  background: #282a36;
+}
+
+html.dark .sd-tab-content .highlight {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* General code block styling */
+.highlight,
+.literal-block-wrapper {
+  border-radius: var(--pw-radius-lg);
+  overflow: hidden;
+}
+
+/* Inline code - ensure contrast (exclude syntax-highlighted code blocks) */
+code.literal,
+:not(.highlight) > code:not([class]),
+p > code:not([class]),
+li > code:not([class]),
+td > code:not([class]),
+.sig-name code {
+  background: rgba(109, 100, 255, 0.1);
+  border: 1px solid rgba(109, 100, 255, 0.15);
+  border-radius: var(--pw-radius-sm);
+  padding: 0.15rem 0.4rem;
+  font-size: 0.875em;
+  color: var(--color-foreground-primary);
+}
+
+html.dark code.literal,
+html.dark :not(.highlight) > code:not([class]),
+html.dark p > code:not([class]),
+html.dark li > code:not([class]),
+html.dark td > code:not([class]),
+html.dark .sig-name code {
+  background: rgba(164, 151, 255, 0.15);
+  border-color: rgba(164, 151, 255, 0.2);
+  color: #e2e8f0;
+}
+
+/* Copy button */
+.copybtn {
+  border-radius: var(--pw-radius);
+  transition: all var(--pw-transition);
+}
+
+.copybtn:hover {
+  background: rgba(109, 100, 255, 0.15);
+  color: var(--pw-violet);
+}
+
+/* --------------------------------------------------------------------------
+   Admonitions & Callouts
+   -------------------------------------------------------------------------- */
+.admonition {
+  border-radius: var(--pw-radius-lg);
+  border-left: 4px solid;
+  box-shadow: var(--pw-shadow-sm);
+  margin: 1.5rem 0;
+  overflow: visible;
+}
+
+/* Ensure admonition icons are visible */
+.admonition-title {
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admonition-title::before {
+  flex-shrink: 0;
+}
+
+.admonition > p:not(.admonition-title),
+.admonition > ul,
+.admonition > ol {
+  padding: 0 1rem 1rem;
+}
+
+/* Tip admonition with brand accent */
+.admonition.tip {
+  border-color: var(--pw-violet);
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.06), rgba(200, 107, 255, 0.04));
+}
+
+.admonition.tip > .admonition-title {
+  background: rgba(109, 100, 255, 0.1);
+  color: var(--pw-violet);
+}
+
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+.sd-btn {
+  border-radius: var(--pw-radius-lg);
+  font-weight: 500;
+  transition: all var(--pw-transition);
+  padding: 0.625rem 1.25rem;
+}
+
+.sd-btn-primary {
+  background: var(--pw-gradient);
+  border: none;
+  color: white;
+  box-shadow: 0 2px 8px rgba(109, 100, 255, 0.25);
+}
+
+.sd-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(109, 100, 255, 0.35);
+  filter: brightness(1.05);
+}
+
+.sd-btn-outline-primary {
+  border: 1.5px solid var(--pw-violet);
+  color: var(--pw-violet);
+  background: transparent;
+}
+
+.sd-btn-outline-primary:hover {
+  background: rgba(109, 100, 255, 0.08);
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar Navigation
+   -------------------------------------------------------------------------- */
+.sy-sidebar {
+  border-right: 1px solid var(--pw-border);
+}
+
+.sy-sidebar-link {
+  border-radius: var(--pw-radius);
+  transition: all var(--pw-transition);
+  margin: 0.125rem 0;
+}
+
+.sy-sidebar-link:hover {
+  background: rgba(109, 100, 255, 0.08);
+}
+
+.sy-sidebar-link.current {
+  background: linear-gradient(90deg, rgba(109, 100, 255, 0.12), transparent);
+  border-left: 3px solid var(--pw-violet);
+  font-weight: 600;
+  color: var(--pw-violet);
+}
+
+/* --------------------------------------------------------------------------
+   Table of Contents (Right Sidebar)
+   -------------------------------------------------------------------------- */
+.sy-toc {
+  border-left: 1px solid var(--pw-border);
+}
+
+.sy-toc a {
+  transition: all var(--pw-transition);
+  border-left: 2px solid transparent;
+  margin-left: -1px;
+}
+
+.sy-toc a:hover {
+  color: var(--pw-violet);
+  border-left-color: rgba(109, 100, 255, 0.4);
+}
+
+.sy-toc a.current {
+  color: var(--pw-violet);
+  border-left-color: var(--pw-violet);
+  font-weight: 500;
+}
+
+/* --------------------------------------------------------------------------
+   Tables
+   -------------------------------------------------------------------------- */
+table.docutils {
+  border-radius: var(--pw-radius-lg);
+  border: 1px solid var(--pw-border);
+  overflow: hidden;
+  box-shadow: var(--pw-shadow-sm);
+}
+
+table.docutils thead {
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.08), rgba(200, 107, 255, 0.04));
+}
+
+table.docutils thead th {
+  border-bottom: 2px solid var(--pw-border);
+  font-weight: 600;
+  padding: 0.875rem 1rem;
+}
+
+table.docutils tbody tr:nth-child(even) {
+  background: rgba(109, 100, 255, 0.02);
+}
+
+table.docutils tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--pw-border);
+}
+
+/* --------------------------------------------------------------------------
+   Mermaid Diagrams
+   -------------------------------------------------------------------------- */
+.mermaid {
+  background: var(--color-background-secondary);
+  border: 1px solid var(--pw-border);
+  border-radius: var(--pw-radius-lg);
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  box-shadow: var(--pw-shadow-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Footer
+   -------------------------------------------------------------------------- */
+.sy-foot {
+  border-top: 1px solid var(--pw-border);
+  background: linear-gradient(180deg, transparent, rgba(109, 100, 255, 0.03));
+}
+
+.sy-foot-meta {
+  font-size: 0.875rem;
+  opacity: 0.8;
+}
+
+/* --------------------------------------------------------------------------
+   Search
+   -------------------------------------------------------------------------- */
+.DocSearch-Button {
+  border-radius: var(--pw-radius-lg) !important;
+  border: 1px solid var(--pw-border) !important;
+  transition: all var(--pw-transition) !important;
+}
+
+.DocSearch-Button:hover {
+  border-color: var(--pw-violet) !important;
+  box-shadow: 0 0 0 3px rgba(109, 100, 255, 0.1) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Badges & Pills
+   -------------------------------------------------------------------------- */
+.sd-badge {
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+}
+
+.sd-badge-primary {
+  background: var(--pw-gradient);
+  color: white;
+}
+
+/* Version badge */
+.version-badge {
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.15), rgba(200, 107, 255, 0.1));
+  border: 1px solid var(--pw-border);
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--pw-violet);
+}
+
+/* --------------------------------------------------------------------------
+   Scrollbar Styling
+   -------------------------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(109, 100, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(109, 100, 255, 0.35);
+}
+
+/* --------------------------------------------------------------------------
+   Focus States (Accessibility)
+   -------------------------------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--pw-violet);
+  outline-offset: 2px;
+  border-radius: var(--pw-radius-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Print Styles
+   -------------------------------------------------------------------------- */
+@media print {
+  .sy-head,
+  .sy-sidebar,
+  .sy-toc,
+  .sy-foot,
+  .copybtn,
+  .sy-announce {
+    display: none !important;
+  }
+
+  .sy-content {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Animations
+   -------------------------------------------------------------------------- */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(109, 100, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(109, 100, 255, 0.35);
+  }
+}
+
+.animate-glow {
+  animation: pulse-glow 3s ease-in-out infinite;
 }
