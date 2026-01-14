@@ -32,6 +32,7 @@ jobs:
   update-stats:
     name: Update README Stats
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # Only run if CI succeeded (when triggered by workflow_run)
     if: >
       github.event_name == 'workflow_dispatch' ||
@@ -65,7 +66,7 @@ jobs:
 
       - name: Generate coverage report
         run: |
-          uv run pytest --cov=proxywhirl --cov-report=html:logs/htmlcov --cov-report=term -q || true
+          uv run pytest --cov=proxywhirl --cov-report=html:logs/htmlcov --cov-report=term --timeout=30 -q || true
 
       - name: Run stats updater
         run: uv run python scripts/update_readme_stats.py
