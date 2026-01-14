@@ -14,6 +14,8 @@ concurrency:
 jobs:
   generate-proxy-lists:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - uses: actions/checkout@v4
@@ -43,7 +45,9 @@ jobs:
 
     - name: Fetch and validate proxies
       run: |
-        uv run proxywhirl fetch --timeout 5 --concurrency 500
+        # Use 30s timeout to allow slow international proxies to respond
+        # Higher concurrency to process 100k+ proxies faster
+        uv run proxywhirl fetch --timeout 30 --concurrency 1000
 
     - name: Export data for web dashboard
       run: |
