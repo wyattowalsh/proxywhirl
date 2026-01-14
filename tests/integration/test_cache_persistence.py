@@ -113,8 +113,8 @@ def test_update_existing_entries(tmp_path: Path) -> None:
     )
     manager.put(entry2.key, entry2)
 
-    # Retrieve and verify update
+    # Retrieve and verify update (get increments access_count by 1)
     retrieved = manager.get(entry2.key)
     assert retrieved is not None
-    assert retrieved.access_count == 5, "Access count should be updated"
+    assert retrieved.access_count == 6, "Access count should be updated (5 + 1 from get)"
     assert retrieved.health_status == HealthStatus.UNHEALTHY, "Health status should be updated"

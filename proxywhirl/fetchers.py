@@ -729,7 +729,7 @@ class ProxyFetcher:
 
                 try:
                     async with BrowserRenderer() as renderer:
-                        html_content = await renderer.render(source.url)
+                        html_content = await renderer.render(str(source.url))
                 except TimeoutError as e:
                     raise ProxyFetchError(f"Browser timeout fetching from {source.url}: {e}") from e
                 except RuntimeError as e:
@@ -737,7 +737,7 @@ class ProxyFetcher:
             else:
                 # Use standard HTTP client for static pages
                 client = await self._get_client()
-                response = await client.get(source.url)
+                response = await client.get(str(source.url))
                 response.raise_for_status()
                 html_content = response.text
 
