@@ -326,13 +326,13 @@ poetry.toml
 pyrightconfig.json
 
 ### venv ###
-# Virtualenv
-[Bb]in
-[Ii]nclude
-[Ll]ib
-[Ll]ib64
-[Ll]ocal
-[Ss]cripts
+# Virtualenv (scoped to .venv/ to avoid ignoring project scripts/)
+.venv/[Bb]in
+.venv/[Ii]nclude
+.venv/[Ll]ib
+.venv/[Ll]ib64
+.venv/[Ll]ocal
+.venv/[Ss]cripts
 pyvenv.cfg
 pip-selfcheck.json
 
