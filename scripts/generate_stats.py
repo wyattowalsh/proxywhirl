@@ -16,12 +16,14 @@ def main() -> None:
     """Main entry point."""
     logger.info("Generating web dashboard data...")
 
-    outputs = asyncio.run(export_for_web(
-        db_path=Path("proxywhirl.db"),
-        output_dir=Path("docs/proxy-lists"),
-        include_stats=True,
-        include_rich_proxies=True,
-    ))
+    outputs = asyncio.run(
+        export_for_web(
+            db_path=Path("proxywhirl.db"),
+            output_dir=Path("docs/proxy-lists"),
+            include_stats=True,
+            include_rich_proxies=True,
+        )
+    )
 
     for name, path in outputs.items():
         logger.info(f"Exported {name}: {path}")
