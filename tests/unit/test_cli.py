@@ -14,8 +14,8 @@ from typer.testing import CliRunner
 
 from proxywhirl.cli import app
 
-# Test fixtures
-runner = CliRunner()
+# Test fixtures - set explicit width to avoid CI terminal width issues
+runner = CliRunner(env={"COLUMNS": "120", "TERM": "dumb"})
 
 
 class TestCLIHelp:
