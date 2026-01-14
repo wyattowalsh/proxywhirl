@@ -66,7 +66,7 @@ jobs:
 
       - name: Generate coverage report
         run: |
-          uv run pytest --cov=proxywhirl --cov-report=html:logs/htmlcov --cov-report=term --timeout=30 -q || true
+          uv run pytest -m "not slow" --cov=proxywhirl --cov-report=html:logs/htmlcov --cov-report=term -q || true
 
       - name: Run stats updater
         run: uv run python scripts/update_readme_stats.py
