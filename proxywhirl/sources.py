@@ -399,6 +399,28 @@ OPENPROXYLIST_HTTP = ProxySourceConfig(
     format="plain_text",
 )
 
+# dpangestuw/Free-Proxy - Frequently updated large lists
+GITHUB_DPANGESTUW_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/dpangestuw/Free-Proxy/master/http_proxies.txt",
+    format="plain_text",
+)
+
+GITHUB_DPANGESTUW_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/dpangestuw/Free-Proxy/master/socks4_proxies.txt",
+    format="plain_text",
+)
+
+GITHUB_DPANGESTUW_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/dpangestuw/Free-Proxy/master/socks5_proxies.txt",
+    format="plain_text",
+)
+
+# clarketm/proxy-list - Classic source, daily updates
+GITHUB_CLARKETM_PROXY = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt",
+    format="plain_text",
+)
+
 # =============================================================================
 # Predefined Source Collections
 # =============================================================================
@@ -439,6 +461,9 @@ ALL_HTTP_SOURCES = [
     GITHUB_IMRAZVAN_HTTP,
     PROXYSPACE_HTTP,
     OPENPROXYLIST_HTTP,
+    # Newest sources
+    GITHUB_DPANGESTUW_HTTP,
+    GITHUB_CLARKETM_PROXY,
     # ProxyScrape country-specific removed (API invalid)
 ]
 
@@ -466,6 +491,7 @@ ALL_SOCKS4_SOURCES = [
     GITHUB_KOMUTAN_SOCKS4,
     GITHUB_ANONYM0US_SOCKS4,
     PROXYSPACE_SOCKS4,
+    GITHUB_DPANGESTUW_SOCKS4,
 ]
 
 # All SOCKS5 sources
@@ -493,6 +519,7 @@ ALL_SOCKS5_SOURCES = [
     GITHUB_HOOKZOF_SOCKS5,
     GITHUB_IMRAZVAN_SOCKS5,
     PROXYSPACE_SOCKS5,
+    GITHUB_DPANGESTUW_SOCKS5,
 ]
 
 # All sources combined

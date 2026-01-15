@@ -571,7 +571,7 @@ class ProxyValidator:
             try:
                 _, writer = await asyncio.wait_for(
                     asyncio.open_connection(host, port),
-                    timeout=min(1.0, self.timeout / 2),  # Quick TCP timeout
+                    timeout=min(3.0, self.timeout),  # Quick TCP timeout (relaxed)
                 )
                 writer.close()
                 await writer.wait_closed()
@@ -590,6 +590,9 @@ class ProxyValidator:
                 async with httpx.AsyncClient(
                     transport=transport,
                     timeout=self.timeout,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    },
                 ) as client:
                     response = await client.get(self.test_url)
                     return response.status_code in (200, 204)
@@ -598,6 +601,9 @@ class ProxyValidator:
                 async with httpx.AsyncClient(
                     proxy=proxy_url,
                     timeout=self.timeout,
+                    headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    },
                 ) as client:
                     response = await client.get(self.test_url)
                     return response.status_code in (200, 204)
@@ -643,8 +649,13 @@ class ProxyValidator:
                     if progress_callback:
                         progress_callback(completed, total, valid_count)
                     return (proxy, result)
-                except Exception:
+                except Exception as e:
                     # If validation raises an exception, treat as failed
+                    import logging
+
+                    logging.getLogger(__name__).debug(
+                        f"Validation error for {proxy.get('url')}: {e}"
+                    )
                     completed += 1
                     if progress_callback:
                         progress_callback(completed, total, valid_count)
