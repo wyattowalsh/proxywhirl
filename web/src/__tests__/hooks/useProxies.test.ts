@@ -31,6 +31,7 @@ const defaultFilters: ProxyFilters = {
   search: '',
   protocols: [],
   statuses: [],
+  countries: [],
 }
 
 describe('filterProxies', () => {
@@ -113,6 +114,7 @@ describe('filterProxies', () => {
 
     it('applies all filters together', () => {
       const result = filterProxies(mockProxies, { 
+        ...defaultFilters,
         search: '172.16',
         protocols: ['http'],
         statuses: ['healthy']

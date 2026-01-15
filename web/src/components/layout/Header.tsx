@@ -1,6 +1,12 @@
 import { Link, useLocation } from "react-router-dom"
-import { Github, Moon, Sun, Wifi, BookOpen } from "lucide-react"
+import { Github, Moon, Sun, Wifi, BookOpen, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { useEffect, useState } from "react"
 
@@ -39,7 +45,7 @@ export function Header() {
           <span className="font-bold">ProxyWhirl</span>
         </Link>
 
-        <nav className="flex items-center space-x-6 text-sm font-medium">
+        <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
           {navItems.map((item) => (
             <Link
               key={item.path}
@@ -72,7 +78,7 @@ export function Header() {
             )}
             <span className="sr-only">Toggle theme</span>
           </Button>
-          <Button variant="ghost" size="icon" asChild>
+          <Button variant="ghost" size="icon" asChild className="hidden md:flex">
             <a
               href="https://github.com/wyattowalsh/proxywhirl"
               target="_blank"
@@ -82,6 +88,37 @@ export function Header() {
               <span className="sr-only">GitHub</span>
             </a>
           </Button>
+          
+          {/* Mobile Menu */}
+          <div className="md:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">Toggle menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <a href={`${import.meta.env.BASE_URL}docs/`} className="cursor-pointer">
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    Docs
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a
+                    href="https://github.com/wyattowalsh/proxywhirl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="cursor-pointer"
+                  >
+                    <Github className="mr-2 h-4 w-4" />
+                    GitHub
+                  </a>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
     </header>

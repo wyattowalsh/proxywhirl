@@ -1,49 +1,43 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
+import {
+  ComposableMap,
+  Geographies,
+  Geography,
+  ZoomableGroup,
+  type GeographyType,
+} from "react-simple-maps"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { EmptyState } from "@/components/ui/empty-state"
+import { Globe } from "lucide-react"
 import type { Proxy } from "@/types"
+
+import geoUrl from "@/assets/geo-data.json?url"
+
+// Using local Natural Earth 110m world topology
+const GEO_URL = geoUrl
+
+// ISO numeric codes used by world-atlas
+const NUMERIC_TO_ALPHA2: Record<string, string> = {
+  "840": "US", "156": "CN", "643": "RU", "276": "DE", "250": "FR", "826": "GB",
+  "076": "BR", "356": "IN", "392": "JP", "410": "KR", "124": "CA", "036": "AU",
+  "528": "NL", "702": "SG", "360": "ID", "764": "TH", "704": "VN", "608": "PH",
+  "458": "MY", "158": "TW", "380": "IT", "724": "ES", "616": "PL", "804": "UA",
+  "792": "TR", "484": "MX", "032": "AR", "152": "CL", "710": "ZA", "818": "EG",
+  "566": "NG", "404": "KE", "050": "BD", "586": "PK", "364": "IR", "682": "SA",
+  "784": "AE", "376": "IL", "752": "SE", "578": "NO", "246": "FI", "208": "DK",
+  "056": "BE", "040": "AT", "756": "CH", "620": "PT", "300": "GR", "203": "CZ",
+  "642": "RO", "348": "HU", "372": "IE", "554": "NZ", "170": "CO", "862": "VE",
+  "604": "PE", "218": "EC", "344": "HK", "446": "MO",
+}
 
 interface GeoMapProps {
   proxies: Proxy[]
+  onCountryClick?: (countryCode: string) => void
 }
 
-// Simple world map SVG with country highlights
-const COUNTRY_COORDS: Record<string, { x: number; y: number; name: string }> = {
-  US: { x: 120, y: 120, name: "United States" },
-  CN: { x: 680, y: 130, name: "China" },
-  RU: { x: 580, y: 80, name: "Russia" },
-  DE: { x: 440, y: 100, name: "Germany" },
-  FR: { x: 420, y: 110, name: "France" },
-  GB: { x: 410, y: 95, name: "United Kingdom" },
-  BR: { x: 220, y: 220, name: "Brazil" },
-  IN: { x: 610, y: 160, name: "India" },
-  JP: { x: 750, y: 130, name: "Japan" },
-  KR: { x: 720, y: 130, name: "South Korea" },
-  CA: { x: 140, y: 80, name: "Canada" },
-  AU: { x: 720, y: 260, name: "Australia" },
-  NL: { x: 430, y: 95, name: "Netherlands" },
-  SG: { x: 670, y: 195, name: "Singapore" },
-  ID: { x: 690, y: 210, name: "Indonesia" },
-  TH: { x: 660, y: 170, name: "Thailand" },
-  VN: { x: 670, y: 170, name: "Vietnam" },
-  PH: { x: 710, y: 175, name: "Philippines" },
-  MY: { x: 670, y: 195, name: "Malaysia" },
-  TW: { x: 710, y: 150, name: "Taiwan" },
-  HK: { x: 695, y: 155, name: "Hong Kong" },
-  IT: { x: 450, y: 120, name: "Italy" },
-  ES: { x: 405, y: 125, name: "Spain" },
-  PL: { x: 460, y: 100, name: "Poland" },
-  UA: { x: 490, y: 100, name: "Ukraine" },
-  TR: { x: 495, y: 125, name: "Turkey" },
-  MX: { x: 120, y: 160, name: "Mexico" },
-  AR: { x: 200, y: 280, name: "Argentina" },
-  CL: { x: 185, y: 280, name: "Chile" },
-  ZA: { x: 470, y: 270, name: "South Africa" },
-  EG: { x: 480, y: 150, name: "Egypt" },
-  NG: { x: 430, y: 190, name: "Nigeria" },
-  KE: { x: 500, y: 205, name: "Kenya" },
-}
+export function GeoMap({ proxies, onCountryClick }: GeoMapProps) {
+  const [hoveredCountry, setHoveredCountry] = useState<string | null>(null)
 
-export function GeoMap({ proxies }: GeoMapProps) {
   const countryData = useMemo(() => {
     const counts: Record<string, number> = {}
     proxies.forEach((proxy) => {
@@ -62,8 +56,42 @@ export function GeoMap({ proxies }: GeoMapProps) {
   const totalWithGeo = Object.values(countryData).reduce((a, b) => a + b, 0)
   const uniqueCountries = Object.keys(countryData).length
 
+  // Get color based on proxy count
+  const getCountryColor = (countryCode: string | undefined) => {
+    if (!countryCode) return "hsl(var(--muted))"
+    const count = countryData[countryCode] || 0
+    if (count === 0) return "hsl(var(--muted))"
+    
+    // Color scale from light to saturated primary
+    const intensity = Math.min(count / maxCount, 1)
+    const lightness = 80 - intensity * 50 // 80% to 30%
+    return `hsl(220, 70%, ${lightness}%)`
+  }
+
+  // Convert geo numeric ID to alpha-2
+  const getAlpha2FromGeo = (geo: GeographyType) => {
+    const props = geo.properties as { ISO_A2?: string } | undefined
+    if (props?.ISO_A2) return props.ISO_A2
+    if (geo.id) return NUMERIC_TO_ALPHA2[geo.id]
+    return undefined
+  }
+
   if (totalWithGeo === 0) {
-    return null
+    return (
+      <Card className="col-span-full">
+        <CardHeader>
+          <CardTitle>Geographic Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            icon={Globe}
+            title="No geographic data available"
+            description="Location data not available for proxies"
+            className="h-[300px]"
+          />
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -76,79 +104,60 @@ export function GeoMap({ proxies }: GeoMapProps) {
       </CardHeader>
       <CardContent>
         <div className="grid gap-6 md:grid-cols-[1fr_250px]">
-          {/* Simple World Map */}
+          {/* World Map */}
           <div className="relative h-[300px] bg-muted/30 rounded-lg overflow-hidden">
-            <svg viewBox="0 0 800 400" className="w-full h-full">
-              {/* Simple world outline */}
-              <ellipse
-                cx="400"
-                cy="200"
-                rx="380"
-                ry="180"
-                fill="none"
-                stroke="hsl(var(--border))"
-                strokeWidth="1"
-              />
-              {/* Grid lines */}
-              {[...Array(7)].map((_, i) => (
-                <line
-                  key={`h-${i}`}
-                  x1="20"
-                  y1={50 + i * 50}
-                  x2="780"
-                  y2={50 + i * 50}
-                  stroke="hsl(var(--border))"
-                  strokeWidth="0.5"
-                  opacity="0.3"
-                />
-              ))}
-              {[...Array(9)].map((_, i) => (
-                <line
-                  key={`v-${i}`}
-                  x1={80 + i * 80}
-                  y1="20"
-                  x2={80 + i * 80}
-                  y2="380"
-                  stroke="hsl(var(--border))"
-                  strokeWidth="0.5"
-                  opacity="0.3"
-                />
-              ))}
-
-              {/* Country markers */}
-              {Object.entries(countryData).map(([code, count]) => {
-                const coords = COUNTRY_COORDS[code]
-                if (!coords) return null
-
-                const size = Math.max(8, Math.min(30, (count / maxCount) * 30 + 5))
-                const opacity = Math.max(0.4, Math.min(1, count / maxCount + 0.3))
-
-                return (
-                  <g key={code}>
-                    <circle
-                      cx={coords.x}
-                      cy={coords.y}
-                      r={size}
-                      fill="hsl(var(--primary))"
-                      opacity={opacity}
-                      className="transition-all duration-300 hover:opacity-100"
-                    />
-                    <circle
-                      cx={coords.x}
-                      cy={coords.y}
-                      r={size}
-                      fill="none"
-                      stroke="hsl(var(--primary))"
-                      strokeWidth="2"
-                      opacity={0.6}
-                    />
-                    <title>
-                      {coords.name}: {count.toLocaleString()} proxies
-                    </title>
-                  </g>
-                )
-              })}
-            </svg>
+            <ComposableMap
+              projection="geoMercator"
+              projectionConfig={{
+                scale: 120,
+                center: [0, 30],
+              }}
+              style={{ width: "100%", height: "100%" }}
+            >
+              <ZoomableGroup>
+                <Geographies geography={GEO_URL}>
+                  {({ geographies }) =>
+                    geographies.map((geo) => {
+                      const alpha2 = getAlpha2FromGeo(geo)
+                      const count = alpha2 ? countryData[alpha2] || 0 : 0
+                      const isHovered = hoveredCountry === alpha2
+                      
+                      return (
+                        <Geography
+                          key={geo.rsmKey}
+                          geography={geo}
+                          fill={isHovered ? "hsl(var(--primary))" : getCountryColor(alpha2)}
+                          stroke="hsl(var(--border))"
+                          strokeWidth={0.5}
+                          style={{
+                            default: { outline: "none" },
+                            hover: { outline: "none", cursor: count > 0 ? "pointer" : "default" },
+                            pressed: { outline: "none" },
+                          }}
+                          onMouseEnter={() => alpha2 && setHoveredCountry(alpha2)}
+                          onMouseLeave={() => setHoveredCountry(null)}
+                          onClick={() => {
+                            if (alpha2 && count > 0 && onCountryClick) {
+                              onCountryClick(alpha2)
+                            }
+                          }}
+                        />
+                      )
+                    })
+                  }
+                </Geographies>
+              </ZoomableGroup>
+            </ComposableMap>
+            
+            {/* Tooltip */}
+            {hoveredCountry && countryData[hoveredCountry] && (
+              <div className="absolute top-2 left-2 bg-popover border rounded-md px-3 py-2 shadow-md text-sm">
+                <span className="font-medium">{hoveredCountry}</span>
+                <span className="text-muted-foreground ml-2">
+                  {countryData[hoveredCountry].toLocaleString()} proxies
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Top countries list */}
@@ -158,7 +167,13 @@ export function GeoMap({ proxies }: GeoMapProps) {
               {topCountries.map(([code, count], index) => {
                 const pct = ((count / totalWithGeo) * 100).toFixed(1)
                 return (
-                  <div key={code} className="flex items-center gap-3">
+                  <div
+                    key={code}
+                    className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 transition-colors"
+                    onClick={() => onCountryClick?.(code)}
+                    onMouseEnter={() => setHoveredCountry(code)}
+                    onMouseLeave={() => setHoveredCountry(null)}
+                  >
                     <span className="text-xs text-muted-foreground w-4">{index + 1}</span>
                     <span className="text-sm font-medium w-8">{code}</span>
                     <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">

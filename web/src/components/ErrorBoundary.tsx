@@ -1,4 +1,4 @@
-import { Component, type ReactNode } from 'react'
+import { Component, type ReactNode, isValidElement, cloneElement, type ErrorInfo } from 'react'
 import { AlertTriangle, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -23,7 +23,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return { hasError: true, error }
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo)
   }
 
@@ -35,6 +35,13 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
+        if (isValidElement(this.props.fallback)) {
+          return cloneElement(this.props.fallback, { 
+            onRetry: this.handleRetry,
+            // Preserve existing onRetry if passed (though unlikely)
+            ...(this.props.fallback.props as any)
+          } as any)
+        }
         return this.props.fallback
       }
 

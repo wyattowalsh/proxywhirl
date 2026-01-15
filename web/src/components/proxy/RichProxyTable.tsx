@@ -4,7 +4,7 @@ import { toast } from "sonner"
 import { useIsMobile } from "@/hooks/useMediaQuery"
 import { useDebounce } from "@/hooks/useDebounce"
 import { ProxyCard } from "./ProxyCard"
-import { Copy, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, Download, Clipboard, X, Globe, Star } from "lucide-react"
+import { Copy, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, Download, Clipboard, X, Globe, Star, Terminal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Proxy, Protocol } from "@/types"
@@ -180,6 +180,17 @@ export function RichProxyTable({
     const success = await copyToClipboard(proxyString)
     if (success) {
       toast.success("Copied to clipboard", { description: proxyString })
+    } else {
+      toast.error("Failed to copy")
+    }
+  }
+
+  const handleTestProxy = async (proxy: Proxy) => {
+    // Construct a curl command that uses the proxy
+    const cmd = `curl -x ${proxy.protocol}://${proxy.ip}:${proxy.port} https://httpbin.org/ip --connect-timeout 5`
+    const success = await copyToClipboard(cmd)
+    if (success) {
+      toast.success("Curl command copied", { description: "Paste in terminal to test proxy" })
     } else {
       toast.error("Failed to copy")
     }
@@ -460,6 +471,7 @@ export function RichProxyTable({
                     <ProxyCard
                       proxy={proxy}
                       onCopy={() => handleCopyProxy(proxy)}
+                      onTest={() => handleTestProxy(proxy)}
                       isFavorite={isFavorite?.(proxy.ip, proxy.port)}
                       onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(proxy.ip, proxy.port, proxy.protocol) : undefined}
                     />
@@ -593,7 +605,17 @@ export function RichProxyTable({
                                 variant="ghost"
                                 size="icon"
                                 className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => handleTestProxy(proxy)}
+                                title="Copy test command"
+                              >
+                                <Terminal className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                                 onClick={() => handleCopyProxy(proxy)}
+                                title="Copy proxy address"
                               >
                                 <Copy className="h-4 w-4" />
                               </Button>

@@ -17,6 +17,7 @@ import { LiveStats } from "@/components/stats/LiveStats"
 import { LastUpdated } from "@/components/stats/LastUpdated"
 import { RichProxyTable } from "@/components/proxy/RichProxyTable"
 import { LoadingProgress } from "@/components/ui/loading-progress"
+import { ScrollToTop } from "@/components/ui/scroll-to-top"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useStats } from "@/hooks/useStats"
 import { useRichProxies } from "@/hooks/useProxies"
@@ -137,6 +138,7 @@ export function Home() {
   return (
     <div className="space-y-16">
       <LoadingProgress loading={proxiesLoading} progress={proxiesProgress} />
+      <ScrollToTop />
       
       {/* Hero Section */}
       <motion.section
