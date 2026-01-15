@@ -31,7 +31,12 @@ class TestProxyValidatorClientPool:
         await validator.close()
 
     async def test_client_pool_reused_across_validations(self):
-        """Test that same client is reused across multiple validations."""
+        """Test that same client is reused across multiple direct (non-proxied) validations.
+
+        Note: When proxy_url is provided, httpx creates a new client each time because
+        the proxy must be set at client initialization. The shared client pool is only
+        used for direct requests (proxy_url=None).
+        """
         validator = ProxyValidator()
 
         with patch.object(httpx, "AsyncClient") as mock_client_class:
@@ -41,13 +46,13 @@ class TestProxyValidatorClientPool:
             )
             mock_client_class.return_value = mock_client
 
-            # First validation - should create client
-            await validator._validate_http_request("http://proxy1.example.com:8080")
+            # First direct validation - should create client
+            await validator._validate_http_request(None)
 
-            # Second validation - should reuse client
-            await validator._validate_http_request("http://proxy2.example.com:8080")
+            # Second direct validation - should reuse client
+            await validator._validate_http_request(None)
 
-            # Client should only be created once
+            # Client should only be created once (shared client pool)
             assert mock_client_class.call_count == 1
 
             # But get() should be called twice
@@ -146,8 +151,13 @@ class TestProxyValidatorClientPool:
 
         await validator.close()
 
-    async def test_validate_batch_uses_shared_client(self):
-        """Test that validate_batch uses the shared client for all validations."""
+    async def test_validate_batch_creates_per_proxy_clients(self):
+        """Test that validate_batch creates a separate client for each proxied validation.
+
+        Note: httpx requires the proxy to be set at client initialization, so each
+        proxy validation creates its own client. The shared client pool is only used
+        for direct (non-proxied) requests.
+        """
         validator = ProxyValidator(concurrency=10)
 
         proxies = [
@@ -159,19 +169,24 @@ class TestProxyValidatorClientPool:
         with patch.object(httpx, "AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=MagicMock(status_code=200))
+            mock_client.aclose = AsyncMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_client_class.return_value = mock_client
 
             # Mock asyncio.open_connection for TCP check
             with patch("asyncio.open_connection") as mock_open_conn:
                 mock_writer = AsyncMock()
+                mock_writer.close = MagicMock()
+                mock_writer.wait_closed = AsyncMock()
                 mock_open_conn.return_value = (AsyncMock(), mock_writer)
 
                 await validator.validate_batch(proxies)
 
-                # Client should only be created once despite 3 validations
-                assert mock_client_class.call_count == 1
+                # Each proxy validation creates its own client (httpx proxy requirement)
+                assert mock_client_class.call_count == 3
 
-                # But get() should be called 3 times (once per proxy)
+                # Each client makes one GET request
                 assert mock_client.get.call_count == 3
 
         await validator.close()
@@ -214,8 +229,13 @@ class TestProxyValidatorClientPool:
 class TestProxyValidatorIntegrationWithClientPool:
     """Integration tests for ProxyValidator using client pool."""
 
-    async def test_validate_uses_client_pool(self):
-        """Test that validate() method uses the shared client pool."""
+    async def test_validate_creates_per_proxy_client(self):
+        """Test that validate() creates a per-proxy client for proxied requests.
+
+        Note: httpx requires the proxy to be set at client initialization, so each
+        proxy validation creates its own client. The shared client pool is only used
+        for direct (non-proxied) requests via _validate_http_request(None).
+        """
         validator = ProxyValidator()
 
         proxy = {"url": "http://proxy.example.com:8080"}
@@ -223,22 +243,31 @@ class TestProxyValidatorIntegrationWithClientPool:
         with patch.object(httpx, "AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=MagicMock(status_code=200))
+            mock_client.aclose = AsyncMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_client_class.return_value = mock_client
 
             with patch("asyncio.open_connection") as mock_open_conn:
                 mock_writer = AsyncMock()
+                mock_writer.close = MagicMock()
+                mock_writer.wait_closed = AsyncMock()
                 mock_open_conn.return_value = (AsyncMock(), mock_writer)
 
                 result = await validator.validate(proxy)
 
-                # Should have created client once
+                # Should have created one client for this proxy
                 assert mock_client_class.call_count == 1
                 assert result is True
 
         await validator.close()
 
-    async def test_check_anonymity_uses_client_pool(self):
-        """Test that check_anonymity() method uses the shared client pool."""
+    async def test_check_anonymity_uses_shared_client_for_direct_requests(self):
+        """Test that check_anonymity(None) uses the shared client pool for direct requests.
+
+        Note: When proxy_url is provided, a per-proxy client is created because httpx
+        requires proxy at initialization. The shared client is only used when proxy_url=None.
+        """
         validator = ProxyValidator()
 
         with patch.object(httpx, "AsyncClient") as mock_client_class:
@@ -248,16 +277,52 @@ class TestProxyValidatorIntegrationWithClientPool:
             )
             mock_client_class.return_value = mock_client
 
+            # Test with None (direct request) - should use shared client
+            result = await validator.check_anonymity(None)
+
+            # Should have created shared client once
+            assert mock_client_class.call_count == 1
+            assert result == "elite"
+
+            # Second call should reuse the same client
+            result2 = await validator.check_anonymity(None)
+            assert mock_client_class.call_count == 1  # Still only 1 client
+            assert result2 == "elite"
+
+        await validator.close()
+
+    async def test_check_anonymity_creates_per_proxy_client(self):
+        """Test that check_anonymity() with proxy_url creates a per-proxy client.
+
+        Note: httpx requires the proxy to be set at client initialization, so each
+        proxied check creates its own client.
+        """
+        validator = ProxyValidator()
+
+        with patch.object(httpx, "AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get = AsyncMock(
+                return_value=MagicMock(status_code=200, json=lambda: {"headers": {}})
+            )
+            mock_client.aclose = AsyncMock()
+            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client_class.return_value = mock_client
+
             result = await validator.check_anonymity("http://proxy.example.com:8080")
 
-            # Should have created client once
+            # Should have created one per-proxy client
             assert mock_client_class.call_count == 1
             assert result == "elite"
 
         await validator.close()
 
-    async def test_socks_proxy_validation_uses_separate_client(self):
-        """Test that SOCKS proxy validation uses separate client pool."""
+    async def test_socks_proxy_validation_creates_per_proxy_client(self):
+        """Test that SOCKS proxy validation creates a per-proxy client with transport.
+
+        Note: SOCKS validation creates a new client for each proxy with the appropriate
+        AsyncProxyTransport configured at initialization.
+        """
         validator = ProxyValidator()
 
         proxy = {"url": "socks5://proxy.example.com:1080"}
@@ -268,16 +333,25 @@ class TestProxyValidatorIntegrationWithClientPool:
             with patch.object(httpx, "AsyncClient") as mock_client_class:
                 mock_client = AsyncMock()
                 mock_client.get = AsyncMock(return_value=MagicMock(status_code=200))
+                mock_client.aclose = AsyncMock()
+                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+                mock_client.__aexit__ = AsyncMock(return_value=None)
                 mock_client_class.return_value = mock_client
 
                 with patch("asyncio.open_connection") as mock_open_conn:
                     mock_writer = AsyncMock()
+                    mock_writer.close = MagicMock()
+                    mock_writer.wait_closed = AsyncMock()
                     mock_open_conn.return_value = (AsyncMock(), mock_writer)
 
                     result = await validator.validate(proxy)
 
-                    # Should have created SOCKS client
+                    # Should have created SOCKS transport from URL
                     assert mock_transport.from_url.called
+                    mock_transport.from_url.assert_called_with(proxy["url"])
+
+                    # Should have created client with transport
+                    assert mock_client_class.call_count == 1
                     assert result is True
 
         await validator.close()

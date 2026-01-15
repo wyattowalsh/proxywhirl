@@ -61,15 +61,15 @@ jobs:
       - name: Run pip-audit
         run: |
           # Audit installed packages for known vulnerabilities
-          # Audits the current environment's installed packages
-          # Generate JSON output for potential future processing
+          # Generate JSON output for artifacts (always runs)
           uvx pip-audit \
             --format json \
             --output pip-audit-${{ matrix.python-version }}.json \
             || true
 
-          # Also run with markdown output for human readability
-          uvx pip-audit --format markdown || echo "::warning::Vulnerabilities found in dependencies"
+          # Run with markdown output and fail on vulnerabilities
+          # This allows artifacts to be uploaded before failing
+          uvx pip-audit --format markdown
 
       - name: Upload audit results
         if: always()
@@ -99,19 +99,18 @@ jobs:
       - name: Run Bandit security scan
         run: |
           # Scan for common security issues in Python code
-          # -r: recursive
-          # -f: format (json for artifact, screen for logs)
-          # -o: output file
-          # -ll: only show issues with medium severity or higher
+          # -r: recursive, -ll: medium severity or higher
+          # Generate JSON for artifacts (always runs)
           uvx bandit \
             -r proxywhirl/ \
             -f json \
             -o bandit-report.json \
             -ll \
-            || echo "::warning::Security issues found by Bandit"
+            || true
 
-          # Also print to console with color
-          uvx bandit -r proxywhirl/ -ll --format screen || true
+          # Run again and fail on security issues
+          # This allows artifacts to be uploaded before failing
+          uvx bandit -r proxywhirl/ -ll --format screen
 
       - name: Upload Bandit results
         if: always()
@@ -146,9 +145,12 @@ jobs:
       - name: Run Safety check
         run: |
           # Alternative to pip-audit using Safety DB
-          # Checks for known security vulnerabilities
-          uvx safety check --json --output safety-report.json || echo "::warning::Vulnerabilities found by Safety"
-          uvx safety check || true
+          # Generate JSON for artifacts (always runs)
+          uvx safety check --json --output safety-report.json || true
+
+          # Run again and fail on vulnerabilities
+          # This allows artifacts to be uploaded before failing
+          uvx safety check
 
       - name: Upload Safety results
         if: always()

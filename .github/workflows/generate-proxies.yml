@@ -7,9 +7,10 @@ on:
   workflow_dispatch: # Allow manual triggers
 
 # Ensure only one instance runs at a time to prevent database conflicts
+# cancel-in-progress: true prevents job stacking if fetch takes > 2h
 concurrency:
   group: proxy-generation
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   generate-proxy-lists:
@@ -44,6 +45,7 @@ jobs:
         uv run python -m playwright install chromium
 
     - name: Fetch and validate proxies
+      timeout-minutes: 90
       run: |
         # Use 30s timeout to allow slow international proxies to respond
         # Higher concurrency to process 100k+ proxies faster
