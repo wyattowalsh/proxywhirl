@@ -1,3 +1,4 @@
+import { lazy, Suspense, useCallback, useRef, useState } from "react"
 import {
   ArrowRight,
   Download,
@@ -8,25 +9,46 @@ import {
   GitBranch,
   BookOpen,
   Terminal,
+  AlertTriangle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ProtocolChart } from "@/components/stats/ProtocolChart"
-import { ResponseTimeChart } from "@/components/stats/ResponseTimeChart"
-import { GeoMap } from "@/components/stats/GeoMap"
-import { PortChart } from "@/components/stats/PortChart"
-import { ContinentChart } from "@/components/stats/ContinentChart"
 import { LiveStats } from "@/components/stats/LiveStats"
 import { LastUpdated } from "@/components/stats/LastUpdated"
 import { RichProxyTable } from "@/components/proxy/RichProxyTable"
-import { ErrorBoundary, ChartErrorFallback } from "@/components/ErrorBoundary"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useStats } from "@/hooks/useStats"
 import { useRichProxies } from "@/hooks/useProxies"
-import { formatBytes } from "@/lib/utils"
+import { useUrlFilters } from "@/hooks/useUrlFilters"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { useFavorites } from "@/hooks/useFavorites"
+import { ShortcutsHelp } from "@/components/ui/shortcuts-help"
 import { copyToClipboard } from "@/lib/clipboard"
+import { formatBytes } from "@/lib/utils"
+import { toast } from "sonner"
 import { slideUp, staggerContainer } from "@/lib/animations"
 import { PROTOCOLS, PROTOCOL_LABELS, type Protocol } from "@/types"
 import { motion } from "motion/react"
+
+// Lazy-load heavy chart components
+const Analytics = lazy(() => import("@/components/stats/Analytics").then(m => ({ default: m.Analytics })))
+
+function AnalyticsSkeleton() {
+  return (
+    <section className="space-y-6">
+      <Skeleton className="h-8 w-32" />
+      <div className="grid gap-6 md:grid-cols-2">
+        <Skeleton className="h-[350px]" />
+        <Skeleton className="h-[350px]" />
+      </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Skeleton className="h-[300px]" />
+        <Skeleton className="h-[250px]" />
+      </div>
+      <Skeleton className="h-[400px]" />
+    </section>
+  )
+}
 
 const FEATURES = [
   {
@@ -58,8 +80,58 @@ response = rotator.get("https://httpbin.org/ip")
 print(response.json())  # {"origin": "185.x.x.47"}`
 
 export function Home() {
-  const { stats, loading: statsLoading, error: statsError } = useStats()
-  const { data: proxyData, loading: proxiesLoading } = useRichProxies()
+  const { stats, loading: statsLoading, error: statsError, refresh: refreshStats } = useStats()
+  const { data: proxyData, loading: proxiesLoading, error: proxiesError, refresh: refreshProxies } = useRichProxies()
+  const { filters, setFilters, sortField, sortDirection, setSort, clearAll } = useUrlFilters()
+  
+  // Keyboard shortcuts state
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const [showFilters, setShowFilters] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false)
+  
+  // Favorites
+  const { isFavorite, toggleFavorite, count: favoritesCount } = useFavorites()
+  
+  // Copy all filtered proxies
+  const handleCopyAll = useCallback(async () => {
+    if (!proxyData?.proxies) return
+    // Apply filters to get current list
+    const filteredProxies = proxyData.proxies.filter(p => {
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase()
+        if (!p.ip.toLowerCase().includes(searchLower) && !p.port.toString().includes(searchLower)) {
+          return false
+        }
+      }
+      if (filters.protocols.length > 0 && !filters.protocols.includes(p.protocol)) return false
+      if (filters.countries.length > 0 && (!p.country_code || !filters.countries.includes(p.country_code))) return false
+      return true
+    })
+    const proxyList = filteredProxies.map(p => `${p.ip}:${p.port}`).join("\n")
+    const success = await copyToClipboard(proxyList)
+    if (success) {
+      toast.success(`Copied ${filteredProxies.length.toLocaleString()} proxies`)
+    }
+  }, [proxyData?.proxies, filters])
+  
+  // Wire up keyboard shortcuts
+  useKeyboardShortcuts({
+    onSearch: () => searchInputRef.current?.focus(),
+    onClearFilters: () => clearAll(),
+    onCopyAll: handleCopyAll,
+    onToggleHelp: () => setShowShortcuts(s => !s),
+    onToggleFilters: () => setShowFilters(s => !s),
+  })
+  
+  const handleCountryClick = useCallback((countryCode: string) => {
+    const newCountries = filters.countries.includes(countryCode)
+      ? filters.countries.filter(c => c !== countryCode)
+      : [...filters.countries, countryCode]
+    setFilters({ ...filters, countries: newCountries })
+    // Scroll to table
+    document.getElementById('proxy-table')?.scrollIntoView({ behavior: 'smooth' })
+  }, [filters, setFilters])
 
   return (
     <div className="space-y-16">
@@ -117,7 +189,10 @@ export function Home() {
             <Terminal className="h-4 w-4 text-muted-foreground shrink-0" />
             <code className="flex-1 text-left">pip install proxywhirl</code>
             <button
-              onClick={() => copyToClipboard("pip install proxywhirl")}
+              onClick={async () => {
+                const success = await copyToClipboard("pip install proxywhirl")
+                if (success) toast.success("Copied to clipboard")
+              }}
               className="text-muted-foreground hover:text-foreground transition-colors"
               title="Copy to clipboard"
             >
@@ -192,44 +267,82 @@ export function Home() {
         </section>
       )}
 
+      {/* Error state for stats */}
+      {statsError && (
+        <section className="rounded-lg border border-destructive/50 bg-destructive/5 p-6">
+          <div className="flex items-start gap-4">
+            <AlertTriangle className="h-6 w-6 text-destructive shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-destructive">Failed to load statistics</h3>
+              <p className="text-sm text-muted-foreground mt-1">{statsError}</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-3"
+                onClick={() => refreshStats()}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Error state for proxies */}
+      {proxiesError && !proxiesLoading && (
+        <section className="rounded-lg border border-destructive/50 bg-destructive/5 p-6">
+          <div className="flex items-start gap-4">
+            <AlertTriangle className="h-6 w-6 text-destructive shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-destructive">Failed to load proxy data</h3>
+              <p className="text-sm text-muted-foreground mt-1">{proxiesError}</p>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-3"
+                onClick={() => refreshProxies()}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Proxy Table Section - Primary content */}
-      <section className="space-y-4">
+      <section id="proxy-table" className="space-y-4">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Browse & Export Proxies</h2>
           <p className="text-muted-foreground">
             Search, filter by protocol, and export your selection as TXT, CSV, or JSON.
           </p>
         </div>
-        <RichProxyTable proxies={proxyData?.proxies ?? []} loading={proxiesLoading} />
+        <RichProxyTable 
+          proxies={proxyData?.proxies ?? []} 
+          loading={proxiesLoading}
+          filters={filters}
+          onFiltersChange={setFilters}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSortChange={setSort}
+          searchInputRef={searchInputRef}
+          showFilters={showFilters}
+          onShowFiltersChange={setShowFilters}
+          isFavorite={isFavorite}
+          onToggleFavorite={toggleFavorite}
+          favoritesCount={favoritesCount}
+          showFavoritesOnly={showFavoritesOnly}
+          onShowFavoritesOnlyChange={setShowFavoritesOnly}
+        />
       </section>
 
-      {/* Visualizations */}
+      {/* Visualizations - lazy loaded */}
       {!statsLoading && !statsError && stats && proxyData?.proxies && proxyData.proxies.length > 0 && (
-        <section className="space-y-6">
-          <h2 className="text-2xl font-bold tracking-tight">Analytics</h2>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <ErrorBoundary fallback={<ChartErrorFallback title="response time chart" />}>
-              <ResponseTimeChart proxies={proxyData.proxies} />
-            </ErrorBoundary>
-            <ErrorBoundary fallback={<ChartErrorFallback title="protocol chart" />}>
-              <ProtocolChart stats={stats} />
-            </ErrorBoundary>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <ErrorBoundary fallback={<ChartErrorFallback title="port chart" />}>
-              <PortChart proxies={proxyData.proxies} />
-            </ErrorBoundary>
-            <ErrorBoundary fallback={<ChartErrorFallback title="continent chart" />}>
-              <ContinentChart proxies={proxyData.proxies} />
-            </ErrorBoundary>
-          </div>
-
-          <ErrorBoundary fallback={<ChartErrorFallback title="geographic map" />}>
-            <GeoMap proxies={proxyData.proxies} />
-          </ErrorBoundary>
-        </section>
+        <Suspense fallback={<AnalyticsSkeleton />}>
+          <Analytics stats={stats} proxies={proxyData.proxies} onCountryClick={handleCountryClick} />
+        </Suspense>
       )}
 
       {/* Loading state for stats */}
@@ -299,6 +412,9 @@ export function Home() {
           ))}
         </div>
       </section>
+      
+      {/* Keyboard shortcuts help modal */}
+      <ShortcutsHelp open={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
   )
 }
