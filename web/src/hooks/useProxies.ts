@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import type { Protocol, RichProxyData, Proxy } from "@/types"
+import { compareIPs } from "@/lib/ip"
+import { getCache, setCache, CACHE_KEYS, DEFAULT_TTL } from "@/lib/cache"
 
 const BASE_URL = import.meta.env.BASE_URL + "proxy-lists/"
 
@@ -7,32 +9,90 @@ export function useRichProxies() {
   const [data, setData] = useState<RichProxyData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [progress, setProgress] = useState<number | undefined>(undefined)
 
-  useEffect(() => {
-    fetch(`${BASE_URL}proxies-rich.json`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch proxy data")
-        return res.json()
-      })
-      .then((json: RichProxyData) => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
+    // Check cache first (unless force refresh)
+    if (!forceRefresh) {
+      const cached = getCache<RichProxyData>(CACHE_KEYS.PROXIES)
+      if (cached) {
+        setData(cached)
+        setLoading(false)
+        setProgress(undefined)
+        return
+      }
+    }
+
+    setLoading(true)
+    setProgress(0) // Start at 0%
+    
+    try {
+      const res = await fetch(`${BASE_URL}proxies-rich.json`)
+      if (!res.ok) throw new Error("Failed to fetch proxy data")
+      
+      const contentLength = res.headers.get('Content-Length')
+      
+      // If we can track progress...
+      if (contentLength && res.body) {
+        const total = parseInt(contentLength, 10)
+        const reader = res.body.getReader()
+        let received = 0
+        const chunks: Uint8Array[] = []
+        
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          
+          if (value) {
+            chunks.push(value)
+            received += value.length
+            // Calculate percentage
+            setProgress(Math.round((received / total) * 100))
+          }
+        }
+        
+        // Combine chunks and parse
+        const bodyContent = new Uint8Array(received)
+        let position = 0
+        for (const chunk of chunks) {
+          bodyContent.set(chunk, position)
+          position += chunk.length
+        }
+        
+        const text = new TextDecoder("utf-8").decode(bodyContent)
+        const json: RichProxyData = JSON.parse(text)
+        
         setData(json)
         setError(null)
-      })
-      .catch((err) => {
-        setError(err.message)
-      })
-      .finally(() => {
-        setLoading(false)
-      })
+        setCache(CACHE_KEYS.PROXIES, json, DEFAULT_TTL)
+      } else {
+        // Fallback for no Content-Length or no body stream support
+        setProgress(undefined) // Indeterminate
+        const json: RichProxyData = await res.json()
+        setData(json)
+        setError(null)
+        setCache(CACHE_KEYS.PROXIES, json, DEFAULT_TTL)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unknown error')
+    } finally {
+      setLoading(false)
+      setProgress(undefined)
+    }
   }, [])
 
-  return { data, loading, error }
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  return { data, loading, error, progress, refresh: () => fetchData(true) }
 }
 
 export interface ProxyFilters {
   search: string
   protocols: Protocol[]
   statuses: string[]
+  countries: string[]
 }
 
 export function filterProxies(proxies: Proxy[], filters: ProxyFilters): Proxy[] {
@@ -57,6 +117,11 @@ export function filterProxies(proxies: Proxy[], filters: ProxyFilters): Proxy[] 
       if (!filters.statuses.includes(proxy.status)) return false
     }
 
+    // Country filter
+    if (filters.countries && filters.countries.length > 0) {
+      if (!proxy.country_code || !filters.countries.includes(proxy.country_code)) return false
+    }
+
     return true
   })
 }
@@ -74,15 +139,7 @@ export function sortProxies(
 
     switch (field) {
       case "ip":
-        // Sort IPs numerically
-        const aOctets = a.ip.split(".").map(Number)
-        const bOctets = b.ip.split(".").map(Number)
-        for (let i = 0; i < 4; i++) {
-          if (aOctets[i] !== bOctets[i]) {
-            comparison = aOctets[i] - bOctets[i]
-            break
-          }
-        }
+        comparison = compareIPs(a.ip, b.ip)
         break
       case "port":
         comparison = a.port - b.port

@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { LiveStats } from "@/components/stats/LiveStats"
 import { LastUpdated } from "@/components/stats/LastUpdated"
 import { RichProxyTable } from "@/components/proxy/RichProxyTable"
+import { LoadingProgress } from "@/components/ui/loading-progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useStats } from "@/hooks/useStats"
 import { useRichProxies } from "@/hooks/useProxies"
@@ -81,7 +82,7 @@ print(response.json())  # {"origin": "185.x.x.47"}`
 
 export function Home() {
   const { stats, loading: statsLoading, error: statsError, refresh: refreshStats } = useStats()
-  const { data: proxyData, loading: proxiesLoading, error: proxiesError, refresh: refreshProxies } = useRichProxies()
+  const { data: proxyData, loading: proxiesLoading, error: proxiesError, progress: proxiesProgress, refresh: refreshProxies } = useRichProxies()
   const { filters, setFilters, sortField, sortDirection, setSort, clearAll } = useUrlFilters()
   
   // Keyboard shortcuts state
@@ -135,6 +136,8 @@ export function Home() {
 
   return (
     <div className="space-y-16">
+      <LoadingProgress loading={proxiesLoading} progress={proxiesProgress} />
+      
       {/* Hero Section */}
       <motion.section
         className="py-8 md:py-16 text-center space-y-6"
@@ -154,7 +157,7 @@ export function Home() {
         </motion.div>
 
         <motion.h1 className="text-4xl md:text-6xl font-bold tracking-tight" variants={slideUp}>
-          <span className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
             ProxyWhirl
           </span>
         </motion.h1>
