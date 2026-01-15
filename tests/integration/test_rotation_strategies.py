@@ -685,7 +685,8 @@ class TestStrategyComposition:
 
         # Act - Create composed strategy
         geo_filter = GeoTargetedStrategy()
-        performance_selector = PerformanceBasedStrategy()
+        # Disable exploration to ensure performance-based selection applies immediately
+        performance_selector = PerformanceBasedStrategy(exploration_count=0)
         strategy = CompositeStrategy(filters=[geo_filter], selector=performance_selector)
 
         context = SelectionContext(target_country="US")
