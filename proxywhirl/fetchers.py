@@ -329,7 +329,7 @@ class ProxyValidator:
     def __init__(
         self,
         timeout: float = 5.0,
-        test_url: str = "http://httpbin.org/ip",
+        test_url: str = "http://www.gstatic.com/generate_204",
         level: ValidationLevel | None = None,
         concurrency: int = 50,
     ) -> None:
@@ -338,7 +338,8 @@ class ProxyValidator:
 
         Args:
             timeout: Connection timeout in seconds
-            test_url: URL to use for connectivity testing
+            test_url: URL to use for connectivity testing. Defaults to Google's
+                     204 endpoint which is fast and doesn't rate limit.
             level: Validation level (BASIC, STANDARD, FULL). Defaults to STANDARD.
             concurrency: Maximum number of concurrent validations
         """
@@ -427,7 +428,7 @@ class ProxyValidator:
 
     async def _validate_http_request(self, proxy_url: str | None = None) -> bool:
         """
-        Validate HTTP request through proxy using shared client.
+        Validate HTTP request through proxy.
 
         Args:
             proxy_url: Full proxy URL (e.g., "http://proxy.example.com:8080")
@@ -437,15 +438,19 @@ class ProxyValidator:
             True if HTTP request succeeds, False otherwise
         """
         try:
-            client = await self._get_client()
-
-            # Use proxy parameter for the request if provided
+            # httpx requires proxy at client initialization, not per-request
             if proxy_url:
-                response = await client.get(self.test_url, proxy=proxy_url)
+                async with httpx.AsyncClient(
+                    proxy=proxy_url,
+                    timeout=self.timeout,
+                ) as client:
+                    response = await client.get(self.test_url)
+                    return response.status_code in (200, 204)
             else:
+                # No proxy - use shared client for direct requests
+                client = await self._get_client()
                 response = await client.get(self.test_url)
-
-            return response.status_code == 200
+                return response.status_code in (200, 204)
         except (
             httpx.TimeoutException,
             httpx.ConnectError,
@@ -484,12 +489,16 @@ class ProxyValidator:
         }
 
         try:
-            client = await self._get_client()
-
-            # Use proxy parameter for the request if provided
+            # httpx requires proxy at client initialization, not per-request
             if proxy_url:
-                response = await client.get(self.test_url, proxy=proxy_url)
+                async with httpx.AsyncClient(
+                    proxy=proxy_url,
+                    timeout=self.timeout,
+                ) as client:
+                    response = await client.get(self.test_url)
             else:
+                # No proxy - use shared client for direct requests
+                client = await self._get_client()
                 response = await client.get(self.test_url)
 
             if response.status_code != 200:
@@ -563,23 +572,37 @@ class ProxyValidator:
             except (asyncio.TimeoutError, OSError, ConnectionRefusedError):
                 return False
 
-            # TCP passed - now test actual proxy functionality using shared client
+            # TCP passed - now test actual proxy functionality
+            # httpx requires proxy at client initialization, not per-request
             is_socks = proxy_url.startswith(("socks4://", "socks5://"))
 
             if is_socks:
-                # Use shared SOCKS client
-                client = await self._get_socks_client(proxy_url)
-                response = await client.get(self.test_url)
-                return response.status_code == 200
+                # Create SOCKS client with transport
+                from httpx_socks import AsyncProxyTransport
+
+                transport = AsyncProxyTransport.from_url(proxy_url)
+                async with httpx.AsyncClient(
+                    transport=transport,
+                    timeout=self.timeout,
+                ) as client:
+                    response = await client.get(self.test_url)
+                    return response.status_code in (200, 204)
             else:
-                # Use shared HTTP client with per-request proxy
-                client = await self._get_client()
-                response = await client.get(self.test_url, proxy=proxy_url)
-                return response.status_code == 200
+                # Create HTTP client with proxy configured at initialization
+                async with httpx.AsyncClient(
+                    proxy=proxy_url,
+                    timeout=self.timeout,
+                ) as client:
+                    response = await client.get(self.test_url)
+                    return response.status_code in (200, 204)
         except Exception:
             return False
 
-    async def validate_batch(self, proxies: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    async def validate_batch(
+        self,
+        proxies: list[dict[str, Any]],
+        progress_callback: Any | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Validate multiple proxies in parallel with concurrency control.
 
@@ -588,6 +611,7 @@ class ProxyValidator:
 
         Args:
             proxies: List of proxy dictionaries
+            progress_callback: Optional callback(completed, total, valid_count) for progress
 
         Returns:
             List of working proxies (only proxies that passed validation)
@@ -597,15 +621,27 @@ class ProxyValidator:
 
         # Create semaphore to limit concurrent validations
         semaphore = asyncio.Semaphore(self.concurrency)
+        completed = 0
+        valid_count = 0
+        total = len(proxies)
 
         async def validate_with_semaphore(proxy: dict[str, Any]) -> tuple[dict[str, Any], bool]:
             """Validate a single proxy with semaphore control."""
+            nonlocal completed, valid_count
             async with semaphore:
                 try:
                     result = await self.validate(proxy)
+                    completed += 1
+                    if result:
+                        valid_count += 1
+                    if progress_callback:
+                        progress_callback(completed, total, valid_count)
                     return (proxy, result)
                 except Exception:
                     # If validation raises an exception, treat as failed
+                    completed += 1
+                    if progress_callback:
+                        progress_callback(completed, total, valid_count)
                     return (proxy, False)
 
         # Run all validations in parallel (semaphore controls concurrency)
@@ -778,7 +814,11 @@ class ProxyFetcher:
             raise ProxyFetchError(f"Error fetching from {source.url}: {e}") from e
 
     async def fetch_all(
-        self, validate: bool = True, deduplicate: bool = True
+        self,
+        validate: bool = True,
+        deduplicate: bool = True,
+        fetch_progress_callback: Any | None = None,
+        validate_progress_callback: Any | None = None,
     ) -> list[dict[str, Any]]:
         """
         Fetch proxies from all configured sources.
@@ -786,14 +826,35 @@ class ProxyFetcher:
         Args:
             validate: Whether to validate proxies before returning
             deduplicate: Whether to deduplicate proxies
+            fetch_progress_callback: Optional callback(completed, total, proxies_found) for fetch progress
+            validate_progress_callback: Optional callback(completed, total, valid_count) for validation progress
 
         Returns:
             List of proxy dictionaries
         """
         all_proxies: list[dict[str, Any]] = []
+        completed_sources = 0
+        total_sources = len(self.sources)
+
+        # Fetch from all sources with progress tracking
+        async def fetch_with_progress(source: ProxySourceConfig) -> list[dict[str, Any]]:
+            nonlocal completed_sources
+            try:
+                result = await self.fetch_from_source(source)
+                completed_sources += 1
+                if fetch_progress_callback:
+                    fetch_progress_callback(
+                        completed_sources, total_sources, len(all_proxies) + len(result)
+                    )
+                return result
+            except Exception:
+                completed_sources += 1
+                if fetch_progress_callback:
+                    fetch_progress_callback(completed_sources, total_sources, len(all_proxies))
+                return []
 
         # Fetch from all sources in parallel
-        tasks = [self.fetch_from_source(source) for source in self.sources]
+        tasks = [fetch_with_progress(source) for source in self.sources]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Collect successful results
@@ -808,7 +869,9 @@ class ProxyFetcher:
 
         # Validate if requested
         if validate:
-            all_proxies = await self.validator.validate_batch(all_proxies)
+            all_proxies = await self.validator.validate_batch(
+                all_proxies, progress_callback=validate_progress_callback
+            )
 
         return all_proxies
 

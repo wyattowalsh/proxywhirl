@@ -972,13 +972,15 @@ async def _fetch_from_sources(
     validate: bool,
     timeout: int,
     max_concurrent: int,
+    console: Console | None = None,
 ) -> list[Any]:
-    """Fetch proxies from all configured sources.
+    """Fetch proxies from all configured sources with progress display.
 
     Args:
         validate: Whether to validate proxies
         timeout: Validation timeout in seconds
         max_concurrent: Maximum concurrent validation requests
+        console: Rich console for progress display
 
     Returns:
         List of fetched Proxy objects
@@ -986,13 +988,95 @@ async def _fetch_from_sources(
     Raises:
         Exception: If fetching fails
     """
-    from proxywhirl.sources import fetch_all_sources
-
-    return await fetch_all_sources(
-        validate=validate,
-        timeout=timeout,
-        max_concurrent=max_concurrent,
+    from rich.progress import (
+        BarColumn,
+        MofNCompleteColumn,
+        Progress,
+        SpinnerColumn,
+        TaskProgressColumn,
+        TextColumn,
+        TimeElapsedColumn,
     )
+
+    from proxywhirl.sources import ALL_SOURCES, fetch_all_sources
+
+    total_sources = len(ALL_SOURCES)
+    proxies_found = 0
+    valid_count = 0
+
+    # Create progress display
+    progress = Progress(
+        SpinnerColumn(),
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        MofNCompleteColumn(),
+        TextColumn("•"),
+        TimeElapsedColumn(),
+        TextColumn("{task.fields[status]}"),
+        console=console,
+        transient=False,
+    )
+
+    fetch_task = None
+    validate_task = None
+
+    def fetch_progress(completed: int, total: int, found: int) -> None:
+        """Update fetch progress."""
+        nonlocal proxies_found, fetch_task
+        proxies_found = found
+        if fetch_task is not None:
+            progress.update(
+                fetch_task,
+                completed=completed,
+                status=f"[cyan]{proxies_found:,} proxies found[/cyan]",
+            )
+
+    def validate_progress(completed: int, total: int, valid: int) -> None:
+        """Update validation progress."""
+        nonlocal valid_count, validate_task
+        valid_count = valid
+        if validate_task is not None:
+            pct = (valid / completed * 100) if completed > 0 else 0
+            progress.update(
+                validate_task,
+                completed=completed,
+                total=total,  # Update total dynamically
+                status=f"[green]{valid:,} valid[/green] ({pct:.1f}%)",
+            )
+
+    with progress:
+        # Add fetch task
+        fetch_task = progress.add_task(
+            "Fetching sources",
+            total=total_sources,
+            status="[cyan]starting...[/cyan]",
+        )
+
+        # Add validation task (will be updated once fetching completes)
+        if validate:
+            validate_task = progress.add_task(
+                "Validating proxies",
+                total=0,  # Will be set after fetch
+                status="[dim]waiting...[/dim]",
+                visible=True,
+            )
+
+        # Run fetch with callbacks
+        result = await fetch_all_sources(
+            validate=validate,
+            timeout=timeout,
+            max_concurrent=max_concurrent,
+            fetch_progress_callback=fetch_progress,
+            validate_progress_callback=validate_progress if validate else None,
+        )
+
+        # Mark tasks complete
+        progress.update(fetch_task, completed=total_sources)
+        if validate_task is not None:
+            progress.update(validate_task, completed=progress.tasks[validate_task].total)
+
+    return result
 
 
 async def _save_results(proxies: list[Any], db_path: Path) -> None:
@@ -1100,14 +1184,14 @@ def fetch(
     # Parse configuration
     fetch_config = _parse_fetch_config(no_validate, timeout, concurrency)
 
-    # Run fetch
-    command_ctx.console.print("[bold]Fetching proxies...[/bold]")
+    # Run fetch with progress display
     try:
         proxies = asyncio.run(
             _fetch_from_sources(
                 validate=fetch_config["validate"],
                 timeout=fetch_config["timeout"],
                 max_concurrent=fetch_config["max_concurrent"],
+                console=command_ctx.console,
             )
         )
     except Exception as e:

@@ -734,13 +734,31 @@ async def fetch_all_sources(
     timeout: int = 10,
     max_concurrent: int = 100,
     sources: list[ProxySourceConfig] | None = None,
+    fetch_progress_callback: Any | None = None,
+    validate_progress_callback: Any | None = None,
 ) -> list[dict[str, Any]]:
-    """Fetch proxies from all built-in sources."""
+    """Fetch proxies from all built-in sources.
+
+    Args:
+        validate: Whether to validate proxies
+        timeout: Validation timeout in seconds
+        max_concurrent: Maximum concurrent validation requests
+        sources: List of sources to fetch from (defaults to ALL_SOURCES)
+        fetch_progress_callback: Optional callback(completed, total, proxies_found) for fetch progress
+        validate_progress_callback: Optional callback(completed, total, valid_count) for validation progress
+
+    Returns:
+        List of proxy dictionaries
+    """
     from proxywhirl.fetchers import ProxyFetcher, ProxyValidator
 
     validator = ProxyValidator(timeout=timeout, concurrency=max_concurrent)
     fetcher = ProxyFetcher(sources=sources or ALL_SOURCES, validator=validator)
     try:
-        return await fetcher.fetch_all(validate=validate)
+        return await fetcher.fetch_all(
+            validate=validate,
+            fetch_progress_callback=fetch_progress_callback,
+            validate_progress_callback=validate_progress_callback,
+        )
     finally:
         await fetcher.close()
