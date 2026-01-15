@@ -736,6 +736,7 @@ async def fetch_all_sources(
     sources: list[ProxySourceConfig] | None = None,
     fetch_progress_callback: Any | None = None,
     validate_progress_callback: Any | None = None,
+    test_url: str | None = None,
 ) -> list[dict[str, Any]]:
     """Fetch proxies from all built-in sources.
 
@@ -746,13 +747,18 @@ async def fetch_all_sources(
         sources: List of sources to fetch from (defaults to ALL_SOURCES)
         fetch_progress_callback: Optional callback(completed, total, proxies_found) for fetch progress
         validate_progress_callback: Optional callback(completed, total, valid_count) for validation progress
+        test_url: Optional URL to validate against (defaults to http://www.gstatic.com/generate_204)
 
     Returns:
         List of proxy dictionaries
     """
     from proxywhirl.fetchers import ProxyFetcher, ProxyValidator
 
-    validator = ProxyValidator(timeout=timeout, concurrency=max_concurrent)
+    validator_kwargs = {"timeout": timeout, "concurrency": max_concurrent}
+    if test_url:
+        validator_kwargs["test_url"] = test_url
+
+    validator = ProxyValidator(**validator_kwargs)
     fetcher = ProxyFetcher(sources=sources or ALL_SOURCES, validator=validator)
     try:
         return await fetcher.fetch_all(

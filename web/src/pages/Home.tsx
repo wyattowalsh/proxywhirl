@@ -136,9 +136,8 @@ export function Home() {
   }, [filters, setFilters])
 
   return (
+    <>
     <div className="space-y-16">
-      <LoadingProgress loading={proxiesLoading} progress={proxiesProgress} />
-      <ScrollToTop />
       
       {/* Hero Section */}
       <motion.section
@@ -421,5 +420,8 @@ export function Home() {
       {/* Keyboard shortcuts help modal */}
       <ShortcutsHelp open={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
+    <LoadingProgress loading={proxiesLoading} progress={proxiesProgress} />
+    <ScrollToTop />
+    </>
   )
 }

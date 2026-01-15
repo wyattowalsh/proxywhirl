@@ -363,6 +363,9 @@ class ProxyValidator:
             self._client = httpx.AsyncClient(
                 timeout=self.timeout,
                 limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                },
             )
         return self._client
 
@@ -384,6 +387,9 @@ class ProxyValidator:
                 transport=transport,
                 timeout=self.timeout,
                 limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                },
             )
         return self._socks_client
 
