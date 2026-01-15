@@ -4,41 +4,22 @@
 
 ## Modules
 
-| File | Key Classes |
-|------|-------------|
-| `base.py` | `ProxyRotatorBase` (shared logic) |
-| `sync.py` | `ProxyRotator` (synchronous) |
-| `async_.py` | `AsyncProxyRotator`, `LRUAsyncClientPool` |
-| `client_pool.py` | `LRUClientPool` (connection pooling) |
+`base.py` (`ProxyRotatorBase`), `sync.py` (`ProxyRotator`), `async_.py` (`AsyncProxyRotator`, `LRUAsyncClientPool`), `client_pool.py` (`LRUClientPool`)
 
 ## Usage
 
 ```python
-# Sync
-from proxywhirl import ProxyRotator
+# Sync (scripts, CLI)
 rotator = ProxyRotator(strategy="round_robin")
 proxy = rotator.get_proxy()
 
-# Async
-from proxywhirl import AsyncProxyRotator
+# Async (web apps, high-concurrency)
 async_rotator = AsyncProxyRotator()
 proxy = await async_rotator.get_proxy()
 ```
 
 ## Boundaries
 
-**Always:**
-- Use `AsyncProxyRotator` for web apps, high-concurrency
-- Use `ProxyRotator` for scripts, CLI tools
-- Configure strategy based on use case
-- Clean up resources with context managers
+**Always:** Async for web apps, sync for scripts, use context managers
 
-**Ask First:**
-- Default strategy changes
-- Connection pool size changes
-- Timeout defaults
-
-**Never:**
-- Mix sync/async rotators in same context
-- Ignore proxy validation results
-- Bypass circuit breaker integration
+**Never:** Mix sync/async, ignore validation, bypass circuit breaker

@@ -4,51 +4,26 @@
 
 ## Modules
 
-| File | Key Classes |
-|------|-------------|
-| `policy.py` | `RetryPolicy`, `BackoffStrategy` (enum) |
-| `executor.py` | `RetryExecutor`, `RetryableError`, `NonRetryableError` |
-| `metrics.py` | `RetryMetrics`, `RetryAttempt`, `RetryOutcome`, `CircuitBreakerEvent` |
+`policy.py` (`RetryPolicy`, `BackoffStrategy`), `executor.py` (`RetryExecutor`, `RetryableError`), `metrics.py` (`RetryMetrics`)
 
 ## Backoff Strategies
 
-| Strategy | Description |
-|----------|-------------|
-| `constant` | Fixed delay between retries |
-| `linear` | Delay increases linearly |
-| `exponential` | Delay doubles each attempt (default) |
-| `fibonacci` | Delay follows Fibonacci sequence |
+`constant`, `linear`, `exponential` (default), `fibonacci`
 
 ## Usage
 
 ```python
-from proxywhirl.retry import RetryPolicy, RetryExecutor, RetryMetrics
-
+from proxywhirl.retry import RetryPolicy, RetryExecutor
 policy = RetryPolicy(max_attempts=3, backoff_strategy="exponential")
-metrics = RetryMetrics()
-executor = RetryExecutor(policy, metrics=metrics)
-
+executor = RetryExecutor(policy)
 # Sync
-result = executor.execute_with_retry(func, proxies, circuit_breakers)
-
+result = executor.execute_with_retry(request_fn, proxy, method, url)
 # Async
-result = await executor.execute_with_retry_async(async_func, proxies, circuit_breakers)
+result = await executor.execute_with_retry_async(func, proxies, circuit_breakers)
 ```
 
 ## Boundaries
 
-**Always:**
-- Use exponential backoff for network operations
-- Set reasonable max_attempts (3-5)
-- Log retry attempts with `RetryMetrics`
-- Wrap retryable errors in `RetryableError`
+**Always:** Exponential backoff for network, max_attempts 3-5, log with `RetryMetrics`
 
-**Ask First:**
-- Default policy changes
-- New backoff strategies
-- Metrics schema changes
-
-**Never:**
-- Retry indefinitely
-- Retry non-idempotent operations without care
-- Swallow `NonRetryableError`
+**Never:** Retry indefinitely, retry non-idempotent blindly, swallow `NonRetryableError`

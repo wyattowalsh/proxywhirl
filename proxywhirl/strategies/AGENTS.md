@@ -2,53 +2,34 @@
 
 > Extends: [../../AGENTS.md](../../AGENTS.md)
 
-## Modules
+## Module
 
-| File | Key Classes |
-|------|-------------|
-| `core.py` | `RotationStrategy` (Protocol), `StrategyRegistry`, all strategy implementations |
+`core.py` — `RotationStrategy` (Protocol), `StrategyRegistry`, all implementations
 
-## Available Strategies (9)
+## Strategies (9)
 
-| Strategy | Class | Use Case |
-|----------|-------|----------|
-| `round_robin` | `RoundRobinStrategy` | Equal distribution, default |
-| `random` | `RandomStrategy` | Simple random selection |
-| `weighted` | `WeightedStrategy` | Prioritize by success rate/custom weights |
-| `least_used` | `LeastUsedStrategy` | Balance load (min-heap) |
-| `performance` | `PerformanceBasedStrategy` | Optimize for EMA response time |
-| `session` | `SessionPersistenceStrategy` | Sticky sessions per domain |
-| `geo` | `GeoTargetedStrategy` | Location-based selection |
-| `cost` | `CostAwareStrategy` | Cost-aware selection |
-| `composite` | `CompositeStrategy` | Combine multiple strategies |
+| Name | Class | Use Case |
+|------|-------|----------|
+| `round_robin` | `RoundRobinStrategy` | Equal distribution (default) |
+| `random` | `RandomStrategy` | Random selection |
+| `weighted` | `WeightedStrategy` | By success rate/weights |
+| `least_used` | `LeastUsedStrategy` | Load balancing (min-heap) |
+| `performance` | `PerformanceBasedStrategy` | EMA response time |
+| `session` | `SessionPersistenceStrategy` | Sticky sessions |
+| `geo` | `GeoTargetedStrategy` | Location-based |
+| `cost` | `CostAwareStrategy` | Cost optimization |
+| `composite` | `CompositeStrategy` | Combine strategies |
 
 ## Usage
 
 ```python
 from proxywhirl.strategies import StrategyRegistry, RoundRobinStrategy
-
-# Via registry
-strategy = StrategyRegistry.get("round_robin")
-
-# Direct instantiation
-strategy = RoundRobinStrategy()
+strategy = StrategyRegistry.get("round_robin")  # or RoundRobinStrategy()
 proxy = strategy.select(pool)
 ```
 
 ## Boundaries
 
-**Always:**
-- Implement `RotationStrategy` protocol for new strategies
-- Handle empty pool gracefully (raise `ProxyPoolEmptyError`)
-- Register new strategies in `StrategyRegistry`
-- Use thread-safe operations for stateful strategies
+**Always:** Implement `RotationStrategy` protocol, raise `ProxyPoolEmptyError` on empty, thread-safe state
 
-**Ask First:**
-- New strategy implementations
-- Default strategy changes
-- Strategy registry modifications
-
-**Never:**
-- Modify strategy state without locks
-- Return None from `select()` (raise instead)
-- Access pool internals directly
+**Never:** Return None from `select()`, modify state without locks

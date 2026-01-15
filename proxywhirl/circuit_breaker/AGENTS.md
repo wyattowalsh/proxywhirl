@@ -4,52 +4,24 @@
 
 ## Modules
 
-| File | Key Classes |
-|------|-------------|
-| `base.py` | `CircuitBreakerBase`, `CircuitBreakerState` (enum) |
-| `sync.py` | `CircuitBreaker` (synchronous) |
-| `async_.py` | `AsyncCircuitBreaker` (async) |
+`base.py` (`CircuitBreakerBase`, `CircuitBreakerState`), `sync.py` (`CircuitBreaker`), `async_.py` (`AsyncCircuitBreaker`)
 
 ## States
 
-```
-CLOSED (normal) ──[failures >= threshold]──→ OPEN (failing)
-       ↑                                          │
-       │                                          ↓
-       └──────[success]───── HALF_OPEN ←──[timeout]──┘
-                            (testing recovery)
-```
+`CLOSED` → (failures ≥ threshold) → `OPEN` → (timeout) → `HALF_OPEN` → (success) → `CLOSED`
 
 ## Usage
 
 ```python
 from proxywhirl import CircuitBreaker, AsyncCircuitBreaker
-
-# Sync
 cb = CircuitBreaker(failure_threshold=5, recovery_timeout=30)
 with cb:
     result = risky_call()
-
-# Async
-async_cb = AsyncCircuitBreaker(failure_threshold=5)
-async with async_cb:
-    result = await async_risky_call()
+# or async: async with AsyncCircuitBreaker(...): ...
 ```
 
 ## Boundaries
 
-**Always:**
-- Use circuit breaker for all external service calls
-- Configure appropriate thresholds per service
-- Log state transitions for monitoring
-- Reset circuit breakers after manual intervention
+**Always:** Use for external calls, configure per-service thresholds, log state transitions
 
-**Ask First:**
-- Default threshold changes
-- Recovery timeout changes
-- Adding new CB states
-
-**Never:**
-- Bypass circuit breaker in production
-- Ignore OPEN state (will raise)
-- Manually set state without logging
+**Never:** Bypass in production, ignore OPEN state, set state without logging

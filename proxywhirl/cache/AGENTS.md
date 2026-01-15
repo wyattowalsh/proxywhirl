@@ -4,48 +4,36 @@
 
 ## Modules
 
-| File | Key Classes |
-|------|-------------|
+| File | Classes |
+|------|---------|
 | `manager.py` | `CacheManager` |
 | `tiers.py` | `L1Cache`, `L2Cache` |
-| `crypto.py` | Encrypt/decrypt utilities |
-| `models.py` | `CacheEntry`, `CacheStatistics` |
+| `crypto.py` | `get_fernet_key()`, `rotate_encryption_key()` |
+| `models.py` | `CacheEntry`, `CacheStatistics`, `CacheConfig` |
 
 ## Architecture
 
-```
-L1 (in-memory, fast) → L2 (LRU, encrypted) → Origin (fetch)
-```
+`L1 (in-memory) → L2 (LRU, encrypted) → Origin`
+
+## Environment Variables
+
+`PROXYWHIRL_CACHE_ENCRYPTION_KEY` (Fernet key), `PROXYWHIRL_CACHE_KEY_PREVIOUS` (rotation)
 
 ## Usage
 
 ```python
+from proxywhirl import CacheManager
+from proxywhirl.cache.models import CacheConfig
 cache = CacheManager(CacheConfig(l1_max_size=1000, encryption_enabled=True))
 await cache.set("key", value, ttl=60)
-result = await cache.get("key")
 ```
 
 ## Boundaries
 
-**Always:**
-- Set TTL for all cache entries
-- Handle cache misses gracefully (return None, not raise)
-- Log cache statistics periodically
-- Test with encryption enabled AND disabled
-- Use atomic operations for concurrent access
+**Always:** Set TTL, handle misses gracefully (None), atomic ops, test with/without encryption
 
-**Ask First:**
-- Eviction policy changes
-- L1/L2 size default changes
-- Adding new cache tiers
-- Serialization format changes
+**Never:** Change encryption without review, cache sensitive data unencrypted, log keys
 
-**Never:**
-- Change encryption algorithm without security review
-- Break serialization backwards compatibility
-- Cache sensitive data without encryption
-- Ignore TTL expiration
+## Performance
 
-## Performance Targets
-
-L1 hit < 0.1ms, L2 hit < 1ms, warmup < 5s for 10k entries
+L1 < 0.1ms, L2 < 1ms, warmup < 5s/10k entries

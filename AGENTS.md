@@ -42,8 +42,8 @@
 | `models/` | Pydantic models: `Proxy`, `ProxyPool`, `Session`, `*Config` |
 | `strategies/` | `RoundRobinStrategy`, `WeightedStrategy`, `PerformanceBasedStrategy` |
 | `rotator/` | `ProxyRotator` (sync), `AsyncProxyRotator` (async) |
-| `storage.py` | SQLModel persistence |
-| `fetchers.py` | `ProxyFetcher`, `ProxyValidator` |
+| `storage.py` | `SQLiteStorage`, `FileStorage`, `ProxyTable` (SQLModel) |
+| `fetchers.py` | `ProxyFetcher`, `ProxyValidator`, parsers (`JSON/CSV/PlainText/HTMLTable`) |
 | `sources.py` | `ALL_SOURCES`, `RECOMMENDED_SOURCES`, predefined proxy endpoints |
 | `cache/` | `CacheManager`, multi-tier caching |
 | `circuit_breaker/` | `CircuitBreaker`, `AsyncCircuitBreaker` |
@@ -54,6 +54,7 @@
 | `cli.py` | Typer CLI (`proxywhirl` command) |
 | `tui.py` | Textual TUI dashboard |
 | `browser.py` | Playwright for JS-rendered sources |
+| `config.py` | TOML config, `CLIConfig`, `DataStorageConfig` |
 | `exceptions.py` | `ProxyWhirlError` hierarchy |
 | `safe_regex.py` | ReDoS-safe regex utilities |
 | `geo.py` | IP geolocation enrichment |
@@ -62,10 +63,14 @@
 
 **Key Exports** (from `proxywhirl/__init__.py`):
 - Rotators: `ProxyRotator`, `AsyncProxyRotator`
-- Models: `Proxy`, `ProxyPool`, `Session`, `ProxySource`, `HealthStatus`
-- Config: `ProxyConfiguration`, `StrategyConfig`, `CircuitBreakerConfig`, `RetryPolicy`
-- Components: `CacheManager`, `CircuitBreaker`, `RetryExecutor`, `BrowserRenderer`
-- Sources: `ALL_SOURCES`, `RECOMMENDED_SOURCES`, `ALL_HTTP_SOURCES`, `ALL_SOCKS5_SOURCES`
+- Models: `Proxy`, `ProxyPool`, `Session`, `ProxySource`, `HealthStatus`, `ProxyChain`, `SelectionContext`
+- Config: `ProxyConfiguration`, `StrategyConfig`, `CircuitBreakerConfig`, `RetryPolicy`, `CacheConfig`, `DataStorageConfig`
+- Components: `CacheManager`, `CircuitBreaker`, `AsyncCircuitBreaker`, `RetryExecutor`, `BrowserRenderer`, `ProxyFetcher`, `ProxyValidator`
+- Strategies: `RotationStrategy` (protocol), `StrategyRegistry`, all 9 strategy classes
+- Parsers: `JSONParser`, `CSVParser`, `PlainTextParser`, `HTMLTableParser`
+- Sources: `ALL_SOURCES`, `RECOMMENDED_SOURCES`, `ALL_HTTP_SOURCES`, `ALL_SOCKS5_SOURCES`, `API_SOURCES`
+- Exceptions: `ProxyWhirlError`, `ProxyPoolEmptyError`, `ProxyValidationError`, `ProxyConnectionError`, `RetryableError`
+- Utils: `configure_logging`, `encrypt_credentials`, `decrypt_credentials`, `deduplicate_proxies`
 
 ## Testing
 
@@ -115,6 +120,19 @@
 
 **Database:** `proxywhirl.db` tracked in git, CI auto-updates every 6h, local changes overwritten
 
+## Environment Variables
+
+| Variable | Component | Purpose |
+|----------|-----------|---------|
+| `PROXYWHIRL_KEY` | CLI/config | Master encryption key |
+| `PROXYWHIRL_CACHE_ENCRYPTION_KEY` | cache | Fernet key for L2 cache |
+| `PROXYWHIRL_STORAGE_PATH` | api | SQLite database path |
+| `PROXYWHIRL_API_KEY` | api | API authentication key |
+| `PROXYWHIRL_MCP_API_KEY` | mcp | MCP server auth key |
+| `PROXYWHIRL_MCP_DB` | mcp | MCP database path |
+
+See subsystem AGENTS.md files for complete environment variable lists.
+
 ## Security
 
 | Category | Forbidden | Allowed |
@@ -142,6 +160,10 @@
 | Async test errors | `asyncio_mode = "auto"` in pyproject.toml |
 | Type errors | Use `uv run ty check` not `mypy` |
 | Import errors | Use `uv run pytest` not bare `pytest` |
+| HTTP mock not working | Use `respx` not `responses`; check `respx_mock` fixture |
+| Pydantic validation | Use `ConfigDict(extra="forbid")` to catch typos |
+| Credential exposure | Use `SecretStr`, check `redact_url()` in exceptions.py |
+| MCP tests skip | MCP requires Python 3.10+; tests auto-skip on older |
 
 ## Setup
 
@@ -164,17 +186,12 @@ Lint command: uv run ruff check proxywhirl/<module>.py
 
 ## Decision Tree
 
-**Sync vs Async:**
-- Use `ProxyRotator` for simple scripts, CLI tools
-- Use `AsyncProxyRotator` for web apps, high-concurrency
-
-**When tests fail:**
-1. Read error message carefully
-2. Run single test: `uv run pytest path/to/test.py::test_name -v`
-3. Check fixtures in `conftest.py`
-4. Verify `uv sync` was run
-
-**When lint fails:**
-1. Run `make format` to auto-fix
-2. Remaining errors need manual fix
-3. Check ruff rule codes in error output
+| Scenario | Action |
+|----------|--------|
+| Sync vs Async | `ProxyRotator` for scripts/CLI; `AsyncProxyRotator` for web/high-concurrency |
+| Tests fail | 1) `uv run pytest path::test -v` 2) Check `conftest.py` 3) `uv sync` |
+| Lint fails | 1) `make format` auto-fix 2) Manual fix remaining 3) Check ruff codes |
+| Type errors | `uv run ty check` (not mypy) — check `ty.rules` in pyproject.toml |
+| New strategy | Implement `RotationStrategy` protocol, register in `StrategyRegistry` |
+| New exception | Inherit from `ProxyWhirlError`, add error code to `ProxyErrorCode` |
+| HTTP mocking | Use `respx` (not `responses`), fixtures in `conftest.py` |

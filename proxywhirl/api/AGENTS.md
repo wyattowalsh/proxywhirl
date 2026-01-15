@@ -4,47 +4,27 @@
 
 ## Modules
 
-| File | Key Classes/Functions |
-|------|----------------------|
-| `core.py` | `app`, `lifespan`, `get_rotator`, `get_storage`, `get_config` |
-| `models.py` | Request/response Pydantic models |
-| `routes/` | Endpoint route handlers |
+`core.py` (`app`, `lifespan`, `get_rotator`), `models.py` (Pydantic), `routes/`
 
 ## Endpoints
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/api/v1/proxies` | List all proxies |
-| POST | `/api/v1/proxies` | Add proxy |
-| GET | `/api/v1/rotate` | Get next proxy |
-| GET | `/api/v1/health` | Health check |
-| GET | `/api/v1/stats` | Pool statistics |
+`GET /api/v1/proxies` (list), `POST /api/v1/proxies` (add), `GET /api/v1/rotate`, `GET /api/v1/health`, `GET /api/v1/stats`
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PROXYWHIRL_STORAGE_PATH` | `proxywhirl.db` | SQLite database path |
-| `PROXYWHIRL_STRATEGY` | `round-robin` | Rotation strategy |
-| `PROXYWHIRL_TIMEOUT` | `30` | Request timeout (seconds) |
-| `PROXYWHIRL_MAX_RETRIES` | `3` | Max retry attempts |
-| `PROXYWHIRL_REQUIRE_AUTH` | `false` | Require API key auth |
-| `PROXYWHIRL_CORS_ORIGINS` | `*` | CORS allowed origins |
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `PROXYWHIRL_STORAGE_PATH` | `proxywhirl.db` | Database |
+| `PROXYWHIRL_STRATEGY` | `round-robin` | Strategy |
+| `PROXYWHIRL_TIMEOUT` | `30` | Timeout (s) |
+| `PROXYWHIRL_MAX_RETRIES` | `3` | Max retries |
+| `PROXYWHIRL_REQUIRE_AUTH` | `false` | Auth required |
+| `PROXYWHIRL_API_KEY` | — | Auth key |
+| `PROXYWHIRL_CORS_ORIGINS` | localhost | CORS origins (comma-sep) |
+| `PROXYWHIRL_RATE_LIMIT` | `100/minute` | Default rate limit |
 
 ## Boundaries
 
-**Always:**
-- Validate all request bodies with Pydantic
-- Return consistent JSON response format
-- Use proper HTTP status codes
-- Log all requests for debugging
+**Always:** Pydantic validation, consistent JSON, proper HTTP codes
 
-**Ask First:**
-- New endpoints
-- Response schema changes
-- Authentication changes
-
-**Never:**
-- Expose internal errors to clients
-- Return proxy credentials in responses
-- Allow unauthenticated write operations
+**Never:** Expose internal errors, return credentials, unauthenticated writes

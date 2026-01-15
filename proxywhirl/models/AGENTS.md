@@ -4,57 +4,39 @@
 
 ## Modules
 
-| File | Contents |
-|------|----------|
-| `core.py` | All Pydantic models (1,300+ lines) |
-| `__init__.py` | Public re-exports |
+`core.py` (1,300+ lines) — all Pydantic models; `__init__.py` — re-exports
 
 ## Key Models
 
-| Model | Purpose | Frozen? |
-|-------|---------|---------|
-| `Proxy` | Core proxy entity with URL, health, stats | No (mutable stats) |
-| `ProxyPool` | Thread-safe collection of proxies | No |
-| `Session` | Proxy-domain binding for sticky sessions | Yes |
-| `ProxyConfiguration` | Top-level config for rotator | Yes |
-| `StrategyConfig` | Strategy selection parameters | Yes |
-| `CircuitBreakerConfig` | CB thresholds and timing | Yes |
-| `RetryPolicy` | Retry behavior configuration | Yes |
+| Model | Purpose | Mutable? |
+|-------|---------|----------|
+| `Proxy` | Core entity: URL, health, stats | Yes |
+| `ProxyPool` | Thread-safe proxy collection | Yes |
+| `ProxyChain` | Multi-hop proxy chain | No |
+| `Session` | Sticky session binding | No |
+| `ProxyConfiguration` | Rotator config (BaseSettings) | No |
+| `StrategyConfig` | Strategy parameters | No |
+| `CircuitBreakerConfig` | CB thresholds/timing | No |
+| `ProxySourceConfig` | Source URL/format config | No |
+
+Supporting: `SelectionContext`, `ProxyCredentials`, `SourceStats`, `HealthMonitor`, `RequestResult`
 
 ## Enums
 
-`HealthStatus`, `ProxySource`, `ProxyFormat`, `RenderMode`, `ValidationLevel`
+`HealthStatus` (UNKNOWN/HEALTHY/DEGRADED/UNHEALTHY/DEAD), `ProxySource`, `ProxyFormat`, `RenderMode`, `ValidationLevel`
 
 ## Patterns
 
-**Pydantic v2 conventions:**
 ```python
 class MyModel(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-    name: str = Field(..., description="Description")
+    name: str = Field(..., description="...")
 ```
 
-**Validation:** Use `@field_validator` and `@model_validator` decorators.
-
-**Secrets:** Use `SecretStr` for passwords, never expose in `__repr__`.
+Use `@field_validator`, `@model_validator`. Use `SecretStr` for credentials.
 
 ## Boundaries
 
-**Always:**
-- Use `from __future__ import annotations` for forward refs
-- Document all fields with `Field(description=...)`
-- Use `ConfigDict(extra="forbid")` to catch typos
-- Test model serialization roundtrip
-- Use `SecretStr` for any credential fields
+**Always:** `from __future__ import annotations`, `Field(description=...)`, `extra="forbid"`, `SecretStr` for creds
 
-**Ask First:**
-- Adding new top-level models
-- Changing field types on existing models
-- Removing or renaming fields
-- Modifying validation logic
-
-**Never:**
-- Break serialization compatibility without migration
-- Store raw passwords (use `SecretStr`)
-- Expose internal state in JSON serialization
-- Skip `frozen=True` for config objects
+**Never:** Break serialization compat, raw passwords, skip `frozen=True` for configs
