@@ -422,6 +422,87 @@ GITHUB_CLARKETM_PROXY = ProxySourceConfig(
 )
 
 # =============================================================================
+# HIGH-YIELD SOURCES - Added Jan 2026 (very large lists, 100k+ proxies each)
+# =============================================================================
+
+# Tsprnay/Proxy-lists - Extremely large proxy lists (100k+ each)
+GITHUB_TSPRNAY_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/Tsprnay/Proxy-lists/master/proxies/http.txt",
+    format="plain_text",
+)
+
+GITHUB_TSPRNAY_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/Tsprnay/Proxy-lists/master/proxies/https.txt",
+    format="plain_text",
+)
+
+GITHUB_TSPRNAY_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/Tsprnay/Proxy-lists/master/proxies/socks4.txt",
+    format="plain_text",
+)
+
+GITHUB_TSPRNAY_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/Tsprnay/Proxy-lists/master/proxies/socks5.txt",
+    format="plain_text",
+)
+
+# zevtyardt/proxy-list - Very large lists (40k+ each)
+GITHUB_ZEVTYARDT_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/zevtyardt/proxy-list/main/http.txt",
+    format="plain_text",
+)
+
+GITHUB_ZEVTYARDT_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/zevtyardt/proxy-list/main/socks4.txt",
+    format="plain_text",
+)
+
+GITHUB_ZEVTYARDT_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/zevtyardt/proxy-list/main/socks5.txt",
+    format="plain_text",
+)
+
+# proxifly via jsDelivr CDN - Fast, reliable, 5-min updates
+JSDELIVR_PROXIFLY_ALL = ProxySourceConfig(
+    url="https://cdn.jsdelivr.net/gh/proxifly/free-proxy-list@main/proxies/all/data.txt",
+    format="plain_text",
+    trusted=True,  # Updated every 5 minutes, pre-validated
+)
+
+# ProxyScrape SOCKS4 - Additional protocol support
+PROXY_SCRAPE_SOCKS4 = ProxySourceConfig(
+    url="https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks4&timeout=10000&country=all",
+    format="plain_text",
+)
+
+# ProxyScrape SOCKS5 - Additional protocol support
+PROXY_SCRAPE_SOCKS5 = ProxySourceConfig(
+    url="https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000&country=all",
+    format="plain_text",
+)
+
+# ErcinDedeoglu/proxies - Very large lists (50k+ each), frequently updated
+GITHUB_ERCINDEDEOGLU_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/http.txt",
+    format="plain_text",
+)
+
+GITHUB_ERCINDEDEOGLU_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/https.txt",
+    format="plain_text",
+)
+
+GITHUB_ERCINDEDEOGLU_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/socks4.txt",
+    format="plain_text",
+)
+
+GITHUB_ERCINDEDEOGLU_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/socks5.txt",
+    format="plain_text",
+)
+
+# =============================================================================
 # Predefined Source Collections
 # =============================================================================
 
@@ -464,13 +545,20 @@ ALL_HTTP_SOURCES = [
     # Newest sources
     GITHUB_DPANGESTUW_HTTP,
     GITHUB_CLARKETM_PROXY,
-    # ProxyScrape country-specific removed (API invalid)
+    # HIGH-YIELD sources (Jan 2026) - 100k+ proxies each
+    GITHUB_TSPRNAY_HTTP,
+    GITHUB_TSPRNAY_HTTPS,
+    GITHUB_ZEVTYARDT_HTTP,
+    JSDELIVR_PROXIFLY_ALL,
+    GITHUB_ERCINDEDEOGLU_HTTP,
+    GITHUB_ERCINDEDEOGLU_HTTPS,
 ]
 
 # All SOCKS4 sources
 ALL_SOCKS4_SOURCES = [
     # API sources
     GEONODE_SOCKS4,
+    PROXY_SCRAPE_SOCKS4,
     # GitHub sources
     GITHUB_THESPEEDX_SOCKS4,
     GITHUB_MONOSANS_SOCKS4,
@@ -492,6 +580,10 @@ ALL_SOCKS4_SOURCES = [
     GITHUB_ANONYM0US_SOCKS4,
     PROXYSPACE_SOCKS4,
     GITHUB_DPANGESTUW_SOCKS4,
+    # HIGH-YIELD sources (Jan 2026) - 100k+ proxies each
+    GITHUB_TSPRNAY_SOCKS4,
+    GITHUB_ZEVTYARDT_SOCKS4,
+    GITHUB_ERCINDEDEOGLU_SOCKS4,
 ]
 
 # All SOCKS5 sources
@@ -520,6 +612,11 @@ ALL_SOCKS5_SOURCES = [
     GITHUB_IMRAZVAN_SOCKS5,
     PROXYSPACE_SOCKS5,
     GITHUB_DPANGESTUW_SOCKS5,
+    # HIGH-YIELD sources (Jan 2026) - 100k+ proxies each
+    GITHUB_TSPRNAY_SOCKS5,
+    GITHUB_ZEVTYARDT_SOCKS5,
+    GITHUB_ERCINDEDEOGLU_SOCKS5,
+    PROXY_SCRAPE_SOCKS5,
 ]
 
 # All sources combined
