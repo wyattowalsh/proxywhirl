@@ -55,13 +55,18 @@ jobs:
       run: |
         uv run proxywhirl export
 
+    - name: Sync proxy lists to web directory
+      run: |
+        # Copy proxy lists to web/public for Vercel deployment
+        cp -r docs/proxy-lists/* web/public/proxy-lists/
+
     - name: Commit and push if changes
       run: |
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
 
-        # Add all generated files
-        git add docs/proxy-lists/ proxywhirl.db
+        # Add all generated files (docs and web copies)
+        git add docs/proxy-lists/ web/public/proxy-lists/ proxywhirl.db
         
         # Stash any other changes to avoid rebase conflicts
         git stash --include-untracked || true
