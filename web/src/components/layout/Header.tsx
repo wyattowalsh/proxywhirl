@@ -1,5 +1,27 @@
 import { Link, useLocation } from "react-router-dom"
-import { Github, Moon, Sun, Wifi, BookOpen, Menu } from "lucide-react"
+import { Github, Moon, Sun, BookOpen, Menu } from "lucide-react"
+
+function ProxyWhirlLogo({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 100" className={className}>
+      <defs>
+        <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#06b6d4"/>
+          <stop offset="50%" stopColor="#3b82f6"/>
+          <stop offset="100%" stopColor="#8b5cf6"/>
+        </linearGradient>
+      </defs>
+      <circle cx="50" cy="50" r="44" fill="none" stroke="url(#logoGradient)" strokeWidth="6" strokeLinecap="round" strokeDasharray="60 30"/>
+      <g fill="url(#logoGradient)">
+        <path d="M50 18 L58 30 L52 30 L52 42 L48 42 L48 30 L42 30 Z"/>
+        <path d="M82 50 L70 58 L70 52 L58 52 L58 48 L70 48 L70 42 Z"/>
+        <path d="M50 82 L42 70 L48 70 L48 58 L52 58 L52 70 L58 70 Z"/>
+        <path d="M18 50 L30 42 L30 48 L42 48 L42 52 L30 52 L30 58 Z"/>
+      </g>
+      <circle cx="50" cy="50" r="8" fill="url(#logoGradient)"/>
+    </svg>
+  )
+}
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -41,8 +63,8 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-14 items-center">
         <Link to="/" className="mr-6 flex items-center space-x-2">
-          <Wifi className="h-6 w-6 text-primary" />
-          <span className="font-bold">ProxyWhirl</span>
+          <ProxyWhirlLogo className="h-7 w-7" />
+          <span className="font-bold bg-gradient-to-r from-cyan-500 via-blue-500 to-violet-500 bg-clip-text text-transparent">ProxyWhirl</span>
         </Link>
 
         <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">

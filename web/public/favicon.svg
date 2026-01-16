@@ -1,4 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <circle cx="50" cy="50" r="45" fill="#3b82f6" />
-  <path d="M30 50 L45 65 L70 35" stroke="white" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  <defs>
+    <linearGradient id="whirlGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06b6d4"/>
+      <stop offset="50%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer rotating ring -->
+  <circle cx="50" cy="50" r="44" fill="none" stroke="url(#whirlGradient)" stroke-width="6" stroke-linecap="round" stroke-dasharray="60 30"/>
+
+  <!-- Inner whirl arrows -->
+  <g fill="url(#whirlGradient)">
+    <!-- Top arrow -->
+    <path d="M50 18 L58 30 L52 30 L52 42 L48 42 L48 30 L42 30 Z"/>
+    <!-- Right arrow -->
+    <path d="M82 50 L70 58 L70 52 L58 52 L58 48 L70 48 L70 42 Z"/>
+    <!-- Bottom arrow -->
+    <path d="M50 82 L42 70 L48 70 L48 58 L52 58 L52 70 L58 70 Z"/>
+    <!-- Left arrow -->
+    <path d="M18 50 L30 42 L30 48 L42 48 L42 52 L30 52 L30 58 Z"/>
+  </g>
+
+  <!-- Center node -->
+  <circle cx="50" cy="50" r="8" fill="url(#whirlGradient)"/>
 </svg>
