@@ -67,23 +67,16 @@ jobs:
 
         # Add all generated files (docs and web copies)
         git add docs/proxy-lists/ web/public/proxy-lists/ proxywhirl.db
-        
-        # Stash any other changes to avoid rebase conflicts
-        git stash --include-untracked || true
 
         # Only commit if there are staged changes
         if git diff --staged --quiet; then
           echo "No changes to commit"
-          git stash pop || true
         else
           git commit -m "chore: Update proxy lists and database - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
           # Pull with rebase to handle any concurrent changes, then push
           git pull --rebase origin main || true
           git push
-          
-          # Restore stashed changes
-          git stash pop || true
         fi
 
     - name: Upload proxy lists as artifacts
