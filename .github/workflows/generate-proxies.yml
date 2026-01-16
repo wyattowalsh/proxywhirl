@@ -44,15 +44,15 @@ jobs:
         # Required for JS-rendered sources
         uv run python -m playwright install chromium
 
-    - name: Fetch and validate proxies
+    - name: Fetch, validate, and export proxies
       timeout-minutes: 90
       run: |
-        # Use 30s timeout to allow slow international proxies to respond
-        # Higher concurrency to process 100k+ proxies faster
-        uv run proxywhirl fetch --timeout 30 --concurrency 1000
+        # Run the aggregation script which generates:
+        # - metadata.json, http.txt, socks4.txt, socks5.txt, all.txt, proxies.json
+        # - Saves validated proxies to database
+        uv run python scripts/aggregate_proxies.py
 
-    - name: Export data for web dashboard
-      run: |
+        # Generate rich proxy data (proxies-rich.json, stats.json) from database
         uv run proxywhirl export
 
     - name: Sync proxy lists to web directory
