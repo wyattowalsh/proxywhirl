@@ -514,6 +514,190 @@ GITHUB_ERCINDEDEOGLU_SOCKS5 = ProxySourceConfig(
 )
 
 # =============================================================================
+# NEW HIGH-YIELD SOURCES - Added Jan 2026 (targeting 25k+ proxies)
+# =============================================================================
+
+# iplocate/free-proxy-list - Updated every 30 minutes, validated proxies
+GITHUB_IPLOCATE_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/iplocate/free-proxy-list/main/protocols/http.txt",
+    format="plain_text",
+    trusted=True,  # Validated proxies
+)
+
+GITHUB_IPLOCATE_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/iplocate/free-proxy-list/main/protocols/https.txt",
+    format="plain_text",
+    trusted=True,
+)
+
+GITHUB_IPLOCATE_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/iplocate/free-proxy-list/main/protocols/socks4.txt",
+    format="plain_text",
+    trusted=True,
+)
+
+GITHUB_IPLOCATE_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/iplocate/free-proxy-list/main/protocols/socks5.txt",
+    format="plain_text",
+    trusted=True,
+)
+
+GITHUB_IPLOCATE_ALL = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/iplocate/free-proxy-list/main/all-proxies.txt",
+    format="plain_text",
+    trusted=True,
+)
+
+# a2u/free-proxy-list - Updated hourly
+GITHUB_A2U_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/a2u/free-proxy-list/master/free-proxy-list.txt",
+    format="plain_text",
+)
+
+# ProxyScraper/ProxyScraper - Updated every 30 minutes
+GITHUB_PROXYSCRAPER_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/ProxyScraper/ProxyScraper/main/http.txt",
+    format="plain_text",
+)
+
+GITHUB_PROXYSCRAPER_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/ProxyScraper/ProxyScraper/main/sock4.txt",
+    format="plain_text",
+)
+
+GITHUB_PROXYSCRAPER_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/ProxyScraper/ProxyScraper/main/sock5.txt",
+    format="plain_text",
+)
+
+# zebbern/Proxy-Scraper - Updated hourly
+GITHUB_ZEBBERN_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/zebbern/Proxy-Scraper/main/http.txt",
+    format="plain_text",
+)
+
+GITHUB_ZEBBERN_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/zebbern/Proxy-Scraper/main/https.txt",
+    format="plain_text",
+)
+
+GITHUB_ZEBBERN_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/zebbern/Proxy-Scraper/main/socks4.txt",
+    format="plain_text",
+)
+
+GITHUB_ZEBBERN_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/zebbern/Proxy-Scraper/main/socks5.txt",
+    format="plain_text",
+)
+
+# UptimerBot/proxy-list - Frequently updated
+GITHUB_UPTIMERBOT_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/http.txt",
+    format="plain_text",
+)
+
+GITHUB_UPTIMERBOT_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/socks4.txt",
+    format="plain_text",
+)
+
+GITHUB_UPTIMERBOT_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/socks5.txt",
+    format="plain_text",
+)
+
+# MuRongPIG/Proxy-Master - Large aggregated lists
+GITHUB_MURONGPIG_HTTP_ALL = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/MuRongPIG/Proxy-Master/main/http.txt",
+    format="plain_text",
+)
+
+# sunny9577/proxy-scraper - Additional source
+GITHUB_SUNNY9577_ALL = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/sunny9577/proxy-scraper/master/generated/http_proxies.txt",
+    format="plain_text",
+)
+
+# officialputuid/KangProxy - Large Indonesian source
+GITHUB_KANGPROXY_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/http/http.txt",
+    format="plain_text",
+)
+
+GITHUB_KANGPROXY_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/https/https.txt",
+    format="plain_text",
+)
+
+GITHUB_KANGPROXY_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/socks4/socks4.txt",
+    format="plain_text",
+)
+
+GITHUB_KANGPROXY_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/socks5/socks5.txt",
+    format="plain_text",
+)
+
+# proxy4parsing/proxy-list - Frequently updated
+GITHUB_PROXY4PARSING_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/proxy4parsing/proxy-list/main/http.txt",
+    format="plain_text",
+)
+
+GITHUB_PROXY4PARSING_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/proxy4parsing/proxy-list/main/https.txt",
+    format="plain_text",
+)
+
+# rx443/proxy-list - Updated frequently
+GITHUB_RX443_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/rx443/proxy-list/main/online/http.txt",
+    format="plain_text",
+    trusted=True,  # "online" = validated
+)
+
+GITHUB_RX443_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/rx443/proxy-list/main/online/https.txt",
+    format="plain_text",
+    trusted=True,
+)
+
+GITHUB_RX443_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/rx443/proxy-list/main/online/socks4.txt",
+    format="plain_text",
+    trusted=True,
+)
+
+GITHUB_RX443_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/rx443/proxy-list/main/online/socks5.txt",
+    format="plain_text",
+    trusted=True,
+)
+
+# zloi-user/hideip.me - Very large lists
+GITHUB_ZLOI_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/zloi-user/hideip.me/main/http.txt",
+    format="plain_text",
+)
+
+GITHUB_ZLOI_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/zloi-user/hideip.me/main/https.txt",
+    format="plain_text",
+)
+
+GITHUB_ZLOI_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/zloi-user/hideip.me/main/socks4.txt",
+    format="plain_text",
+)
+
+GITHUB_ZLOI_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/zloi-user/hideip.me/main/socks5.txt",
+    format="plain_text",
+)
+
+# =============================================================================
 # Predefined Source Collections
 # =============================================================================
 
@@ -566,6 +750,24 @@ ALL_HTTP_SOURCES = [
     JSDELIVR_PROXIFLY_ALL,
     GITHUB_ERCINDEDEOGLU_HTTP,
     GITHUB_ERCINDEDEOGLU_HTTPS,
+    # NEW sources (Jan 2026) - targeting 25k+ total
+    GITHUB_IPLOCATE_HTTP,
+    GITHUB_IPLOCATE_HTTPS,
+    GITHUB_IPLOCATE_ALL,
+    GITHUB_A2U_HTTP,
+    GITHUB_PROXYSCRAPER_HTTP,
+    GITHUB_ZEBBERN_HTTP,
+    GITHUB_ZEBBERN_HTTPS,
+    GITHUB_UPTIMERBOT_HTTP,
+    GITHUB_MURONGPIG_HTTP_ALL,
+    GITHUB_SUNNY9577_ALL,
+    GITHUB_KANGPROXY_HTTP,
+    GITHUB_KANGPROXY_HTTPS,
+    GITHUB_PROXY4PARSING_HTTPS,
+    GITHUB_RX443_HTTP,
+    GITHUB_RX443_HTTPS,
+    GITHUB_ZLOI_HTTP,
+    GITHUB_ZLOI_HTTPS,
 ]
 
 # All SOCKS4 sources
@@ -598,6 +800,14 @@ ALL_SOCKS4_SOURCES = [
     GITHUB_TSPRNAY_SOCKS4,
     GITHUB_ZEVTYARDT_SOCKS4,
     GITHUB_ERCINDEDEOGLU_SOCKS4,
+    # NEW sources (Jan 2026) - targeting 25k+ total
+    GITHUB_IPLOCATE_SOCKS4,
+    GITHUB_PROXYSCRAPER_SOCKS4,
+    GITHUB_ZEBBERN_SOCKS4,
+    GITHUB_UPTIMERBOT_SOCKS4,
+    GITHUB_KANGPROXY_SOCKS4,
+    GITHUB_RX443_SOCKS4,
+    GITHUB_ZLOI_SOCKS4,
 ]
 
 # All SOCKS5 sources
@@ -631,6 +841,14 @@ ALL_SOCKS5_SOURCES = [
     GITHUB_ZEVTYARDT_SOCKS5,
     GITHUB_ERCINDEDEOGLU_SOCKS5,
     PROXY_SCRAPE_SOCKS5,
+    # NEW sources (Jan 2026) - targeting 25k+ total
+    GITHUB_IPLOCATE_SOCKS5,
+    GITHUB_PROXYSCRAPER_SOCKS5,
+    GITHUB_ZEBBERN_SOCKS5,
+    GITHUB_UPTIMERBOT_SOCKS5,
+    GITHUB_KANGPROXY_SOCKS5,
+    GITHUB_RX443_SOCKS5,
+    GITHUB_ZLOI_SOCKS5,
 ]
 
 # All sources combined
