@@ -220,7 +220,8 @@ class TestGenerateStatsFromFiles:
         assert result["proxies"]["by_protocol"]["https"] == 1
         assert result["proxies"]["by_protocol"]["socks4"] == 2
         assert result["proxies"]["by_protocol"]["socks5"] == 0
-        assert result["proxies"]["total"] == 5
+        # Total uses unique count (http + socks4 + socks5, not https to avoid duplicates)
+        assert result["proxies"]["total"] == 4
 
     def test_without_metadata_file(self, tmp_path: Path) -> None:
         """Test generating stats without metadata.json uses defaults."""
@@ -272,9 +273,9 @@ class TestGenerateStatsFromFiles:
 
         result = generate_stats_from_files(tmp_path)
 
-        # Total by protocol: 2 + 1 + 1 = 4
-        assert result["proxies"]["total"] == 4
-        # Unique proxies (http and socks5 counted, https not): 3
+        # Unique proxies: 192.168.1.1:8080, 192.168.1.2:8080, 192.168.1.3:1080 = 3
+        # (socks4 has duplicate of http proxy)
+        assert result["proxies"]["total"] == 3
         assert result["proxies"]["unique"] == 3
 
     def test_handles_empty_lines_in_files(self, tmp_path: Path) -> None:

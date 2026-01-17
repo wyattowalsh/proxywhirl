@@ -25,7 +25,7 @@ async def test_batch_geolocate_multiple_batches(monkeypatch) -> None:
     sleep_mock = AsyncMock()
     monkeypatch.setattr(asyncio, "sleep", sleep_mock)
 
-    route = respx.post("https://ip-api.com/batch?fields=query,country,countryCode,status")
+    route = respx.post("http://ip-api.com/batch?fields=query,country,countryCode,status")
     route.side_effect = [
         Response(
             200,
