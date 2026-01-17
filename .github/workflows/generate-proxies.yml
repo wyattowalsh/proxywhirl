@@ -47,13 +47,11 @@ jobs:
     - name: Fetch, validate, and export proxies
       timeout-minutes: 90
       run: |
-        # Run the aggregation script which generates:
+        # Fetch and validate proxies from all sources, save to database,
+        # and export all files for web dashboard:
         # - metadata.json, http.txt, socks4.txt, socks5.txt, all.txt, proxies.json
-        # - Saves validated proxies to database
-        uv run python scripts/aggregate_proxies.py
-
-        # Generate rich proxy data (proxies-rich.json, stats.json) from database
-        uv run proxywhirl export
+        # - proxies-rich.json, stats.json
+        uv run proxywhirl fetch --timeout 30 --concurrency 1000
 
     - name: Sync proxy lists to web directory
       run: |

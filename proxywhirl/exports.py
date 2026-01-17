@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 from loguru import logger
 
 from proxywhirl.geo import batch_geolocate, enrich_proxies_with_geo
+from proxywhirl.sources import ALL_HTTP_SOURCES, ALL_SOCKS4_SOURCES, ALL_SOCKS5_SOURCES
 from proxywhirl.storage import SQLiteStorage
 
 
@@ -192,11 +193,107 @@ def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
     }
 
 
+async def generate_proxy_lists(
+    storage: SQLiteStorage,
+    output_dir: Path,
+) -> dict[str, int]:
+    """Generate proxy list text files and metadata.json from database.
+
+    Creates:
+        - http.txt, https.txt, socks4.txt, socks5.txt (one proxy per line)
+        - all.txt (combined with headers)
+        - proxies.json (structured JSON with metadata)
+        - metadata.json (counts and timestamp)
+
+    Args:
+        storage: SQLiteStorage instance to query
+        output_dir: Directory to write output files
+
+    Returns:
+        Dictionary mapping protocol to proxy count
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    proxies_data = await storage.load()
+
+    # Group proxies by protocol
+    proxies_by_protocol: dict[str, set[str]] = {
+        "http": set(),
+        "https": set(),
+        "socks4": set(),
+        "socks5": set(),
+    }
+
+    for proxy in proxies_data:
+        ip, port = parse_proxy_url(proxy.url)
+        if not ip:
+            continue
+
+        addr = f"{ip}:{port}"
+        protocol = (proxy.protocol or "http").lower()
+
+        if protocol in ("http", "https"):
+            proxies_by_protocol["http"].add(addr)
+            proxies_by_protocol["https"].add(addr)
+        elif protocol == "socks4":
+            proxies_by_protocol["socks4"].add(addr)
+        elif protocol == "socks5":
+            proxies_by_protocol["socks5"].add(addr)
+
+    timestamp = datetime.now(timezone.utc).isoformat()
+    total_sources = len(ALL_HTTP_SOURCES) + len(ALL_SOCKS4_SOURCES) + len(ALL_SOCKS5_SOURCES)
+
+    metadata = {
+        "generated_at": timestamp,
+        "total_sources": total_sources,
+        "counts": {protocol: len(proxy_set) for protocol, proxy_set in proxies_by_protocol.items()},
+    }
+
+    # Save each protocol in TXT format
+    for protocol, proxy_set in proxies_by_protocol.items():
+        txt_file = output_dir / f"{protocol}.txt"
+        with open(txt_file, "w") as f:
+            for proxy_addr in sorted(proxy_set):
+                f.write(f"{proxy_addr}\n")
+        logger.info(f"Saved {len(proxy_set)} {protocol} proxies to {txt_file}")
+
+    # Save all proxies in one file
+    all_txt = output_dir / "all.txt"
+    with open(all_txt, "w") as f:
+        for protocol, proxy_set in proxies_by_protocol.items():
+            f.write(f"# {protocol.upper()} Proxies ({len(proxy_set)})\n")
+            for proxy_addr in sorted(proxy_set):
+                f.write(f"{proxy_addr}\n")
+            f.write("\n")
+    logger.info(f"Saved all proxies to {all_txt}")
+
+    # Save in JSON format
+    json_file = output_dir / "proxies.json"
+    json_data = {
+        "metadata": metadata,
+        "proxies": {
+            protocol: sorted(proxy_set) for protocol, proxy_set in proxies_by_protocol.items()
+        },
+    }
+    with open(json_file, "w") as f:
+        json.dump(json_data, f, indent=2)
+    logger.info(f"Saved JSON to {json_file}")
+
+    # Save metadata
+    meta_file = output_dir / "metadata.json"
+    with open(meta_file, "w") as f:
+        json.dump(metadata, f, indent=2)
+    logger.info(f"Saved metadata to {meta_file}")
+
+    return {protocol: len(proxy_set) for protocol, proxy_set in proxies_by_protocol.items()}
+
+
 async def export_for_web(
     db_path: Path,
     output_dir: Path,
     include_stats: bool = True,
     include_rich_proxies: bool = True,
+    include_proxy_lists: bool = True,
 ) -> dict[str, Path]:
     """Export data for the web dashboard.
 
@@ -205,6 +302,7 @@ async def export_for_web(
         output_dir: Directory to write output files
         include_stats: Whether to generate stats.json
         include_rich_proxies: Whether to generate proxies-rich.json
+        include_proxy_lists: Whether to generate text files and metadata.json
 
     Returns:
         Dictionary mapping output type to file path
@@ -212,7 +310,39 @@ async def export_for_web(
     output_dir.mkdir(parents=True, exist_ok=True)
     outputs: dict[str, Path] = {}
 
-    # Generate stats from text files
+    # Check if we need database access
+    needs_db = (include_proxy_lists or include_rich_proxies) and db_path.exists()
+
+    if needs_db:
+        storage = SQLiteStorage(db_path)
+        await storage.initialize()
+
+        try:
+            # Generate proxy list files first (metadata.json, txt files, proxies.json)
+            # This must happen before stats since stats reads from these files
+            if include_proxy_lists:
+                logger.info("Generating proxy list files from database...")
+                counts = await generate_proxy_lists(storage, output_dir)
+                outputs["metadata"] = output_dir / "metadata.json"
+                outputs["proxies_json"] = output_dir / "proxies.json"
+                logger.info(f"Proxy lists generated: {counts}")
+
+            # Generate rich proxy data (proxies-rich.json)
+            if include_rich_proxies:
+                logger.info("Generating rich proxy data from database...")
+                rich_data = await generate_rich_proxies(storage)
+                rich_path = output_dir / "proxies-rich.json"
+                with open(rich_path, "w") as f:
+                    json.dump(rich_data, f)
+                outputs["proxies_rich"] = rich_path
+                logger.info(f"Rich proxy data saved to {rich_path}")
+                logger.info(f"Total rich proxies: {rich_data['total']}")
+        finally:
+            await storage.close()
+    elif include_proxy_lists or include_rich_proxies:
+        logger.warning(f"Database not found at {db_path}, skipping database exports")
+
+    # Generate stats from text files (reads metadata.json and txt files)
     if include_stats:
         logger.info("Generating stats.json...")
         stats = generate_stats_from_files(output_dir)
@@ -222,24 +352,5 @@ async def export_for_web(
         outputs["stats"] = stats_path
         logger.info(f"Stats saved to {stats_path}")
         logger.info(f"Total proxies: {stats['proxies']['total']}")
-
-    # Generate rich proxy data from database
-    if include_rich_proxies and db_path.exists():
-        logger.info("Generating rich proxy data from database...")
-        storage = SQLiteStorage(db_path)
-        await storage.initialize()
-
-        try:
-            rich_data = await generate_rich_proxies(storage)
-            rich_path = output_dir / "proxies-rich.json"
-            with open(rich_path, "w") as f:
-                json.dump(rich_data, f)
-            outputs["proxies_rich"] = rich_path
-            logger.info(f"Rich proxy data saved to {rich_path}")
-            logger.info(f"Total rich proxies: {rich_data['total']}")
-        finally:
-            await storage.close()
-    elif include_rich_proxies:
-        logger.warning(f"Database not found at {db_path}, skipping rich proxy export")
 
     return outputs
