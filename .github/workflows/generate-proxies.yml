@@ -2,8 +2,8 @@ name: Generate Proxy Lists
 
 on:
   schedule:
-    # Run every hour to accumulate more unique proxies over time
-    - cron: '0 * * * *'
+    # Run every 2 hours (workflow takes 30+ min with 133 sources and 5s timeout)
+    - cron: '0 */2 * * *'
   workflow_dispatch: # Allow manual triggers
 
 # Ensure only one instance runs at a time to prevent database conflicts
