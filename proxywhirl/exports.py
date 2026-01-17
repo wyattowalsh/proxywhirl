@@ -179,14 +179,17 @@ def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
                     if line.strip():
                         unique_proxies.add(line.strip())
 
+    # Use unique count as the primary total (avoids HTTP/HTTPS double-counting)
+    unique_count = len(unique_proxies) if unique_proxies else 0
+
     return {
         "generated_at": metadata.get("generated_at", datetime.now(timezone.utc).isoformat()),
         "sources": {
             "total": metadata.get("total_sources", 0),
         },
         "proxies": {
-            "total": sum(proxy_counts.values()),
-            "unique": len(unique_proxies) if unique_proxies else sum(proxy_counts.values()),
+            "total": unique_count,
+            "unique": unique_count,
             "by_protocol": proxy_counts,
         },
         "file_sizes": file_sizes,
@@ -257,10 +260,11 @@ async def generate_proxy_lists(
                 f.write(f"{proxy_addr}\n")
         logger.info(f"Saved {len(proxy_set)} {protocol} proxies to {txt_file}")
 
-    # Save all proxies in one file
+    # Save all proxies in one file (skip https since it duplicates http)
     all_txt = output_dir / "all.txt"
     with open(all_txt, "w") as f:
-        for protocol, proxy_set in proxies_by_protocol.items():
+        for protocol in ["http", "socks4", "socks5"]:
+            proxy_set = proxies_by_protocol[protocol]
             f.write(f"# {protocol.upper()} Proxies ({len(proxy_set)})\n")
             for proxy_addr in sorted(proxy_set):
                 f.write(f"{proxy_addr}\n")
