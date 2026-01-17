@@ -740,6 +740,55 @@ GITHUB_ZLOI_SOCKS5 = ProxySourceConfig(
     format="plain_text",
 )
 
+# proxy-list.download API - Free API with all proxy types
+PROXYLISTDOWNLOAD_HTTP = ProxySourceConfig(
+    url="https://www.proxy-list.download/api/v1/get?type=http",
+    format="plain_text",
+)
+
+PROXYLISTDOWNLOAD_HTTPS = ProxySourceConfig(
+    url="https://www.proxy-list.download/api/v1/get?type=https",
+    format="plain_text",
+)
+
+PROXYLISTDOWNLOAD_SOCKS4 = ProxySourceConfig(
+    url="https://www.proxy-list.download/api/v1/get?type=socks4",
+    format="plain_text",
+)
+
+PROXYLISTDOWNLOAD_SOCKS5 = ProxySourceConfig(
+    url="https://www.proxy-list.download/api/v1/get?type=socks5",
+    format="plain_text",
+)
+
+# mishakorzik/100000-Proxy - Claims 100k+ proxies
+GITHUB_MISHAKORZIK_ALL = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/mishakorzik/100000-Proxy/main/proxy.txt",
+    format="plain_text",
+)
+
+# roosterkid/openproxylist - SOCKS proxies
+GITHUB_ROOSTERKID_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS4.txt",
+    format="plain_text",
+)
+
+GITHUB_ROOSTERKID_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS5.txt",
+    format="plain_text",
+)
+
+# sunny9577/proxy-scraper - SOCKS proxies
+GITHUB_SUNNY9577_SOCKS4 = ProxySourceConfig(
+    url="https://sunny9577.github.io/proxy-scraper/generated/socks4_proxies.txt",
+    format="plain_text",
+)
+
+GITHUB_SUNNY9577_SOCKS5 = ProxySourceConfig(
+    url="https://sunny9577.github.io/proxy-scraper/generated/socks5_proxies.txt",
+    format="plain_text",
+)
+
 # =============================================================================
 # Predefined Source Collections
 # =============================================================================
@@ -815,6 +864,10 @@ ALL_HTTP_SOURCES = [
     GITHUB_MRMARBLE_HTTP,
     GITHUB_MRMARBLE_HTTPS,
     GITHUB_CALIPH_HTTP,
+    # High-volume sources (Jan 2026)
+    PROXYLISTDOWNLOAD_HTTP,
+    PROXYLISTDOWNLOAD_HTTPS,
+    GITHUB_MISHAKORZIK_ALL,
 ]
 
 # All SOCKS4 sources
@@ -857,6 +910,10 @@ ALL_SOCKS4_SOURCES = [
     GITHUB_ZLOI_SOCKS4,
     GITHUB_MRMARBLE_SOCKS4,
     GITHUB_CALIPH_SOCKS4,
+    # High-volume sources (Jan 2026)
+    PROXYLISTDOWNLOAD_SOCKS4,
+    GITHUB_ROOSTERKID_SOCKS4,
+    GITHUB_SUNNY9577_SOCKS4,
 ]
 
 # All SOCKS5 sources
@@ -900,6 +957,10 @@ ALL_SOCKS5_SOURCES = [
     GITHUB_ZLOI_SOCKS5,
     GITHUB_MRMARBLE_SOCKS5,
     GITHUB_CALIPH_SOCKS5,
+    # High-volume sources (Jan 2026)
+    PROXYLISTDOWNLOAD_SOCKS5,
+    GITHUB_ROOSTERKID_SOCKS5,
+    GITHUB_SUNNY9577_SOCKS5,
 ]
 
 # All sources combined
