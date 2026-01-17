@@ -338,10 +338,18 @@ class ValidationResult(NamedTuple):
 class ProxyValidator:
     """Validate proxy connectivity with metrics collection."""
 
+    # Multiple test URLs to avoid single-point bottleneck and rate limiting
+    TEST_URLS = [
+        "http://www.gstatic.com/generate_204",  # Google - fast, no rate limit
+        "http://cp.cloudflare.com/generate_204",  # Cloudflare - very fast
+        "http://connectivitycheck.android.com/generate_204",  # Android check
+        "http://www.msftconnecttest.com/connecttest.txt",  # Microsoft
+    ]
+
     def __init__(
         self,
         timeout: float = 5.0,
-        test_url: str = "http://www.gstatic.com/generate_204",
+        test_url: str | None = None,
         level: ValidationLevel | None = None,
         concurrency: int = 50,
     ) -> None:
@@ -350,19 +358,30 @@ class ProxyValidator:
 
         Args:
             timeout: Connection timeout in seconds
-            test_url: URL to use for connectivity testing. Defaults to Google's
-                     204 endpoint which is fast and doesn't rate limit.
+            test_url: URL to use for connectivity testing. If None, rotates between
+                     multiple fast endpoints (Google, Cloudflare, etc.)
             level: Validation level (BASIC, STANDARD, FULL). Defaults to STANDARD.
             concurrency: Maximum number of concurrent validations
         """
         from proxywhirl.models import ValidationLevel
 
         self.timeout = timeout
-        self.test_url = test_url
+        self._custom_test_url = test_url  # None means rotate
+        self._test_url_index = 0
         self.level = level or ValidationLevel.STANDARD
         self.concurrency = concurrency
         self._client: httpx.AsyncClient | None = None
         self._socks_client: httpx.AsyncClient | None = None
+
+    @property
+    def test_url(self) -> str:
+        """Get current test URL, rotating through multiple endpoints."""
+        if self._custom_test_url:
+            return self._custom_test_url
+        # Rotate through test URLs to distribute load
+        url = self.TEST_URLS[self._test_url_index % len(self.TEST_URLS)]
+        self._test_url_index += 1
+        return url
 
     async def _get_client(self) -> httpx.AsyncClient:
         """
@@ -374,7 +393,7 @@ class ProxyValidator:
         if self._client is None:
             self._client = httpx.AsyncClient(
                 timeout=self.timeout,
-                limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+                limits=httpx.Limits(max_connections=1000, max_keepalive_connections=100),
                 headers={
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 },
@@ -398,7 +417,7 @@ class ProxyValidator:
             self._socks_client = httpx.AsyncClient(
                 transport=transport,
                 timeout=self.timeout,
-                limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
+                limits=httpx.Limits(max_connections=1000, max_keepalive_connections=100),
                 headers={
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
                 },
@@ -578,11 +597,11 @@ class ProxyValidator:
                 return ValidationResult(is_valid=False, response_time_ms=None)
 
             # Fast TCP pre-check (async) - skip HTTP if port isn't even open
-            # Use shorter timeout for TCP (2s) - if port isn't open, fail fast
+            # Use very short timeout for TCP (1s) - if port isn't open, fail fast
             try:
                 _, writer = await asyncio.wait_for(
                     asyncio.open_connection(host, port),
-                    timeout=min(2.0, self.timeout),
+                    timeout=min(1.0, self.timeout),
                 )
                 writer.close()
                 await writer.wait_closed()

@@ -29,6 +29,17 @@ PROXY_SCRAPE_HTTP = ProxySourceConfig(
     format="plain_text",
 )
 
+# ProxyScrape with additional filters for more coverage
+PROXY_SCRAPE_HTTP_ANONYMOUS = ProxySourceConfig(
+    url="https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=elite,anonymous",
+    format="plain_text",
+)
+
+PROXY_SCRAPE_HTTPS = ProxySourceConfig(
+    url="https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=yes&anonymity=all",
+    format="plain_text",
+)
+
 GEONODE_HTTP = ProxySourceConfig(
     url="https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc&protocols=http%2Chttps",
     format="json",
@@ -508,9 +519,12 @@ GITHUB_ERCINDEDEOGLU_SOCKS5 = ProxySourceConfig(
 
 # All HTTP/HTTPS sources
 ALL_HTTP_SOURCES = [
-    # API sources
+    # API sources (high reliability)
+    PROXY_SCRAPE_HTTP,  # ProxyScrape - large list
+    PROXY_SCRAPE_HTTP_ANONYMOUS,  # Elite/anonymous proxies
+    PROXY_SCRAPE_HTTPS,  # SSL proxies
     GEONODE_HTTP,
-    # GitHub sources
+    # GitHub sources (high volume)
     GITHUB_THESPEEDX_HTTP,
     GITHUB_MONOSANS_HTTP,
     # GitHub sources
