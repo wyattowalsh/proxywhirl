@@ -676,6 +676,49 @@ GITHUB_RX443_SOCKS5 = ProxySourceConfig(
     trusted=True,
 )
 
+# KangProxy combined RAW list - All protocols in one
+GITHUB_KANGPROXY_RAW = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/xResults/RAW.txt",
+    format="plain_text",
+)
+
+# MrMarble/proxy-list - Frequently updated
+GITHUB_MRMARBLE_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/MrMarble/proxy-list/main/http.txt",
+    format="plain_text",
+)
+
+GITHUB_MRMARBLE_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/MrMarble/proxy-list/main/https.txt",
+    format="plain_text",
+)
+
+GITHUB_MRMARBLE_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/MrMarble/proxy-list/main/socks4.txt",
+    format="plain_text",
+)
+
+GITHUB_MRMARBLE_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/MrMarble/proxy-list/main/socks5.txt",
+    format="plain_text",
+)
+
+# caliphdev/Proxy-List - Updated hourly
+GITHUB_CALIPH_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/caliphdev/Proxy-List/main/http.txt",
+    format="plain_text",
+)
+
+GITHUB_CALIPH_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/caliphdev/Proxy-List/main/socks4.txt",
+    format="plain_text",
+)
+
+GITHUB_CALIPH_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/caliphdev/Proxy-List/main/socks5.txt",
+    format="plain_text",
+)
+
 # zloi-user/hideip.me - Very large lists
 GITHUB_ZLOI_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/zloi-user/hideip.me/main/http.txt",
@@ -768,6 +811,10 @@ ALL_HTTP_SOURCES = [
     GITHUB_RX443_HTTPS,
     GITHUB_ZLOI_HTTP,
     GITHUB_ZLOI_HTTPS,
+    GITHUB_KANGPROXY_RAW,
+    GITHUB_MRMARBLE_HTTP,
+    GITHUB_MRMARBLE_HTTPS,
+    GITHUB_CALIPH_HTTP,
 ]
 
 # All SOCKS4 sources
@@ -808,6 +855,8 @@ ALL_SOCKS4_SOURCES = [
     GITHUB_KANGPROXY_SOCKS4,
     GITHUB_RX443_SOCKS4,
     GITHUB_ZLOI_SOCKS4,
+    GITHUB_MRMARBLE_SOCKS4,
+    GITHUB_CALIPH_SOCKS4,
 ]
 
 # All SOCKS5 sources
@@ -849,6 +898,8 @@ ALL_SOCKS5_SOURCES = [
     GITHUB_KANGPROXY_SOCKS5,
     GITHUB_RX443_SOCKS5,
     GITHUB_ZLOI_SOCKS5,
+    GITHUB_MRMARBLE_SOCKS5,
+    GITHUB_CALIPH_SOCKS5,
 ]
 
 # All sources combined
