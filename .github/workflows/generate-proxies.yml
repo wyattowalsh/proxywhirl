@@ -57,9 +57,9 @@ jobs:
         # and export all files for web dashboard:
         # - metadata.json, http.txt, socks4.txt, socks5.txt, all.txt, proxies.json
         # - proxies-rich.json, stats.json
-        # Use 5s timeout (balanced fast/reliable) and 10000 concurrency
-        # Running hourly to accumulate unique proxies over time (target: 25k+)
-        uv run proxywhirl fetch --timeout 5 --concurrency 10000
+        # Use 5s timeout and 2000 concurrency (stable for GitHub Actions)
+        # Target: 25k+ working proxies via accumulation over time
+        uv run proxywhirl fetch --timeout 5 --concurrency 2000
 
     - name: Sync proxy lists to web directory
       run: |
