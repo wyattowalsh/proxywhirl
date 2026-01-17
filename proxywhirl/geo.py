@@ -1,23 +1,87 @@
 """IP Geolocation utilities for proxy country lookup.
 
-Uses ip-api.com batch API for efficient lookups (100 IPs per request).
+Uses MaxMind GeoLite2-Country database for fast, offline lookups.
+Falls back to ip-api.com batch API if database not available.
 """
 
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from typing import Any
 
 import httpx
 from loguru import logger
 
+# GeoLite2 database paths to check (in order of preference)
+GEOLITE2_PATHS = [
+    Path("GeoLite2-Country.mmdb"),
+    Path("data/GeoLite2-Country.mmdb"),
+    Path(__file__).parent / "data" / "GeoLite2-Country.mmdb",
+    Path(__file__).parent.parent / "GeoLite2-Country.mmdb",
+    Path.home() / ".local" / "share" / "GeoIP" / "GeoLite2-Country.mmdb",
+    Path("/usr/share/GeoIP/GeoLite2-Country.mmdb"),
+]
 
-async def batch_geolocate(
+
+def _find_geolite2_db() -> Path | None:
+    """Find GeoLite2 database file."""
+    for path in GEOLITE2_PATHS:
+        if path.exists():
+            return path
+    return None
+
+
+def geolocate_with_database(ips: list[str], db_path: Path) -> dict[str, dict[str, str]]:
+    """Geolocate IPs using local GeoLite2 database.
+
+    Args:
+        ips: List of IP addresses to lookup
+        db_path: Path to GeoLite2-Country.mmdb file
+
+    Returns:
+        Dictionary mapping IP to geo info {country, countryCode}
+    """
+    try:
+        import geoip2.database
+        import geoip2.errors
+    except ImportError:
+        logger.warning("geoip2 not installed, skipping database lookup")
+        return {}
+
+    results: dict[str, dict[str, str]] = {}
+    unique_ips = list(set(ips))
+
+    logger.info(f"Geolocating {len(unique_ips)} IPs using GeoLite2 database...")
+
+    try:
+        with geoip2.database.Reader(str(db_path)) as reader:
+            for ip in unique_ips:
+                try:
+                    response = reader.country(ip)
+                    results[ip] = {
+                        "country": response.country.name or "",
+                        "countryCode": response.country.iso_code or "",
+                    }
+                except geoip2.errors.AddressNotFoundError:
+                    # IP not in database (private IP, etc.)
+                    pass
+                except Exception as e:
+                    logger.debug(f"Failed to lookup {ip}: {e}")
+    except Exception as e:
+        logger.error(f"Failed to open GeoLite2 database: {e}")
+        return {}
+
+    logger.info(f"Geolocated {len(results)}/{len(unique_ips)} IPs from database")
+    return results
+
+
+async def geolocate_with_api(
     ips: list[str],
     batch_size: int = 100,
-    max_batches: int = 50,  # Limit to 5000 IPs by default
+    max_batches: int = 50,
 ) -> dict[str, dict[str, str]]:
-    """Batch geolocate IPs using ip-api.com.
+    """Batch geolocate IPs using ip-api.com (fallback).
 
     Args:
         ips: List of IP addresses to lookup
@@ -33,16 +97,15 @@ async def batch_geolocate(
     if not unique_ips:
         return results
 
-    logger.info(f"Geolocating {len(unique_ips)} unique IPs...")
+    logger.info(f"Geolocating {len(unique_ips)} IPs via ip-api.com...")
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         for i in range(0, len(unique_ips), batch_size):
             batch = unique_ips[i : i + batch_size]
 
             try:
-                # ip-api.com batch endpoint
                 response = await client.post(
-                    "https://ip-api.com/batch?fields=query,country,countryCode,status",
+                    "http://ip-api.com/batch?fields=query,country,countryCode,status",
                     json=batch,
                 )
                 response.raise_for_status()
@@ -56,19 +119,49 @@ async def batch_geolocate(
 
                 # Rate limit: 15 requests per minute for free tier
                 if i + batch_size < len(unique_ips):
-                    await asyncio.sleep(4.5)  # ~13 requests/minute to be safe
+                    await asyncio.sleep(4.5)
 
             except Exception as e:
-                logger.warning(f"Geo batch {i // batch_size + 1} failed: {e}")
+                logger.warning(f"Geo API batch {i // batch_size + 1} failed: {e}")
                 continue
 
-            if (i // batch_size + 1) % 10 == 0:
-                logger.info(
-                    f"Geo progress: {min(i + batch_size, len(unique_ips))}/{len(unique_ips)} IPs"
-                )
-
-    logger.info(f"Geolocated {len(results)}/{len(unique_ips)} IPs")
+    logger.info(f"Geolocated {len(results)}/{len(unique_ips)} IPs via API")
     return results
+
+
+async def batch_geolocate(
+    ips: list[str],
+    batch_size: int = 100,
+    max_batches: int = 50,
+    db_path: Path | None = None,
+) -> dict[str, dict[str, str]]:
+    """Geolocate IPs using best available method.
+
+    Tries in order:
+    1. Local GeoLite2 database (fast, no rate limits)
+    2. ip-api.com batch API (fallback, rate limited)
+
+    Args:
+        ips: List of IP addresses to lookup
+        batch_size: Number of IPs per API batch
+        max_batches: Maximum API batches to process
+        db_path: Optional explicit path to GeoLite2 database
+
+    Returns:
+        Dictionary mapping IP to geo info {country, countryCode}
+    """
+    if not ips:
+        return {}
+
+    # Try local database first
+    db = db_path or _find_geolite2_db()
+    if db:
+        logger.info(f"Using GeoLite2 database: {db}")
+        return geolocate_with_database(ips, db)
+
+    # Fall back to API
+    logger.info("GeoLite2 database not found, falling back to API")
+    return await geolocate_with_api(ips, batch_size, max_batches)
 
 
 def enrich_proxies_with_geo(

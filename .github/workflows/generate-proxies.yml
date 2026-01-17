@@ -44,6 +44,12 @@ jobs:
         # Required for JS-rendered sources
         uv run python -m playwright install chromium
 
+    - name: Download GeoLite2 database
+      run: |
+        # Download GeoLite2-Country database for IP geolocation
+        curl -sL https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb -o GeoLite2-Country.mmdb
+        echo "Downloaded GeoLite2-Country.mmdb ($(stat --format=%s GeoLite2-Country.mmdb) bytes)"
+
     - name: Fetch, validate, and export proxies
       timeout-minutes: 90
       run: |
