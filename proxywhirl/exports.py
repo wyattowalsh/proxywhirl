@@ -60,6 +60,7 @@ async def generate_rich_proxies(
     proxies_data = await storage.load()
 
     proxies = []
+    seen_addresses: set[str] = set()  # Track unique IP:port combinations
     protocol_counts: Counter[str] = Counter()
     status_counts: Counter[str] = Counter()
     source_counts: Counter[str] = Counter()
@@ -67,6 +68,12 @@ async def generate_rich_proxies(
 
     for proxy in proxies_data:
         ip, port = parse_proxy_url(proxy.url)
+
+        # Deduplicate by IP:port (same proxy may appear with different protocols)
+        addr = f"{ip}:{port}"
+        if addr in seen_addresses:
+            continue
+        seen_addresses.add(addr)
 
         proxy_dict = {
             "ip": ip,
