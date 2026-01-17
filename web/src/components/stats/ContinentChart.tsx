@@ -19,12 +19,59 @@ const CONTINENT_CONFIG: Record<string, { name: string; color: string; emoji: str
   AN: { name: "Antarctica", color: "#6b7280", emoji: "🧊" },
 }
 
+// Map ISO country codes to continent codes
+const COUNTRY_TO_CONTINENT: Record<string, string> = {
+  // Africa (AF)
+  DZ: "AF", AO: "AF", BJ: "AF", BW: "AF", BF: "AF", BI: "AF", CM: "AF", CV: "AF",
+  CF: "AF", TD: "AF", KM: "AF", CG: "AF", CD: "AF", CI: "AF", DJ: "AF", EG: "AF",
+  GQ: "AF", ER: "AF", SZ: "AF", ET: "AF", GA: "AF", GM: "AF", GH: "AF", GN: "AF",
+  GW: "AF", KE: "AF", LS: "AF", LR: "AF", LY: "AF", MG: "AF", MW: "AF", ML: "AF",
+  MR: "AF", MU: "AF", MA: "AF", MZ: "AF", NA: "AF", NE: "AF", NG: "AF", RW: "AF",
+  ST: "AF", SN: "AF", SC: "AF", SL: "AF", SO: "AF", ZA: "AF", SS: "AF", SD: "AF",
+  TZ: "AF", TG: "AF", TN: "AF", UG: "AF", ZM: "AF", ZW: "AF", RE: "AF", YT: "AF",
+  // Asia (AS)
+  AF: "AS", AM: "AS", AZ: "AS", BH: "AS", BD: "AS", BT: "AS", BN: "AS", KH: "AS",
+  CN: "AS", CY: "AS", GE: "AS", HK: "AS", IN: "AS", ID: "AS", IR: "AS", IQ: "AS",
+  IL: "AS", JP: "AS", JO: "AS", KZ: "AS", KW: "AS", KG: "AS", LA: "AS", LB: "AS",
+  MO: "AS", MY: "AS", MV: "AS", MN: "AS", MM: "AS", NP: "AS", KP: "AS", OM: "AS",
+  PK: "AS", PS: "AS", PH: "AS", QA: "AS", SA: "AS", SG: "AS", KR: "AS", LK: "AS",
+  SY: "AS", TW: "AS", TJ: "AS", TH: "AS", TL: "AS", TR: "AS", TM: "AS", AE: "AS",
+  UZ: "AS", VN: "AS", YE: "AS",
+  // Europe (EU)
+  AL: "EU", AD: "EU", AT: "EU", BY: "EU", BE: "EU", BA: "EU", BG: "EU", HR: "EU",
+  CZ: "EU", DK: "EU", EE: "EU", FI: "EU", FR: "EU", DE: "EU", GR: "EU", HU: "EU",
+  IS: "EU", IE: "EU", IT: "EU", XK: "EU", LV: "EU", LI: "EU", LT: "EU", LU: "EU",
+  MT: "EU", MD: "EU", MC: "EU", ME: "EU", NL: "EU", MK: "EU", NO: "EU", PL: "EU",
+  PT: "EU", RO: "EU", RU: "EU", SM: "EU", RS: "EU", SK: "EU", SI: "EU", ES: "EU",
+  SE: "EU", CH: "EU", UA: "EU", GB: "EU", VA: "EU", FO: "EU", GI: "EU", GG: "EU",
+  IM: "EU", JE: "EU",
+  // North America (NA)
+  AG: "NA", BS: "NA", BB: "NA", BZ: "NA", CA: "NA", CR: "NA", CU: "NA", DM: "NA",
+  DO: "NA", SV: "NA", GD: "NA", GT: "NA", HT: "NA", HN: "NA", JM: "NA", MX: "NA",
+  NI: "NA", PA: "NA", KN: "NA", LC: "NA", VC: "NA", TT: "NA", US: "NA", AW: "NA",
+  BM: "NA", KY: "NA", CW: "NA", GL: "NA", GP: "NA", MQ: "NA", MS: "NA", PR: "NA",
+  SX: "NA", TC: "NA", VG: "NA", VI: "NA",
+  // South America (SA)
+  AR: "SA", BO: "SA", BR: "SA", CL: "SA", CO: "SA", EC: "SA", FK: "SA", GF: "SA",
+  GY: "SA", PY: "SA", PE: "SA", SR: "SA", UY: "SA", VE: "SA",
+  // Oceania (OC)
+  AU: "OC", FJ: "OC", KI: "OC", MH: "OC", FM: "OC", NR: "OC", NZ: "OC", PW: "OC",
+  PG: "OC", WS: "OC", SB: "OC", TO: "OC", TV: "OC", VU: "OC", NC: "OC", PF: "OC",
+  GU: "OC", AS: "OC", CK: "OC", NU: "OC", TK: "OC", WF: "OC",
+  // Antarctica (AN)
+  AQ: "AN",
+}
+
 export function ContinentChart({ proxies }: ContinentChartProps) {
   const data = useMemo(() => {
     const counts: Record<string, number> = {}
     proxies.forEach((proxy) => {
-      if (proxy.continent_code) {
-        counts[proxy.continent_code] = (counts[proxy.continent_code] || 0) + 1
+      // Use continent_code if available, otherwise derive from country_code
+      const continentCode =
+        proxy.continent_code ||
+        (proxy.country_code ? COUNTRY_TO_CONTINENT[proxy.country_code] : undefined)
+      if (continentCode) {
+        counts[continentCode] = (counts[continentCode] || 0) + 1
       }
     })
 
