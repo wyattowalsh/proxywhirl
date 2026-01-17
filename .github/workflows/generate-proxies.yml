@@ -51,13 +51,14 @@ jobs:
         echo "Downloaded GeoLite2-Country.mmdb ($(stat --format=%s GeoLite2-Country.mmdb) bytes)"
 
     - name: Fetch, validate, and export proxies
-      timeout-minutes: 90
+      timeout-minutes: 60
       run: |
         # Fetch and validate proxies from all sources, save to database,
         # and export all files for web dashboard:
         # - metadata.json, http.txt, socks4.txt, socks5.txt, all.txt, proxies.json
         # - proxies-rich.json, stats.json
-        uv run proxywhirl fetch --timeout 30 --concurrency 1000
+        # Use 10s timeout (usable proxies respond faster) and 2000 concurrency
+        uv run proxywhirl fetch --timeout 10 --concurrency 2000
 
     - name: Sync proxy lists to web directory
       run: |

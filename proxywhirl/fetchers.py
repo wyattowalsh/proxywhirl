@@ -10,7 +10,8 @@ from __future__ import annotations
 import asyncio
 import csv
 import json
-from typing import TYPE_CHECKING, Any
+import time
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 if TYPE_CHECKING:
     from proxywhirl.models import ValidationLevel
@@ -323,8 +324,19 @@ def deduplicate_proxies(proxies: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return unique
 
 
+class ValidationResult(NamedTuple):
+    """Result of proxy validation with timing metrics."""
+
+    is_valid: bool
+    response_time_ms: float | None  # None if validation failed before timing
+
+    def __bool__(self) -> bool:
+        """Allow ValidationResult to be used in boolean context."""
+        return self.is_valid
+
+
 class ProxyValidator:
-    """Validate proxy connectivity."""
+    """Validate proxy connectivity with metrics collection."""
 
     def __init__(
         self,
@@ -542,45 +554,45 @@ class ProxyValidator:
             # Request failed
             return "unknown"
 
-    async def validate(self, proxy: dict[str, Any]) -> bool:
+    async def validate(self, proxy: dict[str, Any]) -> ValidationResult:
         """
-        Validate proxy connectivity with fast TCP pre-check.
+        Validate proxy connectivity with fast TCP pre-check and timing metrics.
 
         Args:
             proxy: Proxy dictionary with 'url' key (e.g., "http://1.2.3.4:8080")
 
         Returns:
-            True if proxy is working, False otherwise
+            ValidationResult with is_valid flag and response_time_ms (if successful)
         """
         proxy_url = proxy.get("url")
         if not proxy_url:
-            return False
+            return ValidationResult(is_valid=False, response_time_ms=None)
 
         try:
             # Parse host:port from URL
-            from urllib.parse import urlparse
-
             parsed = urlparse(proxy_url)
             host = parsed.hostname
             port = parsed.port
 
             if not host or not port:
-                return False
+                return ValidationResult(is_valid=False, response_time_ms=None)
 
             # Fast TCP pre-check (async) - skip HTTP if port isn't even open
+            # Use shorter timeout for TCP (2s) - if port isn't open, fail fast
             try:
                 _, writer = await asyncio.wait_for(
                     asyncio.open_connection(host, port),
-                    timeout=min(3.0, self.timeout),  # Quick TCP timeout (relaxed)
+                    timeout=min(2.0, self.timeout),
                 )
                 writer.close()
                 await writer.wait_closed()
             except (asyncio.TimeoutError, OSError, ConnectionRefusedError):
-                return False
+                return ValidationResult(is_valid=False, response_time_ms=None)
 
-            # TCP passed - now test actual proxy functionality
+            # TCP passed - now test actual proxy functionality with timing
             # httpx requires proxy at client initialization, not per-request
             is_socks = proxy_url.startswith(("socks4://", "socks5://"))
+            start_time = time.perf_counter()
 
             if is_socks:
                 # Create SOCKS client with transport
@@ -591,24 +603,34 @@ class ProxyValidator:
                     transport=transport,
                     timeout=self.timeout,
                     headers={
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                     },
                 ) as client:
                     response = await client.get(self.test_url)
-                    return response.status_code in (200, 204)
+                    elapsed_ms = (time.perf_counter() - start_time) * 1000
+                    is_valid = response.status_code in (200, 204)
+                    return ValidationResult(
+                        is_valid=is_valid,
+                        response_time_ms=elapsed_ms if is_valid else None,
+                    )
             else:
                 # Create HTTP client with proxy configured at initialization
                 async with httpx.AsyncClient(
                     proxy=proxy_url,
                     timeout=self.timeout,
                     headers={
-                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                     },
                 ) as client:
                     response = await client.get(self.test_url)
-                    return response.status_code in (200, 204)
+                    elapsed_ms = (time.perf_counter() - start_time) * 1000
+                    is_valid = response.status_code in (200, 204)
+                    return ValidationResult(
+                        is_valid=is_valid,
+                        response_time_ms=elapsed_ms if is_valid else None,
+                    )
         except Exception:
-            return False
+            return ValidationResult(is_valid=False, response_time_ms=None)
 
     async def validate_batch(
         self,
@@ -616,17 +638,17 @@ class ProxyValidator:
         progress_callback: Any | None = None,
     ) -> list[dict[str, Any]]:
         """
-        Validate multiple proxies in parallel with concurrency control.
+        Validate multiple proxies in parallel with concurrency control and metrics.
 
         Uses asyncio.Semaphore to limit concurrent validations based on
-        the configured concurrency limit.
+        the configured concurrency limit. Records response time for valid proxies.
 
         Args:
             proxies: List of proxy dictionaries
             progress_callback: Optional callback(completed, total, valid_count) for progress
 
         Returns:
-            List of working proxies (only proxies that passed validation)
+            List of working proxies with response_time_ms added to each
         """
         if not proxies:
             return []
@@ -637,14 +659,16 @@ class ProxyValidator:
         valid_count = 0
         total = len(proxies)
 
-        async def validate_with_semaphore(proxy: dict[str, Any]) -> tuple[dict[str, Any], bool]:
-            """Validate a single proxy with semaphore control."""
+        async def validate_with_semaphore(
+            proxy: dict[str, Any],
+        ) -> tuple[dict[str, Any], ValidationResult]:
+            """Validate a single proxy with semaphore control and timing."""
             nonlocal completed, valid_count
             async with semaphore:
                 try:
                     result = await self.validate(proxy)
                     completed += 1
-                    if result:
+                    if result.is_valid:
                         valid_count += 1
                     if progress_callback:
                         progress_callback(completed, total, valid_count)
@@ -659,23 +683,30 @@ class ProxyValidator:
                     completed += 1
                     if progress_callback:
                         progress_callback(completed, total, valid_count)
-                    return (proxy, False)
+                    return (proxy, ValidationResult(is_valid=False, response_time_ms=None))
 
         # Run all validations in parallel (semaphore controls concurrency)
         tasks = [validate_with_semaphore(proxy) for proxy in proxies]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Filter out failed validations and exceptions
+        # Filter valid proxies and add timing metrics
         validated: list[dict[str, Any]] = []
         for result in results:
             # Handle exceptions from gather
             if isinstance(result, Exception):
                 continue
-            # result is a tuple[dict[str, Any], bool]
+            # result is a tuple[dict[str, Any], ValidationResult]
             if not isinstance(result, tuple):
                 continue
-            proxy, is_valid = result
-            if is_valid:
+            proxy, validation_result = result
+            if validation_result.is_valid:
+                # Add response time to proxy dict for persistence
+                # Use average_response_time_ms to match Proxy model field name
+                proxy["average_response_time_ms"] = validation_result.response_time_ms
+                proxy["status"] = "active"
+                # Mark as checked with success
+                proxy["total_requests"] = proxy.get("total_requests", 0) + 1
+                proxy["total_successes"] = proxy.get("total_successes", 0) + 1
                 validated.append(proxy)
 
         return validated

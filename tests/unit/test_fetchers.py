@@ -631,7 +631,7 @@ class TestProxyValidatorMethods:
         validator = ProxyValidator()
         result = await validator.validate({"host": "proxy1.com", "port": 8080})
 
-        assert result is False
+        assert result.is_valid is False
 
     async def test_validate_url_missing_host(self) -> None:
         """Test validate returns False for URL without host."""
@@ -640,7 +640,7 @@ class TestProxyValidatorMethods:
         validator = ProxyValidator()
         result = await validator.validate({"url": "http://:8080"})
 
-        assert result is False
+        assert result.is_valid is False
 
     async def test_validate_url_missing_port(self) -> None:
         """Test validate returns False for URL without port."""
@@ -649,7 +649,7 @@ class TestProxyValidatorMethods:
         validator = ProxyValidator()
         result = await validator.validate({"url": "http://proxy1.com"})
 
-        assert result is False
+        assert result.is_valid is False
 
     async def test_validate_tcp_connection_failure(self) -> None:
         """Test validate returns False when TCP connection fails."""
@@ -659,7 +659,7 @@ class TestProxyValidatorMethods:
         # Use invalid IP that will fail TCP connection
         result = await validator.validate({"url": "http://192.0.2.1:1"})
 
-        assert result is False
+        assert result.is_valid is False
 
     async def test_validate_batch_empty(self) -> None:
         """Test validate_batch with empty list."""
@@ -674,13 +674,17 @@ class TestProxyValidatorMethods:
         """Test validate_batch filters out invalid proxies."""
         from unittest.mock import AsyncMock, patch
 
-        from proxywhirl.fetchers import ProxyValidator
+        from proxywhirl.fetchers import ProxyValidator, ValidationResult
 
         validator = ProxyValidator()
 
-        # Mock validate to return True for first, False for second
+        # Mock validate to return ValidationResult for each proxy
         with patch.object(validator, "validate", new_callable=AsyncMock) as mock_validate:
-            mock_validate.side_effect = [True, False, True]
+            mock_validate.side_effect = [
+                ValidationResult(is_valid=True, response_time_ms=100.0),
+                ValidationResult(is_valid=False, response_time_ms=None),
+                ValidationResult(is_valid=True, response_time_ms=150.0),
+            ]
 
             proxies = [
                 {"url": "http://proxy1.com:8080"},
@@ -691,7 +695,9 @@ class TestProxyValidatorMethods:
 
         assert len(result) == 2
         assert result[0]["url"] == "http://proxy1.com:8080"
+        assert result[0]["average_response_time_ms"] == 100.0
         assert result[1]["url"] == "http://proxy3.com:8080"
+        assert result[1]["average_response_time_ms"] == 150.0
 
     async def test_validate_batch_handles_exception(self) -> None:
         """Test validate_batch handles exceptions from validate."""
@@ -1306,7 +1312,7 @@ class TestProxyValidatorWithSocks:
 
                     result = await validator.validate({"url": "socks5://proxy1.com:1080"})
 
-        assert result is True
+        assert result.is_valid is True
 
     async def test_validate_http_proxy_success(self) -> None:
         """Test validate with HTTP proxy succeeds."""
@@ -1336,7 +1342,7 @@ class TestProxyValidatorWithSocks:
 
                 result = await validator.validate({"url": "http://proxy1.com:8080"})
 
-        assert result is True
+        assert result.is_valid is True
 
     async def test_validate_exception_returns_false(self) -> None:
         """Test validate returns False on any exception."""
@@ -1363,7 +1369,7 @@ class TestProxyValidatorWithSocks:
 
                 result = await validator.validate({"url": "http://proxy1.com:8080"})
 
-        assert result is False
+        assert result.is_valid is False
 
 
 class TestProxyFetcherClientPool:
