@@ -518,6 +518,149 @@ class TestPlainTextParserEdgeCases:
         assert len(proxies) == 1
         assert "proxy2.com" in proxies[0]["url"]
 
+    def test_parse_ip_port_format_valid(self) -> None:
+        """Test parsing IP:PORT format (e.g., 192.168.1.1:8080)."""
+        from proxywhirl.fetchers import PlainTextParser
+
+        text_data = """192.168.1.1:8080
+10.0.0.1:3128
+172.16.0.1:1080"""
+
+        parser = PlainTextParser()
+        proxies = parser.parse(text_data)
+
+        assert len(proxies) == 3
+        assert "192.168.1.1:8080" in proxies[0]["url"]
+        assert "10.0.0.1:3128" in proxies[1]["url"]
+        assert "172.16.0.1:1080" in proxies[2]["url"]
+        # All should have http:// prepended
+        assert proxies[0]["url"] == "http://192.168.1.1:8080"
+
+    def test_parse_ip_port_octet_validation(self) -> None:
+        """Test IP octet validation (each octet 0-255)."""
+        from proxywhirl.fetchers import PlainTextParser
+
+        # Valid octets: 0-255
+        text_data = """0.0.0.0:8080
+255.255.255.255:8080
+192.168.1.1:8080"""
+
+        parser = PlainTextParser()
+        proxies = parser.parse(text_data)
+
+        assert len(proxies) == 3
+
+    def test_parse_ip_port_invalid_octet_raises_error(self) -> None:
+        """Test IP with invalid octet (>255) raises error."""
+        from proxywhirl.fetchers import PlainTextParser
+
+        text_data = "256.1.1.1:8080"  # 256 is invalid (max 255)
+        parser = PlainTextParser(skip_invalid=False)
+
+        with pytest.raises(ProxyFetchError, match="Invalid IP:PORT"):
+            parser.parse(text_data)
+
+    def test_parse_ip_port_invalid_octet_skipped(self) -> None:
+        """Test IP with invalid octet is skipped when skip_invalid=True."""
+        from proxywhirl.fetchers import PlainTextParser
+
+        text_data = """192.168.1.1:8080
+256.1.1.1:8080
+10.0.0.1:3128"""
+
+        parser = PlainTextParser(skip_invalid=True)
+        proxies = parser.parse(text_data)
+
+        # Invalid IP skipped, two valid IPs parsed
+        assert len(proxies) == 2
+        assert "192.168.1.1" in proxies[0]["url"]
+        assert "10.0.0.1" in proxies[1]["url"]
+
+    def test_parse_ip_port_leading_zeros_rejected(self) -> None:
+        """Test IP octets with leading zeros are rejected (e.g., 01, 001)."""
+        from proxywhirl.fetchers import PlainTextParser
+
+        # 01 is invalid (should be 1)
+        text_data = "192.01.1.1:8080"
+        parser = PlainTextParser(skip_invalid=False)
+
+        with pytest.raises(ProxyFetchError, match="Invalid IP:PORT"):
+            parser.parse(text_data)
+
+    def test_parse_ip_port_invalid_port_ranges(self) -> None:
+        """Test IP:PORT with invalid port ranges (1-65535)."""
+        from proxywhirl.fetchers import PlainTextParser
+
+        # Port 0 is invalid (min is 1)
+        text_data = "192.168.1.1:0"
+        parser = PlainTextParser(skip_invalid=False)
+
+        with pytest.raises(ProxyFetchError, match="Invalid IP:PORT"):
+            parser.parse(text_data)
+
+    def test_parse_ip_port_invalid_port_too_high(self) -> None:
+        """Test IP:PORT with port > 65535."""
+        from proxywhirl.fetchers import PlainTextParser
+
+        # Port 65536 is invalid (max is 65535)
+        text_data = "192.168.1.1:65536"
+        parser = PlainTextParser(skip_invalid=False)
+
+        with pytest.raises(ProxyFetchError, match="Invalid IP:PORT"):
+            parser.parse(text_data)
+
+    def test_parse_ip_port_min_max_valid(self) -> None:
+        """Test IP:PORT with min/max valid values."""
+        from proxywhirl.fetchers import PlainTextParser
+
+        text_data = """0.0.0.0:1
+255.255.255.255:65535"""
+
+        parser = PlainTextParser()
+        proxies = parser.parse(text_data)
+
+        assert len(proxies) == 2
+
+    def test_parse_ip_port_mixed_with_urls(self) -> None:
+        """Test IP:PORT format mixed with full URLs."""
+        from proxywhirl.fetchers import PlainTextParser
+
+        text_data = """192.168.1.1:8080
+http://proxy1.com:8080
+10.0.0.1:3128
+socks5://proxy2.com:1080"""
+
+        parser = PlainTextParser()
+        proxies = parser.parse(text_data)
+
+        assert len(proxies) == 4
+        # First and third should have http:// prepended
+        assert proxies[0]["url"] == "http://192.168.1.1:8080"
+        assert proxies[1]["url"] == "http://proxy1.com:8080"
+        assert proxies[2]["url"] == "http://10.0.0.1:3128"
+        assert proxies[3]["url"] == "socks5://proxy2.com:1080"
+
+    def test_parse_ip_port_regex_anchored_no_redos(self) -> None:
+        """Test that regex pattern is anchored and safe from ReDoS."""
+        from proxywhirl.fetchers import PlainTextParser
+
+        # Test pattern is properly anchored - should not match partial strings
+        parser = PlainTextParser(skip_invalid=False)
+
+        # These should fail because they don't match the anchored pattern
+        invalid_lines = [
+            "prefix 192.168.1.1:8080",  # Prefix before IP
+            "192.168.1.1:8080 suffix",  # Suffix after port
+            "192.168.1.1",  # Missing port
+            "192.168.1.1:",  # Missing port number
+            ":8080",  # Missing IP
+        ]
+
+        for line in invalid_lines:
+            text_data = line
+            with pytest.raises(ProxyFetchError):
+                parser.parse(text_data)
+
 
 class TestHTMLTableParserEdgeCases:
     """Additional HTML table parser edge case tests."""
@@ -657,6 +800,94 @@ class TestDeduplicateProxiesEdgeCases:
         assert unique[0]["port"] == "8080"
         assert unique[1]["host"] == "proxy.example.com"
         assert unique[1]["port"] == "3128"
+
+    def test_deduplicate_ipv6_address_url_format(self) -> None:
+        """Test deduplication with IPv6 addresses in URL format."""
+        from proxywhirl.fetchers import deduplicate_proxies
+
+        proxies = [
+            {"url": "http://[2001:db8::1]:8080"},
+            {"url": "http://[2001:DB8::1]:8080"},  # Same IPv6, uppercase hex digits
+            {"url": "http://[2001:db8::1]:3128"},  # Same IPv6, different port
+        ]
+
+        unique = deduplicate_proxies(proxies)
+
+        assert len(unique) == 2
+        # First IPv6:8080 should be kept, plus the different port
+        assert unique[0]["url"] == "http://[2001:db8::1]:8080"
+        assert unique[1]["url"] == "http://[2001:db8::1]:3128"
+
+    def test_deduplicate_ipv6_address_host_port_format(self) -> None:
+        """Test deduplication with IPv6 addresses in host+port format."""
+        from proxywhirl.fetchers import deduplicate_proxies
+
+        proxies = [
+            {"host": "[2001:db8::1]", "port": "8080"},
+            {"host": "[2001:DB8::1]", "port": "8080"},  # Same IPv6, uppercase
+            {"host": "[2001:db8::1]", "port": "3128"},  # Different port
+        ]
+
+        unique = deduplicate_proxies(proxies)
+
+        assert len(unique) == 2
+        assert unique[0]["host"] == "[2001:db8::1]"
+        assert unique[0]["port"] == "8080"
+        assert unique[1]["host"] == "[2001:db8::1]"
+        assert unique[1]["port"] == "3128"
+
+    def test_deduplicate_idn_hostname_url_format(self) -> None:
+        """Test deduplication with Internationalized Domain Names (IDN)."""
+        from proxywhirl.fetchers import deduplicate_proxies
+
+        proxies = [
+            {"url": "http://Прокси.рф:8080"},
+            {"url": "http://ПРОКСИ.РФ:8080"},  # Same IDN, uppercase
+            {"url": "http://прокси.рф:8080"},  # Same IDN, lowercase
+            {"url": "http://Прокси.рф:3128"},  # Different port
+        ]
+
+        unique = deduplicate_proxies(proxies)
+
+        assert len(unique) == 2
+        # First occurrence of each host:port combo should be kept
+        assert unique[0]["url"] == "http://Прокси.рф:8080"
+        assert unique[1]["url"] == "http://Прокси.рф:3128"
+
+    def test_deduplicate_idn_hostname_host_port_format(self) -> None:
+        """Test deduplication with IDN hostnames in host+port format."""
+        from proxywhirl.fetchers import deduplicate_proxies
+
+        proxies = [
+            {"host": "Прокси.рф", "port": "8080"},
+            {"host": "ПРОКСИ.РФ", "port": "8080"},  # Same IDN, uppercase
+            {"host": "прокси.рф", "port": "8080"},  # Same IDN, lowercase
+        ]
+
+        unique = deduplicate_proxies(proxies)
+
+        assert len(unique) == 1
+        # First occurrence should be kept with original case
+        assert unique[0]["host"] == "Прокси.рф"
+        assert unique[0]["port"] == "8080"
+
+    def test_deduplicate_missing_host_port_skipped(self) -> None:
+        """Test deduplication skips proxies with missing host or port."""
+        from proxywhirl.fetchers import deduplicate_proxies
+
+        proxies = [
+            {"host": "proxy1.com", "port": "8080"},
+            {"host": "proxy1.com"},  # Missing port
+            {"port": "8080"},  # Missing host
+            {"host": "proxy2.com", "port": "3128"},
+        ]
+
+        unique = deduplicate_proxies(proxies)
+
+        # Should only keep proxies with both host and port
+        assert len(unique) == 2
+        assert unique[0]["host"] == "proxy1.com"
+        assert unique[1]["host"] == "proxy2.com"
 
 
 class TestProxyValidatorMethods:
@@ -1338,6 +1569,33 @@ class TestProxyValidatorWithSocks:
 
             with patch("proxywhirl.fetchers.SOCKS_AVAILABLE", False):
                 result = await validator.validate({"url": "socks5://proxy1.com:1080"})
+
+        # Should return invalid (not raise exception)
+        assert result.is_valid is False
+        assert result.response_time_ms is None
+
+    async def test_validate_socks_transport_none_guard(self) -> None:
+        """Test validate handles case where AsyncProxyTransport is None."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from proxywhirl.fetchers import ProxyValidator
+
+        validator = ProxyValidator(timeout=1.0)
+
+        # Mock TCP connection success
+        mock_writer = AsyncMock()
+        mock_writer.close = MagicMock()
+        mock_writer.wait_closed = AsyncMock()
+
+        # Mock SOCKS_AVAILABLE as True but AsyncProxyTransport as None
+        # (this should not normally happen, but testing the guard)
+        with (
+            patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open,
+            patch("proxywhirl.fetchers.SOCKS_AVAILABLE", True),
+            patch("proxywhirl.fetchers.AsyncProxyTransport", None),
+        ):
+            mock_open.return_value = (AsyncMock(), mock_writer)
+            result = await validator.validate({"url": "socks5://proxy1.com:1080"})
 
         # Should return invalid (not raise exception)
         assert result.is_valid is False

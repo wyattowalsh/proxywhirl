@@ -11,6 +11,8 @@ Tests verify that the SyncRWLock provides:
 import threading
 import time
 
+import pytest
+
 from proxywhirl.rwlock import SyncRWLock
 
 
@@ -67,8 +69,13 @@ class TestSyncRWLockBasicOperations:
 class TestSyncRWLockConcurrentReaders:
     """Test that multiple readers can hold the lock simultaneously."""
 
+    @pytest.mark.slow
     def test_multiple_concurrent_readers(self):
-        """Test that multiple threads can read concurrently."""
+        """Test that multiple threads can read concurrently.
+
+        Marked @pytest.mark.slow: Tests concurrent lock behavior with timing
+        to verify multiple readers can hold locks simultaneously.
+        """
         lock = SyncRWLock()
         concurrent_count = []
         count_lock = threading.Lock()
@@ -97,8 +104,13 @@ class TestSyncRWLockConcurrentReaders:
 class TestSyncRWLockExclusiveWriter:
     """Test that writers get exclusive access."""
 
+    @pytest.mark.slow
     def test_writer_excludes_readers(self):
-        """Test that writer blocks readers."""
+        """Test that writer blocks readers.
+
+        Marked @pytest.mark.slow: Tests lock contention with actual timing
+        to verify writers get exclusive access and block readers.
+        """
         lock = SyncRWLock()
         write_started = threading.Event()
         reader_waited = False
@@ -106,7 +118,7 @@ class TestSyncRWLockExclusiveWriter:
         def writer():
             with lock.write_lock():
                 write_started.set()
-                time.sleep(0.1)  # Hold write lock
+                time.sleep(0.1)  # Hold write lock (INTENTIONAL: verifies lock blocking)
 
         def reader():
             nonlocal reader_waited
@@ -129,8 +141,13 @@ class TestSyncRWLockExclusiveWriter:
 
         assert reader_waited
 
+    @pytest.mark.slow
     def test_writer_excludes_other_writers(self):
-        """Test that only one writer at a time."""
+        """Test that only one writer at a time.
+
+        Marked @pytest.mark.slow: Tests lock exclusivity with actual timing
+        to verify only one writer can hold the lock at a time.
+        """
         lock = SyncRWLock()
         concurrent_writers = []
         count_lock = threading.Lock()
@@ -142,7 +159,7 @@ class TestSyncRWLockExclusiveWriter:
                 with count_lock:
                     active_writers += 1
                     concurrent_writers.append(active_writers)
-                time.sleep(0.02)
+                time.sleep(0.02)  # INTENTIONAL: verifies exclusive writer access
                 with count_lock:
                     active_writers -= 1
 
@@ -159,8 +176,13 @@ class TestSyncRWLockExclusiveWriter:
 class TestSyncRWLockWriterPreference:
     """Test that writers don't starve (writer preference)."""
 
+    @pytest.mark.slow
     def test_waiting_writer_blocks_new_readers(self):
-        """Test that when writer is waiting, new readers block."""
+        """Test that when writer is waiting, new readers block.
+
+        Marked @pytest.mark.slow: Tests writer preference behavior with timing
+        to verify that waiting writers block new readers (prevents writer starvation).
+        """
         lock = SyncRWLock()
         reader1_started = threading.Event()
         writer_waiting = threading.Event()
@@ -170,7 +192,7 @@ class TestSyncRWLockWriterPreference:
             with lock.read_lock():
                 reader1_started.set()
                 writer_waiting.wait()  # Wait until writer is waiting
-                time.sleep(0.1)  # Hold lock
+                time.sleep(0.1)  # Hold lock (INTENTIONAL: verifies writer preference)
 
         def writer():
             reader1_started.wait()  # Wait for reader1 to start
@@ -180,7 +202,7 @@ class TestSyncRWLockWriterPreference:
 
         def reader2():
             writer_waiting.wait()
-            time.sleep(0.01)  # Small delay to ensure writer starts waiting first
+            time.sleep(0.01)  # INTENTIONAL: small delay to ensure writer starts waiting first
             with lock.read_lock():
                 reader2_order.append("reader2")
 

@@ -734,3 +734,346 @@ class TestConcurrencyEdgeCases:
         # Note: Without proxy-level locking, this may not be exactly 100
         # due to race conditions on the proxy object itself
         assert target_proxy.total_requests >= initial_requests + 80  # Allow some loss
+
+
+# ============================================================================
+# EXTREME CONCURRENCY TESTS
+# ============================================================================
+
+
+@pytest.mark.slow
+class TestExtremeConcurrency:
+    """Extreme stress tests for maximum concurrent load."""
+
+    def test_extreme_concurrent_add_remove_1000_ops(self) -> None:
+        """Test with 1000 concurrent operations across add/remove/select."""
+        pool = ProxyPool(name="extreme-pool", max_pool_size=500)
+        # Start with 50 proxies
+        for i in range(50):
+            proxy = Proxy(url=f"http://extreme{i}.example.com:8080")
+            proxy.health_status = HealthStatus.HEALTHY
+            pool.add_proxy(proxy)
+
+        strategy = RoundRobinStrategy()
+        operation_counts = {"add": 0, "remove": 0, "select": 0, "error": 0}
+        lock = threading.Lock()
+
+        def add_operation(idx: int) -> str:
+            """Add a proxy."""
+            try:
+                if pool.size < 480:
+                    proxy = Proxy(url=f"http://extreme-add{idx}.example.com:8080")
+                    proxy.health_status = HealthStatus.HEALTHY
+                    pool.add_proxy(proxy)
+                    return "add"
+            except Exception:
+                return "error"
+            return "skip"
+
+        def remove_operation() -> str:
+            """Remove a proxy."""
+            try:
+                if pool.size > 20:
+                    proxy_to_remove = random.choice(pool.proxies)
+                    pool.remove_proxy(proxy_to_remove.id)
+                    return "remove"
+            except Exception:
+                return "error"
+            return "skip"
+
+        def select_operation() -> str:
+            """Select a proxy."""
+            try:
+                if pool.size > 0:
+                    proxy = strategy.select(pool)
+                    if proxy:
+                        return "select"
+            except Exception:
+                return "error"
+            return "skip"
+
+        # Create mixed workload: 400 adds, 300 removes, 300 selects
+        tasks = []
+        tasks.extend([lambda idx=i: add_operation(idx) for i in range(400)])
+        tasks.extend([remove_operation for _ in range(300)])
+        tasks.extend([select_operation for _ in range(300)])
+        random.shuffle(tasks)
+
+        # Execute with 100 concurrent workers
+        with ThreadPoolExecutor(max_workers=100) as executor:
+            futures = [executor.submit(task) for task in tasks]
+            for future in as_completed(futures):
+                result = future.result()
+                with lock:
+                    if result in operation_counts:
+                        operation_counts[result] += 1
+
+        # Verify minimal errors
+        assert operation_counts["error"] < 100  # Less than 10% failure rate
+
+        # Pool should be in valid state
+        assert 20 <= pool.size <= 480
+        # All proxies should have unique URLs
+        urls = [p.url for p in pool.proxies]
+        assert len(urls) == len(set(urls))
+
+    def test_rapid_strategy_switching_under_load(self) -> None:
+        """Test rapid strategy switching while under heavy concurrent load."""
+        pool = ProxyPool(name="rapid-switch-pool", max_pool_size=100)
+        for i in range(30):
+            proxy = Proxy(url=f"http://rapid{i}.example.com:8080")
+            proxy.health_status = HealthStatus.HEALTHY
+            proxy.total_requests = random.randint(10, 100)
+            proxy.total_successes = random.randint(5, 95)
+            proxy.average_response_time_ms = random.uniform(50, 500)
+            pool.add_proxy(proxy)
+
+        strategies = [
+            RoundRobinStrategy(),
+            RandomStrategy(),
+            WeightedStrategy(),
+            LeastUsedStrategy(),
+            PerformanceBasedStrategy(),
+        ]
+
+        current_strategy = [strategies[0]]
+        selection_count = 0
+        switch_count = 0
+        lock = threading.Lock()
+
+        def select_continuously() -> None:
+            """Continuously select proxies."""
+            nonlocal selection_count
+            for _ in range(10):
+                try:
+                    if pool.size > 0:
+                        proxy = current_strategy[0].select(pool)
+                        if proxy:
+                            with lock:
+                                selection_count += 1
+                except Exception:
+                    pass
+                time.sleep(0.001)
+
+        def switch_rapidly() -> None:
+            """Rapidly switch between strategies."""
+            nonlocal switch_count
+            for _ in range(5):
+                current_strategy[0] = random.choice(strategies)
+                with lock:
+                    switch_count += 1
+                time.sleep(0.002)
+
+        # Execute with 20 selection threads and 10 switch threads
+        with ThreadPoolExecutor(max_workers=30) as executor:
+            select_futures = [executor.submit(select_continuously) for _ in range(20)]
+            switch_futures = [executor.submit(switch_rapidly) for _ in range(10)]
+
+            for future in as_completed(select_futures + switch_futures):
+                future.result()
+
+        # Verify operations completed
+        assert selection_count >= 150  # At least 75% of 200 selections succeeded
+        assert switch_count == 50  # All 50 switches completed
+
+    def test_concurrent_bulk_operations_10_threads_100_ops_each(self) -> None:
+        """Test 10 concurrent threads with 100 operations each (requirement spec)."""
+        pool = ProxyPool(name="bulk-ops-pool", max_pool_size=300)
+        # Start with 20 proxies
+        for i in range(20):
+            proxy = Proxy(url=f"http://bulk{i}.example.com:8080")
+            proxy.health_status = HealthStatus.HEALTHY
+            pool.add_proxy(proxy)
+
+        strategy = WeightedStrategy()
+        total_operations = 0
+        lock = threading.Lock()
+
+        def worker_thread(thread_id: int) -> int:
+            """Each thread performs 100 operations."""
+            local_ops = 0
+            for op_num in range(100):
+                operation = random.choice(["add", "remove", "select", "select", "select"])
+
+                try:
+                    if operation == "add" and pool.size < 280:
+                        proxy = Proxy(url=f"http://bulk-t{thread_id}-op{op_num}.example.com:8080")
+                        proxy.health_status = HealthStatus.HEALTHY
+                        pool.add_proxy(proxy)
+                        local_ops += 1
+
+                    elif operation == "remove" and pool.size > 10:
+                        proxy_to_remove = random.choice(pool.proxies)
+                        pool.remove_proxy(proxy_to_remove.id)
+                        local_ops += 1
+
+                    elif operation == "select" and pool.size > 0:
+                        proxy = strategy.select(pool)
+                        if proxy:
+                            local_ops += 1
+
+                except Exception:
+                    pass
+
+            return local_ops
+
+        # Execute 10 threads with 100 operations each
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(worker_thread, i) for i in range(10)]
+            for future in as_completed(futures):
+                ops = future.result()
+                with lock:
+                    total_operations += ops
+
+        # Verify at least 900 of 1000 operations succeeded
+        assert total_operations >= 900
+
+        # Pool should be in valid state
+        assert 10 <= pool.size <= 280
+        urls = [p.url for p in pool.proxies]
+        assert len(urls) == len(set(urls))
+
+    def test_concurrent_pool_clear_and_repopulate(self) -> None:
+        """Test clearing and repopulating pool under concurrent access."""
+        pool = ProxyPool(name="clear-pool", max_pool_size=200)
+        # Start with proxies
+        for i in range(30):
+            proxy = Proxy(url=f"http://clear{i}.example.com:8080")
+            proxy.health_status = HealthStatus.HEALTHY
+            pool.add_proxy(proxy)
+
+        strategy = RoundRobinStrategy()
+        clear_count = 0
+        repopulate_count = 0
+        select_count = 0
+        lock = threading.Lock()
+
+        def select_task() -> None:
+            """Continuously select proxies."""
+            nonlocal select_count
+            for _ in range(50):
+                try:
+                    if pool.size > 0:
+                        proxy = strategy.select(pool)
+                        if proxy:
+                            with lock:
+                                select_count += 1
+                except Exception:
+                    pass
+                time.sleep(0.001)
+
+        def clear_task() -> None:
+            """Clear all proxies from pool."""
+            nonlocal clear_count
+            try:
+                proxy_ids = [p.id for p in pool.proxies]
+                for proxy_id in proxy_ids:
+                    try:
+                        pool.remove_proxy(proxy_id)
+                    except Exception:
+                        pass
+                with lock:
+                    clear_count += 1
+            except Exception:
+                pass
+
+        def repopulate_task(batch_id: int) -> None:
+            """Add batch of proxies."""
+            nonlocal repopulate_count
+            try:
+                for i in range(10):
+                    proxy = Proxy(url=f"http://repop{batch_id}-{i}.example.com:8080")
+                    proxy.health_status = HealthStatus.HEALTHY
+                    try:
+                        pool.add_proxy(proxy)
+                    except Exception:
+                        pass
+                with lock:
+                    repopulate_count += 1
+            except Exception:
+                pass
+
+        # Execute mixed workload
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            # Start selection tasks
+            select_futures = [executor.submit(select_task) for _ in range(10)]
+
+            # Submit clear and repopulate tasks
+            clear_futures = [executor.submit(clear_task) for _ in range(3)]
+            repop_futures = [executor.submit(repopulate_task, i) for i in range(10)]
+
+            for future in as_completed(select_futures + clear_futures + repop_futures):
+                future.result()
+
+        # Pool should be in valid state
+        assert pool.size >= 0  # Could be empty or repopulated
+        urls = [p.url for p in pool.proxies]
+        assert len(urls) == len(set(urls))
+
+    def test_deadlock_prevention_circular_operations(self) -> None:
+        """Test that circular dependencies don't cause deadlocks."""
+        pool = ProxyPool(name="deadlock-pool", max_pool_size=100)
+        # Pre-populate
+        for i in range(20):
+            proxy = Proxy(url=f"http://deadlock{i}.example.com:8080")
+            proxy.health_status = HealthStatus.HEALTHY
+            pool.add_proxy(proxy)
+
+        completed_operations = 0
+        lock = threading.Lock()
+
+        def complex_operation(thread_id: int) -> None:
+            """Perform complex operation involving multiple pool accesses."""
+            nonlocal completed_operations
+            try:
+                # Read pool state
+                current_size = pool.size
+
+                # Add if under threshold
+                if current_size < 90:
+                    proxy = Proxy(url=f"http://complex-t{thread_id}.example.com:8080")
+                    proxy.health_status = HealthStatus.HEALTHY
+                    pool.add_proxy(proxy)
+
+                # Select a proxy
+                if pool.size > 0:
+                    strategy = RandomStrategy()
+                    selected = strategy.select(pool)
+
+                    if selected:
+                        # Update proxy stats (read-modify-write)
+                        selected.total_requests += 1
+                        selected.total_successes += 1
+
+                # Potentially remove if over threshold
+                if pool.size > 80:
+                    to_remove = random.choice(pool.proxies)
+                    pool.remove_proxy(to_remove.id)
+
+                with lock:
+                    completed_operations += 1
+
+            except Exception:
+                pass
+
+        # Execute with 30 threads
+        with ThreadPoolExecutor(max_workers=30) as executor:
+            futures = [executor.submit(complex_operation, i) for i in range(100)]
+
+            # Set a timeout to detect deadlocks
+            timeout = 10.0  # 10 seconds max
+            start_time = time.time()
+
+            for future in as_completed(futures, timeout=timeout):
+                future.result()
+
+            elapsed = time.time() - start_time
+
+        # If we reach here without timeout, no deadlock occurred
+        assert completed_operations >= 90  # At least 90% completed
+        assert elapsed < timeout  # Completed within reasonable time
+
+        # Pool should be in valid state
+        assert pool.size > 0
+        urls = [p.url for p in pool.proxies]
+        assert len(urls) == len(set(urls))

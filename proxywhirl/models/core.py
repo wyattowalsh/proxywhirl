@@ -336,7 +336,12 @@ class Proxy(BaseModel):
     latency_ms: float | None = None  # Last measured latency in milliseconds
     # EMA (Exponential Moving Average) tracking for performance-based strategies
     ema_response_time_ms: float | None = None  # Current EMA value
-    ema_alpha: float = 0.2  # Smoothing factor (configurable, 0 < alpha < 1)
+    # DEPRECATED: ema_alpha on Proxy is deprecated. Strategies should use
+    # StrategyConfig.ema_alpha and pass alpha to update_metrics/record_success/
+    # complete_request methods. This field is retained for storage serialization
+    # and backward compatibility only. Strategies using StrategyState manage
+    # their own per-proxy metrics with independent alpha values.
+    ema_alpha: float = 0.2  # Deprecated - use StrategyConfig.ema_alpha instead
     # Sliding window for counter staleness prevention
     window_start: datetime | None = None  # Start time of current window
     window_duration_seconds: int = 3600  # Window duration (default 1 hour)
@@ -586,11 +591,13 @@ class Proxy(BaseModel):
 
         Args:
             response_time_ms: Response time in milliseconds
-            alpha: Optional EMA smoothing factor. If not provided, uses
-                   self.ema_alpha. Strategies can pass their own alpha
-                   to avoid mutating proxy state.
+            alpha: EMA smoothing factor (0-1). Higher values weight recent
+                   observations more heavily. If not provided, falls back to
+                   self.ema_alpha for backward compatibility. Strategies should
+                   pass their configured StrategyConfig.ema_alpha for consistent
+                   behavior, or use StrategyState for independent per-proxy metrics.
         """
-        # Use provided alpha or fall back to instance default
+        # Use provided alpha or fall back to instance's ema_alpha (deprecated path)
         effective_alpha = alpha if alpha is not None else self.ema_alpha
 
         # Update average response time using EMA with configurable alpha
@@ -742,6 +749,36 @@ class Proxy(BaseModel):
             now = datetime.now(timezone.utc)
             elapsed = (now - self.window_start).total_seconds()
             return elapsed >= self.window_duration_seconds
+
+    def reset_if_expired(self) -> bool:
+        """Atomically check if window is expired and reset if needed.
+
+        This method prevents Time-of-Check to Time-of-Use (TOCTOU) race conditions
+        by performing the expiration check and reset within a single lock acquisition.
+
+        Returns:
+            True if window was expired and has been reset, False otherwise
+
+        Thread-safe: Uses internal lock to ensure atomic check-and-reset.
+        """
+        with self._window_lock:
+            # Double-checked locking pattern: check expiration under lock
+            if self.window_start is None:
+                return False
+
+            now = datetime.now(timezone.utc)
+            elapsed = (now - self.window_start).total_seconds()
+
+            if elapsed >= self.window_duration_seconds:
+                # Window is expired, reset it atomically
+                self.window_start = now
+                self.requests_started = 0
+                self.requests_completed = 0
+                # Note: Don't reset requests_active as those are truly active
+                self.updated_at = now
+                return True
+
+            return False
 
 
 class ProxyChain(BaseModel):

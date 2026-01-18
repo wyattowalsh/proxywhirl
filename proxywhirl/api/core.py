@@ -334,9 +334,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.warning(f"Failed to load proxies from storage: {e}")
 
     # Load initial configuration
-    cors_origins_raw = os.getenv(
-        "PROXYWHIRL_CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000"
-    )
+    cors_origins_raw = os.getenv("PROXYWHIRL_CORS_ORIGINS", "")
     cors_origins_config = [
         origin.strip()
         for origin in cors_origins_raw.split(",")
@@ -392,9 +390,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # ty
 
 
 # CORS middleware
-cors_origins_raw = os.getenv(
-    "PROXYWHIRL_CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000"
-)
+# Security: Default to no CORS (empty list = CORS disabled)
+# Only enable CORS if explicitly configured via PROXYWHIRL_CORS_ORIGINS environment variable
+cors_origins_raw = os.getenv("PROXYWHIRL_CORS_ORIGINS", "")
 cors_origins = [
     origin.strip()
     for origin in cors_origins_raw.split(",")

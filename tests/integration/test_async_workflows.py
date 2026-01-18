@@ -226,8 +226,13 @@ class TestAsyncCircuitBreakerIntegration:
             # Should not attempt request when circuit is open
             assert not circuit_breaker.should_attempt_request()
 
+    @pytest.mark.slow
     async def test_async_circuit_breaker_recovery(self):
-        """Test circuit breaker transitions to half-open and recovers."""
+        """Test circuit breaker transitions to half-open and recovers.
+
+        Marked @pytest.mark.slow: Tests circuit breaker timeout behavior
+        which requires actual timing to verify state transitions.
+        """
 
         async with AsyncProxyRotator() as rotator:
             proxy = Proxy(url="http://proxy.example.com:8080", protocol="http")
@@ -245,7 +250,7 @@ class TestAsyncCircuitBreakerIntegration:
 
             assert circuit_breaker.state == CircuitBreakerState.OPEN
 
-            # Wait for timeout to elapse
+            # Wait for timeout to elapse (INTENTIONAL: verifies real timeout behavior)
             await asyncio.sleep(0.2)
 
             # Should transition to HALF_OPEN
@@ -439,8 +444,13 @@ class TestAsyncContextManagerCleanup:
         # Cleanup should still happen
         assert rotator._client is None
 
+    @pytest.mark.slow
     async def test_async_aggregation_thread_cleanup(self):
-        """Test that aggregation thread is stopped on cleanup."""
+        """Test that aggregation thread is stopped on cleanup.
+
+        Marked @pytest.mark.slow: Verifies thread cleanup timing behavior
+        with actual sleep to ensure thread has time to respond to stop event.
+        """
         rotator = AsyncProxyRotator()
 
         # Thread should be running
@@ -449,7 +459,7 @@ class TestAsyncContextManagerCleanup:
         async with rotator:
             pass
 
-        # Wait a bit for thread to stop
+        # Wait a bit for thread to stop (INTENTIONAL: verifies thread cleanup timing)
         await asyncio.sleep(0.1)
 
         # Thread should be stopped (or at least stopping)

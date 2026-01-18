@@ -11,6 +11,8 @@ import asyncio
 import time
 from unittest.mock import patch
 
+import pytest
+
 from proxywhirl.circuit_breaker import AsyncCircuitBreaker, CircuitBreakerState
 
 
@@ -356,8 +358,13 @@ class TestAsyncCircuitBreakerConcurrency:
         assert cb.state == CircuitBreakerState.OPEN
         assert cb.failure_count >= 5  # At least threshold failures
 
+    @pytest.mark.slow
     async def test_full_lifecycle_under_concurrency(self):
-        """Test complete circuit breaker lifecycle with concurrent requests."""
+        """Test complete circuit breaker lifecycle with concurrent requests.
+
+        Marked @pytest.mark.slow: Tests circuit breaker timeout behavior
+        which requires actual timing to verify state transitions.
+        """
         cb = AsyncCircuitBreaker(
             proxy_id="test-proxy",
             failure_threshold=3,

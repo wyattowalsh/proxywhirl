@@ -105,11 +105,13 @@ from proxywhirl.strategies import (
     GeoTargetedStrategy,
     LeastUsedStrategy,
     PerformanceBasedStrategy,
+    ProxyMetrics,
     RandomStrategy,
     RotationStrategy,
     RoundRobinStrategy,
     SessionPersistenceStrategy,
     StrategyRegistry,
+    StrategyState,
     WeightedStrategy,
 )
 from proxywhirl.utils import (
@@ -196,6 +198,9 @@ __all__: list[str] = [
     "RotationStrategy",
     # Strategy Registry
     "StrategyRegistry",
+    # Strategy State Management
+    "StrategyState",
+    "ProxyMetrics",
     # Strategies
     "CompositeStrategy",
     "CostAwareStrategy",

@@ -672,6 +672,83 @@ class TestProxySlidingWindowConcurrency:
             result is True for result in results
         ), "All concurrent checks should return the same result"
 
+    def test_concurrent_reset_if_expired(self):
+        """Test atomic reset_if_expired prevents TOCTOU race conditions."""
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        # Create proxy with very short window to ensure expiration (1 second)
+        proxy = Proxy(url="http://proxy.example.com:8080", window_duration_seconds=1)
+
+        # Initialize window with some data
+        for _ in range(10):
+            proxy.start_request()
+            proxy.complete_request(success=True, response_time_ms=100.0)
+
+        initial_started = proxy.requests_started
+        initial_completed = proxy.requests_completed
+
+        assert initial_started == 10, "Should have 10 started requests"
+        assert initial_completed == 10, "Should have 10 completed requests"
+
+        # Wait for window to expire
+        time.sleep(1.1)
+
+        reset_count = 0
+        results = []
+
+        def try_reset(_: int) -> bool:
+            """Atomically check and reset if expired."""
+            return proxy.reset_if_expired()
+
+        # Use ThreadPoolExecutor with 20 workers to attempt concurrent resets
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            results = list(executor.map(try_reset, range(20)))
+
+        # Count how many threads successfully reset
+        reset_count = sum(1 for r in results if r)
+
+        # Exactly ONE thread should have successfully reset the window
+        # This validates the atomic operation prevented race conditions
+        assert reset_count == 1, (
+            f"Expected exactly 1 successful reset (atomic operation), got {reset_count}. "
+            f"This indicates a TOCTOU race condition."
+        )
+
+        # Verify counters were reset
+        assert proxy.requests_started == 0, (
+            f"Expected 0 started after reset, got {proxy.requests_started}"
+        )
+        assert proxy.requests_completed == 0, (
+            f"Expected 0 completed after reset, got {proxy.requests_completed}"
+        )
+
+    def test_reset_if_expired_not_expired(self):
+        """Test reset_if_expired returns False when window is not expired."""
+        proxy = Proxy(url="http://proxy.example.com:8080", window_duration_seconds=3600)
+
+        # Initialize window
+        proxy.start_request()
+        assert proxy.requests_started == 1
+
+        # Window should not be expired
+        result = proxy.reset_if_expired()
+        assert result is False, "Should return False when window is not expired"
+
+        # Counters should be unchanged
+        assert proxy.requests_started == 1, "Counters should not be reset"
+
+    def test_reset_if_expired_no_window(self):
+        """Test reset_if_expired returns False when window is not initialized."""
+        proxy = Proxy(url="http://proxy.example.com:8080")
+
+        # Window not initialized yet
+        assert proxy.window_start is None
+
+        # Should return False
+        result = proxy.reset_if_expired()
+        assert result is False, "Should return False when window is not initialized"
+
 
 class TestProxyPoolConcurrentAccess:
     """Test ProxyPool thread safety for concurrent access operations.

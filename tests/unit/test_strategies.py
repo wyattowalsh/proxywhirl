@@ -1110,6 +1110,106 @@ class TestWeightedStrategy:
         current_ids = [str(p.id) for p in healthy_proxies]
         assert strategy._cached_proxy_ids == current_ids
 
+    def test_concurrent_cache_invalidation_race_condition(self):
+        """Test that cache invalidation race condition is properly handled.
+
+        This test specifically targets the race condition where:
+        1. Thread A checks cache validity in _get_weights() (cache is valid)
+        2. Thread B invalidates cache in record_result()
+        3. Thread B updates proxy stats
+        4. Thread A reads the cached weights (now stale, based on old stats)
+
+        The double-checked locking in record_result() should prevent this.
+        """
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+
+        # Arrange
+        pool = ProxyPool(name="test-pool")
+
+        proxy1 = Proxy(url="http://proxy1.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy1.total_requests = 100
+        proxy1.total_successes = 90  # 90% success rate (very reliable)
+        pool.add_proxy(proxy1)
+
+        proxy2 = Proxy(url="http://proxy2.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy2.total_requests = 100
+        proxy2.total_successes = 85  # 85% success rate (very reliable)
+        pool.add_proxy(proxy2)
+
+        strategy = WeightedStrategy()
+
+        # Pre-warm the cache
+        strategy.select(pool)
+        assert strategy._cache_valid is True
+
+        exceptions = []
+        weight_reads = []
+        lock = threading.Lock()
+
+        def get_weights_operation(thread_id: int) -> None:
+            """Continuously read weights to stress test cache reads during invalidation."""
+            try:
+                for _ in range(100):
+                    # Read weights directly to test cache consistency
+                    healthy_proxies = pool.get_healthy_proxies()
+                    if healthy_proxies:
+                        weights = strategy._get_weights(healthy_proxies)
+                        with lock:
+                            weight_reads.append((thread_id, sum(weights)))
+            except Exception as e:
+                with lock:
+                    exceptions.append((thread_id, "get_weights", str(e)))
+
+        def invalidate_operation(thread_id: int) -> None:
+            """Continuously invalidate cache via record_result to stress test locking."""
+            try:
+                for i in range(100):
+                    proxy = proxy1 if i % 2 == 0 else proxy2
+                    # Always successful to keep proxies healthy
+                    strategy.record_result(proxy, success=True, response_time_ms=100.0)
+            except Exception as e:
+                with lock:
+                    exceptions.append((thread_id, "invalidate", str(e)))
+
+        # Act - Run get_weights and invalidate concurrently to maximize race exposure
+        # Use 10 threads: 5 reading weights, 5 invalidating
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = []
+            # 5 threads reading weights
+            for i in range(5):
+                futures.append(executor.submit(get_weights_operation, i))
+            # 5 threads invalidating cache
+            for i in range(5, 10):
+                futures.append(executor.submit(invalidate_operation, i))
+
+            # Wait for all to complete
+            for future in futures:
+                future.result()
+
+        # Assert
+        assert len(exceptions) == 0, f"Exceptions during concurrent operations: {exceptions}"
+
+        # Verify all weight sums are valid (should always sum to 1.0)
+        for thread_id, weight_sum in weight_reads:
+            assert weight_sum == pytest.approx(1.0, abs=1e-10), (
+                f"Thread {thread_id} got invalid weight sum: {weight_sum}"
+            )
+
+        # Verify cache consistency
+        healthy_proxies = pool.get_healthy_proxies()
+        final_weights = strategy._get_weights(healthy_proxies)
+
+        # Weights should always sum to 1.0 (normalization invariant)
+        assert sum(final_weights) == pytest.approx(1.0, abs=1e-10), (
+            f"Final weights do not sum to 1.0: {sum(final_weights)}"
+        )
+
+        # Verify proxy stats were updated correctly
+        # Each proxy should have additional requests from record_result calls
+        assert proxy1.total_requests > 100, "Proxy1 stats not updated"
+        assert proxy2.total_requests > 100, "Proxy2 stats not updated"
+
 
 class TestLeastUsedStrategy:
     """Unit tests for LeastUsedStrategy with SelectionContext support."""

@@ -41,9 +41,9 @@ try:
 except ImportError:
     AsyncProxyTransport = None  # type: ignore[misc, assignment]
     SOCKS_AVAILABLE = False
-    logger.warning(
+    logger.debug(
         "httpx-socks not installed. SOCKS4/SOCKS5 proxy validation will not work. "
-        "Install with: pip install httpx-socks"
+        "Install with: uv sync or add httpx-socks to your dependencies"
     )
 
 
@@ -369,6 +369,11 @@ def deduplicate_proxies(proxies: list[dict[str, Any]]) -> list[dict[str, Any]]:
     (RFC 4343). This ensures that "PROXY.EXAMPLE.COM:8080" and
     "proxy.example.com:8080" are correctly identified as duplicates.
 
+    Handles edge cases including:
+    - IPv6 addresses: [2001:db8::1]:8080 (preserved as-is, already case-insensitive)
+    - IDN hostnames: Прокси.рф:8080 (lowercased correctly)
+    - Mixed-case DNS names: Proxy.EXAMPLE.com:8080 (lowercased for comparison)
+
     Args:
         proxies: List of proxy dictionaries
 
@@ -383,13 +388,19 @@ def deduplicate_proxies(proxies: list[dict[str, Any]]) -> list[dict[str, Any]]:
         url = proxy.get("url", "")
         if url:
             parsed = urlparse(url)
-            # Normalize hostname to lowercase (RFC 4343: DNS names are case-insensitive)
-            key = parsed.netloc.lower()  # netloc includes host:port
+            # Normalize netloc to lowercase (RFC 4343: DNS names are case-insensitive)
+            # netloc includes host:port (or [ipv6]:port)
+            # IPv6 addresses: [2001:db8::1]:8080 -> lowercases to same (hex already lowercase)
+            # IDN domains: Прокси.рф:8080 -> прокси.рф:8080
+            key = parsed.netloc.lower()
         else:
             # Construct from host+port
             host = proxy.get("host", "")
             port = proxy.get("port", "")
-            # Normalize hostname to lowercase
+            if not host or not port:
+                # Skip proxies with incomplete host+port
+                continue
+            # Normalize hostname to lowercase (handles IDN, IPv6, and DNS names)
             key = f"{host.lower()}:{port}"
 
         if key not in seen:
@@ -490,10 +501,12 @@ class ProxyValidator:
         """
         if not SOCKS_AVAILABLE:
             logger.warning(
-                "SOCKS proxy support requires httpx-socks. Install with: pip install httpx-socks"
+                "SOCKS proxy support requires httpx-socks library. "
+                "Install with: uv sync or add httpx-socks to your dependencies"
             )
             raise ProxyValidationError(
-                "SOCKS proxy support requires httpx-socks. Install with: pip install httpx-socks"
+                "SOCKS proxy support requires httpx-socks library. "
+                "Install with: uv sync or add httpx-socks to your dependencies"
             )
 
         if AsyncProxyTransport is None:
@@ -707,8 +720,8 @@ class ProxyValidator:
                 # Create SOCKS client with transport
                 if not SOCKS_AVAILABLE:
                     logger.warning(
-                        f"Skipping SOCKS validation for {proxy_url}: httpx-socks not installed. "
-                        "Install with: pip install httpx-socks"
+                        f"Skipping SOCKS validation for {proxy_url}: httpx-socks library not installed. "
+                        "Install with: uv sync or add httpx-socks to your dependencies"
                     )
                     # Return invalid rather than error - graceful degradation
                     # SOCKS proxies cannot be validated without the library
@@ -1047,7 +1060,11 @@ class ProxyFetcher:
             return proxies_list
 
         except httpx.HTTPStatusError as e:
-            raise ProxyFetchError(f"HTTP error fetching from {source.url}: {e}") from e
+            # Let retryable HTTP errors (429, 503, 502, 504) bubble up to retry decorator
+            # Only convert to ProxyFetchError for non-retryable errors
+            if e.response.status_code not in RETRYABLE_STATUS_CODES:
+                raise ProxyFetchError(f"HTTP error fetching from {source.url}: {e}") from e
+            raise  # Re-raise for retry decorator to handle
         except httpx.RequestError as e:
             raise ProxyFetchError(f"Request error fetching from {source.url}: {e}") from e
         except Exception as e:

@@ -37,6 +37,13 @@ Multi-tier cache architecture (L1/L2/L3) with encryption support.
 Circuit breakers, retry policies, and automatic proxy failover.
 :::
 
+:::{grid-item-card} Deployment Security
+:link: deployment-security
+:link-type: doc
+
+Reverse proxy configuration, X-Forwarded-For security, and production hardening.
+:::
+
 :::{grid-item-card} CLI Reference
 :link: cli-reference
 :link-type: doc
@@ -68,6 +75,7 @@ async-client
 advanced-strategies
 caching
 retry-failover
+deployment-security
 cli-reference
 automation
 mcp-server

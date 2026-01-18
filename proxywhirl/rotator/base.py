@@ -175,8 +175,8 @@ class ProxyRotatorBase:
         if not available_proxies:
             logger.error("All circuit breakers are open or proxies expired - no proxies available")
             raise ProxyPoolEmptyError(
-                "503 Service Temporarily Unavailable - All proxies are currently failing or expired. "
-                "Please wait for circuit breakers to recover or add new proxies."
+                "503 Service Temporarily Unavailable - All proxies are currently failing or "
+                "expired. Please wait for circuit breakers to recover or add new proxies."
             )
 
         # Create temporary pool with available proxies

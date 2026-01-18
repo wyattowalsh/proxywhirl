@@ -26,12 +26,14 @@ from proxywhirl.strategies.core import (
     GeoTargetedStrategy,
     LeastUsedStrategy,
     PerformanceBasedStrategy,
+    ProxyMetrics,
     RandomStrategy,
     RotationStrategy,
     RoundRobinStrategy,
     SessionManager,
     SessionPersistenceStrategy,
     StrategyRegistry,
+    StrategyState,
     WeightedStrategy,
 )
 
@@ -40,6 +42,9 @@ __all__ = [
     "RotationStrategy",
     # Registry
     "StrategyRegistry",
+    # State management
+    "StrategyState",
+    "ProxyMetrics",
     # Simple strategies
     "RoundRobinStrategy",
     "RandomStrategy",

@@ -1,6 +1,7 @@
 """Unit tests for ProxyPool lifecycle management (dynamic add/remove)."""
 
 import threading
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -215,9 +216,11 @@ class TestProxyPoolValidation:
         pool = ProxyPool(name="test")
         initial_updated = pool.updated_at
 
-        import time
+        # Mock time.sleep to avoid actual delay - timestamp logic works regardless
+        with patch("time.sleep"):
+            import time
 
-        time.sleep(0.01)
+            time.sleep(0.01)
 
         pool.add_proxy(Proxy(url="http://proxy.example.com:8080"))
         assert pool.updated_at > initial_updated
@@ -228,9 +231,11 @@ class TestProxyPoolValidation:
         pool = ProxyPool(name="test", proxies=[proxy])
         initial_updated = pool.updated_at
 
-        import time
+        # Mock time.sleep to avoid actual delay - timestamp logic works regardless
+        with patch("time.sleep"):
+            import time
 
-        time.sleep(0.01)
+            time.sleep(0.01)
 
         pool.remove_proxy(proxy.id)
         assert pool.updated_at > initial_updated

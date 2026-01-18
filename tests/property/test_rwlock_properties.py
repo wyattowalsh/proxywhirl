@@ -17,6 +17,9 @@ from hypothesis import strategies as st
 
 from proxywhirl.rwlock import AsyncRWLock
 
+# Mark all tests in this module as slow since they use asyncio.sleep
+pytestmark = pytest.mark.slow
+
 
 class TestAsyncRWLockProperties:
     """Property-based tests for AsyncRWLock invariants."""

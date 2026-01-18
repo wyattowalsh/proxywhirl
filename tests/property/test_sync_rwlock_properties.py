@@ -22,6 +22,9 @@ from hypothesis import strategies as st
 
 from proxywhirl.rwlock import SyncRWLock
 
+# Mark all tests in this module as slow since they use time.sleep for lock testing
+pytestmark = pytest.mark.slow
+
 
 class TestSyncRWLockConcurrentReads:
     """Property tests for concurrent read access."""

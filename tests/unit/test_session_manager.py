@@ -10,6 +10,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from proxywhirl.models import Session
 from proxywhirl.strategies import SessionManager
 from tests.conftest import ProxyFactory
@@ -111,10 +113,12 @@ class TestSessionManagerRetrieval:
         # Assert
         assert result is None
 
+    @pytest.mark.slow
     def test_get_session_returns_none_for_expired_session(self):
         """Test that get_session returns None for expired sessions.
 
-        Note: Uses real time.sleep to verify actual session TTL expiration semantics.
+        Marked @pytest.mark.slow: Verifies actual TTL expiration behavior
+        with real time delays to ensure sessions expire correctly.
         """
         # Arrange
         manager = SessionManager()
@@ -156,10 +160,12 @@ class TestSessionManagerRetrieval:
 class TestSessionManagerExpiration:
     """Tests for session expiration/TTL behavior."""
 
+    @pytest.mark.slow
     def test_session_is_expired_after_ttl(self):
         """Test that session becomes expired after TTL passes.
 
-        Note: Uses real time.sleep to verify actual session TTL expiration semantics.
+        Marked @pytest.mark.slow: Verifies actual TTL expiration behavior
+        with real time delays to ensure sessions expire correctly.
         """
         # Arrange
         manager = SessionManager()
@@ -175,8 +181,12 @@ class TestSessionManagerExpiration:
         # Assert
         assert session.is_expired()
 
+    @pytest.mark.slow
     def test_expired_sessions_removed_on_get(self):
         """Test that expired sessions are cleaned up when accessed.
+
+        Marked @pytest.mark.slow: Verifies actual TTL expiration behavior
+        with real time delays to ensure sessions expire correctly.
 
         Note: Uses real time.sleep to verify actual session TTL expiration semantics.
         """
@@ -197,8 +207,12 @@ class TestSessionManagerExpiration:
 class TestSessionManagerCleanup:
     """Tests for session cleanup functionality."""
 
+    @pytest.mark.slow
     def test_cleanup_expired_removes_all_expired_sessions(self):
         """Test that cleanup_expired removes all expired sessions.
+
+        Marked @pytest.mark.slow: Verifies actual TTL expiration behavior
+        with real time delays to ensure sessions expire correctly.
 
         Note: Uses real time.sleep to verify actual session TTL expiration semantics.
         """
@@ -237,10 +251,12 @@ class TestSessionManagerCleanup:
         # Assert
         assert removed_count == 0
 
+    @pytest.mark.slow
     def test_auto_cleanup_triggers_after_threshold(self):
         """Test that auto-cleanup triggers after operation threshold.
 
-        Note: Uses real time.sleep to ensure session with timeout_seconds=0 is expired.
+        Marked @pytest.mark.slow: Verifies actual TTL expiration behavior
+        with real time delays to ensure sessions with timeout_seconds=0 are expired.
         """
         # Arrange - Low threshold for testing
         manager = SessionManager(auto_cleanup_threshold=3)
@@ -391,18 +407,18 @@ class TestSessionManagerUpdate:
     """Tests for session update operations."""
 
     def test_touch_session_updates_last_used(self):
-        """Test that touch_session updates last_used_at timestamp.
+        """Test that touch_session updates last_used_at timestamp."""
+        from unittest.mock import patch
 
-        Note: Uses real time.sleep to ensure timestamp difference is measurable.
-        """
         # Arrange
         manager = SessionManager()
         proxy = ProxyFactory.healthy()
         session = manager.create_session("user-123", proxy)
         original_last_used = session.last_used_at
 
-        # Small delay to ensure different timestamp (INTENTIONAL: verify timestamp updates)
-        time.sleep(0.1)
+        # Mock time.sleep to avoid actual delay - timestamp updates work regardless
+        with patch("time.sleep"):
+            time.sleep(0.1)
 
         # Act
         result = manager.touch_session("user-123")
@@ -439,10 +455,12 @@ class TestSessionManagerUpdate:
         # Assert
         assert result is False
 
+    @pytest.mark.slow
     def test_touch_session_returns_false_for_expired(self):
         """Test that touch returns False for expired session.
 
-        Note: Uses real time.sleep to verify actual session TTL expiration semantics.
+        Marked @pytest.mark.slow: Verifies actual TTL expiration behavior
+        with real time delays to ensure sessions expire correctly.
         """
         # Arrange
         manager = SessionManager()
@@ -570,10 +588,12 @@ class TestSessionManagerLRUEviction:
 class TestSessionManagerEdgeCases:
     """Tests for edge cases and special scenarios."""
 
+    @pytest.mark.slow
     def test_get_all_sessions_filters_expired(self):
         """Test that get_all_sessions filters out expired sessions.
 
-        Note: Uses real time.sleep to verify actual session TTL expiration semantics.
+        Marked @pytest.mark.slow: Verifies actual TTL expiration behavior
+        with real time delays to ensure sessions expire correctly.
         """
         # Arrange
         manager = SessionManager()

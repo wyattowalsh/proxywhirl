@@ -2,7 +2,7 @@ name: Generate Proxy Lists
 
 on:
   schedule:
-    # Run every 2 hours (workflow takes 30+ min with 133 sources and 5s timeout)
+    # Run every 2 hours (workflow takes 60-90 min with 156 sources and 5s timeout)
     - cron: '0 */2 * * *'
   workflow_dispatch: # Allow manual triggers
 
@@ -51,7 +51,7 @@ jobs:
         echo "Downloaded GeoLite2-Country.mmdb ($(stat --format=%s GeoLite2-Country.mmdb) bytes)"
 
     - name: Fetch, validate, and export proxies
-      timeout-minutes: 60
+      timeout-minutes: 90
       run: |
         # Fetch and validate proxies from all sources, save to database,
         # and export all files for web dashboard:

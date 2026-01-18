@@ -794,8 +794,13 @@ class TestAsyncExecuteWithRetry:
         assert result == mock_response
         assert result.status_code == 200
 
+    @pytest.mark.slow
     async def test_success_on_retry_with_asyncio_sleep(self, executor):
-        """Test success on second attempt using asyncio.sleep."""
+        """Test success on second attempt using asyncio.sleep.
+
+        Marked @pytest.mark.slow: Tests async retry delays with actual asyncio.sleep
+        which is non-blocking but introduces real time delays to verify backoff behavior.
+        """
         proxy = Proxy(url="http://proxy.example.com:8080")
 
         mock_response = Mock(spec=httpx.Response)
@@ -810,8 +815,8 @@ class TestAsyncExecuteWithRetry:
                 raise httpx.ConnectError("First attempt failed")
             return mock_response
 
-        # No need to patch asyncio.sleep - it's non-blocking
-        # We can measure that the sleep actually happened
+        # No need to patch asyncio.sleep - it's non-blocking and doesn't block event loop
+        # We measure that the sleep actually happened to verify backoff timing
         import time
 
         start = time.time()
