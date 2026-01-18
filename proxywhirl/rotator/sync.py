@@ -8,6 +8,7 @@ import queue
 import threading
 import time
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote
 
 import httpx
 from loguru import logger
@@ -576,10 +577,15 @@ class ProxyRotator(ProxyRotatorBase):
             username = proxy.username.get_secret_value()
             password = proxy.password.get_secret_value()
 
-            # Insert credentials into URL
+            # URL-encode credentials to handle special characters like @, :, /, etc.
+            # Using safe='' ensures all special characters are encoded
+            username_encoded = quote(username, safe="")
+            password_encoded = quote(password, safe="")
+
+            # Insert URL-encoded credentials into URL
             if "://" in url:
                 protocol, rest = url.split("://", 1)
-                url = f"{protocol}://{username}:{password}@{rest}"
+                url = f"{protocol}://{username_encoded}:{password_encoded}@{rest}"
 
         # Return proxy dict for all protocols
         return {

@@ -368,6 +368,9 @@ class Proxy(BaseModel):
         description="Cost per request in arbitrary units (0.0 = free, higher = more expensive)",
     )
 
+    # Private lock for thread-safe sliding window operations
+    _window_lock: threading.Lock = PrivateAttr(default_factory=threading.Lock)
+
     @field_validator("url")
     @classmethod
     def validate_url_scheme(cls, v: str) -> str:
@@ -574,24 +577,29 @@ class Proxy(BaseModel):
             )
         return None
 
-    def update_metrics(self, response_time_ms: float) -> None:
+    def update_metrics(self, response_time_ms: float, alpha: float | None = None) -> None:
         """Update EMA and average response time metrics.
 
         This method centralizes all response time metric updates to ensure
         consistency across the codebase. Both average_response_time_ms and
-        ema_response_time_ms use the same configurable ema_alpha value.
+        ema_response_time_ms use the same alpha value.
 
         Args:
             response_time_ms: Response time in milliseconds
+            alpha: Optional EMA smoothing factor. If not provided, uses
+                   self.ema_alpha. Strategies can pass their own alpha
+                   to avoid mutating proxy state.
         """
+        # Use provided alpha or fall back to instance default
+        effective_alpha = alpha if alpha is not None else self.ema_alpha
+
         # Update average response time using EMA with configurable alpha
         if self.average_response_time_ms is None:
             self.average_response_time_ms = response_time_ms
         else:
-            # Use configurable ema_alpha for consistency
             self.average_response_time_ms = (
-                self.ema_alpha * response_time_ms
-                + (1 - self.ema_alpha) * self.average_response_time_ms
+                effective_alpha * response_time_ms
+                + (1 - effective_alpha) * self.average_response_time_ms
             )
 
         # Update EMA response time using the same alpha
@@ -600,11 +608,17 @@ class Proxy(BaseModel):
         else:
             # EMA formula: EMA_new = alpha * value + (1 - alpha) * EMA_old
             self.ema_response_time_ms = (
-                self.ema_alpha * response_time_ms + (1 - self.ema_alpha) * self.ema_response_time_ms
+                effective_alpha * response_time_ms
+                + (1 - effective_alpha) * self.ema_response_time_ms
             )
 
-    def record_success(self, response_time_ms: float) -> None:
-        """Record a successful request."""
+    def record_success(self, response_time_ms: float, alpha: float | None = None) -> None:
+        """Record a successful request.
+
+        Args:
+            response_time_ms: Response time in milliseconds
+            alpha: Optional EMA smoothing factor for metrics update
+        """
         self.total_requests += 1
         self.total_successes += 1
         self.consecutive_failures = 0
@@ -612,7 +626,7 @@ class Proxy(BaseModel):
         self.updated_at = datetime.now(timezone.utc)
 
         # Update metrics using centralized method
-        self.update_metrics(response_time_ms)
+        self.update_metrics(response_time_ms, alpha=alpha)
 
         # Update health status
         if self.health_status in (HealthStatus.UNKNOWN, HealthStatus.DEGRADED):
@@ -652,37 +666,48 @@ class Proxy(BaseModel):
 
         This should be called when a request is about to be made through this proxy.
         Increments both requests_started and requests_active counters.
+
+        Thread-safe: Uses internal lock to prevent race conditions.
         """
-        self.requests_started += 1
-        self.requests_active += 1
-        self.updated_at = datetime.now(timezone.utc)
+        with self._window_lock:
+            self.requests_started += 1
+            self.requests_active += 1
+            self.updated_at = datetime.now(timezone.utc)
 
-        # Initialize window if not set
-        if self.window_start is None:
-            self.window_start = datetime.now(timezone.utc)
+            # Initialize window if not set
+            if self.window_start is None:
+                self.window_start = datetime.now(timezone.utc)
 
-    def complete_request(self, success: bool, response_time_ms: float) -> None:
+    def complete_request(
+        self, success: bool, response_time_ms: float, alpha: float | None = None
+    ) -> None:
         """Mark a request as complete and update metrics.
 
         Args:
             success: Whether the request was successful
             response_time_ms: Response time in milliseconds
+            alpha: Optional EMA smoothing factor. Strategies can pass their
+                   configured alpha to ensure consistent metric calculations
+                   without mutating proxy state.
 
         This method decrements requests_active, increments requests_completed,
         updates EMA response time, and delegates to record_success/record_failure.
-        """
-        # Decrement active count
-        if self.requests_active > 0:
-            self.requests_active -= 1
 
-        # Increment completed count
-        self.requests_completed += 1
+        Thread-safe: Uses internal lock to prevent race conditions.
+        """
+        with self._window_lock:
+            # Decrement active count
+            if self.requests_active > 0:
+                self.requests_active -= 1
+
+            # Increment completed count
+            self.requests_completed += 1
 
         # Delegate to existing success/failure recording
         # Note: record_success() calls update_metrics() which updates both
         # average_response_time_ms and ema_response_time_ms consistently
         if success:
-            self.record_success(response_time_ms)
+            self.record_success(response_time_ms, alpha=alpha)
         else:
             self.record_failure()
 
@@ -691,26 +716,32 @@ class Proxy(BaseModel):
 
         This is called when the window duration has elapsed, preventing
         counter staleness and unbounded memory growth.
+
+        Thread-safe: Uses internal lock to prevent race conditions.
         """
-        now = datetime.now(timezone.utc)
-        self.window_start = now
-        self.requests_started = 0
-        self.requests_completed = 0
-        # Note: Don't reset requests_active as those are truly active
-        self.updated_at = now
+        with self._window_lock:
+            now = datetime.now(timezone.utc)
+            self.window_start = now
+            self.requests_started = 0
+            self.requests_completed = 0
+            # Note: Don't reset requests_active as those are truly active
+            self.updated_at = now
 
     def is_window_expired(self) -> bool:
         """Check if the current sliding window has expired.
 
         Returns:
             True if window duration has elapsed since window_start
-        """
-        if self.window_start is None:
-            return False
 
-        now = datetime.now(timezone.utc)
-        elapsed = (now - self.window_start).total_seconds()
-        return elapsed >= self.window_duration_seconds
+        Thread-safe: Uses internal lock to prevent race conditions.
+        """
+        with self._window_lock:
+            if self.window_start is None:
+                return False
+
+            now = datetime.now(timezone.utc)
+            elapsed = (now - self.window_start).total_seconds()
+            return elapsed >= self.window_duration_seconds
 
 
 class ProxyChain(BaseModel):

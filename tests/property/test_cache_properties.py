@@ -400,7 +400,7 @@ class TestTTLExpirationMonotonicity:
             retrieved = manager.get(entry.key)
             assert retrieved is not None, "Entry should be retrievable before TTL expires"
 
-            # Wait for expiration
+            # Wait for expiration (INTENTIONAL: property-based test of TTL semantics)
             time.sleep(ttl + 0.5)
 
             # After expiration, should not be retrievable

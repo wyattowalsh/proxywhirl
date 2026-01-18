@@ -790,6 +790,145 @@ GITHUB_SUNNY9577_SOCKS5 = ProxySourceConfig(
 )
 
 # =============================================================================
+# NEW SOURCES - Added Jan 2026 (targeting 10k+ validated proxies)
+# =============================================================================
+
+# ALIILAPRO/Proxy - Updated hourly, large lists
+GITHUB_ALIILAPRO_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/http.txt",
+    format="plain_text",
+)
+
+GITHUB_ALIILAPRO_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/socks4.txt",
+    format="plain_text",
+)
+
+GITHUB_ALIILAPRO_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/socks5.txt",
+    format="plain_text",
+)
+
+# fate0/proxylist - Generated every 15 minutes
+GITHUB_FATE0_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/fate0/proxylist/master/proxy.list",
+    format="plain_text",
+)
+
+# Skillter/ProxyGather - Automated every 30 minutes
+GITHUB_SKILLTER_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/Skillter/ProxyGather/master/proxies/working-proxies-http.txt",
+    format="plain_text",
+    trusted=True,  # Pre-validated working proxies
+)
+
+GITHUB_SKILLTER_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/Skillter/ProxyGather/master/proxies/working-proxies-socks4.txt",
+    format="plain_text",
+    trusted=True,
+)
+
+GITHUB_SKILLTER_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/Skillter/ProxyGather/master/proxies/working-proxies-socks5.txt",
+    format="plain_text",
+    trusted=True,
+)
+
+GITHUB_SKILLTER_ALL = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/Skillter/ProxyGather/master/proxies/working-proxies-all.txt",
+    format="plain_text",
+    trusted=True,
+)
+
+# sh4dowb/proxy-scraper - Hourly updated
+GITHUB_SH4DOWB_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/sh4dowb/proxy-scraper/main/proxies/http.txt",
+    format="plain_text",
+)
+
+GITHUB_SH4DOWB_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/sh4dowb/proxy-scraper/main/proxies/socks4.txt",
+    format="plain_text",
+)
+
+GITHUB_SH4DOWB_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/sh4dowb/proxy-scraper/main/proxies/socks5.txt",
+    format="plain_text",
+)
+
+# Anonym0usWork1221/Free-Proxies - Large lists
+GITHUB_ANONYM0USWORK_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/Anonym0usWork1221/Free-Proxies/main/proxy_files/http_proxies.txt",
+    format="plain_text",
+)
+
+GITHUB_ANONYM0USWORK_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/Anonym0usWork1221/Free-Proxies/main/proxy_files/https_proxies.txt",
+    format="plain_text",
+)
+
+GITHUB_ANONYM0USWORK_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/Anonym0usWork1221/Free-Proxies/main/proxy_files/socks4_proxies.txt",
+    format="plain_text",
+)
+
+GITHUB_ANONYM0USWORK_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/Anonym0usWork1221/Free-Proxies/main/proxy_files/socks5_proxies.txt",
+    format="plain_text",
+)
+
+# a2u/free-proxy-list - Validated hourly
+GITHUB_A2U_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/a2u/free-proxy-list/master/free-proxy-list.txt",
+    format="plain_text",
+    trusted=True,  # Pre-validated for IP hiding
+)
+
+# PubProxy API - Random proxy API
+PUBPROXY_HTTP = ProxySourceConfig(
+    url="http://pubproxy.com/api/proxy?limit=20&format=txt&type=http",
+    format="plain_text",
+)
+
+PUBPROXY_SOCKS4 = ProxySourceConfig(
+    url="http://pubproxy.com/api/proxy?limit=20&format=txt&type=socks4",
+    format="plain_text",
+)
+
+PUBPROXY_SOCKS5 = ProxySourceConfig(
+    url="http://pubproxy.com/api/proxy?limit=20&format=txt&type=socks5",
+    format="plain_text",
+)
+
+# hidemy.name free proxy list
+HIDEMY_HTTP = ProxySourceConfig(
+    url="https://hidemy.io/api/proxylist.php?out=plain&type=h",
+    format="plain_text",
+)
+
+HIDEMY_SOCKS4 = ProxySourceConfig(
+    url="https://hidemy.io/api/proxylist.php?out=plain&type=4",
+    format="plain_text",
+)
+
+HIDEMY_SOCKS5 = ProxySourceConfig(
+    url="https://hidemy.io/api/proxylist.php?out=plain&type=5",
+    format="plain_text",
+)
+
+# proxy-list.org - Free proxy lists
+PROXYLISTORG_HTTP = ProxySourceConfig(
+    url="https://proxy-list.org/english/index.php",
+    format="plain_text",
+)
+
+# MuRongPIG/Proxy-Master - Aggregated large lists
+GITHUB_MURONGPIG_ALL = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/MuRongPIG/Proxy-Master/main/http.txt",
+    format="plain_text",
+)
+
+# =============================================================================
 # Predefined Source Collections
 # =============================================================================
 
@@ -868,6 +1007,18 @@ ALL_HTTP_SOURCES = [
     PROXYLISTDOWNLOAD_HTTP,
     PROXYLISTDOWNLOAD_HTTPS,
     GITHUB_MISHAKORZIK_ALL,
+    # NEW sources (Jan 2026) - targeting 10k+ validated
+    GITHUB_ALIILAPRO_HTTP,
+    GITHUB_FATE0_HTTP,
+    GITHUB_SKILLTER_HTTP,
+    GITHUB_SKILLTER_ALL,
+    GITHUB_SH4DOWB_HTTP,
+    GITHUB_ANONYM0USWORK_HTTP,
+    GITHUB_ANONYM0USWORK_HTTPS,
+    GITHUB_A2U_HTTP,
+    PUBPROXY_HTTP,
+    HIDEMY_HTTP,
+    GITHUB_MURONGPIG_ALL,
 ]
 
 # All SOCKS4 sources
@@ -914,6 +1065,13 @@ ALL_SOCKS4_SOURCES = [
     PROXYLISTDOWNLOAD_SOCKS4,
     GITHUB_ROOSTERKID_SOCKS4,
     GITHUB_SUNNY9577_SOCKS4,
+    # NEW sources (Jan 2026) - targeting 10k+ validated
+    GITHUB_ALIILAPRO_SOCKS4,
+    GITHUB_SKILLTER_SOCKS4,
+    GITHUB_SH4DOWB_SOCKS4,
+    GITHUB_ANONYM0USWORK_SOCKS4,
+    PUBPROXY_SOCKS4,
+    HIDEMY_SOCKS4,
 ]
 
 # All SOCKS5 sources
@@ -961,6 +1119,13 @@ ALL_SOCKS5_SOURCES = [
     PROXYLISTDOWNLOAD_SOCKS5,
     GITHUB_ROOSTERKID_SOCKS5,
     GITHUB_SUNNY9577_SOCKS5,
+    # NEW sources (Jan 2026) - targeting 10k+ validated
+    GITHUB_ALIILAPRO_SOCKS5,
+    GITHUB_SKILLTER_SOCKS5,
+    GITHUB_SH4DOWB_SOCKS5,
+    GITHUB_ANONYM0USWORK_SOCKS5,
+    PUBPROXY_SOCKS5,
+    HIDEMY_SOCKS5,
 ]
 
 # All sources combined

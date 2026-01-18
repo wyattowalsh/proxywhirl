@@ -504,6 +504,175 @@ class TestProxyResponseTimeValidation:
             Proxy(url="http://proxy.example.com:8080", **{field: -1.0})
 
 
+class TestProxySlidingWindowConcurrency:
+    """Test Proxy sliding window counter thread safety."""
+
+    def test_concurrent_start_request(self):
+        """Test thread-safe concurrent start_request calls."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        proxy = Proxy(url="http://proxy.example.com:8080")
+
+        def start_request(_: int) -> None:
+            """Start a request."""
+            proxy.start_request()
+
+        # Use ThreadPoolExecutor with 10 workers to start 100 requests
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            list(executor.map(start_request, range(100)))
+
+        # Verify counters are correct
+        assert proxy.requests_started == 100, f"Expected 100 started, got {proxy.requests_started}"
+        assert proxy.requests_active == 100, f"Expected 100 active, got {proxy.requests_active}"
+        assert proxy.window_start is not None, "Window should be initialized"
+
+    def test_concurrent_complete_request(self):
+        """Test thread-safe concurrent complete_request calls."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        proxy = Proxy(url="http://proxy.example.com:8080")
+
+        # Pre-start 100 requests
+        for _ in range(100):
+            proxy.start_request()
+
+        def complete_request(i: int) -> None:
+            """Complete a request."""
+            proxy.complete_request(success=i % 2 == 0, response_time_ms=100.0)
+
+        # Use ThreadPoolExecutor with 10 workers to complete 100 requests
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            list(executor.map(complete_request, range(100)))
+
+        # Verify counters are correct
+        assert proxy.requests_completed == 100, (
+            f"Expected 100 completed, got {proxy.requests_completed}"
+        )
+        assert proxy.requests_active == 0, f"Expected 0 active, got {proxy.requests_active}"
+
+    def test_concurrent_reset_window(self):
+        """Test thread-safe concurrent reset_window calls."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        proxy = Proxy(url="http://proxy.example.com:8080")
+
+        # Pre-populate counters
+        for _ in range(50):
+            proxy.start_request()
+            proxy.complete_request(success=True, response_time_ms=100.0)
+
+        initial_started = proxy.requests_started
+        initial_completed = proxy.requests_completed
+
+        assert initial_started == 50, "Should have 50 started requests"
+        assert initial_completed == 50, "Should have 50 completed requests"
+
+        def reset_window(_: int) -> None:
+            """Reset the window."""
+            proxy.reset_window()
+
+        # Use ThreadPoolExecutor with 5 workers to reset window 10 times
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            list(executor.map(reset_window, range(10)))
+
+        # Verify counters were reset (should be 0 after any reset)
+        assert proxy.requests_started == 0, (
+            f"Expected 0 started after reset, got {proxy.requests_started}"
+        )
+        assert proxy.requests_completed == 0, (
+            f"Expected 0 completed after reset, got {proxy.requests_completed}"
+        )
+        assert proxy.window_start is not None, "Window should be re-initialized"
+
+    def test_concurrent_mixed_operations(self):
+        """Test concurrent start, complete, and reset operations."""
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+
+        proxy = Proxy(url="http://proxy.example.com:8080")
+        errors = []
+        lock = threading.Lock()
+
+        def start_requests(_: int) -> None:
+            """Start multiple requests."""
+            try:
+                for _ in range(10):
+                    proxy.start_request()
+            except Exception as e:
+                with lock:
+                    errors.append(f"start_requests error: {e}")
+
+        def complete_requests(_: int) -> None:
+            """Complete multiple requests."""
+            try:
+                for _ in range(10):
+                    proxy.complete_request(success=True, response_time_ms=100.0)
+            except Exception as e:
+                with lock:
+                    errors.append(f"complete_requests error: {e}")
+
+        def reset_windows(_: int) -> None:
+            """Reset window multiple times."""
+            try:
+                for _ in range(5):
+                    proxy.reset_window()
+            except Exception as e:
+                with lock:
+                    errors.append(f"reset_windows error: {e}")
+
+        def check_window_expired(_: int) -> None:
+            """Check if window is expired multiple times."""
+            try:
+                for _ in range(20):
+                    proxy.is_window_expired()
+            except Exception as e:
+                with lock:
+                    errors.append(f"check_window_expired error: {e}")
+
+        # Use ThreadPoolExecutor with mixed operations
+        with ThreadPoolExecutor(max_workers=12) as executor:
+            futures = []
+            futures.extend([executor.submit(start_requests, i) for i in range(3)])
+            futures.extend([executor.submit(complete_requests, i) for i in range(3)])
+            futures.extend([executor.submit(reset_windows, i) for i in range(2)])
+            futures.extend([executor.submit(check_window_expired, i) for i in range(4)])
+
+            # Wait for all futures to complete
+            for future in futures:
+                future.result()
+
+        # Verify no errors occurred
+        assert not errors, f"Concurrent operations had errors: {errors}"
+
+        # Verify counters are non-negative (exact values may vary due to resets)
+        assert proxy.requests_started >= 0, "requests_started should be non-negative"
+        assert proxy.requests_completed >= 0, "requests_completed should be non-negative"
+        assert proxy.requests_active >= 0, "requests_active should be non-negative"
+
+    def test_concurrent_window_expiration_check(self):
+        """Test concurrent is_window_expired calls don't cause race conditions."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        proxy = Proxy(url="http://proxy.example.com:8080", window_duration_seconds=1)
+        proxy.start_request()  # Initialize window
+
+        results = []
+
+        def check_expired(_: int) -> bool:
+            """Check if window is expired."""
+            return proxy.is_window_expired()
+
+        # Use ThreadPoolExecutor with 20 workers to check expiration 100 times
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            results = list(executor.map(check_expired, range(100)))
+
+        # All results should be consistent (all True or all False at any given time)
+        # Since we just initialized the window, all should be False
+        assert all(result is False for result in results) or all(
+            result is True for result in results
+        ), "All concurrent checks should return the same result"
+
+
 class TestProxyPoolConcurrentAccess:
     """Test ProxyPool thread safety for concurrent access operations.
 

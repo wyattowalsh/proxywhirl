@@ -59,6 +59,7 @@ def test_ttl_expiration_timing(tmp_path: Path, encryption_key: SecretStr) -> Non
     assert manager.get(entry.key) is not None
 
     # Wait for expiration + cleanup (10s TTL + up to 5s cleanup = 15s max)
+    # INTENTIONAL: tests real TTL expiration and background cleanup behavior
     time.sleep(16)
 
     # Entry should be removed (within 60s requirement)
@@ -101,7 +102,7 @@ def test_expired_proxy_unavailable(tmp_path: Path, encryption_key: SecretStr) ->
     assert retrieved is not None
     assert retrieved.proxy_url == entry.proxy_url
 
-    # Wait for expiration
+    # Wait for expiration (INTENTIONAL: tests real TTL expiration behavior)
     time.sleep(3)
 
     # Entry should be unavailable

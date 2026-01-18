@@ -8,6 +8,7 @@ reducing code duplication and ensuring consistent behavior.
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 from loguru import logger
 
@@ -91,10 +92,15 @@ class ProxyRotatorBase:
             username = proxy.username.get_secret_value()
             password = proxy.password.get_secret_value()
 
-            # Insert credentials into URL
+            # URL-encode credentials to handle special characters like @, :, /, etc.
+            # Using safe='' ensures all special characters are encoded
+            username_encoded = quote(username, safe="")
+            password_encoded = quote(password, safe="")
+
+            # Insert URL-encoded credentials into URL
             if "://" in url:
                 protocol, rest = url.split("://", 1)
-                url = f"{protocol}://{username}:{password}@{rest}"
+                url = f"{protocol}://{username_encoded}:{password_encoded}@{rest}"
 
         # Return proxy dict for all protocols
         return {
@@ -150,18 +156,27 @@ class ProxyRotatorBase:
         else:
             proxies_snapshot = list(self.pool.proxies)
 
-        # Filter proxies by circuit breaker state
+        # Filter proxies by circuit breaker state and expiration
         available_proxies = []
+        expired_count = 0
         for proxy in proxies_snapshot:
+            # Skip expired proxies
+            if proxy.is_expired:
+                expired_count += 1
+                continue
+
             circuit_breaker = self.circuit_breakers.get(str(proxy.id))
             if circuit_breaker and circuit_breaker.should_attempt_request():
                 available_proxies.append(proxy)
 
+        if expired_count > 0:
+            logger.debug(f"Skipped {expired_count} expired proxies during selection")
+
         if not available_proxies:
-            logger.error("All circuit breakers are open - no proxies available")
+            logger.error("All circuit breakers are open or proxies expired - no proxies available")
             raise ProxyPoolEmptyError(
-                "503 Service Temporarily Unavailable - All proxies are currently failing. "
-                "Please wait for circuit breakers to recover."
+                "503 Service Temporarily Unavailable - All proxies are currently failing or expired. "
+                "Please wait for circuit breakers to recover or add new proxies."
             )
 
         # Create temporary pool with available proxies

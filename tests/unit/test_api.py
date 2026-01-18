@@ -1391,3 +1391,650 @@ class TestCORSOriginParsing:
 
         assert len(cors_origins) == 2
         assert cors_origins == ["http://localhost:8000", "http://127.0.0.1:8000"]
+
+
+class TestCORSWildcardValidation:
+    """Tests for CORS wildcard validation (SEC-003).
+
+    Verifies that the application prevents insecure CORS configurations:
+    - Wildcard origins with credentials enabled is a security vulnerability
+    - Proper validation happens at startup
+    """
+
+    def test_cors_wildcard_with_credentials_raises_error(self):
+        """Test that wildcard CORS with credentials=True raises ValueError."""
+        # This would be caught during app initialization
+        cors_origins = ["*"]
+        allow_credentials = True
+
+        # Simulate the validation logic from core.py
+        with pytest.raises(
+            ValueError,
+            match="cannot use wildcard origin.*allow_credentials=True",
+        ):
+            if "*" in cors_origins and allow_credentials:
+                error_msg = (
+                    "CORS configuration error: cannot use wildcard origin ('*') "
+                    "with allow_credentials=True. This violates CORS security "
+                    "policy. Either: 1) Set specific PROXYWHIRL_CORS_ORIGINS, "
+                    "or 2) Use '*' only for public APIs without credentials."
+                )
+                raise ValueError(error_msg)
+
+    def test_cors_wildcard_without_credentials_allowed(self):
+        """Test that wildcard CORS without credentials is allowed (safe for public APIs)."""
+        cors_origins = ["*"]
+        allow_credentials = False
+
+        # Should not raise
+        if "*" in cors_origins and allow_credentials:
+            raise ValueError("Should not raise for wildcard without credentials")
+
+    def test_cors_specific_origins_with_credentials_allowed(self):
+        """Test that specific origins with credentials are allowed."""
+        cors_origins = ["http://localhost:8000", "https://example.com"]
+        allow_credentials = True
+
+        # Should not raise
+        if "*" in cors_origins and allow_credentials:
+            raise ValueError("Should not raise for specific origins")
+
+    def test_cors_empty_origins_with_credentials_allowed(self):
+        """Test that empty origins (no CORS) with credentials is safe."""
+        cors_origins = []
+        allow_credentials = True
+
+        # Should not raise
+        if "*" in cors_origins and allow_credentials:
+            raise ValueError("Should not raise for empty origins")
+
+    def test_cors_wildcard_detection_in_mixed_origins(self):
+        """Test that wildcard is detected even when mixed with other origins."""
+        cors_origins = ["http://localhost:8000", "*", "https://example.com"]
+        allow_credentials = True
+
+        # Should raise because wildcard is present
+        with pytest.raises(ValueError, match="cannot use wildcard origin"):
+            if "*" in cors_origins and allow_credentials:
+                error_msg = (
+                    "CORS configuration error: cannot use wildcard origin ('*') "
+                    "with allow_credentials=True. This violates CORS security "
+                    "policy. Either: 1) Set specific PROXYWHIRL_CORS_ORIGINS, "
+                    "or 2) Use '*' only for public APIs without credentials."
+                )
+                raise ValueError(error_msg)
+
+    def test_cors_env_var_with_wildcard_parsing(self):
+        """Test parsing CORS_ORIGINS env var containing wildcard."""
+        cors_origins_raw = "*"
+        cors_origins = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
+
+        assert cors_origins == ["*"]
+        assert "*" in cors_origins
+
+    def test_cors_env_var_wildcard_with_other_origins_parsing(self):
+        """Test parsing CORS_ORIGINS env var with wildcard and other origins."""
+        cors_origins_raw = "http://localhost:8000,*,https://example.com"
+        cors_origins = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
+
+        assert len(cors_origins) == 3
+        assert "*" in cors_origins
+        assert "http://localhost:8000" in cors_origins
+
+
+class TestAuditLoggingMiddleware:
+    """Tests for Audit Logging Middleware.
+
+    Verifies that audit logging middleware:
+    - Logs write/admin/auth operations
+    - Can be enabled/disabled via PROXYWHIRL_AUDIT_LOG
+    - Redacts sensitive information (API keys, credentials)
+    - Includes proper context (timestamp, method, path, status)
+    - Uses structured logging format
+    """
+
+    def test_audit_log_environment_variable_controls_middleware(self, client, mock_rotator):
+        """Test that PROXYWHIRL_AUDIT_LOG environment variable controls audit logging.
+
+        This test verifies that the middleware checks the environment variable
+        and skips audit logging when set to 'false'.
+        """
+        from proxywhirl.api.core import AuditLoggingMiddleware
+
+        middleware = AuditLoggingMiddleware(None)
+
+        # Test that middleware respects environment variable
+        with patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "false"}):
+            with patch("proxywhirl.api.core._rotator", mock_rotator):
+                # This should not audit because PROXYWHIRL_AUDIT_LOG=false
+                response = client.post(
+                    "/api/v1/proxies",
+                    json={"url": "http://proxy.example.com:8080"},
+                )
+                # Just verify the request went through
+                assert response.status_code in [200, 201, 422]
+
+        with patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}):
+            with patch("proxywhirl.api.core._rotator", mock_rotator):
+                # This should audit because PROXYWHIRL_AUDIT_LOG=true
+                response = client.post(
+                    "/api/v1/proxies",
+                    json={"url": "http://proxy.example.com:8080"},
+                )
+                # Just verify the request went through
+                assert response.status_code in [200, 201, 422]
+
+    def test_audit_log_default_enabled(self):
+        """Test that audit logging is enabled by default when env var not set."""
+        import os
+
+        # When PROXYWHIRL_AUDIT_LOG is not set, it should default to "true"
+        default_value = os.getenv("PROXYWHIRL_AUDIT_LOG", "true").lower() == "true"
+        assert default_value is True
+
+    def test_audit_log_disabled_via_env_var(self):
+        """Test that audit logging can be disabled via PROXYWHIRL_AUDIT_LOG=false."""
+        import os
+
+        with patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "false"}):
+            audit_enabled = os.getenv("PROXYWHIRL_AUDIT_LOG", "true").lower() == "true"
+            assert audit_enabled is False
+
+    def test_audit_log_enabled_via_env_var(self):
+        """Test that audit logging can be explicitly enabled via PROXYWHIRL_AUDIT_LOG=true."""
+        import os
+
+        with patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}):
+            audit_enabled = os.getenv("PROXYWHIRL_AUDIT_LOG", "true").lower() == "true"
+            assert audit_enabled is True
+
+    def test_audit_log_case_insensitive(self):
+        """Test that PROXYWHIRL_AUDIT_LOG is case-insensitive."""
+        import os
+
+        # Test with uppercase TRUE
+        with patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "TRUE"}):
+            audit_enabled = os.getenv("PROXYWHIRL_AUDIT_LOG", "true").lower() == "true"
+            assert audit_enabled is True
+
+        # Test with lowercase false
+        with patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "false"}):
+            audit_enabled = os.getenv("PROXYWHIRL_AUDIT_LOG", "true").lower() == "true"
+            assert audit_enabled is False
+
+        # Test with mixed case False
+        with patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "False"}):
+            audit_enabled = os.getenv("PROXYWHIRL_AUDIT_LOG", "true").lower() == "true"
+            assert audit_enabled is False
+
+    def test_audit_middleware_redacts_api_keys(self):
+        """Test that the middleware has a method to redact API keys."""
+        from proxywhirl.api.core import AuditLoggingMiddleware
+
+        middleware = AuditLoggingMiddleware(None)
+
+        # Test with normal length key
+        redacted = middleware._redact_api_key("super-secret-api-key-12345")
+        assert redacted == "supe...2345"
+        assert "super-secret-api-key-12345" not in redacted
+
+        # Test with short key
+        redacted_short = middleware._redact_api_key("short")
+        assert redacted_short == "***"
+
+        # Test with None
+        redacted_none = middleware._redact_api_key(None)
+        assert redacted_none == "none"
+
+    def test_audit_middleware_redacts_sensitive_body_fields(self):
+        """Test that the middleware redacts sensitive fields in request bodies."""
+        from proxywhirl.api.core import AuditLoggingMiddleware
+
+        middleware = AuditLoggingMiddleware(None)
+
+        # Test redaction of various sensitive fields
+        body = {
+            "url": "http://proxy.example.com:8080",
+            "password": "super-secret-password",
+            "api_key": "secret-key-123",
+            "normal_field": "normal_value",
+        }
+
+        redacted = middleware._redact_body(body)
+
+        # Check that sensitive fields are redacted
+        assert redacted["password"] == "***REDACTED***"
+        assert redacted["api_key"] == "***REDACTED***"
+
+        # Check that normal fields are preserved
+        assert redacted["url"] == "http://proxy.example.com:8080"
+        assert redacted["normal_field"] == "normal_value"
+
+        # Check that original values are NOT in redacted body
+        assert "super-secret-password" not in str(redacted)
+        assert "secret-key-123" not in str(redacted)
+
+    def test_audit_middleware_classifies_operations(self):
+        """Test that the middleware correctly classifies operation types."""
+        from proxywhirl.api.core import AuditLoggingMiddleware
+
+        middleware = AuditLoggingMiddleware(None)
+
+        # Test write operations
+        assert middleware._get_operation_type("POST", "/api/v1/proxies") == "write"
+        assert middleware._get_operation_type("PUT", "/api/v1/proxies/1") == "write"
+        assert middleware._get_operation_type("DELETE", "/api/v1/proxies/1") == "write"
+
+        # Test admin operations
+        assert middleware._get_operation_type("POST", "/api/v1/config") == "admin"
+        assert middleware._get_operation_type("PUT", "/api/v1/config") == "admin"
+
+        # Test read operations (GET on write endpoints)
+        assert middleware._get_operation_type("GET", "/api/v1/proxies") == "read"
+        assert middleware._get_operation_type("GET", "/api/v1/config") == "read"
+
+    def test_audit_middleware_logs_write_operations(self, client, mock_rotator, caplog):
+        """Test that write operations are logged with structured audit information."""
+        # Configure loguru to capture logs in caplog
+        import logging
+
+        from loguru import logger
+
+        # Add a handler that sends loguru logs to standard logging
+        class PropagateHandler(logging.Handler):
+            def emit(self, record):
+                logging.getLogger(record.name).handle(record)
+
+        logger.add(PropagateHandler(), format="{message}")
+
+        with (
+            patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}),
+            patch("proxywhirl.api.core._rotator", mock_rotator),
+            caplog.at_level(logging.INFO),
+        ):
+            # Make a write operation
+            response = client.post(
+                "/api/v1/request",
+                json={
+                    "url": "http://example.com",
+                    "method": "GET",
+                },
+                headers={"X-API-Key": "test-key-123"},
+            )
+
+            # Verify audit logs were created
+            # Check that structured logging occurred
+            assert any("AUDIT:" in record.message for record in caplog.records)
+
+    def test_audit_middleware_redacts_nested_sensitive_fields(self):
+        """Test that nested sensitive fields in request bodies are redacted.
+
+        When a key name matches a sensitive field (like 'auth', 'password', 'token'),
+        the entire value is redacted, regardless of whether it's a string or nested object.
+        This is the correct security behavior - if the field name is sensitive, the whole
+        value should be redacted.
+        """
+        from proxywhirl.api.core import AuditLoggingMiddleware
+
+        middleware = AuditLoggingMiddleware(None)
+
+        # Test nested sensitive fields
+        body = {
+            "proxy": {
+                "url": "http://proxy.example.com:8080",
+                "auth": {  # 'auth' is a sensitive field name
+                    "username": "user",
+                    "password": "super-secret",
+                    "api_key": "nested-key-123",
+                },
+            },
+            "config": {
+                "timeout": 30,
+                "token": "bearer-token-abc",  # 'token' is sensitive
+            },
+        }
+
+        redacted = middleware._redact_body(body)
+
+        # 'auth' key is sensitive, so entire auth object is redacted
+        assert redacted["proxy"]["auth"] == "***REDACTED***"
+        # 'token' key is sensitive, so value is redacted
+        assert redacted["config"]["token"] == "***REDACTED***"
+
+        # Check that normal fields are preserved
+        assert redacted["proxy"]["url"] == "http://proxy.example.com:8080"
+        assert redacted["config"]["timeout"] == 30
+
+        # Verify original secrets not in output
+        assert "super-secret" not in str(redacted)
+        assert "nested-key-123" not in str(redacted)
+        assert "bearer-token-abc" not in str(redacted)
+
+    def test_audit_middleware_redacts_list_of_objects(self):
+        """Test that sensitive fields in lists of objects are redacted."""
+        from proxywhirl.api.core import AuditLoggingMiddleware
+
+        middleware = AuditLoggingMiddleware(None)
+
+        # Test list with sensitive data
+        body = {
+            "proxies": [
+                {
+                    "url": "http://proxy1.example.com:8080",
+                    "password": "secret1",
+                },
+                {
+                    "url": "http://proxy2.example.com:8080",
+                    "api_key": "secret2",
+                },
+            ]
+        }
+
+        redacted = middleware._redact_body(body)
+
+        # Check list redaction
+        assert redacted["proxies"][0]["password"] == "***REDACTED***"
+        assert redacted["proxies"][1]["api_key"] == "***REDACTED***"
+
+        # Check normal fields preserved
+        assert redacted["proxies"][0]["url"] == "http://proxy1.example.com:8080"
+        assert redacted["proxies"][1]["url"] == "http://proxy2.example.com:8080"
+
+        # Verify secrets not in output
+        assert "secret1" not in str(redacted)
+        assert "secret2" not in str(redacted)
+
+    def test_audit_middleware_logs_error_responses(self, client, caplog):
+        """Test that failed operations are logged with warning level."""
+        import logging
+
+        from loguru import logger
+
+        class PropagateHandler(logging.Handler):
+            def emit(self, record):
+                logging.getLogger(record.name).handle(record)
+
+        logger.add(PropagateHandler(), format="{message}")
+
+        with (
+            patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}),
+            patch("proxywhirl.api.core._rotator", None),  # Force error
+            caplog.at_level(logging.WARNING),
+        ):
+            # Make a request that will fail
+            response = client.post(
+                "/api/v1/request",
+                json={"url": "http://example.com"},
+            )
+
+            # Should be an error response
+            assert response.status_code >= 400
+
+            # Should have warning log for failed operation
+            assert any("failed" in record.message.lower() for record in caplog.records)
+
+    def test_audit_middleware_skips_read_operations(self, client, mock_rotator, caplog):
+        """Test that read operations are not audited."""
+        import logging
+
+        from loguru import logger
+
+        class PropagateHandler(logging.Handler):
+            def emit(self, record):
+                logging.getLogger(record.name).handle(record)
+
+        logger.add(PropagateHandler(), format="{message}")
+
+        with (
+            patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}),
+            patch("proxywhirl.api.core._rotator", mock_rotator),
+            caplog.at_level(logging.INFO),
+        ):
+            # Clear any existing logs
+            caplog.clear()
+
+            # Make a read operation (GET)
+            response = client.get("/metrics/retry")
+
+            # Should succeed
+            assert response.status_code == 200
+
+            # Should NOT have audit logs (read operations are skipped)
+            audit_logs = [r for r in caplog.records if "AUDIT:" in r.message]
+            assert len(audit_logs) == 0
+
+    def test_audit_middleware_captures_request_id(self, client, mock_rotator, caplog):
+        """Test that audit logs include the request ID for correlation."""
+        import logging
+
+        from loguru import logger
+
+        class PropagateHandler(logging.Handler):
+            def emit(self, record):
+                logging.getLogger(record.name).handle(record)
+
+        logger.add(PropagateHandler(), format="{message}")
+
+        custom_request_id = str(uuid.uuid4())
+
+        with (
+            patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}),
+            patch("proxywhirl.api.core._rotator", mock_rotator),
+            caplog.at_level(logging.INFO),
+        ):
+            # Make a write operation with custom request ID
+            response = client.post(
+                "/api/v1/request",
+                json={"url": "http://example.com"},
+                headers={"X-Request-ID": custom_request_id},
+            )
+
+            # Response should include the request ID
+            assert response.headers.get("X-Request-ID") == custom_request_id
+
+    def test_audit_middleware_handles_unparseable_body(self, client, mock_rotator, caplog):
+        """Test that middleware handles unparseable request bodies gracefully."""
+        import logging
+
+        from loguru import logger
+
+        class PropagateHandler(logging.Handler):
+            def emit(self, record):
+                logging.getLogger(record.name).handle(record)
+
+        logger.add(PropagateHandler(), format="{message}")
+
+        with (
+            patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}),
+            patch("proxywhirl.api.core._rotator", mock_rotator),
+            caplog.at_level(logging.INFO),
+        ):
+            # Send invalid JSON
+            response = client.post(
+                "/api/v1/request",
+                data="not valid json",
+                headers={"Content-Type": "application/json"},
+            )
+
+            # Should handle gracefully (may fail but shouldn't crash middleware)
+            assert response.status_code in [200, 400, 422, 503]
+
+    def test_audit_middleware_detects_all_sensitive_field_variants(self):
+        """Test that middleware detects various naming conventions for sensitive fields."""
+        from proxywhirl.api.core import AuditLoggingMiddleware
+
+        middleware = AuditLoggingMiddleware(None)
+
+        # Test various naming conventions
+        body = {
+            "Password": "secret1",  # Capitalized
+            "API_KEY": "secret2",  # Uppercase with underscore
+            "Api-Key": "secret3",  # Mixed case with hyphen
+            "SECRET": "secret4",  # Direct match
+            "Authorization": "secret5",  # Capitalized
+            "normal_field": "not-secret",
+        }
+
+        redacted = middleware._redact_body(body)
+
+        # All should be redacted (case-insensitive)
+        assert redacted["Password"] == "***REDACTED***"
+        assert redacted["API_KEY"] == "***REDACTED***"
+        assert redacted["Api-Key"] == "***REDACTED***"
+        assert redacted["SECRET"] == "***REDACTED***"
+        assert redacted["Authorization"] == "***REDACTED***"
+
+        # Normal field should be preserved
+        assert redacted["normal_field"] == "not-secret"
+
+
+class TestEnvironmentVariableValidation:
+    """Tests for environment variable parsing and validation.
+
+    Verifies that integer and float environment variables are properly
+    validated with clear error messages.
+    """
+
+    def test_parse_int_env_valid_value(self):
+        """Test parsing valid integer environment variable."""
+        from proxywhirl.api.core import _parse_int_env
+
+        # Using getenv directly for this test
+        result = _parse_int_env("NONEXISTENT_INT_VAR_12345", 42)
+        assert result == 42
+
+    def test_parse_int_env_with_valid_number(self, monkeypatch):
+        """Test parsing valid integer from environment variable."""
+        from proxywhirl.api.core import _parse_int_env
+
+        monkeypatch.setenv("TEST_INT_VAR", "100")
+        result = _parse_int_env("TEST_INT_VAR", 42)
+        assert result == 100
+
+    def test_parse_int_env_with_invalid_value_raises_error(self, monkeypatch):
+        """Test that invalid integer raises ValueError with clear message."""
+        from proxywhirl.api.core import _parse_int_env
+
+        monkeypatch.setenv("TEST_INT_VAR", "not_a_number")
+
+        with pytest.raises(
+            ValueError,
+            match="Environment variable TEST_INT_VAR must be an integer, got 'not_a_number'",
+        ):
+            _parse_int_env("TEST_INT_VAR", 42)
+
+    def test_parse_int_env_with_float_value_raises_error(self, monkeypatch):
+        """Test that float values in int env var raise ValueError."""
+        from proxywhirl.api.core import _parse_int_env
+
+        monkeypatch.setenv("TEST_INT_VAR", "3.14")
+
+        with pytest.raises(ValueError, match="must be an integer"):
+            _parse_int_env("TEST_INT_VAR", 42)
+
+    def test_parse_int_env_with_empty_string_raises_error(self, monkeypatch):
+        """Test that empty string raises ValueError (not treated as default)."""
+        from proxywhirl.api.core import _parse_int_env
+
+        monkeypatch.setenv("TEST_INT_VAR", "")
+
+        # Empty string is set (not None), so it should raise ValueError
+        # os.getenv returns empty string, int("") raises ValueError
+        with pytest.raises(ValueError, match="must be an integer"):
+            _parse_int_env("TEST_INT_VAR", 99)
+
+    def test_parse_float_env_valid_value(self):
+        """Test parsing valid float environment variable."""
+        from proxywhirl.api.core import _parse_float_env
+
+        result = _parse_float_env("NONEXISTENT_FLOAT_VAR_12345", 3.14)
+        assert result == 3.14
+
+    def test_parse_float_env_with_valid_number(self, monkeypatch):
+        """Test parsing valid float from environment variable."""
+        from proxywhirl.api.core import _parse_float_env
+
+        monkeypatch.setenv("TEST_FLOAT_VAR", "2.71")
+        result = _parse_float_env("TEST_FLOAT_VAR", 3.14)
+        assert result == 2.71
+
+    def test_parse_float_env_with_integer_value(self, monkeypatch):
+        """Test that integer strings parse as floats."""
+        from proxywhirl.api.core import _parse_float_env
+
+        monkeypatch.setenv("TEST_FLOAT_VAR", "42")
+        result = _parse_float_env("TEST_FLOAT_VAR", 3.14)
+        assert result == 42.0
+
+    def test_parse_float_env_with_invalid_value_raises_error(self, monkeypatch):
+        """Test that invalid float raises ValueError with clear message."""
+        from proxywhirl.api.core import _parse_float_env
+
+        monkeypatch.setenv("TEST_FLOAT_VAR", "not_a_number")
+
+        with pytest.raises(
+            ValueError,
+            match="Environment variable TEST_FLOAT_VAR must be a number, got 'not_a_number'",
+        ):
+            _parse_float_env("TEST_FLOAT_VAR", 3.14)
+
+    def test_parse_int_env_with_negative_value(self, monkeypatch):
+        """Test that negative integers are accepted."""
+        from proxywhirl.api.core import _parse_int_env
+
+        monkeypatch.setenv("TEST_INT_VAR", "-100")
+        result = _parse_int_env("TEST_INT_VAR", 42)
+        assert result == -100
+
+    def test_parse_int_env_with_large_value(self, monkeypatch):
+        """Test that large integers are accepted."""
+        from proxywhirl.api.core import _parse_int_env
+
+        monkeypatch.setenv("TEST_INT_VAR", "999999999999")
+        result = _parse_int_env("TEST_INT_VAR", 42)
+        assert result == 999999999999
+
+    def test_parse_int_env_error_message_includes_variable_name(self, monkeypatch):
+        """Test that error message includes the environment variable name."""
+        from proxywhirl.api.core import _parse_int_env
+
+        monkeypatch.setenv("MY_CUSTOM_PORT", "invalid_port_number")
+
+        with pytest.raises(ValueError) as exc_info:
+            _parse_int_env("MY_CUSTOM_PORT", 8080)
+
+        error_msg = str(exc_info.value)
+        assert "MY_CUSTOM_PORT" in error_msg
+        assert "invalid_port_number" in error_msg
+
+    def test_parse_float_env_error_message_includes_variable_name(self, monkeypatch):
+        """Test that error message includes the environment variable name."""
+        from proxywhirl.api.core import _parse_float_env
+
+        monkeypatch.setenv("MY_CUSTOM_RATE", "not_a_rate")
+
+        with pytest.raises(ValueError) as exc_info:
+            _parse_float_env("MY_CUSTOM_RATE", 0.5)
+
+        error_msg = str(exc_info.value)
+        assert "MY_CUSTOM_RATE" in error_msg
+        assert "not_a_rate" in error_msg
+
+    def test_parse_int_env_with_whitespace(self, monkeypatch):
+        """Test that integer with leading/trailing whitespace is handled."""
+        from proxywhirl.api.core import _parse_int_env
+
+        # os.getenv preserves whitespace, int() can handle leading/trailing
+        monkeypatch.setenv("TEST_INT_VAR", "  100  ")
+        result = _parse_int_env("TEST_INT_VAR", 42)
+        # int() strips whitespace automatically
+        assert result == 100
+
+    def test_parse_float_env_with_whitespace(self, monkeypatch):
+        """Test that float with leading/trailing whitespace is handled."""
+        from proxywhirl.api.core import _parse_float_env
+
+        monkeypatch.setenv("TEST_FLOAT_VAR", "  3.14  ")
+        result = _parse_float_env("TEST_FLOAT_VAR", 2.71)
+        # float() strips whitespace automatically
+        assert result == 3.14

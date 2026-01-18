@@ -117,7 +117,8 @@ class TestSessionPersistenceStrategy:
         # (In real implementation, we'll need to access internal session storage)
         import time
 
-        time.sleep(1.1)  # Wait for session to expire
+        # Wait for session to expire (INTENTIONAL: tests real TTL expiration behavior)
+        time.sleep(1.1)
 
         # Second selection after expiration
         second_proxy = strategy.select(pool, context)
@@ -210,3 +211,35 @@ class TestSessionPersistenceStrategy:
         assert proxy.requests_completed == 1
         assert proxy.requests_active == 0
         assert proxy.total_successes == 1
+
+    def test_select_performs_single_session_lookup_on_existing_session(self):
+        """Test that select performs only ONE session lookup for existing sessions.
+
+        This ensures the optimization on line 1291 of core.py is correct:
+        "Update session last_used directly (avoid redundant session lookup)"
+
+        The session.touch() call should NOT trigger another get_session() lookup.
+        """
+        from unittest.mock import patch
+
+        # Arrange
+        pool = ProxyPool(name="test-pool")
+        proxy = Proxy(url="http://proxy1.com:8080", health_status=HealthStatus.HEALTHY)
+        pool.add_proxy(proxy)
+
+        strategy = SessionPersistenceStrategy()
+        context = SelectionContext(session_id="user-123")
+
+        # First selection creates the session
+        strategy.select(pool, context)
+
+        # Act - Track calls to get_session during second selection
+        with patch.object(
+            strategy._session_manager, "get_session", wraps=strategy._session_manager.get_session
+        ) as mock_get_session:
+            selected = strategy.select(pool, context)
+
+            # Assert
+            # Should only call get_session ONCE, not multiple times
+            assert mock_get_session.call_count == 1
+            assert selected.url == "http://proxy1.com:8080"

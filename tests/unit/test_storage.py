@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 import pytest
+import sqlalchemy as sa
 
 from proxywhirl.models import Proxy, StorageBackend
 
@@ -760,6 +761,154 @@ class TestSQLiteStorage:
 
             await storage.close()
 
+    async def test_sqlite_storage_credential_encryption_roundtrip(self) -> None:
+        """Test that credentials are encrypted at rest in SQLite and decrypted on load."""
+        import os
+        import sqlite3
+
+        from cryptography.fernet import Fernet
+
+        from proxywhirl.storage import SQLiteStorage
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+
+            # Set encryption key in environment
+            encryption_key = Fernet.generate_key().decode("utf-8")
+            os.environ["PROXYWHIRL_CACHE_ENCRYPTION_KEY"] = encryption_key
+
+            try:
+                storage = SQLiteStorage(db_path)
+                await storage.initialize()
+
+                # Create proxy with sensitive credentials
+                proxy = Proxy(
+                    url="http://proxy.example.com:8080",
+                    username="sensitive_user",
+                    password="super_secret_password_123",
+                )
+
+                # Save proxy (credentials should be encrypted)
+                await storage.save([proxy])
+
+                # Directly query database to verify credentials are encrypted
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT username, password FROM proxies WHERE url=?", (proxy.url,))
+                db_username, db_password = cursor.fetchone()
+                conn.close()
+
+                # Verify credentials are NOT stored in plaintext
+                assert db_username is not None
+                assert db_password is not None
+                assert "sensitive_user" not in db_username
+                assert "super_secret_password_123" not in db_password
+                # Verify encrypted prefix is present
+                assert db_username.startswith("encrypted:")
+                assert db_password.startswith("encrypted:")
+
+                # Load proxy and verify credentials are decrypted correctly
+                loaded = await storage.load()
+                assert len(loaded) == 1
+                assert loaded[0].username.get_secret_value() == "sensitive_user"
+                assert loaded[0].password.get_secret_value() == "super_secret_password_123"
+
+                await storage.close()
+            finally:
+                # Clean up environment variable
+                if "PROXYWHIRL_CACHE_ENCRYPTION_KEY" in os.environ:
+                    del os.environ["PROXYWHIRL_CACHE_ENCRYPTION_KEY"]
+
+    async def test_sqlite_storage_encryption_with_no_credentials(self) -> None:
+        """Test that proxies without credentials work correctly with encryption enabled."""
+        import os
+
+        from cryptography.fernet import Fernet
+
+        from proxywhirl.storage import SQLiteStorage
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+
+            # Set encryption key
+            encryption_key = Fernet.generate_key().decode("utf-8")
+            os.environ["PROXYWHIRL_CACHE_ENCRYPTION_KEY"] = encryption_key
+
+            try:
+                storage = SQLiteStorage(db_path)
+                await storage.initialize()
+
+                # Create proxy without credentials
+                proxy = Proxy(url="http://proxy.example.com:8080")
+
+                await storage.save([proxy])
+                loaded = await storage.load()
+
+                assert len(loaded) == 1
+                assert loaded[0].username is None
+                assert loaded[0].password is None
+
+                await storage.close()
+            finally:
+                if "PROXYWHIRL_CACHE_ENCRYPTION_KEY" in os.environ:
+                    del os.environ["PROXYWHIRL_CACHE_ENCRYPTION_KEY"]
+
+    async def test_sqlite_storage_legacy_plaintext_credentials(self) -> None:
+        """Test that legacy unencrypted credentials can still be read."""
+        import sqlite3
+        from uuid import uuid4
+
+        from proxywhirl.storage import SQLiteStorage
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+
+            # Create database without encryption
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+
+            # Insert plaintext credentials directly into database (simulating legacy data)
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            proxy_id = str(uuid4())
+            cursor.execute(
+                """
+                INSERT INTO proxies (
+                    url, id, username, password, health_status, source,
+                    metadata_json, created_at, updated_at,
+                    total_checks, total_health_failures, consecutive_successes,
+                    consecutive_failures, recovery_attempt, requests_started,
+                    requests_completed, requests_active, total_requests,
+                    total_successes, total_failures, ema_alpha,
+                    window_duration_seconds, response_samples_count,
+                    timeout_count, connection_refused_count, ssl_error_count,
+                    http_4xx_count, http_5xx_count, revival_attempts
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'),
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.2, 3600, 0,
+                        0, 0, 0, 0, 0, 0)
+                """,
+                (
+                    "http://legacy.example.com:8080",
+                    proxy_id,
+                    "plaintext_user",  # Not encrypted
+                    "plaintext_pass",  # Not encrypted
+                    "unknown",
+                    "user",
+                    "{}",
+                ),
+            )
+            conn.commit()
+            conn.close()
+
+            # Load and verify plaintext credentials are read correctly
+            loaded = await storage.load()
+            assert len(loaded) == 1
+            assert loaded[0].username.get_secret_value() == "plaintext_user"
+            assert loaded[0].password.get_secret_value() == "plaintext_pass"
+
+            await storage.close()
+
 
 class TestProxyTable:
     """Test ProxyTable SQLModel."""
@@ -819,6 +968,154 @@ class TestProxyTableNewFields:
             assert loaded[0].id == test_uuid
 
             await storage.close()
+
+    async def test_none_id_generates_new_uuid(self, caplog) -> None:
+        """Test that proxies with None ID get a new UUID generated.
+
+        This test validates the UUID validation logic in _validate_row_id(),
+        which handles the case where a database row has a NULL id field.
+        A warning should be logged and a new UUID generated during conversion.
+        """
+        import logging
+        from uuid import UUID
+
+        from loguru import logger
+
+        from proxywhirl.models import Proxy
+        from proxywhirl.storage import ProxyTable, SQLiteStorage
+
+        # Configure loguru to capture logs in caplog
+        class PropagateHandler(logging.Handler):
+            def emit(self, record):
+                logging.getLogger(record.name).handle(record)
+
+        handler_id = logger.add(PropagateHandler(), format="{message}")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+
+            # Create and save a proxy
+            proxy = Proxy(url="http://proxy.example.com:8080")
+            await storage.save([proxy])
+
+            # Manually set the ID to NULL in the database to simulate corrupted data
+            async with storage.engine.begin() as conn:
+                await conn.execute(
+                    sa.update(ProxyTable)
+                    .where(ProxyTable.url == "http://proxy.example.com:8080")
+                    .values(id=None)
+                )
+
+            # Clear caplog to avoid capturing previous logs
+            caplog.clear()
+
+            with caplog.at_level(logging.WARNING):
+                # Load the proxy - should trigger warning and regenerate UUID
+                loaded = await storage.load()
+
+            # Verify warning was logged
+            assert any(
+                "Proxy row has no ID" in record.message and record.levelname == "WARNING"
+                for record in caplog.records
+            ), "Expected warning about missing ID not found in logs"
+
+            # Verify we have exactly one proxy
+            assert len(loaded) == 1
+            loaded_proxy = loaded[0]
+
+            # Verify the ID is a valid UUID
+            assert loaded_proxy.id is not None
+            assert isinstance(loaded_proxy.id, UUID)
+
+            # Save the proxy with the new UUID to persist it
+            await storage.save(loaded)
+
+            # Verify the ID is preserved on subsequent loads (no more warnings)
+            caplog.clear()
+            with caplog.at_level(logging.WARNING):
+                loaded_again = await storage.load()
+
+            # No new warnings should be logged since ID is now saved
+            assert not any(
+                "Proxy row has no ID" in record.message and record.levelname == "WARNING"
+                for record in caplog.records
+            ), "Unexpected warning about missing ID after saving"
+
+            assert len(loaded_again) == 1
+            assert loaded_again[0].id == loaded_proxy.id
+
+            await storage.close()
+
+        # Clean up loguru handler
+        logger.remove(handler_id)
+
+    async def test_invalid_uuid_format_regenerated(self, caplog) -> None:
+        """Test that invalid UUID formats in database are regenerated.
+
+        This test ensures the _validate_row_id() method properly handles
+        corrupted UUID values in the database by logging an error and
+        generating a new valid UUID.
+        """
+        import logging
+        from uuid import UUID
+
+        from loguru import logger
+
+        from proxywhirl.models import Proxy
+        from proxywhirl.storage import ProxyTable, SQLiteStorage
+
+        # Configure loguru to capture logs in caplog
+        class PropagateHandler(logging.Handler):
+            def emit(self, record):
+                logging.getLogger(record.name).handle(record)
+
+        handler_id = logger.add(PropagateHandler(), format="{message}")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+
+            # First, save a valid proxy
+            proxy = Proxy(url="http://proxy.example.com:8080")
+            await storage.save([proxy])
+
+            # Now manually corrupt the ID in the database
+            async with storage.engine.begin() as conn:
+                await conn.execute(
+                    sa.update(ProxyTable)
+                    .where(ProxyTable.url == "http://proxy.example.com:8080")
+                    .values(id="invalid-uuid-string")
+                )
+
+            # Clear caplog to avoid capturing previous logs
+            caplog.clear()
+
+            with caplog.at_level(logging.ERROR):
+                # Load the proxy - should handle the invalid UUID and log error
+                loaded = await storage.load()
+
+            # Verify error was logged for invalid UUID format
+            assert any(
+                "Invalid UUID format in database row" in record.message
+                and record.levelname == "ERROR"
+                for record in caplog.records
+            ), "Expected error about invalid UUID format not found in logs"
+
+            # Verify we have exactly one proxy
+            assert len(loaded) == 1
+            loaded_proxy = loaded[0]
+
+            # Verify the ID was regenerated as a valid UUID
+            assert loaded_proxy.id is not None
+            assert isinstance(loaded_proxy.id, UUID)
+
+            await storage.close()
+
+        # Clean up loguru handler
+        logger.remove(handler_id)
 
     async def test_tags_json_serialization(self) -> None:
         """Test tags are properly serialized as JSON and deserialized back to set."""

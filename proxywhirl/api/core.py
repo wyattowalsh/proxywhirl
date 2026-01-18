@@ -68,6 +68,53 @@ from proxywhirl.rotator import ProxyRotator
 from proxywhirl.storage import SQLiteStorage
 from proxywhirl.utils import validate_target_url_safe
 
+
+def _parse_int_env(name: str, default: int) -> int:
+    """Parse an integer environment variable with validation.
+
+    Args:
+        name: Environment variable name
+        default: Default value if not set
+
+    Returns:
+        Parsed integer value
+
+    Raises:
+        ValueError: If value is set but not a valid integer
+    """
+    value = os.getenv(name)
+    if value is None:
+        return default
+
+    try:
+        return int(value)
+    except ValueError as e:
+        raise ValueError(f"Environment variable {name} must be an integer, got '{value}'") from e
+
+
+def _parse_float_env(name: str, default: float) -> float:
+    """Parse a float environment variable with validation.
+
+    Args:
+        name: Environment variable name
+        default: Default value if not set
+
+    Returns:
+        Parsed float value
+
+    Raises:
+        ValueError: If value is set but not a valid float
+    """
+    value = os.getenv(name)
+    if value is None:
+        return default
+
+    try:
+        return float(value)
+    except ValueError as e:
+        raise ValueError(f"Environment variable {name} must be a number, got '{value}'") from e
+
+
 # Global singleton instances
 _rotator: ProxyRotator | None = None
 _storage: SQLiteStorage | None = None
@@ -297,8 +344,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     ]
     _config = {
         "rotation_strategy": os.getenv("PROXYWHIRL_STRATEGY", "round-robin"),
-        "timeout": int(os.getenv("PROXYWHIRL_TIMEOUT", "30")),
-        "max_retries": int(os.getenv("PROXYWHIRL_MAX_RETRIES", "3")),
+        "timeout": _parse_int_env("PROXYWHIRL_TIMEOUT", 30),
+        "max_retries": _parse_int_env("PROXYWHIRL_MAX_RETRIES", 3),
         "rate_limits": {
             "default_limit": 100,
             "request_endpoint_limit": 50,
@@ -354,7 +401,24 @@ cors_origins = [
     if origin.strip()  # Filter empty strings from trailing commas or double commas
 ]
 
-# Warn if wildcard CORS is configured
+# Security: Validate CORS configuration
+# SEC-003: Wildcard CORS with credentials is a security vulnerability (CVE-like)
+# The browser will reject `Access-Control-Allow-Origin: *` with credentials anyway,
+# but we enforce safe defaults at the application level.
+allow_credentials = True
+
+# Validate: wildcard origins + credentials = error
+if "*" in cors_origins and allow_credentials:
+    error_msg = (
+        "CORS configuration error: cannot use wildcard origin ('*') "
+        "with allow_credentials=True. This violates CORS security policy. "
+        "Either: 1) Set specific PROXYWHIRL_CORS_ORIGINS, "
+        "or 2) Use '*' only for public APIs without credentials."
+    )
+    logger.error(error_msg)
+    raise ValueError(error_msg)
+
+# Default to no CORS if wildcard is explicitly set (fail-safe)
 if "*" in cors_origins:
     logger.warning(
         "CORS is configured to allow all origins (*). "
@@ -365,7 +429,7 @@ if "*" in cors_origins:
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
+    allow_credentials=allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -417,6 +481,168 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
 
         # Include in response headers
         response.headers["X-Request-ID"] = request_id
+        return response
+
+
+# Audit logging middleware for security-sensitive operations
+class AuditLoggingMiddleware(BaseHTTPMiddleware):
+    """Structured audit logging for API operations.
+
+    Provides security audit trail including:
+    - Authentication context (API key used, redacted)
+    - Operation classification (read, write, admin, auth)
+    - Resource identification for mutating operations
+    - Request body logging for writes (with sensitive data redaction)
+
+    All logs use structured JSON format for easy parsing by SIEM tools.
+    """
+
+    # Paths that require audit logging
+    AUDIT_PATHS = {
+        # Admin/config operations
+        "/api/v1/config": "admin",
+        # Write operations
+        "/api/v1/proxies": "write",
+        "/api/v1/request": "write",
+        # Auth-related
+        "/api/v1/auth": "auth",
+    }
+
+    # Sensitive fields to redact in request bodies
+    SENSITIVE_FIELDS = frozenset(
+        {
+            "password",
+            "api_key",
+            "apikey",
+            "api-key",
+            "secret",
+            "token",
+            "auth",
+            "authorization",
+            "credential",
+            "key",
+        }
+    )
+
+    def _get_operation_type(self, method: str, path: str) -> str:
+        """Classify the operation type for audit purposes."""
+        # Check specific paths first
+        for audit_path, op_type in self.AUDIT_PATHS.items():
+            if path.startswith(audit_path):
+                if method in ("POST", "PUT", "PATCH", "DELETE"):
+                    return op_type
+                return "read"
+
+        # Default classification by method
+        if method in ("POST", "PUT", "PATCH", "DELETE"):
+            return "write"
+        return "read"
+
+    def _redact_api_key(self, api_key: str | None) -> str:
+        """Redact API key for safe logging (show first/last 4 chars)."""
+        if not api_key:
+            return "none"
+        if len(api_key) <= 8:
+            return "***"
+        return f"{api_key[:4]}...{api_key[-4:]}"
+
+    def _redact_body(self, body: dict[str, Any]) -> dict[str, Any]:
+        """Recursively redact sensitive fields in request body."""
+        redacted = {}
+        for key, value in body.items():
+            if key.lower() in self.SENSITIVE_FIELDS:
+                redacted[key] = "***REDACTED***"
+            elif isinstance(value, dict):
+                redacted[key] = self._redact_body(value)
+            elif isinstance(value, list):
+                redacted[key] = [self._redact_body(v) if isinstance(v, dict) else v for v in value]
+            else:
+                redacted[key] = value
+        return redacted
+
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
+        """Process request and emit audit log for sensitive operations."""
+        # Check if audit logging is enabled via environment variable
+        audit_enabled = os.getenv("PROXYWHIRL_AUDIT_LOG", "true").lower() == "true"
+        if not audit_enabled:
+            return await call_next(request)
+
+        path = str(request.url.path)
+        method = request.method
+
+        # Skip audit logging for non-API paths and GET requests to non-sensitive endpoints
+        if not path.startswith("/api/"):
+            return await call_next(request)
+
+        operation_type = self._get_operation_type(method, path)
+
+        # Only audit write/admin/auth operations
+        if operation_type == "read":
+            return await call_next(request)
+
+        # Extract audit context
+        client_ip = request.client.host if request.client else "unknown"
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            client_ip = forwarded_for.split(",")[0].strip()
+
+        api_key = request.headers.get("X-API-Key")
+        request_id = request.headers.get("X-Request-ID", "unknown")
+
+        # Try to capture request body for mutating operations
+        body_summary = None
+        if method in ("POST", "PUT", "PATCH"):
+            try:
+                body_bytes = await request.body()
+                if body_bytes:
+                    import json
+
+                    body = json.loads(body_bytes)
+                    body_summary = self._redact_body(body)
+            except Exception:
+                body_summary = {"_parse_error": "Could not parse request body"}
+
+        # Emit audit log before processing
+        logger.bind(
+            event="audit",
+            audit_type="api_request",
+            operation=operation_type,
+            method=method,
+            path=path,
+            client_ip=client_ip,
+            api_key_used=self._redact_api_key(api_key),
+            request_id=request_id,
+            body_summary=body_summary,
+        ).info(f"AUDIT: {operation_type.upper()} operation {method} {path}")
+
+        # Process request
+        response = await call_next(request)
+
+        # Log outcome for write operations
+        if response.status_code >= 400:
+            logger.bind(
+                event="audit",
+                audit_type="api_response",
+                operation=operation_type,
+                method=method,
+                path=path,
+                client_ip=client_ip,
+                request_id=request_id,
+                status_code=response.status_code,
+                success=False,
+            ).warning(f"AUDIT: {operation_type.upper()} operation failed: {response.status_code}")
+        else:
+            logger.bind(
+                event="audit",
+                audit_type="api_response",
+                operation=operation_type,
+                method=method,
+                path=path,
+                request_id=request_id,
+                status_code=response.status_code,
+                success=True,
+            ).info(f"AUDIT: {operation_type.upper()} operation succeeded: {response.status_code}")
+
         return response
 
 
@@ -536,6 +762,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIDMiddleware)
+app.add_middleware(AuditLoggingMiddleware)  # Runs first (added last)
 
 
 # Exception handlers

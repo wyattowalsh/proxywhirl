@@ -319,10 +319,6 @@ class RoundRobinStrategy:
 
         proxy = healthy_proxies[index]
 
-        # Apply strategy configuration to proxy (e.g., ema_alpha)
-        if self.config is not None:
-            proxy.ema_alpha = self.config.ema_alpha
-
         # Update proxy metadata to track request start
         proxy.start_request()
 
@@ -362,8 +358,9 @@ class RoundRobinStrategy:
             success: Whether the request succeeded
             response_time_ms: Response time in milliseconds
         """
-        # Use complete_request which handles both metrics update and success/failure recording
-        proxy.complete_request(success=success, response_time_ms=response_time_ms)
+        # Pass strategy's alpha to avoid mutating proxy state
+        alpha = self.config.ema_alpha if self.config is not None else None
+        proxy.complete_request(success=success, response_time_ms=response_time_ms, alpha=alpha)
 
 
 class RandomStrategy:
@@ -413,10 +410,6 @@ class RandomStrategy:
 
         proxy = random.choice(healthy_proxies)
 
-        # Apply strategy configuration to proxy (e.g., ema_alpha)
-        if self.config is not None:
-            proxy.ema_alpha = self.config.ema_alpha
-
         # Update proxy metadata to track request start
         proxy.start_request()
 
@@ -432,7 +425,9 @@ class RandomStrategy:
 
     def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
         """Record the result of using a proxy."""
-        proxy.complete_request(success=success, response_time_ms=response_time_ms)
+        # Pass strategy's alpha to avoid mutating proxy state
+        alpha = self.config.ema_alpha if self.config is not None else None
+        proxy.complete_request(success=success, response_time_ms=response_time_ms, alpha=alpha)
 
 
 class WeightedStrategy:
@@ -593,10 +588,6 @@ class WeightedStrategy:
         # Use random.choices for weighted selection
         selected = random.choices(healthy_proxies, weights=weights, k=1)[0]
 
-        # Apply strategy configuration to proxy (e.g., ema_alpha)
-        if self.config is not None:
-            selected.ema_alpha = self.config.ema_alpha
-
         # Update proxy metadata to track request start
         selected.start_request()
 
@@ -636,15 +627,29 @@ class WeightedStrategy:
         Updates proxy statistics based on request outcome and invalidates the
         weight cache since success rates may have changed.
 
+        Thread-safe: Uses cache lock to ensure atomic invalidation and update,
+        preventing race conditions where another thread could select using
+        stale weights while proxy stats are being updated.
+
         Args:
             proxy: The proxy that was used
             success: Whether the request succeeded
             response_time_ms: Response time in milliseconds
         """
-        # Use complete_request for proper tracking
-        proxy.complete_request(success=success, response_time_ms=response_time_ms)
-        # Invalidate cache since success rate may have changed
-        self._invalidate_cache()
+        # Use cache lock to ensure atomic invalidation + update
+        # This prevents race conditions where another thread could:
+        # 1. Read the old cached weights
+        # 2. While we're updating proxy stats (success_rate)
+        # 3. Before we invalidate the cache
+        with self._cache_lock:
+            # Invalidate cache FIRST (before updating stats)
+            self._cache_valid = False
+            self._cached_weights = None
+            self._cached_proxy_ids = None
+            # Now update proxy stats (while holding lock)
+            # Pass strategy's alpha to avoid mutating proxy state
+            alpha = self.config.ema_alpha if self.config is not None else None
+            proxy.complete_request(success=success, response_time_ms=response_time_ms, alpha=alpha)
 
 
 class LeastUsedStrategy:
@@ -762,10 +767,6 @@ class LeastUsedStrategy:
                     # Note: This proxy's requests_started will be incremented,
                     # so we rebuild heap on next call when composition changes
 
-                    # Apply strategy configuration to proxy (e.g., ema_alpha)
-                    if self.config is not None:
-                        proxy.ema_alpha = self.config.ema_alpha
-
                     # Update proxy metadata to track request start (atomic with selection)
                     proxy.start_request()
 
@@ -782,10 +783,6 @@ class LeastUsedStrategy:
 
             # Extract minimum from rebuilt heap
             requests_started, proxy_id, proxy = heapq.heappop(self._heap)
-
-            # Apply strategy configuration to proxy (e.g., ema_alpha)
-            if self.config is not None:
-                proxy.ema_alpha = self.config.ema_alpha
 
             # Update proxy metadata to track request start (atomic with selection)
             proxy.start_request()
@@ -814,7 +811,9 @@ class LeastUsedStrategy:
 
     def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
         """Record the result of using a proxy."""
-        proxy.complete_request(success=success, response_time_ms=response_time_ms)
+        # Pass strategy's alpha to avoid mutating proxy state
+        alpha = self.config.ema_alpha if self.config is not None else None
+        proxy.complete_request(success=success, response_time_ms=response_time_ms, alpha=alpha)
 
 
 class PerformanceBasedStrategy:
@@ -905,10 +904,6 @@ class PerformanceBasedStrategy:
             # (e.g., all requests failed). Fall back to random selection.
             selected = random.choice(healthy_proxies)
 
-        # Apply strategy configuration to proxy (e.g., ema_alpha)
-        if self.config is not None:
-            selected.ema_alpha = self.config.ema_alpha
-
         # Track request start
         selected.start_request()
 
@@ -944,16 +939,17 @@ class PerformanceBasedStrategy:
         """
         Record the result of using a proxy.
 
-        The EMA is automatically updated by proxy.complete_request() using
-        the proxy's configured ema_alpha value.
+        The EMA is updated using the strategy's configured alpha value,
+        ensuring consistent metric calculations regardless of proxy state.
 
         Args:
             proxy: The proxy that was used
             success: Whether the request succeeded
             response_time_ms: Response time in milliseconds
         """
-        # Complete the request (handles EMA update internally)
-        proxy.complete_request(success=success, response_time_ms=response_time_ms)
+        # Pass strategy's alpha to avoid mutating proxy state
+        alpha = self.config.ema_alpha if self.config is not None else None
+        proxy.complete_request(success=success, response_time_ms=response_time_ms, alpha=alpha)
 
 
 # ============================================================================
@@ -1292,12 +1288,8 @@ class SessionPersistenceStrategy:
                     HealthStatus.HEALTHY,
                     HealthStatus.UNKNOWN,
                 ):
-                    # Update session last_used
-                    self._session_manager.touch_session(session_id)
-                    # Apply strategy configuration to proxy (e.g., ema_alpha)
-                    # Note: We configure even cached sessions to ensure consistency
-                    if hasattr(self, "config") and self.config is not None:
-                        assigned_proxy.ema_alpha = self.config.ema_alpha
+                    # Update session last_used directly (avoid redundant session lookup)
+                    session.touch()
                     # Mark proxy as in-use
                     assigned_proxy.start_request()
                     return assigned_proxy
@@ -1327,10 +1319,6 @@ class SessionPersistenceStrategy:
             session_id=session_id, proxy=new_proxy, timeout_seconds=self._session_timeout_seconds
         )
 
-        # Apply strategy configuration to proxy (e.g., ema_alpha)
-        if hasattr(self, "config") and self.config is not None:
-            new_proxy.ema_alpha = self.config.ema_alpha
-
         # Mark proxy as in-use
         new_proxy.start_request()
 
@@ -1347,7 +1335,11 @@ class SessionPersistenceStrategy:
             success: Whether the request succeeded
             response_time_ms: Response time in milliseconds
         """
-        proxy.complete_request(success=success, response_time_ms=response_time_ms)
+        # Pass strategy's alpha to avoid mutating proxy state
+        alpha = (
+            self.config.ema_alpha if hasattr(self, "config") and self.config is not None else None
+        )
+        proxy.complete_request(success=success, response_time_ms=response_time_ms, alpha=alpha)
 
     def close_session(self, session_id: str) -> None:
         """
@@ -1536,10 +1528,6 @@ class GeoTargetedStrategy:
         temp_pool = ProxyPool(name="geo_filtered", proxies=filtered_proxies)
         selected_proxy = self._secondary_strategy.select(temp_pool)
 
-        # Apply strategy configuration to proxy (e.g., ema_alpha)
-        if self.config is not None:
-            selected_proxy.ema_alpha = self.config.ema_alpha
-
         # Mark proxy as in-use
         selected_proxy.start_request()
 
@@ -1556,7 +1544,9 @@ class GeoTargetedStrategy:
             success: Whether the request succeeded
             response_time_ms: Response time in milliseconds
         """
-        proxy.complete_request(success=success, response_time_ms=response_time_ms)
+        # Pass strategy's alpha to avoid mutating proxy state
+        alpha = self.config.ema_alpha if self.config is not None else None
+        proxy.complete_request(success=success, response_time_ms=response_time_ms, alpha=alpha)
 
 
 class CostAwareStrategy:
@@ -1714,7 +1704,9 @@ class CostAwareStrategy:
             success: Whether the request succeeded
             response_time_ms: Response time in milliseconds
         """
-        proxy.complete_request(success=success, response_time_ms=response_time_ms)
+        # Pass strategy's alpha to avoid mutating proxy state
+        alpha = self.config.ema_alpha if self.config is not None else None
+        proxy.complete_request(success=success, response_time_ms=response_time_ms, alpha=alpha)
 
 
 class CompositeStrategy:

@@ -152,7 +152,7 @@ class TestSessionTTLExpiration:
         retrieved = manager.get_session(session_id)
         assert retrieved is not None, "Session should exist immediately after creation"
 
-        # Wait for TTL to expire
+        # Wait for TTL to expire (INTENTIONAL: property-based test of TTL semantics)
         time.sleep(ttl + 0.5)
 
         # Session should no longer be available
@@ -206,7 +206,7 @@ class TestSessionTTLExpiration:
             manager.create_session(sid, proxy, timeout_seconds=long_ttl)
             long_ttl_ids.append(sid)
 
-        # Wait for short TTL sessions to expire
+        # Wait for short TTL sessions to expire (INTENTIONAL: property-based test)
         time.sleep(short_ttl + 0.5)
 
         # Run cleanup
@@ -307,7 +307,7 @@ class TestSessionDataPreservation:
 
         initial_last_used = session.last_used_at
 
-        # Small delay to ensure timestamp differs
+        # Small delay to ensure timestamp differs (INTENTIONAL: verify timestamp changes)
         time.sleep(0.01)
 
         # Touch the session

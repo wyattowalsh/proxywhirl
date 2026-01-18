@@ -2,18 +2,26 @@
 
 from __future__ import annotations
 
+import base64
 import json
 from datetime import date as Date  # noqa: N812
 from datetime import datetime
 from pathlib import Path
+from uuid import UUID
 
 import aiofiles
 import sqlalchemy as sa
 from cryptography.fernet import Fernet
+from loguru import logger
+from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlmodel import Field, SQLModel, select
 
+from proxywhirl.cache.crypto import CredentialEncryptor
 from proxywhirl.models import Proxy
+
+# Prefix for encrypted credentials stored as strings
+_ENCRYPTED_PREFIX = "encrypted:"
 
 
 class ProxyTable(SQLModel, table=True):
@@ -569,6 +577,90 @@ class SQLiteStorage:
             echo=False,
         )
 
+        # Initialize credential encryptor for secure credential storage
+        self._encryptor: CredentialEncryptor | None = None
+        self._init_encryptor()
+
+    def _init_encryptor(self) -> None:
+        """Initialize the credential encryptor.
+
+        Creates a CredentialEncryptor using environment-based keys.
+        Logs a warning if encryption is not configured (credentials will be stored unencrypted).
+        """
+        try:
+            self._encryptor = CredentialEncryptor()
+            logger.debug("Credential encryption initialized for SQLite storage")
+        except Exception as e:
+            logger.warning(
+                f"Credential encryption not available, storing credentials unencrypted: {e}"
+            )
+            self._encryptor = None
+
+    def _encrypt_credential(self, value: str | None) -> str | None:
+        """Encrypt a credential value for storage.
+
+        Args:
+            value: Plaintext credential value (or None)
+
+        Returns:
+            Encrypted credential as prefixed base64 string, or None if input is None.
+            If encryption is not configured, returns plaintext value.
+        """
+        if value is None:
+            return None
+
+        if self._encryptor is None:
+            # Encryption not configured, store plaintext (with warning logged at init)
+            return value
+
+        try:
+            encrypted_bytes = self._encryptor.encrypt(SecretStr(value))
+            if not encrypted_bytes:
+                return None
+            # Encode as base64 string with prefix for storage in TEXT column
+            encoded = base64.b64encode(encrypted_bytes).decode("utf-8")
+            return f"{_ENCRYPTED_PREFIX}{encoded}"
+        except Exception as e:
+            logger.error(f"Failed to encrypt credential, storing unencrypted: {e}")
+            return value
+
+    def _decrypt_credential(self, value: str | None) -> str | None:
+        """Decrypt a credential value from storage.
+
+        Args:
+            value: Stored credential value (encrypted with prefix or plaintext legacy)
+
+        Returns:
+            Decrypted plaintext credential, or None if input is None.
+            Handles legacy unencrypted values gracefully.
+        """
+        if value is None:
+            return None
+
+        # Check if value is encrypted (has prefix)
+        if not value.startswith(_ENCRYPTED_PREFIX):
+            # Legacy plaintext value - return as-is
+            logger.debug("Found legacy unencrypted credential in storage")
+            return value
+
+        if self._encryptor is None:
+            logger.error(
+                "Cannot decrypt credential: encryptor not configured. "
+                "Set PROXYWHIRL_CACHE_ENCRYPTION_KEY environment variable."
+            )
+            return None
+
+        try:
+            # Remove prefix and decode base64
+            encoded = value[len(_ENCRYPTED_PREFIX) :]
+            encrypted_bytes = base64.b64decode(encoded)
+            # Decrypt
+            decrypted = self._encryptor.decrypt(encrypted_bytes)
+            return decrypted.get_secret_value() if decrypted else None
+        except Exception as e:
+            logger.error(f"Failed to decrypt credential: {e}")
+            return None
+
     async def initialize(self) -> None:
         """Create database tables if they don't exist.
 
@@ -616,14 +708,18 @@ class SQLiteStorage:
         if "health_status_transitions" in proxy.metadata:
             health_status_transitions_json = json.dumps(proxy.metadata["health_status_transitions"])
 
+        # Encrypt credentials before storage
+        username_raw = proxy.username.get_secret_value() if proxy.username else None
+        password_raw = proxy.password.get_secret_value() if proxy.password else None
+
         return ProxyTable(
             # Primary and Secondary Keys
             url=proxy.url,
             id=str(proxy.id),
             # Core Fields
             protocol=proxy.protocol,
-            username=proxy.username.get_secret_value() if proxy.username else None,
-            password=proxy.password.get_secret_value() if proxy.password else None,
+            username=self._encrypt_credential(username_raw),
+            password=self._encrypt_credential(password_raw),
             # Health Status
             health_status=proxy.health_status.value,
             last_success_at=proxy.last_success_at,
@@ -996,8 +1092,8 @@ class SQLiteStorage:
             "url": row.url,
             # Core Fields
             "protocol": row.protocol,
-            "username": row.username,
-            "password": row.password,
+            "username": self._decrypt_credential(row.username),
+            "password": self._decrypt_credential(row.password),
             # Health Status
             "health_status": row.health_status,
             "last_success_at": row.last_success_at,
@@ -1040,6 +1136,33 @@ class SQLiteStorage:
             "updated_at": row.updated_at,
         }
 
+    def _validate_row_id(self, row: ProxyTable) -> str | None:
+        """Validate that row.id is a valid UUID string.
+
+        Args:
+            row: Database row to validate
+
+        Returns:
+            Valid UUID string or None if invalid/missing
+
+        Note:
+            Logs warnings for invalid IDs to help identify data integrity issues.
+        """
+        if row.id is None:
+            logger.warning(f"Proxy row has no ID (url={row.url}). A new UUID will be generated.")
+            return None
+
+        try:
+            # Validate UUID format by parsing it
+            UUID(row.id)
+            return row.id
+        except (ValueError, TypeError) as e:
+            logger.error(
+                f"Invalid UUID format in database row (id={row.id!r}, url={row.url}): {e}. "
+                "A new UUID will be generated."
+            )
+            return None
+
     def _convert_row_to_proxy(self, row: ProxyTable) -> Proxy:
         """Convert a single ProxyTable row to Proxy object.
 
@@ -1049,6 +1172,9 @@ class SQLiteStorage:
         Returns:
             Proxy object
         """
+        # Validate row ID before conversion
+        validated_id = self._validate_row_id(row)
+
         # Deserialize tags from JSON
         tags = set(json.loads(row.tags_json)) if row.tags_json else set()
 
@@ -1058,6 +1184,12 @@ class SQLiteStorage:
 
         # Build proxy data and validate
         proxy_data = self._build_proxy_data(row, tags, metadata)
+        # Override the id with validated value if valid; if None, Pydantic will use default_factory
+        if validated_id is not None:
+            proxy_data["id"] = validated_id
+        else:
+            # Remove id from proxy_data to allow Pydantic's default_factory=uuid4 to generate a new UUID
+            proxy_data.pop("id", None)
         return Proxy.model_validate(proxy_data)
 
     def _process_results(self, rows: list[ProxyTable]) -> list[Proxy]:
@@ -1119,3 +1251,27 @@ class SQLiteStorage:
             stmt = delete(ProxyTable)
             await session.exec(stmt)
             await session.commit()
+
+    async def load_validated(self, max_age_hours: int = 48) -> list[Proxy]:
+        """Load only proxies that were validated within the given time window.
+
+        This method filters out stale proxies that haven't been successfully
+        validated recently. Essential for exports to ensure only working
+        proxies are included.
+
+        Args:
+            max_age_hours: Maximum age in hours for last_success_at.
+                Proxies older than this will be excluded. Default: 48 hours.
+
+        Returns:
+            List of proxies with recent last_success_at timestamps
+        """
+        from datetime import timedelta, timezone
+
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+        stmt = select(ProxyTable).where(
+            ProxyTable.last_success_at.isnot(None),  # type: ignore[union-attr]
+            ProxyTable.last_success_at >= cutoff,  # type: ignore[operator]
+        )
+        proxy_rows = await self._execute_query(stmt)
+        return self._process_results(proxy_rows)

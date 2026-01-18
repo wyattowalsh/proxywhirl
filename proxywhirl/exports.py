@@ -46,6 +46,7 @@ async def generate_rich_proxies(
     storage: SQLiteStorage,
     include_geo: bool = True,
     geo_sample_size: int = 5000,
+    max_age_hours: int = 72,
 ) -> dict[str, Any]:
     """Generate rich proxy data from database.
 
@@ -53,11 +54,16 @@ async def generate_rich_proxies(
         storage: SQLiteStorage instance to query
         include_geo: Whether to include country data (slower)
         geo_sample_size: Max IPs to geolocate (rate limited)
+        max_age_hours: Only include proxies validated within this time window.
+            Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.
 
     Returns:
         Dictionary containing proxies with metadata and aggregations
     """
-    proxies_data = await storage.load()
+    if max_age_hours > 0:
+        proxies_data = await storage.load_validated(max_age_hours)
+    else:
+        proxies_data = await storage.load()
 
     proxies = []
     seen_addresses: set[str] = set()  # Track unique IP:port combinations
@@ -206,6 +212,7 @@ def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
 async def generate_proxy_lists(
     storage: SQLiteStorage,
     output_dir: Path,
+    max_age_hours: int = 72,
 ) -> dict[str, int]:
     """Generate proxy list text files and metadata.json from database.
 
@@ -218,13 +225,18 @@ async def generate_proxy_lists(
     Args:
         storage: SQLiteStorage instance to query
         output_dir: Directory to write output files
+        max_age_hours: Only include proxies validated within this time window.
+            Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.
 
     Returns:
         Dictionary mapping protocol to proxy count
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    proxies_data = await storage.load()
+    if max_age_hours > 0:
+        proxies_data = await storage.load_validated(max_age_hours)
+    else:
+        proxies_data = await storage.load()
 
     # Group proxies by protocol
     proxies_by_protocol: dict[str, set[str]] = {
@@ -305,6 +317,7 @@ async def export_for_web(
     include_stats: bool = True,
     include_rich_proxies: bool = True,
     include_proxy_lists: bool = True,
+    max_age_hours: int = 72,
 ) -> dict[str, Path]:
     """Export data for the web dashboard.
 
@@ -314,6 +327,8 @@ async def export_for_web(
         include_stats: Whether to generate stats.json
         include_rich_proxies: Whether to generate proxies-rich.json
         include_proxy_lists: Whether to generate text files and metadata.json
+        max_age_hours: Only include proxies validated within this time window.
+            Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.
 
     Returns:
         Dictionary mapping output type to file path
@@ -333,7 +348,7 @@ async def export_for_web(
             # This must happen before stats since stats reads from these files
             if include_proxy_lists:
                 logger.info("Generating proxy list files from database...")
-                counts = await generate_proxy_lists(storage, output_dir)
+                counts = await generate_proxy_lists(storage, output_dir, max_age_hours)
                 outputs["metadata"] = output_dir / "metadata.json"
                 outputs["proxies_json"] = output_dir / "proxies.json"
                 logger.info(f"Proxy lists generated: {counts}")
@@ -341,7 +356,7 @@ async def export_for_web(
             # Generate rich proxy data (proxies-rich.json)
             if include_rich_proxies:
                 logger.info("Generating rich proxy data from database...")
-                rich_data = await generate_rich_proxies(storage)
+                rich_data = await generate_rich_proxies(storage, max_age_hours=max_age_hours)
                 rich_path = output_dir / "proxies-rich.json"
                 with open(rich_path, "w") as f:
                     json.dump(rich_data, f)

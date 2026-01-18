@@ -108,6 +108,7 @@ def test_session_persistence_across_time(
     proxy1_id = str(proxy1.id)
 
     # Wait a bit (but less than session timeout)
+    # INTENTIONAL: ensures multiple requests within same session window
     time.sleep(0.1)
 
     # Second request should get same proxy
@@ -115,6 +116,7 @@ def test_session_persistence_across_time(
     assert str(proxy2.id) == proxy1_id
 
     # Wait again
+    # INTENTIONAL: ensures multiple requests within same session window
     time.sleep(0.1)
 
     # Third request should still get same proxy
@@ -137,7 +139,7 @@ def test_session_expiration_creates_new_session(
     proxy1 = strategy.select(proxy_pool, context)
     proxy1_id = str(proxy1.id)
 
-    # Wait for session to expire
+    # Wait for session to expire (INTENTIONAL: tests real TTL expiration)
     time.sleep(1.5)
 
     # Cleanup expired sessions

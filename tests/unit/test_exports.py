@@ -61,7 +61,7 @@ class TestGenerateRichProxies:
         mock_storage = AsyncMock()
         mock_storage.load.return_value = []
 
-        result = await generate_rich_proxies(mock_storage)
+        result = await generate_rich_proxies(mock_storage, max_age_hours=0)
 
         assert result["total"] == 0
         assert result["proxies"] == []
@@ -87,7 +87,7 @@ class TestGenerateRichProxies:
         mock_storage = AsyncMock()
         mock_storage.load.return_value = [mock_proxy]
 
-        result = await generate_rich_proxies(mock_storage)
+        result = await generate_rich_proxies(mock_storage, max_age_hours=0)
 
         assert result["total"] == 1
         assert len(result["proxies"]) == 1
@@ -120,7 +120,7 @@ class TestGenerateRichProxies:
         mock_storage = AsyncMock()
         mock_storage.load.return_value = [mock_proxy]
 
-        result = await generate_rich_proxies(mock_storage)
+        result = await generate_rich_proxies(mock_storage, max_age_hours=0)
 
         assert result["proxies"][0]["success_rate"] is None
         assert result["proxies"][0]["last_checked"] is None
@@ -143,7 +143,7 @@ class TestGenerateRichProxies:
         mock_storage = AsyncMock()
         mock_storage.load.return_value = [mock_proxy]
 
-        result = await generate_rich_proxies(mock_storage)
+        result = await generate_rich_proxies(mock_storage, max_age_hours=0)
 
         assert result["proxies"][0]["last_checked"] == "2025-01-02T12:00:00+00:00"
         assert result["proxies"][0]["success_rate"] == 0.0
@@ -182,7 +182,7 @@ class TestGenerateRichProxies:
         mock_storage = AsyncMock()
         mock_storage.load.return_value = proxies
 
-        result = await generate_rich_proxies(mock_storage)
+        result = await generate_rich_proxies(mock_storage, max_age_hours=0)
 
         assert result["total"] == 4
         assert result["aggregations"]["by_protocol"]["http"] == 3
@@ -378,7 +378,7 @@ class TestExportForWeb:
         (output_dir / "metadata.json").write_text("{}")
 
         mock_storage = AsyncMock()
-        mock_storage.load.side_effect = RuntimeError("Test error")
+        mock_storage.load_validated.side_effect = RuntimeError("Test error")
 
         with patch("proxywhirl.exports.SQLiteStorage", return_value=mock_storage):
             with pytest.raises(RuntimeError, match="Test error"):

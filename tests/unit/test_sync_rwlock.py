@@ -38,13 +38,17 @@ class TestSyncRWLockBasicOperations:
         assert entered
 
     def test_nested_read_locks(self):
-        """Test that multiple read locks can be held."""
+        """Test that multiple read locks can be held.
+
+        Note: Uses real time.sleep to hold locks and test concurrent read access.
+        """
         lock = SyncRWLock()
         results = []
 
         def reader(n):
             with lock.read_lock():
                 results.append(f"enter-{n}")
+                # Hold lock briefly to test concurrent read access (INTENTIONAL)
                 time.sleep(0.01)
                 results.append(f"exit-{n}")
 

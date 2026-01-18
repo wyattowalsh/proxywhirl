@@ -14,6 +14,11 @@ Complete guide for using the ProxyWhirl REST API.
 - [Rate Limiting](#rate-limiting)
 - [Error Handling](#error-handling)
 - [Performance Tips](#performance-tips)
+- [Security Best Practices](#security-best-practices)
+  - [X-Forwarded-For Security](#x-forwarded-for-security-warning)
+  - [Deployment Examples](#deployment-examples)
+  - [Security Checklist](#x-forwarded-for-security-checklist)
+- [Troubleshooting](#troubleshooting)
 
 ## Getting Started
 
@@ -636,23 +641,70 @@ export PROXYWHIRL_MAX_RETRIES=5
 5. **Encrypt Storage** if persisting credentials
 6. **Monitor Access Logs** for suspicious activity
 7. **Keep Dependencies Updated** for security patches
+8. **Configure Trusted Proxies** to prevent IP spoofing (see below)
+
+### X-Forwarded-For Security Warning
+
+> **⚠️ CRITICAL SECURITY CONSIDERATION**
+>
+> When deploying ProxyWhirl behind a reverse proxy (Nginx, Caddy, HAProxy,
+> cloud load balancers), the rate limiting feature uses the client IP address
+> to track request counts. However, the `X-Forwarded-For` header can be
+> spoofed by malicious clients to bypass rate limits.
+
+**The Problem:**
+
+1. Client sends request with forged `X-Forwarded-For: 1.2.3.4`
+2. Reverse proxy appends real IP: `X-Forwarded-For: 1.2.3.4, 5.6.7.8`
+3. If ProxyWhirl reads the first (leftmost) IP, rate limiting is bypassed
+
+**The Solution:**
+
+Your reverse proxy must be configured to:
+1. **Clear or overwrite** untrusted `X-Forwarded-For` headers
+2. **Set `X-Real-IP`** or `X-Forwarded-For` with only the client's real IP
+3. **ProxyWhirl should only trust the rightmost IP** added by your proxy
+
+**Best Practices:**
+
+- Always deploy ProxyWhirl behind a reverse proxy in production
+- Configure your proxy to set `X-Real-IP` to the actual client IP
+- Never trust `X-Forwarded-For` values from untrusted sources
+- Consider IP allowlisting for the `/api/v1/config` endpoints
 
 ## Deployment Examples
 
-### Nginx Reverse Proxy
+### Nginx Reverse Proxy (Secure Configuration)
 
 ```nginx
 server {
     listen 80;
     server_name api.example.com;
-    
+
+    # Security: Clear any client-provided X-Forwarded-For
+    # and set X-Real-IP to the actual connecting IP
     location / {
         proxy_pass http://localhost:8000;
         proxy_set_header Host $host;
+
+        # Critical: Use $remote_addr which cannot be spoofed
         proxy_set_header X-Real-IP $remote_addr;
+
+        # For multi-proxy chains, use realip module to get true client IP
+        # set_real_ip_from 10.0.0.0/8;  # Trust internal proxy network
+        # real_ip_header X-Forwarded-For;
+        # real_ip_recursive on;
+
+        # Set clean X-Forwarded-For from trusted source only
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
 ```
+
+**Note:** The above configuration overwrites `X-Forwarded-For` with `$remote_addr`,
+which is the IP address of the connecting client (cannot be spoofed). This is the
+safest approach for single-proxy deployments.
 
 ### Kubernetes Deployment
 
@@ -692,6 +744,118 @@ spec:
           initialDelaySeconds: 3
           periodSeconds: 10
 ```
+
+### Caddy Reverse Proxy (Secure Configuration)
+
+```caddy
+api.example.com {
+    # Modern, secure defaults with X-Forwarded-For protection
+    reverse_proxy localhost:8000 {
+        # Replace X-Forwarded-For with real client IP
+        header_up -X-Forwarded-For
+        header_up X-Forwarded-For {http.request.remote.host}
+
+        # Set X-Real-IP to the actual client IP
+        header_up X-Real-IP {http.request.remote.host}
+
+        # Preserve other forwarded headers
+        header_up X-Forwarded-Proto {http.request.proto}
+        header_up X-Forwarded-Host {http.request.host}
+
+        # Enable compression for performance
+        header_up Connection "Upgrade"
+        header_up Upgrade "websocket"
+    }
+}
+```
+
+**Note:** Caddy automatically removes untrusted `X-Forwarded-For` headers from clients,
+making it a secure choice for production deployments.
+
+### HAProxy Reverse Proxy (Secure Configuration)
+
+```haproxy
+global
+    log stdout local0
+    maxconn 4096
+
+defaults
+    log global
+    mode http
+    timeout connect 5s
+    timeout client 50s
+    timeout server 50s
+
+frontend api_frontend
+    bind 0.0.0.0:80
+    default_backend api_backend
+
+    # Log original client IP
+    option forwardfor except 127.0.0.0/8
+
+    # Security: Normalize headers to prevent spoofing
+    http-request set-header X-Forwarded-For %[src]
+    http-request set-header X-Real-IP %[src]
+    http-request set-header X-Forwarded-Proto http
+
+backend api_backend
+    balance roundrobin
+    server api1 localhost:8000 check
+
+    # Preserve original client IP in logs
+    option forwardfor
+
+    # Additional security headers
+    http-response set-header Strict-Transport-Security "max-age=31536000; includeSubDomains"
+```
+
+**Note:** HAProxy's `option forwardfor` overwrites `X-Forwarded-For` with the real
+client IP (`%[src]`), preventing spoofing attacks.
+
+### AWS Application Load Balancer (ALB) Security
+
+When deploying ProxyWhirl behind AWS ALB:
+
+1. **Enable "Preserve client IP" option** in ALB target group attributes
+2. **Configure ALB to add `X-Forwarded-For`** (enabled by default)
+3. **Trust only ALB's IP range** in ProxyWhirl's IP extraction logic
+
+**AWS ALB Headers:**
+```
+X-Forwarded-For: <real-client-ip>  (ALB appends here)
+X-Forwarded-Proto: https
+X-Forwarded-Port: 443
+```
+
+**Configuration:**
+```bash
+# Only trust requests from ALB security group
+export PROXYWHIRL_TRUSTED_PROXIES="10.0.0.0/8"
+
+# Or use ALB-specific header
+export PROXYWHIRL_CLIENT_IP_HEADER="X-Forwarded-For"
+```
+
+## X-Forwarded-For Security Checklist
+
+Before deploying to production, verify:
+
+- [ ] Reverse proxy **clears client-provided `X-Forwarded-For`** headers
+- [ ] Reverse proxy **sets `X-Real-IP` or `X-Forwarded-For`** with real client IP
+- [ ] ProxyWhirl **trusts only the rightmost IP** in the header chain
+- [ ] **IP allowlisting** is configured for sensitive endpoints (`/api/v1/config`)
+- [ ] **Rate limiting** is tested to ensure it works correctly
+- [ ] **Access logs** verify correct client IP attribution
+- [ ] **No direct internet exposure** of ProxyWhirl (always use reverse proxy)
+
+## Security References
+
+For additional information on HTTP header security and IP validation:
+
+- **OWASP HTTP Response Splitting:** https://owasp.org/www-community/attacks/HTTP_Response_Splitting
+- **OWASP Proxy Security:** https://owasp.org/www-community/attacks/Manipulating_User-Controlled_Variables
+- **RFC 7239 - Forwarded HTTP Extension:** https://tools.ietf.org/html/rfc7239
+- **IETF X-Forwarded-For:** https://tools.ietf.org/html/draft-ietf-httpbis-forwarded
 
 ## Troubleshooting
 

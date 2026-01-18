@@ -10,7 +10,9 @@ from __future__ import annotations
 import asyncio
 import csv
 import json
+import re
 import time
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, NamedTuple
 
 if TYPE_CHECKING:
@@ -19,10 +21,30 @@ from urllib.parse import urlparse
 
 import httpx
 from bs4 import BeautifulSoup
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from loguru import logger
+from tenacity import (
+    RetryCallState,
+    retry,
+    retry_if_exception,
+    retry_if_exception_type,
+    stop_after_attempt,
+)
 
 from proxywhirl.exceptions import ProxyFetchError, ProxyValidationError
 from proxywhirl.models import ProxySourceConfig, RenderMode
+
+# Check for httpx-socks availability (optional dependency for SOCKS proxy support)
+try:
+    from httpx_socks import AsyncProxyTransport
+
+    SOCKS_AVAILABLE = True
+except ImportError:
+    AsyncProxyTransport = None  # type: ignore[misc, assignment]
+    SOCKS_AVAILABLE = False
+    logger.warning(
+        "httpx-socks not installed. SOCKS4/SOCKS5 proxy validation will not work. "
+        "Install with: pip install httpx-socks"
+    )
 
 
 class JSONParser:
@@ -159,6 +181,11 @@ class CSVParser:
 class PlainTextParser:
     """Parse plain text proxy lists (one per line)."""
 
+    # Pre-compiled regex pattern for IP:PORT format with anchors to prevent ReDoS
+    # Pattern: ^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$
+    # Groups: (1) IP address, (2) port number
+    _IP_PORT_PATTERN = re.compile(r"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})$")
+
     def __init__(self, skip_invalid: bool = False) -> None:
         """
         Initialize plain text parser.
@@ -167,6 +194,42 @@ class PlainTextParser:
             skip_invalid: Skip invalid URLs instead of raising error
         """
         self.skip_invalid = skip_invalid
+
+    def _is_valid_ip_port(self, ip_str: str, port_str: str) -> bool:
+        """Validate IP address octets (0-255) and port range (1-65535).
+
+        Args:
+            ip_str: IP address string (e.g., "192.168.1.1")
+            port_str: Port number string (e.g., "8080")
+
+        Returns:
+            True if IP and port are valid, False otherwise
+        """
+        # Validate each IP octet is 0-255
+        octets = ip_str.split(".")
+        if len(octets) != 4:
+            return False
+
+        for octet in octets:
+            try:
+                value = int(octet)
+                if value < 0 or value > 255:
+                    return False
+                # Reject leading zeros (e.g., "01", "001") except for "0" itself
+                if octet != str(value):
+                    return False
+            except ValueError:
+                return False
+
+        # Validate port is 1-65535
+        try:
+            port = int(port_str)
+            if port < 1 or port > 65535:
+                return False
+        except ValueError:
+            return False
+
+        return True
 
     def parse(self, data: str) -> list[dict[str, Any]]:
         """
@@ -178,12 +241,10 @@ class PlainTextParser:
 
         Returns:
             List of proxy dictionaries with 'url' key
+
+        Raises:
+            ProxyFetchError: If invalid proxy format is encountered and skip_invalid=False
         """
-        import re
-
-        # Pattern for IP:PORT (without scheme)
-        ip_port_pattern = re.compile(r"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d+)$")
-
         proxies = []
 
         for line in data.split("\n"):
@@ -198,7 +259,15 @@ class PlainTextParser:
                 continue
 
             # Handle IP:PORT format (prepend http://)
-            if ip_port_pattern.match(line):
+            # Using pre-compiled pattern with anchors for ReDoS safety
+            match = self._IP_PORT_PATTERN.match(line)
+            if match:
+                ip_str, port_str = match.groups()
+                # Validate IP octet range (0-255) and port range (1-65535)
+                if not self._is_valid_ip_port(ip_str, port_str):
+                    if self.skip_invalid:
+                        continue
+                    raise ProxyFetchError(f"Invalid IP:PORT format: {line}")
                 line = f"http://{line}"
 
             # Validate URL format
@@ -296,6 +365,10 @@ def deduplicate_proxies(proxies: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Deduplicate proxies by URL+Port combination.
 
+    Hostnames are normalized to lowercase since DNS names are case-insensitive
+    (RFC 4343). This ensures that "PROXY.EXAMPLE.COM:8080" and
+    "proxy.example.com:8080" are correctly identified as duplicates.
+
     Args:
         proxies: List of proxy dictionaries
 
@@ -310,12 +383,14 @@ def deduplicate_proxies(proxies: list[dict[str, Any]]) -> list[dict[str, Any]]:
         url = proxy.get("url", "")
         if url:
             parsed = urlparse(url)
-            key = f"{parsed.netloc}"  # netloc includes host:port
+            # Normalize hostname to lowercase (RFC 4343: DNS names are case-insensitive)
+            key = parsed.netloc.lower()  # netloc includes host:port
         else:
             # Construct from host+port
             host = proxy.get("host", "")
             port = proxy.get("port", "")
-            key = f"{host}:{port}"
+            # Normalize hostname to lowercase
+            key = f"{host.lower()}:{port}"
 
         if key not in seen:
             seen.add(key)
@@ -409,10 +484,25 @@ class ProxyValidator:
 
         Returns:
             Shared httpx.AsyncClient instance configured for SOCKS
-        """
-        if self._socks_client is None:
-            from httpx_socks import AsyncProxyTransport
 
+        Raises:
+            ProxyValidationError: If httpx-socks is not installed
+        """
+        if not SOCKS_AVAILABLE:
+            logger.warning(
+                "SOCKS proxy support requires httpx-socks. Install with: pip install httpx-socks"
+            )
+            raise ProxyValidationError(
+                "SOCKS proxy support requires httpx-socks. Install with: pip install httpx-socks"
+            )
+
+        if AsyncProxyTransport is None:
+            logger.error("SOCKS_AVAILABLE is True but AsyncProxyTransport is None")
+            raise ProxyValidationError(
+                "SOCKS proxy transport is unavailable. Please reinstall httpx-socks."
+            )
+
+        if self._socks_client is None:
             transport = AsyncProxyTransport.from_url(proxy_url)
             self._socks_client = httpx.AsyncClient(
                 transport=transport,
@@ -615,7 +705,19 @@ class ProxyValidator:
 
             if is_socks:
                 # Create SOCKS client with transport
-                from httpx_socks import AsyncProxyTransport
+                if not SOCKS_AVAILABLE:
+                    logger.warning(
+                        f"Skipping SOCKS validation for {proxy_url}: httpx-socks not installed. "
+                        "Install with: pip install httpx-socks"
+                    )
+                    # Return invalid rather than error - graceful degradation
+                    # SOCKS proxies cannot be validated without the library
+                    return ValidationResult(is_valid=False, response_time_ms=None)
+
+                if AsyncProxyTransport is None:
+                    # This should not happen if SOCKS_AVAILABLE is True, but guard against it
+                    logger.error("SOCKS_AVAILABLE is True but AsyncProxyTransport is None")
+                    return ValidationResult(is_valid=False, response_time_ms=None)
 
                 transport = AsyncProxyTransport.from_url(proxy_url)
                 async with httpx.AsyncClient(
@@ -726,9 +828,69 @@ class ProxyValidator:
                 # Mark as checked with success
                 proxy["total_requests"] = proxy.get("total_requests", 0) + 1
                 proxy["total_successes"] = proxy.get("total_successes", 0) + 1
+                # Record validation timestamp for freshness tracking
+                proxy["last_success_at"] = datetime.now(timezone.utc)
                 validated.append(proxy)
 
         return validated
+
+
+# Retryable HTTP status codes for proxy fetching
+RETRYABLE_STATUS_CODES = {
+    429,  # Too Many Requests
+    503,  # Service Unavailable
+    502,  # Bad Gateway
+    504,  # Gateway Timeout
+}
+
+
+def _is_retryable_http_error(exception: BaseException) -> bool:
+    """Check if exception is a retryable HTTP error (429, 503, 502, 504).
+
+    Args:
+        exception: Exception to check
+
+    Returns:
+        True if exception is a retryable HTTP status error
+    """
+    if isinstance(exception, httpx.HTTPStatusError):
+        return exception.response.status_code in RETRYABLE_STATUS_CODES
+    return False
+
+
+def _wait_with_retry_after(retry_state: RetryCallState) -> float:
+    """Calculate wait time respecting Retry-After header.
+
+    If the exception has a Retry-After header, use that value.
+    Otherwise, use exponential backoff (2^attempt_number seconds, max 60s).
+
+    Args:
+        retry_state: Tenacity retry call state
+
+    Returns:
+        Wait time in seconds
+    """
+    import random
+
+    # Try to get Retry-After header from exception
+    exception = retry_state.outcome.exception() if retry_state.outcome else None
+    if isinstance(exception, httpx.HTTPStatusError):
+        retry_after = exception.response.headers.get("Retry-After")
+        if retry_after:
+            try:
+                # Retry-After can be seconds or HTTP-date
+                wait_seconds = int(retry_after)
+                # Cap at 60 seconds to prevent DoS via long Retry-After
+                return min(wait_seconds, 60)
+            except ValueError:
+                pass  # Not an integer, fall through to default
+
+    # Default: exponential backoff with jitter
+    attempt = retry_state.attempt_number
+    base_wait = min(2**attempt, 60)  # Cap at 60 seconds
+    # Add jitter (0-25% of base wait)
+    jitter = random.uniform(0, base_wait * 0.25)  # noqa: S311
+    return base_wait + jitter
 
 
 class ProxyFetcher:
@@ -809,13 +971,24 @@ class ProxyFetcher:
         await self.close()
 
     @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)),
+        stop=stop_after_attempt(5),  # More retries for rate limiting scenarios
+        wait=_wait_with_retry_after,  # Respects Retry-After header with fallback to exp backoff
+        retry=(
+            retry_if_exception_type(httpx.TimeoutException)
+            | retry_if_exception(_is_retryable_http_error)
+        ),
+        reraise=True,  # Re-raise the original exception after retries exhausted
     )
     async def fetch_from_source(self, source: ProxySourceConfig) -> list[dict[str, Any]]:
         """
         Fetch proxies from a single source.
+
+        Includes automatic retry with exponential backoff for:
+        - HTTP 429 (Too Many Requests) - respects Retry-After header
+        - HTTP 503 (Service Unavailable)
+        - HTTP 502 (Bad Gateway)
+        - HTTP 504 (Gateway Timeout)
+        - Network timeouts
 
         Args:
             source: Proxy source configuration
@@ -934,9 +1107,9 @@ class ProxyFetcher:
         if deduplicate:
             all_proxies = deduplicate_proxies(all_proxies)
 
-        # Validate if requested
+        # Validate all proxies if requested
         if validate:
-            all_proxies = await self.validator.validate_batch(
+            return await self.validator.validate_batch(
                 all_proxies, progress_callback=validate_progress_callback
             )
 

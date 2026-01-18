@@ -27,7 +27,11 @@ class TestLazyExpiration:
     """Test lazy TTL expiration on cache get operations."""
 
     def test_expired_entry_returns_none(self, tmp_path: Path, encryption_key: SecretStr) -> None:
-        """Test that getting an expired entry returns None."""
+        """Test that getting an expired entry returns None.
+
+        Note: Uses real time.sleep because this tests actual TTL expiration
+        semantics and verifies the cache respects time-based expiration.
+        """
         from proxywhirl.cache import CacheManager
 
         config = CacheConfig(
@@ -53,7 +57,7 @@ class TestLazyExpiration:
 
         manager.put(entry.key, entry)
 
-        # Wait for expiration
+        # Wait for expiration - INTENTIONAL: verifies cache respects actual TTL
         time.sleep(1.5)
 
         # Get should return None for expired entry
@@ -162,10 +166,16 @@ class TestBackgroundCleanup:
         assert hasattr(manager, "ttl_manager"), "TTLManager should exist"
         assert manager.ttl_manager is not None
 
+    @pytest.mark.slow
     def test_background_cleanup_removes_expired_entries(
         self, tmp_path: Path, encryption_key: SecretStr
     ) -> None:
-        """Test that background cleanup removes expired entries."""
+        """Test that background cleanup removes expired entries.
+
+        Marked @pytest.mark.slow because it tests the background cleanup thread's
+        actual timing behavior. The sleep is intentional to verify the cleanup
+        interval (5s) + processing time works correctly in a real scenario.
+        """
         from proxywhirl.cache import CacheManager
 
         config = CacheConfig(
@@ -193,7 +203,8 @@ class TestBackgroundCleanup:
 
         manager.put(entry.key, entry)
 
-        # Wait for background cleanup (5s interval + processing time)
+        # Wait for background cleanup - INTENTIONAL: verifies cleanup thread timing
+        # (5s interval + processing time requires ~7s total)
         time.sleep(7)
 
         # Entry should be removed

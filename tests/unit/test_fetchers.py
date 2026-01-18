@@ -620,6 +620,44 @@ class TestDeduplicateProxiesEdgeCases:
 
         assert unique == []
 
+    def test_deduplicate_mixed_case_hostnames_url_format(self) -> None:
+        """Test deduplication with mixed-case hostnames in URL format (case-insensitive)."""
+        from proxywhirl.fetchers import deduplicate_proxies
+
+        proxies = [
+            {"url": "http://PROXY.Example.com:8080"},
+            {"url": "http://proxy.example.com:8080"},  # Same host/port, different case
+            {"url": "http://ProXy.ExAmPlE.cOm:8080"},  # Same host/port, different case
+            {"url": "http://proxy.example.com:3128"},  # Different port
+        ]
+
+        unique = deduplicate_proxies(proxies)
+
+        assert len(unique) == 2
+        # First occurrence (with original case preserved in proxy dict) should be kept
+        assert unique[0]["url"] == "http://PROXY.Example.com:8080"
+        assert unique[1]["url"] == "http://proxy.example.com:3128"
+
+    def test_deduplicate_mixed_case_hostnames_host_port_format(self) -> None:
+        """Test deduplication with mixed-case hostnames in host+port format (case-insensitive)."""
+        from proxywhirl.fetchers import deduplicate_proxies
+
+        proxies = [
+            {"host": "PROXY.Example.com", "port": "8080"},
+            {"host": "proxy.example.com", "port": "8080"},  # Same host/port, different case
+            {"host": "ProXy.ExAmPlE.cOm", "port": "8080"},  # Same host/port, different case
+            {"host": "proxy.example.com", "port": "3128"},  # Different port
+        ]
+
+        unique = deduplicate_proxies(proxies)
+
+        assert len(unique) == 2
+        # First occurrence should be kept
+        assert unique[0]["host"] == "PROXY.Example.com"
+        assert unique[0]["port"] == "8080"
+        assert unique[1]["host"] == "proxy.example.com"
+        assert unique[1]["port"] == "3128"
+
 
 class TestProxyValidatorMethods:
     """Test ProxyValidator methods with mocking."""
@@ -1280,6 +1318,30 @@ class TestProxyFetcher:
 
 class TestProxyValidatorWithSocks:
     """Test ProxyValidator with SOCKS proxies."""
+
+    async def test_validate_socks_missing_httpx_socks(self) -> None:
+        """Test validate handles missing httpx-socks gracefully."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from proxywhirl.fetchers import ProxyValidator
+
+        validator = ProxyValidator(timeout=1.0)
+
+        # Mock TCP connection success
+        mock_writer = AsyncMock()
+        mock_writer.close = MagicMock()
+        mock_writer.wait_closed = AsyncMock()
+
+        # Mock SOCKS_AVAILABLE as False (simulate missing httpx-socks)
+        with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
+            mock_open.return_value = (AsyncMock(), mock_writer)
+
+            with patch("proxywhirl.fetchers.SOCKS_AVAILABLE", False):
+                result = await validator.validate({"url": "socks5://proxy1.com:1080"})
+
+        # Should return invalid (not raise exception)
+        assert result.is_valid is False
+        assert result.response_time_ms is None
 
     async def test_validate_socks_proxy(self) -> None:
         """Test validate with SOCKS proxy uses httpx_socks."""

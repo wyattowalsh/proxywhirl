@@ -112,14 +112,17 @@ class TestSessionManagerRetrieval:
         assert result is None
 
     def test_get_session_returns_none_for_expired_session(self):
-        """Test that get_session returns None for expired sessions."""
+        """Test that get_session returns None for expired sessions.
+
+        Note: Uses real time.sleep to verify actual session TTL expiration semantics.
+        """
         # Arrange
         manager = SessionManager()
         proxy = ProxyFactory.healthy()
         # Create session with 1 second TTL
         manager.create_session("user-123", proxy, timeout_seconds=1)
 
-        # Act - Wait for expiration
+        # Act - Wait for expiration (INTENTIONAL: tests actual TTL behavior)
         time.sleep(1.1)
         result = manager.get_session("user-123")
 
@@ -154,7 +157,10 @@ class TestSessionManagerExpiration:
     """Tests for session expiration/TTL behavior."""
 
     def test_session_is_expired_after_ttl(self):
-        """Test that session becomes expired after TTL passes."""
+        """Test that session becomes expired after TTL passes.
+
+        Note: Uses real time.sleep to verify actual session TTL expiration semantics.
+        """
         # Arrange
         manager = SessionManager()
         proxy = ProxyFactory.healthy()
@@ -163,20 +169,23 @@ class TestSessionManagerExpiration:
         session = manager.create_session("user-123", proxy, timeout_seconds=1)
         assert not session.is_expired()
 
-        # Act - Wait for expiration
+        # Act - Wait for expiration (INTENTIONAL: tests actual TTL behavior)
         time.sleep(1.1)
 
         # Assert
         assert session.is_expired()
 
     def test_expired_sessions_removed_on_get(self):
-        """Test that expired sessions are cleaned up when accessed."""
+        """Test that expired sessions are cleaned up when accessed.
+
+        Note: Uses real time.sleep to verify actual session TTL expiration semantics.
+        """
         # Arrange
         manager = SessionManager()
         proxy = ProxyFactory.healthy()
         manager.create_session("user-123", proxy, timeout_seconds=1)
 
-        # Act - Wait for expiration then access
+        # Act - Wait for expiration then access (INTENTIONAL: tests actual TTL behavior)
         time.sleep(1.1)
         _ = manager.get_session("user-123")
 
@@ -189,7 +198,10 @@ class TestSessionManagerCleanup:
     """Tests for session cleanup functionality."""
 
     def test_cleanup_expired_removes_all_expired_sessions(self):
-        """Test that cleanup_expired removes all expired sessions."""
+        """Test that cleanup_expired removes all expired sessions.
+
+        Note: Uses real time.sleep to verify actual session TTL expiration semantics.
+        """
         # Arrange
         manager = SessionManager()
         proxy = ProxyFactory.healthy()
@@ -199,7 +211,7 @@ class TestSessionManagerCleanup:
         manager.create_session("session-2", proxy, timeout_seconds=1)
         manager.create_session("session-3", proxy, timeout_seconds=300)  # Not expired
 
-        # Wait for first two to expire
+        # Wait for first two to expire (INTENTIONAL: tests actual TTL behavior)
         time.sleep(1.1)
 
         # Act
@@ -226,14 +238,17 @@ class TestSessionManagerCleanup:
         assert removed_count == 0
 
     def test_auto_cleanup_triggers_after_threshold(self):
-        """Test that auto-cleanup triggers after operation threshold."""
+        """Test that auto-cleanup triggers after operation threshold.
+
+        Note: Uses real time.sleep to ensure session with timeout_seconds=0 is expired.
+        """
         # Arrange - Low threshold for testing
         manager = SessionManager(auto_cleanup_threshold=3)
         proxy = ProxyFactory.healthy()
 
         # Create an expired session
         manager.create_session("expired-session", proxy, timeout_seconds=0)
-        time.sleep(0.1)  # Ensure it's expired
+        time.sleep(0.1)  # Ensure it's expired (INTENTIONAL: small delay for expiration)
 
         # Act - Create sessions to trigger auto-cleanup
         manager.create_session("session-1", proxy, timeout_seconds=300)
@@ -316,7 +331,10 @@ class TestSessionManagerConcurrency:
         assert len(errors) == 0
 
     def test_concurrent_cleanup(self):
-        """Test that concurrent cleanup operations don't cause issues."""
+        """Test that concurrent cleanup operations don't cause issues.
+
+        Note: Uses real time.sleep to verify concurrent cleanup with expired sessions.
+        """
         # Arrange
         manager = SessionManager()
         proxy = ProxyFactory.healthy()
@@ -325,7 +343,7 @@ class TestSessionManagerConcurrency:
         for i in range(20):
             manager.create_session(f"session-{i}", proxy, timeout_seconds=1)
 
-        time.sleep(1.1)  # Let them expire
+        time.sleep(1.1)  # Let them expire (INTENTIONAL: tests concurrent cleanup with real TTL)
 
         errors = []
 
@@ -373,14 +391,17 @@ class TestSessionManagerUpdate:
     """Tests for session update operations."""
 
     def test_touch_session_updates_last_used(self):
-        """Test that touch_session updates last_used_at timestamp."""
+        """Test that touch_session updates last_used_at timestamp.
+
+        Note: Uses real time.sleep to ensure timestamp difference is measurable.
+        """
         # Arrange
         manager = SessionManager()
         proxy = ProxyFactory.healthy()
         session = manager.create_session("user-123", proxy)
         original_last_used = session.last_used_at
 
-        # Small delay to ensure different timestamp
+        # Small delay to ensure different timestamp (INTENTIONAL: verify timestamp updates)
         time.sleep(0.1)
 
         # Act
@@ -419,13 +440,16 @@ class TestSessionManagerUpdate:
         assert result is False
 
     def test_touch_session_returns_false_for_expired(self):
-        """Test that touch returns False for expired session."""
+        """Test that touch returns False for expired session.
+
+        Note: Uses real time.sleep to verify actual session TTL expiration semantics.
+        """
         # Arrange
         manager = SessionManager()
         proxy = ProxyFactory.healthy()
         manager.create_session("user-123", proxy, timeout_seconds=1)
 
-        # Wait for expiration
+        # Wait for expiration (INTENTIONAL: tests actual TTL behavior)
         time.sleep(1.1)
 
         # Act
@@ -547,7 +571,10 @@ class TestSessionManagerEdgeCases:
     """Tests for edge cases and special scenarios."""
 
     def test_get_all_sessions_filters_expired(self):
-        """Test that get_all_sessions filters out expired sessions."""
+        """Test that get_all_sessions filters out expired sessions.
+
+        Note: Uses real time.sleep to verify actual session TTL expiration semantics.
+        """
         # Arrange
         manager = SessionManager()
         proxy = ProxyFactory.healthy()
@@ -556,7 +583,7 @@ class TestSessionManagerEdgeCases:
         manager.create_session("expired-1", proxy, timeout_seconds=1)
         manager.create_session("active-2", proxy, timeout_seconds=300)
 
-        # Wait for expiration
+        # Wait for expiration (INTENTIONAL: tests actual TTL behavior)
         time.sleep(1.1)
 
         # Act

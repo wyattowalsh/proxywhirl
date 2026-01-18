@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, Mock, patch
 import httpx
 import pytest
 import respx
+from pydantic import SecretStr
 
 from proxywhirl import HealthStatus, Proxy, ProxyRotator
 from proxywhirl.exceptions import (
@@ -746,6 +747,257 @@ class TestSyncQueueImplementation:
         assert stats["max_size"] == 10
         assert stats["is_full"] is False
         assert stats["is_empty"] is True
+
+
+class TestCredentialsHandling:
+    """Test URL-encoding of credentials with special characters."""
+
+    def test_get_proxy_dict_with_special_chars_in_username(self) -> None:
+        """Test that special characters in username are URL-encoded."""
+        rotator = ProxyRotator()
+
+        # Create proxy with special characters in username
+        proxy = Proxy(
+            url="http://proxy.example.com:8080",
+            username=SecretStr("user@domain.com"),  # @ is special
+            password=SecretStr("password123"),
+            health_status=HealthStatus.HEALTHY,
+        )
+
+        proxy_dict = rotator._get_proxy_dict(proxy)
+
+        # Check that @ is encoded as %40 in username
+        url = proxy_dict["http://"]
+        assert "user%40domain.com" in url
+        assert url.startswith("http://user%40domain.com:password123@proxy.example.com:8080")
+
+    def test_get_proxy_dict_with_special_chars_in_password(self) -> None:
+        """Test that special characters in password are URL-encoded."""
+        rotator = ProxyRotator()
+
+        # Create proxy with special characters in password
+        proxy = Proxy(
+            url="http://proxy.example.com:8080",
+            username=SecretStr("user123"),
+            password=SecretStr("pass:word@123/secret"),  # Multiple special chars
+            health_status=HealthStatus.HEALTHY,
+        )
+
+        proxy_dict = rotator._get_proxy_dict(proxy)
+
+        # Check that special characters are encoded in password
+        # : -> %3A, @ -> %40, / -> %2F
+        url = proxy_dict["http://"]
+        assert "pass%3Aword%40123%2Fsecret" in url
+        assert url.startswith("http://user123:pass%3Aword%40123%2Fsecret@proxy.example.com:8080")
+
+    def test_get_proxy_dict_with_url_unsafe_chars(self) -> None:
+        """Test URL encoding of all unsafe URL characters."""
+        rotator = ProxyRotator()
+
+        # Create proxy with unsafe characters: space, !, #, $, %, &, ', ", +, ,, ;, =, ?, [, ]
+        proxy = Proxy(
+            url="http://proxy.example.com:8080",
+            username=SecretStr("user name"),  # space
+            password=SecretStr("pass!@#$%&'+="),  # Multiple unsafe chars
+            health_status=HealthStatus.HEALTHY,
+        )
+
+        proxy_dict = rotator._get_proxy_dict(proxy)
+
+        # Verify URL was constructed properly with encoded credentials
+        url = proxy_dict["http://"]
+        # space -> %20, ! -> %21, @ -> %40, # -> %23, $ -> %24, % -> %25, & -> %26, ' -> %27, + -> %2B, = -> %3D
+        assert "user%20name" in url
+        assert "pass%21%40%23%24%25%26%27%2B%3D" in url
+        assert url.startswith(
+            "http://user%20name:pass%21%40%23%24%25%26%27%2B%3D@proxy.example.com:8080"
+        )
+
+    def test_get_proxy_dict_both_protocols_contain_encoded_creds(self) -> None:
+        """Test that both http and https proxies have encoded credentials."""
+        rotator = ProxyRotator()
+
+        proxy = Proxy(
+            url="http://proxy.example.com:8080",
+            username=SecretStr("user@test"),
+            password=SecretStr("pass:123"),
+            health_status=HealthStatus.HEALTHY,
+        )
+
+        proxy_dict = rotator._get_proxy_dict(proxy)
+
+        # Both should contain the same URL with encoded credentials
+        expected_encoded = "user%40test:pass%3A123"
+        assert expected_encoded in proxy_dict["http://"]
+        assert expected_encoded in proxy_dict["https://"]
+        # Both should point to the same host
+        assert "proxy.example.com:8080" in proxy_dict["http://"]
+        assert "proxy.example.com:8080" in proxy_dict["https://"]
+
+    def test_get_proxy_dict_without_credentials(self) -> None:
+        """Test that proxy without credentials works correctly."""
+        rotator = ProxyRotator()
+
+        proxy = Proxy(
+            url="http://proxy.example.com:8080",
+            health_status=HealthStatus.HEALTHY,
+        )
+
+        proxy_dict = rotator._get_proxy_dict(proxy)
+
+        # Should just be the URL without any credentials
+        assert proxy_dict["http://"] == "http://proxy.example.com:8080"
+        assert proxy_dict["https://"] == "http://proxy.example.com:8080"
+
+
+class TestExpiredProxyHandling:
+    """Test handling of expired proxies during selection."""
+
+    def test_expired_proxy_skipped_during_selection(self) -> None:
+        """Test that expired proxies are skipped during proxy selection."""
+        from datetime import datetime, timedelta, timezone
+
+        rotator = ProxyRotator()
+
+        # Create an expired proxy (TTL in past)
+        expired_proxy = Proxy(
+            url="http://expired.example.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),  # Expired 1 hour ago
+        )
+
+        # Create a valid proxy
+        valid_proxy = Proxy(
+            url="http://valid.example.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),  # Expires in 1 hour
+        )
+
+        rotator.add_proxy(expired_proxy)
+        rotator.add_proxy(valid_proxy)
+
+        # Select proxy - should skip the expired one and return the valid one
+        selected = rotator._select_proxy_with_circuit_breaker()
+
+        assert selected.id == valid_proxy.id
+        assert selected.url == "http://valid.example.com:8080"
+
+    def test_all_expired_proxies_raises_error(self) -> None:
+        """Test that ProxyPoolEmptyError is raised when all proxies are expired."""
+        from datetime import datetime, timedelta, timezone
+
+        rotator = ProxyRotator()
+
+        # Create only expired proxies
+        proxy1 = Proxy(
+            url="http://expired1.example.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+        proxy2 = Proxy(
+            url="http://expired2.example.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            expires_at=datetime.now(timezone.utc) - timedelta(minutes=30),
+        )
+
+        rotator.add_proxy(proxy1)
+        rotator.add_proxy(proxy2)
+
+        # Should raise error since all proxies are expired
+        with pytest.raises(ProxyPoolEmptyError):
+            rotator._select_proxy_with_circuit_breaker()
+
+    def test_expired_proxy_with_circuit_breaker_both_unavailable(self) -> None:
+        """Test scenario where both expired and circuit-broken proxies exist."""
+        from datetime import datetime, timedelta, timezone
+
+        rotator = ProxyRotator()
+
+        # Create an expired proxy
+        expired_proxy = Proxy(
+            url="http://expired.example.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+
+        # Create a valid proxy that we'll manually mark as having no circuit breaker
+        # to simulate it being unavailable
+        valid_proxy = Proxy(
+            url="http://valid.example.com:8080",
+            health_status=HealthStatus.UNHEALTHY,  # Mark as unhealthy
+        )
+
+        rotator.add_proxy(expired_proxy)
+        rotator.add_proxy(valid_proxy)
+
+        # Both proxies should be unavailable:
+        # - expired_proxy: expired
+        # - valid_proxy: unhealthy
+        with pytest.raises(ProxyPoolEmptyError):
+            rotator._select_proxy_with_circuit_breaker()
+
+    def test_expired_proxy_is_expired_property(self) -> None:
+        """Test that is_expired property works correctly."""
+        from datetime import datetime, timedelta, timezone
+
+        # Create an expired proxy
+        expired = Proxy(
+            url="http://expired.example.com:8080",
+            expires_at=datetime.now(timezone.utc) - timedelta(seconds=1),
+        )
+
+        # Create a valid proxy
+        valid = Proxy(
+            url="http://valid.example.com:8080",
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        )
+
+        # Create a proxy with no expiration
+        no_expiry = Proxy(
+            url="http://no-expiry.example.com:8080",
+        )
+
+        assert expired.is_expired is True
+        assert valid.is_expired is False
+        assert no_expiry.is_expired is False
+
+    @patch("httpx.Client")
+    def test_request_skips_expired_proxies(self, mock_client_class: MagicMock) -> None:
+        """Test that making requests skips expired proxies."""
+        from datetime import datetime, timedelta, timezone
+
+        mock_response = Mock(spec=httpx.Response)
+        mock_response.status_code = 200
+
+        mock_client = MagicMock()
+        mock_client.request.return_value = mock_response
+        mock_client_class.return_value = mock_client
+
+        rotator = ProxyRotator()
+
+        # Add expired proxy
+        expired_proxy = Proxy(
+            url="http://expired.example.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
+        )
+
+        # Add valid proxy
+        valid_proxy = Proxy(
+            url="http://valid.example.com:8080",
+            health_status=HealthStatus.HEALTHY,
+        )
+
+        rotator.add_proxy(expired_proxy)
+        rotator.add_proxy(valid_proxy)
+
+        # Make request - should use valid proxy only
+        response = rotator.get("https://httpbin.org/get")
+
+        assert response.status_code == 200
+        # The call should have been made to the valid proxy's client
+        mock_client.request.assert_called_once()
 
 
 class TestEdgeCases:
