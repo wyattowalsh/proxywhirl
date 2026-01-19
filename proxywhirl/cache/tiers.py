@@ -403,7 +403,9 @@ class JsonlCacheTier(CacheTier):
         Uses MD5 (not for security, just for deterministic distribution)
         instead of Python's hash() which is randomized per process.
         """
-        return int(hashlib.md5(key.encode()).hexdigest(), 16) % self.num_shards
+        return (
+            int(hashlib.md5(key.encode(), usedforsecurity=False).hexdigest(), 16) % self.num_shards
+        )
 
     def _evict_oldest(self) -> bool:
         """Evict oldest entry based on last_accessed time for LRU behavior.
