@@ -586,17 +586,17 @@ volumes:
 
 ### Security Standards
 
-- **[RFC 7239 - Forwarded HTTP Extension](https://tools.ietf.org/html/rfc7239)** - Standard for HTTP forwarding headers
-- **[IETF X-Forwarded-For Draft](https://tools.ietf.org/html/draft-ietf-httpbis-forwarded)** - X-Forwarded-For specification
+- **[RFC 7239 - Forwarded HTTP Extension](https://datatracker.ietf.org/doc/html/rfc7239)** - Standard for HTTP forwarding headers
+- **[MDN X-Forwarded-For](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For)** - X-Forwarded-For header documentation
 - **[OWASP HTTP Response Splitting](https://owasp.org/www-community/attacks/HTTP_Response_Splitting)** - Header injection attacks
-- **[OWASP IP Spoofing](https://owasp.org/www-community/attacks/Manipulating_User-Controlled_Variables)** - IP manipulation techniques
+- **[OWASP Testing for Client-side](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/05-Testing_for_HTTP_Incoming_Requests)** - HTTP request validation
 
 ### Reverse Proxy Documentation
 
 - **[Nginx Proxy Module](https://nginx.org/en/docs/http/ngx_http_proxy_module.html)** - Official proxy configuration
 - **[Nginx Real IP Module](https://nginx.org/en/docs/http/ngx_http_realip_module.html)** - Real IP extraction
 - **[Caddy Reverse Proxy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy)** - Caddy proxy documentation
-- **[HAProxy Configuration](https://www.haproxy.org/configuration.html)** - HAProxy manual
+- **[HAProxy Documentation](https://docs.haproxy.org/)** - HAProxy documentation
 - **[Traefik Middleware](https://doc.traefik.io/traefik/middlewares/http/overview/)** - Traefik middleware reference
 
 ### Cloud Documentation
