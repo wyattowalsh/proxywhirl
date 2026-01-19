@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import httpx
 
-from proxywhirl.fetchers import ProxyValidator
+from proxywhirl.fetchers import ProxyValidator, ValidationResult
 from proxywhirl.models import ValidationLevel
 
 
@@ -25,7 +25,7 @@ class TestParallelValidation:
         async def mock_validate(proxy):
             call_times.append(asyncio.get_event_loop().time())
             await asyncio.sleep(0.1)  # Simulate validation time
-            return True
+            return ValidationResult(is_valid=True, response_time_ms=10.0)
 
         with patch.object(validator, "validate", side_effect=mock_validate):
             results = await validator.validate_batch(proxies)
@@ -54,7 +54,7 @@ class TestParallelValidation:
             max_concurrent = max(max_concurrent, active_count)
             await asyncio.sleep(0.05)
             active_count -= 1
-            return True
+            return ValidationResult(is_valid=True, response_time_ms=10.0)
 
         with patch.object(validator, "validate", side_effect=mock_validate):
             results = await validator.validate_batch(proxies)
@@ -77,7 +77,8 @@ class TestParallelValidation:
         # Mock validate to return success for "good" proxies
         async def mock_validate(proxy):
             url = proxy.get("url", "")
-            return "good" in url
+            is_valid = "good" in url
+            return ValidationResult(is_valid=is_valid, response_time_ms=10.0 if is_valid else None)
 
         with patch.object(validator, "validate", side_effect=mock_validate):
             results = await validator.validate_batch(proxies)
@@ -101,9 +102,9 @@ class TestParallelValidation:
             url = proxy.get("url", "")
             if "slow" in url:
                 await asyncio.sleep(0.2)  # Exceeds timeout
-                return False
+                return ValidationResult(is_valid=False, response_time_ms=None)
             await asyncio.sleep(0.05)
-            return True
+            return ValidationResult(is_valid=True, response_time_ms=50.0)
 
         with patch.object(validator, "validate", side_effect=mock_validate):
             results = await validator.validate_batch(proxies)
@@ -126,7 +127,11 @@ class TestParallelValidation:
 
         proxies = [{"url": "http://proxy.example.com:8080"}]
 
-        with patch.object(validator, "validate", return_value=True):
+        with patch.object(
+            validator,
+            "validate",
+            return_value=ValidationResult(is_valid=True, response_time_ms=10.0),
+        ):
             results = await validator.validate_batch(proxies)
 
             assert len(results) == 1
@@ -141,7 +146,11 @@ class TestParallelValidation:
             {"url": "http://bad2.proxy.com:8080"},
         ]
 
-        with patch.object(validator, "validate", return_value=False):
+        with patch.object(
+            validator,
+            "validate",
+            return_value=ValidationResult(is_valid=False, response_time_ms=None),
+        ):
             results = await validator.validate_batch(proxies)
 
             assert results == []
@@ -164,7 +173,7 @@ class TestParallelValidation:
             call_count += 1
             if call_count == 2:
                 raise httpx.NetworkError("Network error")
-            return True
+            return ValidationResult(is_valid=True, response_time_ms=10.0)
 
         with patch.object(validator, "validate", side_effect=mock_validate):
             results = await validator.validate_batch(proxies)

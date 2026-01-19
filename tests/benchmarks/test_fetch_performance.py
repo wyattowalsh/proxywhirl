@@ -7,7 +7,7 @@ Tests SC-011: Proxy validation processes 100+ proxies per second.
 import time
 from unittest.mock import AsyncMock, patch
 
-from proxywhirl.fetchers import ProxyValidator
+from proxywhirl.fetchers import ProxyValidator, ValidationResult
 
 
 class TestProxyValidationPerformance:
@@ -22,7 +22,7 @@ class TestProxyValidationPerformance:
 
         # Mock validate to return immediately (simulating fast network)
         with patch.object(validator, "validate", new_callable=AsyncMock) as mock_validate:
-            mock_validate.return_value = True
+            mock_validate.return_value = ValidationResult(is_valid=True, response_time_ms=5.0)
 
             # Measure time for batch validation
             start = time.perf_counter()
@@ -48,7 +48,7 @@ class TestProxyValidationPerformance:
         validator = ProxyValidator(timeout=5.0)
 
         with patch.object(validator, "validate", new_callable=AsyncMock) as mock_validate:
-            mock_validate.return_value = True
+            mock_validate.return_value = ValidationResult(is_valid=True, response_time_ms=5.0)
 
             start = time.perf_counter()
             validated = await validator.validate_batch(proxies)

@@ -969,27 +969,18 @@ class TestProxyTableNewFields:
 
             await storage.close()
 
-    async def test_none_id_generates_new_uuid(self, caplog) -> None:
+    async def test_none_id_generates_new_uuid(self) -> None:
         """Test that proxies with None ID get a new UUID generated.
 
         This test validates the UUID validation logic in _validate_row_id(),
         which handles the case where a database row has a NULL id field.
         A warning should be logged and a new UUID generated during conversion.
         """
-        import logging
+        from unittest.mock import patch
         from uuid import UUID
-
-        from loguru import logger
 
         from proxywhirl.models import Proxy
         from proxywhirl.storage import ProxyTable, SQLiteStorage
-
-        # Configure loguru to capture logs in caplog
-        class PropagateHandler(logging.Handler):
-            def emit(self, record):
-                logging.getLogger(record.name).handle(record)
-
-        handler_id = logger.add(PropagateHandler(), format="{message}")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "proxies.db"
@@ -1008,18 +999,17 @@ class TestProxyTableNewFields:
                     .values(id=None)
                 )
 
-            # Clear caplog to avoid capturing previous logs
-            caplog.clear()
-
-            with caplog.at_level(logging.WARNING):
+            # Use patch to verify the warning is logged
+            with patch("proxywhirl.storage.logger") as mock_logger:
                 # Load the proxy - should trigger warning and regenerate UUID
                 loaded = await storage.load()
 
-            # Verify warning was logged
-            assert any(
-                "Proxy row has no ID" in record.message and record.levelname == "WARNING"
-                for record in caplog.records
-            ), "Expected warning about missing ID not found in logs"
+                # Verify warning was logged about missing ID
+                mock_logger.warning.assert_called()
+                warning_call_args = str(mock_logger.warning.call_args)
+                assert "Proxy row has no ID" in warning_call_args, (
+                    f"Expected warning about missing ID. Got: {warning_call_args}"
+                )
 
             # Verify we have exactly one proxy
             assert len(loaded) == 1
@@ -1033,45 +1023,32 @@ class TestProxyTableNewFields:
             await storage.save(loaded)
 
             # Verify the ID is preserved on subsequent loads (no more warnings)
-            caplog.clear()
-            with caplog.at_level(logging.WARNING):
+            with patch("proxywhirl.storage.logger") as mock_logger:
                 loaded_again = await storage.load()
 
-            # No new warnings should be logged since ID is now saved
-            assert not any(
-                "Proxy row has no ID" in record.message and record.levelname == "WARNING"
-                for record in caplog.records
-            ), "Unexpected warning about missing ID after saving"
+                # No warning should be called for "no ID" now
+                for call in mock_logger.warning.call_args_list:
+                    assert "Proxy row has no ID" not in str(call), (
+                        "Unexpected warning about missing ID after saving"
+                    )
 
             assert len(loaded_again) == 1
             assert loaded_again[0].id == loaded_proxy.id
 
             await storage.close()
 
-        # Clean up loguru handler
-        logger.remove(handler_id)
-
-    async def test_invalid_uuid_format_regenerated(self, caplog) -> None:
+    async def test_invalid_uuid_format_regenerated(self) -> None:
         """Test that invalid UUID formats in database are regenerated.
 
         This test ensures the _validate_row_id() method properly handles
         corrupted UUID values in the database by logging an error and
         generating a new valid UUID.
         """
-        import logging
+        from unittest.mock import patch
         from uuid import UUID
-
-        from loguru import logger
 
         from proxywhirl.models import Proxy
         from proxywhirl.storage import ProxyTable, SQLiteStorage
-
-        # Configure loguru to capture logs in caplog
-        class PropagateHandler(logging.Handler):
-            def emit(self, record):
-                logging.getLogger(record.name).handle(record)
-
-        handler_id = logger.add(PropagateHandler(), format="{message}")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "proxies.db"
@@ -1090,19 +1067,17 @@ class TestProxyTableNewFields:
                     .values(id="invalid-uuid-string")
                 )
 
-            # Clear caplog to avoid capturing previous logs
-            caplog.clear()
-
-            with caplog.at_level(logging.ERROR):
+            # Use patch to verify the error is logged
+            with patch("proxywhirl.storage.logger") as mock_logger:
                 # Load the proxy - should handle the invalid UUID and log error
                 loaded = await storage.load()
 
-            # Verify error was logged for invalid UUID format
-            assert any(
-                "Invalid UUID format in database row" in record.message
-                and record.levelname == "ERROR"
-                for record in caplog.records
-            ), "Expected error about invalid UUID format not found in logs"
+                # Verify error was logged about invalid UUID format
+                mock_logger.error.assert_called()
+                error_call_args = str(mock_logger.error.call_args)
+                assert "Invalid UUID format in database row" in error_call_args, (
+                    f"Expected error about invalid UUID format. Got: {error_call_args}"
+                )
 
             # Verify we have exactly one proxy
             assert len(loaded) == 1
@@ -1113,9 +1088,6 @@ class TestProxyTableNewFields:
             assert isinstance(loaded_proxy.id, UUID)
 
             await storage.close()
-
-        # Clean up loguru handler
-        logger.remove(handler_id)
 
     async def test_tags_json_serialization(self) -> None:
         """Test tags are properly serialized as JSON and deserialized back to set."""

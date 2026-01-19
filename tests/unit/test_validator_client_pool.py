@@ -103,17 +103,18 @@ class TestProxyValidatorClientPool:
         """Test that client is created with proper connection limits."""
         with patch.object(httpx, "AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
-            # Create mock limits object
+            # Create mock limits object - actual values from fetchers.py
             mock_limits = MagicMock()
-            mock_limits.max_connections = 100
-            mock_limits.max_keepalive_connections = 20
+            mock_limits.max_connections = 1000
+            mock_limits.max_keepalive_connections = 100
 
             # Mock the AsyncClient to capture the limits argument
             def create_client(**kwargs):
                 limits = kwargs.get("limits")
                 if limits:
-                    assert limits.max_connections == 100
-                    assert limits.max_keepalive_connections == 20
+                    # These values match ProxyValidator._get_client() implementation
+                    assert limits.max_connections == 1000
+                    assert limits.max_keepalive_connections == 100
                 return mock_client
 
             mock_client_class.side_effect = create_client
@@ -258,7 +259,7 @@ class TestProxyValidatorIntegrationWithClientPool:
 
                 # Should have created one client for this proxy
                 assert mock_client_class.call_count == 1
-                assert result is True
+                assert result.is_valid is True
 
         await validator.close()
 
@@ -327,31 +328,34 @@ class TestProxyValidatorIntegrationWithClientPool:
 
         proxy = {"url": "socks5://proxy.example.com:1080"}
 
-        with patch("httpx_socks.AsyncProxyTransport") as mock_transport:
+        # Patch the imported AsyncProxyTransport in fetchers module, not httpx_socks
+        with patch("proxywhirl.fetchers.AsyncProxyTransport") as mock_transport:
             mock_transport.from_url.return_value = MagicMock()
 
-            with patch.object(httpx, "AsyncClient") as mock_client_class:
-                mock_client = AsyncMock()
-                mock_client.get = AsyncMock(return_value=MagicMock(status_code=200))
-                mock_client.aclose = AsyncMock()
-                mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-                mock_client.__aexit__ = AsyncMock(return_value=None)
-                mock_client_class.return_value = mock_client
+            # Ensure SOCKS_AVAILABLE is True for this test
+            with patch("proxywhirl.fetchers.SOCKS_AVAILABLE", True):
+                with patch.object(httpx, "AsyncClient") as mock_client_class:
+                    mock_client = AsyncMock()
+                    mock_client.get = AsyncMock(return_value=MagicMock(status_code=200))
+                    mock_client.aclose = AsyncMock()
+                    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+                    mock_client.__aexit__ = AsyncMock(return_value=None)
+                    mock_client_class.return_value = mock_client
 
-                with patch("asyncio.open_connection") as mock_open_conn:
-                    mock_writer = AsyncMock()
-                    mock_writer.close = MagicMock()
-                    mock_writer.wait_closed = AsyncMock()
-                    mock_open_conn.return_value = (AsyncMock(), mock_writer)
+                    with patch("asyncio.open_connection") as mock_open_conn:
+                        mock_writer = AsyncMock()
+                        mock_writer.close = MagicMock()
+                        mock_writer.wait_closed = AsyncMock()
+                        mock_open_conn.return_value = (AsyncMock(), mock_writer)
 
-                    result = await validator.validate(proxy)
+                        result = await validator.validate(proxy)
 
-                    # Should have created SOCKS transport from URL
-                    assert mock_transport.from_url.called
-                    mock_transport.from_url.assert_called_with(proxy["url"])
+                        # Should have created SOCKS transport from URL
+                        assert mock_transport.from_url.called
+                        mock_transport.from_url.assert_called_with(proxy["url"])
 
-                    # Should have created client with transport
-                    assert mock_client_class.call_count == 1
-                    assert result is True
+                        # Should have created client with transport
+                        assert mock_client_class.call_count == 1
+                        assert result.is_valid is True
 
         await validator.close()

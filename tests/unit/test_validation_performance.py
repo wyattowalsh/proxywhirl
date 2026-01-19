@@ -4,7 +4,7 @@ import asyncio
 import time
 from unittest.mock import patch
 
-from proxywhirl.fetchers import ProxyValidator
+from proxywhirl.fetchers import ProxyValidator, ValidationResult
 from proxywhirl.models import ValidationLevel
 
 
@@ -21,7 +21,7 @@ class TestValidationPerformance:
         # Mock validate to simulate fast validation (~10ms each)
         async def mock_validate(proxy):
             await asyncio.sleep(0.01)
-            return True
+            return ValidationResult(is_valid=True, response_time_ms=10.0)
 
         with patch.object(validator, "validate", side_effect=mock_validate):
             start_time = time.time()
@@ -58,7 +58,7 @@ class TestValidationPerformance:
             # Mock validate
             async def mock_validate(proxy):
                 await asyncio.sleep(0.01)
-                return True
+                return ValidationResult(is_valid=True, response_time_ms=10.0)
 
             with patch.object(validator, "validate", side_effect=mock_validate):
                 start_time = time.time()
@@ -88,7 +88,7 @@ class TestValidationPerformance:
         # Mock validate with minimal delay
         async def mock_validate(proxy):
             await asyncio.sleep(0.001)  # 1ms
-            return True
+            return ValidationResult(is_valid=True, response_time_ms=1.0)
 
         with patch.object(validator, "validate", side_effect=mock_validate):
             start_time = time.time()
@@ -112,7 +112,7 @@ class TestValidationPerformance:
         # Mock validate
         async def mock_validate(proxy):
             await asyncio.sleep(0.005)  # 5ms
-            return True
+            return ValidationResult(is_valid=True, response_time_ms=5.0)
 
         with patch.object(validator, "validate", side_effect=mock_validate):
             start_time = time.time()
