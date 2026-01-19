@@ -1028,7 +1028,7 @@ async def _validate_proxy_impl(
             async with httpx.AsyncClient(
                 proxy=str(proxy.url),
                 timeout=timeout,
-                verify=False,
+                verify=False,  # nosec B501 - Intentional for proxy validation
             ) as client:
                 start = asyncio.get_event_loop().time()
                 resp = await client.get(test_url)

@@ -149,7 +149,7 @@ server {
 
 **Secure Configuration:**
 
-```caddy
+```text
 api.example.com {
     reverse_proxy localhost:8000 {
         # Replace X-Forwarded-For with real client IP
@@ -177,7 +177,7 @@ api.example.com {
 
 **Secure Configuration:**
 
-```haproxy
+```text
 global
     log stdout local0
     maxconn 4096

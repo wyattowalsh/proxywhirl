@@ -267,7 +267,7 @@ def validate_target_url_safe(url: str, allow_private: bool = False) -> None:
         localhost_patterns = [
             "localhost",
             "127.",  # 127.0.0.1, etc.
-            "0.0.0.0",
+            "0.0.0.0",  # nosec B104 - Pattern check, not a bind
             "[::",  # IPv6 localhost variations
             "::1",
         ]

@@ -747,7 +747,7 @@ spec:
 
 ### Caddy Reverse Proxy (Secure Configuration)
 
-```caddy
+```text
 api.example.com {
     # Modern, secure defaults with X-Forwarded-For protection
     reverse_proxy localhost:8000 {
@@ -774,7 +774,7 @@ making it a secure choice for production deployments.
 
 ### HAProxy Reverse Proxy (Secure Configuration)
 
-```haproxy
+```text
 global
     log stdout local0
     maxconn 4096
