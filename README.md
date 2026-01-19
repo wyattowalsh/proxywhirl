@@ -78,7 +78,7 @@ response = rotator.get("https://api.example.com/data")
 <br/>
 <img src="https://api.iconify.design/carbon:cloud-download.svg?color=%238b5cf6" width="48"/>
 <br/><br/>
-<strong>82 Sources</strong>
+<strong>156 Sources</strong>
 <br/>
 <sub>Auto-fetch from built-in providers with validation</sub>
 <br/><br/>
