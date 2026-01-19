@@ -587,9 +587,9 @@ volumes:
 ### Security Standards
 
 - **[RFC 7239 - Forwarded HTTP Extension](https://datatracker.ietf.org/doc/html/rfc7239)** - Standard for HTTP forwarding headers
-- **[MDN X-Forwarded-For](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For)** - X-Forwarded-For header documentation
+- **[MDN X-Forwarded-For](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Forwarded-For)** - X-Forwarded-For header documentation
 - **[OWASP HTTP Response Splitting](https://owasp.org/www-community/attacks/HTTP_Response_Splitting)** - Header injection attacks
-- **[OWASP Testing for Client-side](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/05-Testing_for_HTTP_Incoming_Requests)** - HTTP request validation
+- **[OWASP Web Security Testing Guide](https://owasp.org/www-project-web-security-testing-guide/)** - HTTP request validation best practices
 
 ### Reverse Proxy Documentation
 
