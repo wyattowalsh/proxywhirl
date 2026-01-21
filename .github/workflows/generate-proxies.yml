@@ -53,10 +53,10 @@ jobs:
     - name: Re-validate existing proxies
       timeout-minutes: 60
       run: |
-        # Re-validate all existing proxies in the database and prune dead ones
-        # This ensures we only keep proxies that are currently working
+        # Re-validate all existing proxies in the database
+        # Failed proxies are marked as DEAD (not deleted) so they can recover later
         # Use 5s timeout and 2000 concurrency (stable for GitHub Actions)
-        uv run proxywhirl fetch --revalidate --prune-failed --timeout 5 --concurrency 2000 --no-export
+        uv run proxywhirl fetch --revalidate --timeout 5 --concurrency 2000 --no-export
 
     - name: Fetch new proxies from sources
       timeout-minutes: 60

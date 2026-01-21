@@ -1129,13 +1129,14 @@ async def _revalidate_existing_proxies(
     """Re-validate existing proxies in the database.
 
     Loads all proxies from the database, validates them, and updates
-    their last_success_at timestamps. Optionally prunes failed proxies.
+    their status. Valid proxies get updated last_success_at timestamps.
+    Failed proxies are marked as DEAD (or deleted if prune_failed=True).
 
     Args:
         db_path: Path to SQLite database file
         timeout: Validation timeout in seconds
         max_concurrent: Maximum concurrent validation requests
-        prune_failed: If True, remove proxies that fail validation
+        prune_failed: If True, delete failed proxies. If False, mark them as DEAD.
         console: Rich console for progress display
 
     Returns:
@@ -1154,7 +1155,7 @@ async def _revalidate_existing_proxies(
     )
 
     from proxywhirl.fetchers import ProxyValidator
-    from proxywhirl.models import Proxy
+    from proxywhirl.models import HealthStatus, Proxy
     from proxywhirl.storage import SQLiteStorage
 
     # Load existing proxies
@@ -1170,6 +1171,9 @@ async def _revalidate_existing_proxies(
             return [], 0
 
         console.print(f"[cyan]Loaded {total_proxies:,} proxies from database[/cyan]")
+
+        # Build lookup map for original proxies by URL
+        original_by_url: dict[str, Any] = {p.url: p for p in existing_proxies}
 
         # Convert to dicts for validator
         proxy_dicts = []
@@ -1238,18 +1242,45 @@ async def _revalidate_existing_proxies(
 
         # Convert validated dicts back to Proxy objects
         valid_proxies = []
-        for p_dict in validated_dicts:
-            # Update validation timestamp
-            p_dict["last_success_at"] = datetime.now(timezone.utc)
-            valid_proxies.append(Proxy.model_validate(p_dict))
+        valid_urls = set()
+        now = datetime.now(timezone.utc)
 
-        failed_count = total_proxies - len(valid_proxies)
+        for p_dict in validated_dicts:
+            # Update validation timestamp and mark healthy
+            p_dict["last_success_at"] = now
+            p_dict["health_status"] = HealthStatus.HEALTHY
+            valid_proxies.append(Proxy.model_validate(p_dict))
+            valid_urls.add(p_dict["url"])
+
+        # Identify failed proxies (in original but not in valid)
+        failed_proxies = []
+        for url, original_proxy in original_by_url.items():
+            if url not in valid_urls:
+                # Mark as DEAD with updated model
+                failed_dict = {
+                    "url": original_proxy.url,
+                    "protocol": original_proxy.protocol,
+                    "username": original_proxy.username.get_secret_value()
+                    if original_proxy.username
+                    else None,
+                    "password": original_proxy.password.get_secret_value()
+                    if original_proxy.password
+                    else None,
+                    "source": original_proxy.source.value if original_proxy.source else "fetched",
+                    "created_at": original_proxy.created_at,
+                    "total_requests": original_proxy.total_requests,
+                    "total_successes": original_proxy.total_successes,
+                    "health_status": HealthStatus.DEAD,
+                    # Keep last_success_at unchanged (stale timestamp)
+                    "last_success_at": original_proxy.last_success_at,
+                }
+                failed_proxies.append(Proxy.model_validate(failed_dict))
+
+        failed_count = len(failed_proxies)
 
         # Save results
         if prune_failed:
-            # Save only valid proxies (effectively deleting failed ones)
-            # First clear the database, then save valid proxies
-            # This is done by deleting all and re-inserting valid ones
+            # Delete failed proxies, save only valid ones
             from sqlmodel import delete
 
             from proxywhirl.storage import ProxyTable
@@ -1258,9 +1289,12 @@ async def _revalidate_existing_proxies(
             async with storage.engine.begin() as conn:
                 await conn.execute(delete(ProxyTable))
             await storage.save(valid_proxies)
+            console.print(f"[yellow]Deleted {failed_count} failed proxies[/yellow]")
         else:
-            # Update valid proxies (upsert will update their timestamps)
-            await storage.save(valid_proxies)
+            # Save both valid and failed proxies (failed marked as DEAD)
+            all_proxies = valid_proxies + failed_proxies
+            await storage.save(all_proxies)
+            console.print(f"[yellow]Marked {failed_count} proxies as DEAD[/yellow]")
 
         return valid_proxies, failed_count
 
@@ -1327,7 +1361,7 @@ def fetch(
     prune_failed: bool = typer.Option(
         False,
         "--prune-failed",
-        help="Remove proxies that fail re-validation (use with --revalidate)",
+        help="Delete failed proxies instead of marking them as DEAD (use with --revalidate)",
     ),
 ) -> None:
     """Fetch proxies from configured sources.
@@ -1364,8 +1398,6 @@ def fetch(
                 f"[green]{len(valid_proxies):,} valid[/green], "
                 f"[red]{failed_count:,} failed[/red]"
             )
-            if prune_failed and failed_count > 0:
-                command_ctx.console.print(f"[yellow]Pruned {failed_count} failed proxies[/yellow]")
             proxies = valid_proxies
         except Exception as e:
             command_ctx.console.print(f"[red]Re-validation failed:[/red] {e}")

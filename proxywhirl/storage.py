@@ -1256,15 +1256,15 @@ class SQLiteStorage:
         """Load only proxies that were validated within the given time window.
 
         This method filters out stale proxies that haven't been successfully
-        validated recently. Essential for exports to ensure only working
-        proxies are included.
+        validated recently, and excludes DEAD proxies. Essential for exports
+        to ensure only working proxies are included.
 
         Args:
             max_age_hours: Maximum age in hours for last_success_at.
                 Proxies older than this will be excluded. Default: 48 hours.
 
         Returns:
-            List of proxies with recent last_success_at timestamps
+            List of proxies with recent last_success_at timestamps and not DEAD
         """
         from datetime import timedelta, timezone
 
@@ -1272,6 +1272,7 @@ class SQLiteStorage:
         stmt = select(ProxyTable).where(
             ProxyTable.last_success_at.isnot(None),  # type: ignore[union-attr]
             ProxyTable.last_success_at >= cutoff,  # type: ignore[operator]
+            ProxyTable.health_status != "dead",  # Exclude DEAD proxies
         )
         proxy_rows = await self._execute_query(stmt)
         return self._process_results(proxy_rows)
