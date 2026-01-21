@@ -50,15 +50,22 @@ jobs:
         curl -sL https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb -o GeoLite2-Country.mmdb
         echo "Downloaded GeoLite2-Country.mmdb ($(stat --format=%s GeoLite2-Country.mmdb) bytes)"
 
-    - name: Fetch, validate, and export proxies
-      timeout-minutes: 90
+    - name: Re-validate existing proxies
+      timeout-minutes: 60
       run: |
-        # Fetch and validate proxies from all sources, save to database,
+        # Re-validate all existing proxies in the database and prune dead ones
+        # This ensures we only keep proxies that are currently working
+        # Use 5s timeout and 2000 concurrency (stable for GitHub Actions)
+        uv run proxywhirl fetch --revalidate --prune-failed --timeout 5 --concurrency 2000 --no-export
+
+    - name: Fetch new proxies from sources
+      timeout-minutes: 60
+      run: |
+        # Fetch and validate NEW proxies from all sources, save to database,
         # and export all files for web dashboard:
         # - metadata.json, http.txt, socks4.txt, socks5.txt, all.txt, proxies.json
         # - proxies-rich.json, stats.json
         # Use 5s timeout and 2000 concurrency (stable for GitHub Actions)
-        # Target: 25k+ working proxies via accumulation over time
         uv run proxywhirl fetch --timeout 5 --concurrency 2000
 
     - name: Sync proxy lists to web directory

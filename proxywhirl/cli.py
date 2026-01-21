@@ -1119,6 +1119,155 @@ async def _export_results(db_path: Path, output_dir: Path) -> None:
     )
 
 
+async def _revalidate_existing_proxies(
+    db_path: Path,
+    timeout: int,
+    max_concurrent: int,
+    prune_failed: bool,
+    console: Any,
+) -> tuple[list[Any], int]:
+    """Re-validate existing proxies in the database.
+
+    Loads all proxies from the database, validates them, and updates
+    their last_success_at timestamps. Optionally prunes failed proxies.
+
+    Args:
+        db_path: Path to SQLite database file
+        timeout: Validation timeout in seconds
+        max_concurrent: Maximum concurrent validation requests
+        prune_failed: If True, remove proxies that fail validation
+        console: Rich console for progress display
+
+    Returns:
+        Tuple of (list of valid Proxy objects, count of failed proxies)
+    """
+    from datetime import datetime, timezone
+
+    from rich.progress import (
+        BarColumn,
+        MofNCompleteColumn,
+        Progress,
+        SpinnerColumn,
+        TaskProgressColumn,
+        TextColumn,
+        TimeElapsedColumn,
+    )
+
+    from proxywhirl.fetchers import ProxyValidator
+    from proxywhirl.models import Proxy
+    from proxywhirl.storage import SQLiteStorage
+
+    # Load existing proxies
+    storage = SQLiteStorage(db_path)
+    await storage.initialize()
+
+    try:
+        existing_proxies = await storage.load()
+        total_proxies = len(existing_proxies)
+
+        if total_proxies == 0:
+            console.print("[yellow]No proxies in database to re-validate[/yellow]")
+            return [], 0
+
+        console.print(f"[cyan]Loaded {total_proxies:,} proxies from database[/cyan]")
+
+        # Convert to dicts for validator
+        proxy_dicts = []
+        for proxy in existing_proxies:
+            proxy_dict = {
+                "url": proxy.url,
+                "protocol": proxy.protocol,
+                "username": proxy.username.get_secret_value() if proxy.username else None,
+                "password": proxy.password.get_secret_value() if proxy.password else None,
+                # Preserve existing metadata
+                "source": proxy.source.value if proxy.source else "fetched",
+                "created_at": proxy.created_at,
+                "total_requests": proxy.total_requests,
+                "total_successes": proxy.total_successes,
+            }
+            proxy_dicts.append(proxy_dict)
+
+        # Validate with progress display
+        valid_count = 0
+        completed = 0
+
+        progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            MofNCompleteColumn(),
+            TextColumn("•"),
+            TimeElapsedColumn(),
+            TextColumn("{task.fields[status]}"),
+            console=console,
+            transient=False,
+        )
+
+        def progress_callback(done: int, total: int, valid: int) -> None:
+            nonlocal completed, valid_count
+            completed = done
+            valid_count = valid
+            pct = (valid / done * 100) if done > 0 else 0
+            progress.update(
+                task_id,
+                completed=done,
+                status=f"[green]{valid:,} valid[/green] ({pct:.1f}%)",
+            )
+
+        # Create validator with same settings as fetch
+        validator = ProxyValidator(
+            timeout=timeout,
+            concurrency=max_concurrent,
+        )
+
+        with progress:
+            task_id = progress.add_task(
+                "Re-validating proxies",
+                total=total_proxies,
+                status="[cyan]starting...[/cyan]",
+            )
+
+            try:
+                validated_dicts = await validator.validate_batch(
+                    proxy_dicts,
+                    progress_callback=progress_callback,
+                )
+            finally:
+                await validator.close()
+
+        # Convert validated dicts back to Proxy objects
+        valid_proxies = []
+        for p_dict in validated_dicts:
+            # Update validation timestamp
+            p_dict["last_success_at"] = datetime.now(timezone.utc)
+            valid_proxies.append(Proxy.model_validate(p_dict))
+
+        failed_count = total_proxies - len(valid_proxies)
+
+        # Save results
+        if prune_failed:
+            # Save only valid proxies (effectively deleting failed ones)
+            # First clear the database, then save valid proxies
+            # This is done by deleting all and re-inserting valid ones
+            from sqlmodel import delete
+
+            from proxywhirl.storage import ProxyTable
+
+            # Delete all and save only valid
+            async with storage.engine.begin() as conn:
+                await conn.execute(delete(ProxyTable))
+            await storage.save(valid_proxies)
+        else:
+            # Update valid proxies (upsert will update their timestamps)
+            await storage.save(valid_proxies)
+
+        return valid_proxies, failed_count
+
+    finally:
+        await storage.close()
+
+
 def _display_summary(
     context: CommandContext,
     proxies: list[Any],
@@ -1169,6 +1318,17 @@ def fetch(
         "--concurrency",
         help="Concurrent validation requests",
     ),
+    revalidate: bool = typer.Option(
+        False,
+        "--revalidate",
+        "-R",
+        help="Re-validate existing proxies in database instead of fetching new ones",
+    ),
+    prune_failed: bool = typer.Option(
+        False,
+        "--prune-failed",
+        help="Remove proxies that fail re-validation (use with --revalidate)",
+    ),
 ) -> None:
     """Fetch proxies from configured sources.
 
@@ -1176,6 +1336,8 @@ def fetch(
       proxywhirl fetch
       proxywhirl fetch --no-validate
       proxywhirl fetch --timeout 5 --concurrency 50
+      proxywhirl fetch --revalidate --timeout 5 --concurrency 2000
+      proxywhirl fetch --revalidate --prune-failed
     """
     import asyncio
 
@@ -1184,32 +1346,57 @@ def fetch(
     # Parse configuration
     fetch_config = _parse_fetch_config(no_validate, timeout, concurrency)
 
-    # Run fetch with progress display
-    try:
-        proxies = asyncio.run(
-            _fetch_from_sources(
-                validate=fetch_config["validate"],
-                timeout=fetch_config["timeout"],
-                max_concurrent=fetch_config["max_concurrent"],
-                console=command_ctx.console,
-            )
-        )
-    except Exception as e:
-        command_ctx.console.print(f"[red]Fetch failed:[/red] {e}")
-        raise typer.Exit(code=1) from e
-
-    # Display summary
-    _display_summary(command_ctx, proxies, no_validate)
-
-    # Save to database if requested
-    if not no_save_db:
-        command_ctx.console.print("[bold]Saving to database...[/bold]")
+    if revalidate:
+        # Re-validate existing proxies in database
+        command_ctx.console.print("[bold]Re-validating existing proxies in database...[/bold]")
         try:
-            asyncio.run(_save_results(proxies, Path("proxywhirl.db")))
-            command_ctx.console.print("[green]✓[/green] Saved to database")
+            valid_proxies, failed_count = asyncio.run(
+                _revalidate_existing_proxies(
+                    db_path=Path("proxywhirl.db"),
+                    timeout=fetch_config["timeout"],
+                    max_concurrent=fetch_config["max_concurrent"],
+                    prune_failed=prune_failed,
+                    console=command_ctx.console,
+                )
+            )
+            command_ctx.console.print(
+                f"[green]✓[/green] Re-validation complete: "
+                f"[green]{len(valid_proxies):,} valid[/green], "
+                f"[red]{failed_count:,} failed[/red]"
+            )
+            if prune_failed and failed_count > 0:
+                command_ctx.console.print(f"[yellow]Pruned {failed_count} failed proxies[/yellow]")
+            proxies = valid_proxies
         except Exception as e:
-            command_ctx.console.print(f"[red]Save failed:[/red] {e}")
+            command_ctx.console.print(f"[red]Re-validation failed:[/red] {e}")
             raise typer.Exit(code=1) from e
+    else:
+        # Normal mode: fetch from sources
+        try:
+            proxies = asyncio.run(
+                _fetch_from_sources(
+                    validate=fetch_config["validate"],
+                    timeout=fetch_config["timeout"],
+                    max_concurrent=fetch_config["max_concurrent"],
+                    console=command_ctx.console,
+                )
+            )
+        except Exception as e:
+            command_ctx.console.print(f"[red]Fetch failed:[/red] {e}")
+            raise typer.Exit(code=1) from e
+
+        # Display summary
+        _display_summary(command_ctx, proxies, no_validate)
+
+        # Save to database if requested
+        if not no_save_db:
+            command_ctx.console.print("[bold]Saving to database...[/bold]")
+            try:
+                asyncio.run(_save_results(proxies, Path("proxywhirl.db")))
+                command_ctx.console.print("[green]✓[/green] Saved to database")
+            except Exception as e:
+                command_ctx.console.print(f"[red]Save failed:[/red] {e}")
+                raise typer.Exit(code=1) from e
 
     # Export if requested
     if not no_export:
