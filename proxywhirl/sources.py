@@ -77,11 +77,13 @@ GITHUB_THESPEEDX_HTTP = ProxySourceConfig(
 GITHUB_THESPEEDX_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_THESPEEDX_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 GITHUB_MONOSANS_HTTP = ProxySourceConfig(
@@ -93,12 +95,14 @@ GITHUB_MONOSANS_HTTP = ProxySourceConfig(
 GITHUB_MONOSANS_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks4.txt",
     format="plain_text",
+    protocol="socks4",
     trusted=True,
 )
 
 GITHUB_MONOSANS_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks5.txt",
     format="plain_text",
+    protocol="socks5",
     trusted=True,
 )
 
@@ -118,12 +122,14 @@ GITHUB_JETKAI_HTTPS = ProxySourceConfig(
 GITHUB_JETKAI_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-socks4.txt",
     format="plain_text",
+    protocol="socks4",
     trusted=True,
 )
 
 GITHUB_JETKAI_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/jetkai/proxy-list/main/online-proxies/txt/proxies-socks5.txt",
     format="plain_text",
+    protocol="socks5",
     trusted=True,
 )
 
@@ -150,11 +156,13 @@ GITHUB_SHIFTYTR_HTTPS = ProxySourceConfig(
 GITHUB_SHIFTYTR_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_SHIFTYTR_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 GITHUB_ALMROOT_HTTP = ProxySourceConfig(
@@ -176,12 +184,14 @@ GITHUB_PRXCHK_HTTP = ProxySourceConfig(
 GITHUB_PRXCHK_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/prxchk/proxy-list/main/socks4.txt",
     format="plain_text",
+    protocol="socks4",
     trusted=True,
 )
 
 GITHUB_PRXCHK_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/prxchk/proxy-list/main/socks5.txt",
     format="plain_text",
+    protocol="socks5",
     trusted=True,
 )
 
@@ -193,11 +203,13 @@ GITHUB_RDAVYDOV_HTTP = ProxySourceConfig(
 GITHUB_RDAVYDOV_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_RDAVYDOV_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/rdavydov/proxy-list/main/proxies/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 GITHUB_MMPX12_HTTP = ProxySourceConfig(
@@ -213,11 +225,13 @@ GITHUB_MMPX12_HTTPS = ProxySourceConfig(
 GITHUB_MMPX12_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/mmpx12/proxy-list/master/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_MMPX12_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/mmpx12/proxy-list/master/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 GITHUB_PROXIFLY_HTTP = ProxySourceConfig(
@@ -229,12 +243,14 @@ GITHUB_PROXIFLY_HTTP = ProxySourceConfig(
 GITHUB_PROXIFLY_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/socks4/data.txt",
     format="plain_text",
+    protocol="socks4",
     trusted=True,
 )
 
 GITHUB_PROXIFLY_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/socks5/data.txt",
     format="plain_text",
+    protocol="socks5",
     trusted=True,
 )
 
@@ -247,12 +263,14 @@ GITHUB_ELLIOTTOPHELLIA_HTTP = ProxySourceConfig(
 GITHUB_ELLIOTTOPHELLIA_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/elliottophellia/yakumo/master/results/socks4/global/socks4_checked.txt",
     format="plain_text",
+    protocol="socks4",
     trusted=True,
 )
 
 GITHUB_ELLIOTTOPHELLIA_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/elliottophellia/yakumo/master/results/socks5/global/socks5_checked.txt",
     format="plain_text",
+    protocol="socks5",
     trusted=True,
 )
 
@@ -270,11 +288,13 @@ GITHUB_OPENPROXY_HTTPS = ProxySourceConfig(
 GITHUB_OPENPROXY_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/socks4/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_OPENPROXY_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/socks5/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # vakhov/fresh-proxy-list - Verified working proxies
@@ -293,12 +313,14 @@ GITHUB_VAKHOV_HTTPS = ProxySourceConfig(
 GITHUB_VAKHOV_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/vakhov/fresh-proxy-list/master/socks4.txt",
     format="plain_text",
+    protocol="socks4",
     trusted=True,
 )
 
 GITHUB_VAKHOV_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/vakhov/fresh-proxy-list/master/socks5.txt",
     format="plain_text",
+    protocol="socks5",
     trusted=True,
 )
 
@@ -311,6 +333,7 @@ GITHUB_ZAEEM_HTTP = ProxySourceConfig(
 GITHUB_ZAEEM_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Zaeem20/FREE_PROXIES_LIST/master/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 
@@ -329,11 +352,13 @@ GITHUB_MURONGPIG_HTTP = ProxySourceConfig(
 GITHUB_MURONGPIG_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/MuRongPig/Proxy-Master/main/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_MURONGPIG_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/MuRongPig/Proxy-Master/main/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # =============================================================================
@@ -350,12 +375,14 @@ GITHUB_KOMUTAN_HTTP = ProxySourceConfig(
 GITHUB_KOMUTAN_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/komutan234/Proxy-List-Free/main/proxies/socks4.txt",
     format="plain_text",
+    protocol="socks4",
     trusted=True,
 )
 
 GITHUB_KOMUTAN_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/komutan234/Proxy-List-Free/main/proxies/socks5.txt",
     format="plain_text",
+    protocol="socks5",
     trusted=True,
 )
 
@@ -368,17 +395,20 @@ GITHUB_ANONYM0US_HTTP = ProxySourceConfig(
 GITHUB_ANONYM0US_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Anonym0usWork1221/Free-Proxies/main/proxy_files/socks4_proxies.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_ANONYM0US_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Anonym0usWork1221/Free-Proxies/main/proxy_files/socks5_proxies.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # hookzof/socks5_list - Well-known SOCKS5 source
 GITHUB_HOOKZOF_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/hookzof/socks5_list/master/proxy.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # im-razvan/proxy_list - HTTP and SOCKS5 proxies
@@ -390,6 +420,7 @@ GITHUB_IMRAZVAN_HTTP = ProxySourceConfig(
 GITHUB_IMRAZVAN_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/im-razvan/proxy_list/main/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # proxyspace.pro - Very large proxy lists (1MB+ each)
@@ -401,11 +432,13 @@ PROXYSPACE_HTTP = ProxySourceConfig(
 PROXYSPACE_SOCKS4 = ProxySourceConfig(
     url="https://proxyspace.pro/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 PROXYSPACE_SOCKS5 = ProxySourceConfig(
     url="https://proxyspace.pro/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # openproxylist.xyz - Large HTTP proxy list
@@ -423,11 +456,13 @@ GITHUB_DPANGESTUW_HTTP = ProxySourceConfig(
 GITHUB_DPANGESTUW_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/dpangestuw/Free-Proxy/master/socks4_proxies.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_DPANGESTUW_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/dpangestuw/Free-Proxy/master/socks5_proxies.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # clarketm/proxy-list - Classic source, daily updates
@@ -454,11 +489,13 @@ GITHUB_TSPRNAY_HTTPS = ProxySourceConfig(
 GITHUB_TSPRNAY_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Tsprnay/Proxy-lists/master/proxies/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_TSPRNAY_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Tsprnay/Proxy-lists/master/proxies/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # zevtyardt/proxy-list - Very large lists (40k+ each)
@@ -470,11 +507,13 @@ GITHUB_ZEVTYARDT_HTTP = ProxySourceConfig(
 GITHUB_ZEVTYARDT_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/zevtyardt/proxy-list/main/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_ZEVTYARDT_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/zevtyardt/proxy-list/main/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # proxifly via jsDelivr CDN - Fast, reliable, 5-min updates
@@ -488,12 +527,14 @@ JSDELIVR_PROXIFLY_ALL = ProxySourceConfig(
 PROXY_SCRAPE_SOCKS4 = ProxySourceConfig(
     url="https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks4&timeout=10000&country=all",
     format="plain_text",
+    protocol="socks4",
 )
 
 # ProxyScrape SOCKS5 - Additional protocol support
 PROXY_SCRAPE_SOCKS5 = ProxySourceConfig(
     url="https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000&country=all",
     format="plain_text",
+    protocol="socks5",
 )
 
 # ErcinDedeoglu/proxies - Very large lists (50k+ each), frequently updated
@@ -510,11 +551,13 @@ GITHUB_ERCINDEDEOGLU_HTTPS = ProxySourceConfig(
 GITHUB_ERCINDEDEOGLU_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_ERCINDEDEOGLU_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # =============================================================================
@@ -537,12 +580,14 @@ GITHUB_IPLOCATE_HTTPS = ProxySourceConfig(
 GITHUB_IPLOCATE_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/iplocate/free-proxy-list/main/protocols/socks4.txt",
     format="plain_text",
+    protocol="socks4",
     trusted=True,
 )
 
 GITHUB_IPLOCATE_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/iplocate/free-proxy-list/main/protocols/socks5.txt",
     format="plain_text",
+    protocol="socks5",
     trusted=True,
 )
 
@@ -567,11 +612,13 @@ GITHUB_PROXYSCRAPER_HTTP = ProxySourceConfig(
 GITHUB_PROXYSCRAPER_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ProxyScraper/ProxyScraper/main/sock4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_PROXYSCRAPER_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ProxyScraper/ProxyScraper/main/sock5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # zebbern/Proxy-Scraper - Updated hourly
@@ -588,11 +635,13 @@ GITHUB_ZEBBERN_HTTPS = ProxySourceConfig(
 GITHUB_ZEBBERN_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/zebbern/Proxy-Scraper/main/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_ZEBBERN_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/zebbern/Proxy-Scraper/main/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # UptimerBot/proxy-list - Frequently updated
@@ -604,11 +653,13 @@ GITHUB_UPTIMERBOT_HTTP = ProxySourceConfig(
 GITHUB_UPTIMERBOT_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_UPTIMERBOT_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/UptimerBot/proxy-list/main/proxies/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # MuRongPIG/Proxy-Master - Large aggregated lists
@@ -637,11 +688,13 @@ GITHUB_KANGPROXY_HTTPS = ProxySourceConfig(
 GITHUB_KANGPROXY_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/socks4/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_KANGPROXY_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/socks5/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # proxy4parsing/proxy-list - Frequently updated
@@ -671,12 +724,14 @@ GITHUB_RX443_HTTPS = ProxySourceConfig(
 GITHUB_RX443_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/rx443/proxy-list/main/online/socks4.txt",
     format="plain_text",
+    protocol="socks4",
     trusted=True,
 )
 
 GITHUB_RX443_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/rx443/proxy-list/main/online/socks5.txt",
     format="plain_text",
+    protocol="socks5",
     trusted=True,
 )
 
@@ -700,11 +755,13 @@ GITHUB_MRMARBLE_HTTPS = ProxySourceConfig(
 GITHUB_MRMARBLE_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/MrMarble/proxy-list/main/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_MRMARBLE_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/MrMarble/proxy-list/main/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # caliphdev/Proxy-List - Updated hourly
@@ -716,11 +773,13 @@ GITHUB_CALIPH_HTTP = ProxySourceConfig(
 GITHUB_CALIPH_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/caliphdev/Proxy-List/main/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_CALIPH_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/caliphdev/Proxy-List/main/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # zloi-user/hideip.me - Very large lists
@@ -737,11 +796,13 @@ GITHUB_ZLOI_HTTPS = ProxySourceConfig(
 GITHUB_ZLOI_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/zloi-user/hideip.me/main/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_ZLOI_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/zloi-user/hideip.me/main/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # proxy-list.download API - Free API with all proxy types
@@ -758,11 +819,13 @@ PROXYLISTDOWNLOAD_HTTPS = ProxySourceConfig(
 PROXYLISTDOWNLOAD_SOCKS4 = ProxySourceConfig(
     url="https://www.proxy-list.download/api/v1/get?type=socks4",
     format="plain_text",
+    protocol="socks4",
 )
 
 PROXYLISTDOWNLOAD_SOCKS5 = ProxySourceConfig(
     url="https://www.proxy-list.download/api/v1/get?type=socks5",
     format="plain_text",
+    protocol="socks5",
 )
 
 # mishakorzik/100000-Proxy - Claims 100k+ proxies
@@ -775,22 +838,26 @@ GITHUB_MISHAKORZIK_ALL = ProxySourceConfig(
 GITHUB_ROOSTERKID_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_ROOSTERKID_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/roosterkid/openproxylist/main/SOCKS5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # sunny9577/proxy-scraper - SOCKS proxies
 GITHUB_SUNNY9577_SOCKS4 = ProxySourceConfig(
     url="https://sunny9577.github.io/proxy-scraper/generated/socks4_proxies.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_SUNNY9577_SOCKS5 = ProxySourceConfig(
     url="https://sunny9577.github.io/proxy-scraper/generated/socks5_proxies.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # =============================================================================
@@ -806,11 +873,13 @@ GITHUB_ALIILAPRO_HTTP = ProxySourceConfig(
 GITHUB_ALIILAPRO_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_ALIILAPRO_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # fate0/proxylist - Generated every 15 minutes
@@ -829,12 +898,14 @@ GITHUB_SKILLTER_HTTP = ProxySourceConfig(
 GITHUB_SKILLTER_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Skillter/ProxyGather/master/proxies/working-proxies-socks4.txt",
     format="plain_text",
+    protocol="socks4",
     trusted=True,
 )
 
 GITHUB_SKILLTER_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Skillter/ProxyGather/master/proxies/working-proxies-socks5.txt",
     format="plain_text",
+    protocol="socks5",
     trusted=True,
 )
 
@@ -853,11 +924,13 @@ GITHUB_SH4DOWB_HTTP = ProxySourceConfig(
 GITHUB_SH4DOWB_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/sh4dowb/proxy-scraper/main/proxies/socks4.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_SH4DOWB_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/sh4dowb/proxy-scraper/main/proxies/socks5.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # Anonym0usWork1221/Free-Proxies - Large lists
@@ -874,11 +947,13 @@ GITHUB_ANONYM0USWORK_HTTPS = ProxySourceConfig(
 GITHUB_ANONYM0USWORK_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Anonym0usWork1221/Free-Proxies/main/proxy_files/socks4_proxies.txt",
     format="plain_text",
+    protocol="socks4",
 )
 
 GITHUB_ANONYM0USWORK_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Anonym0usWork1221/Free-Proxies/main/proxy_files/socks5_proxies.txt",
     format="plain_text",
+    protocol="socks5",
 )
 
 # a2u/free-proxy-list - Validated hourly
@@ -897,11 +972,13 @@ PUBPROXY_HTTP = ProxySourceConfig(
 PUBPROXY_SOCKS4 = ProxySourceConfig(
     url="http://pubproxy.com/api/proxy?limit=20&format=txt&type=socks4",
     format="plain_text",
+    protocol="socks4",
 )
 
 PUBPROXY_SOCKS5 = ProxySourceConfig(
     url="http://pubproxy.com/api/proxy?limit=20&format=txt&type=socks5",
     format="plain_text",
+    protocol="socks5",
 )
 
 # hidemy.name free proxy list
@@ -913,11 +990,13 @@ HIDEMY_HTTP = ProxySourceConfig(
 HIDEMY_SOCKS4 = ProxySourceConfig(
     url="https://hidemy.io/api/proxylist.php?out=plain&type=4",
     format="plain_text",
+    protocol="socks4",
 )
 
 HIDEMY_SOCKS5 = ProxySourceConfig(
     url="https://hidemy.io/api/proxylist.php?out=plain&type=5",
     format="plain_text",
+    protocol="socks5",
 )
 
 # proxy-list.org - Free proxy lists

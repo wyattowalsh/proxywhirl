@@ -902,6 +902,11 @@ class ProxySourceConfig(BaseModel):
         default=None,
         description="Custom parser function that takes content string and returns list of proxy dicts",
     )
+    protocol: str | None = Field(
+        default=None,
+        description="Default protocol for plain text sources (http, socks4, socks5). "
+        "If None, defaults to http for IP:PORT format.",
+    )
     wait_selector: str | None = None
     wait_timeout: int = 30000
     refresh_interval: int = 3600

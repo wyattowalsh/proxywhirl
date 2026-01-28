@@ -1107,6 +1107,18 @@ class ProxyFetcher:
 
             # Parse proxies
             proxies_list: list[dict[str, Any]] = parser.parse(html_content)
+
+            # Apply source protocol if specified (for plain text SOCKS sources)
+            if source.protocol and source.protocol != "http":
+                for proxy in proxies_list:
+                    if "url" in proxy:
+                        # Replace http:// with the specified protocol
+                        url = proxy["url"]
+                        if url.startswith("http://"):
+                            proxy["url"] = f"{source.protocol}://{url[7:]}"
+                        # Set protocol field explicitly
+                        proxy["protocol"] = source.protocol
+
             return proxies_list
 
         except httpx.HTTPStatusError as e:
