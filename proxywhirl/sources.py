@@ -17,6 +17,7 @@ from typing import Any
 
 import httpx
 
+from proxywhirl.fetchers import GeonodeParser
 from proxywhirl.models import ProxySourceConfig
 
 # =============================================================================
@@ -43,18 +44,21 @@ PROXY_SCRAPE_HTTPS = ProxySourceConfig(
 GEONODE_HTTP = ProxySourceConfig(
     url="https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc&protocols=http%2Chttps",
     format="json",
+    custom_parser=GeonodeParser(),  # GeoNode uses {"data": [...]} wrapper
     trusted=True,  # GeoNode validates and sorts by lastChecked
 )
 
 GEONODE_SOCKS4 = ProxySourceConfig(
     url="https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc&protocols=socks4",
     format="json",
+    custom_parser=GeonodeParser(),
     trusted=True,
 )
 
 GEONODE_SOCKS5 = ProxySourceConfig(
     url="https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc&protocols=socks5",
     format="json",
+    custom_parser=GeonodeParser(),
     trusted=True,
 )
 

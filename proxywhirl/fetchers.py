@@ -361,6 +361,56 @@ class HTMLTableParser:
         return proxies
 
 
+class GeonodeParser:
+    """Parse GeoNode API JSON response format.
+
+    GeoNode API returns: {"data": [{"ip": "...", "port": "...", "protocols": ["http"]}, ...]}
+    This parser extracts and transforms to standard format: {"url": "http://ip:port", "protocol": "http"}
+    """
+
+    def parse(self, data: str) -> list[dict[str, Any]]:
+        """Parse GeoNode API response.
+
+        Args:
+            data: JSON string from GeoNode API
+
+        Returns:
+            List of proxy dictionaries in standard format
+        """
+        try:
+            parsed = json.loads(data)
+        except json.JSONDecodeError as e:
+            raise ProxyFetchError(f"Invalid JSON from GeoNode: {e}") from e
+
+        # Extract data array
+        if not isinstance(parsed, dict) or "data" not in parsed:
+            raise ProxyFetchError("GeoNode response missing 'data' key")
+
+        items = parsed["data"]
+        if not isinstance(items, list):
+            raise ProxyFetchError("GeoNode 'data' is not an array")
+
+        proxies = []
+        for item in items:
+            ip = item.get("ip")
+            port = item.get("port")
+            protocols = item.get("protocols", [])
+
+            if not ip or not port:
+                continue
+
+            # GeoNode may return port as string or int
+            port_str = str(port)
+
+            # Create proxy entry for each protocol
+            for protocol in protocols:
+                protocol_lower = protocol.lower()
+                url = f"{protocol_lower}://{ip}:{port_str}"
+                proxies.append({"url": url, "protocol": protocol_lower})
+
+        return proxies
+
+
 def deduplicate_proxies(proxies: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
     Deduplicate proxies by URL+Port combination.
