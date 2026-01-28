@@ -58,19 +58,27 @@
 | `exceptions.py` | `ProxyWhirlError` hierarchy |
 | `safe_regex.py` | ReDoS-safe regex utilities |
 | `geo.py` | IP geolocation enrichment |
+| `utils.py` | Utility functions (encryption, URL parsing, logging config) |
+| `logging_config.py` | Loguru logging configuration |
+| `metrics_collector.py` | Prometheus metrics collection |
+| `enrichment.py` | Proxy data enrichment |
+| `premium_sources.py` | Premium proxy source definitions |
+| `migrations.py` | SQLModel database migrations (Alembic) |
+| `exports.py` | Data export utilities |
+| `rwlock.py` | Read-write lock utilities |
 
 **Structure:** `proxywhirl/` (core), `tests/` (unit/integration/property/benchmarks/contract), `docs/`, `examples/`
 
 **Key Exports** (from `proxywhirl/__init__.py`):
 - Rotators: `ProxyRotator`, `AsyncProxyRotator`
-- Models: `Proxy`, `ProxyPool`, `Session`, `ProxySource`, `HealthStatus`, `ProxyChain`, `SelectionContext`
+- Models: `Proxy`, `ProxyPool`, `Session`, `ProxySource`, `HealthStatus`, `ProxyChain`, `SelectionContext`, `ProxyCredentials`, `ProxySourceConfig`, `SourceStats`, `HealthMonitor`, `ProxyFormat`, `RenderMode`, `ValidationLevel`
 - Config: `ProxyConfiguration`, `StrategyConfig`, `CircuitBreakerConfig`, `RetryPolicy`, `CacheConfig`, `DataStorageConfig`
 - Components: `CacheManager`, `CircuitBreaker`, `AsyncCircuitBreaker`, `RetryExecutor`, `BrowserRenderer`, `ProxyFetcher`, `ProxyValidator`
 - Strategies: `RotationStrategy` (protocol), `StrategyRegistry`, all 9 strategy classes
 - Parsers: `JSONParser`, `CSVParser`, `PlainTextParser`, `HTMLTableParser`
-- Sources: `ALL_SOURCES`, `RECOMMENDED_SOURCES`, `ALL_HTTP_SOURCES`, `ALL_SOCKS5_SOURCES`, `API_SOURCES`
-- Exceptions: `ProxyWhirlError`, `ProxyPoolEmptyError`, `ProxyValidationError`, `ProxyConnectionError`, `RetryableError`
-- Utils: `configure_logging`, `encrypt_credentials`, `decrypt_credentials`, `deduplicate_proxies`
+- Sources: `ALL_SOURCES`, `RECOMMENDED_SOURCES`, `ALL_HTTP_SOURCES`, `ALL_SOCKS4_SOURCES`, `ALL_SOCKS5_SOURCES`, `API_SOURCES`
+- Exceptions: `ProxyWhirlError`, `ProxyPoolEmptyError`, `ProxyValidationError`, `ProxyConnectionError`, `ProxyAuthenticationError`, `ProxyFetchError`, `ProxyStorageError`, `RetryableError`, `NonRetryableError`, `RegexTimeoutError`, `RegexComplexityError`, `CacheCorruptionError`, `CacheStorageError`, `CacheValidationError`, `RequestQueueFullError`
+- Utils: `configure_logging`, `encrypt_credentials`, `decrypt_credentials`, `generate_encryption_key`, `deduplicate_proxies`, `is_valid_proxy_url`, `parse_proxy_url`, `validate_proxy_model`, `proxy_to_dict`, `create_proxy_from_url`
 
 ## Testing
 
@@ -90,7 +98,7 @@
 
 **Pre-commit:** ruff lint/format, commitizen, private key detection, large file check
 
-**CI Workflows** (`.github/workflows/`): `ci.yml` (main), `security.yml`, `generate-proxies.yml` (6h cron), `validate-sources.yml`
+**CI Workflows** (`.github/workflows/`): `ci.yml` (main), `security.yml`, `generate-proxies.yml` (6h cron), `validate-sources.yml`, `update-readme-stats.yml`, `release.yml`, `cd.yml`
 
 ## Boundaries
 

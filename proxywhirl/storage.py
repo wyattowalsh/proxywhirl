@@ -4,18 +4,19 @@ from __future__ import annotations
 
 import base64
 import json
-from datetime import date as Date  # noqa: N812
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from uuid import UUID
+from typing import Any
+from urllib.parse import urlparse
 
 import aiofiles
-import sqlalchemy as sa
 from cryptography.fernet import Fernet
 from loguru import logger
 from pydantic import SecretStr
+from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlmodel import Field, SQLModel, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from proxywhirl.cache.crypto import CredentialEncryptor
 from proxywhirl.models import Proxy
@@ -24,348 +25,108 @@ from proxywhirl.models import Proxy
 _ENCRYPTED_PREFIX = "encrypted:"
 
 
-class ProxyTable(SQLModel, table=True):
-    """SQLModel table schema for proxy storage in SQLite.
+class ProxyIdentityTable(SQLModel, table=True):
+    """Immutable proxy identity table (normalized schema).
 
-    This table stores comprehensive proxy metadata including health metrics,
-    authentication credentials, usage statistics, and analytics. Multiple fields
-    are indexed for fast querying by geographic location, health status, and source.
+    This table stores the core identity of each proxy, with fields that
+    rarely change. Geographic and source metadata are stored here.
 
     Primary Key:
-        url: Full proxy URL (e.g., "http://proxy.com:8080")
+        url: Full proxy URL (e.g., "http://1.2.3.4:8080")
 
-    Secondary Keys:
-        id: UUID for proxy identification
-
-    Core Fields:
-        protocol: Protocol type (http, https, socks4, socks5)
-        username: Optional authentication username
-        password: Optional authentication password (store encrypted at app level)
-
-    Health Status:
-        health_status: Current health status (healthy, unhealthy, degraded, dead, unknown)
-        last_success_at: Timestamp of last successful request
-        last_failure_at: Timestamp of last failed request
-        last_health_check: Timestamp of last health check
-        last_health_error: Last health check error message
-        total_checks: Total health checks performed
-        total_health_failures: Total health check failures
-        consecutive_successes: Consecutive successful health checks
-        consecutive_failures: Current consecutive failure streak
-        recovery_attempt: Current recovery attempt count
-        next_check_time: Scheduled next health check
-        last_recovered_at: Timestamp of last recovery from unhealthy state
-        revival_attempts: Number of recovery attempts made
-        health_status_transitions_json: JSON string tracking status transitions
-
-    Request Tracking:
-        requests_started: Total requests initiated
-        requests_completed: Total requests finished (success or failure)
-        requests_active: Currently in-flight requests
-        total_requests: Cumulative request count (legacy)
-        total_successes: Cumulative success count
-        total_failures: Cumulative failure count
-
-    Response Time Metrics:
-        average_response_time_ms: Rolling average response time in milliseconds
-        ema_response_time_ms: Exponential moving average response time
-        ema_alpha: EMA smoothing factor
-        response_time_p50_ms: 50th percentile response time
-        response_time_p95_ms: 95th percentile response time
-        response_time_p99_ms: 99th percentile response time
-        min_response_time_ms: Minimum response time observed
-        max_response_time_ms: Maximum response time observed
-        response_time_stddev_ms: Response time standard deviation
-        response_samples_count: Number of response time samples collected
-
-    Error Tracking:
-        error_types_json: JSON dict mapping error type to count
-        last_error_type: Most recent error type
-        last_error_message: Most recent error message
-        last_error_at: Timestamp of last error
-        timeout_count: Number of timeout errors
-        connection_refused_count: Number of connection refused errors
-        ssl_error_count: Number of SSL/TLS errors
-        http_4xx_count: Number of HTTP 4xx client errors
-        http_5xx_count: Number of HTTP 5xx server errors
-
-    Geographic Information:
-        country_code: ISO 3166-1 alpha-2 country code (indexed)
-        country_name: Full country name
-        region: Region/state within country
-        city: City location
-        isp_name: Internet Service Provider name
-        asn: Autonomous System Number
-        is_residential: Whether proxy is residential IP
-        is_datacenter: Whether proxy is datacenter IP
-        is_vpn: Whether proxy is VPN service
-        is_tor: Whether proxy is Tor exit node
-        latitude: Geographic latitude
-        longitude: Geographic longitude
-
-    Protocol Support:
-        http_version: HTTP version supported (e.g., "1.1", "2.0")
-        tls_version: TLS version supported (e.g., "1.2", "1.3")
-        supports_https: Whether HTTPS is supported
-        supports_connect: Whether HTTP CONNECT method is supported
-        supports_http2: Whether HTTP/2 is supported
-
-    Source Metadata:
-        source: Proxy source identifier (indexed) - user, fetched, api, etc.
-        source_url: Original URL where proxy was fetched from
-        source_name: Human-readable source name
-        fetch_timestamp: When proxy was fetched
-        fetch_duration_ms: Time taken to fetch proxy
-        last_validation_time: Last time proxy was validated
-        validation_method: Method used for validation
-
-    Sliding Window:
-        window_start: Start time of current sliding window
-        window_duration_seconds: Window duration in seconds
-
-    Tags & TTL:
-        tags_json: JSON array of proxy tags
-        ttl: Time-to-live in seconds
-        expires_at: Explicit expiration timestamp
-
-    Metadata:
-        metadata_json: JSON string for additional custom metadata
-        created_at: Record creation timestamp
-        updated_at: Record last update timestamp
+    Indexes:
+        - protocol: Fast filtering by protocol type
+        - host_port: Unique constraint to prevent duplicates
+        - country_code: Geographic filtering
+        - source: Source-based queries
     """
 
-    __tablename__: str = "proxies"  # type: ignore[misc]
+    __tablename__: str = "proxy_identities"  # type: ignore[misc]
 
-    # Primary and Secondary Keys
     url: str = Field(primary_key=True)
-    id: str | None = None  # UUID stored as string
-
-    # Core Fields
-    protocol: str | None = None
+    protocol: str = Field(index=True)  # http, https, socks4, socks5
+    host: str = Field(index=True)
+    port: int
     username: str | None = None
-    password: str | None = None
+    password: str | None = None  # Encrypted at app level
 
-    # Health Status
-    health_status: str = "unknown"
-    last_success_at: datetime | None = None
-    last_failure_at: datetime | None = None
-    last_health_check: datetime | None = None
-    last_health_error: str | None = None
-    total_checks: int = 0
-    total_health_failures: int = 0
-    consecutive_successes: int = 0
-    consecutive_failures: int = 0
-    recovery_attempt: int = 0
-    next_check_time: datetime | None = None
-    last_recovered_at: datetime | None = None
-    revival_attempts: int = 0
-    health_status_transitions_json: str | None = None
-
-    # Request Tracking
-    requests_started: int = 0
-    requests_completed: int = 0
-    requests_active: int = 0
-    total_requests: int = 0
-    total_successes: int = 0
-    total_failures: int = 0
-
-    # Response Time Metrics
-    average_response_time_ms: float | None = None
-    ema_response_time_ms: float | None = None
-    ema_alpha: float = 0.2
-    response_time_p50_ms: float | None = None
-    response_time_p95_ms: float | None = None
-    response_time_p99_ms: float | None = None
-    min_response_time_ms: float | None = None
-    max_response_time_ms: float | None = None
-    response_time_stddev_ms: float | None = None
-    response_samples_count: int = 0
-
-    # Error Tracking
-    error_types_json: str | None = None
-    last_error_type: str | None = None
-    last_error_message: str | None = None
-    last_error_at: datetime | None = None
-    timeout_count: int = 0
-    connection_refused_count: int = 0
-    ssl_error_count: int = 0
-    http_4xx_count: int = 0
-    http_5xx_count: int = 0
-
-    # Geographic Information (country_code indexed for fast geo-filtering)
+    # Geographic (immutable per IP)
     country_code: str | None = Field(default=None, index=True)
     country_name: str | None = None
     region: str | None = None
     city: str | None = None
-    isp_name: str | None = None
-    asn: int | None = None
-    is_residential: bool | None = None
-    is_datacenter: bool | None = None
-    is_vpn: bool | None = None
-    is_tor: bool | None = None
     latitude: float | None = None
     longitude: float | None = None
+    asn: int | None = None
+    isp_name: str | None = None
+    is_residential: bool = False
+    is_datacenter: bool = False
 
-    # Protocol Support
-    http_version: str | None = None
-    tls_version: str | None = None
-    supports_https: bool | None = None
-    supports_connect: bool | None = None
-    supports_http2: bool | None = None
-
-    # Source Metadata (source indexed for fast source-based queries)
-    source: str = Field(default="user", index=True)
+    # Source metadata
+    source: str = Field(default="fetched", index=True)
     source_url: str | None = None
-    source_name: str | None = None
-    fetch_timestamp: datetime | None = None
-    fetch_duration_ms: float | None = None
-    last_validation_time: datetime | None = None
-    validation_method: str | None = None
-
-    # Sliding Window
-    window_start: datetime | None = None
-    window_duration_seconds: int = 3600
-
-    # Tags & TTL
-    tags_json: str | None = None
-    ttl: int | None = None
-    expires_at: datetime | None = None
-
-    # Metadata
-    metadata_json: str = "{}"
-    created_at: datetime
-    updated_at: datetime
+    discovered_at: datetime = Field(
+        default_factory=lambda: datetime.now(__import__("datetime").timezone.utc)
+    )
 
 
-class CacheEntryTable(SQLModel, table=True):
-    """SQLModel table schema for L3 cache storage.
+class ValidationResultTable(SQLModel, table=True):
+    """Individual validation result table (append-only).
 
-    This table stores cached proxy entries with TTL, health status, and
-    encryption support for credentials. Used by the three-tier caching
-    system (L1 memory, L2 JSONL files, L3 SQLite).
+    Stores each validation attempt as an immutable record.
+    This enables historical analysis and trend tracking.
 
-    Attributes:
-        key: Primary key - URL-safe hash of proxy URL
-        proxy_url: Full proxy URL (scheme://host:port)
-        username_encrypted: Encrypted username (BLOB), None if no auth
-        password_encrypted: Encrypted password (BLOB), None if no auth
-        source: Proxy source identifier (indexed)
-        fetch_time: Unix timestamp when proxy was fetched
-        last_accessed: Unix timestamp of last cache access (indexed)
-        access_count: Number of cache hits
-        ttl_seconds: Time-to-live duration in seconds
-        expires_at: Unix timestamp of expiration (indexed)
-        health_status: Current health status: healthy, unhealthy, unknown (indexed)
-        failure_count: Consecutive failures for health tracking
-        created_at: Unix timestamp of record creation
-        updated_at: Unix timestamp of last update
+    Indexes:
+        - proxy_url + validated_at: Fast lookup of recent validations
+        - validated_at: Time-range queries
+        - is_valid + validated_at: Finding recent valid proxies
     """
 
-    __tablename__: str = "cache_entries"  # type: ignore[misc]
-
-    key: str = Field(primary_key=True)
-    proxy_url: str
-    username_encrypted: bytes | None = None
-    password_encrypted: bytes | None = None
-    source: str = Field(index=True)
-    fetch_time: float
-    last_accessed: float = Field(index=True)
-    access_count: int = 0
-    ttl_seconds: int
-    expires_at: float = Field(index=True)
-    health_status: str = Field(default="unknown", index=True)
-    failure_count: int = 0
-    created_at: float
-    updated_at: float
-
-
-class CircuitBreakerStateTable(SQLModel, table=True):
-    """SQLModel table schema for circuit breaker state persistence.
-
-    This table stores circuit breaker state across restarts to prevent
-    immediately retrying failed proxies.
-
-    Attributes:
-        proxy_id: Primary key - unique identifier for the proxy
-        state: Current circuit breaker state (closed, open, half_open)
-        failure_count: Current failure count within the rolling window
-        failure_window_json: JSON array of failure timestamps
-        next_test_time: Unix timestamp when circuit can transition to half-open
-        last_state_change: Timestamp of last state transition
-        failure_threshold: Configured failure threshold
-        window_duration: Configured window duration in seconds
-        timeout_duration: Configured timeout duration in seconds
-        created_at: Record creation timestamp
-        updated_at: Record last update timestamp
-    """
-
-    __tablename__: str = "circuit_breaker_states"  # type: ignore[misc]
-
-    proxy_id: str = Field(primary_key=True)
-    state: str = Field(index=True)  # closed, open, half_open
-    failure_count: int = 0
-    failure_window_json: str = "[]"  # JSON array of timestamps
-    next_test_time: float | None = None
-    last_state_change: datetime
-    failure_threshold: int = 5
-    window_duration: float = 60.0
-    timeout_duration: float = 30.0
-    created_at: datetime
-    updated_at: datetime
-
-
-class DailyStatsTable(SQLModel, table=True):
-    """SQLModel table schema for daily analytics statistics.
-
-    This table stores aggregated daily metrics for monitoring proxy pool
-    performance over time. One record per day with cumulative statistics.
-
-    Attributes:
-        stat_date: Primary key - date of the statistics (YYYY-MM-DD)
-        total_requests: Total number of requests made on this day
-        total_successes: Number of successful requests on this day
-        total_failures: Number of failed requests on this day
-        avg_response_time_ms: Average response time in milliseconds for this day
-    """
-
-    model_config = {"arbitrary_types_allowed": True}
-
-    __tablename__: str = "daily_stats"  # type: ignore[misc]
-
-    stat_date: Date = Field(sa_column=sa.Column("date", sa.Date, primary_key=True))  # type: ignore[valid-type]
-    total_requests: int = Field(default=0)
-    total_successes: int = Field(default=0)
-    total_failures: int = Field(default=0)
-    avg_response_time_ms: float = Field(default=0.0)
-
-
-class RequestLogTable(SQLModel, table=True):
-    """SQLModel table schema for detailed request logging.
-
-    This table stores individual request logs for detailed analytics and debugging.
-    Each record represents a single HTTP request made through a proxy.
-
-    Attributes:
-        id: Primary key - auto-incrementing request log ID
-        timestamp: When the request was made (indexed for time-range queries)
-        proxy_url: Full URL of the proxy used (indexed for proxy-specific queries)
-        target_url: Target URL that was requested
-        response_time_ms: Response time in milliseconds
-        status_code: HTTP status code (None if request failed before receiving response)
-        success: Whether the request succeeded
-        error: Error message if request failed (None if successful)
-    """
-
-    __tablename__: str = "request_logs"  # type: ignore[misc]
+    __tablename__: str = "validation_results"  # type: ignore[misc]
 
     id: int | None = Field(default=None, primary_key=True)
-    timestamp: datetime = Field(index=True)
-    proxy_url: str = Field(index=True)
-    target_url: str
-    response_time_ms: float
-    status_code: int | None = None
-    success: bool
-    error: str | None = None
+    proxy_url: str = Field(index=True)  # References proxy_identities.url
+    validated_at: datetime = Field(
+        default_factory=lambda: datetime.now(__import__("datetime").timezone.utc),
+        index=True,
+    )
+    is_valid: bool
+    response_time_ms: float | None = None
+    error_type: str | None = None  # timeout, connection_refused, ssl_error, etc.
+    error_message: str | None = None
+
+
+class ProxyStatusTable(SQLModel, table=True):
+    """Current computed status table (normalized schema).
+
+    This table maintains the current state of each proxy, computed
+    from validation results. It's updated after each validation.
+
+    Primary Key:
+        proxy_url: References proxy_identities.url
+
+    Indexes:
+        - health_status: Filter by current health
+        - last_success_at: Find recently working proxies
+        - success_rate_7d: Performance-based sorting
+    """
+
+    __tablename__: str = "proxy_statuses"  # type: ignore[misc]
+
+    proxy_url: str = Field(primary_key=True)  # References proxy_identities.url
+    health_status: str = Field(default="unknown", index=True)  # healthy, unhealthy, dead, unknown
+    last_success_at: datetime | None = Field(default=None, index=True)
+    last_failure_at: datetime | None = None
+    last_check_at: datetime | None = None
+    consecutive_successes: int = 0
+    consecutive_failures: int = 0
+    total_checks: int = 0
+    total_successes: int = 0
+    avg_response_time_ms: float | None = None
+    success_rate_7d: float | None = Field(default=None, index=True)
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(__import__("datetime").timezone.utc)
+    )
 
 
 class FileStorage:
@@ -494,39 +255,40 @@ class FileStorage:
 
 
 class SQLiteStorage:
-    """SQLite-based storage backend with advanced query capabilities.
+    """SQLite-based storage backend with normalized 3-table schema.
 
-    Provides high-performance async proxy storage using SQLite with SQLModel ORM.
-    Supports complex queries, automatic upserts, and concurrent access through
-    async session management with configurable connection pooling.
+    Uses a normalized schema for efficient storage and querying:
+        - proxy_identities: Immutable proxy identity (URL, host, port, geo)
+        - proxy_statuses: Current computed status (health, response times)
+        - validation_results: Append-only validation history
 
     Features:
         - Async operations using aiosqlite for non-blocking I/O
-        - Configurable connection pooling for concurrent access
-        - Advanced filtering by source, health_status, protocol
-        - Automatic schema creation and migration
-        - Indexed columns for fast queries
-        - Thread-safe concurrent access
-        - Automatic upsert on save (updates existing proxies)
+        - Normalized schema prevents SQL variable overflow
+        - Advanced filtering by health_status, protocol, country
+        - Automatic schema creation
+        - EMA-based response time tracking
+        - Health status state machine (unknown → healthy/unhealthy/dead)
 
     Example:
         ```python
-        # Default async driver (recommended)
-        storage = SQLiteStorage("proxies.db", use_async_driver=True, pool_size=10)
+        storage = SQLiteStorage("proxies.db")
         await storage.initialize()
 
-        # Configuration option for future compatibility
-        storage = SQLiteStorage("proxies.db", use_async_driver=False)
-        await storage.initialize()
+        # Add proxies
+        await storage.add_proxy(proxy)
+        added, skipped = await storage.add_proxies_batch(proxies)
 
-        # Save proxies
-        await storage.save([proxy1, proxy2])
+        # Record validation results
+        await storage.record_validation(proxy_url, is_valid=True, response_time_ms=150)
 
-        # Query by source
-        user_proxies = await storage.query(source="user")
+        # Query proxies
+        healthy = await storage.get_healthy_proxies(max_age_hours=48)
+        dead = await storage.get_proxies_by_status("dead")
 
-        # Load all
-        all_proxies = await storage.load()
+        # Cleanup and stats
+        counts = await storage.cleanup(remove_dead=True, remove_stale_days=7)
+        stats = await storage.get_stats()
 
         await storage.close()
         ```
@@ -684,595 +446,655 @@ class SQLiteStorage:
         """
         await self.engine.dispose()
 
-    def _proxy_to_table(self, proxy: Proxy) -> ProxyTable:
-        """Convert a Proxy model to ProxyTable for storage.
-
-        This helper method encapsulates the conversion logic to keep the save method clean.
+    async def add_proxy(self, proxy: Proxy) -> bool:
+        """Add a new proxy if not exists.
 
         Args:
-            proxy: Proxy model instance to convert
+            proxy: Proxy model to add
 
         Returns:
-            ProxyTable instance ready for database insertion
+            True if added, False if already exists
         """
-        # Serialize tags to JSON
-        tags_json = json.dumps(list(proxy.tags)) if proxy.tags else None
+        async with AsyncSession(self.engine) as session:
+            existing = await session.get(ProxyIdentityTable, proxy.url)
+            if existing:
+                return False
 
-        # Serialize error_types from metadata if present
-        error_types_json = None
-        if "error_types" in proxy.metadata:
-            error_types_json = json.dumps(proxy.metadata["error_types"])
+            # Parse URL for host:port
+            parsed = urlparse(proxy.url)
 
-        # Serialize health_status_transitions from metadata if present
-        health_status_transitions_json = None
-        if "health_status_transitions" in proxy.metadata:
-            health_status_transitions_json = json.dumps(proxy.metadata["health_status_transitions"])
+            row = ProxyIdentityTable(
+                url=proxy.url,
+                protocol=proxy.protocol or "http",
+                host=parsed.hostname or "",
+                port=parsed.port or 80,
+                username=self._encrypt_credential(
+                    proxy.username.get_secret_value() if proxy.username else None
+                ),
+                password=self._encrypt_credential(
+                    proxy.password.get_secret_value() if proxy.password else None
+                ),
+                country_code=proxy.country_code,
+                source=proxy.source.value if proxy.source else "fetched",
+                source_url=str(proxy.source_url) if proxy.source_url else None,
+            )
+            session.add(row)
 
-        # Encrypt credentials before storage
-        username_raw = proxy.username.get_secret_value() if proxy.username else None
-        password_raw = proxy.password.get_secret_value() if proxy.password else None
+            # Initialize status
+            status = ProxyStatusTable(proxy_url=proxy.url)
+            session.add(status)
 
-        return ProxyTable(
-            # Primary and Secondary Keys
-            url=proxy.url,
-            id=str(proxy.id),
-            # Core Fields
-            protocol=proxy.protocol,
-            username=self._encrypt_credential(username_raw),
-            password=self._encrypt_credential(password_raw),
-            # Health Status
-            health_status=proxy.health_status.value,
-            last_success_at=proxy.last_success_at,
-            last_failure_at=proxy.last_failure_at,
-            last_health_check=proxy.last_health_check,
-            last_health_error=proxy.last_health_error,
-            total_checks=proxy.total_checks,
-            total_health_failures=proxy.total_health_failures,
-            consecutive_successes=proxy.consecutive_successes,
-            consecutive_failures=proxy.consecutive_failures,
-            recovery_attempt=proxy.recovery_attempt,
-            next_check_time=proxy.next_check_time,
-            last_recovered_at=proxy.metadata.get("last_recovered_at"),
-            revival_attempts=proxy.metadata.get("revival_attempts", 0),
-            health_status_transitions_json=health_status_transitions_json,
-            # Request Tracking
-            requests_started=proxy.requests_started,
-            requests_completed=proxy.requests_completed,
-            requests_active=proxy.requests_active,
-            total_requests=proxy.total_requests,
-            total_successes=proxy.total_successes,
-            total_failures=proxy.total_failures,
-            # Response Time Metrics
-            average_response_time_ms=proxy.average_response_time_ms,
-            ema_response_time_ms=proxy.ema_response_time_ms,
-            ema_alpha=proxy.ema_alpha,
-            response_time_p50_ms=proxy.metadata.get("response_time_p50_ms"),
-            response_time_p95_ms=proxy.metadata.get("response_time_p95_ms"),
-            response_time_p99_ms=proxy.metadata.get("response_time_p99_ms"),
-            min_response_time_ms=proxy.metadata.get("min_response_time_ms"),
-            max_response_time_ms=proxy.metadata.get("max_response_time_ms"),
-            response_time_stddev_ms=proxy.metadata.get("response_time_stddev_ms"),
-            response_samples_count=proxy.metadata.get("response_samples_count", 0),
-            # Error Tracking
-            error_types_json=error_types_json,
-            last_error_type=proxy.metadata.get("last_error_type"),
-            last_error_message=proxy.metadata.get("last_error_message"),
-            last_error_at=proxy.metadata.get("last_error_at"),
-            timeout_count=proxy.metadata.get("timeout_count", 0),
-            connection_refused_count=proxy.metadata.get("connection_refused_count", 0),
-            ssl_error_count=proxy.metadata.get("ssl_error_count", 0),
-            http_4xx_count=proxy.metadata.get("http_4xx_count", 0),
-            http_5xx_count=proxy.metadata.get("http_5xx_count", 0),
-            # Sliding Window
-            window_start=proxy.window_start,
-            window_duration_seconds=proxy.window_duration_seconds,
-            # Geographic
-            country_code=proxy.country_code,
-            country_name=proxy.metadata.get("country_name"),
-            region=proxy.region,
-            city=proxy.metadata.get("city"),
-            isp_name=proxy.metadata.get("isp_name"),
-            asn=proxy.metadata.get("asn"),
-            is_residential=proxy.metadata.get("is_residential"),
-            is_datacenter=proxy.metadata.get("is_datacenter"),
-            is_vpn=proxy.metadata.get("is_vpn"),
-            is_tor=proxy.metadata.get("is_tor"),
-            latitude=proxy.metadata.get("latitude"),
-            longitude=proxy.metadata.get("longitude"),
-            # Protocol Support
-            http_version=proxy.metadata.get("http_version"),
-            tls_version=proxy.metadata.get("tls_version"),
-            supports_https=proxy.metadata.get("supports_https"),
-            supports_connect=proxy.metadata.get("supports_connect"),
-            supports_http2=proxy.metadata.get("supports_http2"),
-            # Source Metadata
-            source=proxy.source.value,
-            source_url=str(proxy.source_url) if proxy.source_url else None,
-            source_name=proxy.metadata.get("source_name"),
-            fetch_timestamp=proxy.metadata.get("fetch_timestamp"),
-            fetch_duration_ms=proxy.metadata.get("fetch_duration_ms"),
-            last_validation_time=proxy.metadata.get("last_validation_time"),
-            validation_method=proxy.metadata.get("validation_method"),
-            # Tags & TTL
-            tags_json=tags_json,
-            ttl=proxy.ttl,
-            expires_at=proxy.expires_at,
-            # Metadata
-            metadata_json=json.dumps(proxy.metadata),
-            created_at=proxy.created_at,
-            updated_at=proxy.updated_at,
-        )
+            await session.commit()
+            return True
 
-    async def save(self, proxies: list[Proxy]) -> None:
-        """Save proxies to database with automatic upsert.
-
-        Existing proxies (matching URL) will be updated, new proxies will be inserted.
-        Uses a delete + insert pattern with batch operations for optimal performance.
-        All operations happen within a transaction.
-
-        Performance: Uses batch DELETE and INSERT operations for significantly improved
-        performance with large proxy pools.
+    async def add_proxies_batch(self, proxies: list[Proxy]) -> tuple[int, int]:
+        """Add multiple proxies to the normalized schema.
 
         Args:
-            proxies: List of proxies to save. Empty list is allowed (no-op).
+            proxies: List of Proxy models to add
 
-        Raises:
-            Exception: If save operation fails (transaction will be rolled back)
+        Returns:
+            Tuple of (added_count, skipped_count)
         """
-        from sqlmodel import delete
-        from sqlmodel.ext.asyncio.session import AsyncSession
-
-        if not proxies:
-            # No-op for empty list
-            return
+        added = 0
+        skipped = 0
 
         async with AsyncSession(self.engine) as session:
-            # Batch delete existing proxies with same URLs (simple upsert)
-            urls = [proxy.url for proxy in proxies]
-            stmt = delete(ProxyTable).where(ProxyTable.url.in_(urls))  # type: ignore[attr-defined]
-            await session.exec(stmt)
+            for proxy in proxies:
+                existing = await session.get(ProxyIdentityTable, proxy.url)
+                if existing:
+                    skipped += 1
+                    continue
 
-            # Batch insert all new proxies using add_all
-            proxy_rows = [self._proxy_to_table(proxy) for proxy in proxies]
-            session.add_all(proxy_rows)
+                parsed = urlparse(proxy.url)
+
+                row = ProxyIdentityTable(
+                    url=proxy.url,
+                    protocol=proxy.protocol or "http",
+                    host=parsed.hostname or "",
+                    port=parsed.port or 80,
+                    username=proxy.username.get_secret_value() if proxy.username else None,
+                    password=proxy.password.get_secret_value() if proxy.password else None,
+                    source=proxy.source.value if proxy.source else "fetched",
+                )
+                session.add(row)
+
+                status = ProxyStatusTable(proxy_url=proxy.url)
+                session.add(status)
+                added += 1
 
             await session.commit()
 
-    async def load(self) -> list[Proxy]:
-        """Load all proxies from database.
+        return added, skipped
 
-        Retrieves all proxy records and converts them to Proxy objects.
-        Returns an empty list if no proxies are stored.
+    async def save(self, proxies: list[Proxy]) -> None:
+        """Save proxies to database (adds new, skips existing).
 
-        Returns:
-            List of all proxies in the database (may be empty)
-
-        Raises:
-            Exception: If load operation fails
-        """
-        stmt = select(ProxyTable)
-        proxy_rows = await self._execute_query(stmt)
-        return self._process_results(proxy_rows)
-
-    def _build_filters(self, **filters: str) -> list[sa.ColumnElement[bool]]:
-        """Build SQLAlchemy filter conditions from keyword arguments.
+        This is a compatibility wrapper around add_proxies_batch().
 
         Args:
-            **filters: Filter criteria (source, health_status, etc.)
-
-        Returns:
-            List of SQLAlchemy filter conditions
+            proxies: List of proxies to save. Empty list is allowed (no-op).
         """
-        conditions: list[sa.ColumnElement[bool]] = []
+        if not proxies:
+            return
+        await self.add_proxies_batch(proxies)
 
-        if "source" in filters:
-            conditions.append(ProxyTable.source == filters["source"])  # type: ignore[arg-type]
-        if "health_status" in filters:
-            conditions.append(ProxyTable.health_status == filters["health_status"])  # type: ignore[arg-type]
-
-        return conditions
-
-    def _build_query(self, filters: list[sa.ColumnElement[bool]]) -> sa.Select[tuple[ProxyTable]]:
-        """Construct the SELECT statement with filters.
-
-        Args:
-            filters: List of SQLAlchemy filter conditions
-
-        Returns:
-            SQLAlchemy SELECT statement
-        """
-        stmt = select(ProxyTable)
-        for condition in filters:
-            stmt = stmt.where(condition)
-        return stmt
-
-    async def _execute_query(self, stmt: sa.Select[tuple[ProxyTable]]) -> list[ProxyTable]:
-        """Execute the query asynchronously.
-
-        Args:
-            stmt: SQLAlchemy SELECT statement
-
-        Returns:
-            List of ProxyTable rows
-        """
-        from sqlmodel.ext.asyncio.session import AsyncSession
-
-        async with AsyncSession(self.engine) as session:
-            result = await session.exec(stmt)  # type: ignore[arg-type]
-            return result.all()
-
-    def _restore_health_metadata(self, row: ProxyTable, metadata: dict[str, object]) -> None:
-        """Restore health status fields from ProxyTable into metadata.
-
-        Args:
-            row: Database row
-            metadata: Metadata dictionary to update (modified in-place)
-        """
-        if row.last_recovered_at:
-            metadata["last_recovered_at"] = row.last_recovered_at
-        if row.revival_attempts:
-            metadata["revival_attempts"] = row.revival_attempts
-        if row.health_status_transitions_json:
-            metadata["health_status_transitions"] = json.loads(row.health_status_transitions_json)
-
-    def _restore_response_time_metadata(self, row: ProxyTable, metadata: dict[str, object]) -> None:
-        """Restore response time metrics from ProxyTable into metadata.
-
-        Args:
-            row: Database row
-            metadata: Metadata dictionary to update (modified in-place)
-        """
-        if row.response_time_p50_ms is not None:
-            metadata["response_time_p50_ms"] = row.response_time_p50_ms
-        if row.response_time_p95_ms is not None:
-            metadata["response_time_p95_ms"] = row.response_time_p95_ms
-        if row.response_time_p99_ms is not None:
-            metadata["response_time_p99_ms"] = row.response_time_p99_ms
-        if row.min_response_time_ms is not None:
-            metadata["min_response_time_ms"] = row.min_response_time_ms
-        if row.max_response_time_ms is not None:
-            metadata["max_response_time_ms"] = row.max_response_time_ms
-        if row.response_time_stddev_ms is not None:
-            metadata["response_time_stddev_ms"] = row.response_time_stddev_ms
-        if row.response_samples_count:
-            metadata["response_samples_count"] = row.response_samples_count
-
-    def _restore_error_metadata(self, row: ProxyTable, metadata: dict[str, object]) -> None:
-        """Restore error tracking fields from ProxyTable into metadata.
-
-        Args:
-            row: Database row
-            metadata: Metadata dictionary to update (modified in-place)
-        """
-        if row.error_types_json:
-            metadata["error_types"] = json.loads(row.error_types_json)
-        if row.last_error_type:
-            metadata["last_error_type"] = row.last_error_type
-        if row.last_error_message:
-            metadata["last_error_message"] = row.last_error_message
-        if row.last_error_at:
-            metadata["last_error_at"] = row.last_error_at
-        if row.timeout_count:
-            metadata["timeout_count"] = row.timeout_count
-        if row.connection_refused_count:
-            metadata["connection_refused_count"] = row.connection_refused_count
-        if row.ssl_error_count:
-            metadata["ssl_error_count"] = row.ssl_error_count
-        if row.http_4xx_count:
-            metadata["http_4xx_count"] = row.http_4xx_count
-        if row.http_5xx_count:
-            metadata["http_5xx_count"] = row.http_5xx_count
-
-    def _restore_location_info(self, row: ProxyTable, metadata: dict[str, object]) -> None:
-        """Restore location information from ProxyTable into metadata.
-
-        Args:
-            row: Database row
-            metadata: Metadata dictionary to update (modified in-place)
-        """
-        if row.country_name:
-            metadata["country_name"] = row.country_name
-        if row.city:
-            metadata["city"] = row.city
-        if row.isp_name:
-            metadata["isp_name"] = row.isp_name
-        if row.asn is not None:
-            metadata["asn"] = row.asn
-
-    def _restore_ip_classification(self, row: ProxyTable, metadata: dict[str, object]) -> None:
-        """Restore IP classification flags from ProxyTable into metadata.
-
-        Args:
-            row: Database row
-            metadata: Metadata dictionary to update (modified in-place)
-        """
-        if row.is_residential is not None:
-            metadata["is_residential"] = row.is_residential
-        if row.is_datacenter is not None:
-            metadata["is_datacenter"] = row.is_datacenter
-        if row.is_vpn is not None:
-            metadata["is_vpn"] = row.is_vpn
-        if row.is_tor is not None:
-            metadata["is_tor"] = row.is_tor
-
-    def _restore_coordinates(self, row: ProxyTable, metadata: dict[str, object]) -> None:
-        """Restore geographic coordinates from ProxyTable into metadata.
-
-        Args:
-            row: Database row
-            metadata: Metadata dictionary to update (modified in-place)
-        """
-        if row.latitude is not None:
-            metadata["latitude"] = row.latitude
-        if row.longitude is not None:
-            metadata["longitude"] = row.longitude
-
-    def _restore_geographic_metadata(self, row: ProxyTable, metadata: dict[str, object]) -> None:
-        """Restore geographic fields from ProxyTable into metadata.
-
-        This method coordinates restoration of all geographic information including
-        location details, IP classification, and coordinates.
-
-        Args:
-            row: Database row
-            metadata: Metadata dictionary to update (modified in-place)
-        """
-        self._restore_location_info(row, metadata)
-        self._restore_ip_classification(row, metadata)
-        self._restore_coordinates(row, metadata)
-
-    def _restore_protocol_metadata(self, row: ProxyTable, metadata: dict[str, object]) -> None:
-        """Restore protocol support fields from ProxyTable into metadata.
-
-        Args:
-            row: Database row
-            metadata: Metadata dictionary to update (modified in-place)
-        """
-        if row.http_version:
-            metadata["http_version"] = row.http_version
-        if row.tls_version:
-            metadata["tls_version"] = row.tls_version
-        if row.supports_https is not None:
-            metadata["supports_https"] = row.supports_https
-        if row.supports_connect is not None:
-            metadata["supports_connect"] = row.supports_connect
-        if row.supports_http2 is not None:
-            metadata["supports_http2"] = row.supports_http2
-
-    def _restore_source_metadata(self, row: ProxyTable, metadata: dict[str, object]) -> None:
-        """Restore source metadata fields from ProxyTable into metadata.
-
-        Args:
-            row: Database row
-            metadata: Metadata dictionary to update (modified in-place)
-        """
-        if row.source_name:
-            metadata["source_name"] = row.source_name
-        if row.fetch_timestamp:
-            metadata["fetch_timestamp"] = row.fetch_timestamp
-        if row.fetch_duration_ms is not None:
-            metadata["fetch_duration_ms"] = row.fetch_duration_ms
-        if row.last_validation_time:
-            metadata["last_validation_time"] = row.last_validation_time
-        if row.validation_method:
-            metadata["validation_method"] = row.validation_method
-
-    def _enrich_metadata(self, row: ProxyTable, metadata: dict[str, object]) -> None:
-        """Enrich metadata with all fields from ProxyTable.
-
-        This method coordinates the restoration of all metadata categories.
-
-        Args:
-            row: Database row
-            metadata: Metadata dictionary to update (modified in-place)
-        """
-        self._restore_health_metadata(row, metadata)
-        self._restore_response_time_metadata(row, metadata)
-        self._restore_error_metadata(row, metadata)
-        self._restore_geographic_metadata(row, metadata)
-        self._restore_protocol_metadata(row, metadata)
-        self._restore_source_metadata(row, metadata)
-
-    def _build_proxy_data(
-        self, row: ProxyTable, tags: set[str], metadata: dict[str, object]
-    ) -> dict[str, object]:
-        """Build proxy data dictionary from database row.
-
-        Args:
-            row: Database row
-            tags: Deserialized tags set
-            metadata: Enriched metadata dictionary
-
-        Returns:
-            Dictionary ready for Proxy.model_validate
-        """
-        return {
-            # Primary and Secondary Keys
-            "id": row.id if row.id else None,
-            "url": row.url,
-            # Core Fields
-            "protocol": row.protocol,
-            "username": self._decrypt_credential(row.username),
-            "password": self._decrypt_credential(row.password),
-            # Health Status
-            "health_status": row.health_status,
-            "last_success_at": row.last_success_at,
-            "last_failure_at": row.last_failure_at,
-            "last_health_check": row.last_health_check,
-            "last_health_error": row.last_health_error,
-            "total_checks": row.total_checks,
-            "total_health_failures": row.total_health_failures,
-            "consecutive_successes": row.consecutive_successes,
-            "consecutive_failures": row.consecutive_failures,
-            "recovery_attempt": row.recovery_attempt,
-            "next_check_time": row.next_check_time,
-            # Request Tracking
-            "requests_started": row.requests_started,
-            "requests_completed": row.requests_completed,
-            "requests_active": row.requests_active,
-            "total_requests": row.total_requests,
-            "total_successes": row.total_successes,
-            "total_failures": row.total_failures,
-            # Response Time Metrics
-            "average_response_time_ms": row.average_response_time_ms,
-            "ema_response_time_ms": row.ema_response_time_ms,
-            "ema_alpha": row.ema_alpha,
-            # Sliding Window
-            "window_start": row.window_start,
-            "window_duration_seconds": row.window_duration_seconds,
-            # Geographic
-            "country_code": row.country_code,
-            "region": row.region,
-            # Source Metadata
-            "source": row.source,
-            "source_url": row.source_url,
-            # Tags & TTL
-            "tags": tags,
-            "ttl": row.ttl,
-            "expires_at": row.expires_at,
-            # Metadata (now enriched with all ProxyTable fields)
-            "metadata": metadata,
-            "created_at": row.created_at,
-            "updated_at": row.updated_at,
-        }
-
-    def _validate_row_id(self, row: ProxyTable) -> str | None:
-        """Validate that row.id is a valid UUID string.
-
-        Args:
-            row: Database row to validate
-
-        Returns:
-            Valid UUID string or None if invalid/missing
-
-        Note:
-            Logs warnings for invalid IDs to help identify data integrity issues.
-        """
-        if row.id is None:
-            logger.warning(f"Proxy row has no ID (url={row.url}). A new UUID will be generated.")
-            return None
-
-        try:
-            # Validate UUID format by parsing it
-            UUID(row.id)
-            return row.id
-        except (ValueError, TypeError) as e:
-            logger.error(
-                f"Invalid UUID format in database row (id={row.id!r}, url={row.url}): {e}. "
-                "A new UUID will be generated."
-            )
-            return None
-
-    def _convert_row_to_proxy(self, row: ProxyTable) -> Proxy:
-        """Convert a single ProxyTable row to Proxy object.
-
-        Args:
-            row: Database row to convert
-
-        Returns:
-            Proxy object
-        """
-        # Validate row ID before conversion
-        validated_id = self._validate_row_id(row)
-
-        # Deserialize tags from JSON
-        tags = set(json.loads(row.tags_json)) if row.tags_json else set()
-
-        # Deserialize and enrich metadata
-        metadata: dict[str, object] = json.loads(row.metadata_json)
-        self._enrich_metadata(row, metadata)
-
-        # Build proxy data and validate
-        proxy_data = self._build_proxy_data(row, tags, metadata)
-        # Override the id with validated value if valid; if None, Pydantic will use default_factory
-        if validated_id is not None:
-            proxy_data["id"] = validated_id
-        else:
-            # Remove id from proxy_data to allow Pydantic's default_factory=uuid4 to generate a new UUID
-            proxy_data.pop("id", None)
-        return Proxy.model_validate(proxy_data)
-
-    def _process_results(self, rows: list[ProxyTable]) -> list[Proxy]:
-        """Convert ProxyTable rows to Proxy objects.
-
-        Args:
-            rows: List of ProxyTable rows from database
-
-        Returns:
-            List of Proxy objects
-        """
-        return [self._convert_row_to_proxy(row) for row in rows]
-
-    async def query(self, **filters: str) -> list[Proxy]:
-        """Query proxies with advanced filtering capabilities.
-
-        Supports filtering by any indexed field. Multiple filters are combined
-        with AND logic. Returns an empty list if no proxies match.
-
-        Supported filters:
-            - source: Filter by proxy source (e.g., "user", "fetched", "api")
-            - health_status: Filter by health status (e.g., "healthy", "unhealthy")
-
-        Args:
-            **filters: Keyword arguments for filter criteria.
-                Example: query(source="user", health_status="healthy")
-
-        Returns:
-            List of proxies matching all filter criteria (may be empty)
-
-        Raises:
-            Exception: If query operation fails
-        """
-        filter_conditions = self._build_filters(**filters)
-        stmt = self._build_query(filter_conditions)
-        proxy_rows = await self._execute_query(stmt)
-        return self._process_results(proxy_rows)
-
-    async def delete(self, proxy_url: str) -> None:
+    async def delete(self, proxy_url: str) -> bool:
         """Delete a proxy by URL.
 
         Args:
             proxy_url: URL of the proxy to delete
-        """
-        from sqlmodel import delete
-        from sqlmodel.ext.asyncio.session import AsyncSession
 
+        Returns:
+            True if deleted, False if not found
+        """
         async with AsyncSession(self.engine) as session:
-            stmt = delete(ProxyTable).where(ProxyTable.url == proxy_url)  # type: ignore[arg-type]
-            await session.exec(stmt)
+            # Delete from status table first
+            del_status = delete(ProxyStatusTable).where(ProxyStatusTable.proxy_url == proxy_url)
+            await session.exec(del_status)  # type: ignore[arg-type]
+
+            # Delete from identity table
+            del_identity = delete(ProxyIdentityTable).where(ProxyIdentityTable.url == proxy_url)
+            result = await session.exec(del_identity)  # type: ignore[arg-type]
             await session.commit()
+
+            return result.rowcount > 0 if hasattr(result, "rowcount") else True
 
     async def clear(self) -> None:
         """Clear all proxies from database."""
-        from sqlmodel import delete
-        from sqlmodel.ext.asyncio.session import AsyncSession
-
         async with AsyncSession(self.engine) as session:
-            stmt = delete(ProxyTable)
-            await session.exec(stmt)
+            # Delete all validation results
+            await session.exec(delete(ValidationResultTable))  # type: ignore[arg-type]
+            # Delete all statuses
+            await session.exec(delete(ProxyStatusTable))  # type: ignore[arg-type]
+            # Delete all identities
+            await session.exec(delete(ProxyIdentityTable))  # type: ignore[arg-type]
             await session.commit()
 
-    async def load_validated(self, max_age_hours: int = 48) -> list[Proxy]:
-        """Load only proxies that were validated within the given time window.
+    async def query(self, **filters: str) -> list[dict[str, Any]]:
+        """Query proxies with filtering.
 
-        This method filters out stale proxies that haven't been successfully
-        validated recently, and excludes DEAD proxies. Essential for exports
-        to ensure only working proxies are included.
+        Args:
+            **filters: Filter criteria (source, health_status)
+
+        Returns:
+            List of proxy dictionaries matching criteria
+        """
+        stmt = select(ProxyIdentityTable, ProxyStatusTable).join(
+            ProxyStatusTable, ProxyIdentityTable.url == ProxyStatusTable.proxy_url
+        )
+
+        if "source" in filters:
+            stmt = stmt.where(ProxyIdentityTable.source == filters["source"])
+        if "health_status" in filters:
+            stmt = stmt.where(ProxyStatusTable.health_status == filters["health_status"])
+
+        async with AsyncSession(self.engine) as session:
+            result = await session.exec(stmt)  # type: ignore[arg-type]
+            rows = result.all()
+
+            proxies = []
+            for identity, status in rows:
+                proxies.append(
+                    {
+                        "url": identity.url,
+                        "protocol": identity.protocol,
+                        "host": identity.host,
+                        "port": identity.port,
+                        "username": identity.username,
+                        "password": identity.password,
+                        "country_code": identity.country_code,
+                        "source": identity.source,
+                        "discovered_at": identity.discovered_at,
+                        "health_status": status.health_status,
+                        "last_success_at": status.last_success_at,
+                        "last_failure_at": status.last_failure_at,
+                        "avg_response_time_ms": status.avg_response_time_ms,
+                        "total_checks": status.total_checks,
+                        "total_successes": status.total_successes,
+                    }
+                )
+            return proxies
+
+    async def record_validation(
+        self,
+        proxy_url: str,
+        is_valid: bool,
+        response_time_ms: float | None = None,
+        error_type: str | None = None,
+        error_message: str | None = None,
+    ) -> None:
+        """Record a validation result and update proxy status.
+
+        Args:
+            proxy_url: URL of the proxy that was validated
+            is_valid: Whether the validation succeeded
+            response_time_ms: Response time in milliseconds (if successful)
+            error_type: Type of error (if failed)
+            error_message: Error message (if failed)
+        """
+        now = datetime.now(timezone.utc)
+
+        async with AsyncSession(self.engine) as session:
+            # Insert validation record
+            validation = ValidationResultTable(
+                proxy_url=proxy_url,
+                validated_at=now,
+                is_valid=is_valid,
+                response_time_ms=response_time_ms,
+                error_type=error_type,
+                error_message=error_message,
+            )
+            session.add(validation)
+
+            # Update status
+            status = await session.get(ProxyStatusTable, proxy_url)
+            if status:
+                status.last_check_at = now
+                status.total_checks += 1
+                status.updated_at = now
+
+                if is_valid:
+                    status.last_success_at = now
+                    status.total_successes += 1
+                    status.consecutive_successes += 1
+                    status.consecutive_failures = 0
+                    status.health_status = "healthy"
+
+                    # Update avg response time using EMA
+                    if response_time_ms is not None:
+                        if status.avg_response_time_ms is not None:
+                            # EMA with alpha=0.2
+                            status.avg_response_time_ms = (
+                                0.2 * response_time_ms + 0.8 * status.avg_response_time_ms
+                            )
+                        else:
+                            status.avg_response_time_ms = response_time_ms
+                else:
+                    status.last_failure_at = now
+                    status.consecutive_failures += 1
+                    status.consecutive_successes = 0
+
+                    if status.consecutive_failures >= 3:
+                        status.health_status = "dead"
+                    elif status.consecutive_failures >= 1:
+                        status.health_status = "unhealthy"
+
+                session.add(status)
+
+            await session.commit()
+
+    async def record_validations_batch(
+        self,
+        results: list[tuple[str, bool, float | None, str | None]],
+    ) -> int:
+        """Record multiple validation results efficiently.
+
+        Args:
+            results: List of (proxy_url, is_valid, response_time_ms, error_type) tuples
+
+        Returns:
+            Number of validations recorded
+        """
+        now = datetime.now(timezone.utc)
+
+        async with AsyncSession(self.engine) as session:
+            for proxy_url, is_valid, response_time_ms, error_type in results:
+                # Insert validation record
+                validation = ValidationResultTable(
+                    proxy_url=proxy_url,
+                    validated_at=now,
+                    is_valid=is_valid,
+                    response_time_ms=response_time_ms,
+                    error_type=error_type,
+                )
+                session.add(validation)
+
+                # Update status via raw SQL for efficiency
+                if is_valid:
+                    await session.exec(
+                        text("""
+                        UPDATE proxy_statuses SET
+                            last_check_at = :now,
+                            last_success_at = :now,
+                            total_checks = total_checks + 1,
+                            total_successes = total_successes + 1,
+                            consecutive_successes = consecutive_successes + 1,
+                            consecutive_failures = 0,
+                            health_status = 'healthy',
+                            avg_response_time_ms = CASE
+                                WHEN avg_response_time_ms IS NULL THEN :response_time
+                                ELSE 0.2 * :response_time + 0.8 * avg_response_time_ms
+                            END,
+                            updated_at = :now
+                        WHERE proxy_url = :url
+                    """).bindparams(now=now, response_time=response_time_ms, url=proxy_url)
+                    )
+                else:
+                    await session.exec(
+                        text("""
+                        UPDATE proxy_statuses SET
+                            last_check_at = :now,
+                            last_failure_at = :now,
+                            total_checks = total_checks + 1,
+                            consecutive_failures = consecutive_failures + 1,
+                            consecutive_successes = 0,
+                            health_status = CASE
+                                WHEN consecutive_failures >= 2 THEN 'dead'
+                                ELSE 'unhealthy'
+                            END,
+                            updated_at = :now
+                        WHERE proxy_url = :url
+                    """).bindparams(now=now, url=proxy_url)
+                    )
+
+            await session.commit()
+
+        return len(results)
+
+    async def get_healthy_proxies(
+        self,
+        max_age_hours: int = 48,
+        protocol: str | None = None,
+        country_code: str | None = None,
+        limit: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get healthy, recently validated proxies.
+
+        Args:
+            max_age_hours: Maximum age of last successful validation
+            protocol: Filter by protocol (http, https, socks4, socks5)
+            country_code: Filter by country code
+            limit: Maximum number of proxies to return
+
+        Returns:
+            List of proxy dictionaries with identity and status fields
+        """
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+
+        stmt = (
+            select(ProxyIdentityTable, ProxyStatusTable)
+            .join(ProxyStatusTable, ProxyIdentityTable.url == ProxyStatusTable.proxy_url)
+            .where(ProxyStatusTable.health_status == "healthy")
+            .where(ProxyStatusTable.last_success_at >= cutoff)  # type: ignore[operator]
+        )
+
+        if protocol:
+            stmt = stmt.where(ProxyIdentityTable.protocol == protocol)
+        if country_code:
+            stmt = stmt.where(ProxyIdentityTable.country_code == country_code)
+
+        stmt = stmt.order_by(ProxyStatusTable.avg_response_time_ms.asc().nullslast())
+
+        if limit:
+            stmt = stmt.limit(limit)
+
+        async with AsyncSession(self.engine) as session:
+            result = await session.exec(stmt)  # type: ignore[arg-type]
+            rows = result.all()
+
+            proxies = []
+            for identity, status in rows:
+                proxies.append(
+                    {
+                        "url": identity.url,
+                        "protocol": identity.protocol,
+                        "host": identity.host,
+                        "port": identity.port,
+                        "country_code": identity.country_code,
+                        "source": identity.source,
+                        "health_status": status.health_status,
+                        "last_success_at": status.last_success_at,
+                        "avg_response_time_ms": status.avg_response_time_ms,
+                        "total_checks": status.total_checks,
+                        "total_successes": status.total_successes,
+                    }
+                )
+            return proxies
+
+    async def get_proxies_by_status(
+        self,
+        health_status: str,
+    ) -> list[dict[str, Any]]:
+        """Get proxies by health status.
+
+        Args:
+            health_status: Filter by health status (healthy, unhealthy, dead, unknown)
+
+        Returns:
+            List of proxy dictionaries
+        """
+        stmt = (
+            select(ProxyIdentityTable, ProxyStatusTable)
+            .join(ProxyStatusTable, ProxyIdentityTable.url == ProxyStatusTable.proxy_url)
+            .where(ProxyStatusTable.health_status == health_status)
+        )
+
+        async with AsyncSession(self.engine) as session:
+            result = await session.exec(stmt)  # type: ignore[arg-type]
+            rows = result.all()
+
+            proxies = []
+            for identity, status in rows:
+                proxies.append(
+                    {
+                        "url": identity.url,
+                        "protocol": identity.protocol,
+                        "host": identity.host,
+                        "port": identity.port,
+                        "health_status": status.health_status,
+                        "last_success_at": status.last_success_at,
+                        "total_checks": status.total_checks,
+                    }
+                )
+            return proxies
+
+    async def load(self) -> list[dict[str, Any]]:
+        """Load all proxies from the database.
+
+        Returns:
+            List of proxy dictionaries with identity and status fields
+        """
+        stmt = select(ProxyIdentityTable, ProxyStatusTable).join(
+            ProxyStatusTable, ProxyIdentityTable.url == ProxyStatusTable.proxy_url
+        )
+
+        async with AsyncSession(self.engine) as session:
+            result = await session.exec(stmt)  # type: ignore[arg-type]
+            rows = result.all()
+
+            proxies = []
+            for identity, status in rows:
+                proxies.append(
+                    {
+                        "url": identity.url,
+                        "protocol": identity.protocol,
+                        "host": identity.host,
+                        "port": identity.port,
+                        "username": identity.username,
+                        "password": identity.password,
+                        "country_code": identity.country_code,
+                        "source": identity.source,
+                        "discovered_at": identity.discovered_at,
+                        "health_status": status.health_status,
+                        "last_success_at": status.last_success_at,
+                        "last_failure_at": status.last_failure_at,
+                        "avg_response_time_ms": status.avg_response_time_ms,
+                        "total_checks": status.total_checks,
+                        "total_successes": status.total_successes,
+                    }
+                )
+            return proxies
+
+    async def load_validated(self, max_age_hours: int = 48) -> list[dict[str, Any]]:
+        """Load proxies validated within the given time window, excluding dead proxies.
 
         Args:
             max_age_hours: Maximum age in hours for last_success_at.
                 Proxies older than this will be excluded. Default: 48 hours.
 
         Returns:
-            List of proxies with recent last_success_at timestamps and not DEAD
+            List of proxy dictionaries with recent validations
         """
-        from datetime import timedelta, timezone
-
         cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
-        stmt = select(ProxyTable).where(
-            ProxyTable.last_success_at.isnot(None),  # type: ignore[union-attr]
-            ProxyTable.last_success_at >= cutoff,  # type: ignore[operator]
-            ProxyTable.health_status != "dead",  # Exclude DEAD proxies
+
+        stmt = (
+            select(ProxyIdentityTable, ProxyStatusTable)
+            .join(ProxyStatusTable, ProxyIdentityTable.url == ProxyStatusTable.proxy_url)
+            .where(ProxyStatusTable.last_success_at.isnot(None))  # type: ignore[union-attr]
+            .where(ProxyStatusTable.last_success_at >= cutoff)  # type: ignore[operator]
+            .where(ProxyStatusTable.health_status != "dead")
         )
-        proxy_rows = await self._execute_query(stmt)
-        return self._process_results(proxy_rows)
+
+        async with AsyncSession(self.engine) as session:
+            result = await session.exec(stmt)  # type: ignore[arg-type]
+            rows = result.all()
+
+            proxies = []
+            for identity, status in rows:
+                proxies.append(
+                    {
+                        "url": identity.url,
+                        "protocol": identity.protocol,
+                        "host": identity.host,
+                        "port": identity.port,
+                        "username": identity.username,
+                        "password": identity.password,
+                        "country_code": identity.country_code,
+                        "source": identity.source,
+                        "discovered_at": identity.discovered_at,
+                        "health_status": status.health_status,
+                        "last_success_at": status.last_success_at,
+                        "last_failure_at": status.last_failure_at,
+                        "avg_response_time_ms": status.avg_response_time_ms,
+                        "total_checks": status.total_checks,
+                        "total_successes": status.total_successes,
+                    }
+                )
+            return proxies
+
+    async def cleanup(
+        self,
+        remove_dead: bool = True,
+        remove_stale_days: int = 7,
+        remove_never_validated: bool = True,
+        vacuum: bool = True,
+    ) -> dict[str, int]:
+        """Clean up stale and dead proxies.
+
+        Args:
+            remove_dead: Remove proxies with health_status='dead'
+            remove_stale_days: Remove proxies not validated in N days (0 to skip)
+            remove_never_validated: Remove proxies that have never been validated
+            vacuum: Run VACUUM after cleanup to reclaim space
+
+        Returns:
+            Dictionary with counts of removed items by category
+        """
+        counts: dict[str, int] = {}
+
+        async with AsyncSession(self.engine) as session:
+            # Remove dead proxies
+            if remove_dead:
+                # Get URLs of dead proxies
+                dead_stmt = select(ProxyStatusTable.proxy_url).where(
+                    ProxyStatusTable.health_status == "dead"
+                )
+                dead_result = await session.exec(dead_stmt)
+                dead_urls = list(dead_result.all())
+
+                if dead_urls:
+                    # Delete from proxy_identities
+                    del_stmt = delete(ProxyIdentityTable).where(
+                        ProxyIdentityTable.url.in_(dead_urls)  # type: ignore[attr-defined]
+                    )
+                    await session.exec(del_stmt)  # type: ignore[arg-type]
+                    counts["dead"] = len(dead_urls)
+
+                    # Delete from status table
+                    del_status = delete(ProxyStatusTable).where(
+                        ProxyStatusTable.proxy_url.in_(dead_urls)  # type: ignore[attr-defined]
+                    )
+                    await session.exec(del_status)  # type: ignore[arg-type]
+                else:
+                    counts["dead"] = 0
+
+            # Remove stale proxies (not validated recently)
+            if remove_stale_days > 0:
+                cutoff = datetime.now(timezone.utc) - timedelta(days=remove_stale_days)
+                stale_stmt = select(ProxyStatusTable.proxy_url).where(
+                    (ProxyStatusTable.last_check_at < cutoff)  # type: ignore[operator]
+                    | ProxyStatusTable.last_check_at.is_(None)  # type: ignore[union-attr]
+                )
+                stale_result = await session.exec(stale_stmt)
+                stale_urls = list(stale_result.all())
+
+                if stale_urls:
+                    del_stmt = delete(ProxyIdentityTable).where(
+                        ProxyIdentityTable.url.in_(stale_urls)  # type: ignore[attr-defined]
+                    )
+                    await session.exec(del_stmt)  # type: ignore[arg-type]
+
+                    del_status = delete(ProxyStatusTable).where(
+                        ProxyStatusTable.proxy_url.in_(stale_urls)  # type: ignore[attr-defined]
+                    )
+                    await session.exec(del_status)  # type: ignore[arg-type]
+                    counts["stale"] = len(stale_urls)
+                else:
+                    counts["stale"] = 0
+
+            # Remove never validated proxies
+            if remove_never_validated:
+                never_stmt = select(ProxyStatusTable.proxy_url).where(
+                    ProxyStatusTable.total_checks == 0
+                )
+                never_result = await session.exec(never_stmt)
+                never_urls = list(never_result.all())
+
+                if never_urls:
+                    del_stmt = delete(ProxyIdentityTable).where(
+                        ProxyIdentityTable.url.in_(never_urls)  # type: ignore[attr-defined]
+                    )
+                    await session.exec(del_stmt)  # type: ignore[arg-type]
+
+                    del_status = delete(ProxyStatusTable).where(
+                        ProxyStatusTable.proxy_url.in_(never_urls)  # type: ignore[attr-defined]
+                    )
+                    await session.exec(del_status)  # type: ignore[arg-type]
+                    counts["never_validated"] = len(never_urls)
+                else:
+                    counts["never_validated"] = 0
+
+            # Clean old validation history (keep 7 days)
+            history_cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+            del_history = delete(ValidationResultTable).where(
+                ValidationResultTable.validated_at < history_cutoff
+            )
+            result = await session.exec(del_history)  # type: ignore[arg-type]
+            counts["old_validations"] = result.rowcount if hasattr(result, "rowcount") else 0
+
+            await session.commit()
+
+        # Vacuum to reclaim space
+        if vacuum:
+            async with self.engine.begin() as conn:
+                await conn.execute(text("VACUUM"))
+
+        return counts
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Get database statistics.
+
+        Returns:
+            Dictionary with comprehensive database statistics
+        """
+        stats: dict[str, Any] = {}
+
+        async with AsyncSession(self.engine) as session:
+            # Total proxies
+            result = await session.exec(text("SELECT COUNT(*) FROM proxy_identities"))
+            stats["total_proxies"] = result.scalar() or 0
+
+            # By health status
+            result = await session.exec(
+                text("""
+                SELECT health_status, COUNT(*)
+                FROM proxy_statuses
+                GROUP BY health_status
+            """)
+            )
+            stats["by_health"] = dict(result.all())
+
+            # By protocol
+            result = await session.exec(
+                text("""
+                SELECT protocol, COUNT(*)
+                FROM proxy_identities
+                GROUP BY protocol
+            """)
+            )
+            stats["by_protocol"] = dict(result.all())
+
+            # Validation stats (last 24 hours)
+            result = await session.exec(
+                text("""
+                SELECT
+                    COUNT(*) as total_validations,
+                    SUM(CASE WHEN is_valid THEN 1 ELSE 0 END) as successful,
+                    AVG(CASE WHEN is_valid THEN response_time_ms END) as avg_response_time
+                FROM validation_results
+                WHERE validated_at > datetime('now', '-24 hours')
+            """)
+            )
+            row = result.one()
+            stats["validations_24h"] = {
+                "total": row[0] or 0,
+                "successful": row[1] or 0,
+                "avg_response_time_ms": row[2],
+            }
+
+            # Database file size
+            if self.filepath.exists():
+                stats["db_size_bytes"] = self.filepath.stat().st_size
+
+        return stats

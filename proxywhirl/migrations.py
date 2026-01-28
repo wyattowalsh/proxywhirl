@@ -320,3 +320,183 @@ async def stamp_revision(database_url: str | None = None, revision: str = "head"
     """
     config = _get_alembic_config(database_url)
     await asyncio.get_event_loop().run_in_executor(None, command.stamp, config, revision)
+
+
+# =============================================================================
+# NORMALIZED SCHEMA MIGRATION (v1)
+# =============================================================================
+
+
+async def migrate_to_normalized_schema(db_path: Path) -> dict[str, int]:
+    """Migrate from the legacy 76-column schema to the new normalized schema.
+
+    This is a one-way migration for v1. The old data is transformed and copied
+    to the new normalized tables. The old tables are preserved for rollback.
+
+    The migration:
+    1. Creates the new normalized tables if they don't exist
+    2. Copies proxy identity data to proxy_identities table
+    3. Initializes proxy_statuses with current health state
+    4. Skips duplicates and dead proxies with no recent success
+
+    Args:
+        db_path: Path to the SQLite database file
+
+    Returns:
+        Dictionary with migration statistics:
+            - migrated: Number of proxies migrated
+            - skipped: Number of proxies skipped (duplicates/dead)
+            - duplicates: Number of host:port duplicates found
+
+    Example:
+        ```python
+        from proxywhirl.migrations import migrate_to_normalized_schema
+        from pathlib import Path
+
+        result = await migrate_to_normalized_schema(Path("proxywhirl.db"))
+        print(f"Migrated: {result['migrated']}, Skipped: {result['skipped']}")
+        ```
+    """
+    import sqlite3
+    from datetime import datetime, timezone
+    from urllib.parse import urlparse
+
+    from proxywhirl.storage import (
+        ProxyIdentityTable,
+        ProxyStatusTable,
+        SQLiteStorage,
+    )
+
+    # Read old data using sync sqlite3 (simpler for migration)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+
+    try:
+        old_proxies = conn.execute("""
+            SELECT url, protocol, username, password, country_code, country_name,
+                   region, city, latitude, longitude, source, source_url,
+                   health_status, last_success_at, last_failure_at,
+                   total_checks, total_successes, total_requests,
+                   average_response_time_ms, created_at,
+                   consecutive_failures, consecutive_successes
+            FROM proxies
+        """).fetchall()
+    except sqlite3.OperationalError:
+        # Table doesn't exist or different schema
+        old_proxies = []
+    finally:
+        conn.close()
+
+    if not old_proxies:
+        return {"migrated": 0, "skipped": 0, "duplicates": 0}
+
+    # Create storage instance and initialize new schema
+    storage = SQLiteStorage(db_path)
+    await storage.initialize()
+
+    # Track migration stats
+    migrated = 0
+    skipped = 0
+    duplicates = 0
+    seen_hosts: set[str] = set()
+
+    from sqlmodel.ext.asyncio.session import AsyncSession
+
+    async with AsyncSession(storage.engine) as session:
+        for row in old_proxies:
+            try:
+                parsed = urlparse(row["url"])
+                host_port = f"{parsed.hostname}:{parsed.port or 80}"
+
+                # Skip duplicates by host:port
+                if host_port in seen_hosts:
+                    duplicates += 1
+                    skipped += 1
+                    continue
+                seen_hosts.add(host_port)
+
+                # Skip dead proxies with no recent success
+                health = row["health_status"] or "unknown"
+                if health == "dead" and not row["last_success_at"]:
+                    skipped += 1
+                    continue
+
+                # Check if already exists in new schema
+                existing = await session.get(ProxyIdentityTable, row["url"])
+                if existing:
+                    skipped += 1
+                    continue
+
+                # Parse discovered_at from created_at
+                discovered_at = None
+                if row["created_at"]:
+                    try:
+                        discovered_at = datetime.fromisoformat(row["created_at"])
+                    except (ValueError, TypeError):
+                        discovered_at = datetime.now(timezone.utc)
+                else:
+                    discovered_at = datetime.now(timezone.utc)
+
+                # Create identity record
+                identity = ProxyIdentityTable(
+                    url=row["url"],
+                    protocol=row["protocol"] or "http",
+                    host=parsed.hostname or "",
+                    port=parsed.port or 80,
+                    username=row["username"],
+                    password=row["password"],
+                    country_code=row["country_code"],
+                    country_name=row["country_name"],
+                    region=row["region"],
+                    city=row["city"],
+                    latitude=row["latitude"],
+                    longitude=row["longitude"],
+                    source=row["source"] or "legacy",
+                    source_url=row["source_url"],
+                    discovered_at=discovered_at,
+                )
+                session.add(identity)
+
+                # Parse last_success_at
+                last_success_at = None
+                if row["last_success_at"]:
+                    try:
+                        last_success_at = datetime.fromisoformat(row["last_success_at"])
+                    except (ValueError, TypeError):
+                        pass
+
+                # Parse last_failure_at
+                last_failure_at = None
+                if row["last_failure_at"]:
+                    try:
+                        last_failure_at = datetime.fromisoformat(row["last_failure_at"])
+                    except (ValueError, TypeError):
+                        pass
+
+                # Create status record
+                status = ProxyStatusTable(
+                    proxy_url=row["url"],
+                    health_status=health,
+                    last_success_at=last_success_at,
+                    last_failure_at=last_failure_at,
+                    last_check_at=last_success_at or last_failure_at,
+                    consecutive_successes=row["consecutive_successes"] or 0,
+                    consecutive_failures=row["consecutive_failures"] or 0,
+                    total_checks=row["total_checks"] or 0,
+                    total_successes=row["total_successes"] or 0,
+                    avg_response_time_ms=row["average_response_time_ms"],
+                )
+                session.add(status)
+
+                migrated += 1
+
+            except Exception:
+                # Log and skip problematic rows
+                skipped += 1
+                continue
+
+        await session.commit()
+
+    await storage.close()
+
+    return {"migrated": migrated, "skipped": skipped, "duplicates": duplicates}

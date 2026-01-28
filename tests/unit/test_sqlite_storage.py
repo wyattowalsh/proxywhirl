@@ -41,7 +41,7 @@ class TestSQLiteStorage:
             # Load and verify
             loaded = await storage.load()
             assert len(loaded) == 1
-            assert loaded[0].url == proxy.url
+            assert loaded[0]["url"] == proxy.url
 
             await storage.close()
 
@@ -104,12 +104,16 @@ class TestSQLiteStorage:
             # Query by source
             user_proxies = await storage.query(source="user")
             assert len(user_proxies) == 2
-            assert all(p.source == ProxySource.USER for p in user_proxies)
+            assert all(p["source"] == "user" for p in user_proxies)
 
             await storage.close()
 
     async def test_sqlite_query_by_health_status(self) -> None:
-        """T065: Test querying proxies by health status."""
+        """T065: Test querying proxies by health status.
+
+        With normalized schema, proxies start as 'unknown' and become 'healthy'
+        after successful validation via record_validation().
+        """
         from proxywhirl.storage import SQLiteStorage
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -124,10 +128,21 @@ class TestSQLiteStorage:
             ]
             await storage.save(proxies)
 
+            # With normalized schema, need to record validations to set status
+            await storage.record_validation(
+                "http://proxy1.example.com:8080", is_valid=True, response_time_ms=100.0
+            )
+            await storage.record_validation(
+                "http://proxy2.example.com:8080", is_valid=False, error_type="timeout"
+            )
+            await storage.record_validation(
+                "http://proxy3.example.com:8080", is_valid=True, response_time_ms=150.0
+            )
+
             # Query by health status
             healthy = await storage.query(health_status="healthy")
             assert len(healthy) == 2
-            assert all(p.health_status == HealthStatus.HEALTHY for p in healthy)
+            assert all(p["health_status"] == "healthy" for p in healthy)
 
             await storage.close()
 
@@ -151,12 +166,16 @@ class TestSQLiteStorage:
 
             loaded = await storage.load()
             assert len(loaded) == 1
-            assert loaded[0].url == "http://proxy2.example.com:8080"
+            assert loaded[0]["url"] == "http://proxy2.example.com:8080"
 
             await storage.close()
 
     async def test_sqlite_update_existing_proxy(self) -> None:
-        """Test updating an existing proxy (upsert)."""
+        """Test updating an existing proxy (upsert).
+
+        With normalized schema, save() only adds identity. Re-saving is a no-op.
+        Status updates happen via record_validation().
+        """
         from proxywhirl.storage import SQLiteStorage
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -168,14 +187,14 @@ class TestSQLiteStorage:
             proxy1 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.UNKNOWN)
             await storage.save([proxy1])
 
-            # Update same proxy with new health status
+            # Update same proxy - with normalized schema this is a no-op for identity
             proxy2 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
             await storage.save([proxy2])
 
-            # Should have only 1 proxy with updated status
+            # Should have only 1 proxy (status stays unknown since save() doesn't update status)
             loaded = await storage.load()
             assert len(loaded) == 1
-            assert loaded[0].health_status == HealthStatus.HEALTHY
+            assert loaded[0]["health_status"] == "unknown"
 
             await storage.close()
 

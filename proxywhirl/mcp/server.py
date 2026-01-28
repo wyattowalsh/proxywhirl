@@ -14,7 +14,7 @@ from typing import Any, Literal
 from loguru import logger
 
 from proxywhirl.mcp.auth import MCPAuth
-from proxywhirl.models import HealthStatus
+from proxywhirl.models import HealthStatus, Proxy, ProxySource
 from proxywhirl.rotator import AsyncProxyRotator
 
 
@@ -180,11 +180,19 @@ async def get_rotator() -> AsyncProxyRotator:
 
                     storage = SQLiteStorage(str(db_path))
                     await storage.initialize()
-                    proxies = await storage.load()
-                    for proxy in proxies:
+                    proxy_dicts = await storage.load()
+                    # Convert dicts to Proxy objects (normalized schema returns dicts)
+                    for proxy_dict in proxy_dicts:
+                        proxy = Proxy(
+                            url=proxy_dict["url"],
+                            protocol=proxy_dict.get("protocol", "http"),
+                            health_status=HealthStatus(proxy_dict.get("health_status", "unknown")),
+                            country_code=proxy_dict.get("country_code"),
+                            source=ProxySource(proxy_dict.get("source", "fetched")),
+                        )
                         await _rotator.add_proxy(proxy)
                     await storage.close()
-                    logger.info(f"MCP: Auto-loaded {len(proxies)} proxies from {db_path}")
+                    logger.info(f"MCP: Auto-loaded {len(proxy_dicts)} proxies from {db_path}")
                 except Exception as e:
                     logger.warning(f"MCP: Failed to auto-load proxies from {db_path}: {e}")
             else:

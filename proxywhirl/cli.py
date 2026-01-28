@@ -1129,8 +1129,8 @@ async def _revalidate_existing_proxies(
     """Re-validate existing proxies in the database.
 
     Loads all proxies from the database, validates them, and updates
-    their status. Valid proxies get updated last_success_at timestamps.
-    Failed proxies are marked as DEAD (or deleted if prune_failed=True).
+    their status using the normalized schema. Valid proxies get updated
+    with successful validation records. Failed proxies are marked as DEAD.
 
     Args:
         db_path: Path to SQLite database file
@@ -1140,10 +1140,8 @@ async def _revalidate_existing_proxies(
         console: Rich console for progress display
 
     Returns:
-        Tuple of (list of valid Proxy objects, count of failed proxies)
+        Tuple of (list of valid proxy dicts, count of failed proxies)
     """
-    from datetime import datetime, timezone
-
     from rich.progress import (
         BarColumn,
         MofNCompleteColumn,
@@ -1155,10 +1153,9 @@ async def _revalidate_existing_proxies(
     )
 
     from proxywhirl.fetchers import ProxyValidator
-    from proxywhirl.models import HealthStatus, Proxy
     from proxywhirl.storage import SQLiteStorage
 
-    # Load existing proxies
+    # Load existing proxies (returns dicts from normalized schema)
     storage = SQLiteStorage(db_path)
     await storage.initialize()
 
@@ -1173,21 +1170,14 @@ async def _revalidate_existing_proxies(
         console.print(f"[cyan]Loaded {total_proxies:,} proxies from database[/cyan]")
 
         # Build lookup map for original proxies by URL
-        original_by_url: dict[str, Any] = {p.url: p for p in existing_proxies}
+        original_by_url: dict[str, Any] = {p["url"]: p for p in existing_proxies}
 
-        # Convert to dicts for validator
+        # Convert to dicts for validator (already dicts, but ensure format)
         proxy_dicts = []
         for proxy in existing_proxies:
             proxy_dict = {
-                "url": proxy.url,
-                "protocol": proxy.protocol,
-                "username": proxy.username.get_secret_value() if proxy.username else None,
-                "password": proxy.password.get_secret_value() if proxy.password else None,
-                # Preserve existing metadata
-                "source": proxy.source.value if proxy.source else "fetched",
-                "created_at": proxy.created_at,
-                "total_requests": proxy.total_requests,
-                "total_successes": proxy.total_successes,
+                "url": proxy["url"],
+                "protocol": proxy.get("protocol", "http"),
             }
             proxy_dicts.append(proxy_dict)
 
@@ -1240,63 +1230,38 @@ async def _revalidate_existing_proxies(
             finally:
                 await validator.close()
 
-        # Convert validated dicts back to Proxy objects
-        valid_proxies = []
-        valid_urls = set()
-        now = datetime.now(timezone.utc)
+        # Build validation results for batch recording
+        valid_urls = {p["url"] for p in validated_dicts}
+        validation_results: list[tuple[str, bool, float | None, str | None]] = []
 
+        # Record successful validations
         for p_dict in validated_dicts:
-            # Update validation timestamp and mark healthy
-            p_dict["last_success_at"] = now
-            p_dict["health_status"] = HealthStatus.HEALTHY
-            valid_proxies.append(Proxy.model_validate(p_dict))
-            valid_urls.add(p_dict["url"])
+            response_time = p_dict.get("response_time_ms")
+            validation_results.append((p_dict["url"], True, response_time, None))
 
-        # Identify failed proxies (in original but not in valid)
-        failed_proxies = []
-        for url, original_proxy in original_by_url.items():
+        # Record failed validations
+        failed_count = 0
+        for url in original_by_url:
             if url not in valid_urls:
-                # Mark as DEAD with updated model
-                failed_dict = {
-                    "url": original_proxy.url,
-                    "protocol": original_proxy.protocol,
-                    "username": original_proxy.username.get_secret_value()
-                    if original_proxy.username
-                    else None,
-                    "password": original_proxy.password.get_secret_value()
-                    if original_proxy.password
-                    else None,
-                    "source": original_proxy.source.value if original_proxy.source else "fetched",
-                    "created_at": original_proxy.created_at,
-                    "total_requests": original_proxy.total_requests,
-                    "total_successes": original_proxy.total_successes,
-                    "health_status": HealthStatus.DEAD,
-                    # Keep last_success_at unchanged (stale timestamp)
-                    "last_success_at": original_proxy.last_success_at,
-                }
-                failed_proxies.append(Proxy.model_validate(failed_dict))
+                validation_results.append((url, False, None, "validation_failed"))
+                failed_count += 1
 
-        failed_count = len(failed_proxies)
+        # Batch record all validation results
+        await storage.record_validations_batch(validation_results)
 
-        # Save results
-        if prune_failed:
-            # Delete failed proxies, save only valid ones
-            from sqlmodel import delete
-
-            from proxywhirl.storage import ProxyTable
-
-            # Delete all and save only valid
-            async with storage.engine.begin() as conn:
-                await conn.execute(delete(ProxyTable))
-            await storage.save(valid_proxies)
+        # If prune_failed, delete dead proxies
+        if prune_failed and failed_count > 0:
+            await storage.cleanup(
+                remove_dead=True,
+                remove_stale_days=0,  # Don't remove stale
+                remove_never_validated=False,
+                vacuum=False,
+            )
             console.print(f"[yellow]Deleted {failed_count} failed proxies[/yellow]")
         else:
-            # Save both valid and failed proxies (failed marked as DEAD)
-            all_proxies = valid_proxies + failed_proxies
-            await storage.save(all_proxies)
             console.print(f"[yellow]Marked {failed_count} proxies as DEAD[/yellow]")
 
-        return valid_proxies, failed_count
+        return validated_dicts, failed_count
 
     finally:
         await storage.close()
@@ -2006,6 +1971,235 @@ def tui() -> None:
 
     # Run the TUI (bypasses normal output formatting)
     run_tui()
+
+
+@app.command()
+def db_stats(
+    db: Path = typer.Option(
+        Path("proxywhirl.db"),
+        "--db",
+        help="Path to SQLite database",
+    ),
+) -> None:
+    """Show database statistics.
+
+    Displays comprehensive statistics about the proxy database including
+    counts by health status, protocol, and validation metrics.
+
+    Examples:
+      proxywhirl db-stats
+      proxywhirl db-stats --db custom.db
+    """
+    import asyncio
+
+    from rich.table import Table
+
+    command_ctx = get_context()
+
+    async def get_db_stats():
+        from proxywhirl.storage import SQLiteStorage
+
+        storage = SQLiteStorage(db)
+        await storage.initialize()
+
+        try:
+            return await storage.get_stats()
+        finally:
+            await storage.close()
+
+    try:
+        stats = asyncio.run(get_db_stats())
+    except Exception as e:
+        command_ctx.console.print(f"[red]Error loading stats:[/red] {e}")
+        raise typer.Exit(code=1) from e
+
+    if command_ctx.format == OutputFormat.JSON:
+        render_json(stats)
+    else:
+        table = Table(title="Proxy Database Statistics")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green", justify="right")
+
+        table.add_row("Total Proxies", f"{stats.get('total_proxies', 0):,}")
+        table.add_row("", "")
+
+        # Health status breakdown
+        table.add_row("[bold]By Health Status[/bold]", "")
+        for status, count in sorted(stats.get("by_health", {}).items()):
+            color = "green" if status == "healthy" else "yellow" if status == "unknown" else "red"
+            table.add_row(f"  {status}", f"[{color}]{count:,}[/{color}]")
+
+        table.add_row("", "")
+
+        # Protocol breakdown
+        table.add_row("[bold]By Protocol[/bold]", "")
+        for protocol, count in sorted(stats.get("by_protocol", {}).items()):
+            table.add_row(f"  {protocol}", f"{count:,}")
+
+        # Validation stats (normalized only)
+        if "validations_24h" in stats:
+            table.add_row("", "")
+            table.add_row("[bold]Validations (24h)[/bold]", "")
+            v = stats["validations_24h"]
+            table.add_row("  Total", f"{v.get('total', 0):,}")
+            table.add_row("  Successful", f"{v.get('successful', 0):,}")
+            if v.get("avg_response_time_ms"):
+                table.add_row("  Avg Response Time", f"{v['avg_response_time_ms']:.0f}ms")
+
+        # Database size
+        if "db_size_bytes" in stats:
+            size_mb = stats["db_size_bytes"] / (1024 * 1024)
+            table.add_row("", "")
+            table.add_row("Database Size", f"{size_mb:.2f} MB")
+
+        command_ctx.console.print(table)
+
+
+@app.command()
+def cleanup(
+    db: Path = typer.Option(
+        Path("proxywhirl.db"),
+        "--db",
+        help="Path to SQLite database",
+    ),
+    stale_days: int = typer.Option(
+        7,
+        "--stale-days",
+        help="Remove proxies not validated in N days",
+    ),
+    execute: bool = typer.Option(
+        False,
+        "--execute",
+        help="Actually perform cleanup (dry run by default)",
+    ),
+) -> None:
+    """Clean up stale and dead proxies from the database.
+
+    By default, performs a dry run showing what would be removed.
+    Use --execute to actually perform the cleanup.
+
+    Examples:
+      proxywhirl cleanup                        # Dry run
+      proxywhirl cleanup --execute              # Actually remove
+      proxywhirl cleanup --stale-days 14        # Remove if not validated in 14 days
+    """
+    import asyncio
+
+    command_ctx = get_context()
+
+    async def run_cleanup():
+        from proxywhirl.storage import SQLiteStorage
+
+        storage = SQLiteStorage(db)
+        await storage.initialize()
+
+        try:
+            if execute:
+                result = await storage.cleanup(
+                    remove_dead=True,
+                    remove_stale_days=stale_days,
+                    remove_never_validated=True,
+                    vacuum=True,
+                )
+                return {"executed": True, "counts": result}
+            else:
+                # Dry run - just get stats
+                stats = await storage.get_stats()
+                return {
+                    "executed": False,
+                    "would_remove": {
+                        "dead": stats.get("by_health", {}).get("dead", 0),
+                    },
+                }
+        finally:
+            await storage.close()
+
+    try:
+        result = asyncio.run(run_cleanup())
+    except Exception as e:
+        command_ctx.console.print(f"[red]Cleanup failed:[/red] {e}")
+        raise typer.Exit(code=1) from e
+
+    if command_ctx.format == OutputFormat.JSON:
+        render_json(result)
+    else:
+        if result["executed"]:
+            counts = result["counts"]
+            total = sum(counts.values())
+            command_ctx.console.print(
+                f"[green]✓[/green] Cleanup completed: removed {total:,} proxies"
+            )
+            for category, count in counts.items():
+                command_ctx.console.print(f"  {category}: {count:,}")
+        else:
+            would_remove = result.get("would_remove", {})
+            command_ctx.console.print("[yellow]Dry run - showing what would be removed:[/yellow]")
+            for category, count in would_remove.items():
+                command_ctx.console.print(f"  {category}: {count:,}")
+            command_ctx.console.print("\n[dim]Use --execute to actually remove[/dim]")
+
+
+@app.command()
+def migrate(
+    db: Path = typer.Option(
+        Path("proxywhirl.db"),
+        "--db",
+        help="Path to SQLite database",
+    ),
+    backup: bool = typer.Option(
+        True,
+        "--backup/--no-backup",
+        help="Create backup before migration",
+    ),
+) -> None:
+    """Migrate database from legacy schema to normalized schema.
+
+    This is a one-way migration that transforms the old 76-column schema
+    to the new normalized schema with separate tables for identity, status,
+    and validation history.
+
+    A backup is created by default before migration.
+
+    Examples:
+      proxywhirl migrate
+      proxywhirl migrate --db custom.db
+      proxywhirl migrate --no-backup
+    """
+    import asyncio
+    import shutil
+
+    from proxywhirl.migrations import migrate_to_normalized_schema
+
+    command_ctx = get_context()
+
+    # Check if database exists
+    if not db.exists():
+        command_ctx.console.print(f"[red]Database not found:[/red] {db}")
+        raise typer.Exit(code=1)
+
+    # Create backup
+    if backup:
+        backup_path = db.with_suffix(".db.backup")
+        command_ctx.console.print(f"[cyan]Creating backup:[/cyan] {backup_path}")
+        shutil.copy(db, backup_path)
+
+    command_ctx.console.print("[bold]Migrating to normalized schema...[/bold]")
+
+    try:
+        result = asyncio.run(migrate_to_normalized_schema(db))
+    except Exception as e:
+        command_ctx.console.print(f"[red]Migration failed:[/red] {e}")
+        if backup:
+            command_ctx.console.print(f"[yellow]Restore from backup:[/yellow] {backup_path}")
+        raise typer.Exit(code=1) from e
+
+    if command_ctx.format == OutputFormat.JSON:
+        render_json(result)
+    else:
+        command_ctx.console.print("[green]✓[/green] Migration completed:")
+        command_ctx.console.print(f"  Migrated: {result['migrated']:,} proxies")
+        command_ctx.console.print(f"  Skipped: {result['skipped']:,} (duplicates/dead)")
+        command_ctx.console.print(f"  Duplicates found: {result['duplicates']:,}")
 
 
 if __name__ == "__main__":

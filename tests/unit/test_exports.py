@@ -7,7 +7,7 @@ and export_for_web functionality.
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -72,17 +72,20 @@ class TestGenerateRichProxies:
 
     async def test_single_proxy(self) -> None:
         """Test with single proxy returns correct data."""
-        mock_proxy = MagicMock()
-        mock_proxy.url = "http://192.168.1.1:8080"
-        mock_proxy.protocol = "http"
-        mock_proxy.health_status.value = "healthy"
-        mock_proxy.average_response_time_ms = 150.5
-        mock_proxy.total_successes = 9
-        mock_proxy.total_requests = 10
-        mock_proxy.source.value = "free-proxy-list"
-        mock_proxy.last_success_at = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-        mock_proxy.last_failure_at = None
-        mock_proxy.created_at = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        # With normalized schema, load() returns dicts
+        mock_proxy = {
+            "url": "http://192.168.1.1:8080",
+            "protocol": "http",
+            "health_status": "healthy",
+            "avg_response_time_ms": 150.5,
+            "total_successes": 9,
+            "total_checks": 10,
+            "source": "free-proxy-list",
+            "last_success_at": datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            "last_failure_at": None,
+            "discovered_at": datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+            "country_code": None,
+        }
 
         mock_storage = AsyncMock()
         mock_storage.load.return_value = [mock_proxy]
@@ -105,17 +108,19 @@ class TestGenerateRichProxies:
 
     async def test_proxy_with_zero_requests(self) -> None:
         """Test proxy with zero requests has None success_rate."""
-        mock_proxy = MagicMock()
-        mock_proxy.url = "http://192.168.1.1:8080"
-        mock_proxy.protocol = "http"
-        mock_proxy.health_status.value = "unknown"
-        mock_proxy.average_response_time_ms = None
-        mock_proxy.total_successes = 0
-        mock_proxy.total_requests = 0
-        mock_proxy.source.value = "geonode"
-        mock_proxy.last_success_at = None
-        mock_proxy.last_failure_at = None
-        mock_proxy.created_at = None
+        mock_proxy = {
+            "url": "http://192.168.1.1:8080",
+            "protocol": "http",
+            "health_status": "unknown",
+            "avg_response_time_ms": None,
+            "total_successes": 0,
+            "total_checks": 0,
+            "source": "geonode",
+            "last_success_at": None,
+            "last_failure_at": None,
+            "discovered_at": None,
+            "country_code": None,
+        }
 
         mock_storage = AsyncMock()
         mock_storage.load.return_value = [mock_proxy]
@@ -128,17 +133,19 @@ class TestGenerateRichProxies:
 
     async def test_proxy_with_only_failures(self) -> None:
         """Test proxy with only failure timestamp uses it for last_checked."""
-        mock_proxy = MagicMock()
-        mock_proxy.url = "http://192.168.1.1:8080"
-        mock_proxy.protocol = "http"
-        mock_proxy.health_status.value = "unhealthy"
-        mock_proxy.average_response_time_ms = None
-        mock_proxy.total_successes = 0
-        mock_proxy.total_requests = 5
-        mock_proxy.source.value = "proxyscrape"
-        mock_proxy.last_success_at = None
-        mock_proxy.last_failure_at = datetime(2025, 1, 2, 12, 0, 0, tzinfo=timezone.utc)
-        mock_proxy.created_at = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        mock_proxy = {
+            "url": "http://192.168.1.1:8080",
+            "protocol": "http",
+            "health_status": "unhealthy",
+            "avg_response_time_ms": None,
+            "total_successes": 0,
+            "total_checks": 5,
+            "source": "proxyscrape",
+            "last_success_at": None,
+            "last_failure_at": datetime(2025, 1, 2, 12, 0, 0, tzinfo=timezone.utc),
+            "discovered_at": datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+            "country_code": None,
+        }
 
         mock_storage = AsyncMock()
         mock_storage.load.return_value = [mock_proxy]
@@ -152,31 +159,35 @@ class TestGenerateRichProxies:
         """Test aggregation counts with multiple proxies."""
         proxies = []
         for i in range(3):
-            mock_proxy = MagicMock()
-            mock_proxy.url = f"http://192.168.1.{i}:8080"
-            mock_proxy.protocol = "http"
-            mock_proxy.health_status.value = "healthy"
-            mock_proxy.average_response_time_ms = 100
-            mock_proxy.total_successes = 10
-            mock_proxy.total_requests = 10
-            mock_proxy.source.value = "free-proxy-list"
-            mock_proxy.last_success_at = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-            mock_proxy.last_failure_at = None
-            mock_proxy.created_at = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+            mock_proxy = {
+                "url": f"http://192.168.1.{i}:8080",
+                "protocol": "http",
+                "health_status": "healthy",
+                "avg_response_time_ms": 100,
+                "total_successes": 10,
+                "total_checks": 10,
+                "source": "free-proxy-list",
+                "last_success_at": datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+                "last_failure_at": None,
+                "discovered_at": datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+                "country_code": None,
+            }
             proxies.append(mock_proxy)
 
         # Add SOCKS5 proxy
-        socks_proxy = MagicMock()
-        socks_proxy.url = "socks5://192.168.1.100:1080"
-        socks_proxy.protocol = "socks5"
-        socks_proxy.health_status.value = "degraded"
-        socks_proxy.average_response_time_ms = 200
-        socks_proxy.total_successes = 5
-        socks_proxy.total_requests = 10
-        socks_proxy.source.value = "spys-one"
-        socks_proxy.last_success_at = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
-        socks_proxy.last_failure_at = None
-        socks_proxy.created_at = datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
+        socks_proxy = {
+            "url": "socks5://192.168.1.100:1080",
+            "protocol": "socks5",
+            "health_status": "degraded",
+            "avg_response_time_ms": 200,
+            "total_successes": 5,
+            "total_checks": 10,
+            "source": "spys-one",
+            "last_success_at": datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            "last_failure_at": None,
+            "discovered_at": datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
+            "country_code": None,
+        }
         proxies.append(socks_proxy)
 
         mock_storage = AsyncMock()

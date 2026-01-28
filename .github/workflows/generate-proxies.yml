@@ -50,6 +50,15 @@ jobs:
         curl -sL https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb -o GeoLite2-Country.mmdb
         echo "Downloaded GeoLite2-Country.mmdb ($(stat --format=%s GeoLite2-Country.mmdb) bytes)"
 
+    - name: Show database stats before
+      run: |
+        uv run proxywhirl db-stats || echo "Stats unavailable (fresh database?)"
+
+    - name: Cleanup stale proxies
+      run: |
+        # Remove dead and stale proxies (not validated in 7 days)
+        uv run proxywhirl cleanup --stale-days 7 --execute || echo "Cleanup skipped"
+
     - name: Re-validate existing proxies
       timeout-minutes: 60
       run: |
@@ -67,6 +76,10 @@ jobs:
         # - proxies-rich.json, stats.json
         # Use 5s timeout and 2000 concurrency (stable for GitHub Actions)
         uv run proxywhirl fetch --timeout 5 --concurrency 2000
+
+    - name: Show database stats after
+      run: |
+        uv run proxywhirl db-stats
 
     - name: Sync proxy lists to web directory
       run: |

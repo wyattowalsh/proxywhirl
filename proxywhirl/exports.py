@@ -73,7 +73,7 @@ async def generate_rich_proxies(
     country_counts: Counter[str] = Counter()
 
     for proxy in proxies_data:
-        ip, port = parse_proxy_url(proxy.url)
+        ip, port = parse_proxy_url(proxy["url"])
 
         # Deduplicate by IP:port (same proxy may appear with different protocols)
         addr = f"{ip}:{port}"
@@ -81,29 +81,33 @@ async def generate_rich_proxies(
             continue
         seen_addresses.add(addr)
 
+        total_checks = proxy.get("total_checks", 0) or 0
+        total_successes = proxy.get("total_successes", 0) or 0
+        last_success = proxy.get("last_success_at")
+        last_failure = proxy.get("last_failure_at")
+        discovered_at = proxy.get("discovered_at")
+
         proxy_dict = {
             "ip": ip,
             "port": port,
-            "protocol": proxy.protocol or "http",
-            "status": proxy.health_status.value,
-            "response_time": proxy.average_response_time_ms,
+            "protocol": proxy.get("protocol") or "http",
+            "status": proxy.get("health_status", "unknown"),
+            "response_time": proxy.get("avg_response_time_ms"),
             "success_rate": (
-                round(proxy.total_successes / proxy.total_requests * 100, 1)
-                if proxy.total_requests > 0
-                else None
+                round(total_successes / total_checks * 100, 1) if total_checks > 0 else None
             ),
-            "total_checks": proxy.total_requests,
-            "source": proxy.source.value,
+            "total_checks": total_checks,
+            "source": proxy.get("source", "fetched"),
             "last_checked": (
-                proxy.last_success_at.isoformat()
-                if proxy.last_success_at
-                else proxy.last_failure_at.isoformat()
-                if proxy.last_failure_at
+                last_success.isoformat()
+                if last_success
+                else last_failure.isoformat()
+                if last_failure
                 else None
             ),
-            "created_at": proxy.created_at.isoformat() if proxy.created_at else None,
+            "created_at": discovered_at.isoformat() if discovered_at else None,
             "country": None,
-            "country_code": None,
+            "country_code": proxy.get("country_code"),
         }
         proxies.append(proxy_dict)
 
@@ -247,12 +251,12 @@ async def generate_proxy_lists(
     }
 
     for proxy in proxies_data:
-        ip, port = parse_proxy_url(proxy.url)
+        ip, port = parse_proxy_url(proxy["url"])
         if not ip:
             continue
 
         addr = f"{ip}:{port}"
-        protocol = (proxy.protocol or "http").lower()
+        protocol = (proxy.get("protocol") or "http").lower()
 
         if protocol in ("http", "https"):
             proxies_by_protocol["http"].add(addr)
