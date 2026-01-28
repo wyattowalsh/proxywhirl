@@ -1079,12 +1079,14 @@ async def _fetch_from_sources(
     return result
 
 
-async def _save_results(proxies: list[Any], db_path: Path) -> None:
+async def _save_results(proxies: list[Any], db_path: Path, validated: bool = True) -> None:
     """Save fetched proxies to database.
 
     Args:
         proxies: List of proxy dicts or Proxy objects to save
         db_path: Path to SQLite database file
+        validated: If True, mark proxies as already validated (healthy status).
+            Default is True since fetch validates before saving.
     """
     from proxywhirl.models import Proxy
     from proxywhirl.storage import SQLiteStorage
@@ -1099,7 +1101,7 @@ async def _save_results(proxies: list[Any], db_path: Path) -> None:
                 proxy_objects.append(Proxy.model_validate(p))
             else:
                 proxy_objects.append(p)
-        await storage.save(proxy_objects)
+        await storage.save(proxy_objects, validated=validated)
     finally:
         await storage.close()
 
@@ -2137,69 +2139,6 @@ def cleanup(
             for category, count in would_remove.items():
                 command_ctx.console.print(f"  {category}: {count:,}")
             command_ctx.console.print("\n[dim]Use --execute to actually remove[/dim]")
-
-
-@app.command()
-def migrate(
-    db: Path = typer.Option(
-        Path("proxywhirl.db"),
-        "--db",
-        help="Path to SQLite database",
-    ),
-    backup: bool = typer.Option(
-        True,
-        "--backup/--no-backup",
-        help="Create backup before migration",
-    ),
-) -> None:
-    """Migrate database from legacy schema to normalized schema.
-
-    This is a one-way migration that transforms the old 76-column schema
-    to the new normalized schema with separate tables for identity, status,
-    and validation history.
-
-    A backup is created by default before migration.
-
-    Examples:
-      proxywhirl migrate
-      proxywhirl migrate --db custom.db
-      proxywhirl migrate --no-backup
-    """
-    import asyncio
-    import shutil
-
-    from proxywhirl.migrations import migrate_to_normalized_schema
-
-    command_ctx = get_context()
-
-    # Check if database exists
-    if not db.exists():
-        command_ctx.console.print(f"[red]Database not found:[/red] {db}")
-        raise typer.Exit(code=1)
-
-    # Create backup
-    if backup:
-        backup_path = db.with_suffix(".db.backup")
-        command_ctx.console.print(f"[cyan]Creating backup:[/cyan] {backup_path}")
-        shutil.copy(db, backup_path)
-
-    command_ctx.console.print("[bold]Migrating to normalized schema...[/bold]")
-
-    try:
-        result = asyncio.run(migrate_to_normalized_schema(db))
-    except Exception as e:
-        command_ctx.console.print(f"[red]Migration failed:[/red] {e}")
-        if backup:
-            command_ctx.console.print(f"[yellow]Restore from backup:[/yellow] {backup_path}")
-        raise typer.Exit(code=1) from e
-
-    if command_ctx.format == OutputFormat.JSON:
-        render_json(result)
-    else:
-        command_ctx.console.print("[green]✓[/green] Migration completed:")
-        command_ctx.console.print(f"  Migrated: {result['migrated']:,} proxies")
-        command_ctx.console.print(f"  Skipped: {result['skipped']:,} (duplicates/dead)")
-        command_ctx.console.print(f"  Duplicates found: {result['duplicates']:,}")
 
 
 if __name__ == "__main__":

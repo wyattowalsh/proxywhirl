@@ -487,17 +487,23 @@ class SQLiteStorage:
             await session.commit()
             return True
 
-    async def add_proxies_batch(self, proxies: list[Proxy]) -> tuple[int, int]:
+    async def add_proxies_batch(
+        self, proxies: list[Proxy], validated: bool = False
+    ) -> tuple[int, int]:
         """Add multiple proxies to the normalized schema.
 
         Args:
             proxies: List of Proxy models to add
+            validated: If True, mark proxies as already validated (healthy status,
+                last_success_at set). Use this when proxies have passed validation
+                before being saved.
 
         Returns:
             Tuple of (added_count, skipped_count)
         """
         added = 0
         skipped = 0
+        now = datetime.now(timezone.utc)
 
         async with AsyncSession(self.engine) as session:
             for proxy in proxies:
@@ -519,7 +525,19 @@ class SQLiteStorage:
                 )
                 session.add(row)
 
-                status = ProxyStatusTable(proxy_url=proxy.url)
+                # Create status - mark as validated if proxies passed validation
+                if validated:
+                    status = ProxyStatusTable(
+                        proxy_url=proxy.url,
+                        health_status="healthy",
+                        last_success_at=now,
+                        last_check_at=now,
+                        total_checks=1,
+                        total_successes=1,
+                        consecutive_successes=1,
+                    )
+                else:
+                    status = ProxyStatusTable(proxy_url=proxy.url)
                 session.add(status)
                 added += 1
 
@@ -527,17 +545,18 @@ class SQLiteStorage:
 
         return added, skipped
 
-    async def save(self, proxies: list[Proxy]) -> None:
+    async def save(self, proxies: list[Proxy], validated: bool = False) -> None:
         """Save proxies to database (adds new, skips existing).
 
         This is a compatibility wrapper around add_proxies_batch().
 
         Args:
             proxies: List of proxies to save. Empty list is allowed (no-op).
+            validated: If True, mark proxies as already validated (healthy status).
         """
         if not proxies:
             return
-        await self.add_proxies_batch(proxies)
+        await self.add_proxies_batch(proxies, validated=validated)
 
     async def delete(self, proxy_url: str) -> bool:
         """Delete a proxy by URL.
