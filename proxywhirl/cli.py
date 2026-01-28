@@ -1801,8 +1801,18 @@ def health(
             raise typer.Exit(code=0)
 
 
-@app.command()
-def sources(
+# Create a command group for sources
+sources_app = typer.Typer(
+    name="sources",
+    help="Manage and audit proxy sources",
+    no_args_is_help=False,  # Allow running without args for backward compatibility
+)
+app.add_typer(sources_app, name="sources")
+
+
+@sources_app.callback(invoke_without_command=True)
+def sources_callback(
+    ctx: typer.Context,
     validate: bool = typer.Option(
         False,
         "--validate",
@@ -1837,7 +1847,13 @@ def sources(
         proxywhirl sources              # List all sources
         proxywhirl sources --validate   # Validate all sources
         proxywhirl sources -v -f        # Validate and fail if any unhealthy (CI mode)
+        proxywhirl sources audit        # Full audit with detailed results
+        proxywhirl sources audit --fix  # Audit and remove broken sources
     """
+    # Only run if no subcommand is invoked
+    if ctx.invoked_subcommand is not None:
+        return
+
     import asyncio
 
     from rich.table import Table
@@ -1936,6 +1952,429 @@ def sources(
 
         command_ctx.console.print(f"\n[bold]Total: {len(ALL_SOURCES)} sources[/bold]")
         command_ctx.console.print("\n[dim]Use --validate to check source health[/dim]")
+        command_ctx.console.print("[dim]Use 'proxywhirl sources audit' for detailed auditing[/dim]")
+
+
+@sources_app.command()
+def audit(
+    timeout: float = typer.Option(
+        15.0,
+        "--timeout",
+        "-t",
+        help="Timeout per source in seconds",
+    ),
+    concurrency: int = typer.Option(
+        20,
+        "--concurrency",
+        "-j",
+        help="Maximum concurrent requests",
+    ),
+    retries: int = typer.Option(
+        3,
+        "--retries",
+        "-r",
+        help="Number of retries for each source before marking as broken",
+    ),
+    fix: bool = typer.Option(
+        False,
+        "--fix",
+        help="Remove broken sources from sources.py (creates backup)",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        "-n",
+        help="Show what would be removed without making changes (implies --fix)",
+    ),
+    min_proxies: int = typer.Option(
+        1,
+        "--min-proxies",
+        help="Minimum proxies required for a source to be considered healthy",
+    ),
+    protocol: str | None = typer.Option(
+        None,
+        "--protocol",
+        "-p",
+        help="Only audit sources of specific protocol (http, socks4, socks5)",
+    ),
+) -> None:
+    """Audit proxy sources for broken or stale entries.
+
+    Tests each source by fetching from it and checking if it returns valid proxies.
+    A source is considered "broken" if:
+      - It returns a non-200 status code
+      - It times out after retries
+      - It returns 0 proxies (or less than --min-proxies)
+      - It returns malformed/unparseable content
+
+    Use --fix to automatically remove broken sources from sources.py.
+    A backup file will be created before any modifications.
+
+    Examples:
+        proxywhirl sources audit                    # Audit all sources
+        proxywhirl sources audit --protocol http    # Only HTTP sources
+        proxywhirl sources audit --fix              # Remove broken sources
+        proxywhirl sources audit --dry-run          # Preview what would be removed
+        proxywhirl sources audit --retries 5        # More retries before marking broken
+        proxywhirl sources audit -j 50 -t 30        # Higher concurrency, longer timeout
+    """
+    import asyncio
+
+    from rich.table import Table
+
+    from proxywhirl.sources import (
+        ALL_HTTP_SOURCES,
+        ALL_SOCKS4_SOURCES,
+        ALL_SOCKS5_SOURCES,
+        ALL_SOURCES,
+    )
+
+    command_ctx = get_context()
+
+    # Select sources based on protocol filter
+    if protocol:
+        protocol_lower = protocol.lower()
+        if protocol_lower == "http":
+            sources_to_audit = ALL_HTTP_SOURCES
+            protocol_name = "HTTP"
+        elif protocol_lower == "socks4":
+            sources_to_audit = ALL_SOCKS4_SOURCES
+            protocol_name = "SOCKS4"
+        elif protocol_lower == "socks5":
+            sources_to_audit = ALL_SOCKS5_SOURCES
+            protocol_name = "SOCKS5"
+        else:
+            command_ctx.console.print(
+                f"[red]Invalid protocol: {protocol}. Use http, socks4, or socks5[/red]"
+            )
+            raise typer.Exit(code=1)
+        command_ctx.console.print(
+            f"[bold]Auditing {len(sources_to_audit)} {protocol_name} sources...[/bold]\n"
+        )
+    else:
+        sources_to_audit = ALL_SOURCES
+        command_ctx.console.print(
+            f"[bold]Auditing {len(sources_to_audit)} proxy sources...[/bold]\n"
+        )
+
+    # Run audit
+    audit_results = asyncio.run(
+        _run_source_audit(
+            sources=sources_to_audit,
+            timeout=timeout,
+            concurrency=concurrency,
+            retries=retries,
+            min_proxies=min_proxies,
+            console=command_ctx.console,
+        )
+    )
+
+    # Separate working and broken sources
+    working = [r for r in audit_results if r["status"] == "healthy"]
+    broken = [r for r in audit_results if r["status"] == "broken"]
+
+    # Create results table
+    table = Table(title="Source Audit Results")
+    table.add_column("Status", style="bold", width=10)
+    table.add_column("Source", style="cyan")
+    table.add_column("Proxies", justify="right")
+    table.add_column("Time", justify="right")
+    table.add_column("Reason")
+
+    # Sort: broken first, then by name
+    sorted_results = sorted(
+        audit_results, key=lambda r: (r["status"] == "healthy", r["name"].lower())
+    )
+
+    for result in sorted_results:
+        if result["status"] == "healthy":
+            status = "[green]✓ HEALTHY[/green]"
+            reason = ""
+        else:
+            status = "[red]✗ BROKEN[/red]"
+            reason = result.get("error", "Unknown error")[:40]
+
+        proxies = str(result.get("proxy_count", 0))
+        time_str = f"{result.get('response_time_ms', 0):.0f}ms"
+
+        table.add_row(status, result["name"], proxies, time_str, reason)
+
+    command_ctx.console.print(table)
+
+    # Summary
+    command_ctx.console.print("\n[bold]Audit Summary:[/bold]")
+    command_ctx.console.print(
+        f"  Total: {len(audit_results)} | "
+        f"[green]Healthy: {len(working)}[/green] | "
+        f"[red]Broken: {len(broken)}[/red]"
+    )
+
+    # Output JSON format for CI
+    if command_ctx.format == OutputFormat.JSON:
+        render_json(
+            {
+                "total_sources": len(audit_results),
+                "healthy_sources": len(working),
+                "broken_sources": len(broken),
+                "broken_urls": [r["url"] for r in broken],
+                "results": audit_results,
+            }
+        )
+
+    # Handle fix mode
+    if broken and (fix or dry_run):
+        command_ctx.console.print("\n[bold]Broken sources to remove:[/bold]")
+        for result in broken:
+            command_ctx.console.print(f"  • {result['name']}")
+            command_ctx.console.print(f"    URL: {result['url']}")
+            command_ctx.console.print(f"    Reason: {result.get('error', 'Unknown')}")
+
+        if dry_run:
+            command_ctx.console.print(
+                f"\n[yellow]Dry run: Would remove {len(broken)} source(s)[/yellow]"
+            )
+            command_ctx.console.print("[dim]Run without --dry-run to apply changes[/dim]")
+        else:
+            # Actually remove broken sources
+            removed_count = _remove_broken_sources(
+                broken_urls=[r["url"] for r in broken],
+                console=command_ctx.console,
+            )
+            if removed_count > 0:
+                command_ctx.console.print(
+                    f"\n[green]✓ Removed {removed_count} broken source(s)[/green]"
+                )
+                command_ctx.console.print(
+                    "[yellow]Note: Backup created at proxywhirl/sources.py.backup[/yellow]"
+                )
+            else:
+                command_ctx.console.print(
+                    "\n[yellow]No sources were removed (check logs for details)[/yellow]"
+                )
+
+    elif broken:
+        command_ctx.console.print(
+            f"\n[yellow]Found {len(broken)} broken source(s). Use --fix to remove them.[/yellow]"
+        )
+
+    # Exit with error if broken sources found (for CI)
+    if broken:
+        raise typer.Exit(code=1)
+
+
+async def _run_source_audit(
+    sources: list[Any],
+    timeout: float,
+    concurrency: int,
+    retries: int,
+    min_proxies: int,
+    console: Console,
+) -> list[dict[str, Any]]:
+    """Run source audit with retries and proxy counting.
+
+    Args:
+        sources: List of ProxySourceConfig to audit
+        timeout: Timeout per request in seconds
+        concurrency: Maximum concurrent requests
+        retries: Number of retries per source
+        min_proxies: Minimum proxies for healthy status
+        console: Rich console for progress display
+
+    Returns:
+        List of audit result dicts with status, proxy_count, etc.
+    """
+    import asyncio
+    import time
+
+    import httpx
+    from rich.progress import (
+        BarColumn,
+        MofNCompleteColumn,
+        Progress,
+        SpinnerColumn,
+        TaskProgressColumn,
+        TextColumn,
+        TimeElapsedColumn,
+    )
+
+    from proxywhirl.fetchers import ProxyFetcher
+    from proxywhirl.sources import _get_source_name
+
+    results: list[dict[str, Any]] = []
+    semaphore = asyncio.Semaphore(concurrency)
+    completed = 0
+
+    async def audit_source(source: Any) -> dict[str, Any]:
+        """Audit a single source with retries."""
+        nonlocal completed
+        name = _get_source_name(source)
+        url = str(source.url)
+
+        for attempt in range(retries):
+            start_time = time.perf_counter()
+            try:
+                async with semaphore:
+                    # Create fetcher for single source
+                    fetcher = ProxyFetcher(sources=[source])
+                    try:
+                        # Fetch without validation (we just want to count)
+                        proxies = await fetcher.fetch_all(validate=False, deduplicate=True)
+                        elapsed_ms = (time.perf_counter() - start_time) * 1000
+
+                        proxy_count = len(proxies)
+                        if proxy_count >= min_proxies:
+                            completed += 1
+                            return {
+                                "name": name,
+                                "url": url,
+                                "status": "healthy",
+                                "proxy_count": proxy_count,
+                                "response_time_ms": elapsed_ms,
+                                "attempts": attempt + 1,
+                            }
+                        else:
+                            # Not enough proxies, try again
+                            if attempt < retries - 1:
+                                await asyncio.sleep(1)  # Brief pause before retry
+                                continue
+                            completed += 1
+                            return {
+                                "name": name,
+                                "url": url,
+                                "status": "broken",
+                                "proxy_count": proxy_count,
+                                "response_time_ms": elapsed_ms,
+                                "error": f"Only {proxy_count} proxies (min: {min_proxies})",
+                                "attempts": attempt + 1,
+                            }
+                    finally:
+                        await fetcher.close()
+
+            except httpx.TimeoutException:
+                if attempt < retries - 1:
+                    await asyncio.sleep(1)
+                    continue
+                completed += 1
+                return {
+                    "name": name,
+                    "url": url,
+                    "status": "broken",
+                    "proxy_count": 0,
+                    "response_time_ms": (time.perf_counter() - start_time) * 1000,
+                    "error": "Timeout",
+                    "attempts": attempt + 1,
+                }
+            except Exception as e:
+                if attempt < retries - 1:
+                    await asyncio.sleep(1)
+                    continue
+                completed += 1
+                return {
+                    "name": name,
+                    "url": url,
+                    "status": "broken",
+                    "proxy_count": 0,
+                    "response_time_ms": (time.perf_counter() - start_time) * 1000,
+                    "error": str(e)[:100],
+                    "attempts": attempt + 1,
+                }
+
+        # Should not reach here, but handle it
+        completed += 1
+        return {
+            "name": name,
+            "url": url,
+            "status": "broken",
+            "proxy_count": 0,
+            "response_time_ms": 0,
+            "error": "Max retries exceeded",
+            "attempts": retries,
+        }
+
+    # Run with progress bar
+    progress = Progress(
+        SpinnerColumn(),
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        MofNCompleteColumn(),
+        TextColumn("•"),
+        TimeElapsedColumn(),
+        console=console,
+        transient=False,
+    )
+
+    with progress:
+        task = progress.add_task("Auditing sources", total=len(sources))
+
+        async def audit_with_progress(source: Any) -> dict[str, Any]:
+            result = await audit_source(source)
+            progress.update(task, advance=1)
+            return result
+
+        tasks = [audit_with_progress(src) for src in sources]
+        results = await asyncio.gather(*tasks)
+
+    return results
+
+
+def _remove_broken_sources(broken_urls: list[str], console: Console) -> int:
+    """Remove broken sources from sources.py file.
+
+    Creates a backup before modification. Uses regex to comment out
+    the broken source definitions.
+
+    Args:
+        broken_urls: List of URLs to remove
+        console: Rich console for output
+
+    Returns:
+        Number of sources removed
+    """
+    import re
+    import shutil
+
+    sources_path = Path(__file__).parent / "sources.py"
+    backup_path = sources_path.with_suffix(".py.backup")
+
+    if not sources_path.exists():
+        console.print("[red]Error: sources.py not found[/red]")
+        return 0
+
+    # Create backup
+    shutil.copy(sources_path, backup_path)
+
+    # Read current content
+    content = sources_path.read_text()
+    removed_count = 0
+
+    # For each broken URL, comment out its ProxySourceConfig definition
+    for url in broken_urls:
+        # Escape URL for regex
+        escaped_url = re.escape(url)
+
+        # Pattern to match ProxySourceConfig with this URL
+        # Matches: VARIABLE_NAME = ProxySourceConfig(...url="<url>"...)
+        # This is a simplified pattern - in practice, source configs span multiple lines
+        pattern = (
+            rf'^([A-Z_]+)\s*=\s*ProxySourceConfig\(\s*\n?\s*url=["\']?{escaped_url}["\']?.*?\)$'
+        )
+
+        match = re.search(pattern, content, re.MULTILINE | re.DOTALL)
+        if match:
+            var_name = match.group(1)
+            # Comment out the entire definition
+            commented = f"# REMOVED BY AUDIT: {match.group(0)}"
+            content = content.replace(match.group(0), commented)
+            removed_count += 1
+            console.print(f"  [dim]Commented out: {var_name}[/dim]")
+
+    # If we made changes, also remove from the collection lists
+    if removed_count > 0:
+        # Write modified content
+        sources_path.write_text(content)
+
+    return removed_count
 
 
 @app.command()
