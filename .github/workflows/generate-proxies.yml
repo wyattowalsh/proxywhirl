@@ -54,28 +54,39 @@ jobs:
       run: |
         uv run proxywhirl db-stats || echo "Stats unavailable (fresh database?)"
 
-    - name: Cleanup stale proxies
+    - name: Cleanup old stale proxies
       run: |
-        # Remove dead and stale proxies (not validated in 7 days)
+        # Remove proxies not validated in 7 days (dead proxies cleaned after validation)
         uv run proxywhirl cleanup --stale-days 7 --execute || echo "Cleanup skipped"
 
     - name: Re-validate existing proxies
       timeout-minutes: 60
       run: |
         # Re-validate all existing proxies in the database
-        # Failed proxies are marked as DEAD (not deleted) so they can recover later
+        # Failed proxies are marked as DEAD, cleaned up after this step
         # Use 5s timeout and 2000 concurrency (stable for GitHub Actions)
         uv run proxywhirl fetch --revalidate --timeout 5 --concurrency 2000 --no-export
 
     - name: Fetch new proxies from sources
       timeout-minutes: 60
       run: |
-        # Fetch and validate NEW proxies from all sources, save to database,
-        # and export all files for web dashboard:
+        # Fetch and validate NEW proxies from all sources, save to database.
+        # No export yet - we clean up dead proxies first.
+        # Use 5s timeout and 2000 concurrency (stable for GitHub Actions)
+        uv run proxywhirl fetch --timeout 5 --concurrency 2000 --no-export
+
+    - name: Cleanup dead proxies before export
+      run: |
+        # Remove proxies that failed validation (marked as DEAD)
+        # This ensures only working proxies are exported to the web dashboard
+        uv run proxywhirl cleanup --stale-days 0 --execute
+
+    - name: Export proxy lists
+      run: |
+        # Export all files for web dashboard after cleanup:
         # - metadata.json, http.txt, socks4.txt, socks5.txt, all.txt, proxies.json
         # - proxies-rich.json, stats.json
-        # Use 5s timeout and 2000 concurrency (stable for GitHub Actions)
-        uv run proxywhirl fetch --timeout 5 --concurrency 2000
+        uv run proxywhirl export
 
     - name: Show database stats after
       run: |
