@@ -1238,7 +1238,8 @@ async def _revalidate_existing_proxies(
 
         # Record successful validations
         for p_dict in validated_dicts:
-            response_time = p_dict.get("response_time_ms")
+            # Validator stores response time as "average_response_time_ms"
+            response_time = p_dict.get("average_response_time_ms")
             validation_results.append((p_dict["url"], True, response_time, None))
 
         # Record failed validations
