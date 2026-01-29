@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react"
 import type { Stats } from "@/types"
 import { getCache, setCache, CACHE_KEYS, DEFAULT_TTL } from "@/lib/cache"
 
-const STATS_URL = import.meta.env.BASE_URL + "proxy-lists/stats.json"
+const STATS_BASE_URL = import.meta.env.BASE_URL + "proxy-lists/stats.json"
 
 export function useStats() {
   const [stats, setStats] = useState<Stats | null>(null)
@@ -22,7 +22,9 @@ export function useStats() {
 
     setLoading(true)
     try {
-      const res = await fetch(STATS_URL)
+      // Add cache buster to bypass browser/CDN cache
+      const url = `${STATS_BASE_URL}?v=${Date.now()}`
+      const res = await fetch(url)
       if (!res.ok) throw new Error("Failed to fetch stats")
       const data: Stats = await res.json()
       setStats(data)

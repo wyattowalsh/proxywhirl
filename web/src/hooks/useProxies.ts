@@ -25,9 +25,10 @@ export function useRichProxies() {
 
     setLoading(true)
     setProgress(0) // Start at 0%
-    
+
     try {
-      const res = await fetch(`${BASE_URL}proxies-rich.json`)
+      // Add cache buster to bypass browser/CDN cache
+      const res = await fetch(`${BASE_URL}proxies-rich.json?v=${Date.now()}`)
       if (!res.ok) throw new Error("Failed to fetch proxy data")
       
       const contentLength = res.headers.get('Content-Length')
