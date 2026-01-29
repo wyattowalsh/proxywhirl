@@ -483,7 +483,15 @@ export function RichProxyTable({
         ) : (
           /* Desktop: Table view */
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col style={{ width: '22%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '20%' }} />
+              </colgroup>
               <thead className="sticky top-0 bg-card z-10">
                 <tr className="border-b">
                   <th className="text-left p-2">
@@ -529,7 +537,7 @@ export function RichProxyTable({
                       Response <SortIcon field="response_time" />
                     </Button>
                   </th>
-                  <th className="text-left p-2 w-10"></th>
+                  <th className="text-left p-2"></th>
                 </tr>
               </thead>
             </table>
@@ -540,7 +548,15 @@ export function RichProxyTable({
               <div
                 style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}
               >
-                <table className="w-full text-sm">
+                <table className="w-full text-sm table-fixed">
+                  <colgroup>
+                    <col style={{ width: '22%' }} />
+                    <col style={{ width: '10%' }} />
+                    <col style={{ width: '12%' }} />
+                    <col style={{ width: '20%' }} />
+                    <col style={{ width: '16%' }} />
+                    <col style={{ width: '20%' }} />
+                  </colgroup>
                   <tbody>
                     {virtualizer.getVirtualItems().map((virtualRow) => {
                       const proxy = sortedProxies[virtualRow.index]
@@ -558,14 +574,14 @@ export function RichProxyTable({
                             transform: `translateY(${virtualRow.start}px)`,
                           }}
                         >
-                          <td className="p-2 font-mono" style={{ width: '20%' }}>{proxy.ip}</td>
-                          <td className="p-2 font-mono" style={{ width: '10%' }}>{proxy.port}</td>
-                          <td className="p-2" style={{ width: '15%' }}>
+                          <td className="p-2 font-mono truncate">{proxy.ip}</td>
+                          <td className="p-2 font-mono">{proxy.port}</td>
+                          <td className="p-2">
                             <Badge variant={proxy.protocol as "http" | "https" | "socks4" | "socks5"}>
                               {proxy.protocol.toUpperCase()}
                             </Badge>
                           </td>
-                          <td className="p-2 text-muted-foreground" style={{ width: '25%' }}>
+                          <td className="p-2 text-muted-foreground truncate">
                             {proxy.country_code ? (
                               <span
                                 title={[
@@ -584,12 +600,12 @@ export function RichProxyTable({
                               <span className="text-xs text-amber-500" title="Private IP address">Private</span>
                             ) : "—"}
                           </td>
-                          <td className="p-2 font-mono text-muted-foreground" style={{ width: '15%' }}>
+                          <td className="p-2 font-mono text-muted-foreground">
                             {proxy.response_time !== null
                               ? `${proxy.response_time.toFixed(0)}ms`
                               : "—"}
                           </td>
-                          <td className="p-2" style={{ width: '15%' }}>
+                          <td className="p-2">
                             <div className="flex gap-1">
                               {onToggleFavorite && (
                                 <Button
