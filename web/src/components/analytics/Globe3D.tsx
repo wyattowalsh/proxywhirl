@@ -1,11 +1,6 @@
-import { useRef, useEffect, useMemo, useState } from "react"
+import { useRef, useEffect, useMemo, useState, type ComponentType } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import type { Proxy } from "@/types"
-
-// Dynamically import react-globe.gl to avoid SSR issues
-const Globe = typeof window !== "undefined"
-  ? require("react-globe.gl").default
-  : () => null
 
 interface Globe3DProps {
   proxies: Proxy[]
@@ -27,16 +22,32 @@ function getPointColor(avgResponse: number): string {
 
 export function Globe3D({ proxies }: Globe3DProps) {
   const globeRef = useRef<unknown>(null)
-  const [isClient, setIsClient] = useState(false)
+  const [GlobeComponent, setGlobeComponent] = useState<ComponentType<Record<string, unknown>> | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Only render on client
+  // Dynamically import react-globe.gl on client only
   useEffect(() => {
-    setIsClient(true)
+    let mounted = true
+    import("react-globe.gl")
+      .then((mod) => {
+        if (mounted) {
+          setGlobeComponent(() => mod.default)
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load Globe:", err)
+        if (mounted) {
+          setLoadError("Failed to load 3D globe component")
+        }
+      })
+    return () => {
+      mounted = false
+    }
   }, [])
 
   // Auto-rotate
   useEffect(() => {
-    if (globeRef.current && isClient) {
+    if (globeRef.current && GlobeComponent) {
       const globe = globeRef.current as { controls: () => { autoRotate: boolean; autoRotateSpeed: number } }
       if (globe.controls) {
         const controls = globe.controls()
@@ -44,7 +55,7 @@ export function Globe3D({ proxies }: Globe3DProps) {
         controls.autoRotateSpeed = 0.5
       }
     }
-  }, [isClient])
+  }, [GlobeComponent])
 
   const points = useMemo((): GlobePoint[] => {
     // Aggregate by rough location (rounded lat/lng)
@@ -91,7 +102,20 @@ export function Globe3D({ proxies }: Globe3DProps) {
   const totalWithLocation = points.reduce((sum, p) => sum + p.count, 0)
   const maxCount = Math.max(...points.map((p) => p.count), 1)
 
-  if (!isClient) {
+  if (loadError) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Global Distribution</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[500px] flex items-center justify-center">
+          <p className="text-muted-foreground">{loadError}</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!GlobeComponent) {
     return (
       <Card>
         <CardHeader>
@@ -128,8 +152,8 @@ export function Globe3D({ proxies }: Globe3DProps) {
       </CardHeader>
       <CardContent className="p-0">
         <div className="h-[500px] bg-zinc-950 relative">
-          {Globe && (
-            <Globe
+          {GlobeComponent && (
+            <GlobeComponent
               ref={globeRef}
               globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
               bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
