@@ -1,3 +1,6 @@
+import { Link } from "react-router-dom"
+import { BarChart3, ArrowRight } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { ErrorBoundary, ChartErrorFallback } from "@/components/ErrorBoundary"
 import { ResponseTimeChart } from "@/components/stats/ResponseTimeChart"
 import { ProtocolChart } from "@/components/stats/ProtocolChart"
@@ -15,11 +18,20 @@ interface AnalyticsProps {
 export function Analytics({ stats, proxies, onCountryClick }: AnalyticsProps) {
   return (
     <section className="space-y-6">
-      <h2 className="text-2xl font-bold tracking-tight">Analytics</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold tracking-tight">Analytics</h2>
+        <Button variant="outline" asChild>
+          <Link to="/analytics">
+            <BarChart3 className="mr-2 h-4 w-4" />
+            Full Dashboard
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Link>
+        </Button>
+      </div>
 
       <div className="grid gap-6 md:grid-cols-2">
         <ErrorBoundary fallback={<ChartErrorFallback title="response time chart" />}>
-          <ResponseTimeChart proxies={proxies} />
+          <ResponseTimeChart proxies={proxies} stats={stats} />
         </ErrorBoundary>
         <ErrorBoundary fallback={<ChartErrorFallback title="protocol chart" />}>
           <ProtocolChart stats={stats} />
@@ -28,10 +40,10 @@ export function Analytics({ stats, proxies, onCountryClick }: AnalyticsProps) {
 
       <div className="grid gap-6 md:grid-cols-2">
         <ErrorBoundary fallback={<ChartErrorFallback title="port chart" />}>
-          <PortChart proxies={proxies} />
+          <PortChart proxies={proxies} stats={stats} />
         </ErrorBoundary>
         <ErrorBoundary fallback={<ChartErrorFallback title="continent chart" />}>
-          <ContinentChart proxies={proxies} />
+          <ContinentChart proxies={proxies} stats={stats} />
         </ErrorBoundary>
       </div>
 

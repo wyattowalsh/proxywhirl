@@ -3,10 +3,11 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Globe } from "lucide-react"
-import type { Proxy } from "@/types"
+import type { Proxy, Stats } from "@/types"
 
 interface ContinentChartProps {
   proxies: Proxy[]
+  stats?: Stats | null
 }
 
 const CONTINENT_CONFIG: Record<string, { name: string; color: string; emoji: string }> = {
@@ -62,8 +63,23 @@ const COUNTRY_TO_CONTINENT: Record<string, string> = {
   AQ: "AN",
 }
 
-export function ContinentChart({ proxies }: ContinentChartProps) {
+export function ContinentChart({ proxies, stats }: ContinentChartProps) {
   const data = useMemo(() => {
+    // Use pre-computed distribution from stats if available
+    const precomputed = stats?.aggregations?.by_continent
+    if (precomputed && Object.keys(precomputed).length > 0) {
+      return Object.entries(precomputed)
+        .map(([code, count]) => ({
+          code,
+          name: CONTINENT_CONFIG[code]?.name || code,
+          value: count,
+          color: CONTINENT_CONFIG[code]?.color || "#6b7280",
+          emoji: CONTINENT_CONFIG[code]?.emoji || "🌐",
+        }))
+        .sort((a, b) => b.value - a.value)
+    }
+
+    // Fall back to client-side computation
     const counts: Record<string, number> = {}
     proxies.forEach((proxy) => {
       // Use continent_code if available, otherwise derive from country_code
@@ -84,7 +100,7 @@ export function ContinentChart({ proxies }: ContinentChartProps) {
         emoji: CONTINENT_CONFIG[code]?.emoji || "🌐",
       }))
       .sort((a, b) => b.value - a.value)
-  }, [proxies])
+  }, [proxies, stats])
 
   const total = data.reduce((sum, d) => sum + d.value, 0)
 

@@ -12,10 +12,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Clock } from "lucide-react"
-import type { Proxy } from "@/types"
+import type { Proxy, Stats } from "@/types"
 
 interface ResponseTimeChartProps {
   proxies: Proxy[]
+  stats?: Stats | null
 }
 
 const BINS = [
@@ -27,15 +28,26 @@ const BINS = [
   { min: 5000, max: Infinity, label: ">5s", color: "#dc2626" },
 ]
 
-export function ResponseTimeChart({ proxies }: ResponseTimeChartProps) {
+export function ResponseTimeChart({ proxies, stats }: ResponseTimeChartProps) {
   const data = useMemo(() => {
+    // Use pre-computed distribution from stats if available
+    const precomputed = stats?.aggregations?.response_time_distribution
+    if (precomputed && precomputed.length > 0) {
+      return precomputed.map((bin, idx) => ({
+        label: bin.range,
+        count: bin.count,
+        color: BINS[idx]?.color || "#6b7280",
+      }))
+    }
+
+    // Fall back to client-side computation
     const counts = BINS.map((bin) => ({
       ...bin,
       count: 0,
     }))
 
     proxies.forEach((proxy) => {
-      if (proxy.response_time !== null) {
+      if (proxy.response_time !== null && proxy.response_time > 0) {
         const binIndex = BINS.findIndex(
           (bin) => proxy.response_time! >= bin.min && proxy.response_time! < bin.max
         )
@@ -46,7 +58,7 @@ export function ResponseTimeChart({ proxies }: ResponseTimeChartProps) {
     })
 
     return counts
-  }, [proxies])
+  }, [proxies, stats])
 
   const totalWithTiming = data.reduce((sum, bin) => sum + bin.count, 0)
 

@@ -535,6 +535,7 @@ class SQLiteStorage:
                         total_checks=1,
                         total_successes=1,
                         consecutive_successes=1,
+                        avg_response_time_ms=proxy.average_response_time_ms,
                     )
                 else:
                     status = ProxyStatusTable(proxy_url=proxy.url)

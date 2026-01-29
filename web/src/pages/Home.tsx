@@ -222,7 +222,7 @@ export function Home() {
       {!statsLoading && !statsError && stats && (
         <section className="space-y-4">
           {/* Live Stats Cards */}
-          <LiveStats proxies={proxyData?.proxies ?? []} generatedAt={stats.generated_at} />
+          <LiveStats proxies={proxyData?.proxies ?? []} generatedAt={stats.generated_at} stats={stats} />
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>

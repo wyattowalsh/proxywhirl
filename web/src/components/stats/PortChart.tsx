@@ -12,10 +12,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Server } from "lucide-react"
-import type { Proxy } from "@/types"
+import type { Proxy, Stats } from "@/types"
 
 interface PortChartProps {
   proxies: Proxy[]
+  stats?: Stats | null
 }
 
 const PORT_COLORS: Record<number, string> = {
@@ -27,12 +28,25 @@ const PORT_COLORS: Record<number, string> = {
   8000: "#14b8a6",   // teal
   443: "#6366f1",    // indigo
   3129: "#f97316",   // orange
+  0: "#6b7280",      // gray for "Other"
 }
 
 const COMMON_PORTS = [80, 443, 1080, 3128, 3129, 8000, 8080, 8888]
 
-export function PortChart({ proxies }: PortChartProps) {
+export function PortChart({ proxies, stats }: PortChartProps) {
   const data = useMemo(() => {
+    // Use pre-computed distribution from stats if available
+    const precomputed = stats?.aggregations?.by_port
+    if (precomputed && precomputed.length > 0) {
+      return precomputed.map((entry) => ({
+        port: entry.port,
+        label: entry.label || entry.port.toString(),
+        count: entry.count,
+        color: PORT_COLORS[entry.port] || "#6b7280",
+      }))
+    }
+
+    // Fall back to client-side computation
     const counts: Record<number, number> = {}
     let otherCount = 0
 
@@ -63,7 +77,9 @@ export function PortChart({ proxies }: PortChartProps) {
     }
 
     return result
-  }, [proxies])
+  }, [proxies, stats])
+
+  const totalProxies = data.reduce((sum, entry) => sum + entry.count, 0)
 
   if (data.length === 0) {
     return (
@@ -88,7 +104,7 @@ export function PortChart({ proxies }: PortChartProps) {
       <CardHeader>
         <CardTitle>Port Distribution</CardTitle>
         <CardDescription>
-          Common proxy ports across {proxies.length.toLocaleString()} proxies
+          Common proxy ports across {totalProxies.toLocaleString()} proxies
         </CardDescription>
       </CardHeader>
       <CardContent>

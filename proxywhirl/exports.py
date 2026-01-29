@@ -7,7 +7,8 @@ for consumption by the web dashboard.
 from __future__ import annotations
 
 import json
-from collections import Counter
+import statistics
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,27 @@ from loguru import logger
 from proxywhirl.geo import batch_geolocate, enrich_proxies_with_geo
 from proxywhirl.sources import ALL_HTTP_SOURCES, ALL_SOCKS4_SOURCES, ALL_SOCKS5_SOURCES
 from proxywhirl.storage import SQLiteStorage
+
+# Response time distribution bins (ms): (min, max, label)
+RESPONSE_TIME_BINS: list[tuple[float, float, str]] = [
+    (0, 100, "<100ms"),
+    (100, 500, "100-500ms"),
+    (500, 1000, "500ms-1s"),
+    (1000, 2000, "1-2s"),
+    (2000, 5000, "2-5s"),
+    (5000, float("inf"), ">5s"),
+]
+
+# Continent code to name mapping
+CONTINENT_NAMES = {
+    "AF": "Africa",
+    "AN": "Antarctica",
+    "AS": "Asia",
+    "EU": "Europe",
+    "NA": "North America",
+    "OC": "Oceania",
+    "SA": "South America",
+}
 
 
 def parse_proxy_url(url: str) -> tuple[str, int]:
@@ -71,6 +93,12 @@ async def generate_rich_proxies(
     status_counts: Counter[str] = Counter()
     source_counts: Counter[str] = Counter()
     country_counts: Counter[str] = Counter()
+    port_counts: Counter[int] = Counter()
+    continent_counts: Counter[str] = Counter()
+    response_times: list[float] = []
+
+    # For source flow (Sankey) data
+    source_flow: defaultdict[tuple[str, str, str], int] = defaultdict(int)
 
     for proxy in proxies_data:
         ip, port = parse_proxy_url(proxy["url"])
@@ -86,13 +114,14 @@ async def generate_rich_proxies(
         last_success = proxy.get("last_success_at")
         last_failure = proxy.get("last_failure_at")
         discovered_at = proxy.get("discovered_at")
+        avg_response = proxy.get("avg_response_time_ms")
 
         proxy_dict = {
             "ip": ip,
             "port": port,
             "protocol": proxy.get("protocol") or "http",
             "status": proxy.get("health_status", "unknown"),
-            "response_time": proxy.get("avg_response_time_ms"),
+            "response_time": avg_response,
             "success_rate": (
                 round(total_successes / total_checks * 100, 1) if total_checks > 0 else None
             ),
@@ -108,12 +137,18 @@ async def generate_rich_proxies(
             "created_at": discovered_at.isoformat() if discovered_at else None,
             "country": None,
             "country_code": proxy.get("country_code"),
+            "continent_code": proxy.get("continent_code"),
         }
         proxies.append(proxy_dict)
 
         protocol_counts[proxy_dict["protocol"]] += 1
         status_counts[proxy_dict["status"]] += 1
         source_counts[proxy_dict["source"]] += 1
+        port_counts[port] += 1
+
+        # Collect response times for statistics
+        if avg_response is not None and avg_response > 0:
+            response_times.append(avg_response)
 
     # Add geo data if requested
     if include_geo and proxies:
@@ -121,10 +156,64 @@ async def generate_rich_proxies(
         geo_data = await batch_geolocate(ips, max_batches=50)  # Up to 5000 IPs
         proxies = enrich_proxies_with_geo(proxies, geo_data)
 
-        # Count countries
+        # Count countries and continents, build source flow
         for p in proxies:
-            if p.get("country_code"):
-                country_counts[p["country_code"]] += 1
+            country_code = p.get("country_code")
+            continent_code = p.get("continent_code")
+            if country_code:
+                country_counts[country_code] += 1
+            if continent_code:
+                continent_counts[continent_code] += 1
+
+            # Build source flow data (source → protocol → country)
+            source = p.get("source", "unknown")
+            protocol = p.get("protocol", "http")
+            country = country_code or "Unknown"
+            source_flow[(source, protocol, country)] += 1
+
+    # Build response time distribution
+    response_time_distribution = []
+    for bin_min, bin_max, bin_label in RESPONSE_TIME_BINS:
+        count = sum(1 for rt in response_times if bin_min <= rt < bin_max)
+        response_time_distribution.append(
+            {
+                "range": bin_label,
+                "min": bin_min,
+                "max": bin_max if bin_max != float("inf") else None,
+                "count": count,
+            }
+        )
+
+    # Build port distribution (top 15 + others)
+    top_ports = port_counts.most_common(15)
+    by_port = [{"port": port, "count": count} for port, count in top_ports]
+    other_port_count = sum(
+        count for port, count in port_counts.items() if port not in dict(top_ports)
+    )
+    if other_port_count > 0:
+        by_port.append({"port": 0, "count": other_port_count, "label": "Other"})
+
+    # Performance statistics
+    performance = {}
+    if response_times:
+        sorted_times = sorted(response_times)
+        p95_idx = int(len(sorted_times) * 0.95)
+        performance = {
+            "avg_ms": round(statistics.mean(response_times), 1),
+            "median_ms": round(statistics.median(response_times), 1),
+            "p95_ms": round(
+                sorted_times[p95_idx] if p95_idx < len(sorted_times) else sorted_times[-1], 1
+            ),
+            "min_ms": round(min(response_times), 1),
+            "max_ms": round(max(response_times), 1),
+            "samples": len(response_times),
+        }
+
+    # Build source flow for Sankey (limit to top entries)
+    source_flow_list = [
+        {"source": s, "protocol": p, "country": c, "count": cnt}
+        for (s, p, c), cnt in sorted(source_flow.items(), key=lambda x: -x[1])[:200]
+    ]
 
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -135,18 +224,24 @@ async def generate_rich_proxies(
             "by_status": dict(status_counts),
             "by_source": dict(source_counts),
             "by_country": dict(country_counts),
+            "by_port": by_port,
+            "by_continent": dict(continent_counts),
+            "response_time_distribution": response_time_distribution,
+            "performance": performance,
+            "source_flow": source_flow_list,
         },
     }
 
 
 def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
-    """Generate statistics from proxy list files.
+    """Generate statistics from proxy list files and rich proxy data.
 
     Args:
         proxy_dir: Path to directory containing proxy list files
 
     Returns:
-        Dictionary containing all dashboard statistics
+        Dictionary containing all dashboard statistics including health,
+        performance, validation, geographic, and source ranking data
     """
     # Read existing metadata
     metadata_path = proxy_dir / "metadata.json"
@@ -160,6 +255,18 @@ def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
     else:
         with open(metadata_path) as f:
             metadata = json.load(f)
+
+    # Read rich proxy data for aggregations
+    rich_path = proxy_dir / "proxies-rich.json"
+    rich_data: dict[str, Any] = {}
+    if rich_path.exists():
+        try:
+            with open(rich_path) as f:
+                rich_data = json.load(f)
+        except (json.JSONDecodeError, OSError) as e:
+            logger.warning(f"Failed to read proxies-rich.json: {e}")
+
+    aggregations = rich_data.get("aggregations", {})
 
     # Calculate file sizes
     file_sizes = {}
@@ -199,6 +306,67 @@ def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
     # Use unique count as the primary total (avoids HTTP/HTTPS double-counting)
     unique_count = len(unique_proxies) if unique_proxies else 0
 
+    # Build health stats from status aggregation
+    status_agg = aggregations.get("by_status", {})
+    health = {
+        "healthy": status_agg.get("healthy", 0),
+        "unhealthy": status_agg.get("unhealthy", 0),
+        "dead": status_agg.get("dead", 0),
+        "unknown": status_agg.get("unknown", 0),
+    }
+    total_validated = health["healthy"] + health["unhealthy"] + health["dead"]
+
+    # Performance stats from aggregations
+    perf_agg = aggregations.get("performance", {})
+    performance = {
+        "avg_response_ms": perf_agg.get("avg_ms"),
+        "median_response_ms": perf_agg.get("median_ms"),
+        "p95_response_ms": perf_agg.get("p95_ms"),
+        "min_response_ms": perf_agg.get("min_ms"),
+        "max_response_ms": perf_agg.get("max_ms"),
+        "samples": perf_agg.get("samples", 0),
+    }
+
+    # Validation stats
+    validation = {
+        "total_validated": total_validated,
+        "success_rate_pct": round(health["healthy"] / total_validated * 100, 1)
+        if total_validated > 0
+        else 0,
+    }
+
+    # Geographic stats
+    country_agg = aggregations.get("by_country", {})
+    continent_agg = aggregations.get("by_continent", {})
+    top_countries = sorted(
+        [{"code": k, "count": v} for k, v in country_agg.items()],
+        key=lambda x: -x["count"],
+    )[:15]
+    geographic = {
+        "total_countries": len(country_agg),
+        "top_countries": top_countries,
+        "by_continent": {
+            code: {"name": CONTINENT_NAMES.get(code, code), "count": count}
+            for code, count in continent_agg.items()
+        },
+    }
+
+    # Source ranking
+    source_agg = aggregations.get("by_source", {})
+    top_sources = sorted(
+        [{"name": k, "count": v} for k, v in source_agg.items()],
+        key=lambda x: -x["count"],
+    )[:20]
+    sources_ranking = {
+        "total_active": len(source_agg),
+        "top_sources": top_sources,
+    }
+
+    # Include pre-computed aggregations for frontend
+    response_time_distribution = aggregations.get("response_time_distribution", [])
+    by_port = aggregations.get("by_port", [])
+    source_flow = aggregations.get("source_flow", [])
+
     return {
         "generated_at": metadata.get("generated_at", datetime.now(timezone.utc).isoformat()),
         "sources": {
@@ -210,6 +378,19 @@ def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
             "by_protocol": proxy_counts,
         },
         "file_sizes": file_sizes,
+        # Enhanced stats sections
+        "health": health,
+        "performance": performance,
+        "validation": validation,
+        "geographic": geographic,
+        "sources_ranking": sources_ranking,
+        # Pre-computed aggregations for charts
+        "aggregations": {
+            "response_time_distribution": response_time_distribution,
+            "by_port": by_port,
+            "by_continent": continent_agg,
+            "source_flow": source_flow,
+        },
     }
 
 

@@ -1,12 +1,13 @@
 import { useEffect, useState, useMemo, useRef } from "react"
 import { motion } from "motion/react"
-import { Globe, Wifi, Zap, Clock } from "lucide-react"
-import type { Proxy } from "@/types"
+import { Globe, Wifi, Zap, Clock, CheckCircle } from "lucide-react"
+import type { Proxy, Stats } from "@/types"
 import { staggerContainer, slideUp, cardInteraction } from "@/lib/animations"
 
 interface LiveStatsProps {
   proxies: Proxy[]
   generatedAt: string
+  stats?: Stats | null
 }
 
 function AnimatedNumber({ value, duration = 1500 }: { value: number; duration?: number }) {
@@ -42,26 +43,36 @@ function AnimatedNumber({ value, duration = 1500 }: { value: number; duration?: 
   return <span className="tabular-nums">{displayValue.toLocaleString()}</span>
 }
 
-export function LiveStats({ proxies, generatedAt }: LiveStatsProps) {
-  const stats = useMemo(() => {
-    const countries = new Set(proxies.map((p) => p.country_code).filter(Boolean))
-    const avgResponseTime = proxies
-      .filter((p) => p.response_time !== null)
-      .reduce((sum, p, _, arr) => sum + (p.response_time || 0) / arr.length, 0)
+export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
+  const computedStats = useMemo(() => {
+    // Use pre-computed stats when available, fall back to client-side computation
+    const precomputed = stats?.performance
+    const precomputedGeo = stats?.geographic
+    const precomputedValidation = stats?.validation
 
-    const protocols = {
-      http: proxies.filter((p) => p.protocol === "http").length,
-      socks4: proxies.filter((p) => p.protocol === "socks4").length,
-      socks5: proxies.filter((p) => p.protocol === "socks5").length,
+    // Countries - prefer pre-computed
+    const countries = precomputedGeo?.total_countries
+      ?? new Set(proxies.map((p) => p.country_code).filter(Boolean)).size
+
+    // Avg response time - prefer pre-computed
+    let avgResponseTime = precomputed?.avg_response_ms ?? 0
+    if (!avgResponseTime && proxies.length > 0) {
+      const withTiming = proxies.filter((p) => p.response_time !== null && p.response_time > 0)
+      if (withTiming.length > 0) {
+        avgResponseTime = withTiming.reduce((sum, p) => sum + (p.response_time || 0), 0) / withTiming.length
+      }
     }
+
+    // Success rate - prefer pre-computed
+    const successRate = precomputedValidation?.success_rate_pct ?? 0
 
     return {
-      total: proxies.length,
-      countries: countries.size,
+      total: stats?.proxies?.total ?? proxies.length,
+      countries,
       avgResponseTime: Math.round(avgResponseTime),
-      protocols,
+      successRate: Math.round(successRate * 10) / 10,
     }
-  }, [proxies])
+  }, [proxies, stats])
 
   const timeSince = useMemo(() => {
     const date = new Date(generatedAt)
@@ -78,7 +89,7 @@ export function LiveStats({ proxies, generatedAt }: LiveStatsProps) {
 
   return (
     <motion.div
-      className="grid grid-cols-2 md:grid-cols-4 gap-4"
+      className="grid grid-cols-2 md:grid-cols-5 gap-4"
       variants={staggerContainer}
       initial="hidden"
       animate="visible"
@@ -93,7 +104,7 @@ export function LiveStats({ proxies, generatedAt }: LiveStatsProps) {
         </div>
         <div>
           <p className="text-2xl font-bold">
-            <AnimatedNumber value={stats.total} />
+            <AnimatedNumber value={computedStats.total} />
           </p>
           <p className="text-xs text-muted-foreground">Total Proxies</p>
         </div>
@@ -109,7 +120,7 @@ export function LiveStats({ proxies, generatedAt }: LiveStatsProps) {
         </div>
         <div>
           <p className="text-2xl font-bold">
-            <AnimatedNumber value={stats.countries} />
+            <AnimatedNumber value={computedStats.countries} />
           </p>
           <p className="text-xs text-muted-foreground">Countries</p>
         </div>
@@ -125,13 +136,33 @@ export function LiveStats({ proxies, generatedAt }: LiveStatsProps) {
         </div>
         <div>
           <p className="text-2xl font-bold">
-            {stats.avgResponseTime > 0 ? (
-              <><AnimatedNumber value={stats.avgResponseTime} /><span className="text-base font-normal">ms</span></>
+            {computedStats.avgResponseTime > 0 ? (
+              <><AnimatedNumber value={computedStats.avgResponseTime} /><span className="text-base font-normal">ms</span></>
             ) : (
               "—"
             )}
           </p>
           <p className="text-xs text-muted-foreground">Avg Response</p>
+        </div>
+      </motion.div>
+
+      <motion.div
+        className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20"
+        variants={slideUp}
+        {...cardInteraction}
+      >
+        <div className="p-2 rounded-lg bg-emerald-500/20">
+          <CheckCircle className="h-5 w-5 text-emerald-500" />
+        </div>
+        <div>
+          <p className="text-2xl font-bold">
+            {computedStats.successRate > 0 ? (
+              <><AnimatedNumber value={computedStats.successRate} /><span className="text-base font-normal">%</span></>
+            ) : (
+              "—"
+            )}
+          </p>
+          <p className="text-xs text-muted-foreground">Success Rate</p>
         </div>
       </motion.div>
 
