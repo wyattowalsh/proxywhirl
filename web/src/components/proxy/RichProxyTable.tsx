@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Proxy, Protocol } from "@/types"
 import { filterProxies, sortProxies, type SortField, type SortDirection, type ProxyFilters } from "@/hooks/useProxies"
 import { PROTOCOLS, PROTOCOL_LABELS } from "@/types"
+import { getFlag } from "@/lib/geo"
 import { copyToClipboard } from "@/lib/clipboard"
 import {
   DropdownMenu,
@@ -593,6 +594,7 @@ export function RichProxyTable({
                                 ].filter(Boolean).join("\n") || proxy.country_code}
                                 className="cursor-help"
                               >
+                                <span className="mr-1">{getFlag(proxy.country_code)}</span>
                                 {proxy.country_code}
                                 {proxy.city && (
                                   <span className="text-xs ml-1 opacity-70">{proxy.city}</span>
