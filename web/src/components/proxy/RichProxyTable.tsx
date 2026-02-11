@@ -566,6 +566,8 @@ export function RichProxyTable({
                           key={proxyString}
                           className="border-b hover:bg-muted/50 group"
                           style={{
+                            display: 'table',
+                            tableLayout: 'fixed',
                             position: 'absolute',
                             top: 0,
                             left: 0,
@@ -574,14 +576,14 @@ export function RichProxyTable({
                             transform: `translateY(${virtualRow.start}px)`,
                           }}
                         >
-                          <td className="p-2 font-mono truncate">{proxy.ip}</td>
-                          <td className="p-2 font-mono">{proxy.port}</td>
-                          <td className="p-2">
+                          <td style={{ width: '22%' }} className="p-2 font-mono truncate">{proxy.ip}</td>
+                          <td style={{ width: '10%' }} className="p-2 font-mono">{proxy.port}</td>
+                          <td style={{ width: '12%' }} className="p-2">
                             <Badge variant={proxy.protocol as "http" | "https" | "socks4" | "socks5"}>
                               {proxy.protocol.toUpperCase()}
                             </Badge>
                           </td>
-                          <td className="p-2 text-muted-foreground truncate">
+                          <td style={{ width: '20%' }} className="p-2 text-muted-foreground truncate">
                             {proxy.country_code ? (
                               <span
                                 title={[
@@ -600,12 +602,12 @@ export function RichProxyTable({
                               <span className="text-xs text-amber-500" title="Private IP address">Private</span>
                             ) : "—"}
                           </td>
-                          <td className="p-2 font-mono text-muted-foreground">
+                          <td style={{ width: '16%' }} className="p-2 font-mono text-muted-foreground">
                             {proxy.response_time !== null
                               ? `${proxy.response_time.toFixed(0)}ms`
                               : "—"}
                           </td>
-                          <td className="p-2">
+                          <td style={{ width: '20%' }} className="p-2">
                             <div className="flex gap-1">
                               {onToggleFavorite && (
                                 <Button
