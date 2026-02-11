@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react"
 import { motion } from "motion/react"
-import { Globe, Wifi, Zap, Clock, CheckCircle } from "lucide-react"
+import { Globe, Wifi, Zap, Clock, TrendingUp } from "lucide-react"
 import type { Proxy, Stats } from "@/types"
 import { staggerContainer, slideUp, cardInteraction } from "@/lib/animations"
 
@@ -48,8 +48,6 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
     // Use pre-computed stats when available, fall back to client-side computation
     const precomputed = stats?.performance
     const precomputedGeo = stats?.geographic
-    const precomputedValidation = stats?.validation
-
     // Countries - prefer pre-computed
     const countries = precomputedGeo?.total_countries
       ?? new Set(proxies.map((p) => p.country_code).filter(Boolean)).size
@@ -63,14 +61,18 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
       }
     }
 
-    // Success rate - prefer pre-computed
-    const successRate = precomputedValidation?.success_rate_pct ?? 0
+    // Avg reliability - mean of per-proxy success_rate
+    let avgReliability = 0
+    const withRate = proxies.filter((p) => p.success_rate !== null && p.success_rate !== undefined)
+    if (withRate.length > 0) {
+      avgReliability = withRate.reduce((sum, p) => sum + (p.success_rate ?? 0), 0) / withRate.length
+    }
 
     return {
       total: stats?.proxies?.total ?? proxies.length,
       countries,
       avgResponseTime: Math.round(avgResponseTime),
-      successRate: Math.round(successRate * 10) / 10,
+      avgReliability: Math.round(avgReliability * 10) / 10,
     }
   }, [proxies, stats])
 
@@ -152,17 +154,17 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
         {...cardInteraction}
       >
         <div className="p-2 rounded-lg bg-emerald-500/20">
-          <CheckCircle className="h-5 w-5 text-emerald-500" />
+          <TrendingUp className="h-5 w-5 text-emerald-500" />
         </div>
         <div>
           <p className="text-2xl font-bold">
-            {computedStats.successRate > 0 ? (
-              <><AnimatedNumber value={computedStats.successRate} /><span className="text-base font-normal">%</span></>
+            {computedStats.avgReliability > 0 ? (
+              <><AnimatedNumber value={computedStats.avgReliability} /><span className="text-base font-normal">%</span></>
             ) : (
               "—"
             )}
           </p>
-          <p className="text-xs text-muted-foreground">Success Rate</p>
+          <p className="text-xs text-muted-foreground">Avg Reliability</p>
         </div>
       </motion.div>
 

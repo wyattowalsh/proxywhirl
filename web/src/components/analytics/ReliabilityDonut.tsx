@@ -1,36 +1,58 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { HEALTH_COLORS } from "@/types"
-import type { HealthStats } from "@/types"
+import type { Proxy } from "@/types"
 
-interface HealthDonutProps {
-  health: HealthStats
+interface ReliabilityDonutProps {
+  proxies: Proxy[]
 }
 
-const LABELS: Record<string, string> = {
-  healthy: "Healthy",
-  unhealthy: "Unhealthy",
-  dead: "Dead",
-  unknown: "Unknown",
+interface Tier {
+  name: string
+  color: string
+  min: number
+  max: number
 }
 
-export function HealthDonut({ health }: HealthDonutProps) {
-  const data = Object.entries(health)
-    .filter(([_, count]) => count > 0)
-    .map(([status, count]) => ({
-      name: LABELS[status] || status,
-      value: count,
-      color: HEALTH_COLORS[status] || "#6b7280",
+const TIERS: Tier[] = [
+  { name: "Elite", color: "#22c55e", min: 95, max: 100 },
+  { name: "Reliable", color: "#3b82f6", min: 75, max: 95 },
+  { name: "Moderate", color: "#f59e0b", min: 50, max: 75 },
+  { name: "Marginal", color: "#f97316", min: 0, max: 50 },
+]
+
+function classifyProxy(successRate: number | null): string {
+  const rate = successRate ?? 0
+  for (const tier of TIERS) {
+    if (rate >= tier.min && rate <= tier.max) return tier.name
+  }
+  return "Marginal"
+}
+
+export function ReliabilityDonut({ proxies }: ReliabilityDonutProps) {
+  const counts: Record<string, number> = {}
+  for (const tier of TIERS) counts[tier.name] = 0
+
+  for (const proxy of proxies) {
+    const tier = classifyProxy(proxy.success_rate)
+    counts[tier]++
+  }
+
+  const data = TIERS
+    .filter((tier) => counts[tier.name] > 0)
+    .map((tier) => ({
+      name: tier.name,
+      value: counts[tier.name],
+      color: tier.color,
     }))
 
-  const total = data.reduce((sum, d) => sum + d.value, 0)
-  const healthyPct = total > 0 ? Math.round((health.healthy / total) * 100) : 0
+  const total = proxies.length
+  const elitePct = total > 0 ? Math.round((counts["Elite"] / total) * 100) : 0
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Health Distribution</CardTitle>
-        <CardDescription>Proxy health status breakdown</CardDescription>
+        <CardTitle>Reliability Distribution</CardTitle>
+        <CardDescription>Per-proxy success rate tiers</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="relative h-[250px]">
@@ -62,8 +84,8 @@ export function HealthDonut({ health }: HealthDonutProps) {
           {/* Center label */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center">
-              <p className="text-3xl font-bold">{healthyPct}%</p>
-              <p className="text-sm text-muted-foreground">Healthy</p>
+              <p className="text-3xl font-bold">{elitePct}%</p>
+              <p className="text-sm text-muted-foreground">Elite</p>
             </div>
           </div>
         </div>

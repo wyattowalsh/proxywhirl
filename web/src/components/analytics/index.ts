@@ -1,5 +1,5 @@
-export { HealthDonut } from "./HealthDonut"
-export { HealthGauge } from "./HealthGauge"
+export { ReliabilityDonut } from "./ReliabilityDonut"
+export { ValidationDepth } from "./ValidationDepth"
 export { ResponseGauge } from "./ResponseGauge"
 export { SourceRanking } from "./SourceRanking"
 export { CountryRanking } from "./CountryRanking"

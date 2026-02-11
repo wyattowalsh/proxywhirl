@@ -1,8 +1,8 @@
 import { Suspense, lazy } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorBoundary, ChartErrorFallback } from "@/components/ErrorBoundary"
-import { HealthDonut } from "./HealthDonut"
-import { HealthGauge } from "./HealthGauge"
+import { ReliabilityDonut } from "./ReliabilityDonut"
+import { ValidationDepth } from "./ValidationDepth"
 import { ResponseGauge } from "./ResponseGauge"
 import { SourceRanking } from "./SourceRanking"
 import { CountryRanking } from "./CountryRanking"
@@ -26,7 +26,6 @@ function ChartSkeleton({ height = "h-[400px]" }: { height?: string }) {
 }
 
 export function AnalyticsDashboard({ stats, proxies }: AnalyticsDashboardProps) {
-  const health = stats.health || { healthy: 0, unhealthy: 0, dead: 0, unknown: proxies.length }
   const performance = stats.performance || {
     avg_response_ms: null,
     median_response_ms: null,
@@ -35,7 +34,6 @@ export function AnalyticsDashboard({ stats, proxies }: AnalyticsDashboardProps) 
     max_response_ms: null,
     samples: 0,
   }
-  const validation = stats.validation || { total_validated: 0, success_rate_pct: 0 }
   const geographic = stats.geographic || { total_countries: 0, top_countries: [], by_continent: {} }
   const sourcesRanking = stats.sources_ranking || { total_active: 0, top_sources: [] }
   const sourceFlow = stats.aggregations?.source_flow || []
@@ -44,16 +42,13 @@ export function AnalyticsDashboard({ stats, proxies }: AnalyticsDashboardProps) 
     <div className="space-y-8">
       {/* Section: Health & Performance Overview */}
       <section>
-        <h3 className="text-lg font-semibold mb-4">Health & Performance</h3>
+        <h3 className="text-lg font-semibold mb-4">Reliability & Performance</h3>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <ErrorBoundary fallback={<ChartErrorFallback title="health donut" />}>
-            <HealthDonut health={health} />
+          <ErrorBoundary fallback={<ChartErrorFallback title="reliability donut" />}>
+            <ReliabilityDonut proxies={proxies} />
           </ErrorBoundary>
-          <ErrorBoundary fallback={<ChartErrorFallback title="health gauge" />}>
-            <HealthGauge
-              healthyPct={validation.success_rate_pct}
-              totalValidated={validation.total_validated}
-            />
+          <ErrorBoundary fallback={<ChartErrorFallback title="validation depth" />}>
+            <ValidationDepth proxies={proxies} />
           </ErrorBoundary>
           <ErrorBoundary fallback={<ChartErrorFallback title="response gauge" />}>
             <ResponseGauge performance={performance} />
