@@ -81,6 +81,20 @@ jobs:
         # This ensures only working proxies are exported to the web dashboard
         uv run proxywhirl cleanup --stale-days 0 --execute
 
+    - name: Compact database
+      run: |
+        # Drop orphaned validation records and VACUUM to keep db under 100 MB
+        sqlite3 proxywhirl.db <<'SQL'
+        DELETE FROM validation_results WHERE proxy_url NOT IN (SELECT url FROM proxy_identities);
+        VACUUM;
+        SQL
+        DB_SIZE=$(stat --format=%s proxywhirl.db)
+        DB_MB=$((DB_SIZE / 1048576))
+        echo "Database size after compact: ${DB_MB} MB"
+        if [ "$DB_MB" -ge 95 ]; then
+          echo "::warning::Database is ${DB_MB} MB — approaching GitHub 100 MB limit"
+        fi
+
     - name: Export proxy lists
       run: |
         # Export all files for web dashboard after cleanup:
@@ -102,8 +116,17 @@ jobs:
         git config --local user.email "github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
 
-        # Add all generated files (docs and web copies)
-        git add docs/proxy-lists/ web/public/proxy-lists/ proxywhirl.db
+        # Add generated proxy list files
+        git add docs/proxy-lists/ web/public/proxy-lists/
+
+        # Only add database if under 95 MB (GitHub rejects files >= 100 MB)
+        DB_SIZE=$(stat --format=%s proxywhirl.db)
+        DB_MB=$((DB_SIZE / 1048576))
+        if [ "$DB_MB" -lt 95 ]; then
+          git add proxywhirl.db
+        else
+          echo "::warning::Skipping proxywhirl.db commit — ${DB_MB} MB exceeds safe limit"
+        fi
 
         # Only commit if there are staged changes
         if git diff --staged --quiet; then

@@ -437,6 +437,8 @@ class SQLiteStorage:
 
         async with self.engine.begin() as conn:
             await conn.run_sync(SQLModel.metadata.create_all)
+            # Drop legacy 'proxies' table from old schema
+            await conn.execute(text("DROP TABLE IF EXISTS proxies"))
 
     async def close(self) -> None:
         """Close database connection and release resources.
@@ -1045,8 +1047,8 @@ class SQLiteStorage:
                 else:
                     counts["never_validated"] = 0
 
-            # Clean old validation history (keep 7 days)
-            history_cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+            # Clean old validation history (keep 1 day)
+            history_cutoff = datetime.now(timezone.utc) - timedelta(days=1)
             del_history = delete(ValidationResultTable).where(
                 ValidationResultTable.validated_at < history_cutoff
             )
