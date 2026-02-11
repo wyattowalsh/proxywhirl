@@ -925,7 +925,7 @@ class SQLiteStorage:
             .join(ProxyStatusTable, ProxyIdentityTable.url == ProxyStatusTable.proxy_url)
             .where(ProxyStatusTable.last_success_at.isnot(None))  # type: ignore[union-attr]
             .where(ProxyStatusTable.last_success_at >= cutoff)  # type: ignore[operator]
-            .where(ProxyStatusTable.health_status != "dead")
+            .where(ProxyStatusTable.health_status == "healthy")
         )
 
         async with AsyncSession(self.engine) as session:
