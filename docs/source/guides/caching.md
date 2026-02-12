@@ -281,6 +281,7 @@ config = CacheConfig(
 - Rotate keys periodically using the key rotation feature
 - Lost keys = permanently encrypted data
 - Use cloud secret managers (AWS Secrets Manager, GCP Secret Manager) in production
+- See {doc}`deployment-security` for production encryption and secrets management guidance
 ```
 
 ### Key Rotation
@@ -447,7 +448,7 @@ For write-heavy workloads, disable background cleanup and rely on lazy expiratio
 
 ## Health Invalidation
 
-The cache integrates with the health monitoring system to automatically evict failing proxies.
+The cache integrates with the health monitoring system to automatically evict failing proxies. This works in tandem with the {doc}`retry-failover` circuit breaker system.
 
 ### Configuration
 
@@ -661,7 +662,7 @@ Tiers automatically re-enable after a successful operation.
 
 ## CLI Integration
 
-The CLI exposes cache configuration via TOML config file:
+The CLI exposes cache configuration via TOML config file. See {doc}`cli-reference` for full CLI command documentation and {doc}`/reference/configuration` for all configuration keys.
 
 ```toml
 # ~/.config/proxywhirl/config.toml
@@ -822,6 +823,48 @@ metrics = stats.to_metrics_dict()
 
 ## See Also
 
-- {doc}`/reference/index` - API reference for `CacheManager`, `CacheEntry`, `CacheConfig`
-- {doc}`/guides/automation` - CI/CD integration for cache monitoring
-- {doc}`/getting-started/index` - QuickStart for basic ProxyWhirl usage
+::::{grid} 2
+:gutter: 3
+
+:::{grid-item-card} Cache API Reference
+:link: /reference/cache-api
+:link-type: doc
+
+Complete API docs for `CacheManager`, `CacheEntry`, `CacheConfig`, and `CacheStatistics`.
+:::
+
+:::{grid-item-card} Configuration Reference
+:link: /reference/configuration
+:link-type: doc
+
+Full configuration reference including cache-related TOML keys and environment variables.
+:::
+
+:::{grid-item-card} CLI Reference
+:link: /guides/cli-reference
+:link-type: doc
+
+CLI commands for cache configuration, proxy fetching, and data export.
+:::
+
+:::{grid-item-card} Deployment Security
+:link: /guides/deployment-security
+:link-type: doc
+
+Production deployment with encryption, reverse proxy setup, and security hardening.
+:::
+
+:::{grid-item-card} Automation Guide
+:link: /guides/automation
+:link-type: doc
+
+CI/CD integration for automated cache warming and proxy refresh.
+:::
+
+:::{grid-item-card} Getting Started
+:link: /getting-started/index
+:link-type: doc
+
+Quickstart guide for basic ProxyWhirl usage.
+:::
+::::

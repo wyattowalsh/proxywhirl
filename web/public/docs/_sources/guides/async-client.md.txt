@@ -25,7 +25,7 @@ ProxyWhirl provides `AsyncProxyRotator`, a fully async implementation of proxy r
 - **Low concurrency**: Making fewer than 10 concurrent requests
 
 ```{note}
-Both `AsyncProxyRotator` and `ProxyRotator` share the same strategy system, retry logic, and circuit breaker implementation. The only difference is the async/sync execution model.
+Both `AsyncProxyRotator` and `ProxyRotator` share the same strategy system, retry logic, and circuit breaker implementation. The only difference is the async/sync execution model. See {doc}`advanced-strategies` for strategy details and {doc}`retry-failover` for circuit breaker configuration.
 ```
 
 ## Initialization
@@ -79,6 +79,10 @@ async with AsyncProxyRotator(strategy="random") as rotator:
 # - "session"
 # - "geo-targeted"
 ```
+
+:::{seealso}
+For detailed strategy configuration including EMA tuning, session persistence, geo-targeting, cost-aware selection, and composite strategies, see {doc}`advanced-strategies`.
+:::
 
 ### With Custom Configuration
 
@@ -290,7 +294,7 @@ async with AsyncProxyRotator() as rotator:
 
 ## Hot-Swapping Strategies
 
-Change rotation strategies at runtime without restarting:
+Change rotation strategies at runtime without restarting. For a full list of available strategies and their configuration options, see {doc}`advanced-strategies`.
 
 ```python
 async with AsyncProxyRotator(strategy="round-robin") as rotator:
@@ -341,7 +345,7 @@ async with AsyncProxyRotator() as rotator:
 
 ### Retry Policy Override
 
-Override retry behavior per request:
+Override retry behavior per request. See {doc}`retry-failover` for complete retry policy configuration, backoff strategies, and circuit breaker details.
 
 ```python
 from proxywhirl import AsyncProxyRotator, RetryPolicy
@@ -359,6 +363,8 @@ async with AsyncProxyRotator() as rotator:
 ```
 
 ### Circuit Breaker Management
+
+For detailed circuit breaker configuration, state transitions, and persistence options, see {doc}`retry-failover`.
 
 ```python
 async with AsyncProxyRotator() as rotator:
@@ -707,6 +713,10 @@ Sync is sufficient when:
 ## Asyncio Integration Patterns
 
 ### With FastAPI
+
+:::{tip}
+For production FastAPI deployments, see {doc}`deployment-security` for reverse proxy configuration and rate limiting setup.
+:::
 
 ```python
 from fastapi import FastAPI
@@ -1297,7 +1307,62 @@ async def bad_example4():
 
 ## See Also
 
-- {doc}`/getting-started/rotation-strategies` — Available rotation strategies
-- {doc}`/reference/rest-api` — REST API documentation
-- {doc}`automation` — CI/CD integration patterns
-- {doc}`retry-failover` — Circuit breakers and retry logic details
+::::{grid} 2
+:gutter: 3
+
+:::{grid-item-card} Advanced Strategies
+:link: /guides/advanced-strategies
+:link-type: doc
+
+Performance-based, geo-targeted, session persistence, and composite strategy patterns.
+:::
+
+:::{grid-item-card} Retry & Failover
+:link: /guides/retry-failover
+:link-type: doc
+
+Circuit breakers, backoff strategies, and intelligent proxy failover.
+:::
+
+:::{grid-item-card} Caching Subsystem
+:link: /guides/caching
+:link-type: doc
+
+Three-tier caching architecture, encryption, and performance tuning.
+:::
+
+:::{grid-item-card} CLI Reference
+:link: /guides/cli-reference
+:link-type: doc
+
+Command-line proxy management, health checks, and data export.
+:::
+
+:::{grid-item-card} MCP Server
+:link: /guides/mcp-server
+:link-type: doc
+
+AI assistant integration via the Model Context Protocol.
+:::
+
+:::{grid-item-card} REST API Reference
+:link: /reference/rest-api
+:link-type: doc
+
+Full REST API documentation for the ProxyWhirl HTTP server.
+:::
+
+:::{grid-item-card} Python API Reference
+:link: /reference/python-api
+:link-type: doc
+
+Complete Python API docs for `AsyncProxyRotator`, `ProxyRotator`, and all models.
+:::
+
+:::{grid-item-card} Rotation Strategies Overview
+:link: /getting-started/rotation-strategies
+:link-type: doc
+
+Getting started with basic rotation strategies and selection.
+:::
+::::

@@ -2,6 +2,10 @@
 
 Complete reference for ProxyWhirl's Python API, covering all public classes, functions, and types.
 
+:::{tip}
+For guided tutorials on using these APIs, see the [Guides](../guides/index.md) section. For async-specific patterns, see [Async Client](../guides/async-client.md).
+:::
+
 ```{doctest}
 >>> import proxywhirl
 >>> proxywhirl.__name__
@@ -45,13 +49,23 @@ with ProxyRotator() as rotator:
     response = rotator.get("https://httpbin.org/ip")
 ```
 
+:::{note}
+The constructor accepts a limited set of strategy names. To use advanced strategies like `"performance-based"`, `"session"`, or `"geo-targeted"`, pass a strategy instance directly or call `set_strategy()` after construction.
+:::
+
 **Constructor Parameters:**
 
-- `proxies` (list[Proxy], optional): Initial list of Proxy instances
-- `strategy` (RotationStrategy | str, optional): Rotation strategy instance or name ("round-robin", "random", "weighted", "least-used", "performance-based", "session", "geo-targeted")
-- `config` (ProxyConfiguration, optional): Configuration settings (timeout, SSL verification, etc.)
-- `retry_policy` (RetryPolicy, optional): Retry policy configuration
-- `rate_limiter` (RateLimiter, optional): Rate limiter for controlling request rates
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `proxies` | `list[Proxy] \| None` | `None` | Initial list of Proxy instances |
+| `strategy` | `RotationStrategy \| str \| None` | `RoundRobinStrategy()` | Rotation strategy instance or name (`"round-robin"`, `"random"`, `"weighted"`, `"least-used"`) |
+| `config` | `ProxyConfiguration \| None` | `ProxyConfiguration()` | Configuration settings (timeout, SSL verification, etc.) |
+| `retry_policy` | `RetryPolicy \| None` | `RetryPolicy()` | Retry policy configuration |
+| `rate_limiter` | `SyncRateLimiter \| None` | `None` | Synchronous rate limiter for controlling request rates |
+
+:::{important}
+The `rate_limiter` parameter accepts a `SyncRateLimiter` (not `RateLimiter`). For async rotators, use `AsyncRateLimiter`. See [Rate Limiting API](rate-limiting-api.md) for details.
+:::
 
 **HTTP Methods:**
 
@@ -73,7 +87,7 @@ with ProxyRotator() as rotator:
 
 **Strategy Management:**
 
-- `set_strategy(strategy: Union[RotationStrategy, str], atomic: bool = True)` - Hot-swap the rotation strategy without restarting (<100ms)
+- `set_strategy(strategy: Union[RotationStrategy, str], atomic: bool = True)` - Hot-swap the rotation strategy without restarting (<100ms). Supports all strategy names: `"round-robin"`, `"random"`, `"weighted"`, `"least-used"`, `"performance-based"`, `"session"`, `"geo-targeted"`. See [Advanced Strategies](../guides/advanced-strategies.md).
 
 **Statistics & Monitoring:**
 
@@ -93,6 +107,10 @@ with ProxyRotator() as rotator:
 Async proxy rotator with automatic failover and intelligent rotation.
 
 Provides async HTTP methods that automatically rotate through a pool of proxies with the same functionality as ProxyRotator but using async/await.
+
+:::{seealso}
+For detailed async usage patterns and best practices, see [Async Client](../guides/async-client.md).
+:::
 
 ```python
 from proxywhirl import AsyncProxyRotator
@@ -131,6 +149,10 @@ async with AsyncProxyRotator() as rotator:
 ### ProxyFetcher
 
 Fetch proxies from various sources with automatic parsing and validation.
+
+:::{seealso}
+For automated proxy fetching with scheduling, see [Automation](../guides/automation.md).
+:::
 
 ```python
 from proxywhirl import ProxyFetcher, ProxyValidator
@@ -272,6 +294,10 @@ await renderer.close()
 
 ## Rotation Strategies
 
+:::{seealso}
+For a guided walkthrough of all strategies with real-world usage patterns, see [Advanced Strategies](../guides/advanced-strategies.md).
+:::
+
 All strategies implement the `RotationStrategy` protocol with two core methods:
 
 - `select(pool: ProxyPool, context: Optional[SelectionContext] = None) -> Proxy`
@@ -300,6 +326,10 @@ rotator = ProxyRotator(strategy="round-robin")
 **Thread Safety:** Uses `threading.Lock` for atomic index increment, preventing proxy skipping or duplicate selection in multi-threaded environments.
 
 **Performance:** O(1) selection time.
+
+:::{seealso}
+For strategy comparison and selection guidance, see [Advanced Strategies](../guides/advanced-strategies.md).
+:::
 
 ---
 
@@ -862,25 +892,55 @@ config = ProxyConfiguration(
 
 **HTTP Settings:**
 
-- `timeout` (float): Request timeout in seconds (default: 10.0)
-- `verify_ssl` (bool): Verify SSL certificates (default: True)
-- `follow_redirects` (bool): Follow HTTP redirects (default: True)
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `timeout` | `int` | `30` | Request timeout in seconds |
+| `max_retries` | `int` | `3` | Maximum retry attempts |
+| `verify_ssl` | `bool` | `True` | Verify SSL certificates |
+| `follow_redirects` | `bool` | `True` | Follow HTTP redirects |
 
 **Connection Pool:**
 
-- `pool_connections` (int): Maximum connections per proxy (default: 10)
-- `pool_max_keepalive` (int): Maximum keepalive connections (default: 5)
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `pool_connections` | `int` | `10` | Maximum connections per proxy |
+| `pool_max_keepalive` | `int` | `20` | Maximum keepalive connections |
+| `pool_timeout` | `int` | `30` | Pool timeout in seconds |
+
+**Health Checks:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `health_check_enabled` | `bool` | `True` | Enable health checking |
+| `health_check_interval_seconds` | `int` | `300` | Seconds between checks |
+| `health_check_url` | `HttpUrl` | `http://httpbin.org/ip` | URL for health checks |
+| `health_check_timeout` | `int` | `10` | Health check timeout (seconds) |
 
 **Logging:**
 
-- `log_level` (str): Log level ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
-- `log_format` (str): Log format ("json" or "text")
-- `log_redact_credentials` (bool): Redact credentials in logs (default: True)
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `log_level` | `str` | `"INFO"` | Log level |
+| `log_format` | `Literal["json", "text"]` | `"json"` | Log output format |
+| `log_redact_credentials` | `bool` | `True` | Redact credentials in logs |
+
+**Storage:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `storage_backend` | `Literal["memory", "sqlite", "file"]` | `"memory"` | Storage backend type |
+| `storage_path` | `Path \| None` | `None` | Storage file path |
 
 **Request Queuing:**
 
-- `queue_enabled` (bool): Enable request queuing when rate limited (default: False)
-- `queue_size` (int): Maximum queue size (default: 100)
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `queue_enabled` | `bool` | `False` | Enable request queuing when rate limited |
+| `queue_size` | `int` | `100` | Maximum queue size (1-10000) |
+
+:::{seealso}
+For TOML file configuration, see [Configuration](configuration.md).
+:::
 
 ---
 
@@ -1027,6 +1087,10 @@ session.touch()  # Updates last_used_at and increments request_count
 ---
 
 ## Cache Components
+
+:::{seealso}
+For detailed cache system documentation, see [Cache API](cache-api.md). For cache configuration patterns, see [Caching](../guides/caching.md).
+:::
 
 ### CacheManager
 
@@ -1267,6 +1331,10 @@ print(f"L3 degraded: {stats.l3_degraded}")
 ---
 
 ## Retry & Failover
+
+:::{seealso}
+For retry and failover configuration patterns, see [Retry & Failover](../guides/retry-failover.md).
+:::
 
 ### RetryPolicy
 
@@ -1883,6 +1951,10 @@ else:
 
 ### encrypt_credentials / decrypt_credentials
 
+:::{warning}
+Never hardcode encryption keys in source code. Use environment variables (`PROXYWHIRL_KEY`) or the auto-generated key file at `~/.config/proxywhirl/key.enc`. See [Configuration](configuration.md) for security best practices.
+:::
+
 Encrypt/decrypt credentials using Fernet symmetric encryption.
 
 ```python
@@ -2205,18 +2277,23 @@ except ProxyWhirlError as e:
 **Exception Hierarchy:**
 
 ```
-ProxyWhirlError (base)
-├── ProxyValidationError
-├── ProxyPoolEmptyError
-├── ProxyConnectionError
-│   └── ProxyAuthenticationError
-├── ProxyFetchError
-├── ProxyStorageError
-├── CacheCorruptionError
-├── CacheStorageError
-├── CacheValidationError
-└── RequestQueueFullError
+Exception
+└── ProxyWhirlError (base)
+    ├── ProxyValidationError
+    ├── ProxyPoolEmptyError
+    ├── ProxyConnectionError
+    ├── ProxyAuthenticationError
+    ├── ProxyFetchError
+    ├── ProxyStorageError
+    ├── CacheCorruptionError
+    ├── CacheStorageError
+    ├── CacheValidationError (also inherits ValueError)
+    └── RequestQueueFullError
 ```
+
+:::{seealso}
+For comprehensive error handling patterns, see [Exceptions](exceptions.md).
+:::
 
 ---
 
@@ -2283,8 +2360,13 @@ print(proxywhirl.__version__)  # "1.0.0"
 
 ## See Also
 
-- [REST API Reference](rest-api.md) - HTTP REST API documentation
-- [Cache API Reference](cache-api.md) - Detailed cache system documentation
-- [Rate Limiting API](rate-limiting-api.md) - Rate limiting system reference
-- [Configuration Reference](configuration.md) - Configuration options
-- [Exceptions Reference](exceptions.md) - All exception types
+- [REST API](rest-api.md) -- HTTP REST API documentation
+- [Cache API](cache-api.md) -- Detailed cache system documentation
+- [Rate Limiting API](rate-limiting-api.md) -- Rate limiting system reference
+- [Configuration](configuration.md) -- Configuration options
+- [Exceptions](exceptions.md) -- All exception types
+- [Async Client](../guides/async-client.md) -- Async client usage guide
+- [Advanced Strategies](../guides/advanced-strategies.md) -- Strategy selection guide
+- [Retry & Failover](../guides/retry-failover.md) -- Retry and failover patterns
+- [Caching](../guides/caching.md) -- Caching configuration guide
+- [Deployment Security](../guides/deployment-security.md) -- Production deployment guide

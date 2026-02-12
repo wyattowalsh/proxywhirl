@@ -2,6 +2,10 @@
 
 Complete reference for ProxyWhirl's multi-tier caching system with L1 (memory), L2 (disk), and L3 (SQLite) support.
 
+:::{seealso}
+For cache configuration patterns and optimization tips, see [Caching](../guides/caching.md). For TOML cache configuration options, see [Configuration](configuration.md).
+:::
+
 ```python
 from proxywhirl.cache import (
     CacheManager,
@@ -1038,6 +1042,10 @@ CREATE INDEX idx_health_history_time ON health_history(check_time);
 
 ### CredentialEncryptor
 
+:::{warning}
+If no encryption key is provided and the `PROXYWHIRL_CACHE_ENCRYPTION_KEY` environment variable is not set, a new key is generated automatically. This means cached data encrypted with a previous key will be unreadable. Always persist your encryption key for production use.
+:::
+
 Handles encryption/decryption of proxy credentials using Fernet symmetric encryption (AES-128-CBC + HMAC).
 
 ```{eval-rst}
@@ -1262,6 +1270,10 @@ print(f"Decrypted: {decrypted_user.get_secret_value()}")  # "admin"
 
 ---
 
+:::{tip}
+If you have more than 10,000 cache entries, migrating from JSONL to SQLite L2 backend can significantly improve lookup performance (O(log n) vs O(n)).
+:::
+
 ### Migration from JSONL to SQLite L2
 
 ```python
@@ -1336,6 +1348,10 @@ Tiers implement graceful degradation:
 
 ## See Also
 
-- {doc}`/reference/python-api` - Main ProxyRotator API
-- {doc}`/reference/configuration` - Configuration management
-- {doc}`/getting-started/index` - Getting started guide
+- [Python API](python-api.md) -- Main ProxyRotator API (CacheManager, CacheConfig usage)
+- [Configuration](configuration.md) -- TOML cache configuration options
+- [Exceptions](exceptions.md) -- Cache-specific exceptions (CacheCorruptionError, CacheStorageError, CacheValidationError)
+- [Rate Limiting API](rate-limiting-api.md) -- Rate limiting integration
+- [Caching](../guides/caching.md) -- Cache configuration patterns and optimization
+- [Deployment Security](../guides/deployment-security.md) -- Production cache security
+- [Getting Started](../getting-started/index.md) -- Getting started guide

@@ -6,6 +6,10 @@ title: Configuration Reference
 
 Complete reference for all ProxyWhirl configuration options, environment variables, and TOML file formats.
 
+:::{seealso}
+For initial setup instructions, see [Getting Started](../getting-started/index.md). For cache-specific configuration, see [Caching](../guides/caching.md).
+:::
+
 ## Configuration Discovery
 
 ProxyWhirl automatically discovers configuration files in the following priority order:
@@ -352,6 +356,22 @@ Main configuration class for CLI and programmatic usage.
 | `encrypt_credentials` | `bool` | `true` | Encrypt credentials in config file |
 | `encryption_key_env` | `str` | `"PROXYWHIRL_KEY"` | Environment variable for encryption key |
 
+#### API Rate Limiting Settings
+
+:::{versionadded} 1.0.0
+API rate limiting with per-key support to prevent X-Forwarded-For bypass attacks.
+:::
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `rate_limit_by_key` | `bool` | `true` | Enable per-API-key rate limiting (prevents X-Forwarded-For bypass) |
+| `rate_limit_per_key` | `str` | `"100/minute"` | Rate limit per API key (format: `"N/minute"` or `"N/hour"`) |
+| `rate_limit_per_ip` | `str` | `"100/minute"` | Rate limit per IP when no API key provided |
+
+:::{seealso}
+For detailed rate limiting API documentation, see [Rate Limiting API](rate-limiting-api.md). For X-Forwarded-For security considerations, see [REST API](rest-api.md).
+:::
+
 #### Data Storage Settings
 
 | Field | Type | Default | Description |
@@ -513,11 +533,15 @@ save_config(config, project_config)
 
 ### Rotation Strategy
 
-Must be one of:
+The CLI configuration accepts these strategy names:
 - `"round-robin"` - Sequential rotation
 - `"random"` - Random selection
 - `"weighted"` - Weight-based (by success rate)
 - `"least-used"` - Select least recently used
+
+:::{note}
+Advanced strategies (`"performance-based"`, `"session"`, `"geo-targeted"`, `"cost-aware"`, `"composite"`) are available through the Python API's `ProxyRotator.set_strategy()` method but are not yet supported in CLI configuration. See [Python API](python-api.md) and [Advanced Strategies](../guides/advanced-strategies.md).
+:::
 
 ### Output Format
 
@@ -730,9 +754,13 @@ rm ~/.config/proxywhirl/key.enc
 # WARNING: Old encrypted credentials will be unrecoverable
 ```
 
-## Related Documentation
+## See Also
 
-- [Getting Started](../getting-started/index.md) - Initial setup and configuration
-- [CLI Reference](../guides/cli-reference.md) - Command-line interface documentation
-- [REST API Reference](./rest-api.md) - REST API configuration and deployment
-- [Caching Guide](../guides/caching.md) - Cache configuration and optimization
+- [Getting Started](../getting-started/index.md) -- Initial setup and configuration
+- [CLI Reference](../guides/cli-reference.md) -- Command-line interface documentation
+- [REST API](rest-api.md) -- REST API configuration and deployment
+- [Rate Limiting API](rate-limiting-api.md) -- Rate limiting system reference
+- [Cache API](cache-api.md) -- Cache system API reference
+- [Exceptions](exceptions.md) -- Exception types and error codes
+- [Caching](../guides/caching.md) -- Cache configuration and optimization
+- [Deployment Security](../guides/deployment-security.md) -- Production deployment guide

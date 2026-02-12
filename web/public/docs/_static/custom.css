@@ -992,3 +992,786 @@ table.docutils tbody td {
 .animate-glow {
   animation: pulse-glow 3s ease-in-out infinite;
 }
+
+/* ==========================================================================
+   Enhanced Visual Polish — Appended Styles
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Code Blocks — Enhanced
+   -------------------------------------------------------------------------- */
+/* Slightly larger font for readability */
+.highlight pre,
+.literal-block-wrapper pre {
+  font-size: 0.9rem;
+  line-height: 1.7;
+  tab-size: 4;
+}
+
+/* Code block language label */
+.highlight[class*="highlight-"]::before {
+  display: block;
+  content: attr(data-lang);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.4rem 1rem 0;
+  opacity: 0.5;
+}
+
+/* Line numbers column styling */
+.linenodiv pre {
+  border-right: 1px solid var(--pw-border);
+  padding-right: 0.75rem;
+  margin-right: 0.75rem;
+  opacity: 0.4;
+  user-select: none;
+}
+
+/* --------------------------------------------------------------------------
+   2. Admonitions — Full Set with Icons and Brand Colors
+   -------------------------------------------------------------------------- */
+/* Note */
+.admonition.note {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(59, 130, 246, 0.02));
+}
+
+.admonition.note > .admonition-title {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+html.dark .admonition.note {
+  border-color: #60a5fa;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.04));
+}
+
+html.dark .admonition.note > .admonition-title {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93bbfd;
+}
+
+/* Warning */
+.admonition.warning {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.06), rgba(245, 158, 11, 0.02));
+}
+
+.admonition.warning > .admonition-title {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}
+
+html.dark .admonition.warning {
+  border-color: #fbbf24;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.04));
+}
+
+html.dark .admonition.warning > .admonition-title {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+}
+
+/* Danger / Error */
+.admonition.danger,
+.admonition.error {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.06), rgba(239, 68, 68, 0.02));
+}
+
+.admonition.danger > .admonition-title,
+.admonition.error > .admonition-title {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+html.dark .admonition.danger,
+html.dark .admonition.error {
+  border-color: #f87171;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.04));
+}
+
+html.dark .admonition.danger > .admonition-title,
+html.dark .admonition.error > .admonition-title {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+
+/* Caution */
+.admonition.caution {
+  border-color: #f97316;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.06), rgba(249, 115, 22, 0.02));
+}
+
+.admonition.caution > .admonition-title {
+  background: rgba(249, 115, 22, 0.1);
+  color: #ea580c;
+}
+
+html.dark .admonition.caution {
+  border-color: #fb923c;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.12), rgba(249, 115, 22, 0.04));
+}
+
+html.dark .admonition.caution > .admonition-title {
+  background: rgba(249, 115, 22, 0.15);
+  color: #fdba74;
+}
+
+/* Important */
+.admonition.important {
+  border-color: var(--pw-violet);
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.06), rgba(109, 100, 255, 0.02));
+}
+
+.admonition.important > .admonition-title {
+  background: rgba(109, 100, 255, 0.1);
+  color: var(--pw-violet);
+}
+
+html.dark .admonition.important {
+  border-color: #a497ff;
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.12), rgba(109, 100, 255, 0.04));
+}
+
+html.dark .admonition.important > .admonition-title {
+  background: rgba(109, 100, 255, 0.15);
+  color: #c4b5fd;
+}
+
+/* See Also */
+.admonition.seealso {
+  border-color: #06b6d4;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.06), rgba(6, 182, 212, 0.02));
+}
+
+.admonition.seealso > .admonition-title {
+  background: rgba(6, 182, 212, 0.1);
+  color: #0891b2;
+}
+
+html.dark .admonition.seealso {
+  border-color: #22d3ee;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(6, 182, 212, 0.04));
+}
+
+html.dark .admonition.seealso > .admonition-title {
+  background: rgba(6, 182, 212, 0.15);
+  color: #67e8f9;
+}
+
+/* Hint */
+.admonition.hint {
+  border-color: #10b981;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.06), rgba(16, 185, 129, 0.02));
+}
+
+.admonition.hint > .admonition-title {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+html.dark .admonition.hint {
+  border-color: #34d399;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.04));
+}
+
+html.dark .admonition.hint > .admonition-title {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+}
+
+/* Dark mode tip override */
+html.dark .admonition.tip {
+  border-color: #a78bfa;
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.12), rgba(200, 107, 255, 0.06));
+}
+
+html.dark .admonition.tip > .admonition-title {
+  background: rgba(109, 100, 255, 0.15);
+  color: #c4b5fd;
+}
+
+/* Admonition content typography */
+.admonition > p:not(.admonition-title) {
+  line-height: 1.7;
+}
+
+.admonition > p:not(.admonition-title) code {
+  font-size: 0.85em;
+}
+
+/* --------------------------------------------------------------------------
+   3. Cards — Enhanced Hover Effects
+   -------------------------------------------------------------------------- */
+/* Gradient border glow on hover */
+.sd-card:hover {
+  border-color: var(--pw-border-strong);
+  box-shadow: var(--pw-shadow-md), 0 0 0 1px rgba(109, 100, 255, 0.08);
+  transform: translateY(-3px);
+}
+
+/* Card title styling */
+.sd-card-title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Card icon integration */
+.sd-card .sd-card-img-top {
+  border-bottom: 1px solid var(--pw-border);
+}
+
+/* Linked cards — remove underline */
+a.sd-card {
+  text-decoration: none !important;
+}
+
+a.sd-card:hover {
+  text-decoration: none !important;
+}
+
+/* Dark mode card tweaks */
+html.dark .sd-card {
+  background: rgba(30, 30, 46, 0.6);
+}
+
+html.dark .sd-card:hover {
+  box-shadow: var(--pw-shadow-md), 0 0 20px rgba(109, 100, 255, 0.08);
+}
+
+html.dark .sd-card-header {
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.08), transparent);
+}
+
+/* --------------------------------------------------------------------------
+   4. Tables — Enhanced with Sticky Headers
+   -------------------------------------------------------------------------- */
+/* Table wrapper for horizontal scroll */
+.sy-content table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Sticky table headers */
+table.docutils thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  text-align: left;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+html.light table.docutils thead th {
+  background: linear-gradient(135deg, #f5f3ff, #faf5ff);
+}
+
+html.dark table.docutils thead th {
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.12), rgba(200, 107, 255, 0.06));
+}
+
+/* Alternating row colors — dark mode */
+html.dark table.docutils tbody tr:nth-child(even) {
+  background: rgba(109, 100, 255, 0.04);
+}
+
+/* Row hover */
+table.docutils tbody tr {
+  transition: background var(--pw-transition);
+}
+
+table.docutils tbody tr:hover {
+  background: rgba(109, 100, 255, 0.06);
+}
+
+html.dark table.docutils tbody tr:hover {
+  background: rgba(109, 100, 255, 0.1);
+}
+
+/* Better cell padding and border */
+table.docutils td,
+table.docutils th {
+  vertical-align: top;
+}
+
+/* Last row no bottom border */
+table.docutils tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* --------------------------------------------------------------------------
+   5. Sidebar Navigation — Enhanced Active States
+   -------------------------------------------------------------------------- */
+/* Nested item indentation */
+.sy-sidebar-link {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+/* Smooth expand/collapse for tree */
+.sy-sidebar ul {
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+
+/* Active item with gradient left border */
+.sy-sidebar-link.current {
+  position: relative;
+}
+
+.sy-sidebar-link.current::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 20%;
+  height: 60%;
+  width: 3px;
+  background: var(--pw-gradient);
+  border-radius: 0 2px 2px 0;
+}
+
+/* Section headers in sidebar */
+.sy-sidebar .caption {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.5;
+  padding: 1rem 0.75rem 0.375rem;
+  margin-top: 0.5rem;
+}
+
+/* --------------------------------------------------------------------------
+   6. Smooth Scrolling — Enhanced
+   -------------------------------------------------------------------------- */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem; /* Account for sticky header */
+}
+
+/* Anchor target highlight animation */
+@keyframes anchor-highlight {
+  0% { background: rgba(109, 100, 255, 0.2); }
+  100% { background: transparent; }
+}
+
+:target {
+  animation: anchor-highlight 2s ease-out;
+  border-radius: var(--pw-radius);
+}
+
+/* --------------------------------------------------------------------------
+   7. HTTP Method Badges
+   -------------------------------------------------------------------------- */
+.http-method,
+.badge-get,
+.badge-post,
+.badge-put,
+.badge-patch,
+.badge-delete,
+.badge-head,
+.badge-options {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--pw-radius-sm);
+  line-height: 1.4;
+  vertical-align: middle;
+}
+
+/* GET — green */
+.badge-get,
+.http-method.get {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+html.dark .badge-get,
+html.dark .http-method.get {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+/* POST — blue */
+.badge-post,
+.http-method.post {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+html.dark .badge-post,
+html.dark .http-method.post {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93bbfd;
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+/* PUT — orange */
+.badge-put,
+.http-method.put {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+html.dark .badge-put,
+html.dark .http-method.put {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.25);
+}
+
+/* PATCH — purple */
+.badge-patch,
+.http-method.patch {
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+html.dark .badge-patch,
+html.dark .http-method.patch {
+  background: rgba(139, 92, 246, 0.15);
+  color: #c4b5fd;
+  border-color: rgba(139, 92, 246, 0.25);
+}
+
+/* DELETE — red */
+.badge-delete,
+.http-method.delete {
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+html.dark .badge-delete,
+html.dark .http-method.delete {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+/* HEAD — teal */
+.badge-head,
+.http-method.head {
+  background: rgba(6, 182, 212, 0.12);
+  color: #0891b2;
+  border: 1px solid rgba(6, 182, 212, 0.3);
+}
+
+html.dark .badge-head,
+html.dark .http-method.head {
+  background: rgba(6, 182, 212, 0.15);
+  color: #67e8f9;
+  border-color: rgba(6, 182, 212, 0.25);
+}
+
+/* OPTIONS — gray */
+.badge-options,
+.http-method.options {
+  background: rgba(107, 114, 128, 0.12);
+  color: #4b5563;
+  border: 1px solid rgba(107, 114, 128, 0.3);
+}
+
+html.dark .badge-options,
+html.dark .http-method.options {
+  background: rgba(107, 114, 128, 0.15);
+  color: #d1d5db;
+  border-color: rgba(107, 114, 128, 0.25);
+}
+
+/* --------------------------------------------------------------------------
+   8. Copy Button — Enhanced
+   -------------------------------------------------------------------------- */
+.copybtn {
+  opacity: 0;
+  border: 1px solid var(--pw-border) !important;
+  background: var(--color-background-primary) !important;
+  box-shadow: var(--pw-shadow-sm);
+  border-radius: var(--pw-radius) !important;
+  transition: all var(--pw-transition) !important;
+}
+
+/* Show on code block hover */
+.highlight:hover .copybtn,
+.literal-block-wrapper:hover .copybtn {
+  opacity: 1;
+}
+
+.copybtn:hover {
+  background: rgba(109, 100, 255, 0.1) !important;
+  border-color: var(--pw-violet) !important;
+  color: var(--pw-violet) !important;
+  transform: scale(1.05);
+}
+
+/* Success state */
+.copybtn.success {
+  background: rgba(16, 185, 129, 0.1) !important;
+  border-color: #10b981 !important;
+  color: #10b981 !important;
+}
+
+html.dark .copybtn {
+  background: rgba(40, 42, 54, 0.9) !important;
+  border-color: rgba(139, 233, 253, 0.15) !important;
+}
+
+html.dark .copybtn:hover {
+  background: rgba(109, 100, 255, 0.2) !important;
+  border-color: #a497ff !important;
+  color: #a497ff !important;
+}
+
+/* --------------------------------------------------------------------------
+   9. Typography — Enhanced Heading Hierarchy
+   -------------------------------------------------------------------------- */
+.sy-content h1 {
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+}
+
+.sy-content h2 {
+  font-size: 1.625rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--pw-border);
+}
+
+.sy-content h3 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+  margin-top: 2.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.sy-content h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.sy-content h5,
+.sy-content h6 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.85;
+}
+
+/* Paragraph readability */
+.sy-content p {
+  line-height: 1.75;
+  margin-bottom: 1.25rem;
+}
+
+/* List readability */
+.sy-content ul,
+.sy-content ol {
+  line-height: 1.7;
+  margin-bottom: 1.25rem;
+}
+
+.sy-content li {
+  margin-bottom: 0.375rem;
+}
+
+.sy-content li > p {
+  margin-bottom: 0.5rem;
+}
+
+/* Blockquote styling */
+.sy-content blockquote {
+  border-left: 3px solid var(--pw-violet);
+  background: rgba(109, 100, 255, 0.04);
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
+  border-radius: 0 var(--pw-radius) var(--pw-radius) 0;
+  font-style: italic;
+}
+
+html.dark .sy-content blockquote {
+  background: rgba(109, 100, 255, 0.08);
+}
+
+.sy-content blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* Horizontal rule */
+.sy-content hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--pw-border-strong), transparent);
+  margin: 2.5rem 0;
+}
+
+/* Definition lists */
+.sy-content dl dt {
+  font-weight: 600;
+  color: var(--pw-violet);
+  margin-top: 1rem;
+}
+
+.sy-content dl dd {
+  margin-left: 1.5rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.7;
+}
+
+/* --------------------------------------------------------------------------
+   10. Selection / Highlight Color
+   -------------------------------------------------------------------------- */
+::selection {
+  background: rgba(109, 100, 255, 0.2);
+  color: inherit;
+}
+
+html.dark ::selection {
+  background: rgba(164, 151, 255, 0.3);
+}
+
+/* --------------------------------------------------------------------------
+   11. Transition Enhancements for Interactive Elements
+   -------------------------------------------------------------------------- */
+a {
+  transition: color var(--pw-transition);
+}
+
+/* Smooth image loading */
+.sy-content img {
+  border-radius: var(--pw-radius);
+  transition: box-shadow var(--pw-transition);
+}
+
+.sy-content img:hover {
+  box-shadow: var(--pw-shadow-md);
+}
+
+/* --------------------------------------------------------------------------
+   12. API Reference Styling
+   -------------------------------------------------------------------------- */
+/* Function/method signatures */
+.sig {
+  background: rgba(109, 100, 255, 0.04);
+  border: 1px solid var(--pw-border);
+  border-radius: var(--pw-radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  overflow-x: auto;
+}
+
+html.dark .sig {
+  background: rgba(109, 100, 255, 0.08);
+}
+
+.sig-name {
+  font-weight: 700;
+  color: var(--pw-violet);
+}
+
+/* Parameter descriptions */
+.field-list dt {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.field-list dd {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+/* --------------------------------------------------------------------------
+   13. Responsive Improvements
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .sy-content h1 {
+    font-size: 1.75rem;
+  }
+
+  .sy-content h2 {
+    font-size: 1.375rem;
+    margin-top: 2rem;
+  }
+
+  .sy-content h3 {
+    font-size: 1.15rem;
+  }
+
+  .sd-card-body {
+    padding: 1.25rem 1rem;
+  }
+
+  table.docutils {
+    font-size: 0.85rem;
+  }
+
+  table.docutils td,
+  table.docutils th {
+    padding: 0.5rem 0.625rem;
+  }
+
+  .admonition-title {
+    font-size: 0.9rem;
+  }
+
+  .sig {
+    font-size: 0.8rem;
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   14. Reduced Motion — Accessibility
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .sd-card:hover {
+    transform: none;
+  }
+
+  .sd-btn-primary:hover {
+    transform: none;
+  }
+}

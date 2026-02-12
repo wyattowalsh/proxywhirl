@@ -432,6 +432,10 @@ X-Forwarded-Proto: https
 
 ## ProxyWhirl Configuration
 
+:::{seealso}
+For the complete list of environment variables and configuration options, see {doc}`/reference/configuration`. For the REST API endpoint documentation, see {doc}`/reference/rest-api`.
+:::
+
 ### Reading Client IP from Headers
 
 ProxyWhirl automatically reads the client IP from trusted headers for rate limiting:
@@ -504,6 +508,10 @@ networks:
 volumes:
   proxywhirl-data:
 ```
+
+:::{warning}
+For credential encryption at the cache layer, see {doc}`caching` which covers Fernet encryption, key rotation, and `SecretStr` usage. All proxy credentials should be encrypted at rest.
+:::
 
 ## Security Checklist
 
@@ -604,3 +612,51 @@ volumes:
 - **[AWS ALB Documentation](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/)** - AWS Application Load Balancer
 - **[GCP Load Balancing](https://cloud.google.com/load-balancing/docs)** - Google Cloud Load Balancer
 - **[Azure Application Gateway](https://docs.microsoft.com/en-us/azure/application-gateway/)** - Azure gateway documentation
+
+### ProxyWhirl Documentation
+
+::::{grid} 2
+:gutter: 3
+
+:::{grid-item-card} REST API Reference
+:link: /reference/rest-api
+:link-type: doc
+
+Full REST API documentation including rate limiting endpoints and authentication.
+:::
+
+:::{grid-item-card} Rate Limiting API
+:link: /reference/rate-limiting-api
+:link-type: doc
+
+Detailed rate limiting configuration and token bucket algorithm reference.
+:::
+
+:::{grid-item-card} Configuration Reference
+:link: /reference/configuration
+:link-type: doc
+
+All environment variables, TOML keys, and configuration options.
+:::
+
+:::{grid-item-card} Caching Subsystem
+:link: /guides/caching
+:link-type: doc
+
+Credential encryption, key rotation, and secure cache storage.
+:::
+
+:::{grid-item-card} CLI Reference
+:link: /guides/cli-reference
+:link-type: doc
+
+CLI commands for health monitoring, proxy management, and configuration.
+:::
+
+:::{grid-item-card} Automation Guide
+:link: /guides/automation
+:link-type: doc
+
+CI/CD workflows for automated proxy refresh and source validation.
+:::
+::::

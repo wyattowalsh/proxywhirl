@@ -51,7 +51,7 @@ When ``--config`` is not provided, ProxyWhirl searches for configuration in this
 3. **Defaults**: In-memory configuration with sensible defaults
 
 ```{tip}
-Use ``proxywhirl config init`` to create a starter configuration file in the current directory.
+Use ``proxywhirl config init`` to create a starter configuration file in the current directory. See {doc}`/reference/configuration` for a complete list of all configurable keys.
 ```
 
 ## Commands
@@ -574,7 +574,7 @@ Proxy aggregation complete!
 ```
 
 ```{tip}
-Use ``--concurrency 2000`` for faster validation on systems with high network capacity. Lower it to ``100`` on rate-limited networks.
+Use ``--concurrency 2000`` for faster validation on systems with high network capacity. Lower it to ``100`` on rate-limited networks. For automated fetching via CI/CD, see {doc}`automation`.
 ```
 
 ---
@@ -945,7 +945,7 @@ Recent Events (last 20):
 ```
 
 ```{note}
-The ``stats`` command shows both if neither ``--retry`` nor ``--circuit-breaker`` is specified.
+The ``stats`` command shows both if neither ``--retry`` nor ``--circuit-breaker`` is specified. For programmatic access to retry metrics and circuit breaker state, see {doc}`retry-failover`.
 ```
 
 ---
@@ -1027,11 +1027,12 @@ max_retries = 5
 url = "http://proxy1.example.com:8080"
 ```
 
-```{seealso}
-- :doc:`/getting-started/index` for quick start guide
-- :doc:`/guides/advanced-strategies` for rotation strategy details
-- :doc:`/guides/retry-failover` for retry and circuit breaker configuration
-```
+:::{seealso}
+- {doc}`/getting-started/index` for the quick start guide
+- {doc}`/guides/advanced-strategies` for rotation strategy details
+- {doc}`/guides/retry-failover` for retry and circuit breaker configuration
+- {doc}`/reference/configuration` for complete configuration reference
+:::
 
 ## Advanced Usage
 
@@ -1191,3 +1192,51 @@ proxywhirl pool test http://proxy.example.com:8080 \
 ```{note}
 The CLI uses file locking by default to prevent concurrent modifications. Use ``--no-lock`` only when you're certain no other proxywhirl processes are running.
 ```
+
+## See Also
+
+::::{grid} 2
+:gutter: 3
+
+:::{grid-item-card} Configuration Reference
+:link: /reference/configuration
+:link-type: doc
+
+Complete TOML configuration reference, environment variables, and auto-discovery paths.
+:::
+
+:::{grid-item-card} Advanced Strategies
+:link: /guides/advanced-strategies
+:link-type: doc
+
+Detailed rotation strategy configuration for use with `config set rotation_strategy`.
+:::
+
+:::{grid-item-card} Retry & Failover
+:link: /guides/retry-failover
+:link-type: doc
+
+Retry policies and circuit breaker settings referenced by `stats` command output.
+:::
+
+:::{grid-item-card} Caching Subsystem
+:link: /guides/caching
+:link-type: doc
+
+Cache configuration for TOML settings and cache warming from CLI.
+:::
+
+:::{grid-item-card} Automation Guide
+:link: /guides/automation
+:link-type: doc
+
+CI/CD workflows using CLI commands for automated proxy refresh.
+:::
+
+:::{grid-item-card} Deployment Security
+:link: /guides/deployment-security
+:link-type: doc
+
+Production deployment patterns with the CLI and Docker.
+:::
+::::

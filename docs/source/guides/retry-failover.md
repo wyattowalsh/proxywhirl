@@ -179,7 +179,7 @@ Circuit breakers protect against cascading failures by temporarily removing unhe
 
 ### Sync vs Async Circuit Breakers
 
-ProxyWhirl provides two circuit breaker implementations:
+ProxyWhirl provides two circuit breaker implementations. See {doc}`async-client` for guidance on choosing between sync and async patterns.
 
 - **`CircuitBreaker`** - Synchronous implementation using `threading.Lock`
 - **`AsyncCircuitBreaker`** - Async implementation using `asyncio`-compatible locks
@@ -503,6 +503,10 @@ print(selected)  # None
 
 ProxyWhirl tracks detailed metrics for monitoring, debugging, and analytics.
 
+:::{tip}
+You can also view retry and circuit breaker statistics from the command line using `proxywhirl stats --retry --circuit-breaker`. See {doc}`cli-reference` for details.
+:::
+
 ### Collecting Metrics
 
 ```python
@@ -770,7 +774,7 @@ rotator.circuit_breakers[str(proxy.id)].reset()
 
 ### Integration with Rotation Strategies
 
-Retry and failover logic works seamlessly with all rotation strategies:
+Retry and failover logic works seamlessly with all rotation strategies. For detailed strategy configuration, see {doc}`advanced-strategies`.
 
 #### Round-Robin with Automatic Failover
 
@@ -904,6 +908,10 @@ response = rotator.request("GET", url)
 ```
 
 ### Circuit Breaker Alerts
+
+:::{note}
+Circuit breaker state changes also trigger cache health invalidation when configured. See {doc}`caching` for cache-level health integration.
+:::
 
 Monitor circuit breaker events for alerts:
 
@@ -1140,11 +1148,53 @@ Benchmark results (100k requests):
 - With retry (3 attempts): 105ms avg latency (+5%)
 - With retry + metrics: 110ms avg latency (+10%)
 
-## Related Documentation
+## See Also
 
-- [Advanced Strategies](advanced-strategies.md) - Geo-targeting and performance-based selection
-- [Async Client](async-client.md) - Retry behavior in async context
-- API Reference - Full API documentation for retry classes
+::::{grid} 2
+:gutter: 3
+
+:::{grid-item-card} Advanced Strategies
+:link: /guides/advanced-strategies
+:link-type: doc
+
+Geo-targeting, performance-based selection, session persistence, and composite strategies that integrate with retry logic.
+:::
+
+:::{grid-item-card} Async Client Guide
+:link: /guides/async-client
+:link-type: doc
+
+Using `AsyncCircuitBreaker` and retry policies with the async proxy rotator.
+:::
+
+:::{grid-item-card} Caching Subsystem
+:link: /guides/caching
+:link-type: doc
+
+Health-based cache invalidation that integrates with circuit breaker events.
+:::
+
+:::{grid-item-card} Python API Reference
+:link: /reference/python-api
+:link-type: doc
+
+Complete API docs for `RetryPolicy`, `RetryExecutor`, `CircuitBreaker`, and `RetryMetrics`.
+:::
+
+:::{grid-item-card} Exceptions Reference
+:link: /reference/exceptions
+:link-type: doc
+
+Full exception hierarchy including `RetryableError`, `NonRetryableError`, and `ProxyConnectionError`.
+:::
+
+:::{grid-item-card} CLI Reference
+:link: /guides/cli-reference
+:link-type: doc
+
+Monitor retry statistics and circuit breaker states from the command line.
+:::
+::::
 
 ## Summary
 

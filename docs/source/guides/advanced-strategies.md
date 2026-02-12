@@ -135,7 +135,7 @@ selected = strategy.select(pool)
 ```
 
 ```{tip}
-Use `LeastUsedStrategy` or `RoundRobinStrategy` during initial warmup to distribute requests evenly, then switch to `PerformanceBasedStrategy` once all proxies have EMA data.
+Use `LeastUsedStrategy` or `RoundRobinStrategy` during initial warmup to distribute requests evenly, then switch to `PerformanceBasedStrategy` once all proxies have EMA data. See {doc}`async-client` for hot-swapping strategies at runtime.
 ```
 
 ### Adaptation Example
@@ -179,6 +179,10 @@ for _ in range(30):
 ## Session Persistence Strategy
 
 Maintains consistent proxy assignment for a session ID across multiple requests. Ensures all requests in a session use the same proxy (sticky sessions).
+
+:::{tip}
+Session persistence works well with {doc}`retry-failover` -- when a session's assigned proxy fails, the strategy automatically fails over to a new proxy while maintaining the session binding.
+:::
 
 ### When to Use
 
@@ -468,7 +472,7 @@ for _ in range(10):
 
 ### Retry Integration
 
-Works seamlessly with retry logic to exclude failed proxies:
+Works seamlessly with {doc}`retry-failover` to exclude failed proxies:
 
 ```python
 # First attempt
@@ -1011,7 +1015,7 @@ geo_strategy.configure(geo_config)
 
 ## Custom Strategy Implementation
 
-Create custom strategies by implementing the `RotationStrategy` protocol.
+Create custom strategies by implementing the `RotationStrategy` protocol. For the full API surface, see {doc}`/reference/python-api`.
 
 ### Implementing the Protocol
 
@@ -1060,7 +1064,7 @@ class PriorityStrategy:
 
 ### Registering Custom Strategies
 
-Use `StrategyRegistry` to register and reuse custom strategies:
+Use `StrategyRegistry` to register and reuse custom strategies. Registered strategies are also available through the {doc}`cli-reference` (`proxywhirl config set rotation_strategy ...`) and the {doc}`mcp-server` (`set_strategy` action).
 
 ```python
 from proxywhirl.strategies import StrategyRegistry
@@ -1436,8 +1440,52 @@ def test_my_use_case():
 
 ## See Also
 
-- {doc}`/guides/retry-failover` — Retry logic and circuit breakers
-- {doc}`/guides/async-client` — Async proxy rotation
-- {doc}`/reference/python-api` — API reference
+::::{grid} 2
+:gutter: 3
+
+:::{grid-item-card} Async Client Guide
+:link: /guides/async-client
+:link-type: doc
+
+Using `AsyncProxyRotator` with all strategies, concurrency patterns, and integration with FastAPI/aiohttp.
+:::
+
+:::{grid-item-card} Retry & Failover
+:link: /guides/retry-failover
+:link-type: doc
+
+Circuit breakers, backoff strategies, and intelligent proxy failover that work with all strategies.
+:::
+
+:::{grid-item-card} Caching Subsystem
+:link: /guides/caching
+:link-type: doc
+
+Three-tier caching for proxy persistence and credential encryption.
+:::
+
+:::{grid-item-card} Python API Reference
+:link: /reference/python-api
+:link-type: doc
+
+Complete API docs for `RotationStrategy`, `StrategyRegistry`, `SelectionContext`, and all strategy classes.
+:::
+
+:::{grid-item-card} Rotation Strategies Overview
+:link: /getting-started/rotation-strategies
+:link-type: doc
+
+Introduction to basic rotation strategies and getting started with proxy selection.
+:::
+
+:::{grid-item-card} CLI Reference
+:link: /guides/cli-reference
+:link-type: doc
+
+Set strategies and monitor proxy health from the command line.
+:::
+::::
+
+**Additional Resources:**
 - **Integration Tests:** `tests/integration/test_rotation_strategies.py`
 - **Specs:** `.specify/specs/014-retry-failover-logic/`

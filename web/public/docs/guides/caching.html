@@ -11,7 +11,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=de968d75" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=43a92ad3" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -108,881 +108,308 @@
       <div class="sy-scrollbar p-6">
         <div class="globaltoc" data-expand-depth="2"><ul class="current">
 <li class="toctree-l1 _expand"><a class="reference internal" href="../getting-started/index.html">Getting Started</a><ul>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#what-youll-build">What You&#8217;ll Build</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#installation">Installation</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#quick-start">Quick Start</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#basic-usage">Basic Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#basic-usage-sync">Basic Usage (sync)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#async-usage">Async Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#context-manager-pattern">Context Manager Pattern</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#using-free-proxy-lists">Using Free Proxy Lists</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#fetching-proxies-programmatically">Fetching Proxies Programmatically</a></li>
 </ul>
 </li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#rotation-strategies">Rotation Strategies</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#choosing-a-rotation-strategy">Choosing a Rotation Strategy</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#monitoring-your-pool">Monitoring Your Pool</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#troubleshooting">Troubleshooting</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#next-steps">Next Steps</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#for-contributors">For Contributors</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies Quickstart</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-selector">Strategy selector</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy recipes</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the pool</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#advanced-strategies-preview">Advanced strategies (preview)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l1 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies Quickstart</a><ul>
+<li class="toctree-l1 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-selector">Strategy selector</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy recipes</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the pool</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#advanced-strategies-preview">Advanced strategies (preview)</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#core-strategies">Core Strategies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#advanced-strategies">Advanced Strategies</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Guides</a><ul class="current">
-<li class="toctree-l2 _expand"><a class="reference internal" href="async-client.html">Async Client Guide</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="async-client.html#when-to-use-async-vs-sync">When to Use Async vs Sync</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#use-asyncproxyrotator-when">Use AsyncProxyRotator when:</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#use-proxyrotator-sync-when">Use ProxyRotator (sync) when:</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="index.html#choosing-a-guide">Choosing a Guide</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="index.html#client-concurrency">Client &amp; Concurrency</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="index.html#resilience-caching">Resilience &amp; Caching</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="index.html#operations-deployment">Operations &amp; Deployment</a></li>
+<li class="toctree-l2 current"><a class="reference internal" href="index.html#automation-ai">Automation &amp; AI</a><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="async-client.html">Async Client Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="async-client.html#when-to-use-async-vs-sync">When to Use Async vs Sync</a></li>
+<li class="toctree-l4"><a class="reference internal" href="async-client.html#initialization">Initialization</a></li>
+<li class="toctree-l4"><a class="reference internal" href="async-client.html#context-manager-usage">Context Manager Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="async-client.html#http-request-methods">HTTP Request Methods</a></li>
+<li class="toctree-l4"><a class="reference internal" href="async-client.html#proxy-management">Proxy Management</a></li>
+<li class="toctree-l4"><a class="reference internal" href="async-client.html#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="async-client.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="async-client.html#concurrent-requests-with-asyncio-gather">Concurrent Requests with asyncio.gather</a></li>
+<li class="toctree-l4"><a class="reference internal" href="async-client.html#performance-considerations">Performance Considerations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="async-client.html#asyncio-integration-patterns">Asyncio Integration Patterns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="async-client.html#comparison-async-vs-sync">Comparison: Async vs Sync</a></li>
+<li class="toctree-l4"><a class="reference internal" href="async-client.html#best-practices-and-common-patterns">Best Practices and Common Patterns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="async-client.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html">Advanced Rotation Strategies</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#performance-based-strategy">Performance-Based Strategy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#session-persistence-strategy">Session Persistence Strategy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#geo-targeted-strategy">Geo-Targeted Strategy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#cost-aware-strategy">Cost-Aware Strategy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#composite-strategy">Composite Strategy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#strategy-registry">Strategy Registry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#selectioncontext">SelectionContext</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#strategyconfig">StrategyConfig</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#custom-strategy-implementation">Custom Strategy Implementation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#strategyregistry-usage">StrategyRegistry Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id16">Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#testing-strategies">Testing Strategies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#performance-benchmarks">Performance Benchmarks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">Caching Subsystem Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#architecture-overview">Architecture Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#core-components">Core Components</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#credential-encryption">Credential Encryption</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#ttl-and-expiration">TTL and Expiration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#health-invalidation">Health Invalidation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#migration-from-jsonl-l2-cache">Migration from JSONL L2 Cache</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#cache-warming">Cache Warming</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#performance-tuning">Performance Tuning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#cli-integration">CLI Integration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#best-practices">Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#example-complete-cache-setup">Example: Complete Cache Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="retry-failover.html">Retry &amp; Failover Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#architecture-overview">Architecture Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#when-to-use-retry-vs-failover">When to Use Retry vs Failover</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#retrypolicy-configuration">RetryPolicy Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#circuit-breaker-configuration">Circuit Breaker Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#intelligent-proxy-selection">Intelligent Proxy Selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#retrymetrics-and-observability">RetryMetrics and Observability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#retryexecutor-deep-dive">RetryExecutor Deep Dive</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#integration-with-proxyrotator">Integration with ProxyRotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#advanced-patterns">Advanced Patterns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#best-practices">Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#performance-impact">Performance Impact</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#see-also">See Also</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#proxywhirl-configuration">ProxyWhirl Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#security-checklist">Security Checklist</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="cli-reference.html">CLI Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#installation">Installation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#global-options">Global Options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#commands">Commands</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#output-formats">Output Formats</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#configuration-file">Configuration File</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#advanced-usage">Advanced Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#exit-codes">Exit Codes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="automation.html">Automation &amp; CI/CD Runbook</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="automation.html#pre-flight-checks">Pre-flight Checks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="automation.html#github-actions-ci-pipeline">GitHub Actions CI Pipeline</a></li>
+<li class="toctree-l4"><a class="reference internal" href="automation.html#cron-based-proxy-fetching">Cron-Based Proxy Fetching</a></li>
+<li class="toctree-l4"><a class="reference internal" href="automation.html#docker-deployment">Docker Deployment</a></li>
+<li class="toctree-l4"><a class="reference internal" href="automation.html#integration-testing-patterns">Integration Testing Patterns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="automation.html#smoke-tests-for-docs-examples">Smoke Tests for Docs Examples</a></li>
+<li class="toctree-l4"><a class="reference internal" href="automation.html#automating-releases">Automating Releases</a></li>
+<li class="toctree-l4"><a class="reference internal" href="automation.html#docsearch-credentials">DocSearch Credentials</a></li>
+<li class="toctree-l4"><a class="reference internal" href="automation.html#ci-stage-summary">CI Stage Summary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="automation.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="mcp-server.html">MCP Server Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#quick-start">Quick Start</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#the-proxywhirl-tool">The <code class="docutils literal notranslate"><span class="pre">proxywhirl</span></code> Tool</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#resources">Resources</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#prompts">Prompts</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#progress-reporting">Progress Reporting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#transport-options">Transport Options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#integration-with-claude-desktop">Integration with Claude Desktop</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#programmatic-usage">Programmatic Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#lifecycle-management">Lifecycle Management</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#best-practices">Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#see-also">See Also</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="async-client.html#initialization">Initialization</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#basic-initialization">Basic Initialization</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#with-initial-proxies">With Initial Proxies</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#with-custom-strategy">With Custom Strategy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#with-custom-configuration">With Custom Configuration</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="async-client.html#context-manager-usage">Context Manager Usage</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#async-context-manager-recommended">Async Context Manager (Recommended)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#manual-lifecycle-management-advanced">Manual Lifecycle Management (Advanced)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="async-client.html#http-request-methods">HTTP Request Methods</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#all-http-methods">All HTTP Methods</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#request-parameters">Request Parameters</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="async-client.html#proxy-management">Proxy Management</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#adding-proxies">Adding Proxies</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#removing-proxies">Removing Proxies</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#getting-proxy-statistics">Getting Proxy Statistics</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="async-client.html#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="async-client.html#error-handling">Error Handling</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#basic-exception-handling">Basic Exception Handling</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#retry-policy-override">Retry Policy Override</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#circuit-breaker-management">Circuit Breaker Management</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="async-client.html#concurrent-requests-with-asyncio-gather">Concurrent Requests with asyncio.gather</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#parallel-requests-to-different-urls">Parallel Requests to Different URLs</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#rate-limited-concurrent-scraping">Rate-Limited Concurrent Scraping</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#production-scale-web-scraping">Production-Scale Web Scraping</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="async-client.html#performance-considerations">Performance Considerations</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#connection-pooling">Connection Pooling</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#connection-limits">Connection Limits</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#memory-management">Memory Management</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#performance-benchmarks">Performance Benchmarks</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="async-client.html#asyncio-integration-patterns">Asyncio Integration Patterns</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#with-fastapi">With FastAPI</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#with-aiohttp">With aiohttp</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#advanced-httpx-integration">Advanced httpx Integration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#with-asyncio-queue">With asyncio.Queue</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="async-client.html#comparison-async-vs-sync">Comparison: Async vs Sync</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#feature-parity">Feature Parity</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#key-differences">Key Differences</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#migration-example">Migration Example</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="async-client.html#best-practices-and-common-patterns">Best Practices and Common Patterns</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#always-use-context-managers">1. Always Use Context Managers</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#use-semaphores-for-concurrency-control">2. Use Semaphores for Concurrency Control</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#handle-exceptions-gracefully">3. Handle Exceptions Gracefully</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#reuse-rotator-instances">4. Reuse Rotator Instances</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#monitor-circuit-breaker-states">5. Monitor Circuit Breaker States</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#use-appropriate-retry-policies">6. Use Appropriate Retry Policies</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#profile-and-optimize-connection-pooling">7. Profile and Optimize Connection Pooling</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#use-strategy-hot-swapping-for-adaptive-behavior">8. Use Strategy Hot-Swapping for Adaptive Behavior</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#clean-up-resources-properly">9. Clean Up Resources Properly</a></li>
-<li class="toctree-l4"><a class="reference internal" href="async-client.html#avoid-common-pitfalls">10. Avoid Common Pitfalls</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="async-client.html#see-also">See Also</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="advanced-strategies.html">Advanced Rotation Strategies</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#overview">Overview</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#available-strategies">Available Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#performance-based-strategy">Performance-Based Strategy</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#when-to-use">When to Use</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#performance-characteristics">Performance Characteristics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#configuration">Configuration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#how-it-works">How It Works</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#warmup-period">Warmup Period</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#adaptation-example">Adaptation Example</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#success-criteria">Success Criteria</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#session-persistence-strategy">Session Persistence Strategy</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id1">When to Use</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id2">Performance Characteristics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id3">Configuration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#session-lifecycle">Session Lifecycle</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#session-management">Session Management</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#failover-behavior">Failover Behavior</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#ttl-and-expiration">TTL and Expiration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#lru-eviction">LRU Eviction</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id4">Success Criteria</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#geo-targeted-strategy">Geo-Targeted Strategy</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id5">When to Use</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id6">Performance Characteristics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id7">Configuration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#country-codes">Country Codes</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#filtering-logic">Filtering Logic</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#fallback-modes">Fallback Modes</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#secondary-selection-strategies">Secondary Selection Strategies</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#retry-integration">Retry Integration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id8">Success Criteria</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#cost-aware-strategy">Cost-Aware Strategy</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id9">When to Use</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id10">Configuration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#weight-calculation">Weight Calculation</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#cost-threshold-filtering">Cost Threshold Filtering</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#best-practices">Best Practices</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#composite-strategy">Composite Strategy</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id11">When to Use</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id12">Performance Characteristics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#architecture">Architecture</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#basic-composition">Basic Composition</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#common-patterns">Common Patterns</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#configuration-from-dict">Configuration from Dict</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#validation-example">Validation Example</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#performance-considerations">Performance Considerations</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id13">Success Criteria</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#strategy-registry">Strategy Registry</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#registration">Registration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#validation">Validation</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#thread-safety">Thread Safety</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#listing-strategies">Listing Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#selectioncontext">SelectionContext</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#fields">Fields</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#usage-with-strategies">Usage with Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#strategyconfig">StrategyConfig</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id14">Fields</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#per-strategy-configuration">Per-Strategy Configuration</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#custom-strategy-implementation">Custom Strategy Implementation</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#implementing-the-protocol">Implementing the Protocol</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#registering-custom-strategies">Registering Custom Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#strategyregistry-usage">StrategyRegistry Usage</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#registration-and-validation">Registration and Validation</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#strategy-validation">Strategy Validation</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id15">Thread Safety</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#unregistering-strategies">Unregistering Strategies</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#testing-with-registry-reset">Testing with Registry Reset</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#performance-requirements">Performance Requirements</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#id16">Best Practices</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#choose-the-right-strategy">1. Choose the Right Strategy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#warm-up-performance-based-strategies">2. Warm Up Performance-Based Strategies</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#monitor-session-memory">3. Monitor Session Memory</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#use-selectioncontext-consistently">4. Use SelectionContext Consistently</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#validate-geo-data-availability">5. Validate Geo Data Availability</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#troubleshooting">Troubleshooting</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#proxypoolemptyerror-no-proxies-with-ema-data">ProxyPoolEmptyError: No proxies with EMA data</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#sessionpersistencestrategy-requires-selectioncontext-with-session-id">SessionPersistenceStrategy requires SelectionContext with session_id</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#geo-targeting-returns-unexpected-proxies">Geo-targeting returns unexpected proxies</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#composite-strategy-too-slow">Composite strategy too slow</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#testing-strategies">Testing Strategies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#performance-benchmarks">Performance Benchmarks</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#selection-time">Selection Time</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#memory-usage">Memory Usage</a></li>
-<li class="toctree-l4"><a class="reference internal" href="advanced-strategies.html#id17">Success Criteria</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="advanced-strategies.html#see-also">See Also</a></li>
-</ul>
-</li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Caching Subsystem Guide</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#architecture-overview">Architecture Overview</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#tier-promotion-demotion">Tier Promotion &amp; Demotion</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#l2-vs-l3-sqlite-differences">L2 vs L3 SQLite Differences</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#core-components">Core Components</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#cachemanager">CacheManager</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#cacheentry">CacheEntry</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#cacheconfig">CacheConfig</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#cachestatistics">CacheStatistics</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#credential-encryption">Credential Encryption</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#encryption-setup">Encryption Setup</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#key-rotation">Key Rotation</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#encryption-behavior">Encryption Behavior</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#ttl-and-expiration">TTL and Expiration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#ttl-configuration">TTL Configuration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#expiration-strategies">Expiration Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#health-invalidation">Health Invalidation</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#configuration">Configuration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#invalidation-workflow">Invalidation Workflow</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#migration-from-jsonl-l2-cache">Migration from JSONL L2 Cache</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#migrating-legacy-jsonl-caches">Migrating Legacy JSONL Caches</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#cache-warming">Cache Warming</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#supported-formats">Supported Formats</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#warming-from-file">Warming from File</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#performance-tuning">Performance Tuning</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#tier-sizing-recommendations">Tier Sizing Recommendations</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#eviction-policy-selection">Eviction Policy Selection</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#performance-characteristics">Performance Characteristics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#graceful-degradation">Graceful Degradation</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#cli-integration">CLI Integration</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#best-practices">Best Practices</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#security">Security</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#performance">Performance</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#reliability">Reliability</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#example-complete-cache-setup">Example: Complete Cache Setup</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#troubleshooting">Troubleshooting</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#low-hit-rates">Low Hit Rates</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#high-memory-usage">High Memory Usage</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#encryption-errors">Encryption Errors</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#tier-degradation">Tier Degradation</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="#see-also">See Also</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="retry-failover.html">Retry &amp; Failover Guide</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="retry-failover.html#architecture-overview">Architecture Overview</a></li>
-<li class="toctree-l3"><a class="reference internal" href="retry-failover.html#when-to-use-retry-vs-failover">When to Use Retry vs Failover</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#retry-same-proxy">Retry (Same Proxy)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#failover-different-proxy">Failover (Different Proxy)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="retry-failover.html#retrypolicy-configuration">RetryPolicy Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#basic-configuration">Basic Configuration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#backoff-strategies">Backoff Strategies</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#jitter-explained">Jitter Explained</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#retryable-status-codes">Retryable Status Codes</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#timeout-behavior">Timeout Behavior</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#non-idempotent-requests">Non-Idempotent Requests</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="retry-failover.html#circuit-breaker-configuration">Circuit Breaker Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#sync-vs-async-circuit-breakers">Sync vs Async Circuit Breakers</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#state-machine">State Machine</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#thresholds-and-configuration">Thresholds and Configuration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#circuit-breaker-persistence">Circuit Breaker Persistence</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#state-transitions">State Transitions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#rolling-window-behavior">Rolling Window Behavior</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#manual-reset">Manual Reset</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="retry-failover.html#intelligent-proxy-selection">Intelligent Proxy Selection</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#selection-algorithm">Selection Algorithm</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#example-performance-based-selection">Example: Performance-Based Selection</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#example-geo-targeted-selection">Example: Geo-Targeted Selection</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#exclusion-rules">Exclusion Rules</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="retry-failover.html#retrymetrics-and-observability">RetryMetrics and Observability</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#collecting-metrics">Collecting Metrics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#summary-statistics">Summary Statistics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#time-series-data">Time-Series Data</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#per-proxy-statistics">Per-Proxy Statistics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#circuit-breaker-events">Circuit Breaker Events</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#hourly-aggregation">Hourly Aggregation</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#retention-configuration">Retention Configuration</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="retry-failover.html#retryexecutor-deep-dive">RetryExecutor Deep Dive</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#how-retries-work-internally">How Retries Work Internally</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#retryable-vs-non-retryable-errors">Retryable vs Non-Retryable Errors</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#direct-retryexecutor-usage">Direct RetryExecutor Usage</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="retry-failover.html#integration-with-proxyrotator">Integration with ProxyRotator</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#basic-usage">Basic Usage</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#custom-error-handling">Custom Error Handling</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#monitoring-circuit-breakers">Monitoring Circuit Breakers</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#manual-circuit-reset">Manual Circuit Reset</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#integration-with-rotation-strategies">Integration with Rotation Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="retry-failover.html#advanced-patterns">Advanced Patterns</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#adaptive-retry-policy">Adaptive Retry Policy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#circuit-breaker-alerts">Circuit Breaker Alerts</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#request-level-retry-override">Request-Level Retry Override</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="retry-failover.html#best-practices">Best Practices</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#start-conservative-tune-later">1. Start Conservative, Tune Later</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#always-use-jitter-in-production">2. Always Use Jitter in Production</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#monitor-circuit-breaker-opens">3. Monitor Circuit Breaker Opens</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#set-timeouts-for-time-sensitive-requests">4. Set Timeouts for Time-Sensitive Requests</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#use-metrics-for-capacity-planning">5. Use Metrics for Capacity Planning</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="retry-failover.html#troubleshooting">Troubleshooting</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#all-retries-exhausted">All Retries Exhausted</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#high-latency">High Latency</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#non-retryable-errors">Non-Retryable Errors</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="retry-failover.html#performance-impact">Performance Impact</a></li>
-<li class="toctree-l3"><a class="reference internal" href="retry-failover.html#related-documentation">Related Documentation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="retry-failover.html#summary">Summary</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#table-of-contents">Table of Contents</a></li>
-<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#overview">Overview</a></li>
-<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#the-attack">The Attack</a></li>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#the-defense">The Defense</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#nginx">Nginx</a></li>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#caddy">Caddy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#haproxy">HAProxy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#traefik">Traefik</a></li>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#aws-application-load-balancer">AWS Application Load Balancer</a></li>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#google-cloud-load-balancer">Google Cloud Load Balancer</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#proxywhirl-configuration">ProxyWhirl Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#reading-client-ip-from-headers">Reading Client IP from Headers</a></li>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#docker-compose-example">Docker Compose Example</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#security-checklist">Security Checklist</a></li>
-<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#troubleshooting">Troubleshooting</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#rate-limiting-not-working">Rate Limiting Not Working</a></li>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#metrics-showing-wrong-client-ips">Metrics Showing Wrong Client IPs</a></li>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#connection-refused-behind-reverse-proxy">Connection Refused Behind Reverse Proxy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#ssl-certificate-errors">SSL Certificate Errors</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#references">References</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#security-standards">Security Standards</a></li>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#reverse-proxy-documentation">Reverse Proxy Documentation</a></li>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#cloud-documentation">Cloud Documentation</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="cli-reference.html">CLI Reference</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="cli-reference.html#installation">Installation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="cli-reference.html#global-options">Global Options</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#config-auto-discovery">Config Auto-Discovery</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="cli-reference.html#commands">Commands</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#request">request</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#pool">pool</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#config">config</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#health">health</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#fetch">fetch</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#export">export</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#setup-geoip">setup-geoip</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#sources">sources</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#stats">stats</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="cli-reference.html#output-formats">Output Formats</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#text-default">Text (default)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#json">JSON</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#csv">CSV</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="cli-reference.html#configuration-file">Configuration File</a></li>
-<li class="toctree-l3"><a class="reference internal" href="cli-reference.html#advanced-usage">Advanced Usage</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#scripting-with-json-output">Scripting with JSON Output</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#automated-proxy-refresh">Automated Proxy Refresh</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#ci-cd-integration">CI/CD Integration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#multi-environment-configuration">Multi-Environment Configuration</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="cli-reference.html#troubleshooting">Troubleshooting</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#configuration-not-found">Configuration Not Found</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#lock-file-issues">Lock File Issues</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#slow-validation">Slow Validation</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#geoip-enrichment-not-working">GeoIP Enrichment Not Working</a></li>
-<li class="toctree-l4"><a class="reference internal" href="cli-reference.html#ssrf-protection-blocking-local-tests">SSRF Protection Blocking Local Tests</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="cli-reference.html#environment-variables">Environment Variables</a></li>
-<li class="toctree-l3"><a class="reference internal" href="cli-reference.html#exit-codes">Exit Codes</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="automation.html">Automation &amp; CI Runbook</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="automation.html#pre-flight-checks">Pre-flight checks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="automation.html#smoke-tests-for-docs-examples">Smoke tests for docs examples</a></li>
-<li class="toctree-l3"><a class="reference internal" href="automation.html#docsearch-credentials">DocSearch credentials</a></li>
-<li class="toctree-l3"><a class="reference internal" href="automation.html#automating-releases">Automating releases</a></li>
-<li class="toctree-l3"><a class="reference internal" href="automation.html#suggested-ci-stages">Suggested CI stages</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="mcp-server.html">MCP Server Guide</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#overview">Overview</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#quick-start">Quick Start</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#installation">Installation</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#running-the-server">Running the Server</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#auto-loading-proxies">Auto-Loading Proxies</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#cli-options">CLI Options</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#the-proxywhirl-tool">The <code class="docutils literal notranslate"><span class="pre">proxywhirl</span></code> Tool</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#available-actions">Available Actions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#action-examples">Action Examples</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#resources">Resources</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#resource-proxywhirl-health">resource://proxywhirl/health</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#resource-proxywhirl-config">resource://proxywhirl/config</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#prompts">Prompts</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#proxy-selection-workflow">proxy_selection_workflow</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#troubleshooting-workflow">troubleshooting_workflow</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#authentication">Authentication</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#enabling-authentication">Enabling Authentication</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#authenticated-tool-calls">Authenticated Tool Calls</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#auth-middleware">Auth Middleware</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#disabling-authentication">Disabling Authentication</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#progress-reporting">Progress Reporting</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#transport-options">Transport Options</a></li>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#integration-with-claude-desktop">Integration with Claude Desktop</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#macos">macOS</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#windows">Windows</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#with-uvx-recommended">With uvx (Recommended)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#with-transport-options">With Transport Options</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#programmatic-usage">Programmatic Usage</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#custom-rotator-configuration">Custom Rotator Configuration</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#lifecycle-management">Lifecycle Management</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#how-lifespan-works">How Lifespan Works</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#server-class-usage">Server Class Usage</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#error-handling">Error Handling</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#common-error-codes">Common Error Codes</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#example-error-responses">Example Error Responses</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#best-practices">Best Practices</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#always-check-pool-health-first">1. Always Check Pool Health First</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#use-recommendations-for-critical-requests">2. Use Recommendations for Critical Requests</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#monitor-circuit-breaker-states">3. Monitor Circuit Breaker States</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#handle-errors-gracefully">4. Handle Errors Gracefully</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#clean-up-resources">5. Clean Up Resources</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#troubleshooting">Troubleshooting</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#server-wont-start">Server Won&#8217;t Start</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#no-proxies-available">No Proxies Available</a></li>
-<li class="toctree-l4"><a class="reference internal" href="mcp-server.html#authentication-failures">Authentication Failures</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="mcp-server.html#see-also">See Also</a></li>
 </ul>
 </li>
 </ul>
 </li>
 <li class="toctree-l1 _expand"><a class="reference internal" href="../reference/index.html">Reference</a><ul>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../reference/rest-api.html">ProxyWhirl REST API Usage Guide</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#table-of-contents">Table of Contents</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#getting-started">Getting Started</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#starting-the-api-server">Starting the API Server</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#using-docker">Using Docker</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#accessing-documentation">Accessing Documentation</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../reference/index.html#quick-lookup">Quick Lookup</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../reference/index.html#api-surfaces">API Surfaces</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../reference/index.html#configuration-error-handling">Configuration &amp; Error Handling</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../reference/index.html#subsystem-apis">Subsystem APIs</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html">ProxyWhirl REST API Usage Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#getting-started">Getting Started</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#endpoint-reference">Endpoint Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#rate-limiting">Rate Limiting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#performance-tips">Performance Tips</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#security-best-practices">Security Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#deployment-examples">Deployment Examples</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#x-forwarded-for-security-checklist">X-Forwarded-For Security Checklist</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#security-references">Security References</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#see-also">See Also</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#support">Support</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#authentication">Authentication</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#no-authentication-default">No Authentication (Default)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#api-key-authentication">API Key Authentication</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/python-api.html">Python API Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#core-classes">Core Classes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#rotation-strategies">Rotation Strategies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#data-models">Data Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#cache-components">Cache Components</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#retry-failover">Retry &amp; Failover</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#parsers">Parsers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#utility-functions">Utility Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#enumerations">Enumerations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#built-in-proxy-sources">Built-in Proxy Sources</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#exceptions">Exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#type-annotations">Type Annotations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#version">Version</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#see-also">See Also</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#endpoint-reference">Endpoint Reference</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#rotation-strategy-configuration">Rotation Strategy Configuration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#proxied-requests">Proxied Requests</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#pool-management">Pool Management</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#monitoring">Monitoring</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#configuration">Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/configuration.html">Configuration Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#configuration-discovery">Configuration Discovery</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#toml-configuration-format">TOML Configuration Format</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#configuration-classes">Configuration Classes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#programmatic-configuration">Programmatic Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#validation-rules">Validation Rules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#security-best-practices">Security Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#configuration-examples">Configuration Examples</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#migration-from-legacy-config">Migration from Legacy Config</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#see-also">See Also</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#rate-limiting">Rate Limiting</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#error-handling">Error Handling</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#error-codes">Error Codes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/exceptions.html">Exceptions Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#exception-hierarchy">Exception Hierarchy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#proxyerrorcode-enum">ProxyErrorCode Enum</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#utility-functions">Utility Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#error-codes">Error Codes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#exception-reference">Exception Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#error-handling-patterns">Error Handling Patterns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#best-practices">Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#summary">Summary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#see-also">See Also</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#performance-tips">Performance Tips</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#use-connection-pooling">1. Use Connection Pooling</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#enable-response-compression">2. Enable Response Compression</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#use-health-checks-efficiently">3. Use Health Checks Efficiently</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#monitor-metrics">4. Monitor Metrics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#configure-appropriate-timeouts">5. Configure Appropriate Timeouts</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#use-persistent-storage">6. Use Persistent Storage</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#optimize-retry-logic">7. Optimize Retry Logic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/cache-api.html">Cache API Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#data-models">Data Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#tier-implementations">Tier Implementations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#utilities">Utilities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#usage-examples">Usage Examples</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#performance-considerations">Performance Considerations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#thread-safety">Thread Safety</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#see-also">See Also</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#security-best-practices">Security Best Practices</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#x-forwarded-for-security-warning">X-Forwarded-For Security Warning</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#deployment-examples">Deployment Examples</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#nginx-reverse-proxy-secure-configuration">Nginx Reverse Proxy (Secure Configuration)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#kubernetes-deployment">Kubernetes Deployment</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#caddy-reverse-proxy-secure-configuration">Caddy Reverse Proxy (Secure Configuration)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#haproxy-reverse-proxy-secure-configuration">HAProxy Reverse Proxy (Secure Configuration)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#aws-application-load-balancer-alb-security">AWS Application Load Balancer (ALB) Security</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#x-forwarded-for-security-checklist">X-Forwarded-For Security Checklist</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#security-references">Security References</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#troubleshooting">Troubleshooting</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#api-wont-start">API Won&#8217;t Start</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#proxies-not-working">Proxies Not Working</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#rate-limiting-issues">Rate Limiting Issues</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#high-latency">High Latency</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#support">Support</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../reference/python-api.html">Python API Reference</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../reference/python-api.html#core-classes">Core Classes</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#proxyrotator">ProxyRotator</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#asyncproxyrotator">AsyncProxyRotator</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#proxyfetcher">ProxyFetcher</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#proxyvalidator">ProxyValidator</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#browserrenderer">BrowserRenderer</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/python-api.html#rotation-strategies">Rotation Strategies</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#roundrobinstrategy">RoundRobinStrategy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#randomstrategy">RandomStrategy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#weightedstrategy">WeightedStrategy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#leastusedstrategy">LeastUsedStrategy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#performancebasedstrategy">PerformanceBasedStrategy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#sessionpersistencestrategy">SessionPersistenceStrategy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#geotargetedstrategy">GeoTargetedStrategy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#costawarestrategy">CostAwareStrategy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#compositestrategy">CompositeStrategy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#strategyregistry">StrategyRegistry</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/python-api.html#data-models">Data Models</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#proxy">Proxy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#proxypool">ProxyPool</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#proxychain">ProxyChain</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#proxycredentials">ProxyCredentials</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#proxyconfiguration">ProxyConfiguration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#selectioncontext">SelectionContext</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#strategyconfig">StrategyConfig</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#session">Session</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/python-api.html#cache-components">Cache Components</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#cachemanager">CacheManager</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#cacheconfig">CacheConfig</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#cacheentry">CacheEntry</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#cachestatistics">CacheStatistics</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/python-api.html#retry-failover">Retry &amp; Failover</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#retrypolicy">RetryPolicy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#retryexecutor">RetryExecutor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#circuitbreaker">CircuitBreaker</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#retrymetrics">RetryMetrics</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/python-api.html#parsers">Parsers</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#jsonparser">JSONParser</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#csvparser">CSVParser</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#plaintextparser">PlainTextParser</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#htmltableparser">HTMLTableParser</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/python-api.html#utility-functions">Utility Functions</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#configure-logging">configure_logging</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#is-valid-proxy-url">is_valid_proxy_url</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#parse-proxy-url">parse_proxy_url</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#validate-proxy-model">validate_proxy_model</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#encrypt-credentials-decrypt-credentials">encrypt_credentials / decrypt_credentials</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#proxy-to-dict">proxy_to_dict</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#create-proxy-from-url">create_proxy_from_url</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#deduplicate-proxies">deduplicate_proxies</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/python-api.html#enumerations">Enumerations</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#healthstatus">HealthStatus</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#proxysource">ProxySource</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#proxyformat">ProxyFormat</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#rendermode">RenderMode</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#validationlevel">ValidationLevel</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#backoffstrategy">BackoffStrategy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#circuitbreakerstate">CircuitBreakerState</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/python-api.html#built-in-proxy-sources">Built-in Proxy Sources</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#individual-sources">Individual Sources</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/python-api.html#source-collections">Source Collections</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/python-api.html#exceptions">Exceptions</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/python-api.html#type-annotations">Type Annotations</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/python-api.html#version">Version</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/python-api.html#see-also">See Also</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../reference/configuration.html">Configuration Reference</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../reference/configuration.html#configuration-discovery">Configuration Discovery</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/configuration.html#toml-configuration-format">TOML Configuration Format</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#file-locations">File Locations</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#complete-configuration-example">Complete Configuration Example</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/configuration.html#environment-variables">Environment Variables</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#security-encryption">Security &amp; Encryption</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#rest-api-configuration">REST API Configuration</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/configuration.html#configuration-classes">Configuration Classes</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#cliconfig">CLIConfig</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#datastorageconfig">DataStorageConfig</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#proxyconfig">ProxyConfig</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/configuration.html#programmatic-configuration">Programmatic Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#loading-configuration">Loading Configuration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#creating-configuration">Creating Configuration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#saving-configuration">Saving Configuration</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/configuration.html#validation-rules">Validation Rules</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#rotation-strategy">Rotation Strategy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#output-format">Output Format</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#proxy-url-schemes">Proxy URL Schemes</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#numeric-constraints">Numeric Constraints</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/configuration.html#security-best-practices">Security Best Practices</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#credential-encryption">Credential Encryption</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#config-file-permissions">Config File Permissions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#api-key-security">API Key Security</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/configuration.html#configuration-examples">Configuration Examples</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#minimal-configuration">Minimal Configuration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#high-performance-configuration">High-Performance Configuration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#privacy-focused-configuration">Privacy-Focused Configuration</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#analytics-enabled-configuration">Analytics-Enabled Configuration</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/configuration.html#migration-from-legacy-config">Migration from Legacy Config</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/configuration.html#troubleshooting">Troubleshooting</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#config-file-not-found">Config File Not Found</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#invalid-toml-syntax">Invalid TOML Syntax</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/configuration.html#encryption-key-issues">Encryption Key Issues</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/configuration.html#related-documentation">Related Documentation</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../reference/exceptions.html">Exceptions Reference</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../reference/exceptions.html#table-of-contents">Table of Contents</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/exceptions.html#exception-hierarchy">Exception Hierarchy</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/exceptions.html#proxyerrorcode-enum">ProxyErrorCode Enum</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#usage">Usage</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/exceptions.html#utility-functions">Utility Functions</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#redact-url">redact_url()</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/exceptions.html#error-codes">Error Codes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/exceptions.html#exception-reference">Exception Reference</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#proxywhirlerror">ProxyWhirlError</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#proxyvalidationerror">ProxyValidationError</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#proxypoolemptyerror">ProxyPoolEmptyError</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#proxyconnectionerror">ProxyConnectionError</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#proxyauthenticationerror">ProxyAuthenticationError</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#proxyfetcherror">ProxyFetchError</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#proxystorageerror">ProxyStorageError</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#cachecorruptionerror">CacheCorruptionError</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#cachestorageerror">CacheStorageError</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#cachevalidationerror">CacheValidationError</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#requestqueuefullerror">RequestQueueFullError</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/exceptions.html#error-handling-patterns">Error Handling Patterns</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#basic-error-handling">Basic Error Handling</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#catch-all-error-handling">Catch-All Error Handling</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#retry-logic-based-on-error-type">Retry Logic Based on Error Type</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#async-error-handling">Async Error Handling</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#rest-api-error-handling">REST API Error Handling</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#context-manager-pattern">Context Manager Pattern</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#error-aggregation">Error Aggregation</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/exceptions.html#best-practices">Best Practices</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#use-specific-exceptions">1. Use Specific Exceptions</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#check-retry-recommended-flag">2. Check retry_recommended Flag</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#use-error-codes-for-programmatic-handling">3. Use Error Codes for Programmatic Handling</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#log-structured-error-data">4. Log Structured Error Data</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#implement-circuit-breaker-pattern">5. Implement Circuit Breaker Pattern</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#provide-user-friendly-error-messages">6. Provide User-Friendly Error Messages</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#test-error-handling">7. Test Error Handling</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#monitor-error-rates">8. Monitor Error Rates</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#handle-async-errors-properly">9. Handle Async Errors Properly</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/exceptions.html#document-error-handling">10. Document Error Handling</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/exceptions.html#summary">Summary</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../reference/cache-api.html">Cache API Reference</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../reference/cache-api.html#overview">Overview</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/cache-api.html#data-models">Data Models</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#cacheentry">CacheEntry</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#cacheconfig">CacheConfig</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#cachetierconfig">CacheTierConfig</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#cachestatistics">CacheStatistics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#tierstatistics">TierStatistics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#healthstatus-enum">HealthStatus (Enum)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#cachetiertype-enum">CacheTierType (Enum)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#l2backendtype-enum">L2BackendType (Enum)</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/cache-api.html#tier-implementations">Tier Implementations</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#cachetier-abstract-base-class">CacheTier (Abstract Base Class)</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#memorycachetier">MemoryCacheTier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#jsonlcachetier">JsonlCacheTier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#diskcachetier">DiskCacheTier</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#sqlitecachetier">SQLiteCacheTier</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/cache-api.html#utilities">Utilities</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#credentialencryptor">CredentialEncryptor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#cachemanager">CacheManager</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/cache-api.html#usage-examples">Usage Examples</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#working-with-cache-tiers-directly">Working with Cache Tiers Directly</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#encryption-and-security">Encryption and Security</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#migration-from-jsonl-to-sqlite-l2">Migration from JSONL to SQLite L2</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/cache-api.html#performance-considerations">Performance Considerations</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#tier-selection">Tier Selection</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/cache-api.html#optimization-tips">Optimization Tips</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/cache-api.html#thread-safety">Thread Safety</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/cache-api.html#error-handling">Error Handling</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/cache-api.html#see-also">See Also</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../reference/rate-limiting-api.html">Rate Limiting API Reference</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rate-limiting-api.html#overview">Overview</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rate-limiting-api.html#core-classes">Core Classes</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#ratelimiter">RateLimiter</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rate-limiting-api.html#data-models">Data Models</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#ratelimit">RateLimit</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#ratelimitevent">RateLimitEvent</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rate-limiting-api.html#usage-examples">Usage Examples</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#basic-rate-limiting">Basic Rate Limiting</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#global-per-proxy-limits">Global + Per-Proxy Limits</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#burst-handling">Burst Handling</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#dynamic-limit-adjustment">Dynamic Limit Adjustment</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#integration-with-proxyrotator">Integration with ProxyRotator</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#monitoring-and-logging">Monitoring and Logging</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#retry-with-backoff">Retry with Backoff</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rate-limiting-api.html#thread-safety">Thread Safety</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rate-limiting-api.html#performance-considerations">Performance Considerations</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#token-bucket-algorithm">Token Bucket Algorithm</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#memory-usage">Memory Usage</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#concurrency">Concurrency</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rate-limiting-api.html#integration-with-monitoring">Integration with Monitoring</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#prometheus-metrics">Prometheus Metrics</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#datadog-integration">DataDog Integration</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rate-limiting-api.html#sphinx-integration">Sphinx Integration</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rate-limiting-api.html#common-patterns">Common Patterns</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#fallback-to-different-proxy">Fallback to Different Proxy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#batch-requests-with-rate-limiting">Batch Requests with Rate Limiting</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#circuit-breaker-integration">Circuit Breaker Integration</a></li>
-</ul>
-</li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rate-limiting-api.html#faq">FAQ</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/rate-limiting-api.html">Rate Limiting API Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#core-classes">Core Classes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#data-models">Data Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#usage-examples">Usage Examples</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#thread-safety">Thread Safety</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#performance-considerations">Performance Considerations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#integration-with-monitoring">Integration with Monitoring</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#sphinx-integration">Sphinx Integration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#common-patterns">Common Patterns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#faq">FAQ</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rate-limiting-api.html#see-also">See Also</a></li>
 </ul>
 </li>
 </ul>
 </li>
-<li class="toctree-l1 _expand"><a class="reference internal" href="../project/index.html">Project Status &amp; Roadmap</a><ul>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current health</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#collaboration-checklists">Collaboration checklists</a></li>
+</ul>
+</li>
+<li class="toctree-l1 _expand"><a class="reference internal" href="../project/index.html">Project</a><ul>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#development-setup">Development Setup</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#clone-install">Clone &amp; Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#verify-installation">Verify Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#make-commands">Make Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#contributing">Contributing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#workflow">Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#branch-naming">Branch Naming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#commit-convention">Commit Convention</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#code-style">Code Style</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#pre-commit-hooks">Pre-commit Hooks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#testing-guidelines">Testing Guidelines</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#ci-cd-pipelines">CI/CD Pipelines</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#quality-gate-pipeline">Quality Gate Pipeline</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#changelog-highlights">Changelog Highlights</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#recent">Recent</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#phase-completion-status">Phase Completion Status</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-modules">Key Modules</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#license">License</a></li>
 </ul>
 </li>
 </ul>
@@ -1415,6 +842,7 @@
 <li><p>Rotate keys periodically using the key rotation feature</p></li>
 <li><p>Lost keys = permanently encrypted data</p></li>
 <li><p>Use cloud secret managers (AWS Secrets Manager, GCP Secret Manager) in production</p></li>
+<li><p>See <a class="reference internal" href="deployment-security.html"><span class="doc">Deployment Security &amp; Reverse Proxy Configuration</span></a> for production encryption and secrets management guidance</p></li>
 </ul>
 </div>
 </section>
@@ -1573,7 +1001,7 @@
 </section>
 <section id="health-invalidation">
 <h2>Health Invalidation<a class="headerlink" href="#health-invalidation" title="Link to this heading">¶</a></h2>
-<p>The cache integrates with the health monitoring system to automatically evict failing proxies.</p>
+<p>The cache integrates with the health monitoring system to automatically evict failing proxies. This works in tandem with the <a class="reference internal" href="retry-failover.html"><span class="doc">Retry &amp; Failover Guide</span></a> circuit breaker system.</p>
 <section id="configuration">
 <h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">config</span> <span class="o">=</span> <span class="n">CacheConfig</span><span class="p">(</span>
@@ -1819,7 +1247,7 @@
 </section>
 <section id="cli-integration">
 <h2>CLI Integration<a class="headerlink" href="#cli-integration" title="Link to this heading">¶</a></h2>
-<p>The CLI exposes cache configuration via TOML config file:</p>
+<p>The CLI exposes cache configuration via TOML config file. See <a class="reference internal" href="cli-reference.html"><span class="doc">CLI Reference</span></a> for full CLI command documentation and <a class="reference internal" href="../reference/configuration.html"><span class="doc">Configuration Reference</span></a> for all configuration keys.</p>
 <div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># ~/.config/proxywhirl/config.toml</span>
 </span><span data-line="2"><span class="n">cache_enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
 </span><span data-line="3"><span class="n">cache_l1_max_entries</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1000</span>
@@ -1991,11 +1419,64 @@
 </section>
 <section id="see-also">
 <h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
-<ul class="simple">
-<li><p><a class="reference internal" href="../reference/index.html"><span class="doc">Reference</span></a> - API reference for <code class="docutils literal notranslate"><span class="pre">CacheManager</span></code>, <code class="docutils literal notranslate"><span class="pre">CacheEntry</span></code>, <code class="docutils literal notranslate"><span class="pre">CacheConfig</span></code></p></li>
-<li><p><a class="reference internal" href="automation.html"><span class="doc">Automation &amp; CI Runbook</span></a> - CI/CD integration for cache monitoring</p></li>
-<li><p><a class="reference internal" href="../getting-started/index.html"><span class="doc">Getting Started</span></a> - QuickStart for basic ProxyWhirl usage</p></li>
-</ul>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-3 sd-g-xs-3 sd-g-sm-3 sd-g-md-3 sd-g-lg-3 docutils">
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Cache API Reference</div>
+<p class="sd-card-text">Complete API docs for <code class="docutils literal notranslate"><span class="pre">CacheManager</span></code>, <code class="docutils literal notranslate"><span class="pre">CacheEntry</span></code>, <code class="docutils literal notranslate"><span class="pre">CacheConfig</span></code>, and <code class="docutils literal notranslate"><span class="pre">CacheStatistics</span></code>.</p>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="../reference/cache-api.html"><span class="doc">Cache API Reference</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Configuration Reference</div>
+<p class="sd-card-text">Full configuration reference including cache-related TOML keys and environment variables.</p>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="../reference/configuration.html"><span class="doc">Configuration Reference</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+CLI Reference</div>
+<p class="sd-card-text">CLI commands for cache configuration, proxy fetching, and data export.</p>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="cli-reference.html"><span class="doc">CLI Reference</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Deployment Security</div>
+<p class="sd-card-text">Production deployment with encryption, reverse proxy setup, and security hardening.</p>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="deployment-security.html"><span class="doc">Deployment Security &amp; Reverse Proxy Configuration</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Automation Guide</div>
+<p class="sd-card-text">CI/CD integration for automated cache warming and proxy refresh.</p>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="automation.html"><span class="doc">Automation &amp; CI/CD Runbook</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Getting Started</div>
+<p class="sd-card-text">Quickstart guide for basic ProxyWhirl usage.</p>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="../getting-started/index.html"><span class="doc">Getting Started</span></a></div>
+</div>
+</div>
+</div>
 </section>
 </section>
 

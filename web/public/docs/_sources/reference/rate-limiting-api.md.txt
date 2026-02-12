@@ -3,7 +3,13 @@
 Complete reference for ProxyWhirl's rate limiting system with per-proxy and global rate limits using token bucket algorithm.
 
 ```python
-from proxywhirl.rate_limiting import RateLimiter, RateLimit, RateLimitEvent
+from proxywhirl.rate_limiting import (
+    RateLimiter,        # Legacy (sync, thread-safe with RLock)
+    AsyncRateLimiter,   # For async contexts (asyncio.Lock)
+    SyncRateLimiter,    # For sync contexts (threading.RLock)
+    RateLimit,
+    RateLimitEvent,
+)
 ```
 
 ## Overview
@@ -12,72 +18,97 @@ The rate limiting subsystem provides flexible request throttling for proxies wit
 - **Per-proxy limits**: Individual rate limits for each proxy
 - **Global limits**: Aggregate rate limit across all proxies
 - **Token bucket algorithm**: Burst capacity with sustained rate limiting
-- **Thread-safe**: Safe for concurrent access
-- **Async support**: Fully async/await compatible
+- **Three implementations**: `SyncRateLimiter` (sync), `AsyncRateLimiter` (async), `RateLimiter` (legacy)
+- **Thread-safe**: All implementations use appropriate locking
 
 Built on top of `pyrate-limiter` for robust, production-ready rate limiting.
 
+:::{important}
+There are three rate limiter classes. Use `SyncRateLimiter` with `ProxyRotator` and `AsyncRateLimiter` with `AsyncProxyRotator`. The base `RateLimiter` class is deprecated but maintained for backwards compatibility.
+:::
+
 ## Core Classes
 
-### RateLimiter
+### RateLimiter (Legacy)
 
-Main rate limiter with per-proxy and global limits using token bucket algorithm.
+:::{deprecated} 1.0.0
+Use `SyncRateLimiter` for synchronous contexts or `AsyncRateLimiter` for async contexts. This class is maintained for backwards compatibility.
+:::
+
+Synchronous rate limiter with per-proxy and global limits using token bucket algorithm. Uses `threading.RLock` for thread safety.
 
 ```python
 from proxywhirl.rate_limiting import RateLimiter, RateLimit
 
-# Initialize with global limit
-global_limit = RateLimit(
-    max_requests=1000,
-    time_window=60,  # 1000 requests per 60 seconds
-    burst_allowance=100  # Allow bursts up to 100 requests
+limiter = RateLimiter(
+    global_limit=RateLimit(max_requests=1000, time_window=60)
+)
+limiter.set_proxy_limit("proxy1", RateLimit(max_requests=10, time_window=1))
+
+# Synchronous check (NOT async)
+if limiter.check_limit("proxy1"):
+    response = make_request_with_proxy("proxy1")
+```
+
+---
+
+### SyncRateLimiter
+
+Synchronous rate limiter for use with `ProxyRotator`. Thread-safe via `threading.RLock`.
+
+```python
+from proxywhirl.rate_limiting import SyncRateLimiter, RateLimit
+
+limiter = SyncRateLimiter(
+    global_limit=RateLimit(max_requests=1000, time_window=60)
+)
+limiter.set_proxy_limit("proxy1", RateLimit(max_requests=10, time_window=1))
+
+# Synchronous check
+if limiter.check_limit("proxy1"):
+    response = make_request_with_proxy("proxy1")
+```
+
+---
+
+### AsyncRateLimiter
+
+Async rate limiter for use with `AsyncProxyRotator`. Uses `asyncio.Lock` for async safety.
+
+```python
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit
+
+limiter = AsyncRateLimiter(
+    global_limit=RateLimit(max_requests=1000, time_window=60)
 )
 
-limiter = RateLimiter(global_limit=global_limit)
+# Async set_proxy_limit
+await limiter.set_proxy_limit("proxy1", RateLimit(max_requests=10, time_window=1))
 
-# Set per-proxy limits
-limiter.set_proxy_limit(
-    "proxy1",
-    RateLimit(max_requests=10, time_window=1)  # 10 req/sec
-)
-
-limiter.set_proxy_limit(
-    "proxy2",
-    RateLimit(max_requests=20, time_window=1)  # 20 req/sec
-)
-
-# Check if request is allowed
-allowed = await limiter.check_limit("proxy1")
-if allowed:
-    # Make request
-    response = await make_request_with_proxy("proxy1")
-else:
-    # Rate limited, wait or use different proxy
-    print("Rate limit exceeded for proxy1")
-
-# Acquire permission (same as check_limit)
-if await limiter.acquire("proxy1"):
+# Async check
+if await limiter.check_limit("proxy1"):
     response = await make_request_with_proxy("proxy1")
 ```
 
-#### Constructor
+#### Constructor (all classes)
+
+All three rate limiter classes share the same constructor signature:
 
 **Parameters:**
-- `global_limit` (RateLimit | None): Global rate limit across all proxies (default: None)
 
-**Attributes:**
-- `global_limit` (RateLimit | None): Global rate limit configuration
-- `_proxy_limiters` (dict[str, Limiter]): Per-proxy limiter instances
-- `_global_limiter` (Limiter | None): Global limiter instance
-- `_lock` (RLock): Thread-safe lock for limiter access
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `global_limit` | `RateLimit \| None` | `None` | Global rate limit across all proxies |
 
 **Example:**
 ```python
+from proxywhirl.rate_limiting import SyncRateLimiter, AsyncRateLimiter, RateLimit
+
 # No limits
-limiter = RateLimiter()
+limiter = SyncRateLimiter()
 
 # Global limit only
-limiter = RateLimiter(
+limiter = SyncRateLimiter(
     global_limit=RateLimit(max_requests=1000, time_window=60)
 )
 
@@ -88,6 +119,10 @@ limiter.set_proxy_limit("proxy1", RateLimit(max_requests=10, time_window=1))
 ---
 
 #### Methods
+
+:::{note}
+`SyncRateLimiter` and `RateLimiter` methods are synchronous. `AsyncRateLimiter` methods (`set_proxy_limit`, `check_limit`, `acquire`) are all `async`.
+:::
 
 ##### `set_proxy_limit(proxy_id: str, limit: RateLimit) -> None`
 
@@ -129,9 +164,9 @@ limiter.set_proxy_limit(
 
 ---
 
-##### `check_limit(proxy_id: str) -> bool` (async)
+##### `check_limit(proxy_id: str) -> bool`
 
-Check if request is allowed for proxy.
+Check if request is allowed for proxy. Async in `AsyncRateLimiter`, sync in `SyncRateLimiter`/`RateLimiter`.
 
 **Flow:**
 1. Check per-proxy limit (if set)
@@ -155,37 +190,40 @@ Check if request is allowed for proxy.
 - WARNING: "Rate limit exceeded for proxy {proxy_id}" (per-proxy limit)
 - WARNING: "Global rate limit exceeded" (global limit)
 
-**Example:**
+**Example (sync):**
 ```python
-from proxywhirl.rate_limiting import RateLimiter, RateLimit
+from proxywhirl.rate_limiting import SyncRateLimiter, RateLimit
 
-limiter = RateLimiter(
+limiter = SyncRateLimiter(
     global_limit=RateLimit(max_requests=1000, time_window=60)
 )
 limiter.set_proxy_limit("proxy1", RateLimit(max_requests=10, time_window=1))
 
 # Check before making request
-if await limiter.check_limit("proxy1"):
+if limiter.check_limit("proxy1"):
     print("Request allowed")
-    response = await make_request("proxy1")
 else:
     print("Rate limited, try again later")
+```
 
-# Check multiple times rapidly
-results = []
-for i in range(15):
-    allowed = await limiter.check_limit("proxy1")
-    results.append(allowed)
+**Example (async):**
+```python
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit
 
-# First 10 will be True, remaining will be False
-print(f"Allowed: {sum(results)}/15")  # "Allowed: 10/15"
+limiter = AsyncRateLimiter(
+    global_limit=RateLimit(max_requests=1000, time_window=60)
+)
+await limiter.set_proxy_limit("proxy1", RateLimit(max_requests=10, time_window=1))
+
+if await limiter.check_limit("proxy1"):
+    response = await make_request("proxy1")
 ```
 
 ---
 
-##### `acquire(proxy_id: str) -> bool` (async)
+##### `acquire(proxy_id: str) -> bool`
 
-Acquire permission to make a request (alias for check_limit).
+Acquire permission to make a request (alias for `check_limit`). Async in `AsyncRateLimiter`, sync in `SyncRateLimiter`/`RateLimiter`.
 
 **Parameters:**
 - `proxy_id` (str): Unique proxy identifier
@@ -196,8 +234,12 @@ Acquire permission to make a request (alias for check_limit).
 
 **Example:**
 ```python
-# Same as check_limit
-if await limiter.acquire("proxy1"):
+# Sync
+if limiter.acquire("proxy1"):
+    response = make_request("proxy1")
+
+# Async
+if await async_limiter.acquire("proxy1"):
     response = await make_request("proxy1")
 ```
 
@@ -888,12 +930,14 @@ A: No, all state is in-memory. Rate limits reset on process restart.
 
 **Q: Can I use this with synchronous code?**
 
-A: The current implementation is async-only. For sync code, wrap in `asyncio.run()`:
+A: Yes, use `SyncRateLimiter` which provides a fully synchronous, thread-safe interface:
 ```python
-import asyncio
+from proxywhirl.rate_limiting import SyncRateLimiter, RateLimit
 
-def sync_check_limit(proxy_id):
-    return asyncio.run(limiter.check_limit(proxy_id))
+limiter = SyncRateLimiter(global_limit=RateLimit(max_requests=100, time_window=60))
+if limiter.check_limit("proxy1"):
+    # Make synchronous request
+    pass
 ```
 
 **Q: How do I calculate the right rate limit for an API?**
@@ -910,3 +954,14 @@ A: Not directly. Create separate `RateLimiter` instances or use `proxy_id` to en
 limiter.set_proxy_limit("proxy1_api_v1", RateLimit(max_requests=10, time_window=1))
 limiter.set_proxy_limit("proxy1_api_v2", RateLimit(max_requests=20, time_window=1))
 ```
+
+---
+
+## See Also
+
+- [Python API](python-api.md) -- Main ProxyRotator and AsyncProxyRotator API
+- [REST API](rest-api.md) -- REST API rate limiting configuration
+- [Configuration](configuration.md) -- TOML configuration for rate limits
+- [Retry & Failover](../guides/retry-failover.md) -- Retry and circuit breaker integration
+- [Async Client](../guides/async-client.md) -- Async client patterns with rate limiting
+- [Deployment Security](../guides/deployment-security.md) -- Production rate limiting setup

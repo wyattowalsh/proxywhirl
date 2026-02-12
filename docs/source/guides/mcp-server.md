@@ -50,7 +50,7 @@ python -m proxywhirl.mcp.server
 
 ### Auto-Loading Proxies
 
-The MCP server automatically loads proxies from `proxywhirl.db` if it exists in the current directory. Use the CLI to populate the database first:
+The MCP server automatically loads proxies from `proxywhirl.db` if it exists in the current directory. Use the {doc}`cli-reference` to populate the database first:
 
 ```bash
 # Fetch proxies and save to database
@@ -262,7 +262,10 @@ The `criteria` parameter supports:
 }
 ```
 
-Pool status values:
+:::{note}
+Pool status values match those in the {doc}`/reference/rest-api` `/api/v1/health` endpoint:
+:::
+
 - `empty`: No proxies in pool
 - `healthy`: 70%+ proxies are healthy
 - `degraded`: 30-70% proxies are healthy
@@ -398,7 +401,7 @@ Omit `proxy_id` to validate all proxies in the pool.
 }
 ```
 
-Valid strategies: `round-robin`, `random`, `weighted`, `least-used`, `performance-based`, `session-persistence`, `geo-targeted`, `cost-aware`
+Valid strategies: `round-robin`, `random`, `weighted`, `least-used`, `performance-based`, `session-persistence`, `geo-targeted`, `cost-aware`. For detailed strategy configuration and tuning, see {doc}`advanced-strategies`.
 
 ## Resources
 
@@ -529,7 +532,7 @@ set_auth(None)
 ```
 
 ```{warning}
-Store API keys securely using environment variables or a secrets manager. Never hardcode keys in source code.
+Store API keys securely using environment variables or a secrets manager. Never hardcode keys in source code. See {doc}`deployment-security` for production security best practices and {doc}`/reference/configuration` for all environment variables.
 ```
 
 ## Progress Reporting
@@ -819,7 +822,7 @@ For important requests, use the `recommend` action instead of `rotate`:
 
 ### 3. Monitor Circuit Breaker States
 
-Check proxy status before use to avoid open circuit breakers:
+Check proxy status before use to avoid open circuit breakers. For circuit breaker internals (state transitions, rolling windows, persistence), see {doc}`retry-failover`.
 
 ```json
 {
@@ -886,7 +889,48 @@ Solution: Verify the API key matches what was configured with `set_auth()`.
 
 ## See Also
 
-- {doc}`async-client` - Async client usage patterns
-- {doc}`retry-failover` - Circuit breaker and retry configuration
-- {doc}`cli-reference` - CLI commands for proxy management
-- {doc}`/reference/python-api` - Full Python API reference
+::::{grid} 2
+:gutter: 3
+
+:::{grid-item-card} Async Client Guide
+:link: /guides/async-client
+:link-type: doc
+
+`AsyncProxyRotator` patterns used by the MCP server internally for proxy rotation.
+:::
+
+:::{grid-item-card} Advanced Strategies
+:link: /guides/advanced-strategies
+:link-type: doc
+
+All rotation strategies available through the `set_strategy` MCP action.
+:::
+
+:::{grid-item-card} Retry & Failover
+:link: /guides/retry-failover
+:link-type: doc
+
+Circuit breaker states and retry policies exposed via MCP `status` and `reset_cb` actions.
+:::
+
+:::{grid-item-card} CLI Reference
+:link: /guides/cli-reference
+:link-type: doc
+
+CLI commands for proxy management, an alternative interface to MCP.
+:::
+
+:::{grid-item-card} REST API Reference
+:link: /reference/rest-api
+:link-type: doc
+
+The REST API provides similar functionality to MCP via HTTP endpoints.
+:::
+
+:::{grid-item-card} Python API Reference
+:link: /reference/python-api
+:link-type: doc
+
+Complete API docs for `AsyncProxyRotator` and all models used by the MCP server.
+:::
+::::

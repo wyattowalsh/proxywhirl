@@ -6,6 +6,10 @@ title: Exceptions Reference
 
 Complete guide to ProxyWhirl's exception hierarchy, error codes, and error handling best practices.
 
+:::{tip}
+All ProxyWhirl exceptions support structured error data via `to_dict()` and include a `retry_recommended` flag to help determine whether an operation should be retried. Use `ProxyErrorCode` enum values for reliable programmatic error handling.
+:::
+
 ## Table of Contents
 
 - [Exception Hierarchy](#exception-hierarchy)
@@ -46,6 +50,10 @@ Exception
     ├── CacheValidationError (also inherits from ValueError)
     └── RequestQueueFullError
 ```
+
+:::{note}
+`ProxyAuthenticationError` inherits directly from `ProxyWhirlError`, not from `ProxyConnectionError`. Catch it separately from connection errors for proper credential handling.
+:::
 
 All ProxyWhirl exceptions inherit from `ProxyWhirlError`, making it easy to catch all library-specific errors:
 
@@ -113,7 +121,9 @@ except ProxyWhirlError as e:
 
 ### redact_url()
 
-ProxyWhirl automatically redacts sensitive information from URLs before including them in error messages. This prevents credentials and API keys from leaking into logs.
+:::{important}
+ProxyWhirl automatically redacts sensitive information from URLs before including them in error messages. This prevents credentials and API keys from leaking into logs. You only need to call `redact_url()` manually when logging proxy URLs outside of exception handling.
+:::
 
 ```python
 from proxywhirl.exceptions import redact_url
@@ -351,6 +361,10 @@ except ProxyPoolEmptyError as e:
 
 - **Error Code:** `PROXY_CONNECTION_FAILED` (or `TIMEOUT` for timeout-specific errors)
 - **Retry Recommended:** Yes (transient network issues may resolve)
+
+:::{tip}
+When the error message contains "timeout", the `error_code` is automatically set to `ProxyErrorCode.TIMEOUT` instead of `PROXY_CONNECTION_FAILED`. Check `e.error_code` to distinguish between timeout and other connection failures.
+:::
 
 #### When Raised
 
@@ -876,6 +890,10 @@ result = asyncio.run(fetch_with_fallback("https://httpbin.org/ip"))
 
 ### REST API Error Handling
 
+:::{seealso}
+For the full REST API error code reference, see [REST API](rest-api.md).
+:::
+
 Handle exceptions in REST API endpoints:
 
 ```python
@@ -1288,6 +1306,14 @@ ProxyWhirl's exception system provides:
 
 Use specific exception types for targeted error handling, check the `retry_recommended` flag, and leverage error codes for reliable programmatic handling.
 
+## See Also
+
+- [Python API](python-api.md) -- Main ProxyRotator API reference
+- [REST API](rest-api.md) -- REST API error codes and responses
+- [Cache API](cache-api.md) -- Cache-specific error handling
+- [Retry & Failover](../guides/retry-failover.md) -- Retry patterns and circuit breaker integration
+- [Async Client](../guides/async-client.md) -- Async error handling patterns
+- [Deployment Security](../guides/deployment-security.md) -- Production error monitoring
+
 For questions or issues:
 - GitHub: https://github.com/wyattowalsh/proxywhirl/issues
-- Documentation: See other guides in this reference section

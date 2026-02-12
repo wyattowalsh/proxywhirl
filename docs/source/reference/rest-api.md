@@ -6,6 +6,10 @@ title: REST API Usage
 
 Complete guide for using the ProxyWhirl REST API.
 
+:::{seealso}
+For deployment and security best practices, see [Deployment Security](../guides/deployment-security.md). For Python API usage, see [Python API](python-api.md).
+:::
+
 ## Table of Contents
 
 - [Getting Started](#getting-started)
@@ -62,6 +66,10 @@ curl http://localhost:8000/api/v1/health
 ```
 
 ### API Key Authentication
+
+:::{seealso}
+For all environment variables and TOML configuration options, see [Configuration](configuration.md).
+:::
 
 Enable authentication with environment variables:
 
@@ -362,6 +370,10 @@ Remove a proxy from the pool.
 
 #### POST /api/v1/proxies/test
 
+:::{note}
+There is also a `POST /api/v1/proxies/health-check` endpoint with similar functionality. Both endpoints can be used to verify proxy health.
+:::
+
 Run health check on proxies.
 
 **Request Body:**
@@ -388,6 +400,10 @@ Omit `proxy_ids` to check all proxies.
   ]
 }
 ```
+
+:::{note}
+The API also exposes circuit breaker management endpoints (`/api/v1/circuit-breakers`), retry policy endpoints (`/api/v1/retry/policy`), and detailed retry metrics endpoints (`/api/v1/metrics/retries`). Access the interactive Swagger UI at `http://localhost:8000/docs` for the complete endpoint reference.
+:::
 
 ### Monitoring
 
@@ -510,6 +526,52 @@ All fields are optional (partial updates supported).
 
 **Errors:**
 - HTTP 400 if invalid values
+
+### Additional Endpoints
+
+#### GET /api/v1/stats
+
+Detailed pool statistics with source breakdown.
+
+#### GET /api/v1/circuit-breakers
+
+List all circuit breaker states for monitoring.
+
+#### GET /api/v1/circuit-breakers/{proxy_id}
+
+Get circuit breaker state for a specific proxy.
+
+#### POST /api/v1/circuit-breakers/{proxy_id}/reset
+
+Manually reset a circuit breaker to CLOSED state.
+
+:::{seealso}
+For circuit breaker concepts and configuration, see [Retry & Failover](../guides/retry-failover.md).
+:::
+
+#### GET /api/v1/retry/policy
+
+Get current retry policy configuration.
+
+#### PUT /api/v1/retry/policy
+
+Update retry policy at runtime.
+
+#### GET /api/v1/metrics/retries
+
+Get retry metrics summary.
+
+#### GET /api/v1/metrics/retries/timeseries
+
+Get retry metrics as time-series data.
+
+#### GET /api/v1/metrics/retries/by-proxy
+
+Get retry metrics broken down by proxy.
+
+#### POST /api/v1/proxies/health-check
+
+Run health check on proxies (separate from the test endpoint).
 
 ## Rate Limiting
 
@@ -888,6 +950,15 @@ curl -X PUT http://localhost:8000/api/v1/config \
 - Reduce timeout values
 - Switch to faster rotation strategy (least-used)
 - Remove slow proxies from pool
+
+## See Also
+
+- [Python API](python-api.md) -- Python API reference (ProxyRotator, AsyncProxyRotator)
+- [Configuration](configuration.md) -- Configuration options and environment variables
+- [Exceptions](exceptions.md) -- Exception types and error codes
+- [Rate Limiting API](rate-limiting-api.md) -- Rate limiting API reference
+- [Deployment Security](../guides/deployment-security.md) -- Production deployment and security
+- [CLI Reference](../guides/cli-reference.md) -- CLI commands reference
 
 ## Support
 
