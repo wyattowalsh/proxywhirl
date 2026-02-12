@@ -21,6 +21,12 @@
       ]
     },
     {
+      "source": "/docs/_static/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
+      ]
+    },
+    {
       "source": "/(.*).json",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=3600, stale-while-revalidate=7200" },

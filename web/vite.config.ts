@@ -42,7 +42,8 @@ export default defineConfig(({ command }) => ({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,ico,png,svg,json}"],
-        globIgnores: ["**/proxies*.json", "proxy-lists/**", "**/all.txt", "**/http.txt", "**/https.txt", "**/socks*.txt"],
+        globIgnores: ["**/proxies*.json", "proxy-lists/**", "docs/**", "**/all.txt", "**/http.txt", "**/https.txt", "**/socks*.txt"],
+        navigateFallbackDenylist: [/^\/docs/],
         maximumFileSizeToCacheInBytes: 3000000 // 3MB (geo-data is ~100kb, but just in case)
       }
     }),
