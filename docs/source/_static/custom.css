@@ -55,6 +55,187 @@ html.dark {
 }
 
 /* --------------------------------------------------------------------------
+   Shared Navbar (.pw-navbar) — matches SPA Header.tsx
+   -------------------------------------------------------------------------- */
+.pw-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+  border-bottom: 1px solid;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+html.light .pw-navbar {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+html.dark .pw-navbar {
+  background: rgba(2, 8, 23, 0.95);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  html.light .pw-navbar { background: rgba(255, 255, 255, 0.6); }
+  html.dark .pw-navbar { background: rgba(2, 8, 23, 0.6); }
+}
+
+.pw-navbar-inner {
+  max-width: 80rem;
+  margin: 0 auto;
+  display: flex;
+  height: 3.5rem;
+  align-items: center;
+  padding: 0 1rem;
+}
+
+@media (min-width: 640px) {
+  .pw-navbar-inner { padding: 0 1.5rem; }
+}
+
+@media (min-width: 1024px) {
+  .pw-navbar-inner { padding: 0 2rem; }
+}
+
+/* Sidebar toggle — mobile only */
+.pw-navbar-sidebar-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.375rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+}
+
+.pw-navbar-sidebar-toggle:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+html.dark .pw-navbar-sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 767px) {
+  .pw-navbar-sidebar-toggle { display: flex; }
+}
+
+/* Brand */
+.pw-navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: 1.5rem;
+  text-decoration: none !important;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.pw-navbar-brand:hover {
+  text-decoration: none !important;
+  color: inherit;
+}
+
+.pw-navbar-logo {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.pw-navbar-brand strong {
+  font-weight: 700;
+  background: linear-gradient(to right, #06b6d4, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 0.95rem;
+}
+
+/* Desktop nav links */
+.pw-navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.pw-navbar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  text-decoration: none !important;
+  transition: color 0.15s, opacity 0.15s;
+}
+
+html.light .pw-navbar-link { color: rgba(0, 0, 0, 0.6); }
+html.dark .pw-navbar-link { color: rgba(255, 255, 255, 0.6); }
+
+html.light .pw-navbar-link:hover { color: rgba(0, 0, 0, 0.8); }
+html.dark .pw-navbar-link:hover { color: rgba(255, 255, 255, 0.8); }
+
+html.light .pw-navbar-link.active { color: rgba(0, 0, 0, 1); }
+html.dark .pw-navbar-link.active { color: rgba(255, 255, 255, 1); }
+
+@media (max-width: 767px) {
+  .pw-navbar-links { display: none; }
+}
+
+/* Right actions */
+.pw-navbar-actions {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.pw-navbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.375rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pw-navbar-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+html.dark .pw-navbar-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pw-navbar-btn svg {
+  flex-shrink: 0;
+}
+
+/* GitHub icon — visible on all sizes */
+.pw-navbar-github {
+  color: inherit;
+  text-decoration: none !important;
+}
+
+/* Theme toggle icon visibility */
+html.dark .pw-icon-sun { display: block; }
+html.dark .pw-icon-moon { display: none; }
+html.light .pw-icon-sun { display: none; }
+html.light .pw-icon-moon { display: block; }
+
+/* --------------------------------------------------------------------------
    Global Typography Enhancements
    -------------------------------------------------------------------------- */
 html {
