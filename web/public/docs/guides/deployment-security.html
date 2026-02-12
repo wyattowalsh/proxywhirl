@@ -7,7 +7,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=e1a1ceaf" />
-    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=d140fbf8" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=44020203" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
@@ -22,10 +22,10 @@
 }
 </style>
     <meta property="og:type" content="website"/>
-<meta property="og:url" content="https://proxywhirl.readthedocs.io/guides/deployment-security.html"/>
-<meta property="og:title" content="Deployment Security &amp; Reverse Proxy Configuration"/>
-<meta name="twitter:card" content="summary"/>
-<meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
+  <meta property="og:url" content="https://proxywhirl.readthedocs.io/guides/deployment-security.html"/>
+  <meta property="og:title" content="Deployment Security &amp; Reverse Proxy Configuration"/>
+  <meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
+    <meta name="twitter:card" content="summary"/>
 <meta name="twitter:creator" content="@@wyaborern"/>
 <meta name="twitter:site" content="@@wyaborern"/>
   </head>
@@ -1030,8 +1030,43 @@ data-aria-dark="Switch to auto color mode">
     </div>
   </div>
 </div><div class="flex flex-col break-words justify-between">
-      <div class="min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
-        <article class="yue" role="main">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger">
+    <button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="https://proxywhirl.readthedocs.io/_sources/guides/deployment-security.md.txt"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem"
+          data-url="https://proxywhirl.readthedocs.io/_sources/guides/deployment-security.md.txt">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="https://proxywhirl.readthedocs.io/_sources/guides/deployment-security.md.txt" target="_blank" rel="nofollow"><iconify-icon icon="bi:markdown"></iconify-icon>
+            <span>View as Markdown</span></a><a role="menuitem" href="https://chatgpt.com/?hints=search&q=Read%20https%3A//proxywhirl.readthedocs.io/_sources/guides/deployment-security.md.txt%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:openai"></iconify-icon>
+          <span>Open in ChatGPT</span>
+        </a><a role="menuitem" href="https://claude.ai/new?q=Read%20https%3A//proxywhirl.readthedocs.io/_sources/guides/deployment-security.md.txt%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:claude"></iconify-icon>
+          <span>Open in Claude</span>
+        </a></div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
           <section id="deployment-security-reverse-proxy-configuration">
 <h1>Deployment Security &amp; Reverse Proxy Configuration<a class="headerlink" href="#deployment-security-reverse-proxy-configuration" title="Link to this heading">¶</a></h1>
 <p>Complete guide for securely deploying ProxyWhirl in production with trusted reverse proxy configurations.</p>
@@ -1628,10 +1663,10 @@ data-aria-dark="Switch to auto color mode">
 <section id="security-standards">
 <h3>Security Standards<a class="headerlink" href="#security-standards" title="Link to this heading">¶</a></h3>
 <ul class="simple">
-<li><p><strong><a class="reference external" href="https://tools.ietf.org/html/rfc7239">RFC 7239 - Forwarded HTTP Extension</a></strong> - Standard for HTTP forwarding headers</p></li>
-<li><p><strong><a class="reference external" href="https://tools.ietf.org/html/draft-ietf-httpbis-forwarded">IETF X-Forwarded-For Draft</a></strong> - X-Forwarded-For specification</p></li>
+<li><p><strong><a class="reference external" href="https://datatracker.ietf.org/doc/html/rfc7239">RFC 7239 - Forwarded HTTP Extension</a></strong> - Standard for HTTP forwarding headers</p></li>
+<li><p><strong><a class="reference external" href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Forwarded-For">MDN X-Forwarded-For</a></strong> - X-Forwarded-For header documentation</p></li>
 <li><p><strong><a class="reference external" href="https://owasp.org/www-community/attacks/HTTP_Response_Splitting">OWASP HTTP Response Splitting</a></strong> - Header injection attacks</p></li>
-<li><p><strong><a class="reference external" href="https://owasp.org/www-community/attacks/Manipulating_User-Controlled_Variables">OWASP IP Spoofing</a></strong> - IP manipulation techniques</p></li>
+<li><p><strong><a class="reference external" href="https://owasp.org/www-project-web-security-testing-guide/">OWASP Web Security Testing Guide</a></strong> - HTTP request validation best practices</p></li>
 </ul>
 </section>
 <section id="reverse-proxy-documentation">
@@ -1640,7 +1675,7 @@ data-aria-dark="Switch to auto color mode">
 <li><p><strong><a class="reference external" href="https://nginx.org/en/docs/http/ngx_http_proxy_module.html">Nginx Proxy Module</a></strong> - Official proxy configuration</p></li>
 <li><p><strong><a class="reference external" href="https://nginx.org/en/docs/http/ngx_http_realip_module.html">Nginx Real IP Module</a></strong> - Real IP extraction</p></li>
 <li><p><strong><a class="reference external" href="https://caddyserver.com/docs/caddyfile/directives/reverse_proxy">Caddy Reverse Proxy</a></strong> - Caddy proxy documentation</p></li>
-<li><p><strong><a class="reference external" href="https://www.haproxy.org/configuration.html">HAProxy Configuration</a></strong> - HAProxy manual</p></li>
+<li><p><strong><a class="reference external" href="https://docs.haproxy.org/">HAProxy Documentation</a></strong> - HAProxy documentation</p></li>
 <li><p><strong><a class="reference external" href="https://doc.traefik.io/traefik/middlewares/http/overview/">Traefik Middleware</a></strong> - Traefik middleware reference</p></li>
 </ul>
 </section>
@@ -1697,10 +1732,10 @@ data-aria-dark="Switch to auto color mode">
   </div>
 </footer>
       <script src="../_static/documentation_options.js?v=a58bc63e"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
       <script src="../_static/copybutton.js?v=f281be69"></script>
       <script src="../_static/design-tabs.js?v=f930bc37"></script>
-      <script src="../_static/shibuya.js?v=9b0e4dde"></script></body>
+      <script src="../_static/shibuya.js?v=cac61aee"></script></body>
 </html>

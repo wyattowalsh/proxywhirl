@@ -7,7 +7,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=e1a1ceaf" />
-    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=d140fbf8" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=44020203" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
@@ -22,10 +22,10 @@
 }
 </style>
     <meta property="og:type" content="website"/>
-<meta property="og:url" content="https://proxywhirl.readthedocs.io/guides/advanced-strategies.html"/>
-<meta property="og:title" content="Advanced Rotation Strategies"/>
-<meta name="twitter:card" content="summary"/>
-<meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
+  <meta property="og:url" content="https://proxywhirl.readthedocs.io/guides/advanced-strategies.html"/>
+  <meta property="og:title" content="Advanced Rotation Strategies"/>
+  <meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
+    <meta name="twitter:card" content="summary"/>
 <meta name="twitter:creator" content="@@wyaborern"/>
 <meta name="twitter:site" content="@@wyaborern"/>
   </head>
@@ -444,6 +444,44 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l3"><a class="reference internal" href="retry-failover.html#summary">Summary</a></li>
 </ul>
 </li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#the-attack">The Attack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#the-defense">The Defense</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#nginx">Nginx</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#caddy">Caddy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#haproxy">HAProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#traefik">Traefik</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#aws-application-load-balancer">AWS Application Load Balancer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#google-cloud-load-balancer">Google Cloud Load Balancer</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#proxywhirl-configuration">ProxyWhirl Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#reading-client-ip-from-headers">Reading Client IP from Headers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#docker-compose-example">Docker Compose Example</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#security-checklist">Security Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#rate-limiting-not-working">Rate Limiting Not Working</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#metrics-showing-wrong-client-ips">Metrics Showing Wrong Client IPs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#connection-refused-behind-reverse-proxy">Connection Refused Behind Reverse Proxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#ssl-certificate-errors">SSL Certificate Errors</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="deployment-security.html#references">References</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#security-standards">Security Standards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#reverse-proxy-documentation">Reverse Proxy Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#cloud-documentation">Cloud Documentation</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="cli-reference.html">CLI Reference</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="cli-reference.html#installation">Installation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="cli-reference.html#global-options">Global Options</a><ul>
@@ -606,12 +644,20 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#optimize-retry-logic">7. Optimize Retry Logic</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#security-best-practices">Security Best Practices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#deployment-examples">Deployment Examples</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#nginx-reverse-proxy">Nginx Reverse Proxy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#kubernetes-deployment">Kubernetes Deployment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#security-best-practices">Security Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#x-forwarded-for-security-warning">X-Forwarded-For Security Warning</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#deployment-examples">Deployment Examples</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#nginx-reverse-proxy-secure-configuration">Nginx Reverse Proxy (Secure Configuration)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#kubernetes-deployment">Kubernetes Deployment</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#caddy-reverse-proxy-secure-configuration">Caddy Reverse Proxy (Secure Configuration)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#haproxy-reverse-proxy-secure-configuration">HAProxy Reverse Proxy (Secure Configuration)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#aws-application-load-balancer-alb-security">AWS Application Load Balancer (ALB) Security</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#x-forwarded-for-security-checklist">X-Forwarded-For Security Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#security-references">Security References</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#troubleshooting">Troubleshooting</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#api-wont-start">API Won&#8217;t Start</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#proxies-not-working">Proxies Not Working</a></li>
@@ -1061,8 +1107,43 @@ data-aria-dark="Switch to auto color mode">
     </div>
   </div>
 </div><div class="flex flex-col break-words justify-between">
-      <div class="min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
-        <article class="yue" role="main">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger">
+    <button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="https://proxywhirl.readthedocs.io/_sources/guides/advanced-strategies.md.txt"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem"
+          data-url="https://proxywhirl.readthedocs.io/_sources/guides/advanced-strategies.md.txt">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="https://proxywhirl.readthedocs.io/_sources/guides/advanced-strategies.md.txt" target="_blank" rel="nofollow"><iconify-icon icon="bi:markdown"></iconify-icon>
+            <span>View as Markdown</span></a><a role="menuitem" href="https://chatgpt.com/?hints=search&q=Read%20https%3A//proxywhirl.readthedocs.io/_sources/guides/advanced-strategies.md.txt%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:openai"></iconify-icon>
+          <span>Open in ChatGPT</span>
+        </a><a role="menuitem" href="https://claude.ai/new?q=Read%20https%3A//proxywhirl.readthedocs.io/_sources/guides/advanced-strategies.md.txt%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:claude"></iconify-icon>
+          <span>Open in Claude</span>
+        </a></div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
           <section id="advanced-rotation-strategies">
 <h1>Advanced Rotation Strategies<a class="headerlink" href="#advanced-rotation-strategies" title="Link to this heading">¶</a></h1>
 <p>ProxyWhirl provides 8 built-in rotation strategies for intelligent proxy selection. This guide covers the advanced strategies beyond basic round-robin and random selection, including performance-based routing, session persistence, geo-targeting, cost optimization, and composite strategies.</p>
@@ -2781,18 +2862,445 @@ data-aria-dark="Switch to auto color mode">
   </div>
 </footer>
       <script src="../_static/documentation_options.js?v=a58bc63e"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
       <script src="../_static/copybutton.js?v=f281be69"></script>
       <script src="../_static/design-tabs.js?v=f930bc37"></script>
-      <script src="../_static/shibuya.js?v=9b0e4dde"></script>
-      <script type="module" src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs"></script>
-      <script type="module" src="https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs"></script>
-      <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";import elkLayouts from "https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.4/dist/mermaid-layout-elk.esm.min.mjs";mermaid.registerLayoutLoaders(elkLayouts);mermaid.initialize({startOnLoad:false});</script>
+      <script src="../_static/shibuya.js?v=cac61aee"></script>
       <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
-      <script type="module">
-import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
-window.addEventListener("load", () => mermaid.run());
-</script></body>
+      <script type="module">import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.esm.min.mjs";
+
+
+
+
+
+const initStyles = () => {
+    const defaultStyle = document.createElement('style');
+    defaultStyle.textContent = `pre.mermaid {
+    /* Same as .mermaid-container > pre */
+    display: block;
+    width: 100%;
+}
+
+pre.mermaid > svg {
+    /* Same as .mermaid-container > pre > svg */
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}`;
+    document.head.appendChild(defaultStyle);
+
+    const fullscreenStyle = document.createElement('style');
+    fullscreenStyle.textContent = `.mermaid-container {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+}
+
+.mermaid-container > pre {
+    display: block;
+    width: 100%;
+}
+
+.mermaid-container > pre > svg {
+    height: 500px;
+    width: 100%;
+    max-width: 100% !important;
+}
+
+.mermaid-fullscreen-btn {
+    width: 28px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    font-size: 14px;
+    line-height: 1;
+    padding: 0;
+    color: #333;
+}
+
+.mermaid-fullscreen-btn:hover {
+    opacity: 100% !important;
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-btn.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-btn.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 3px 10px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal {
+    display: none;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 95vw;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.98);
+    z-index: 9999;
+    padding: 20px;
+    overflow: auto;
+}
+
+.mermaid-fullscreen-modal.dark-theme {
+    background: rgba(0, 0, 0, 0.98);
+}
+
+.mermaid-fullscreen-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen {
+    position: relative;
+    width: 95vw;
+    height: 90vh;
+    max-width: 95vw;
+    max-height: 90vh;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen.dark-theme {
+    background: #1a1a1a;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+}
+
+.mermaid-container-fullscreen pre.mermaid {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mermaid-container-fullscreen .mermaid svg {
+    height: 100% !important;
+    width: 100% !important;
+    cursor: grab;
+}
+
+.mermaid-fullscreen-close {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    width: 40px;
+    height: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s;
+    font-size: 24px;
+    line-height: 1;
+    color: #333;
+}
+
+.mermaid-fullscreen-close:hover {
+    background: white;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+    transform: scale(1.1);
+}
+
+.mermaid-fullscreen-close.dark-theme {
+    background: rgba(50, 50, 50, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #e0e0e0;
+}
+
+.mermaid-fullscreen-close.dark-theme:hover {
+    background: rgba(60, 60, 60, 1);
+    box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);
+}
+
+.mermaid-fullscreen-modal .mermaid-fullscreen-btn {
+    display: none !important;
+}`;
+    document.head.appendChild(fullscreenStyle);
+}
+
+// Detect if page has dark background
+const isDarkTheme = () => {
+    // We use a set of heuristics:
+    // 1. Check for common dark mode classes or attributes
+    // 2. Check computed background color brightness
+    if (document.documentElement.classList.contains('dark') ||
+        document.documentElement.getAttribute('data-theme') === 'dark' ||
+        document.body.classList.contains('dark') ||
+        document.body.getAttribute('data-theme') === 'dark') {
+        // console.log("Dark theme detected via class/attribute");
+        return true;
+    }
+    if (document.documentElement.classList.contains('light') ||
+        document.documentElement.getAttribute('data-theme') === 'light' ||
+        document.body.classList.contains('light') ||
+        document.body.getAttribute('data-theme') === 'light') {
+        // console.log("Light theme detected via class/attribute");
+        return false;
+    }
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        // console.log("Dark theme detected via prefers-color-scheme");
+        return true;
+    }
+    const bgColor = window.getComputedStyle(document.body).backgroundColor;
+    const match = bgColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)/);
+    if (match) {
+        const r = parseInt(match[1]);
+        const g = parseInt(match[2]);
+        const b = parseInt(match[3]);
+        const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+        // console.log("Background color brightness:", brightness);
+        return brightness < 128;
+    }
+    // console.log("No dark or light theme detected, defaulting to light theme");
+    return false;
+};
+
+let darkTheme = isDarkTheme();
+let modal = null;
+let modalContent = null;
+let previousScrollOffset = [window.scrollX, window.scrollY];
+
+const runMermaid = async (rerun) => {
+    console.log("Running mermaid diagrams, rerun =", rerun);
+    // clear all existing mermaid charts
+    let all_mermaids = document.querySelectorAll(".mermaid");
+
+    if (rerun) {
+        all_mermaids.forEach((el) => {
+            if(!el.hasAttribute("data-original-code")) {
+                // store original code
+                // console.log(`Storing original code for first run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+            if(el.getAttribute("data-processed") === "true") {
+                // remove and restore original
+                el.removeAttribute("data-processed");
+                // console.log(`Restoring original code for re-run: `, el.getAttribute('data-original-code'));
+                el.innerHTML = el.getAttribute('data-original-code');
+            } else {
+                // store original code
+                // console.log(`Storing original code for re-run: `, el.innerHTML);
+                el.setAttribute('data-original-code', el.innerHTML);
+            }
+        });
+        await mermaid.run();
+    }
+
+    all_mermaids = document.querySelectorAll(".mermaid");
+    const mermaids_processed = document.querySelectorAll(".mermaid[data-processed='true']");
+
+    if ("False" === "True") {
+        const mermaids_to_add_zoom = -1 === -1 ? all_mermaids.length : -1;
+        if(mermaids_to_add_zoom > 0) {
+            var svgs = d3.selectAll("");
+            if(all_mermaids.length !== mermaids_processed.length) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else if(svgs.size() !== mermaids_to_add_zoom) {
+                setTimeout(() => runMermaid(false), 200);
+                return;
+            } else {
+                svgs.each(function() {
+                    var svg = d3.select(this);
+                    svg.html("<g class='wrapper'>" + svg.html() + "</g>");
+                    var inner = svg.select("g");
+                    var zoom = d3.zoom().on("zoom", function(event) {
+                        inner.attr("transform", event.transform);
+                    });
+                    svg.call(zoom);
+                });
+            }
+        }
+    } else if(all_mermaids.length !== mermaids_processed.length) {
+        // Wait for mermaid to process all diagrams
+        setTimeout(() => runMermaid(false), 200);
+        return;
+    }
+
+    // Stop here if not adding fullscreen capability
+    if ("True" !== "True") return;
+
+    if (modal !== null ) {
+        // Destroy existing modal
+        modal.remove();
+        modal = null;
+        modalContent = null;
+    }
+
+    modal = document.createElement('div');
+    modal.className = 'mermaid-fullscreen-modal' + (darkTheme ? ' dark-theme' : '');
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Fullscreen diagram viewer');
+    modal.innerHTML = `
+        <button class="mermaid-fullscreen-close${darkTheme ? ' dark-theme' : ''}" aria-label="Close fullscreen">✕</button>
+        <div class="mermaid-container-fullscreen${darkTheme ? ' dark-theme' : ''}"></div>
+    `;
+    document.body.appendChild(modal);
+
+    modalContent = modal.querySelector('.mermaid-container-fullscreen');
+    const closeBtn = modal.querySelector('.mermaid-fullscreen-close');
+
+    const closeModal = () => {
+        modal.classList.remove('active');
+        modalContent.innerHTML = '';
+        document.body.style.overflow = ''
+        window.scrollTo({left: previousScrollOffset[0], top: previousScrollOffset[1], behavior: 'instant'});
+    };
+
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('active')) {
+            closeModal();
+        }
+    });
+
+    document.querySelectorAll('.mermaid').forEach((mermaidDiv) => {
+        if (mermaidDiv.parentNode.classList.contains('mermaid-container') ||
+            mermaidDiv.closest('.mermaid-fullscreen-modal')) {
+            // Already processed, adjust button class if needed
+            const existingBtn = mermaidDiv.parentNode.querySelector('.mermaid-fullscreen-btn');
+            if (existingBtn) {
+                existingBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+            }
+            return;
+        }
+
+        const container = document.createElement('div');
+        container.className = 'mermaid-container';
+        mermaidDiv.parentNode.insertBefore(container, mermaidDiv);
+        container.appendChild(mermaidDiv);
+
+        const fullscreenBtn = document.createElement('button');
+        fullscreenBtn.className = 'mermaid-fullscreen-btn' + (darkTheme ? ' dark-theme' : '');
+        fullscreenBtn.setAttribute('aria-label', 'View diagram in fullscreen');
+        fullscreenBtn.textContent = '⛶';
+        fullscreenBtn.style.opacity = '50%';
+
+        // Calculate dynamic position based on diagram's margin and padding
+        const diagramStyle = window.getComputedStyle(mermaidDiv);
+        const marginTop = parseFloat(diagramStyle.marginTop) || 0;
+        const marginRight = parseFloat(diagramStyle.marginRight) || 0;
+        const paddingTop = parseFloat(diagramStyle.paddingTop) || 0;
+        const paddingRight = parseFloat(diagramStyle.paddingRight) || 0;
+        fullscreenBtn.style.top = `${marginTop + paddingTop + 4}px`;
+        fullscreenBtn.style.right = `${marginRight + paddingRight + 4}px`;
+
+        fullscreenBtn.addEventListener('click', () => {
+            previousScrollOffset = [window.scroll, window.scrollY];
+            const clone = mermaidDiv.cloneNode(true);
+            modalContent.innerHTML = '';
+            modalContent.appendChild(clone);
+
+            const svg = clone.querySelector('svg');
+            if (svg) {
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%';
+                svg.style.sdisplay = 'block';
+
+                if ("False" === "True") {
+                    setTimeout(() => {
+                        const g = svg.querySelector('g');
+                        if (g) {
+                            var svgD3 = d3.select(svg);
+                            svgD3.html("<g class='wrapper'>" + svgD3.html() + "</g>");
+                            var inner = svgD3.select("g");
+                            var zoom = d3.zoom().on("zoom", function(event) {
+                                inner.attr("transform", event.transform);
+                            });
+                            svgD3.call(zoom);
+                        }
+                    }, 100);
+                }
+            }
+
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+        container.appendChild(fullscreenBtn);
+    });
+};
+
+const load = async () => {
+    initStyles();
+
+    await runMermaid(true);
+
+    const reRunIfThemeChanges = async () => {
+        const newDarkTheme = isDarkTheme();
+        if (newDarkTheme !== darkTheme) {
+            darkTheme = newDarkTheme;
+            console.log("Theme change detected, re-running mermaid with", darkTheme ? "dark" : "default", "theme");
+            await mermaid.initialize(
+                {...JSON.parse(
+                    `{"startOnLoad": false}`
+                ),
+                ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+                }
+            );
+            await runMermaid(true);
+        }
+    };
+
+    // Update theme classes when theme changes
+    const themeObserver = new MutationObserver(reRunIfThemeChanges);
+    themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+    themeObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style', 'data-theme']
+    });
+};
+
+
+
+
+
+console.log("Initializing mermaid with", darkTheme ? "dark" : "default", "theme");
+mermaid.initialize(
+    {...JSON.parse(
+        `{"startOnLoad": false}`
+    ),
+    ...{ darkMode: darkTheme, theme: darkTheme ? 'dark' : 'default' },
+    }
+);
+
+window.addEventListener("load", load);</script></body>
 </html>

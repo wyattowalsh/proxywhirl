@@ -7,7 +7,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=e1a1ceaf" />
-    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=d140fbf8" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=44020203" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
@@ -22,10 +22,10 @@
 }
 </style>
     <meta property="og:type" content="website"/>
-<meta property="og:url" content="https://proxywhirl.readthedocs.io/project/"/>
-<meta property="og:title" content="Project Status &amp; Roadmap"/>
-<meta name="twitter:card" content="summary"/>
-<meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
+  <meta property="og:url" content="https://proxywhirl.readthedocs.io/project/"/>
+  <meta property="og:title" content="Project Status &amp; Roadmap"/>
+  <meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
+    <meta name="twitter:card" content="summary"/>
 <meta name="twitter:creator" content="@@wyaborern"/>
 <meta name="twitter:site" content="@@wyaborern"/>
   </head>
@@ -444,6 +444,44 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l3"><a class="reference internal" href="../guides/retry-failover.html#summary">Summary</a></li>
 </ul>
 </li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../guides/deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#the-attack">The Attack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#the-defense">The Defense</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#nginx">Nginx</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#caddy">Caddy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#haproxy">HAProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#traefik">Traefik</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#aws-application-load-balancer">AWS Application Load Balancer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#google-cloud-load-balancer">Google Cloud Load Balancer</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#proxywhirl-configuration">ProxyWhirl Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#reading-client-ip-from-headers">Reading Client IP from Headers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#docker-compose-example">Docker Compose Example</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#security-checklist">Security Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#rate-limiting-not-working">Rate Limiting Not Working</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#metrics-showing-wrong-client-ips">Metrics Showing Wrong Client IPs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#connection-refused-behind-reverse-proxy">Connection Refused Behind Reverse Proxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#ssl-certificate-errors">SSL Certificate Errors</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#references">References</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#security-standards">Security Standards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#reverse-proxy-documentation">Reverse Proxy Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#cloud-documentation">Cloud Documentation</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../guides/cli-reference.html">CLI Reference</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../guides/cli-reference.html#installation">Installation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/cli-reference.html#global-options">Global Options</a><ul>
@@ -606,12 +644,20 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#optimize-retry-logic">7. Optimize Retry Logic</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#security-best-practices">Security Best Practices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#deployment-examples">Deployment Examples</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#nginx-reverse-proxy">Nginx Reverse Proxy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#kubernetes-deployment">Kubernetes Deployment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#security-best-practices">Security Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#x-forwarded-for-security-warning">X-Forwarded-For Security Warning</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#deployment-examples">Deployment Examples</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#nginx-reverse-proxy-secure-configuration">Nginx Reverse Proxy (Secure Configuration)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#kubernetes-deployment">Kubernetes Deployment</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#caddy-reverse-proxy-secure-configuration">Caddy Reverse Proxy (Secure Configuration)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#haproxy-reverse-proxy-secure-configuration">HAProxy Reverse Proxy (Secure Configuration)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#aws-application-load-balancer-alb-security">AWS Application Load Balancer (ALB) Security</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#x-forwarded-for-security-checklist">X-Forwarded-For Security Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#security-references">Security References</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../reference/rest-api.html#troubleshooting">Troubleshooting</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#api-wont-start">API Won&#8217;t Start</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#proxies-not-working">Proxies Not Working</a></li>
@@ -947,8 +993,43 @@ data-aria-dark="Switch to auto color mode">
     </div>
   </div>
 </div><div class="flex flex-col break-words justify-between">
-      <div class="min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
-        <article class="yue" role="main">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger">
+    <button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="https://proxywhirl.readthedocs.io/_sources/project/index.md.txt"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem"
+          data-url="https://proxywhirl.readthedocs.io/_sources/project/index.md.txt">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="https://proxywhirl.readthedocs.io/_sources/project/index.md.txt" target="_blank" rel="nofollow"><iconify-icon icon="bi:markdown"></iconify-icon>
+            <span>View as Markdown</span></a><a role="menuitem" href="https://chatgpt.com/?hints=search&q=Read%20https%3A//proxywhirl.readthedocs.io/_sources/project/index.md.txt%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:openai"></iconify-icon>
+          <span>Open in ChatGPT</span>
+        </a><a role="menuitem" href="https://claude.ai/new?q=Read%20https%3A//proxywhirl.readthedocs.io/_sources/project/index.md.txt%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:claude"></iconify-icon>
+          <span>Open in Claude</span>
+        </a></div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
           <section id="project-status-roadmap">
 <h1>Project Status &amp; Roadmap<a class="headerlink" href="#project-status-roadmap" title="Link to this heading">¶</a></h1>
 <p>ProxyWhirl has completed the ten-phase rollout covering strategy depth, automation, and observability. Highlights:</p>
@@ -1046,10 +1127,10 @@ data-aria-dark="Switch to auto color mode">
   </div>
 </footer>
       <script src="../_static/documentation_options.js?v=a58bc63e"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
       <script src="../_static/copybutton.js?v=f281be69"></script>
       <script src="../_static/design-tabs.js?v=f930bc37"></script>
-      <script src="../_static/shibuya.js?v=9b0e4dde"></script></body>
+      <script src="../_static/shibuya.js?v=cac61aee"></script></body>
 </html>

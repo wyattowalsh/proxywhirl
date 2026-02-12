@@ -7,7 +7,7 @@
     function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
     setColorMode(localStorage._theme||"auto");
   </script><link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=e1a1ceaf" />
-    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=d140fbf8" />
+    <link rel="stylesheet" type="text/css" href="../_static/shibuya.css?v=44020203" />
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
@@ -22,10 +22,10 @@
 }
 </style>
     <meta property="og:type" content="website"/>
-<meta property="og:url" content="https://proxywhirl.readthedocs.io/reference/cache-api.html"/>
-<meta property="og:title" content="Cache API Reference"/>
-<meta name="twitter:card" content="summary"/>
-<meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
+  <meta property="og:url" content="https://proxywhirl.readthedocs.io/reference/cache-api.html"/>
+  <meta property="og:title" content="Cache API Reference"/>
+  <meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
+    <meta name="twitter:card" content="summary"/>
 <meta name="twitter:creator" content="@@wyaborern"/>
 <meta name="twitter:site" content="@@wyaborern"/>
   </head>
@@ -444,6 +444,44 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l3"><a class="reference internal" href="../guides/retry-failover.html#summary">Summary</a></li>
 </ul>
 </li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../guides/deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#the-attack">The Attack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#the-defense">The Defense</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#nginx">Nginx</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#caddy">Caddy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#haproxy">HAProxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#traefik">Traefik</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#aws-application-load-balancer">AWS Application Load Balancer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#google-cloud-load-balancer">Google Cloud Load Balancer</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#proxywhirl-configuration">ProxyWhirl Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#reading-client-ip-from-headers">Reading Client IP from Headers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#docker-compose-example">Docker Compose Example</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#security-checklist">Security Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#rate-limiting-not-working">Rate Limiting Not Working</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#metrics-showing-wrong-client-ips">Metrics Showing Wrong Client IPs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#connection-refused-behind-reverse-proxy">Connection Refused Behind Reverse Proxy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#ssl-certificate-errors">SSL Certificate Errors</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html#references">References</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#security-standards">Security Standards</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#reverse-proxy-documentation">Reverse Proxy Documentation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#cloud-documentation">Cloud Documentation</a></li>
+</ul>
+</li>
+</ul>
+</li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../guides/cli-reference.html">CLI Reference</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../guides/cli-reference.html#installation">Installation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/cli-reference.html#global-options">Global Options</a><ul>
@@ -606,12 +644,20 @@ data-aria-dark="Switch to auto color mode">
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#optimize-retry-logic">7. Optimize Retry Logic</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="rest-api.html#security-best-practices">Security Best Practices</a></li>
-<li class="toctree-l3"><a class="reference internal" href="rest-api.html#deployment-examples">Deployment Examples</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="rest-api.html#nginx-reverse-proxy">Nginx Reverse Proxy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="rest-api.html#kubernetes-deployment">Kubernetes Deployment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="rest-api.html#security-best-practices">Security Best Practices</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="rest-api.html#x-forwarded-for-security-warning">X-Forwarded-For Security Warning</a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="rest-api.html#deployment-examples">Deployment Examples</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="rest-api.html#nginx-reverse-proxy-secure-configuration">Nginx Reverse Proxy (Secure Configuration)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rest-api.html#kubernetes-deployment">Kubernetes Deployment</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rest-api.html#caddy-reverse-proxy-secure-configuration">Caddy Reverse Proxy (Secure Configuration)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rest-api.html#haproxy-reverse-proxy-secure-configuration">HAProxy Reverse Proxy (Secure Configuration)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rest-api.html#aws-application-load-balancer-alb-security">AWS Application Load Balancer (ALB) Security</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="rest-api.html#x-forwarded-for-security-checklist">X-Forwarded-For Security Checklist</a></li>
+<li class="toctree-l3"><a class="reference internal" href="rest-api.html#security-references">Security References</a></li>
 <li class="toctree-l3"><a class="reference internal" href="rest-api.html#troubleshooting">Troubleshooting</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#api-wont-start">API Won&#8217;t Start</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#proxies-not-working">Proxies Not Working</a></li>
@@ -1103,8 +1149,43 @@ data-aria-dark="Switch to auto color mode">
     </div>
   </div>
 </div><div class="flex flex-col break-words justify-between">
-      <div class="min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
-        <article class="yue" role="main">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger">
+    <button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="https://proxywhirl.readthedocs.io/_sources/reference/cache-api.md.txt"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem"
+          data-url="https://proxywhirl.readthedocs.io/_sources/reference/cache-api.md.txt">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="https://proxywhirl.readthedocs.io/_sources/reference/cache-api.md.txt" target="_blank" rel="nofollow"><iconify-icon icon="bi:markdown"></iconify-icon>
+            <span>View as Markdown</span></a><a role="menuitem" href="https://chatgpt.com/?hints=search&q=Read%20https%3A//proxywhirl.readthedocs.io/_sources/reference/cache-api.md.txt%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:openai"></iconify-icon>
+          <span>Open in ChatGPT</span>
+        </a><a role="menuitem" href="https://claude.ai/new?q=Read%20https%3A//proxywhirl.readthedocs.io/_sources/reference/cache-api.md.txt%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:claude"></iconify-icon>
+          <span>Open in Claude</span>
+        </a></div>
+    </div>
+  </div>
+</div><article class="yue" role="main">
           <section id="cache-api-reference">
 <h1>Cache API Reference<a class="headerlink" href="#cache-api-reference" title="Link to this heading">¶</a></h1>
 <p>Complete reference for ProxyWhirl’s multi-tier caching system with L1 (memory), L2 (disk), and L3 (SQLite) support.</p>
@@ -1145,7 +1226,7 @@ data-aria-dark="Switch to auto color mode">
 <p>Container for a single cached proxy with metadata, TTL, and health tracking.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="CacheEntry">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CacheEntry</span></span><a class="headerlink" href="#CacheEntry" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">CacheEntry</span></span><a class="headerlink" href="#CacheEntry" title="Link to this definition">¶</a></dt>
 <dd><p>Pydantic model that stores proxy information with TTL, health status, and access tracking.
 Credentials are SecretStr in memory, encrypted at rest in L2/L3.</p>
 <p><strong>Example:</strong></p>
@@ -1220,7 +1301,7 @@ Credentials are SecretStr in memory, encrypted at rest in L2/L3.</p>
 <h4>Properties<a class="headerlink" href="#properties" title="Link to this heading">¶</a></h4>
 <dl class="py property">
 <dt class="sig sig-object py" id="is_expired">
-<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_expired</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><a class="headerlink" href="#is_expired" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">is_expired</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><a class="headerlink" href="#is_expired" title="Link to this definition">¶</a></dt>
 <dd><p>Check if entry has expired based on TTL.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -1231,7 +1312,7 @@ Credentials are SecretStr in memory, encrypted at rest in L2/L3.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="is_healthy">
-<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">is_healthy</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></em><a class="headerlink" href="#is_healthy" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">is_healthy</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span><a class="headerlink" href="#is_healthy" title="Link to this definition">¶</a></dt>
 <dd><p>Check if proxy is healthy enough to use.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -1248,7 +1329,7 @@ Credentials are SecretStr in memory, encrypted at rest in L2/L3.</p>
 <p>Configuration for cache behavior and tier settings.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="CacheConfig">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CacheConfig</span></span><a class="headerlink" href="#CacheConfig" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">CacheConfig</span></span><a class="headerlink" href="#CacheConfig" title="Link to this definition">¶</a></dt>
 <dd><p>Pydantic model that aggregates configuration for all three tiers plus global settings
 like TTL, cleanup intervals, and storage paths.</p>
 <p><strong>Example:</strong></p>
@@ -1354,7 +1435,7 @@ like TTL, cleanup intervals, and storage paths.</p>
 <p>Configuration for a single cache tier.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="CacheTierConfig">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CacheTierConfig</span></span><a class="headerlink" href="#CacheTierConfig" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">CacheTierConfig</span></span><a class="headerlink" href="#CacheTierConfig" title="Link to this definition">¶</a></dt>
 <dd><p>Pydantic model that defines capacity, eviction policy, and enable/disable state for
 one tier (L1, L2, or L3).</p>
 <p><strong>Example:</strong></p>
@@ -1381,7 +1462,7 @@ one tier (L1, L2, or L3).</p>
 <h4>Validators<a class="headerlink" href="#validators" title="Link to this heading">¶</a></h4>
 <dl class="py method">
 <dt class="sig sig-object py" id="validate_policy">
-<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">validate_policy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="headerlink" href="#validate_policy" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">validate_policy</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">v</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></span><a class="headerlink" href="#validate_policy" title="Link to this definition">¶</a></dt>
 <dd><p>Validate eviction policy is supported.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1404,7 +1485,7 @@ one tier (L1, L2, or L3).</p>
 <p>Aggregate cache statistics across all tiers.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="CacheStatistics">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CacheStatistics</span></span><a class="headerlink" href="#CacheStatistics" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">CacheStatistics</span></span><a class="headerlink" href="#CacheStatistics" title="Link to this definition">¶</a></dt>
 <dd><p>Pydantic model that combines tier-level statistics and tracks cross-tier operations
 like promotions and demotions.</p>
 <p><strong>Example:</strong></p>
@@ -1448,7 +1529,7 @@ like promotions and demotions.</p>
 <h4>Computed Properties<a class="headerlink" href="#computed-properties" title="Link to this heading">¶</a></h4>
 <dl class="py property">
 <dt class="sig sig-object py" id="overall_hit_rate">
-<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">overall_hit_rate</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><a class="headerlink" href="#overall_hit_rate" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">overall_hit_rate</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><a class="headerlink" href="#overall_hit_rate" title="Link to this definition">¶</a></dt>
 <dd><p>Overall hit rate across all tiers (0.0 to 1.0).</p>
 <p>Uses max of per-tier misses to avoid triple-counting misses that cascade
 through L1→L2→L3 lookups.</p>
@@ -1456,7 +1537,7 @@ through L1→L2→L3 lookups.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="total_size">
-<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">total_size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em><a class="headerlink" href="#total_size" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">total_size</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#total_size" title="Link to this definition">¶</a></dt>
 <dd><p>Total cached entries across all tiers.</p>
 </dd></dl>
 
@@ -1498,7 +1579,7 @@ through L1→L2→L3 lookups.</p>
 <p>Statistics for a single cache tier.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="TierStatistics">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">TierStatistics</span></span><a class="headerlink" href="#TierStatistics" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">TierStatistics</span></span><a class="headerlink" href="#TierStatistics" title="Link to this definition">¶</a></dt>
 <dd><p>Pydantic model that tracks hits, misses, evictions by reason, and computes hit rate.</p>
 <p><strong>Example:</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.cache</span><span class="w"> </span><span class="kn">import</span> <span class="n">TierStatistics</span>
@@ -1526,7 +1607,7 @@ through L1→L2→L3 lookups.</p>
 <h4>Computed Properties<a class="headerlink" href="#id5" title="Link to this heading">¶</a></h4>
 <dl class="py property">
 <dt class="sig sig-object py" id="hit_rate">
-<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">hit_rate</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></em><a class="headerlink" href="#hit_rate" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">hit_rate</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><span class="pre">float</span></a></span><a class="headerlink" href="#hit_rate" title="Link to this definition">¶</a></dt>
 <dd><p>Cache hit rate (0.0 to 1.0).</p>
 <dl class="field-list simple">
 <dt class="field-odd">Formula<span class="colon">:</span></dt>
@@ -1537,7 +1618,7 @@ through L1→L2→L3 lookups.</p>
 
 <dl class="py property">
 <dt class="sig sig-object py" id="total_evictions">
-<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">total_evictions</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></em><a class="headerlink" href="#total_evictions" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">total_evictions</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span><a class="headerlink" href="#total_evictions" title="Link to this definition">¶</a></dt>
 <dd><p>Total evictions across all reasons.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Formula<span class="colon">:</span></dt>
@@ -1554,7 +1635,7 @@ through L1→L2→L3 lookups.</p>
 <p>Proxy health status for cache entries (imported from <code class="docutils literal notranslate"><span class="pre">proxywhirl.models</span></code>).</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="HealthStatus">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">HealthStatus</span></span><a class="headerlink" href="#HealthStatus" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">HealthStatus</span></span><a class="headerlink" href="#HealthStatus" title="Link to this definition">¶</a></dt>
 <dd><p>String enum representing proxy health status with 5 states.</p>
 <p><strong>Values:</strong></p>
 <ul class="simple">
@@ -1584,7 +1665,7 @@ through L1→L2→L3 lookups.</p>
 <p>Type of cache tier.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="CacheTierType">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CacheTierType</span></span><a class="headerlink" href="#CacheTierType" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">CacheTierType</span></span><a class="headerlink" href="#CacheTierType" title="Link to this definition">¶</a></dt>
 <dd><p>String enum representing cache tier types.</p>
 <p><strong>Values:</strong></p>
 <ul class="simple">
@@ -1608,7 +1689,7 @@ through L1→L2→L3 lookups.</p>
 <p>L2 cache backend type selection.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="L2BackendType">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">L2BackendType</span></span><a class="headerlink" href="#L2BackendType" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">L2BackendType</span></span><a class="headerlink" href="#L2BackendType" title="Link to this definition">¶</a></dt>
 <dd><p>String enum for selecting the L2 disk cache storage backend.</p>
 <p><strong>Values:</strong></p>
 <ul class="simple">
@@ -1662,7 +1743,7 @@ through L1→L2→L3 lookups.</p>
 <p>Abstract base class for cache tier implementations.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="CacheTier">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CacheTier</span></span><a class="headerlink" href="#CacheTier" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">CacheTier</span></span><a class="headerlink" href="#CacheTier" title="Link to this definition">¶</a></dt>
 <dd><p>Defines the interface that all cache tiers (L1, L2, L3) must implement,
 including graceful degradation on repeated failures.</p>
 <p><strong>Attributes:</strong></p>
@@ -1696,7 +1777,7 @@ including graceful degradation on repeated failures.</p>
 <h4>Abstract Methods<a class="headerlink" href="#abstract-methods" title="Link to this heading">¶</a></h4>
 <dl class="py method">
 <dt class="sig sig-object py" id="get">
-<em class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#CacheEntry" title="CacheEntry"><span class="pre">CacheEntry</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#get" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">get</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#CacheEntry" title="CacheEntry"><span class="pre">CacheEntry</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.14)"><span class="pre">None</span></a></span></span><a class="headerlink" href="#get" title="Link to this definition">¶</a></dt>
 <dd><p>Retrieve entry by key, None if not found or expired.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1710,7 +1791,7 @@ including graceful degradation on repeated failures.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="put">
-<em class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">put</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">entry</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#CacheEntry" title="CacheEntry"><span class="pre">CacheEntry</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="headerlink" href="#put" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">put</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">entry</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="#CacheEntry" title="CacheEntry"><span class="pre">CacheEntry</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="headerlink" href="#put" title="Link to this definition">¶</a></dt>
 <dd><p>Store entry, return True if successful.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1727,7 +1808,7 @@ including graceful degradation on repeated failures.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="delete">
-<em class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">delete</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="headerlink" href="#delete" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">delete</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><span class="pre">bool</span></a></span></span><a class="headerlink" href="#delete" title="Link to this definition">¶</a></dt>
 <dd><p>Remove entry by key, return True if existed.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -1741,7 +1822,7 @@ including graceful degradation on repeated failures.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="clear">
-<em class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></span><a class="headerlink" href="#clear" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">clear</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></span><a class="headerlink" href="#clear" title="Link to this definition">¶</a></dt>
 <dd><p>Clear all entries, return count of removed entries.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -1752,7 +1833,7 @@ including graceful degradation on repeated failures.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="size">
-<em class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">size</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></span><a class="headerlink" href="#size" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">size</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></span><a class="headerlink" href="#size" title="Link to this definition">¶</a></dt>
 <dd><p>Return current number of entries.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -1763,7 +1844,7 @@ including graceful degradation on repeated failures.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="keys">
-<em class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">keys</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#keys" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">keys</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#keys" title="Link to this definition">¶</a></dt>
 <dd><p>Return list of all keys.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -1774,7 +1855,7 @@ including graceful degradation on repeated failures.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="cleanup_expired">
-<em class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">cleanup_expired</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></span><a class="headerlink" href="#cleanup_expired" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">abstractmethod</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">cleanup_expired</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><span class="pre">int</span></a></span></span><a class="headerlink" href="#cleanup_expired" title="Link to this definition">¶</a></dt>
 <dd><p>Remove all expired entries in bulk.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -1815,7 +1896,7 @@ Implementations should call this after successful operations.</p>
 <p>L1 in-memory cache using OrderedDict for LRU tracking.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="MemoryCacheTier">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">MemoryCacheTier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">CacheTier</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MemoryCacheTier" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">MemoryCacheTier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">CacheTier</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#MemoryCacheTier" title="Link to this definition">¶</a></dt>
 <dd><p>Provides O(1) lookups with automatic LRU eviction when max_entries exceeded.</p>
 <p><strong>Example:</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.cache.tiers</span><span class="w"> </span><span class="kn">import</span> <span class="n">MemoryCacheTier</span><span class="p">,</span> <span class="n">TierType</span>
@@ -1883,7 +1964,7 @@ Implementations should call this after successful operations.</p>
 <p>L2 file-based cache using sharded JSONL files with encryption.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="JsonlCacheTier">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">JsonlCacheTier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">CacheTier</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#JsonlCacheTier" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">JsonlCacheTier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">CacheTier</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#JsonlCacheTier" title="Link to this definition">¶</a></dt>
 <dd><p>File-based cache tier using JSON Lines format with consistent-hash sharding.
 Best for &lt;10K entries. Human-readable, portable, and git-friendly.</p>
 <p>Uses sharded JSONL files with:</p>
@@ -2029,7 +2110,7 @@ Best for &lt;10K entries. Human-readable, portable, and git-friendly.</p>
 <p>L2 SQLite-based cache with encryption and indexed lookups.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="DiskCacheTier">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">DiskCacheTier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">CacheTier</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#DiskCacheTier" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">DiskCacheTier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">CacheTier</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#DiskCacheTier" title="Link to this definition">¶</a></dt>
 <dd><p>Optimized for &gt;10K entries using SQLite with B-tree indexes instead of JSONL.
 Provides O(log n) lookups vs O(n) for JSONL, achieving &lt;10ms reads for 10K+ entries.</p>
 <p>Uses a lightweight SQLite database with:</p>
@@ -2143,7 +2224,7 @@ from the specified directory and imports them into the SQLite database.</p>
 <p>L3 SQLite database cache with encrypted credentials and health history.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="SQLiteCacheTier">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">SQLiteCacheTier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">CacheTier</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SQLiteCacheTier" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">SQLiteCacheTier</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">CacheTier</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#SQLiteCacheTier" title="Link to this definition">¶</a></dt>
 <dd><p>Provides durable persistence with SQL indexing for fast lookups and comprehensive
 health history tracking.</p>
 <p><strong>Example:</strong></p>
@@ -2258,7 +2339,7 @@ health history tracking.</p>
 <p>Handles encryption/decryption of proxy credentials using Fernet symmetric encryption (AES-128-CBC + HMAC).</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="CredentialEncryptor">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CredentialEncryptor</span></span><a class="headerlink" href="#CredentialEncryptor" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">CredentialEncryptor</span></span><a class="headerlink" href="#CredentialEncryptor" title="Link to this definition">¶</a></dt>
 <dd><p>Provides Fernet symmetric encryption for proxy credentials at rest (L2/L3 tiers).
 Uses environment variable PROXYWHIRL_CACHE_ENCRYPTION_KEY for key management.</p>
 <p><strong>Example:</strong></p>
@@ -2365,7 +2446,7 @@ cannot decrypt existing cached data).</p>
 <p>Main orchestrator for multi-tier proxy caching (stub implementation).</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="CacheManager">
-<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">CacheManager</span></span><a class="headerlink" href="#CacheManager" title="Link to this definition">¶</a></dt>
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">CacheManager</span></span><a class="headerlink" href="#CacheManager" title="Link to this definition">¶</a></dt>
 <dd><p><strong>Note:</strong> This is currently a minimal stub implementation. Full implementation is planned.</p>
 <p>Placeholder class for future multi-tier cache orchestration with automatic
 promotion/demotion, TTL management, and health-based invalidation.</p>
@@ -2616,10 +2697,10 @@ promotion/demotion, TTL management, and health-based invalidation.</p>
   </div>
 </footer>
       <script src="../_static/documentation_options.js?v=a58bc63e"></script>
-      <script src="../_static/doctools.js?v=9bcbadda"></script>
-      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
       <script src="../_static/copybutton.js?v=f281be69"></script>
       <script src="../_static/design-tabs.js?v=f930bc37"></script>
-      <script src="../_static/shibuya.js?v=9b0e4dde"></script></body>
+      <script src="../_static/shibuya.js?v=cac61aee"></script></body>
 </html>

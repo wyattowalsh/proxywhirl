@@ -853,9 +853,9 @@ Before deploying to production, verify:
 For additional information on HTTP header security and IP validation:
 
 - **OWASP HTTP Response Splitting:** https://owasp.org/www-community/attacks/HTTP_Response_Splitting
-- **OWASP Proxy Security:** https://owasp.org/www-community/attacks/Manipulating_User-Controlled_Variables
-- **RFC 7239 - Forwarded HTTP Extension:** https://tools.ietf.org/html/rfc7239
-- **IETF X-Forwarded-For:** https://tools.ietf.org/html/draft-ietf-httpbis-forwarded
+- **OWASP Web Security Testing Guide:** https://owasp.org/www-project-web-security-testing-guide/
+- **RFC 7239 - Forwarded HTTP Extension:** https://datatracker.ietf.org/doc/html/rfc7239
+- **MDN X-Forwarded-For:** https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/X-Forwarded-For
 
 ## Troubleshooting
 
