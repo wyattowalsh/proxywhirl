@@ -39,22 +39,21 @@ def example_round_robin():
 
     # Create a pool with 3 proxies
     proxies = [
-        Proxy(host="proxy1.example.com", port=8080, protocol="http"),
-        Proxy(host="proxy2.example.com", port=8080, protocol="http"),
-        Proxy(host="proxy3.example.com", port=8080, protocol="http"),
+        Proxy(url="http://proxy1.example.com:8080"),
+        Proxy(url="http://proxy2.example.com:8080"),
+        Proxy(url="http://proxy3.example.com:8080"),
     ]
-    pool = ProxyPool(proxies=proxies)
 
     # Create rotator with round-robin strategy
-    rotator = ProxyRotator(pool=pool, strategy=RoundRobinStrategy())
+    rotator = ProxyRotator(proxies=proxies, strategy=RoundRobinStrategy())
 
-    # Make 6 requests - should cycle through proxies evenly
-    print("\nMaking 6 requests with round-robin:")
+    # Select 6 proxies - should cycle through proxies evenly
+    print("\nSelecting 6 proxies with round-robin:")
     for i in range(6):
-        proxy = rotator.get_next_proxy()
-        print(f"  Request {i + 1}: {proxy.host}")
+        proxy = rotator.strategy.select(rotator.pool)
+        print(f"  Request {i + 1}: {proxy.url}")
 
-    print("\n✅ Round-robin ensures perfect distribution (±1 request)")
+    print("\nRound-robin ensures perfect distribution (+/-1 request)")
 
 
 def example_random_and_weighted():
@@ -65,18 +64,17 @@ def example_random_and_weighted():
 
     # Create pool
     proxies = [
-        Proxy(host="fast-proxy.example.com", port=8080, protocol="http"),
-        Proxy(host="slow-proxy.example.com", port=8080, protocol="http"),
-        Proxy(host="medium-proxy.example.com", port=8080, protocol="http"),
+        Proxy(url="http://fast-proxy.example.com:8080"),
+        Proxy(url="http://slow-proxy.example.com:8080"),
+        Proxy(url="http://medium-proxy.example.com:8080"),
     ]
-    pool = ProxyPool(proxies=proxies)
 
     # Random strategy - uniform distribution
     print("\nRandom Strategy (uniform):")
-    random_rotator = ProxyRotator(pool=pool, strategy=RandomStrategy())
+    random_rotator = ProxyRotator(proxies=proxies, strategy=RandomStrategy())
     for i in range(3):
-        proxy = random_rotator.get_next_proxy()
-        print(f"  Request {i + 1}: {proxy.host}")
+        proxy = random_rotator.strategy.select(random_rotator.pool)
+        print(f"  Request {i + 1}: {proxy.url}")
 
     # Weighted strategy - prefer high-success proxies
     print("\nWeighted Strategy (success-rate based):")
@@ -88,7 +86,7 @@ def example_random_and_weighted():
     proxies[2].total_successes = 80
     proxies[2].total_requests = 100
 
-    weighted_rotator = ProxyRotator(pool=pool, strategy=WeightedStrategy())
+    weighted_rotator = ProxyRotator(proxies=proxies, strategy=WeightedStrategy())
     print("  Proxies with 95%, 50%, 80% success rates")
     print("  Expect more selections from high-success proxies")
 
@@ -101,9 +99,9 @@ def example_least_used():
 
     # Create pool
     proxies = [
-        Proxy(host="proxy1.example.com", port=8080, protocol="http"),
-        Proxy(host="proxy2.example.com", port=8080, protocol="http"),
-        Proxy(host="proxy3.example.com", port=8080, protocol="http"),
+        Proxy(url="http://proxy1.example.com:8080"),
+        Proxy(url="http://proxy2.example.com:8080"),
+        Proxy(url="http://proxy3.example.com:8080"),
     ]
 
     # Simulate uneven usage
@@ -111,19 +109,18 @@ def example_least_used():
     proxies[1].requests_completed = 5
     proxies[2].requests_completed = 8
 
-    pool = ProxyPool(proxies=proxies)
-    rotator = ProxyRotator(pool=pool, strategy=LeastUsedStrategy())
+    rotator = ProxyRotator(proxies=proxies, strategy=LeastUsedStrategy())
 
     print("\nInitial request counts:")
     for p in proxies:
-        print(f"  {p.host}: {p.requests_completed} requests")
+        print(f"  {p.url}: {p.requests_completed} requests")
 
     print("\nNext 3 selections (should balance the load):")
     for i in range(3):
-        proxy = rotator.get_next_proxy()
-        print(f"  Selection {i + 1}: {proxy.host}")
+        proxy = rotator.strategy.select(rotator.pool)
+        print(f"  Selection {i + 1}: {proxy.url}")
 
-    print("\n✅ Least-used ensures balanced load across all proxies")
+    print("\nLeast-used ensures balanced load across all proxies")
 
 
 def example_performance_based():
@@ -135,35 +132,33 @@ def example_performance_based():
     # Create proxies with different latencies
     proxies = [
         Proxy(
-            host="fast-proxy.example.com",
-            port=8080,
-            protocol="http",
+            url="http://fast-proxy.example.com:8080",
             ema_response_time_ms=50.0,
         ),
         Proxy(
-            host="medium-proxy.example.com",
-            port=8080,
-            protocol="http",
+            url="http://medium-proxy.example.com:8080",
             ema_response_time_ms=150.0,
         ),
         Proxy(
-            host="slow-proxy.example.com",
-            port=8080,
-            protocol="http",
+            url="http://slow-proxy.example.com:8080",
             ema_response_time_ms=300.0,
         ),
     ]
 
-    pool = ProxyPool(proxies=proxies)
-    rotator = ProxyRotator(pool=pool, strategy=PerformanceBasedStrategy())
+    # Set total_requests above the exploration threshold so
+    # the strategy uses performance-based selection
+    for p in proxies:
+        p.total_requests = 10
+
+    rotator = ProxyRotator(proxies=proxies, strategy=PerformanceBasedStrategy())
 
     print("\nProxy latencies (EMA):")
     for p in proxies:
-        print(f"  {p.host}: {p.ema_response_time_ms}ms")
+        print(f"  {p.url}: {p.ema_response_time_ms}ms")
 
     print("\nPerformance-based selection (prefers faster proxies):")
     print("  Expect more selections from fast-proxy.example.com")
-    print("\n✅ Performance-based reduces average response time by 15-25%")
+    print("\nPerformance-based reduces average response time by 15-25%")
 
 
 def example_session_persistence():
@@ -174,13 +169,12 @@ def example_session_persistence():
 
     # Create pool
     proxies = [
-        Proxy(host="proxy1.example.com", port=8080, protocol="http"),
-        Proxy(host="proxy2.example.com", port=8080, protocol="http"),
-        Proxy(host="proxy3.example.com", port=8080, protocol="http"),
+        Proxy(url="http://proxy1.example.com:8080"),
+        Proxy(url="http://proxy2.example.com:8080"),
+        Proxy(url="http://proxy3.example.com:8080"),
     ]
-    pool = ProxyPool(proxies=proxies)
 
-    rotator = ProxyRotator(pool=pool, strategy=SessionPersistenceStrategy())
+    rotator = ProxyRotator(proxies=proxies, strategy=SessionPersistenceStrategy())
 
     # Create session context
     session_id = "user-12345-session"
@@ -191,13 +185,13 @@ def example_session_persistence():
 
     first_proxy = None
     for i in range(5):
-        proxy = rotator.get_next_proxy(context=context)
+        proxy = rotator.strategy.select(rotator.pool, context=context)
         if i == 0:
-            first_proxy = proxy.host
-        print(f"  Request {i + 1}: {proxy.host}")
+            first_proxy = proxy.url
+        print(f"  Request {i + 1}: {proxy.url}")
 
-    print(f"\n✅ All requests used same proxy: {first_proxy}")
-    print("✅ Session persistence ensures 99.9% same-proxy guarantee")
+    print(f"\nAll requests used same proxy: {first_proxy}")
+    print("Session persistence ensures 99.9% same-proxy guarantee")
 
 
 def example_geo_targeted():
@@ -209,48 +203,41 @@ def example_geo_targeted():
     # Create proxies from different countries
     proxies = [
         Proxy(
-            host="us-proxy.example.com",
-            port=8080,
-            protocol="http",
+            url="http://us-proxy.example.com:8080",
             country_code="US",
             region="us-east-1",
         ),
         Proxy(
-            host="eu-proxy.example.com",
-            port=8080,
-            protocol="http",
+            url="http://eu-proxy.example.com:8080",
             country_code="DE",
             region="eu-central-1",
         ),
         Proxy(
-            host="asia-proxy.example.com",
-            port=8080,
-            protocol="http",
+            url="http://asia-proxy.example.com:8080",
             country_code="JP",
             region="ap-northeast-1",
         ),
     ]
 
-    pool = ProxyPool(proxies=proxies)
-    rotator = ProxyRotator(pool=pool, strategy=GeoTargetedStrategy())
+    rotator = ProxyRotator(proxies=proxies, strategy=GeoTargetedStrategy())
 
     print("\nAvailable proxies:")
     for p in proxies:
-        print(f"  {p.host}: {p.country_code} ({p.region})")
+        print(f"  {p.url}: {p.country_code} ({p.region})")
 
     # Request US proxy
     print("\nRequesting US proxy:")
     context = SelectionContext(target_country="US")
-    proxy = rotator.get_next_proxy(context=context)
-    print(f"  Selected: {proxy.host} ({proxy.country_code})")
+    proxy = rotator.strategy.select(rotator.pool, context=context)
+    print(f"  Selected: {proxy.url} ({proxy.country_code})")
 
     # Request EU proxy
     print("\nRequesting EU (DE) proxy:")
     context = SelectionContext(target_country="DE")
-    proxy = rotator.get_next_proxy(context=context)
-    print(f"  Selected: {proxy.host} ({proxy.country_code})")
+    proxy = rotator.strategy.select(rotator.pool, context=context)
+    print(f"  Selected: {proxy.url} ({proxy.country_code})")
 
-    print("\n✅ Geo-targeting ensures 100% correct region selection")
+    print("\nGeo-targeting ensures 100% correct region selection")
 
 
 def example_strategy_composition():
@@ -262,36 +249,34 @@ def example_strategy_composition():
     # Create diverse proxy pool
     proxies = [
         Proxy(
-            host="us-fast.example.com",
-            port=8080,
-            protocol="http",
+            url="http://us-fast.example.com:8080",
             country_code="US",
             ema_response_time_ms=50.0,
         ),
         Proxy(
-            host="us-slow.example.com",
-            port=8080,
-            protocol="http",
+            url="http://us-slow.example.com:8080",
             country_code="US",
             ema_response_time_ms=200.0,
         ),
         Proxy(
-            host="eu-fast.example.com",
-            port=8080,
-            protocol="http",
+            url="http://eu-fast.example.com:8080",
             country_code="DE",
             ema_response_time_ms=60.0,
         ),
         Proxy(
-            host="eu-slow.example.com",
-            port=8080,
-            protocol="http",
+            url="http://eu-slow.example.com:8080",
             country_code="DE",
             ema_response_time_ms=250.0,
         ),
     ]
 
-    pool = ProxyPool(proxies=proxies)
+    # Set total_requests above exploration threshold and mark healthy
+    # (CompositeStrategy filters for is_healthy which requires HEALTHY status)
+    from proxywhirl.models import HealthStatus
+
+    for p in proxies:
+        p.total_requests = 10
+        p.health_status = HealthStatus.HEALTHY
 
     # Compose: Geo-filter (US only) + Performance-based selection
     print("\nComposed Strategy: Geo-filter (US) + Performance-based")
@@ -299,15 +284,15 @@ def example_strategy_composition():
         filters=[GeoTargetedStrategy()], selector=PerformanceBasedStrategy()
     )
 
-    rotator = ProxyRotator(pool=pool, strategy=composite)
+    rotator = ProxyRotator(proxies=proxies, strategy=composite)
     context = SelectionContext(target_country="US")
 
     print("  Step 1: Filter to US proxies (us-fast, us-slow)")
     print("  Step 2: Select fastest from filtered set")
-    proxy = rotator.get_next_proxy(context=context)
-    print(f"  Result: {proxy.host} ({proxy.ema_response_time_ms}ms)")
+    proxy = rotator.strategy.select(rotator.pool, context=context)
+    print(f"  Result: {proxy.url} ({proxy.ema_response_time_ms}ms)")
 
-    print("\n✅ Composition enables complex selection logic")
+    print("\nComposition enables complex selection logic")
 
 
 def example_hot_swapping():
@@ -318,33 +303,32 @@ def example_hot_swapping():
 
     # Create pool
     proxies = [
-        Proxy(host="proxy1.example.com", port=8080, protocol="http"),
-        Proxy(host="proxy2.example.com", port=8080, protocol="http"),
-        Proxy(host="proxy3.example.com", port=8080, protocol="http"),
+        Proxy(url="http://proxy1.example.com:8080"),
+        Proxy(url="http://proxy2.example.com:8080"),
+        Proxy(url="http://proxy3.example.com:8080"),
     ]
-    pool = ProxyPool(proxies=proxies)
 
     # Start with round-robin
-    rotator = ProxyRotator(pool=pool, strategy=RoundRobinStrategy())
+    rotator = ProxyRotator(proxies=proxies, strategy=RoundRobinStrategy())
     print("\nInitial strategy: Round-Robin")
-    proxy = rotator.get_next_proxy()
-    print(f"  Selected: {proxy.host}")
+    proxy = rotator.strategy.select(rotator.pool)
+    print(f"  Selected: {proxy.url}")
 
     # Hot-swap to random
     print("\nHot-swapping to Random strategy...")
     rotator.set_strategy(RandomStrategy())
-    print("  ✅ Strategy swapped in <100ms (atomic operation)")
+    print("  Strategy swapped in <100ms (atomic operation)")
 
-    proxy = rotator.get_next_proxy()
-    print(f"  Selected with new strategy: {proxy.host}")
+    proxy = rotator.strategy.select(rotator.pool)
+    print(f"  Selected with new strategy: {proxy.url}")
 
     # Hot-swap using string name
     print("\nHot-swapping to 'least-used' by name...")
     rotator.set_strategy("least-used")
-    proxy = rotator.get_next_proxy()
-    print(f"  Selected: {proxy.host}")
+    proxy = rotator.strategy.select(rotator.pool)
+    print(f"  Selected: {proxy.url}")
 
-    print("\n✅ Hot-swapping enables runtime strategy changes")
+    print("\nHot-swapping enables runtime strategy changes")
 
 
 def example_custom_plugin():
@@ -376,28 +360,27 @@ def example_custom_plugin():
     print("\nRegistering custom strategy...")
     registry = StrategyRegistry()
     registry.register_strategy("always-first", AlwaysFirstStrategy)
-    print("  ✅ Strategy 'always-first' registered")
+    print("  Strategy 'always-first' registered")
 
     # Use custom strategy
     proxies = [
-        Proxy(host="first-proxy.example.com", port=8080, protocol="http"),
-        Proxy(host="second-proxy.example.com", port=8080, protocol="http"),
-        Proxy(host="third-proxy.example.com", port=8080, protocol="http"),
+        Proxy(url="http://first-proxy.example.com:8080"),
+        Proxy(url="http://second-proxy.example.com:8080"),
+        Proxy(url="http://third-proxy.example.com:8080"),
     ]
-    pool = ProxyPool(proxies=proxies)
 
     # Retrieve and instantiate
     strategy_class = registry.get_strategy("always-first")
     strategy = strategy_class()
-    rotator = ProxyRotator(pool=pool, strategy=strategy)
+    rotator = ProxyRotator(proxies=proxies, strategy=strategy)
 
     print("\nUsing custom strategy (3 requests):")
     for i in range(3):
-        proxy = rotator.get_next_proxy()
-        print(f"  Request {i + 1}: {proxy.host}")
+        proxy = rotator.strategy.select(rotator.pool)
+        print(f"  Request {i + 1}: {proxy.url}")
 
-    print("\n✅ Plugin architecture enables custom strategies")
-    print("✅ Custom plugins load in <1 second")
+    print("\nPlugin architecture enables custom strategies")
+    print("Custom plugins load in <1 second")
 
 
 def main():
@@ -419,9 +402,9 @@ def main():
     print("\n" + "=" * 60)
     print("All Examples Complete!")
     print("=" * 60)
-    print("\n📖 Documentation: docs/")
-    print("🧪 Tests: tests/")
-    print("📊 Benchmarks: tests/benchmarks/")
+    print("\nDocumentation: docs/")
+    print("Tests: tests/")
+    print("Benchmarks: tests/benchmarks/")
     print("\n")
 
 

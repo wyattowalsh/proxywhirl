@@ -77,7 +77,7 @@ class TestCLIConfig:
         assert config.rotation_strategy == "round-robin"
         assert config.timeout == 30
         assert config.max_retries == 3
-        assert config.default_format == "human"
+        assert config.default_format == "text"
         assert config.color is True
 
     def test_valid_rotation_strategies(self) -> None:
@@ -93,7 +93,7 @@ class TestCLIConfig:
 
     def test_valid_output_formats(self) -> None:
         """Test all valid output formats."""
-        for fmt in ["human", "json", "table", "csv"]:
+        for fmt in ["text", "json", "csv"]:
             config = CLIConfig(default_format=fmt)
             assert config.default_format == fmt
 
@@ -101,6 +101,33 @@ class TestCLIConfig:
         """Test that invalid output format raises ValueError."""
         with pytest.raises(ValueError, match="Invalid output format"):
             CLIConfig(default_format="xml")
+
+    def test_deprecated_format_aliases(self) -> None:
+        """Test that deprecated format names are accepted with alias mapping."""
+        config_human = CLIConfig(default_format="human")
+        assert config_human.default_format == "text"
+
+        config_table = CLIConfig(default_format="table")
+        assert config_table.default_format == "text"
+
+    def test_config_init_defaults(self) -> None:
+        """Test that CLIConfig(encrypt_credentials=False) produces valid defaults.
+
+        Regression test for config init bug where hardcoded values
+        disagreed with field defaults/validators.
+        """
+        config = CLIConfig(encrypt_credentials=False)
+        assert config.rotation_strategy == "round-robin"
+        assert config.default_format == "text"
+        assert config.storage_backend == "file"
+        assert config.encrypt_credentials is False
+        assert config.timeout == 30
+        assert config.max_retries == 3
+
+    def test_invalid_storage_backend(self) -> None:
+        """Test that invalid storage_backend is rejected."""
+        with pytest.raises(ValueError):
+            CLIConfig(storage_backend="redis")
 
 
 class TestDiscoverConfig:

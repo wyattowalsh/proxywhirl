@@ -29,6 +29,10 @@ All ProxyWhirl exceptions support structured error data via `to_dict()` and incl
   - [CacheStorageError](#cachestorageerror)
   - [CacheValidationError](#cachevalidationerror)
   - [RequestQueueFullError](#requestqueuefullerror)
+- [RetryableError](#retryableerror)
+- [NonRetryableError](#nonretryableerror)
+- [RegexTimeoutError](#regextimeouterror)
+- [RegexComplexityError](#regexcomplexityerror)
 - [Error Handling Patterns](#error-handling-patterns)
 - [Best Practices](#best-practices)
 
@@ -38,17 +42,21 @@ ProxyWhirl uses a hierarchical exception system with a common base class for all
 
 ```
 Exception
-└── ProxyWhirlError (base)
-    ├── ProxyValidationError
-    ├── ProxyPoolEmptyError
-    ├── ProxyConnectionError
-    ├── ProxyAuthenticationError
-    ├── ProxyFetchError
-    ├── ProxyStorageError
-    ├── CacheCorruptionError
-    ├── CacheStorageError
-    ├── CacheValidationError (also inherits from ValueError)
-    └── RequestQueueFullError
+├── ProxyWhirlError (base)
+│   ├── ProxyValidationError
+│   ├── ProxyPoolEmptyError
+│   ├── ProxyConnectionError
+│   ├── ProxyAuthenticationError
+│   ├── ProxyFetchError
+│   ├── ProxyStorageError
+│   ├── CacheCorruptionError
+│   ├── CacheStorageError
+│   ├── CacheValidationError (also inherits from ValueError)
+│   └── RequestQueueFullError
+├── RetryableError          (retry module - triggers retry)
+├── NonRetryableError       (retry module - skips retry)
+├── RegexTimeoutError       (safe_regex module - ReDoS protection)
+└── RegexComplexityError    (safe_regex module - ReDoS protection)
 ```
 
 :::{note}
@@ -759,6 +767,116 @@ except RequestQueueFullError as e:
 4. Implement request throttling or batching
 5. Add more proxy workers to increase throughput
 6. Monitor queue metrics to optimize size
+
+---
+
+### RetryableError
+
+**Raised to signal that an operation should be retried by the retry executor.**
+
+- **Module:** `proxywhirl.retry`
+- **Inherits:** `Exception` (not `ProxyWhirlError`)
+
+#### When Raised
+
+- Transient network failures during proxied requests
+- Temporary proxy unavailability
+- Retryable HTTP status codes (502, 503, 504)
+
+#### Example
+
+```python
+from proxywhirl import RetryableError
+
+try:
+    response = make_request_through_proxy()
+except RetryableError:
+    # RetryExecutor catches this and retries automatically
+    pass
+```
+
+---
+
+### NonRetryableError
+
+**Raised to signal that an operation should NOT be retried.**
+
+- **Module:** `proxywhirl.retry`
+- **Inherits:** `Exception` (not `ProxyWhirlError`)
+
+#### When Raised
+
+- Authentication failures (401/407)
+- Invalid request format
+- Permanent proxy configuration errors
+
+#### Example
+
+```python
+from proxywhirl import NonRetryableError
+
+try:
+    response = make_request_through_proxy()
+except NonRetryableError:
+    # Do not retry - fix the underlying issue
+    logger.error("Non-retryable error, check proxy credentials")
+```
+
+---
+
+### RegexTimeoutError
+
+**Raised when regex compilation or matching exceeds the configured timeout.**
+
+- **Module:** `proxywhirl.safe_regex`
+- **Inherits:** `Exception` (not `ProxyWhirlError`)
+- **Purpose:** ReDoS (Regular Expression Denial of Service) protection
+
+#### When Raised
+
+- Regex pattern takes too long to compile
+- Regex matching exceeds timeout threshold
+- Catastrophic backtracking detected
+
+#### Example
+
+```python
+from proxywhirl import RegexTimeoutError
+from proxywhirl.safe_regex import safe_match
+
+try:
+    result = safe_match(pattern, text, timeout=1.0)
+except RegexTimeoutError:
+    logger.warning("Regex timed out - possible ReDoS pattern")
+```
+
+---
+
+### RegexComplexityError
+
+**Raised when a regex pattern is too complex or potentially dangerous.**
+
+- **Module:** `proxywhirl.safe_regex`
+- **Inherits:** `Exception` (not `ProxyWhirlError`)
+- **Purpose:** Prevent ReDoS attacks from user-provided patterns
+
+#### When Raised
+
+- Pattern contains nested quantifiers (e.g., `(a+)+`)
+- Pattern exceeds complexity threshold
+- Pattern contains known ReDoS-vulnerable constructs
+
+#### Example
+
+```python
+from proxywhirl import RegexComplexityError
+from proxywhirl.safe_regex import safe_compile
+
+try:
+    pattern = safe_compile(user_provided_pattern)
+except RegexComplexityError:
+    logger.warning("Regex pattern rejected - too complex")
+```
 
 ---
 

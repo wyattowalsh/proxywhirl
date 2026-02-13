@@ -57,7 +57,7 @@ def example_2_custom_retry_policy():
         max_attempts=5,                          # Try up to 5 times
         backoff_strategy=BackoffStrategy.LINEAR, # Linear backoff (2s, 4s, 6s, 8s)
         base_delay=2.0,                          # Base delay 2 seconds
-        retry_status_codes=[502, 503, 504, 429], # Also retry on 429 Too Many Requests
+        retry_status_codes=[502, 503, 504],       # Only 5xx status codes allowed
         jitter=True,                             # Add random jitter to delays
     )
 

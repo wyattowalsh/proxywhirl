@@ -13,22 +13,22 @@ Authoritative resources for the runtime APIs, configuration knobs, and public da
 :::{tab-item} By Interface
 | Interface | Entry Point | Docs |
 |-----------|------------|------|
-| Python sync | `ProxyRotator` | [Python API](python-api.md) |
-| Python async | `AsyncProxyRotator` | [Python API](python-api.md) |
-| REST API | `GET/POST /api/v1/*` | [REST API](rest-api.md) |
-| CLI | `proxywhirl <command>` | [CLI Reference](../guides/cli-reference.md) |
-| MCP | `proxywhirl mcp` | [MCP Server](../guides/mcp-server.md) |
+| Python sync | `ProxyRotator` | {doc}`Python API <python-api>` |
+| Python async | `AsyncProxyRotator` | {doc}`Python API <python-api>` |
+| REST API | `GET/POST /api/v1/*` | {doc}`REST API <rest-api>` |
+| CLI | `proxywhirl <command>` | {doc}`CLI Reference <../guides/cli-reference>` |
+| MCP | `proxywhirl mcp` | {doc}`MCP Server <../guides/mcp-server>` |
 :::
 
 :::{tab-item} By Task
 | Task | Where to Look |
 |------|--------------|
-| Configure rotation strategy | [Configuration](configuration.md) -- `[rotation]` section |
-| Handle errors | [Exceptions](exceptions.md) -- error codes and hierarchy |
-| Set up caching | [Cache API](cache-api.md) -- `CacheConfig`, tier options |
-| Rate limit requests | [Rate Limiting API](rate-limiting-api.md) -- token bucket setup |
-| Set up authentication | [REST API](rest-api.md) -- API key configuration |
-| Tune retry behavior | [Retry & Failover](../guides/retry-failover.md) -- `RetryPolicy` options |
+| Configure rotation strategy | {doc}`Configuration <configuration>` -- `[rotation]` section |
+| Handle errors | {doc}`Exceptions <exceptions>` -- error codes and hierarchy |
+| Set up caching | {doc}`Cache API <cache-api>` -- `CacheConfig`, tier options |
+| Rate limit requests | {doc}`Rate Limiting API <rate-limiting-api>` -- token bucket setup |
+| Set up authentication | {doc}`REST API <rest-api>` -- API key configuration |
+| Tune retry behavior | {doc}`Retry & Failover <../guides/retry-failover>` -- `RetryPolicy` options |
 :::
 
 :::{tab-item} By Class
@@ -38,10 +38,20 @@ Authoritative resources for the runtime APIs, configuration knobs, and public da
 | `AsyncProxyRotator` | `proxywhirl.rotator` | [Async rotator](python-api.md#asyncproxyrotator) |
 | `ProxyFetcher` | `proxywhirl.fetchers` | [Fetcher](python-api.md#proxyfetcher) |
 | `ProxyValidator` | `proxywhirl.fetchers` | [Validator](python-api.md#proxyvalidator) |
-| `CacheManager` | `proxywhirl.cache` | [Cache API](cache-api.md) |
-| `RateLimiter` | `proxywhirl.rate_limiting` | [Rate Limiting API](rate-limiting-api.md) |
-| `CircuitBreaker` | `proxywhirl.circuit_breaker` | [Retry & Failover](../guides/retry-failover.md) |
+| `CacheManager` | `proxywhirl.cache` | {doc}`Cache API <cache-api>` |
+| `RateLimiter` | `proxywhirl.rate_limiting` | {doc}`Rate Limiting API <rate-limiting-api>` |
+| `SyncRateLimiter` | `proxywhirl.rate_limiting` | [Rate Limiting API](rate-limiting-api.md#syncratelimiter) |
+| `AsyncRateLimiter` | `proxywhirl.rate_limiting` | [Rate Limiting API](rate-limiting-api.md#asyncratelimiter) |
+| `CircuitBreaker` | `proxywhirl.circuit_breaker` | {doc}`Retry & Failover <../guides/retry-failover>` |
+| `RetryExecutor` | `proxywhirl.retry` | [Python API](python-api.md#retryexecutor) |
+| `StrategyRegistry` | `proxywhirl.strategies` | [Python API](python-api.md#strategyregistry) |
+| `StrategyState` | `proxywhirl.strategies` | [Python API](python-api.md#strategystate) |
 | `BrowserRenderer` | `proxywhirl.browser` | [Browser](python-api.md#browserrenderer) |
+| `CacheHealthStatus` | `proxywhirl` | [Python API](python-api.md#cachehealthstatus) |
+| `HealthMonitor` | `proxywhirl.models` | [Python API](python-api.md#healthmonitor) |
+| `SourceStats` | `proxywhirl.models` | [Python API](python-api.md#sourcestats) |
+| `HourlyAggregate` | `proxywhirl.retry` | [Python API](python-api.md#hourlyaggregate) |
+| `CircuitBreakerEvent` | `proxywhirl.retry` | [Python API](python-api.md#circuitbreakerevent) |
 :::
 
 ::::
@@ -167,7 +177,7 @@ Per-proxy and global rate limiting with token bucket algorithm.
 
 ---
 
-**Related:** [Guides](../guides/index.md) for usage guides | [Getting Started](../getting-started/index.md) for quickstart | [Project](../project/index.md) for contributing
+**Related:** {doc}`Guides <../guides/index>` for usage guides | {doc}`Getting Started <../getting-started/index>` for quickstart | {doc}`Project <../project/index>` for contributing
 
 ```{toctree}
 :maxdepth: 2

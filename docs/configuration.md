@@ -103,8 +103,8 @@ The main configuration model with 23+ fields organized by category.
 #### Output Settings
 
 **`default_format`** (string)
-- **Default:** `"human"`
-- **Valid Values:** `human`, `json`, `table`, `csv`
+- **Default:** `"text"`
+- **Valid Values:** `text`, `json`, `csv` (deprecated aliases: `human` → `text`, `table` → `text`)
 - **Description:** Default output format for CLI commands
 - **Example:** `default_format = "json"`
 

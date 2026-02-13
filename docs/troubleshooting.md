@@ -509,7 +509,7 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
 
 4. **Review allowed values:**
    - `rotation_strategy`: `round-robin`, `random`, `weighted`, `least-used`
-   - `default_format`: `human`, `json`, `table`, `csv`
+   - `default_format`: `text`, `json`, `csv` (`human` and `table` are deprecated aliases for `text`)
    - `storage_backend`: `file`, `sqlite`, `memory`
 
 **Related Code:**

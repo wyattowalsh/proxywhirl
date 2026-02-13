@@ -6,6 +6,11 @@ title: Async Client Guide
 
 ProxyWhirl provides `AsyncProxyRotator`, a fully async implementation of proxy rotation built on `httpx.AsyncClient`. This guide covers when to use async vs sync, initialization patterns, async/await usage, and performance considerations.
 
+```{contents}
+:local:
+:depth: 2
+```
+
 ## When to Use Async vs Sync
 
 ### Use AsyncProxyRotator when:
@@ -65,19 +70,22 @@ async with AsyncProxyRotator(proxies=proxies) as rotator:
 ```python
 from proxywhirl import AsyncProxyRotator
 
-# Strategy from string
+# Strategy from string (4 strategies available at init)
 async with AsyncProxyRotator(strategy="random") as rotator:
     # Uses RandomStrategy
     pass
 
-# Available strategies:
+# Available strategies at init:
 # - "round-robin" (default)
 # - "random"
 # - "weighted"
 # - "least-used"
-# - "performance-based"
-# - "session"
-# - "geo-targeted"
+#
+# For other strategies (performance-based, session-persistence, geo-targeted,
+# cost-aware, composite), use set_strategy() after init or pass a strategy
+# instance directly:
+#   from proxywhirl.strategies import PerformanceBasedStrategy
+#   async with AsyncProxyRotator(strategy=PerformanceBasedStrategy()) as rotator:
 ```
 
 :::{seealso}
@@ -90,7 +98,7 @@ For detailed strategy configuration including EMA tuning, session persistence, g
 from proxywhirl import AsyncProxyRotator, ProxyConfiguration, RetryPolicy
 
 config = ProxyConfiguration(
-    timeout=60.0,
+    timeout=60,
     verify_ssl=False,
     pool_connections=50,
     pool_max_keepalive=20,
@@ -98,15 +106,16 @@ config = ProxyConfiguration(
 
 retry_policy = RetryPolicy(
     max_attempts=5,
-    backoff_factor=1.5,
+    base_delay=1.5,
 )
 
 async with AsyncProxyRotator(
-    strategy="performance-based",
+    strategy="round-robin",
     config=config,
     retry_policy=retry_policy
 ) as rotator:
-    # Custom timeout, SSL verification, and retry behavior
+    # Hot-swap to performance-based after init if needed
+    rotator.set_strategy("performance-based")
     pass
 ```
 
@@ -354,7 +363,7 @@ async with AsyncProxyRotator() as rotator:
     await rotator.add_proxy("http://proxy1.example.com:8080")
 
     # Custom retry policy for this request
-    custom_policy = RetryPolicy(max_attempts=10, backoff_factor=2.0)
+    custom_policy = RetryPolicy(max_attempts=10, base_delay=2.0)
 
     response = await rotator.get(
         "https://api.example.com/flaky-endpoint",
@@ -495,15 +504,15 @@ async def scrape_page(rotator, url) -> ScrapedPage:
 async def batch_scrape(urls: List[str], max_concurrent: int = 50):
     """Scrape URLs in batches with concurrency control."""
     config = ProxyConfiguration(
-        timeout=30.0,
+        timeout=30,
         pool_connections=100,
         pool_max_keepalive=50,
     )
 
-    async with AsyncProxyRotator(
-        strategy="performance-based",
-        config=config
-    ) as rotator:
+    async with AsyncProxyRotator(config=config) as rotator:
+        # Use performance-based strategy (swap after init)
+        rotator.set_strategy("performance-based")
+
         # Add proxy pool
         await rotator.add_proxy("http://proxy1.example.com:8080")
         await rotator.add_proxy("http://proxy2.example.com:8080")
@@ -727,8 +736,9 @@ app = FastAPI()
 # Initialize rotator at startup
 @app.on_event("startup")
 async def startup():
-    app.state.rotator = AsyncProxyRotator(strategy="performance-based")
+    app.state.rotator = AsyncProxyRotator(strategy="round-robin")
     await app.state.rotator.__aenter__()
+    await app.state.rotator.set_strategy("performance-based")
 
     # Add proxies
     await app.state.rotator.add_proxy("http://proxy1.example.com:8080")
@@ -1088,8 +1098,9 @@ class Application:
         self.rotator = None
 
     async def startup(self):
-        self.rotator = AsyncProxyRotator(strategy="performance-based")
+        self.rotator = AsyncProxyRotator(strategy="round-robin")
         await self.rotator.__aenter__()
+        await self.rotator.set_strategy("performance-based")
         await self.rotator.add_proxy("http://proxy1.example.com:8080")
         await self.rotator.add_proxy("http://proxy2.example.com:8080")
 
@@ -1149,14 +1160,14 @@ async with AsyncProxyRotator() as rotator:
     await rotator.add_proxy("http://proxy1.example.com:8080")
 
     # Critical endpoint: More aggressive retries
-    critical_policy = RetryPolicy(max_attempts=10, backoff_factor=2.0)
+    critical_policy = RetryPolicy(max_attempts=10, base_delay=2.0)
     critical_data = await rotator.get(
         "https://api.example.com/critical",
         retry_policy=critical_policy
     )
 
     # Non-critical: Fail fast
-    fast_fail_policy = RetryPolicy(max_attempts=2, backoff_factor=1.0)
+    fast_fail_policy = RetryPolicy(max_attempts=2, base_delay=1.0)
     optional_data = await rotator.get(
         "https://api.example.com/optional",
         retry_policy=fast_fail_policy
@@ -1173,7 +1184,7 @@ from proxywhirl import AsyncProxyRotator, ProxyConfiguration
 high_throughput_config = ProxyConfiguration(
     pool_connections=100,      # More concurrent connections
     pool_max_keepalive=50,     # More keep-alive connections
-    timeout=30.0,
+    timeout=30,
 )
 
 async with AsyncProxyRotator(config=high_throughput_config) as rotator:
@@ -1184,7 +1195,7 @@ async with AsyncProxyRotator(config=high_throughput_config) as rotator:
 low_latency_config = ProxyConfiguration(
     pool_connections=20,       # Fewer connections
     pool_max_keepalive=10,     # Fewer keep-alive
-    timeout=5.0,               # Shorter timeout
+    timeout=5,                 # Shorter timeout
 )
 
 async with AsyncProxyRotator(config=low_latency_config) as rotator:

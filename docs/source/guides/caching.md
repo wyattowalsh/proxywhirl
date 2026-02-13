@@ -6,6 +6,11 @@ title: Caching Subsystem Guide
 
 ProxyWhirl implements a sophisticated three-tier caching system for proxy persistence, performance optimization, and credential security. This guide covers architecture, configuration, encryption, and performance tuning.
 
+```{contents}
+:local:
+:depth: 2
+```
+
 ## Architecture Overview
 
 The caching subsystem uses a hierarchical three-tier design for optimal performance and durability:
@@ -25,10 +30,10 @@ The caching subsystem uses a hierarchical three-tier design for optimal performa
   - 1,000 entries (default)
   - Hot proxies, LRU eviction
 * - **L2**
-  - SQLite (l2_cache.db)
+  - JSONL (default) or SQLite
   - ~1-10 ms
   - 5,000 entries (default)
-  - Warm storage, B-tree indexed
+  - Warm storage, configurable backend
 * - **L3**
   - SQLite Database
   - ~5-50 ms
@@ -47,11 +52,34 @@ Proxies automatically promote from slower to faster tiers on access:
 This design minimizes latency for frequently-used proxies while maintaining full persistence in L3.
 ```
 
-### L2 vs L3 SQLite Differences
+### L2 Backend Selection
 
-Both L2 and L3 use SQLite databases, but with different schemas and purposes:
+L2 supports two backends, configured via `l2_backend` in `CacheConfig`:
 
-**L2 (l2_cache.db)**:
+```python
+from proxywhirl.cache.models import L2BackendType
+
+# JSONL backend (default) -- file-based, human-readable, best for <10K entries
+config = CacheConfig(l2_backend=L2BackendType.JSONL)
+
+# SQLite backend -- faster for >10K entries, O(log n) indexed lookups
+config = CacheConfig(l2_backend=L2BackendType.SQLITE)
+```
+
+| Backend | Format | Best For | Lookup | Notes |
+|---------|--------|----------|--------|-------|
+| `JSONL` (default) | Sharded JSON Lines files | <10K entries, portability | O(n) scan | Human-readable, file-locked |
+| `SQLITE` | SQLite database (`l2_cache.db`) | >10K entries, concurrency | O(log n) B-tree | Atomic operations |
+
+### L2 (SQLite) vs L3 SQLite Differences
+
+```{note}
+This comparison only applies when `l2_backend=L2BackendType.SQLITE`. When using the default JSONL backend, L2 uses sharded `.jsonl` files instead of SQLite.
+```
+
+When both L2 and L3 use SQLite, they have different schemas and purposes:
+
+**L2 (l2_cache.db)** -- when `l2_backend=L2BackendType.SQLITE`:
 - Simpler schema optimized for fast lookups
 - Stores basic cache fields (proxy_url, credentials, TTL, health status)
 - Uses `l2_cache` table
@@ -66,10 +94,10 @@ Both L2 and L3 use SQLite databases, but with different schemas and purposes:
 - Main application database
 
 ```{note}
-The dual-SQLite design provides performance benefits:
+When using the SQLite L2 backend, the dual-SQLite design provides performance benefits:
 - L2 uses a lighter schema for faster writes during rotation
 - L3 maintains full historical data for analytics and monitoring
-- Both use B-tree indexes for O(log n) lookups instead of O(n) JSONL scans
+- Both use B-tree indexes for O(log n) lookups
 ```
 
 ## Core Components
@@ -159,6 +187,7 @@ Comprehensive configuration for cache behavior and tier settings.
 
 ```python
 from proxywhirl.cache import CacheConfig, CacheTierConfig
+from proxywhirl.cache.models import L2BackendType
 from pydantic import SecretStr
 
 config = CacheConfig(
@@ -173,6 +202,7 @@ config = CacheConfig(
         max_entries=5000,
         eviction_policy="lru",
     ),
+    l2_backend=L2BackendType.JSONL,  # or L2BackendType.SQLITE
     l3_config=CacheTierConfig(
         enabled=True,
         max_entries=None,  # unlimited
@@ -368,7 +398,7 @@ You can have at most 2 keys active simultaneously (current + previous). For mult
 ### Encryption Behavior
 
 - **L1 (Memory)**: Credentials stored as `SecretStr` (not encrypted)
-- **L2 (SQLite)**: Credentials encrypted as BLOB fields in `l2_cache.db`
+- **L2 (Disk)**: Credentials encrypted in JSONL shards (default) or as BLOB fields in `l2_cache.db` (SQLite backend), depending on `l2_backend` setting
 - **L3 (SQLite)**: Credentials encrypted as BLOB fields in main database
 
 **Automatic Encryption/Decryption:**
@@ -477,6 +507,10 @@ manager.invalidate_by_health("abc123")
 
 ```{note}
 Even if `health_check_invalidation=False`, failure counts are still tracked. This allows post-hoc analysis without automatic eviction.
+```
+
+```{seealso}
+Cache health invalidation integrates directly with the circuit breaker system. When a proxy's circuit breaker opens (see {doc}`retry-failover`), the cache can automatically evict it. This ensures stale or unhealthy proxies are removed from all cache tiers.
 ```
 
 ## Migration from JSONL L2 Cache
@@ -637,7 +671,7 @@ For most use cases, **LRU** (Least Recently Used) provides the best balance of s
 **Memory Usage** (approximate):
 
 - **L1**: ~500 bytes per entry (Python object overhead)
-- **L2**: ~400 bytes per entry (SQLite storage in `l2_cache.db`)
+- **L2**: ~400 bytes per entry (JSONL or SQLite, depending on `l2_backend`)
 - **L3**: ~450 bytes per entry (SQLite storage with health fields)
 
 ```{warning}

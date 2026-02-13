@@ -5,7 +5,7 @@ title: ProxyWhirl Docs
 ```{raw} html
 <section class="sy-hero">
   <h1>ProxyWhirl</h1>
-  <p>Production-grade proxy rotation for Python. Auto-fetching, validation, circuit breakers, and 9 intelligent rotation strategies out of the box.</p>
+  <p>Production-grade proxy rotation for Python. 9 intelligent strategies, 100+ built-in sources, circuit breakers, multi-tier caching, and four interfaces -- all in one library.</p>
   <div class="sd-btn-group">
     <a class="sd-btn sd-btn-primary sd-shadow-sm" href="getting-started/index.html">Get Started</a>
     <a class="sd-btn sd-btn-secondary" href="https://proxywhirl.com/" rel="noopener" target="_blank">Free Proxy Lists</a>
@@ -20,29 +20,29 @@ title: ProxyWhirl Docs
 :gutter: 2
 
 ::: {grid-item}
-```{card} Intelligent Rotation
+```{card} 9 Rotation Strategies
 :class-card: sd-shadow-lg
-9 strategies: round-robin, random, weighted, least-used, performance-based, session-persistence, geo-targeted, composite, and failover chaining.
+Round-robin, random, weighted, least-used, performance-based (EMA), session-persistence, geo-targeted, cost-aware, and composite pipelines.
 +++
-{bdg-primary}`strategies` | [Quickstart](getting-started/rotation-strategies.md) | [Deep dive](guides/advanced-strategies.md)
+{bdg-primary}`strategies` | {doc}`Quickstart </getting-started/rotation-strategies>` | {doc}`Deep dive </guides/advanced-strategies>`
 ```
 :::
 
 ::: {grid-item}
-```{card} Runtime Observability
+```{card} Runtime Resilience
 :class-card: sd-shadow-lg
-Health metrics, EMA latency, circuit breakers, multi-tier caching, and proxy lifecycle analytics.
+Circuit breakers with auto-recovery, retry policies with exponential backoff, EMA latency scoring, multi-tier caching (L1/L2/L3), and proxy lifecycle analytics.
 +++
-{bdg-info}`resilience` | [Caching](guides/caching.md) | [Retry & Failover](guides/retry-failover.md)
+{bdg-info}`resilience` | {doc}`Caching </guides/caching>` | {doc}`Retry & Failover </guides/retry-failover>`
 ```
 :::
 
 ::: {grid-item}
-```{card} Multi-Surface Delivery
+```{card} Four Interfaces
 :class-card: sd-shadow-lg
-Python API, REST service, CLI utilities, and MCP server for AI assistants -- all interchangeable.
+Python sync/async API, REST service (FastAPI + OpenAPI), CLI with 9 commands (Typer), and MCP server for AI assistants.
 +++
-{bdg-success}`interfaces` | [REST](reference/rest-api.md) | [CLI](guides/cli-reference.md) | [MCP](guides/mcp-server.md)
+{bdg-success}`interfaces` | {doc}`REST </reference/rest-api>` | {doc}`CLI </guides/cli-reference>` | {doc}`MCP </guides/mcp-server>`
 ```
 :::
 
@@ -52,7 +52,7 @@ Python API, REST service, CLI utilities, and MCP server for AI assistants -- all
 
 ::::{tab-set}
 
-:::{tab-item} Python
+:::{tab-item} Python (sync)
 ```python
 from proxywhirl import ProxyRotator
 
@@ -60,10 +60,10 @@ rotator = ProxyRotator(proxies=["http://proxy1:8080", "http://proxy2:8080"])
 response = rotator.get("https://httpbin.org/ip")
 print(response.json())  # {"origin": "185.x.x.47"}
 ```
-See the [Getting Started guide](getting-started/index.md) for full setup instructions.
+See {doc}`/getting-started/index` for full installation and setup.
 :::
 
-:::{tab-item} Async
+:::{tab-item} Python (async)
 ```python
 from proxywhirl import AsyncProxyRotator
 
@@ -71,7 +71,19 @@ async with AsyncProxyRotator(proxies=proxies) as rotator:
     response = await rotator.get("https://httpbin.org/ip")
     print(response.json())
 ```
-See [Async Client](guides/async-client.md) for connection pooling, error handling, and concurrency patterns.
+See {doc}`/guides/async-client` for connection pooling, error handling, and concurrency patterns.
+:::
+
+:::{tab-item} Auto-Fetch Proxies
+```python
+from proxywhirl import ProxyFetcher
+
+# Fetch and validate proxies from 100+ built-in sources
+fetcher = ProxyFetcher()
+proxies = await fetcher.fetch_all(validate=True)
+print(f"Found {len(proxies)} working proxies")
+```
+See {doc}`/reference/python-api` for `ProxyFetcher`, `ProxyValidator`, and parser classes.
 :::
 
 :::{tab-item} REST API
@@ -85,21 +97,21 @@ curl http://localhost:8000/api/v1/proxies
 # Rotate to next proxy
 curl -X POST http://localhost:8000/api/v1/rotate
 ```
-See [REST API](reference/rest-api.md) for full endpoint reference including authentication and Docker deployment.
+See {doc}`/reference/rest-api` for endpoint reference, authentication, and Docker deployment.
 :::
 
 :::{tab-item} CLI
 ```bash
-# Fetch fresh proxies from 64+ sources
+# Fetch fresh proxies from 100+ sources
 proxywhirl fetch --timeout 5
-
-# Export stats
-proxywhirl export --stats-only
 
 # Validate proxies
 proxywhirl validate --protocol http
+
+# Export stats
+proxywhirl export --stats-only
 ```
-See [CLI Reference](guides/cli-reference.md) for all 9 commands, global options, and output formats.
+See {doc}`/guides/cli-reference` for all 9 commands, global options, and output formats.
 :::
 
 :::{tab-item} MCP Server
@@ -110,10 +122,52 @@ uv run proxywhirl mcp --transport stdio
 # Or with uvx (no install needed)
 uvx proxywhirl mcp
 ```
-See [MCP Server](guides/mcp-server.md) for tool definitions, auto-loading, and Claude/GPT integration.
+See {doc}`/guides/mcp-server` for tool definitions, auto-loading, and Claude/GPT integration.
 :::
 
 ::::
+
+## Rotation Strategies at a Glance
+
+All 9 strategies implement the `RotationStrategy` protocol and can be hot-swapped at runtime via `StrategyRegistry`.
+
+```{list-table}
+:header-rows: 1
+:widths: 22 18 60
+
+* - Strategy
+  - Class
+  - Best For
+* - Round-Robin
+  - `RoundRobinStrategy`
+  - Even distribution across all proxies
+* - Random
+  - `RandomStrategy`
+  - Unpredictable rotation patterns
+* - Weighted
+  - `WeightedStrategy`
+  - Favoring reliable proxies by success rate or custom weights
+* - Least-Used
+  - `LeastUsedStrategy`
+  - Load balancing (min-heap, O(log n) selection)
+* - Performance-Based
+  - `PerformanceBasedStrategy`
+  - Lowest latency (EMA scoring with cold-start exploration)
+* - Session Persistence
+  - `SessionPersistenceStrategy`
+  - Sticky sessions with TTL expiration and LRU eviction
+* - Geo-Targeted
+  - `GeoTargetedStrategy`
+  - Region-aware routing by country/region codes
+* - Cost-Aware
+  - `CostAwareStrategy`
+  - Budget optimization (free proxies boosted 10x)
+* - Composite
+  - `CompositeStrategy`
+  - Chaining filters + selectors (e.g., geo-filter then performance-select)
+```
+
+{doc}`Strategy overview </getting-started/rotation-strategies>` | {doc}`Advanced strategies guide </guides/advanced-strategies>` | {doc}`Python API reference </reference/python-api>`
 
 ## Documentation Sections
 
@@ -122,7 +176,6 @@ See [MCP Server](guides/mcp-server.md) for tool definitions, auto-loading, and C
 :hidden:
 
 getting-started/index
-getting-started/rotation-strategies
 guides/index
 reference/index
 project/index
@@ -138,10 +191,10 @@ project/index
 
 Installation, quickstart examples, and your first rotating proxy setup.
 
-- [Installation & quickstart](getting-started/index.md)
-- [Rotation strategies overview](getting-started/rotation-strategies.md)
+- {doc}`Installation & quickstart </getting-started/index>`
+- {doc}`Rotation strategies overview </getting-started/rotation-strategies>`
 - [Sync vs async decision guide](getting-started/index.md#quick-start)
-- [Free proxy list usage](getting-started/index.md#using-free-proxy-lists)
+- [Using free proxy lists](getting-started/index.md#using-free-proxy-lists)
 :::
 
 :::{grid-item-card} Guides
@@ -151,10 +204,10 @@ Installation, quickstart examples, and your first rotating proxy setup.
 
 Deep dives: async patterns, advanced strategies, caching, retry/failover, CLI, and MCP server.
 
-- [Async client patterns](guides/async-client.md) -- connection pools, error handling
-- [Advanced strategies](guides/advanced-strategies.md) -- EMA scoring, geo-routing, composites
-- [Retry & failover](guides/retry-failover.md) -- circuit breakers, backoff policies
-- [Deployment security](guides/deployment-security.md) -- Nginx, Caddy, HAProxy configs
+- {doc}`Async client patterns </guides/async-client>` -- connection pools, error handling
+- {doc}`Advanced strategies </guides/advanced-strategies>` -- EMA scoring, geo-routing, composites
+- {doc}`Retry & failover </guides/retry-failover>` -- circuit breakers, backoff policies
+- {doc}`Deployment security </guides/deployment-security>` -- Nginx, Caddy, HAProxy configs
 :::
 
 :::{grid-item-card} API Reference
@@ -164,10 +217,10 @@ Deep dives: async patterns, advanced strategies, caching, retry/failover, CLI, a
 
 REST API, Python API, configuration, exceptions, caching, and rate limiting.
 
-- [REST API endpoints](reference/rest-api.md) -- OpenAPI, auth, Docker
-- [Python API](reference/python-api.md) -- rotators, strategies, fetchers, validators
-- [Configuration reference](reference/configuration.md) -- TOML, env vars, discovery
-- [Exception hierarchy](reference/exceptions.md) -- error codes, URL redaction
+- {doc}`REST API endpoints </reference/rest-api>` -- OpenAPI, auth, Docker
+- {doc}`Python API </reference/python-api>` -- rotators, strategies, fetchers, validators
+- {doc}`Configuration reference </reference/configuration>` -- TOML, env vars, discovery
+- {doc}`Exception hierarchy </reference/exceptions>` -- error codes, URL redaction
 :::
 
 :::{grid-item-card} Project
@@ -180,12 +233,12 @@ Contributing, development setup, CI/CD, changelog, and project status.
 - [Development environment setup](project/index.md#development-setup)
 - [Contributing guidelines](project/index.md#contributing)
 - [CI/CD pipelines](project/index.md#cicd-pipelines)
-- [Changelog highlights](project/index.md#changelog-highlights)
+- [Architecture overview](project/index.md#architecture)
 :::
 
 ::::
 
-## Key Features
+## Key Capabilities
 
 ::::{grid} 1 1 2 2
 :gutter: 2
@@ -193,46 +246,47 @@ Contributing, development setup, CI/CD, changelog, and project status.
 :::{grid-item}
 **9 Rotation Strategies**
 - Round-robin, random, weighted, least-used
-- Performance-based (EMA latency scoring) -- [guide](guides/advanced-strategies.md)
-- Session persistence (sticky sessions)
-- Geo-targeted routing
-- Composite pipelines and failover chains
+- Performance-based with EMA latency scoring -- {doc}`/guides/advanced-strategies`
+- Session persistence (sticky sessions with TTL)
+- Geo-targeted routing by country/region
+- Cost-aware selection and composite pipelines
 :::
 
 :::{grid-item}
 **Resilience Built-In**
-- Circuit breakers with automatic recovery -- [guide](guides/retry-failover.md)
-- Retry policies with exponential backoff
-- Health-based proxy ejection
-- Multi-tier caching (L1/L2/L3) -- [guide](guides/caching.md)
+- Circuit breakers (`CircuitBreaker`, `AsyncCircuitBreaker`) with auto-recovery -- {doc}`/guides/retry-failover`
+- `RetryExecutor` with exponential/linear backoff and jitter
+- Health-based proxy ejection via `HealthMonitor`
+- Multi-tier caching: L1 in-memory, L2 encrypted disk, L3 SQLite -- {doc}`/guides/caching`
 :::
 
 :::{grid-item}
-**Multiple Interfaces**
-- Python sync/async API -- [reference](reference/python-api.md)
-- REST API with OpenAPI docs -- [reference](reference/rest-api.md)
-- Full CLI with 9 commands -- [guide](guides/cli-reference.md)
-- MCP server for AI assistants -- [guide](guides/mcp-server.md)
+**Four Interfaces**
+- Python sync/async API (`ProxyRotator`, `AsyncProxyRotator`) -- {doc}`/reference/python-api`
+- REST API with OpenAPI docs (FastAPI) -- {doc}`/reference/rest-api`
+- CLI with 9 commands (Typer + Rich) -- {doc}`/guides/cli-reference`
+- MCP server for AI assistants (Claude, GPT) -- {doc}`/guides/mcp-server`
 :::
 
 :::{grid-item}
 **Production Ready**
-- 2700+ tests, property-based testing
+- 2700+ tests: unit, integration, property-based, contract, benchmarks
 - <5 us strategy selection overhead
-- SQLite persistence with encryption -- [config](reference/configuration.md)
-- Comprehensive observability
+- SQLite persistence with Fernet encryption -- {doc}`/reference/configuration`
+- 100+ built-in proxy sources, auto-refreshed every 6 hours via CI
 :::
 
 ::::
 
 ## What's New
 
-- **Free Proxy Lists** -- Updated every 6 hours from 64+ sources
-- **Composite Strategies** -- Chain filters and selectors with <5 us overhead
-- **MCP Server** -- AI assistant integration for Claude, GPT, and more
-- **Interactive Dashboard** -- Browse, filter, and export proxies at [proxywhirl.com](https://proxywhirl.com/)
+- **Composite Strategies** -- chain filters and selectors with <5 us overhead via `CompositeStrategy`
+- **Cost-Aware Strategy** -- budget-optimize proxy selection with `CostAwareStrategy`
+- **MCP Server** -- Model Context Protocol integration for Claude, GPT, and more
+- **Free Proxy Lists** -- updated every 6 hours from 100+ sources at [proxywhirl.com](https://proxywhirl.com/)
+- **Rate Limiting** -- token bucket algorithm with per-proxy and global limits via {doc}`/reference/rate-limiting-api`
 
 ```{admonition} Looking for proxy lists?
 :class: tip
-Visit the [ProxyWhirl Dashboard](https://proxywhirl.com/) to browse, filter, and download free proxy lists updated every 6 hours.
+Visit the [ProxyWhirl Dashboard](https://proxywhirl.com/) to browse, filter, and download free proxy lists updated every 6 hours. Or fetch them programmatically: `await ProxyFetcher().fetch_all(validate=True)`
 ```

@@ -110,8 +110,8 @@ verify_ssl = true
 # Output Settings
 # ============================================================================
 
-# Default output format: "human", "json", "table", "csv"
-default_format = "human"
+# Default output format: "text", "json", "csv"
+default_format = "text"
 
 # Enable colored terminal output
 color = true
@@ -322,7 +322,7 @@ Main configuration class for CLI and programmatic usage.
 
 | Field | Type | Default | Validation | Description |
 |-------|------|---------|------------|-------------|
-| `default_format` | `str` | `"human"` | `{"human", "json", "table", "csv"}` | Default output format |
+| `default_format` | `str` | `"text"` | `{"text", "json", "csv"}` | Default output format |
 | `color` | `bool` | `true` | - | Enable colored output |
 | `verbose` | `bool` | `false` | - | Verbose logging |
 
@@ -546,9 +546,8 @@ Advanced strategies (`"performance-based"`, `"session"`, `"geo-targeted"`, `"cos
 ### Output Format
 
 Must be one of:
-- `"human"` - Human-readable text
+- `"text"` - Human-readable text
 - `"json"` - JSON output
-- `"table"` - Formatted table
 - `"csv"` - Comma-separated values
 
 ### Proxy URL Schemes

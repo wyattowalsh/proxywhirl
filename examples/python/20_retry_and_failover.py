@@ -17,8 +17,7 @@ import httpx
 from proxywhirl import Proxy, ProxyRotator
 from proxywhirl.circuit_breaker import CircuitBreakerState
 from proxywhirl.models import HealthStatus
-from proxywhirl.retry_executor import RetryExecutor
-from proxywhirl.retry_policy import BackoffStrategy, RetryPolicy
+from proxywhirl.retry import BackoffStrategy, RetryExecutor, RetryPolicy
 
 
 def _request_sequence(events: Iterable[int | Exception], url: str) -> callable:
@@ -69,7 +68,7 @@ def custom_policy_example() -> None:
         base_delay=0.2,
         max_backoff_delay=1.0,
         jitter=True,
-        retry_status_codes=[502, 503, 504, 429],
+        retry_status_codes=[502, 503, 504],
     )
 
     print(policy.model_dump())
@@ -101,7 +100,7 @@ def simulate_retry_with_metrics() -> None:
     request_fn = _request_sequence(events, "https://api.example.com/data")
 
     # Skip actual sleeping to keep the example fast
-    with patch("proxywhirl.retry_executor.time.sleep", lambda *_: None):
+    with patch("proxywhirl.retry.executor.time.sleep", lambda *_: None):
         response = rotator.retry_executor.execute_with_retry(
             request_fn,
             proxy,
@@ -134,7 +133,7 @@ def per_request_override() -> None:
     proxy = base_rotator.pool.proxies[0]
     request_fn = _request_sequence([httpx.TimeoutException("socket hangup"), 200], "https://example.org/foo")
 
-    with patch("proxywhirl.retry_executor.time.sleep", lambda *_: None):
+    with patch("proxywhirl.retry.executor.time.sleep", lambda *_: None):
         response = executor.execute_with_retry(request_fn, proxy, method="GET", url="https://example.org/foo")
 
     print(f"Overridden policy finished with status {response.status_code} after at most 2 attempts.")

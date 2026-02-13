@@ -13,13 +13,15 @@ from proxywhirl.cache import (
     CacheEntry,
     HealthStatus,
     CacheTierType,
-    L2BackendType,
     MemoryCacheTier,
-    JsonlCacheTier,
     DiskCacheTier,
     SQLiteCacheTier,
     CredentialEncryptor,
 )
+
+# L2BackendType and JsonlCacheTier are available via submodule imports:
+from proxywhirl.cache.models import L2BackendType
+from proxywhirl.cache.tiers import JsonlCacheTier
 ```
 
 ## Overview
@@ -896,6 +898,27 @@ L2 SQLite-based cache with encryption and indexed lookups.
       print(f"Migrated {migrated} entries from JSONL to SQLite")
 ```
 
+```{eval-rst}
+.. py:method:: close() -> None
+
+   Close the persistent SQLite connection and release database resources.
+
+   Should be called when the cache tier is no longer needed to properly
+   release database resources and file locks. Safe to call multiple times.
+   Thread-safe via internal lock.
+
+   **Example:**
+
+   .. code-block:: python
+
+      tier = DiskCacheTier(config, TierType.L2_FILE, cache_dir, encryptor)
+      try:
+          tier.put(key, entry)
+          cached = tier.get(key)
+      finally:
+          tier.close()
+```
+
 #### Features
 
 - O(log n) indexed lookups using SQLite B-tree
@@ -1046,7 +1069,7 @@ CREATE INDEX idx_health_history_time ON health_history(check_time);
 If no encryption key is provided and the `PROXYWHIRL_CACHE_ENCRYPTION_KEY` environment variable is not set, a new key is generated automatically. This means cached data encrypted with a previous key will be unreadable. Always persist your encryption key for production use.
 :::
 
-Handles encryption/decryption of proxy credentials using Fernet symmetric encryption (AES-128-CBC + HMAC).
+Handles encryption/decryption of proxy credentials using Fernet symmetric encryption (AES-128-CBC + HMAC). Supports **key rotation** via `MultiFernet`: set `PROXYWHIRL_CACHE_KEY_PREVIOUS` to the old key when rotating, allowing decryption of data encrypted with either key while new encryptions use the current key.
 
 ```{eval-rst}
 .. py:class:: CredentialEncryptor
@@ -1133,44 +1156,254 @@ Handles encryption/decryption of proxy credentials using Fernet symmetric encryp
    .. code-block:: python
 
       decrypted = encryptor.decrypt(encrypted_bytes)
-      print(decryptor.get_secret_value())  # "password123"
+      print(decrypted.get_secret_value())  # "password123"
 ```
 
 ---
 
 ### CacheManager
 
-Main orchestrator for multi-tier proxy caching (stub implementation).
+Main orchestrator for multi-tier proxy caching with automatic promotion/demotion, TTL management, and health-based invalidation.
 
 ```{eval-rst}
 .. py:class:: CacheManager
 
-   **Note:** This is currently a minimal stub implementation. Full implementation is planned.
+   Manages caching across three tiers:
 
-   Placeholder class for future multi-tier cache orchestration with automatic
-   promotion/demotion, TTL management, and health-based invalidation.
+   - **L1 (Memory)**: Fast in-memory cache using OrderedDict (LRU)
+   - **L2 (Disk)**: Persistent cache with configurable backend (JSONL or SQLite)
+   - **L3 (SQLite)**: Database cache for cold storage with full queryability
+
+   Supports TTL-based expiration, health-based invalidation, and graceful
+   degradation when tiers fail. Thread-safe via ``threading.RLock``.
 
    **Example:**
 
    .. code-block:: python
 
-      from proxywhirl.cache import CacheManager, CacheConfig
+      from proxywhirl.cache import CacheManager, CacheConfig, CacheEntry, HealthStatus
+      from datetime import datetime, timezone, timedelta
 
       config = CacheConfig()
       manager = CacheManager(config)
-      # Full implementation coming soon
+
+      # Store an entry
+      entry = CacheEntry(
+          key="abc123",
+          proxy_url="http://proxy.example.com:8080",
+          source="api",
+          fetch_time=datetime.now(timezone.utc),
+          last_accessed=datetime.now(timezone.utc),
+          ttl_seconds=3600,
+          expires_at=datetime.now(timezone.utc) + timedelta(seconds=3600),
+          health_status=HealthStatus.HEALTHY
+      )
+      manager.put(entry.key, entry)
+
+      # Retrieve (promotes to higher tiers on hit)
+      retrieved = manager.get(entry.key)
+
+      # Delete from all tiers
+      manager.delete(entry.key)
+
+      # Statistics
+      stats = manager.get_statistics()
+      print(f"Overall hit rate: {stats.overall_hit_rate:.2%}")
+
+      # Export/import
+      manager.export_to_file("proxies.jsonl")
+      manager.warm_from_file("proxies.jsonl", ttl_override=3600)
 ```
 
 #### Constructor
 
 ```{eval-rst}
-.. py:method:: __init__(*args: Any, **kwargs: Any) -> None
+.. py:method:: __init__(config: CacheConfig) -> None
    :noindex:
 
-   Initialize cache manager stub.
+   Initialize cache manager with configuration.
 
-   Accepts any arguments for forward compatibility.
+   :param config: Cache configuration with tier settings (required)
+
+   Initializes L1 (memory), L2 (disk), and L3 (SQLite) tiers based on config.
+   Starts background TTL cleanup if ``enable_background_cleanup`` is True.
 ```
+
+#### Methods
+
+```{eval-rst}
+.. py:method:: get(key: str) -> CacheEntry | None
+   :no-index:
+
+   Retrieve entry from cache with tier promotion.
+
+   Checks L1 → L2 → L3 in order. Promotes entries to higher tiers on hit.
+   Updates ``access_count`` and ``last_accessed`` on successful retrieval.
+   Expired entries are automatically deleted from all tiers.
+
+   :param key: Cache key to retrieve
+   :returns: CacheEntry if found and not expired, None otherwise
+
+.. py:method:: put(key: str, entry: CacheEntry) -> bool
+   :no-index:
+
+   Store entry in all enabled tiers.
+
+   Writes to all tiers for redundancy. Credentials are automatically
+   redacted in logs.
+
+   :param key: Cache key
+   :param entry: CacheEntry to store
+   :returns: True if stored in at least one tier, False otherwise
+
+.. py:method:: delete(key: str) -> bool
+   :no-index:
+
+   Delete entry from all tiers.
+
+   :param key: Cache key to delete
+   :returns: True if deleted from at least one tier, False if not found
+
+.. py:method:: clear() -> int
+   :no-index:
+
+   Clear all entries from all tiers.
+
+   :returns: Total number of entries cleared
+
+.. py:method:: invalidate_by_health(key: str) -> None
+
+   Mark proxy as unhealthy and evict if failure threshold reached.
+
+   Increments the ``failure_count`` and sets ``health_status`` to UNHEALTHY.
+   If ``failure_count`` reaches the configured ``failure_threshold``, the proxy
+   is removed from all cache tiers.
+
+   :param key: Cache key to invalidate
+
+.. py:method:: get_statistics() -> CacheStatistics
+
+   Get current cache statistics.
+
+   :returns: CacheStatistics with hit rates, sizes, and tier degradation status
+
+.. py:method:: export_to_file(filepath: str) -> dict[str, int]
+
+   Export all cache entries to a JSONL file.
+
+   :param filepath: Path to export file
+   :returns: Dict with ``exported`` and ``failed`` counts
+
+.. py:method:: warm_from_file(file_path: str, ttl_override: int | None = None) -> dict[str, int]
+
+   Load proxies from a file to pre-populate the cache.
+
+   Supports JSON (array), JSONL (newline-delimited), and CSV formats.
+   Invalid entries are skipped with warnings logged.
+
+   :param file_path: Path to file containing proxy data
+   :param ttl_override: Optional TTL in seconds (overrides ``default_ttl_seconds``)
+   :returns: Dict with ``loaded``, ``skipped``, and ``failed`` counts
+
+.. py:method:: generate_cache_key(proxy_url: str) -> str
+   :staticmethod:
+
+   Generate cache key from proxy URL using SHA256 hash.
+
+   :param proxy_url: Proxy URL to hash
+   :returns: Hex-encoded SHA256 hash (first 16 chars)
+```
+
+---
+
+### Crypto Utilities
+
+The `proxywhirl.cache.crypto` module provides helper functions for encryption key management and rotation.
+
+```python
+from proxywhirl.cache.crypto import get_encryption_keys, create_multi_fernet, rotate_key
+```
+
+#### `get_encryption_keys() -> list[bytes]`
+
+Get all valid encryption keys for MultiFernet. Returns keys in priority order: current key first, then previous key. Reads from `PROXYWHIRL_CACHE_ENCRYPTION_KEY` and `PROXYWHIRL_CACHE_KEY_PREVIOUS` environment variables. Generates a new key if no env vars are set.
+
+#### `create_multi_fernet() -> MultiFernet`
+
+Create a `MultiFernet` instance with all valid encryption keys. MultiFernet tries keys in order for decryption (newest first). All new encryptions use the first (current) key.
+
+#### `rotate_key(new_key: str) -> None`
+
+Rotate encryption keys by setting a new current key. Moves the current `PROXYWHIRL_CACHE_ENCRYPTION_KEY` to `PROXYWHIRL_CACHE_KEY_PREVIOUS` and sets the new key as current. This allows gradual migration: new data uses the new key, old data can still be decrypted with the previous key.
+
+```python
+from cryptography.fernet import Fernet
+from proxywhirl.cache.crypto import rotate_key
+
+# Generate new key and rotate
+new_key = Fernet.generate_key().decode()
+rotate_key(new_key)
+# Old data remains readable via PROXYWHIRL_CACHE_KEY_PREVIOUS
+```
+
+---
+
+### TTLManager
+
+Manages TTL-based expiration with hybrid lazy + background cleanup. Used internally by `CacheManager` when `enable_background_cleanup=True`.
+
+```{eval-rst}
+.. py:class:: TTLManager
+
+   Combines two cleanup strategies:
+
+   - **Lazy expiration**: Check TTL on every ``get()`` operation
+   - **Background cleanup**: Periodic scan of all tiers to remove expired entries
+
+   **Example:**
+
+   .. code-block:: python
+
+      from proxywhirl.cache.manager import TTLManager, CacheManager
+      from proxywhirl.cache import CacheConfig
+
+      config = CacheConfig(enable_background_cleanup=False)
+      manager = CacheManager(config)
+
+      # Manually create and start TTL manager
+      ttl_mgr = TTLManager(manager, cleanup_interval=60)
+      ttl_mgr.start()
+
+      # ... later ...
+      ttl_mgr.stop()
+```
+
+#### Constructor
+
+```{eval-rst}
+.. py:method:: __init__(cache_manager: CacheManager, cleanup_interval: int = 60) -> None
+   :noindex:
+
+   :param cache_manager: Parent CacheManager instance
+   :param cleanup_interval: Seconds between cleanup runs (default: 60)
+```
+
+#### Methods
+
+```{eval-rst}
+.. py:method:: start() -> None
+
+   Start background cleanup thread. Idempotent.
+
+.. py:method:: stop() -> None
+
+   Stop background cleanup thread. Safe to call if not running.
+```
+
+#### Attributes
+
+- `enabled` (bool): Whether background cleanup is running
+- `cleanup_interval` (int): Seconds between cleanup runs
 
 ---
 

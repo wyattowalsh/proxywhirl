@@ -58,7 +58,7 @@ myst_enable_extensions = {
     "attrs_inline",
 }
 
-myst_heading_anchors = 3
+myst_heading_anchors = 4
 source_suffix = {
     ".rst": "restructuredtext",
     ".md": "markdown",
@@ -94,13 +94,14 @@ if DOCSEARCH_ENABLED:
 html_theme_options = {
     "accent_color": "violet",
     "color_mode": "auto",
-    "dark_code": False,
+    "dark_code": True,
     "globaltoc_expand_depth": 2,
     "toctree_titles_only": False,
     "github_url": "https://github.com/wyattowalsh/proxywhirl",
-    "og_image_url": "https://proxywhirl.readthedocs.io/_static/og-image.png",
-    "twitter_creator": "@wyaborern",
-    "twitter_site": "@wyaborern",
+    # TODO: Create og-image.png and uncomment to enable Open Graph image meta tags
+    # "og_image_url": "https://proxywhirl.readthedocs.io/_static/og-image.png",
+    "twitter_creator": "wyaborern",
+    "twitter_site": "wyaborern",
     "light_logo": "_static/logo.svg",
     "dark_logo": "_static/logo.svg",
 }
@@ -120,6 +121,9 @@ html_show_sourcelink = True
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     "fastapi": ("https://fastapi.tiangolo.com", None),
+    # httpx doesn't provide a Sphinx objects.inv
+    # "httpx": ("https://www.python-httpx.org/", None),
+    "pydantic": ("https://docs.pydantic.dev/latest", None),
 }
 
 nitpicky = True
@@ -132,7 +136,8 @@ nitpick_ignore = [
 ]
 
 nitpick_ignore_regex = [
-    ("py:.*", r"pydantic\..*"),
+    (r"py:.*", r"proxywhirl\..*"),
+    (r"py:.*", r"pydantic\..*"),
 ]
 
 todo_include_todos = False

@@ -6,7 +6,8 @@ This script demonstrates the ProxyWhirl Terminal User Interface (TUI),
 showcasing the beautiful, interactive dashboard for proxy management.
 """
 
-from proxywhirl import ProxyRotator, run_tui
+from proxywhirl import ProxyRotator
+from proxywhirl.tui import run_tui
 
 
 def main() -> None:

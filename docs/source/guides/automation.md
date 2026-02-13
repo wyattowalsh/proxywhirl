@@ -6,6 +6,11 @@ title: Automation & CI/CD Runbook
 
 This guide covers everything you need to automate ProxyWhirl: local pre-flight checks, GitHub Actions CI pipelines, Docker deployment, cron-based proxy fetching, and integration testing patterns.
 
+```{contents}
+:local:
+:depth: 2
+```
+
 ---
 
 ## Pre-flight Checks
@@ -317,7 +322,7 @@ uv run proxywhirl fetch --concurrency 2000
 uv run proxywhirl export
 ```
 
-See [CLI Reference](cli-reference.md) for the full ``fetch`` and ``export`` command reference.
+See {doc}`cli-reference` for the full ``fetch`` and ``export`` command reference.
 
 ### Setting Up a Local Cron Job
 
@@ -416,7 +421,7 @@ docker compose down
 
 ### Production Docker with Reverse Proxy
 
-For production deployments, place ProxyWhirl behind a reverse proxy (Nginx, Caddy, etc.) to handle TLS termination and client IP forwarding. See [Deployment Security](deployment-security.md) for secure configurations with Nginx, Caddy, HAProxy, and Traefik.
+For production deployments, place ProxyWhirl behind a reverse proxy (Nginx, Caddy, etc.) to handle TLS termination and client IP forwarding. See {doc}`deployment-security` for secure configurations with Nginx, Caddy, HAProxy, and Traefik.
 
 ```yaml
 # docker-compose.prod.yml
@@ -612,9 +617,50 @@ Cache the ``uv`` virtual environment per job to keep CI runtimes low. Pin to Pyt
 
 ---
 
-## Further Reading
+## See Also
 
-- [CLI Reference](cli-reference.md) -- full CLI command reference for all ProxyWhirl commands
-- [Deployment Security](deployment-security.md) -- reverse proxy configuration and production security checklist
-- [Retry & Failover](retry-failover.md) -- retry policies and circuit breakers for robust automation
-- [Async Client](async-client.md) -- async patterns for high-concurrency proxy rotation
+::::{grid} 2
+:gutter: 3
+
+:::{grid-item-card} CLI Reference
+:link: /guides/cli-reference
+:link-type: doc
+
+Full CLI command reference for all ProxyWhirl commands including `fetch`, `export`, `cleanup`, and `sources`.
+:::
+
+:::{grid-item-card} Deployment Security
+:link: /guides/deployment-security
+:link-type: doc
+
+Reverse proxy configuration and production security checklist for Docker and cloud deployments.
+:::
+
+:::{grid-item-card} Retry & Failover
+:link: /guides/retry-failover
+:link-type: doc
+
+Retry policies and circuit breakers for robust automation and fault tolerance.
+:::
+
+:::{grid-item-card} Async Client
+:link: /guides/async-client
+:link-type: doc
+
+Async patterns for high-concurrency proxy rotation in production applications.
+:::
+
+:::{grid-item-card} Caching Subsystem
+:link: /guides/caching
+:link-type: doc
+
+Cache warming for faster startup and persistent proxy storage across restarts.
+:::
+
+:::{grid-item-card} MCP Server
+:link: /guides/mcp-server
+:link-type: doc
+
+AI assistant integration for automated proxy management via MCP protocol.
+:::
+::::

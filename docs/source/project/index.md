@@ -10,7 +10,7 @@ Get a working development environment in under a minute.
 
 ### Prerequisites
 
-- **Python 3.9+** (3.11+ recommended)
+- **Python 3.9+** (3.11+ recommended for best performance)
 - **[uv](https://docs.astral.sh/uv/)** -- fast Python package manager from Astral
 - **git** with pre-commit support
 
@@ -58,7 +58,7 @@ All common operations are available via `make`:
   - Auto-format code
 * - `make type-check`
   - `uv run ty check proxywhirl/`
-  - Type check with ty
+  - Type check with ty (Astral)
 * - `make quality-gates`
   - all of the above
   - Full pre-merge validation
@@ -151,6 +151,26 @@ uv run pytest -k "test_weighted" -v
 uv run pytest tests/ --cov=proxywhirl --cov-report=term-missing
 ```
 
+### Extending with Custom Strategies
+
+ProxyWhirl supports a plugin architecture via `StrategyRegistry`. Implement the `RotationStrategy` protocol and register your strategy:
+
+```python
+from proxywhirl import StrategyRegistry, RotationStrategy
+
+class MyStrategy:
+    def select(self, pool, context=None):
+        return pool.get_healthy_proxies()[0]
+
+    def record_result(self, proxy, success, response_time_ms):
+        pass
+
+registry = StrategyRegistry()
+registry.register_strategy("my-strategy", MyStrategy)
+```
+
+See {doc}`/reference/python-api` for the full `RotationStrategy` protocol and {doc}`/guides/advanced-strategies` for composite strategy patterns.
+
 ## CI/CD Pipelines
 
 All workflows live in `.github/workflows/`:
@@ -170,7 +190,7 @@ All workflows live in `.github/workflows/`:
   - Dependency audit, secret scanning
 * - `generate-proxies.yml`
   - cron (every 6h)
-  - Fetch proxies from 64+ sources, update `proxywhirl.db`
+  - Fetch proxies from 100+ sources, update `proxywhirl.db`
 * - `validate-sources.yml`
   - push / PR
   - Verify proxy source URLs are reachable
@@ -199,52 +219,9 @@ Level 2: integration + property tests  (depends on Level 1)
 Level 3: coverage + build  (depends on all tests)
 ```
 
-## Changelog Highlights
-
-### Recent
-
-- **Composite strategies** -- chain filters and selectors with <5 us overhead
-- **MCP server** -- Model Context Protocol integration for AI assistants
-- **Free proxy lists** -- auto-updated every 6 hours from 64+ sources
-- **Interactive dashboard** -- browse and export at [proxywhirl.com](https://proxywhirl.com/)
-- **Rate limiting API** -- token bucket algorithm, per-proxy and global limits
-- **Cache encryption** -- Fernet-encrypted L2 cache tier
-
-### Phase Completion Status
-
-```{list-table}
-:header-rows: 1
-:widths: 18 20 62
-
-* - Phase
-  - Status
-  - Notable wins
-* - Phase 6 -- Performance-based strategy
-  - {bdg-success}`Complete`
-  - EMA-driven scoring delivers 15-25% faster selection with <26 us overhead.
-* - Phase 7 -- Session persistence
-  - {bdg-success}`Complete`
-  - Sticky sessions with TTL cleanup and zero request leakage at 99.9% stickiness.
-* - Phase 8 -- Geo-targeted routing
-  - {bdg-success}`Complete`
-  - Region-aware filtering validated against 100% accuracy in SC-006.
-* - Phase 9 -- Strategy composition
-  - {bdg-success}`Complete`
-  - Composite pipelines, hot-swapping under load, and plugin registry (SC-009/010).
-* - Phase 10 -- Polish & validation
-  - {bdg-warning}`In progress`
-  - Optional tasks: coverage uplift, large-scale property tests, release packaging.
-```
-
-## Current Health
-
-- **Tests**: 2700+ passing across unit, integration, property, and contract suites
-- **Performance**: All selection strategies operate within 2.8-26 us (<5 ms target)
-- **Proxy sources**: 64+ sources, refreshed every 6 hours via CI
-
 ## Architecture
 
-### Key Modules
+### Module Map
 
 ```{list-table}
 :header-rows: 1
@@ -253,28 +230,54 @@ Level 3: coverage + build  (depends on all tests)
 * - Module
   - Purpose
 * - `models/`
-  - Pydantic models: `Proxy`, `ProxyPool`, `Session`, `*Config`
+  - Pydantic models: `Proxy`, `ProxyPool`, `Session`, `SelectionContext`, `*Config`
 * - `strategies/`
-  - 9 rotation strategies including composite pipelines
+  - 9 rotation strategies + `RotationStrategy` protocol + `StrategyRegistry`
 * - `rotator/`
-  - `ProxyRotator` (sync), `AsyncProxyRotator` (async)
+  - `ProxyRotator` (sync) and `AsyncProxyRotator` (async) -- core HTTP clients
 * - `storage.py`
-  - `SQLiteStorage`, `FileStorage`, `ProxyTable` (SQLModel)
+  - `SQLiteStorage`, `FileStorage`, `ProxyTable` (SQLModel ORM)
 * - `fetchers.py`
-  - `ProxyFetcher`, `ProxyValidator`, format parsers
+  - `ProxyFetcher`, `ProxyValidator`, parsers (`JSON`, `CSV`, `PlainText`, `HTMLTable`)
+* - `sources.py`
+  - 100+ pre-configured `ProxySourceConfig` instances (`ALL_SOURCES`, `RECOMMENDED_SOURCES`)
 * - `cache/`
-  - `CacheManager`, multi-tier L1/L2/L3 caching
+  - `CacheManager` with L1 in-memory, L2 encrypted disk, L3 SQLite tiers
 * - `circuit_breaker/`
-  - `CircuitBreaker`, `AsyncCircuitBreaker`
+  - `CircuitBreaker`, `AsyncCircuitBreaker` with state machine
+* - `retry/`
+  - `RetryExecutor`, `RetryPolicy`, backoff strategies (exponential, linear)
+* - `rate_limiting/`
+  - `RateLimiter` (token bucket), sync and async variants
 * - `api/`
-  - FastAPI REST API (`/api/v1/*`)
+  - FastAPI REST API (`/api/v1/*` routes) with OpenAPI
 * - `mcp/`
-  - MCP server for AI assistant integration
+  - MCP server for AI assistant integration (Claude, GPT)
 * - `cli.py`
-  - Typer CLI (`proxywhirl` command)
+  - Typer CLI (`proxywhirl` command, 9 subcommands)
+* - `config.py`
+  - TOML config loader, `CLIConfig`, `DataStorageConfig`
+* - `exceptions.py`
+  - `ProxyWhirlError` hierarchy, `ProxyErrorCode` enum, URL redaction
+* - `safe_regex.py`
+  - ReDoS-safe regex utilities
+* - `geo.py`
+  - IP geolocation enrichment (GeoIP2)
 ```
 
-For full module details, see the [Python API](../reference/python-api.md).
+For the full public API surface, see {doc}`/reference/python-api`.
+
+### Key Exports
+
+The top-level `proxywhirl` package exports:
+
+- **Rotators**: `ProxyRotator`, `AsyncProxyRotator`
+- **Models**: `Proxy`, `ProxyPool`, `Session`, `ProxySource`, `HealthStatus`, `SelectionContext`, `ProxyCredentials`, `ProxyConfiguration`
+- **Strategies**: `RoundRobinStrategy`, `RandomStrategy`, `WeightedStrategy`, `LeastUsedStrategy`, `PerformanceBasedStrategy`, `SessionPersistenceStrategy`, `GeoTargetedStrategy`, `CostAwareStrategy`, `CompositeStrategy`
+- **Config**: `StrategyConfig`, `CircuitBreakerConfig`, `RetryPolicy`, `CacheConfig`, `DataStorageConfig`
+- **Components**: `CacheManager`, `CircuitBreaker`, `AsyncCircuitBreaker`, `RetryExecutor`, `ProxyFetcher`, `ProxyValidator`, `BrowserRenderer`
+- **Sources**: `ALL_SOURCES`, `RECOMMENDED_SOURCES`, `ALL_HTTP_SOURCES`, `ALL_SOCKS4_SOURCES`, `ALL_SOCKS5_SOURCES`, `API_SOURCES`
+- **Utilities**: `configure_logging`, `encrypt_credentials`, `decrypt_credentials`, `deduplicate_proxies`
 
 ## Environment Variables
 
@@ -305,13 +308,60 @@ For full module details, see the [Python API](../reference/python-api.md).
   - MCP database path
 ```
 
+See {doc}`/reference/configuration` for the full TOML configuration reference and environment variable override behavior.
+
+## Current Health
+
+- **Tests**: 2700+ passing across unit, integration, property, contract, and benchmark suites
+- **Performance**: All selection strategies operate within 2.8-26 us (<5 ms target)
+- **Proxy sources**: 100+ sources, refreshed every 6 hours via CI
+- **Python**: Tested on 3.9, 3.10, 3.11, 3.12, and 3.13
+
+## Changelog Highlights
+
+### Recent
+
+- **Composite strategies** -- chain filters and selectors with <5 us overhead via `CompositeStrategy`
+- **Cost-aware strategy** -- budget-optimize proxy selection with `CostAwareStrategy`
+- **MCP server** -- Model Context Protocol integration for AI assistants
+- **Free proxy lists** -- auto-updated every 6 hours from 100+ sources
+- **Interactive dashboard** -- browse and export at [proxywhirl.com](https://proxywhirl.com/)
+- **Rate limiting API** -- token bucket algorithm, per-proxy and global limits
+- **Cache encryption** -- Fernet-encrypted L2 cache tier
+
+### Phase Completion Status
+
+```{list-table}
+:header-rows: 1
+:widths: 18 20 62
+
+* - Phase
+  - Status
+  - Notable wins
+* - Phase 6 -- Performance-based strategy
+  - {bdg-success}`Complete`
+  - EMA-driven scoring delivers 15-25% faster selection with <26 us overhead.
+* - Phase 7 -- Session persistence
+  - {bdg-success}`Complete`
+  - Sticky sessions with TTL cleanup and zero request leakage at 99.9% stickiness.
+* - Phase 8 -- Geo-targeted routing
+  - {bdg-success}`Complete`
+  - Region-aware filtering validated against 100% accuracy in SC-006.
+* - Phase 9 -- Strategy composition
+  - {bdg-success}`Complete`
+  - Composite pipelines, hot-swapping under load, and plugin registry (SC-009/010).
+* - Phase 10 -- Polish & validation
+  - {bdg-warning}`In progress`
+  - Optional tasks: coverage uplift, large-scale property tests, release packaging.
+```
+
 ## License
 
 ProxyWhirl is open source software released under the [MIT License](https://github.com/wyattowalsh/proxywhirl/blob/main/LICENSE).
 
 ---
 
-**Related:** [Automation](../guides/automation.md) for CI integration | [Configuration](../reference/configuration.md) for config reference | [Getting Started](../getting-started/index.md) for quickstart
+**Related:** {doc}`/guides/automation` for CI integration | {doc}`/reference/configuration` for config reference | {doc}`/getting-started/index` for quickstart
 
 ```{admonition} Historical reports
 :class: info

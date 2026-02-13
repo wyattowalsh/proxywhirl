@@ -238,17 +238,12 @@ html.light .pw-icon-moon { display: block; }
 /* --------------------------------------------------------------------------
    Global Typography Enhancements
    -------------------------------------------------------------------------- */
-html {
-  scroll-behavior: smooth;
-}
-
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Gradient text utility */
-.gradient-text,
+/* Gradient text — applied to first h1 in content area */
 .sy-content h1:first-of-type {
   background: var(--pw-gradient-text);
   -webkit-background-clip: text;
@@ -259,36 +254,6 @@ body {
 /* --------------------------------------------------------------------------
    Header & Navigation
    -------------------------------------------------------------------------- */
-.sy-head {
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--pw-border);
-}
-
-/* Fix nav logo text truncation */
-.sy-head-brand {
-  min-width: max-content;
-  flex-shrink: 0;
-}
-
-.sy-head-brand a {
-  white-space: nowrap;
-}
-
-.sy-head-nav a:hover {
-  color: var(--pw-violet);
-}
-
-/* Announcement bar styling */
-.sy-announce {
-  background: linear-gradient(90deg, rgba(109, 100, 255, 0.1), rgba(200, 107, 255, 0.1));
-  border-bottom: 1px solid var(--pw-border);
-  font-size: 0.875rem;
-}
-
-:root.dark .sy-announce {
-  background: linear-gradient(90deg, rgba(109, 100, 255, 0.15), rgba(200, 107, 255, 0.12));
-}
 
 /* --------------------------------------------------------------------------
    Hero Section (Index Page)
@@ -366,11 +331,7 @@ body {
   overflow: hidden;
 }
 
-.sd-card:hover {
-  border-color: var(--pw-border-strong);
-  box-shadow: var(--pw-shadow-md);
-  transform: translateY(-2px);
-}
+/* card hover — see enhanced version in section 3 below */
 
 .sd-card-header {
   border-bottom: 1px solid var(--pw-border);
@@ -706,16 +667,7 @@ html.dark .sig-name code {
   color: #e2e8f0;
 }
 
-/* Copy button */
-.copybtn {
-  border-radius: var(--pw-radius);
-  transition: all var(--pw-transition);
-}
-
-.copybtn:hover {
-  background: rgba(109, 100, 255, 0.15);
-  color: var(--pw-violet);
-}
+/* Copy button — see enhanced version in section 8 below */
 
 /* --------------------------------------------------------------------------
    Admonitions & Callouts
@@ -795,50 +747,10 @@ html.dark .sig-name code {
 /* --------------------------------------------------------------------------
    Sidebar Navigation
    -------------------------------------------------------------------------- */
-.sy-sidebar {
-  border-right: 1px solid var(--pw-border);
-}
-
-.sy-sidebar-link {
-  border-radius: var(--pw-radius);
-  transition: all var(--pw-transition);
-  margin: 0.125rem 0;
-}
-
-.sy-sidebar-link:hover {
-  background: rgba(109, 100, 255, 0.08);
-}
-
-.sy-sidebar-link.current {
-  background: linear-gradient(90deg, rgba(109, 100, 255, 0.12), transparent);
-  border-left: 3px solid var(--pw-violet);
-  font-weight: 600;
-  color: var(--pw-violet);
-}
 
 /* --------------------------------------------------------------------------
    Table of Contents (Right Sidebar)
    -------------------------------------------------------------------------- */
-.sy-toc {
-  border-left: 1px solid var(--pw-border);
-}
-
-.sy-toc a {
-  transition: all var(--pw-transition);
-  border-left: 2px solid transparent;
-  margin-left: -1px;
-}
-
-.sy-toc a:hover {
-  color: var(--pw-violet);
-  border-left-color: rgba(109, 100, 255, 0.4);
-}
-
-.sy-toc a.current {
-  color: var(--pw-violet);
-  border-left-color: var(--pw-violet);
-  font-weight: 500;
-}
 
 /* --------------------------------------------------------------------------
    Tables
@@ -889,20 +801,6 @@ table.docutils tbody td {
 }
 
 /* --------------------------------------------------------------------------
-   Search
-   -------------------------------------------------------------------------- */
-.DocSearch-Button {
-  border-radius: var(--pw-radius-lg) !important;
-  border: 1px solid var(--pw-border) !important;
-  transition: all var(--pw-transition) !important;
-}
-
-.DocSearch-Button:hover {
-  border-color: var(--pw-violet) !important;
-  box-shadow: 0 0 0 3px rgba(109, 100, 255, 0.1) !important;
-}
-
-/* --------------------------------------------------------------------------
    Badges & Pills
    -------------------------------------------------------------------------- */
 .sd-badge {
@@ -917,16 +815,6 @@ table.docutils tbody td {
   color: white;
 }
 
-/* Version badge */
-.version-badge {
-  background: linear-gradient(135deg, rgba(109, 100, 255, 0.15), rgba(200, 107, 255, 0.1));
-  border: 1px solid var(--pw-border);
-  border-radius: 9999px;
-  padding: 0.25rem 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--pw-violet);
-}
 
 /* --------------------------------------------------------------------------
    Scrollbar Styling
@@ -949,6 +837,12 @@ table.docutils tbody td {
   background: rgba(109, 100, 255, 0.35);
 }
 
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--pw-violet) transparent;
+}
+
 /* --------------------------------------------------------------------------
    Focus States (Accessibility)
    -------------------------------------------------------------------------- */
@@ -962,12 +856,11 @@ table.docutils tbody td {
    Print Styles
    -------------------------------------------------------------------------- */
 @media print {
-  .sy-head,
-  .sy-sidebar,
-  .sy-toc,
   .sy-foot,
+  .sy-lside,
+  .sy-rside,
   .copybtn,
-  .sy-announce {
+  .pw-navbar {
     display: none !important;
   }
 
@@ -980,18 +873,6 @@ table.docutils tbody td {
 /* --------------------------------------------------------------------------
    Animations
    -------------------------------------------------------------------------- */
-@keyframes pulse-glow {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(109, 100, 255, 0.2);
-  }
-  50% {
-    box-shadow: 0 0 30px rgba(109, 100, 255, 0.35);
-  }
-}
-
-.animate-glow {
-  animation: pulse-glow 3s ease-in-out infinite;
-}
 
 /* ==========================================================================
    Enhanced Visual Polish — Appended Styles
@@ -1233,18 +1114,7 @@ a.sd-card:hover {
   text-decoration: none !important;
 }
 
-/* Dark mode card tweaks */
-html.dark .sd-card {
-  background: rgba(30, 30, 46, 0.6);
-}
-
-html.dark .sd-card:hover {
-  box-shadow: var(--pw-shadow-md), 0 0 20px rgba(109, 100, 255, 0.08);
-}
-
-html.dark .sd-card-header {
-  background: linear-gradient(135deg, rgba(109, 100, 255, 0.08), transparent);
-}
+/* Dark mode card tweaks — see enhanced version in section 20 below */
 
 /* --------------------------------------------------------------------------
    4. Tables — Enhanced with Sticky Headers
@@ -1305,46 +1175,8 @@ table.docutils tbody tr:last-child td {
 }
 
 /* --------------------------------------------------------------------------
-   5. Sidebar Navigation — Enhanced Active States
+   5. Sidebar Navigation — Removed (uses Shibuya .sy-lside defaults)
    -------------------------------------------------------------------------- */
-/* Nested item indentation */
-.sy-sidebar-link {
-  padding: 0.375rem 0.75rem;
-  font-size: 0.875rem;
-  line-height: 1.5;
-}
-
-/* Smooth expand/collapse for tree */
-.sy-sidebar ul {
-  transition: max-height 0.3s ease, opacity 0.2s ease;
-}
-
-/* Active item with gradient left border */
-.sy-sidebar-link.current {
-  position: relative;
-}
-
-.sy-sidebar-link.current::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 20%;
-  height: 60%;
-  width: 3px;
-  background: var(--pw-gradient);
-  border-radius: 0 2px 2px 0;
-}
-
-/* Section headers in sidebar */
-.sy-sidebar .caption {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  opacity: 0.5;
-  padding: 1rem 0.75rem 0.375rem;
-  margin-top: 0.5rem;
-}
 
 /* --------------------------------------------------------------------------
    6. Smooth Scrolling — Enhanced
@@ -1366,132 +1198,8 @@ html {
 }
 
 /* --------------------------------------------------------------------------
-   7. HTTP Method Badges
+   7. HTTP Method Badges — Removed (using sphinx-design badges instead)
    -------------------------------------------------------------------------- */
-.http-method,
-.badge-get,
-.badge-post,
-.badge-put,
-.badge-patch,
-.badge-delete,
-.badge-head,
-.badge-options {
-  display: inline-block;
-  font-size: 0.7rem;
-  font-weight: 700;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.2rem 0.6rem;
-  border-radius: var(--pw-radius-sm);
-  line-height: 1.4;
-  vertical-align: middle;
-}
-
-/* GET — green */
-.badge-get,
-.http-method.get {
-  background: rgba(16, 185, 129, 0.12);
-  color: #059669;
-  border: 1px solid rgba(16, 185, 129, 0.3);
-}
-
-html.dark .badge-get,
-html.dark .http-method.get {
-  background: rgba(16, 185, 129, 0.15);
-  color: #6ee7b7;
-  border-color: rgba(16, 185, 129, 0.25);
-}
-
-/* POST — blue */
-.badge-post,
-.http-method.post {
-  background: rgba(59, 130, 246, 0.12);
-  color: #2563eb;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-html.dark .badge-post,
-html.dark .http-method.post {
-  background: rgba(59, 130, 246, 0.15);
-  color: #93bbfd;
-  border-color: rgba(59, 130, 246, 0.25);
-}
-
-/* PUT — orange */
-.badge-put,
-.http-method.put {
-  background: rgba(245, 158, 11, 0.12);
-  color: #d97706;
-  border: 1px solid rgba(245, 158, 11, 0.3);
-}
-
-html.dark .badge-put,
-html.dark .http-method.put {
-  background: rgba(245, 158, 11, 0.15);
-  color: #fcd34d;
-  border-color: rgba(245, 158, 11, 0.25);
-}
-
-/* PATCH — purple */
-.badge-patch,
-.http-method.patch {
-  background: rgba(139, 92, 246, 0.12);
-  color: #7c3aed;
-  border: 1px solid rgba(139, 92, 246, 0.3);
-}
-
-html.dark .badge-patch,
-html.dark .http-method.patch {
-  background: rgba(139, 92, 246, 0.15);
-  color: #c4b5fd;
-  border-color: rgba(139, 92, 246, 0.25);
-}
-
-/* DELETE — red */
-.badge-delete,
-.http-method.delete {
-  background: rgba(239, 68, 68, 0.12);
-  color: #dc2626;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-html.dark .badge-delete,
-html.dark .http-method.delete {
-  background: rgba(239, 68, 68, 0.15);
-  color: #fca5a5;
-  border-color: rgba(239, 68, 68, 0.25);
-}
-
-/* HEAD — teal */
-.badge-head,
-.http-method.head {
-  background: rgba(6, 182, 212, 0.12);
-  color: #0891b2;
-  border: 1px solid rgba(6, 182, 212, 0.3);
-}
-
-html.dark .badge-head,
-html.dark .http-method.head {
-  background: rgba(6, 182, 212, 0.15);
-  color: #67e8f9;
-  border-color: rgba(6, 182, 212, 0.25);
-}
-
-/* OPTIONS — gray */
-.badge-options,
-.http-method.options {
-  background: rgba(107, 114, 128, 0.12);
-  color: #4b5563;
-  border: 1px solid rgba(107, 114, 128, 0.3);
-}
-
-html.dark .badge-options,
-html.dark .http-method.options {
-  background: rgba(107, 114, 128, 0.15);
-  color: #d1d5db;
-  border-color: rgba(107, 114, 128, 0.25);
-}
 
 /* --------------------------------------------------------------------------
    8. Copy Button — Enhanced
@@ -1773,5 +1481,315 @@ html.dark .sig {
 
   .sd-btn-primary:hover {
     transform: none;
+  }
+}
+
+/* ==========================================================================
+   Visual Polish Pass — Targeted Fixes
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   15. Button Palette Fix — Secondary & Outline Buttons
+   The .sd-btn-secondary and .sd-btn-outline-secondary were rendering as
+   brownish/muddy in the default Shibuya palette. Force brand colors.
+   -------------------------------------------------------------------------- */
+/* sd-btn-secondary & outline-secondary — brand override with high specificity */
+.sd-btn-outline-secondary {
+  border-color: var(--pw-violet);
+  color: var(--pw-violet);
+}
+
+.sd-btn.sd-btn-secondary {
+  background: rgba(109, 100, 255, 0.12) !important;
+  border: 1.5px solid var(--pw-violet) !important;
+  color: var(--pw-violet) !important;
+}
+
+.sd-btn.sd-btn-secondary:hover {
+  background: rgba(109, 100, 255, 0.2) !important;
+  border-color: var(--pw-pink) !important;
+  transform: translateY(-1px);
+}
+
+html.dark .sd-btn.sd-btn-secondary {
+  background: rgba(164, 151, 255, 0.12) !important;
+  border-color: #a497ff !important;
+  color: #c4b5fd !important;
+}
+
+html.dark .sd-btn.sd-btn-secondary:hover {
+  background: rgba(164, 151, 255, 0.22) !important;
+  border-color: #c4b5fd !important;
+}
+
+/* Hero buttons specifically — ensure white text on gradient for primary */
+.sy-hero .sd-btn.sd-btn-secondary {
+  color: var(--pw-violet) !important;
+  font-weight: 600;
+}
+
+html.dark .sy-hero .sd-btn.sd-btn-secondary {
+  color: #c4b5fd !important;
+}
+
+/* --------------------------------------------------------------------------
+   16. Card Badge / Tag Styling
+   sphinx-design badges at the bottom of cards (asyncio, httpx, etc.)
+   -------------------------------------------------------------------------- */
+.sd-card .sd-badge,
+.sd-card-footer .sd-badge,
+.sd-card .sd-badge-secondary,
+.sd-card .sd-badge-primary {
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.12), rgba(200, 107, 255, 0.08));
+  color: var(--pw-violet);
+  border: 1px solid var(--pw-border);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+}
+
+html.dark .sd-card .sd-badge,
+html.dark .sd-card-footer .sd-badge,
+html.dark .sd-card .sd-badge-secondary,
+html.dark .sd-card .sd-badge-primary {
+  background: linear-gradient(135deg, rgba(164, 151, 255, 0.15), rgba(200, 107, 255, 0.1));
+  color: #c4b5fd;
+  border-color: rgba(164, 151, 255, 0.2);
+}
+
+/* --------------------------------------------------------------------------
+   17. Responsive Table Wrapper
+   Prevent table overflow on narrow viewports.
+   -------------------------------------------------------------------------- */
+.sy-content .table-wrapper,
+.sy-content table.docutils {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767px) {
+  table.docutils {
+    min-width: 480px;
+  }
+
+  /* Better breadcrumb on mobile — allow truncation */
+  .sy-breadcrumbs {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: calc(100vw - 6rem);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   18. Code Block Mobile Overflow
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .highlight pre {
+    font-size: 0.8rem;
+    line-height: 1.6;
+    padding: 1rem !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Tab labels smaller on mobile */
+  .sd-tab-set > ul li button[role="tab"],
+  .sd-tab-set > label.sd-tab-label {
+    font-size: 0.78rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* Cards: single column on mobile */
+  .sd-row {
+    flex-direction: column !important;
+  }
+
+  .sd-row > .sd-col {
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+  }
+
+  /* Copy-page button: don't overlap content */
+  .sy-content > .sy-actions {
+    position: static;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   19. Navbar Section Links — Getting Started, Guides, Reference, Project
+   Only visible on desktop; show active state based on URL path.
+   -------------------------------------------------------------------------- */
+.pw-navbar-links {
+  gap: 0.75rem;
+}
+
+.pw-navbar-link {
+  font-size: 0.82rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--pw-radius-sm);
+}
+
+.pw-navbar-link:hover {
+  background: rgba(109, 100, 255, 0.06);
+}
+
+html.dark .pw-navbar-link:hover {
+  background: rgba(164, 151, 255, 0.08);
+}
+
+.pw-navbar-link.active {
+  background: rgba(109, 100, 255, 0.1);
+}
+
+html.dark .pw-navbar-link.active {
+  background: rgba(164, 151, 255, 0.12);
+}
+
+/* --------------------------------------------------------------------------
+   20. Improved Dark Mode Contrast
+   -------------------------------------------------------------------------- */
+html.dark .sd-card {
+  background: rgba(30, 30, 50, 0.7);
+  border-color: rgba(164, 151, 255, 0.15);
+}
+
+html.dark .sd-card:hover {
+  border-color: rgba(164, 151, 255, 0.3);
+  box-shadow: var(--pw-shadow-md), 0 0 24px rgba(109, 100, 255, 0.1);
+}
+
+html.dark .sd-card-header {
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.1), transparent);
+  border-bottom-color: rgba(164, 151, 255, 0.12);
+}
+
+/* Dark mode body text contrast */
+html.dark .sy-content p,
+html.dark .sy-content li {
+  color: rgba(226, 232, 240, 0.92);
+}
+
+/* --------------------------------------------------------------------------
+   21. Hero Section — Mobile Refinements
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .sy-hero {
+    padding: 2rem 1.25rem;
+    margin-bottom: 2rem;
+  }
+
+  .sy-hero h1 {
+    font-size: 2rem;
+  }
+
+  .sy-hero p {
+    font-size: 1rem;
+  }
+
+  .sy-hero .sd-btn {
+    font-size: 0.875rem;
+    padding: 0.625rem 1.25rem;
+    display: inline-block;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   22. Link Underline Polish
+   Content links get subtle underlines for better discoverability.
+   -------------------------------------------------------------------------- */
+.sy-content a:not(.sd-btn):not(.sd-card):not(.headerlink):not(.sd-badge) {
+  text-decoration-color: rgba(109, 100, 255, 0.3);
+  text-underline-offset: 0.15em;
+  transition: text-decoration-color var(--pw-transition), color var(--pw-transition);
+}
+
+.sy-content a:not(.sd-btn):not(.sd-card):not(.headerlink):not(.sd-badge):hover {
+  text-decoration-color: var(--pw-violet);
+}
+
+html.dark .sy-content a:not(.sd-btn):not(.sd-card):not(.headerlink):not(.sd-badge) {
+  text-decoration-color: rgba(164, 151, 255, 0.3);
+}
+
+html.dark .sy-content a:not(.sd-btn):not(.sd-card):not(.headerlink):not(.sd-badge):hover {
+  text-decoration-color: #a497ff;
+}
+
+/* --------------------------------------------------------------------------
+   23. Prev/Next Navigation Links
+   -------------------------------------------------------------------------- */
+.sy-content + nav a,
+a[rel="prev"],
+a[rel="next"] {
+  border: 1px solid var(--pw-border);
+  border-radius: var(--pw-radius-lg);
+  padding: 0.75rem 1rem;
+  transition: all var(--pw-transition);
+}
+
+.sy-content + nav a:hover,
+a[rel="prev"]:hover,
+a[rel="next"]:hover {
+  border-color: var(--pw-border-strong);
+  box-shadow: var(--pw-shadow-sm);
+  background: rgba(109, 100, 255, 0.04);
+}
+
+html.dark .sy-content + nav a:hover,
+html.dark a[rel="prev"]:hover,
+html.dark a[rel="next"]:hover {
+  background: rgba(164, 151, 255, 0.06);
+}
+
+/* --------------------------------------------------------------------------
+   24. Mermaid Diagram — Dark Mode Fix
+   -------------------------------------------------------------------------- */
+html.dark .mermaid {
+  background: rgba(30, 30, 50, 0.6);
+  border-color: rgba(164, 151, 255, 0.15);
+}
+
+/* --------------------------------------------------------------------------
+   25. TOC Right Sidebar — Removed (uses Shibuya .sy-rside defaults)
+   -------------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------------
+   26. Skip-to-content Accessibility Link
+   -------------------------------------------------------------------------- */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  background: var(--pw-gradient);
+  color: white;
+  padding: 0.5rem 1rem;
+  z-index: 100;
+  border-radius: 0 0 var(--pw-radius) 0;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* --------------------------------------------------------------------------
+   27. Smooth Theme Transition
+   Prevent flash of unstyled content during dark/light toggle.
+   -------------------------------------------------------------------------- */
+html.light,
+html.dark {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.light,
+  html.dark {
+    transition: none;
   }
 }

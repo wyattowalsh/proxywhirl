@@ -6,22 +6,10 @@ title: Deployment Security & Reverse Proxy Configuration
 
 Complete guide for securely deploying ProxyWhirl in production with trusted reverse proxy configurations.
 
-## Table of Contents
-
-- [Overview](#overview)
-- [X-Forwarded-For Security](#x-forwarded-for-security)
-  - [The Attack](#the-attack)
-  - [The Defense](#the-defense)
-- [Reverse Proxy Configurations](#reverse-proxy-configurations)
-  - [Nginx](#nginx)
-  - [Caddy](#caddy)
-  - [HAProxy](#haproxy)
-  - [Traefik](#traefik)
-  - [AWS Application Load Balancer](#aws-application-load-balancer)
-- [ProxyWhirl Configuration](#proxywhirl-configuration)
-- [Security Checklist](#security-checklist)
-- [Troubleshooting](#troubleshooting)
-- [References](#references)
+```{contents}
+:local:
+:depth: 2
+```
 
 ## Overview
 

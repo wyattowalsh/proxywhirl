@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Literal
 
 from cryptography.fernet import Fernet
 from loguru import logger
@@ -165,12 +166,14 @@ class CLIConfig(BaseModel):
     verify_ssl: bool = Field(True, description="Verify SSL certificates")
 
     # Output settings
-    default_format: str = Field("human", description="Default output format")
+    default_format: str = Field("text", description="Default output format")
     color: bool = Field(True, description="Enable colored output")
     verbose: bool = Field(False, description="Verbose output mode")
 
     # Storage settings
-    storage_backend: str = Field("file", description="Storage backend type")
+    storage_backend: Literal["memory", "sqlite", "file"] = Field(
+        "file", description="Storage backend type"
+    )
     storage_path: Path | None = Field(None, description="Path for file/sqlite storage")
 
     # Cache settings (005-caching-mechanisms-storage)
@@ -229,7 +232,12 @@ class CLIConfig(BaseModel):
     @classmethod
     def validate_format(cls, v: str) -> str:
         """Validate output format."""
-        valid = {"human", "json", "table", "csv"}
+        # Backward-compatible aliases for deprecated format names
+        aliases = {"human": "text", "table": "text"}
+        if v in aliases:
+            logger.warning(f"default_format '{v}' is deprecated, use '{aliases[v]}' instead")
+            return aliases[v]
+        valid = {"text", "json", "csv"}
         if v not in valid:
             raise ValueError(f"Invalid output format. Must be one of: {valid}")
         return v

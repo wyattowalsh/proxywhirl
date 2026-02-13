@@ -35,7 +35,8 @@ async def example_basic_health_monitoring():
 
     # Start monitoring (runs in background)
     await monitor.start()
-    print(f"Monitoring started at {monitor._start_time}")
+    status = monitor.get_status()
+    print(f"Monitoring started (uptime: {status.get('uptime_seconds', 0):.1f}s)")
     print(f"Check interval: {monitor.check_interval} seconds")
     print(f"Failure threshold: {monitor.failure_threshold} failures")
 
@@ -196,16 +197,18 @@ async def example_monitoring_with_rotator():
     from proxywhirl.rotator import ProxyRotator
     from proxywhirl.strategies import RandomStrategy
 
-    # Create pool and rotator
-    pool = ProxyPool(name="rotator_pool")
-    pool.add_proxy(Proxy(url="http://proxy1.example.com:8080"))
-    pool.add_proxy(Proxy(url="http://proxy2.example.com:8080"))
-    pool.add_proxy(Proxy(url="http://proxy3.example.com:8080"))
+    # Create rotator (which creates its own internal pool)
+    rotator = ProxyRotator(
+        proxies=[
+            Proxy(url="http://proxy1.example.com:8080"),
+            Proxy(url="http://proxy2.example.com:8080"),
+            Proxy(url="http://proxy3.example.com:8080"),
+        ],
+        strategy=RandomStrategy(),
+    )
 
-    rotator = ProxyRotator(pool=pool, strategy=RandomStrategy())
-
-    # Start health monitoring
-    monitor = HealthMonitor(pool=pool, check_interval=60, failure_threshold=3)
+    # Start health monitoring on the rotator's pool
+    monitor = HealthMonitor(pool=rotator.pool, check_interval=60, failure_threshold=3)
     await monitor.start()
 
     print(f"Rotator pool size: {rotator.pool.size}")
@@ -213,8 +216,8 @@ async def example_monitoring_with_rotator():
 
     # Use rotator while monitoring runs in background
     for i in range(5):
-        proxy = rotator.next()
-        print(f"  Request {i + 1}: using {proxy.host}:{proxy.port}")
+        proxy = rotator.strategy.select(rotator.pool)
+        print(f"  Request {i + 1}: using {proxy.url}")
 
     # Stop monitoring
     await monitor.stop()

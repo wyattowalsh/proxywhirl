@@ -31,7 +31,7 @@ There are three rate limiter classes. Use `SyncRateLimiter` with `ProxyRotator` 
 
 ### RateLimiter (Legacy)
 
-:::{deprecated} 1.0.0
+:::{deprecated} 0.1.1
 Use `SyncRateLimiter` for synchronous contexts or `AsyncRateLimiter` for async contexts. This class is maintained for backwards compatibility.
 :::
 
@@ -140,9 +140,9 @@ Set rate limit for a specific proxy.
 
 **Example:**
 ```python
-from proxywhirl.rate_limiting import RateLimiter, RateLimit
+from proxywhirl.rate_limiting import SyncRateLimiter, RateLimit
 
-limiter = RateLimiter()
+limiter = SyncRateLimiter()
 
 # Set different limits for different proxies
 limiter.set_proxy_limit(
@@ -343,13 +343,13 @@ print(f"Details: {event.details}")
 ### Basic Rate Limiting
 
 ```python
-from proxywhirl.rate_limiting import RateLimiter, RateLimit
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit
 
-# Create limiter
-limiter = RateLimiter()
+# Create async limiter
+limiter = AsyncRateLimiter()
 
 # Set per-proxy limits
-limiter.set_proxy_limit(
+await limiter.set_proxy_limit(
     "proxy1",
     RateLimit(max_requests=10, time_window=1)  # 10 req/sec
 )
@@ -376,16 +376,16 @@ for i in range(20):
 ### Global + Per-Proxy Limits
 
 ```python
-from proxywhirl.rate_limiting import RateLimiter, RateLimit
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit
 
 # Global limit: 1000 req/min across all proxies
 # Per-proxy limit: 10 req/sec per proxy
-limiter = RateLimiter(
+limiter = AsyncRateLimiter(
     global_limit=RateLimit(max_requests=1000, time_window=60)
 )
 
 for proxy_id in ["proxy1", "proxy2", "proxy3"]:
-    limiter.set_proxy_limit(
+    await limiter.set_proxy_limit(
         proxy_id,
         RateLimit(max_requests=10, time_window=1)
     )
@@ -405,11 +405,11 @@ async def make_request(proxy_id):
 ### Burst Handling
 
 ```python
-from proxywhirl.rate_limiting import RateLimiter, RateLimit
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit
 
 # Allow bursts up to 50 requests, then throttle to 10 req/sec
-limiter = RateLimiter()
-limiter.set_proxy_limit(
+limiter = AsyncRateLimiter()
+await limiter.set_proxy_limit(
     "proxy1",
     RateLimit(
         max_requests=10,
@@ -440,12 +440,12 @@ assert allowed is True
 ### Dynamic Limit Adjustment
 
 ```python
-from proxywhirl.rate_limiting import RateLimiter, RateLimit
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit
 
-limiter = RateLimiter()
+limiter = AsyncRateLimiter()
 
 # Start with conservative limit
-limiter.set_proxy_limit(
+await limiter.set_proxy_limit(
     "proxy1",
     RateLimit(max_requests=5, time_window=1)
 )
@@ -458,7 +458,7 @@ async def adaptive_request(proxy_id):
 
             # Success - increase limit
             if response.status_code == 200:
-                limiter.set_proxy_limit(
+                await limiter.set_proxy_limit(
                     proxy_id,
                     RateLimit(max_requests=10, time_window=1)
                 )
@@ -466,7 +466,7 @@ async def adaptive_request(proxy_id):
             return response
         except Exception as e:
             # Failure - decrease limit
-            limiter.set_proxy_limit(
+            await limiter.set_proxy_limit(
                 proxy_id,
                 RateLimit(max_requests=2, time_window=1)
             )
@@ -481,11 +481,11 @@ async def adaptive_request(proxy_id):
 
 ```python
 from proxywhirl import ProxyRotator
-from proxywhirl.rate_limiting import RateLimiter, RateLimit
+from proxywhirl.rate_limiting import SyncRateLimiter, RateLimit
 
-# Create rotator and limiter
+# Create rotator and sync limiter
 rotator = ProxyRotator()
-limiter = RateLimiter(
+limiter = SyncRateLimiter(
     global_limit=RateLimit(max_requests=1000, time_window=60)
 )
 
@@ -500,22 +500,22 @@ for proxy_id, limit in proxies:
     rotator.add_proxy(f"http://{proxy_id}.example.com:8080")
     limiter.set_proxy_limit(proxy_id, limit)
 
-# Make requests with rate limiting
-async def make_request_with_rate_limit(url):
+# Make requests with rate limiting (sync)
+def make_request_with_rate_limit(url):
     # Get proxy from rotator
     proxy = rotator.get_proxy()
-    proxy_id = proxy.id
+    proxy_id = str(proxy.id)
 
-    # Check rate limit
-    if await limiter.check_limit(proxy_id):
-        response = await rotator.get(url)
+    # Check rate limit (sync - no await needed)
+    if limiter.check_limit(proxy_id):
+        response = rotator.get(url)
         return response
     else:
         # Rate limited, try different proxy
-        return await make_request_with_rate_limit(url)
+        return make_request_with_rate_limit(url)
 
 # Use in application
-response = await make_request_with_rate_limit("https://api.example.com")
+response = make_request_with_rate_limit("https://api.example.com")
 ```
 
 ---
@@ -523,12 +523,12 @@ response = await make_request_with_rate_limit("https://api.example.com")
 ### Monitoring and Logging
 
 ```python
-from proxywhirl.rate_limiting import RateLimiter, RateLimit, RateLimitEvent
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit, RateLimitEvent
 from datetime import datetime, timezone
 from loguru import logger
 
-limiter = RateLimiter()
-limiter.set_proxy_limit("proxy1", RateLimit(max_requests=10, time_window=1))
+limiter = AsyncRateLimiter()
+await limiter.set_proxy_limit("proxy1", RateLimit(max_requests=10, time_window=1))
 
 # Track rate limit events
 events = []
@@ -569,11 +569,11 @@ print(f"Throttled requests: {throttled_count}/{len(events)}")
 ### Retry with Backoff
 
 ```python
-from proxywhirl.rate_limiting import RateLimiter, RateLimit
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit
 import asyncio
 
-limiter = RateLimiter()
-limiter.set_proxy_limit("proxy1", RateLimit(max_requests=10, time_window=1))
+limiter = AsyncRateLimiter()
+await limiter.set_proxy_limit("proxy1", RateLimit(max_requests=10, time_window=1))
 
 async def make_request_with_retry(proxy_id, url, max_retries=3):
     for attempt in range(max_retries):
@@ -600,25 +600,26 @@ response = await make_request_with_retry("proxy1", "https://api.example.com")
 
 ## Thread Safety
 
-`RateLimiter` is thread-safe using `threading.RLock`:
+`SyncRateLimiter` and `RateLimiter` are thread-safe using `threading.RLock`. `AsyncRateLimiter` uses `asyncio.Lock` for async safety.
 
 ```python
 import asyncio
-from proxywhirl.rate_limiting import RateLimiter, RateLimit
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit
 
-limiter = RateLimiter()
-limiter.set_proxy_limit("proxy1", RateLimit(max_requests=100, time_window=1))
+limiter = AsyncRateLimiter()
 
-async def worker(worker_id):
-    for i in range(20):
-        if await limiter.check_limit("proxy1"):
-            print(f"Worker {worker_id}: Request {i} allowed")
-        else:
-            print(f"Worker {worker_id}: Request {i} rate limited")
-        await asyncio.sleep(0.01)
-
-# Run concurrent workers
 async def main():
+    await limiter.set_proxy_limit("proxy1", RateLimit(max_requests=100, time_window=1))
+
+    async def worker(worker_id):
+        for i in range(20):
+            if await limiter.check_limit("proxy1"):
+                print(f"Worker {worker_id}: Request {i} allowed")
+            else:
+                print(f"Worker {worker_id}: Request {i} rate limited")
+            await asyncio.sleep(0.01)
+
+    # Run concurrent workers
     tasks = [worker(i) for i in range(10)]
     await asyncio.gather(*tasks)
 
@@ -679,33 +680,36 @@ asyncio.run(main())
 **Optimization:**
 ```python
 # Option 1: Use global limit only (minimal memory)
-limiter = RateLimiter(
+limiter = SyncRateLimiter(
     global_limit=RateLimit(max_requests=1000, time_window=60)
 )
 
 # Option 2: Set limits only for high-traffic proxies
-limiter = RateLimiter()
+limiter = SyncRateLimiter()
 for proxy_id in high_traffic_proxies:
     limiter.set_proxy_limit(proxy_id, RateLimit(max_requests=20, time_window=1))
 ```
 
 ### Concurrency
 
-**Async/Await:**
-- `check_limit()` and `acquire()` are async-safe
+**Async/Await (AsyncRateLimiter):**
+- `check_limit()` and `acquire()` are async-safe via `asyncio.Lock`
 - Lock contention is minimal (only during limiter access)
 - No blocking I/O
 
+**Sync (SyncRateLimiter/RateLimiter):**
+- Thread-safe via `threading.RLock`
+- All methods are synchronous (no `await` needed)
+
 **Best Practices:**
 ```python
-# Good: Check limit before expensive operation
-if await limiter.check_limit(proxy_id):
+# Good: Check limit before expensive operation (async)
+if await async_limiter.check_limit(proxy_id):
     response = await expensive_api_call(proxy_id)
 
-# Bad: Check limit inside expensive operation
-async def expensive_api_call(proxy_id):
-    if await limiter.check_limit(proxy_id):  # Too late
-        return await http_client.get(url)
+# Good: Check limit before expensive operation (sync)
+if sync_limiter.check_limit(proxy_id):
+    response = make_request(proxy_id)
 ```
 
 ---
@@ -716,7 +720,7 @@ async def expensive_api_call(proxy_id):
 
 ```python
 from prometheus_client import Counter, Gauge
-from proxywhirl.rate_limiting import RateLimiter, RateLimit
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit
 
 # Define metrics
 rate_limit_allowed = Counter(
@@ -730,7 +734,7 @@ rate_limit_exceeded = Counter(
     ['proxy_id']
 )
 
-limiter = RateLimiter()
+limiter = AsyncRateLimiter()
 
 async def make_request_with_metrics(proxy_id, url):
     if await limiter.check_limit(proxy_id):
@@ -747,9 +751,9 @@ async def make_request_with_metrics(proxy_id, url):
 
 ```python
 from datadog import statsd
-from proxywhirl.rate_limiting import RateLimiter, RateLimit
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit
 
-limiter = RateLimiter()
+limiter = AsyncRateLimiter()
 
 async def make_request_with_datadog(proxy_id, url):
     if await limiter.check_limit(proxy_id):
@@ -818,6 +822,10 @@ Models
 ### Fallback to Different Proxy
 
 ```python
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit
+
+limiter = AsyncRateLimiter(global_limit=RateLimit(max_requests=100, time_window=60))
+
 async def make_request_with_fallback(url, proxy_ids):
     for proxy_id in proxy_ids:
         if await limiter.check_limit(proxy_id):
@@ -840,6 +848,11 @@ response = await make_request_with_fallback(
 ### Batch Requests with Rate Limiting
 
 ```python
+import asyncio
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit
+
+limiter = AsyncRateLimiter(global_limit=RateLimit(max_requests=100, time_window=60))
+
 async def batch_request_with_rate_limit(urls, proxy_id, batch_size=10):
     results = []
 
@@ -873,10 +886,10 @@ async def batch_request_with_rate_limit(urls, proxy_id, batch_size=10):
 ### Circuit Breaker Integration
 
 ```python
-from proxywhirl.rate_limiting import RateLimiter, RateLimit
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit
 from proxywhirl import CircuitBreaker
 
-limiter = RateLimiter()
+limiter = AsyncRateLimiter(global_limit=RateLimit(max_requests=100, time_window=60))
 circuit_breakers = {}
 
 async def make_request_with_circuit_breaker(proxy_id, url):

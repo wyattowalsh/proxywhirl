@@ -777,24 +777,10 @@ def config(
             if not typer.confirm("Overwrite?"):
                 raise typer.Exit(code=0)
 
-        # Create default config
-        default_config = CLIConfig(
-            proxies=[],
-            proxy_file=None,
-            rotation_strategy="round_robin",
-            health_check_interval=300,
-            timeout=30,
-            max_retries=3,
-            follow_redirects=True,
-            verify_ssl=True,
-            default_format="text",
-            color=True,
-            verbose=False,
-            storage_backend="memory",
-            storage_path=None,
-            encrypt_credentials=False,
-            encryption_key_env="PROXYWHIRL_KEY",
-        )
+        # Create default config (uses CLIConfig field defaults;
+        # only override encrypt_credentials so users don't need
+        # PROXYWHIRL_KEY set up before first use)
+        default_config = CLIConfig(encrypt_credentials=False)
         save_config(default_config, config_path)
         command_ctx.console.print(f"[green]✓[/green] Created config file: {config_path}")
 
