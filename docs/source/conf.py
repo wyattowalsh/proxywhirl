@@ -24,7 +24,7 @@ author = "Wyatt Walsh"
 copyright = f"{datetime.now():%Y}, {author}"
 
 html_title = "ProxyWhirl Documentation"
-html_baseurl = "https://proxywhirl.readthedocs.io"
+html_baseurl = "https://www.proxywhirl.com/docs/"
 
 # -- General configuration -----------------------------------------------------
 
@@ -148,6 +148,7 @@ linkcheck_ignore = [
     r"http://localhost.*",  # Local dev server URLs
     r"http://127\.0\.0\.1.*",  # Local dev server URLs
     r"https://proxywhirl\.com.*",  # Main site (may not be deployed yet)
+    r"http://sources\.py",  # False positive: backtick-wrapped sources.py parsed as URL
 ]
 linkcheck_anchors = False  # Don't check anchors (can be slow/flaky)
 
