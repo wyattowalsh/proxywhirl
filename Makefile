@@ -1,6 +1,6 @@
 # Makefile for proxywhirl development tasks
 
-.PHONY: help test test-unit test-integration test-coverage coverage clean lint format type-check quality-gates commit bump bump-dry bump-minor bump-major changelog fetch export test-parallel test-watch test-fast test-slow test-benchmark test-property test-html test-memory test-rerun test-snapshot validate-sources validate-sources-ci sources-list docs-html docs-linkcheck docs-clean
+.PHONY: help test test-unit test-integration test-coverage coverage clean lint format type-check quality-gates commit bump bump-dry bump-minor bump-major changelog fetch export test-parallel test-watch test-fast test-slow test-benchmark test-property test-html test-memory test-rerun test-snapshot validate-sources validate-sources-ci sources-list curate-sources docs-html docs-linkcheck docs-clean
 
 help:
 	@echo "Available targets:"
@@ -45,6 +45,7 @@ help:
 	@echo "  sources-list      - List all configured proxy sources"
 	@echo "  validate-sources  - Validate all proxy source URLs are reachable"
 	@echo "  validate-sources-ci - Validate sources (exit 1 if any unhealthy)"
+	@echo "  curate-sources    - Run source curation (validate + report)"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  docs-html         - Build HTML documentation"
@@ -220,6 +221,10 @@ validate-sources:
 validate-sources-ci:
 	@echo "Validating proxy sources (CI mode)..."
 	uv run proxywhirl sources --validate --fail-on-unhealthy
+
+# Run source curation (validate + report JSON)
+curate-sources:
+	uv run python scripts/curate_sources.py validate
 
 # ============================================================================
 # DOCUMENTATION TARGETS

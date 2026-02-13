@@ -215,10 +215,11 @@ GITHUB_SUNNY9577_SOCKS5 = ProxySourceConfig(
     protocol="socks5",
 )
 
-# aslisk/proxyhttps
+# aslisk/proxyhttps - DISABLED: 9 stars, stale since Sep 2025
 GITHUB_ASLISK_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/aslisk/proxyhttps/main/https.txt",
     format="plain_text",
+    enabled=False,
 )
 
 # mmpx12/proxy-list
@@ -348,22 +349,25 @@ GITHUB_ZAEEM_SOCKS4 = ProxySourceConfig(
     protocol="socks4",
 )
 
-# MuRongPig/Proxy-Master - Updated frequently, very large lists
+# MuRongPig/Proxy-Master - DISABLED: stale since Aug 2025
 GITHUB_MURONGPIG_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/MuRongPig/Proxy-Master/main/http.txt",
     format="plain_text",
+    enabled=False,
 )
 
 GITHUB_MURONGPIG_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/MuRongPig/Proxy-Master/main/socks4.txt",
     format="plain_text",
     protocol="socks4",
+    enabled=False,
 )
 
 GITHUB_MURONGPIG_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/MuRongPig/Proxy-Master/main/socks5.txt",
     format="plain_text",
     protocol="socks5",
+    enabled=False,
 )
 
 # komutan234/Proxy-List-Free - Updated every 2 minutes via GitHub Actions
@@ -539,86 +543,37 @@ GITHUB_PROXYSCRAPER_HTTP = ProxySourceConfig(
 )
 
 GITHUB_PROXYSCRAPER_SOCKS4 = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/ProxyScraper/ProxyScraper/main/sock4.txt",
+    url="https://raw.githubusercontent.com/ProxyScraper/ProxyScraper/main/socks4.txt",
     format="plain_text",
     protocol="socks4",
 )
 
 GITHUB_PROXYSCRAPER_SOCKS5 = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/ProxyScraper/ProxyScraper/main/sock5.txt",
+    url="https://raw.githubusercontent.com/ProxyScraper/ProxyScraper/main/socks5.txt",
     format="plain_text",
     protocol="socks5",
 )
 
-# rx443/proxy-list - Updated frequently
-GITHUB_RX443_HTTP = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/rx443/proxy-list/main/online/http.txt",
-    format="plain_text",
-    trusted=True,  # "online" = validated
-)
-
-GITHUB_RX443_HTTPS = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/rx443/proxy-list/main/online/https.txt",
-    format="plain_text",
-    trusted=True,
-)
-
-GITHUB_RX443_SOCKS4 = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/rx443/proxy-list/main/online/socks4.txt",
-    format="plain_text",
-    protocol="socks4",
-    trusted=True,
-)
-
-GITHUB_RX443_SOCKS5 = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/rx443/proxy-list/main/online/socks5.txt",
-    format="plain_text",
-    protocol="socks5",
-    trusted=True,
-)
-
-# MrMarble/proxy-list - Frequently updated
-GITHUB_MRMARBLE_HTTP = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/MrMarble/proxy-list/main/http.txt",
-    format="plain_text",
-)
-
-GITHUB_MRMARBLE_HTTPS = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/MrMarble/proxy-list/main/https.txt",
-    format="plain_text",
-)
-
-GITHUB_MRMARBLE_SOCKS4 = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/MrMarble/proxy-list/main/socks4.txt",
-    format="plain_text",
-    protocol="socks4",
-)
-
-GITHUB_MRMARBLE_SOCKS5 = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/MrMarble/proxy-list/main/socks5.txt",
-    format="plain_text",
-    protocol="socks5",
-)
 
 # zloi-user/hideip.me - Very large lists
 GITHUB_ZLOI_HTTP = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/zloi-user/hideip.me/main/http.txt",
+    url="https://raw.githubusercontent.com/zloi-user/hideip.me/master/http.txt",
     format="plain_text",
 )
 
 GITHUB_ZLOI_HTTPS = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/zloi-user/hideip.me/main/https.txt",
+    url="https://raw.githubusercontent.com/zloi-user/hideip.me/master/https.txt",
     format="plain_text",
 )
 
 GITHUB_ZLOI_SOCKS4 = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/zloi-user/hideip.me/main/socks4.txt",
+    url="https://raw.githubusercontent.com/zloi-user/hideip.me/master/socks4.txt",
     format="plain_text",
     protocol="socks4",
 )
 
 GITHUB_ZLOI_SOCKS5 = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/zloi-user/hideip.me/main/socks5.txt",
+    url="https://raw.githubusercontent.com/zloi-user/hideip.me/master/socks5.txt",
     format="plain_text",
     protocol="socks5",
 )
@@ -635,10 +590,12 @@ GITHUB_ALIILAPRO_SOCKS4 = ProxySourceConfig(
     protocol="socks4",
 )
 
+# DISABLED: returns empty file (0 bytes)
 GITHUB_ALIILAPRO_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/socks5.txt",
     format="plain_text",
     protocol="socks5",
+    enabled=False,
 )
 
 # Skillter/ProxyGather - Automated every 30 minutes
@@ -725,10 +682,12 @@ GITHUB_VANNDEV_SOCKS4 = ProxySourceConfig(
     protocol="socks4",
 )
 
+# DISABLED: returns empty file (0 bytes)
 GITHUB_VANNDEV_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Vann-Dev/proxy-list/main/proxies/socks5.txt",
     format="plain_text",
     protocol="socks5",
+    enabled=False,
 )
 
 # ClearProxy/checked-proxy-list - 62 stars, 5-min updates, multi-site verified
@@ -806,6 +765,31 @@ GITHUB_VADIM287_SOCKS5 = ProxySourceConfig(
     protocol="socks5",
 )
 
+# themiralay/Proxy-List-World - 148 stars, 2-3 min updates, validated
+GITHUB_THEMIRALAY_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/themiralay/Proxy-List-World/master/data.txt",
+    format="plain_text",
+    trusted=True,  # Validates all proxies before publishing
+)
+
+# SoliSpirit/proxy-list - 47 stars, 3-hour updates, per-protocol files
+GITHUB_SOLISPIRIT_HTTP = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/SoliSpirit/proxy-list/main/http.txt",
+    format="plain_text",
+)
+
+GITHUB_SOLISPIRIT_SOCKS4 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/SoliSpirit/proxy-list/main/socks4.txt",
+    format="plain_text",
+    protocol="socks4",
+)
+
+GITHUB_SOLISPIRIT_SOCKS5 = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/SoliSpirit/proxy-list/main/socks5.txt",
+    format="plain_text",
+    protocol="socks5",
+)
+
 
 # =============================================================================
 # Predefined Source Collections
@@ -856,12 +840,8 @@ ALL_HTTP_SOURCES = [
     GITHUB_IPLOCATE_HTTPS,
     GITHUB_IPLOCATE_ALL,
     GITHUB_PROXYSCRAPER_HTTP,
-    GITHUB_RX443_HTTP,
-    GITHUB_RX443_HTTPS,
     GITHUB_ZLOI_HTTP,
     GITHUB_ZLOI_HTTPS,
-    GITHUB_MRMARBLE_HTTP,
-    GITHUB_MRMARBLE_HTTPS,
     GITHUB_ALIILAPRO_HTTP,
     GITHUB_SKILLTER_HTTP,
     GITHUB_SKILLTER_ALL,
@@ -874,6 +854,8 @@ ALL_HTTP_SOURCES = [
     GITHUB_TUANMINPAY_HTTP,
     GITHUB_VMHEAVEN_HTTP,
     GITHUB_VADIM287_HTTP,
+    GITHUB_THEMIRALAY_HTTP,
+    GITHUB_SOLISPIRIT_HTTP,
 ]
 
 # All SOCKS4 sources
@@ -907,9 +889,7 @@ ALL_SOCKS4_SOURCES = [
     # Validated sources
     GITHUB_IPLOCATE_SOCKS4,
     GITHUB_PROXYSCRAPER_SOCKS4,
-    GITHUB_RX443_SOCKS4,
     GITHUB_ZLOI_SOCKS4,
-    GITHUB_MRMARBLE_SOCKS4,
     GITHUB_ALIILAPRO_SOCKS4,
     GITHUB_SKILLTER_SOCKS4,
     # New sources (Feb 2026)
@@ -920,6 +900,7 @@ ALL_SOCKS4_SOURCES = [
     GITHUB_TUANMINPAY_SOCKS4,
     GITHUB_VMHEAVEN_SOCKS4,
     GITHUB_VADIM287_SOCKS4,
+    GITHUB_SOLISPIRIT_SOCKS4,
 ]
 
 # All SOCKS5 sources
@@ -953,9 +934,7 @@ ALL_SOCKS5_SOURCES = [
     # Validated sources
     GITHUB_IPLOCATE_SOCKS5,
     GITHUB_PROXYSCRAPER_SOCKS5,
-    GITHUB_RX443_SOCKS5,
     GITHUB_ZLOI_SOCKS5,
-    GITHUB_MRMARBLE_SOCKS5,
     GITHUB_ALIILAPRO_SOCKS5,
     GITHUB_SKILLTER_SOCKS5,
     # New sources (Feb 2026)
@@ -966,6 +945,7 @@ ALL_SOCKS5_SOURCES = [
     GITHUB_TUANMINPAY_SOCKS5,
     GITHUB_VMHEAVEN_SOCKS5,
     GITHUB_VADIM287_SOCKS5,
+    GITHUB_SOLISPIRIT_SOCKS5,
 ]
 
 # All sources combined
