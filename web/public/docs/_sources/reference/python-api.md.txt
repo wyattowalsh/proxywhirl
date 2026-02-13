@@ -155,8 +155,7 @@ For automated proxy fetching with scheduling, see [Automation](../guides/automat
 :::
 
 ```python
-from proxywhirl import ProxyFetcher, ProxyValidator
-from proxywhirl.fetchers import ProxySourceConfig
+from proxywhirl import ProxyFetcher, ProxyValidator, ProxySourceConfig
 from proxywhirl.models import RenderMode
 
 # Initialize with validator
@@ -626,6 +625,76 @@ registry.unregister_strategy("my-strategy")
 
 ---
 
+### StrategyState
+
+Per-strategy mutable state for managing proxy metrics. Separates mutable strategy state from immutable proxy identity, allowing different strategies to track proxy performance independently.
+
+```python
+from proxywhirl import StrategyState
+
+state = StrategyState(ema_alpha=0.3, window_duration_seconds=3600)
+
+# Record request outcomes
+state.record_success(proxy.id, response_time_ms=150.0)
+state.record_failure(proxy.id)
+
+# Query metrics
+metrics = state.get_metrics(proxy.id)
+ema = state.get_ema_response_time(proxy.id)
+rate = state.get_success_rate(proxy.id)
+count = state.get_request_count(proxy.id)
+```
+
+**Constructor Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `ema_alpha` | `float` | `0.2` | EMA smoothing factor for response times |
+| `window_duration_seconds` | `int` | `3600` | Sliding window duration for counter resets |
+
+**Methods:**
+
+- `get_metrics(proxy_id: UUID) -> ProxyMetrics` - Get or create metrics for a proxy
+- `record_success(proxy_id: UUID, response_time_ms: float)` - Record a successful request
+- `record_failure(proxy_id: UUID)` - Record a failed request
+- `get_ema_response_time(proxy_id: UUID) -> float | None` - Get EMA response time
+- `get_success_rate(proxy_id: UUID) -> float` - Get success rate (0.0-1.0)
+- `get_request_count(proxy_id: UUID) -> int` - Get total request count
+
+**Thread Safety:** Uses `threading.Lock` for all state mutations.
+
+---
+
+### ProxyMetrics
+
+Per-proxy mutable metrics maintained by a strategy. Encapsulates performance metrics that a strategy tracks for each proxy independently from the `Proxy` model.
+
+```python
+from proxywhirl import ProxyMetrics
+
+metrics = ProxyMetrics()
+metrics.update_ema(response_time_ms=150.0, alpha=0.2)
+print(metrics.success_rate)  # 0.0-1.0
+```
+
+**Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `ema_response_time_ms` | `float \| None` | `None` | EMA of response times |
+| `total_requests` | `int` | `0` | Total requests through this proxy |
+| `total_successes` | `int` | `0` | Successful requests |
+| `total_failures` | `int` | `0` | Failed requests |
+| `last_response_time_ms` | `float \| None` | `None` | Most recent response time |
+| `window_start` | `datetime \| None` | `None` | Start of current sliding window |
+
+**Methods:**
+
+- `update_ema(response_time_ms: float, alpha: float)` - Update EMA with new response time
+- `@property success_rate -> float` - Calculate success rate (0.0-1.0)
+
+---
+
 ## Data Models
 
 ### Proxy
@@ -732,7 +801,7 @@ proxy.complete_request(success=True, response_time_ms=150.0)  # Updates metrics,
 - `start_request()` - Mark proxy as handling a request (increments `requests_started`, `requests_active`)
 - `complete_request(success: bool, response_time_ms: float)` - Complete request and update metrics (decrements `requests_active`, updates EMA, records success/failure)
 - `@property success_rate -> float` - Calculate success rate (0.0-1.0)
-- `@property is_healthy -> bool` - Check if proxy is healthy (HEALTHY or UNKNOWN status)
+- `@property is_healthy -> bool` - Check if proxy is healthy (HEALTHY status only)
 - `@property is_expired -> bool` - Check if proxy has expired based on TTL
 
 **Validators:**
@@ -783,7 +852,7 @@ removed_count = pool.clear_unhealthy()  # Remove UNHEALTHY and DEAD proxies
 - `get_healthy_proxies() -> list[Proxy]` - Get all healthy proxies (HEALTHY, UNKNOWN, DEGRADED)
 - `get_all_proxies() -> list[Proxy]` - Get all proxies regardless of health
 - `clear_unhealthy() -> int` - Remove UNHEALTHY and DEAD proxies, return count removed
-- `get_source_breakdown() -> dict[ProxySource, int]` - Count proxies by source type
+- `get_source_breakdown() -> dict[str, int]` - Count proxies by source type (keys are source value strings)
 - `@property size -> int` - Get total proxy count
 
 ---
@@ -1127,7 +1196,150 @@ manager.export_to_file("proxies.jsonl")
 manager.warm_from_file("proxies.jsonl", ttl_override=3600)
 ```
 
-**Note:** CacheManager is currently a minimal stub implementation. Full functionality is planned for future releases.
+For complete CacheManager documentation including all methods, see [Cache API](cache-api.md).
+
+---
+
+### CacheHealthStatus
+
+Alias for `HealthStatus` from the cache module. Re-exported at the top level for convenience when working with cache entry health states.
+
+```python
+from proxywhirl import CacheHealthStatus
+
+# Same enum as proxywhirl.cache.models.HealthStatus
+status = CacheHealthStatus.HEALTHY
+print(status.value)  # "healthy"
+```
+
+---
+
+### HealthMonitor
+
+Continuous health monitoring for proxy pools with automatic eviction of failing proxies.
+
+```python
+from proxywhirl import HealthMonitor, ProxyPool, Proxy
+
+pool = ProxyPool(name="my_pool")
+pool.add_proxy(Proxy(url="http://proxy.example.com:8080"))
+
+monitor = HealthMonitor(
+    pool=pool,
+    check_interval=60,       # Seconds between health checks
+    failure_threshold=3       # Consecutive failures before eviction
+)
+
+# Start/stop background monitoring
+await monitor.start()
+# ... proxies are monitored continuously ...
+await monitor.stop()
+```
+
+**Constructor Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `pool` | `ProxyPool` | Required | ProxyPool to monitor |
+| `check_interval` | `int` | `60` | Seconds between health checks (must be > 0) |
+| `failure_threshold` | `int` | `3` | Consecutive failures before eviction (must be > 0) |
+
+**Methods:**
+
+- `async start()` - Start background health monitoring (idempotent)
+- `async stop()` - Stop background health monitoring
+
+**Attributes:**
+
+- `is_running` (bool) - Whether monitoring is active
+
+---
+
+### SourceStats
+
+Statistics for a proxy source, tracking fetch results and errors.
+
+```python
+from proxywhirl import SourceStats
+
+stats = SourceStats(
+    source_url="https://api.example.com/proxies",
+    total_fetched=100,
+    valid_count=85,
+    invalid_count=15,
+    fetch_failure_count=0
+)
+```
+
+**Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `source_url` | `str` | Required | URL of the proxy source |
+| `total_fetched` | `int` | `0` | Total proxies fetched from this source |
+| `valid_count` | `int` | `0` | Number of valid proxies |
+| `invalid_count` | `int` | `0` | Number of invalid proxies |
+| `last_fetch_at` | `datetime \| None` | `None` | Timestamp of last fetch |
+| `last_fetch_duration_ms` | `float \| None` | `None` | Duration of last fetch in ms |
+| `fetch_failure_count` | `int` | `0` | Number of failed fetches |
+| `last_error` | `str \| None` | `None` | Last error message |
+
+---
+
+### HourlyAggregate
+
+Hourly aggregated retry metrics for time-series monitoring.
+
+```python
+from proxywhirl import HourlyAggregate
+
+aggregate = HourlyAggregate(
+    hour=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
+    total_requests=100,
+    total_retries=120,
+    avg_latency=150.0
+)
+```
+
+**Fields:**
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `hour` | `datetime` | Required | Hour timestamp (truncated) |
+| `total_requests` | `int` | `0` | Total requests in this hour |
+| `total_retries` | `int` | `0` | Total retries in this hour |
+| `success_by_attempt` | `dict[int, int]` | `{}` | Success count by attempt number |
+| `failure_by_reason` | `dict[str, int]` | `{}` | Failure count by error reason |
+| `avg_latency` | `float` | `0.0` | Average latency in ms |
+
+---
+
+### CircuitBreakerEvent
+
+Records a circuit breaker state change for monitoring and metrics.
+
+```python
+from proxywhirl import CircuitBreakerEvent, CircuitBreakerState
+from datetime import datetime, timezone
+
+event = CircuitBreakerEvent(
+    proxy_id="proxy-1",
+    from_state=CircuitBreakerState.CLOSED,
+    to_state=CircuitBreakerState.OPEN,
+    timestamp=datetime.now(timezone.utc),
+    failure_count=5
+)
+```
+
+**Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `proxy_id` | `str` | Proxy ID |
+| `from_state` | `CircuitBreakerState` | Previous state |
+| `to_state` | `CircuitBreakerState` | New state |
+| `timestamp` | `datetime` | When state changed |
+| `failure_count` | `int` | Failure count at time of change |
 
 ---
 
@@ -1209,7 +1421,7 @@ Individual cache entry with TTL, health tracking, and secure credential storage.
 
 ```python
 from proxywhirl import CacheEntry
-from proxywhirl.cache_models import HealthStatus
+from proxywhirl.cache.models import HealthStatus
 from datetime import datetime, timezone, timedelta
 from pydantic import SecretStr
 
@@ -2183,11 +2395,6 @@ ProxyWhirl provides pre-configured proxy sources for immediate use.
 
 ```python
 from proxywhirl import (
-    # ProxyScrape (API-based, high quality)
-    PROXY_SCRAPE_HTTP,
-    PROXY_SCRAPE_SOCKS4,
-    PROXY_SCRAPE_SOCKS5,
-
     # Geonode (API-based, geo-targeting)
     GEONODE_HTTP,
     GEONODE_SOCKS4,
@@ -2278,17 +2485,21 @@ except ProxyWhirlError as e:
 
 ```
 Exception
-└── ProxyWhirlError (base)
-    ├── ProxyValidationError
-    ├── ProxyPoolEmptyError
-    ├── ProxyConnectionError
-    ├── ProxyAuthenticationError
-    ├── ProxyFetchError
-    ├── ProxyStorageError
-    ├── CacheCorruptionError
-    ├── CacheStorageError
-    ├── CacheValidationError (also inherits ValueError)
-    └── RequestQueueFullError
+├── ProxyWhirlError (base)
+│   ├── ProxyValidationError
+│   ├── ProxyPoolEmptyError
+│   ├── ProxyConnectionError
+│   ├── ProxyAuthenticationError
+│   ├── ProxyFetchError
+│   ├── ProxyStorageError
+│   ├── CacheCorruptionError
+│   ├── CacheStorageError
+│   ├── CacheValidationError (also inherits ValueError)
+│   └── RequestQueueFullError
+├── RetryableError          (triggers retry in RetryExecutor)
+├── NonRetryableError       (skips retry in RetryExecutor)
+├── RegexTimeoutError       (ReDoS protection - regex timeout)
+└── RegexComplexityError    (ReDoS protection - pattern rejected)
 ```
 
 :::{seealso}
@@ -2353,7 +2564,7 @@ mypy your_code.py
 ```python
 import proxywhirl
 
-print(proxywhirl.__version__)  # "1.0.0"
+print(proxywhirl.__version__)  # "0.2.0"
 ```
 
 ---

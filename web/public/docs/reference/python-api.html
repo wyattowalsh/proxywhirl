@@ -11,7 +11,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=43a92ad3" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=b31b09b0" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,12 +24,12 @@
     <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://proxywhirl.readthedocs.io/reference/python-api.html"/>
   <meta property="og:title" content="Python API Reference"/>
-  <meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
     <meta name="twitter:card" content="summary"/>
-<meta name="twitter:creator" content="@@wyaborern"/>
-<meta name="twitter:site" content="@@wyaborern"/>
+<meta name="twitter:creator" content="@wyaborern"/>
+<meta name="twitter:site" content="@wyaborern"/>
   </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="pw-navbar">
   <div class="pw-navbar-inner">
     
@@ -38,7 +38,7 @@
     </button>
 
     
-    <a href="/" class="pw-navbar-brand">
+    <a href="../index.html" class="pw-navbar-brand">
       <svg class="pw-navbar-logo" viewBox="0 0 100 100" aria-hidden="true">
         <defs>
           <linearGradient id="pw-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -60,17 +60,25 @@
     </a>
 
     
-    <nav class="pw-navbar-links">
-      <a href="/docs/" class="pw-navbar-link active">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-        Docs
+    <nav class="pw-navbar-links" aria-label="Main navigation">
+      <a href="../getting-started/index.html" class="pw-navbar-link" data-section="getting-started">
+        Getting Started
+      </a>
+      <a href="../guides/index.html" class="pw-navbar-link" data-section="guides">
+        Guides
+      </a>
+      <a href="index.html" class="pw-navbar-link" data-section="reference">
+        Reference
+      </a>
+      <a href="../project/index.html" class="pw-navbar-link" data-section="project">
+        Project
       </a>
     </nav>
 
     
     <div class="pw-navbar-actions">
       
-      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme">
+      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme" aria-pressed="false">
         <svg class="pw-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
         <svg class="pw-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       </button>
@@ -82,24 +90,43 @@
     </div>
   </div>
 </header>
+<div id="main-content"></div>
 
 <script>
 (function() {
+  /* Theme toggle */
   var toggle = document.getElementById('pw-theme-toggle');
-  if (!toggle) return;
-  toggle.addEventListener('click', function() {
-    var isDark = document.documentElement.classList.contains('dark');
-    var next = isDark ? 'light' : 'dark';
-    localStorage._theme = next;
-    if (typeof setColorMode === 'function') {
-      setColorMode(next);
-    } else {
-      var html = document.documentElement;
-      html.classList.remove('dark', 'light');
-      html.classList.add(next);
-      html.setAttribute('data-color-mode', next);
+  if (toggle) {
+    /* Set initial aria-pressed based on current theme */
+    var currentlyDark = document.documentElement.classList.contains('dark');
+    toggle.setAttribute('aria-pressed', currentlyDark ? 'true' : 'false');
+
+    toggle.addEventListener('click', function() {
+      var isDark = document.documentElement.classList.contains('dark');
+      var next = isDark ? 'light' : 'dark';
+      localStorage._theme = next;
+      if (typeof setColorMode === 'function') {
+        setColorMode(next);
+      } else {
+        var html = document.documentElement;
+        html.classList.remove('dark', 'light');
+        html.classList.add(next);
+        html.setAttribute('data-color-mode', next);
+      }
+      toggle.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+    });
+  }
+
+  /* Active nav link detection — highlight current section */
+  var path = window.location.pathname;
+  var links = document.querySelectorAll('.pw-navbar-link[data-section]');
+  links.forEach(function(link) {
+    var section = link.getAttribute('data-section');
+    if (path.indexOf('/' + section) !== -1) {
+      link.classList.add('active');
     }
   });
+  /* Mark home page — none active, or all inactive is fine */
 })();
 </script>
 <div class="sy-page sy-container flex mx-auto">
@@ -114,19 +141,24 @@
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#basic-usage-sync">Basic Usage (sync)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#async-usage">Async Usage</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#context-manager-pattern">Context Manager Pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#authenticated-proxies">Authenticated Proxies</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#using-free-proxy-lists">Using Free Proxy Lists</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#fetching-proxies-programmatically">Fetching Proxies Programmatically</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#choosing-a-rotation-strategy">Choosing a Rotation Strategy</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#configuring-retry-and-circuit-breakers">Configuring Retry and Circuit Breakers</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#monitoring-your-pool">Monitoring Your Pool</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#troubleshooting">Troubleshooting</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#next-steps">Next Steps</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#for-contributors">For Contributors</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a Rotator</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#quick-pick-guide">Quick-Pick Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-reference">Strategy Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#comparison-at-a-glance">Comparison At a Glance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
@@ -134,19 +166,6 @@
 </li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l1 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#core-strategies">Core Strategies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#advanced-strategies">Advanced Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l1 _expand"><a class="reference internal" href="../guides/index.html">Guides</a><ul>
@@ -224,7 +243,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#overview">Overview</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a></li>
@@ -257,7 +275,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#automating-releases">Automating Releases</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#docsearch-credentials">DocSearch Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#ci-stage-summary">CI Stage Summary</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#further-reading">Further Reading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#see-also">See Also</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/mcp-server.html">MCP Server Guide</a><ul>
@@ -291,6 +309,7 @@
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#getting-started">Getting Started</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rest-api.html#middleware">Middleware</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#endpoint-reference">Endpoint Reference</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#rate-limiting">Rate Limiting</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#error-handling">Error Handling</a></li>
@@ -392,23 +411,25 @@
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#code-style">Code Style</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#pre-commit-hooks">Pre-commit Hooks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#testing-guidelines">Testing Guidelines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#extending-with-custom-strategies">Extending with Custom Strategies</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#ci-cd-pipelines">CI/CD Pipelines</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#quality-gate-pipeline">Quality Gate Pipeline</a></li>
 </ul>
 </li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#module-map">Module Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-exports">Key Exports</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#changelog-highlights">Changelog Highlights</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#recent">Recent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#phase-completion-status">Phase Completion Status</a></li>
 </ul>
 </li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-modules">Key Modules</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#license">License</a></li>
 </ul>
 </li>
@@ -442,6 +463,8 @@
 <li><a class="reference internal" href="#costawarestrategy">CostAwareStrategy</a></li>
 <li><a class="reference internal" href="#compositestrategy">CompositeStrategy</a></li>
 <li><a class="reference internal" href="#strategyregistry">StrategyRegistry</a></li>
+<li><a class="reference internal" href="#strategystate">StrategyState</a></li>
+<li><a class="reference internal" href="#proxymetrics">ProxyMetrics</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#data-models">Data Models</a><ul>
@@ -457,6 +480,11 @@
 </li>
 <li><a class="reference internal" href="#cache-components">Cache Components</a><ul>
 <li><a class="reference internal" href="#cachemanager">CacheManager</a></li>
+<li><a class="reference internal" href="#cachehealthstatus">CacheHealthStatus</a></li>
+<li><a class="reference internal" href="#healthmonitor">HealthMonitor</a></li>
+<li><a class="reference internal" href="#sourcestats">SourceStats</a></li>
+<li><a class="reference internal" href="#hourlyaggregate">HourlyAggregate</a></li>
+<li><a class="reference internal" href="#circuitbreakerevent">CircuitBreakerEvent</a></li>
 <li><a class="reference internal" href="#cacheconfig">CacheConfig</a></li>
 <li><a class="reference internal" href="#cacheentry">CacheEntry</a></li>
 <li><a class="reference internal" href="#cachestatistics">CacheStatistics</a></li>
@@ -574,7 +602,7 @@
         </a></div>
     </div>
   </div>
-</div><article class="yue" role="main">
+</div><article class="yue dark-code" role="main">
           <section id="python-api-reference">
 <h1>Python API Reference<a class="headerlink" href="#python-api-reference" title="Link to this heading">¶</a></h1>
 <p>Complete reference for ProxyWhirl’s Python API, covering all public classes, functions, and types.</p>
@@ -749,31 +777,30 @@
 <p class="admonition-title">See also</p>
 <p>For automated proxy fetching with scheduling, see <a class="reference internal" href="../guides/automation.html"><span class="std std-doc">Automation</span></a>.</p>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyFetcher</span><span class="p">,</span> <span class="n">ProxyValidator</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.fetchers</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxySourceConfig</span>
-</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">RenderMode</span>
-</span><span data-line="4">
-</span><span data-line="5"><span class="c1"># Initialize with validator</span>
-</span><span data-line="6"><span class="n">validator</span> <span class="o">=</span> <span class="n">ProxyValidator</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">concurrency</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
-</span><span data-line="7"><span class="n">fetcher</span> <span class="o">=</span> <span class="n">ProxyFetcher</span><span class="p">(</span><span class="n">sources</span><span class="o">=</span><span class="p">[],</span> <span class="n">validator</span><span class="o">=</span><span class="n">validator</span><span class="p">)</span>
-</span><span data-line="8">
-</span><span data-line="9"><span class="c1"># Add sources</span>
-</span><span data-line="10"><span class="n">fetcher</span><span class="o">.</span><span class="n">add_source</span><span class="p">(</span><span class="n">ProxySourceConfig</span><span class="p">(</span>
-</span><span data-line="11">    <span class="n">url</span><span class="o">=</span><span class="s2">&quot;https://api.example.com/proxies&quot;</span><span class="p">,</span>
-</span><span data-line="12">    <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">,</span>
-</span><span data-line="13">    <span class="n">refresh_interval</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>
-</span><span data-line="14">    <span class="n">render_mode</span><span class="o">=</span><span class="n">RenderMode</span><span class="o">.</span><span class="n">STATIC</span><span class="p">,</span>
-</span><span data-line="15">    <span class="n">trusted</span><span class="o">=</span><span class="kc">False</span>  <span class="c1"># Set True to skip validation for pre-validated sources</span>
-</span><span data-line="16"><span class="p">))</span>
-</span><span data-line="17">
-</span><span data-line="18"><span class="c1"># Fetch all proxies with validation</span>
-</span><span data-line="19"><span class="n">proxies</span> <span class="o">=</span> <span class="k">await</span> <span class="n">fetcher</span><span class="o">.</span><span class="n">fetch_all</span><span class="p">(</span><span class="n">validate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">deduplicate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="20">
-</span><span data-line="21"><span class="c1"># Start periodic refresh (runs in background)</span>
-</span><span data-line="22"><span class="k">await</span> <span class="n">fetcher</span><span class="o">.</span><span class="n">start_periodic_refresh</span><span class="p">(</span>
-</span><span data-line="23">    <span class="n">callback</span><span class="o">=</span><span class="k">lambda</span> <span class="n">proxies</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">proxies</span><span class="p">)</span><span class="si">}</span><span class="s2"> proxies&quot;</span><span class="p">),</span>
-</span><span data-line="24">    <span class="n">interval</span><span class="o">=</span><span class="mi">3600</span>
-</span><span data-line="25"><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyFetcher</span><span class="p">,</span> <span class="n">ProxyValidator</span><span class="p">,</span> <span class="n">ProxySourceConfig</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">RenderMode</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Initialize with validator</span>
+</span><span data-line="5"><span class="n">validator</span> <span class="o">=</span> <span class="n">ProxyValidator</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mf">5.0</span><span class="p">,</span> <span class="n">concurrency</span><span class="o">=</span><span class="mi">50</span><span class="p">)</span>
+</span><span data-line="6"><span class="n">fetcher</span> <span class="o">=</span> <span class="n">ProxyFetcher</span><span class="p">(</span><span class="n">sources</span><span class="o">=</span><span class="p">[],</span> <span class="n">validator</span><span class="o">=</span><span class="n">validator</span><span class="p">)</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="c1"># Add sources</span>
+</span><span data-line="9"><span class="n">fetcher</span><span class="o">.</span><span class="n">add_source</span><span class="p">(</span><span class="n">ProxySourceConfig</span><span class="p">(</span>
+</span><span data-line="10">    <span class="n">url</span><span class="o">=</span><span class="s2">&quot;https://api.example.com/proxies&quot;</span><span class="p">,</span>
+</span><span data-line="11">    <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">,</span>
+</span><span data-line="12">    <span class="n">refresh_interval</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>
+</span><span data-line="13">    <span class="n">render_mode</span><span class="o">=</span><span class="n">RenderMode</span><span class="o">.</span><span class="n">STATIC</span><span class="p">,</span>
+</span><span data-line="14">    <span class="n">trusted</span><span class="o">=</span><span class="kc">False</span>  <span class="c1"># Set True to skip validation for pre-validated sources</span>
+</span><span data-line="15"><span class="p">))</span>
+</span><span data-line="16">
+</span><span data-line="17"><span class="c1"># Fetch all proxies with validation</span>
+</span><span data-line="18"><span class="n">proxies</span> <span class="o">=</span> <span class="k">await</span> <span class="n">fetcher</span><span class="o">.</span><span class="n">fetch_all</span><span class="p">(</span><span class="n">validate</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">deduplicate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="19">
+</span><span data-line="20"><span class="c1"># Start periodic refresh (runs in background)</span>
+</span><span data-line="21"><span class="k">await</span> <span class="n">fetcher</span><span class="o">.</span><span class="n">start_periodic_refresh</span><span class="p">(</span>
+</span><span data-line="22">    <span class="n">callback</span><span class="o">=</span><span class="k">lambda</span> <span class="n">proxies</span><span class="p">:</span> <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Fetched </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">proxies</span><span class="p">)</span><span class="si">}</span><span class="s2"> proxies&quot;</span><span class="p">),</span>
+</span><span data-line="23">    <span class="n">interval</span><span class="o">=</span><span class="mi">3600</span>
+</span><span data-line="24"><span class="p">)</span>
 </span></pre></div>
 </div>
 <p><strong>Constructor Parameters:</strong></p>
@@ -1187,6 +1214,121 @@
 </ul>
 <p><strong>Thread Safety:</strong> Uses <code class="docutils literal notranslate"><span class="pre">threading.RLock</span></code> for thread-safe operations.</p>
 </section>
+<hr class="docutils" />
+<section id="strategystate">
+<h3>StrategyState<a class="headerlink" href="#strategystate" title="Link to this heading">¶</a></h3>
+<p>Per-strategy mutable state for managing proxy metrics. Separates mutable strategy state from immutable proxy identity, allowing different strategies to track proxy performance independently.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyState</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">state</span> <span class="o">=</span> <span class="n">StrategyState</span><span class="p">(</span><span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">window_duration_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">)</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="c1"># Record request outcomes</span>
+</span><span data-line="6"><span class="n">state</span><span class="o">.</span><span class="n">record_success</span><span class="p">(</span><span class="n">proxy</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">response_time_ms</span><span class="o">=</span><span class="mf">150.0</span><span class="p">)</span>
+</span><span data-line="7"><span class="n">state</span><span class="o">.</span><span class="n">record_failure</span><span class="p">(</span><span class="n">proxy</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+</span><span data-line="8">
+</span><span data-line="9"><span class="c1"># Query metrics</span>
+</span><span data-line="10"><span class="n">metrics</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get_metrics</span><span class="p">(</span><span class="n">proxy</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+</span><span data-line="11"><span class="n">ema</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get_ema_response_time</span><span class="p">(</span><span class="n">proxy</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+</span><span data-line="12"><span class="n">rate</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get_success_rate</span><span class="p">(</span><span class="n">proxy</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+</span><span data-line="13"><span class="n">count</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">get_request_count</span><span class="p">(</span><span class="n">proxy</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p><strong>Constructor Parameters:</strong></p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ema_alpha</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">float</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.2</span></code></p></td>
+<td><p>EMA smoothing factor for response times</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">window_duration_seconds</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">3600</span></code></p></td>
+<td><p>Sliding window duration for counter resets</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Methods:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">get_metrics(proxy_id:</span> <span class="pre">UUID)</span> <span class="pre">-&gt;</span> <span class="pre">ProxyMetrics</span></code> - Get or create metrics for a proxy</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">record_success(proxy_id:</span> <span class="pre">UUID,</span> <span class="pre">response_time_ms:</span> <span class="pre">float)</span></code> - Record a successful request</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">record_failure(proxy_id:</span> <span class="pre">UUID)</span></code> - Record a failed request</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_ema_response_time(proxy_id:</span> <span class="pre">UUID)</span> <span class="pre">-&gt;</span> <span class="pre">float</span> <span class="pre">|</span> <span class="pre">None</span></code> - Get EMA response time</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_success_rate(proxy_id:</span> <span class="pre">UUID)</span> <span class="pre">-&gt;</span> <span class="pre">float</span></code> - Get success rate (0.0-1.0)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_request_count(proxy_id:</span> <span class="pre">UUID)</span> <span class="pre">-&gt;</span> <span class="pre">int</span></code> - Get total request count</p></li>
+</ul>
+<p><strong>Thread Safety:</strong> Uses <code class="docutils literal notranslate"><span class="pre">threading.Lock</span></code> for all state mutations.</p>
+</section>
+<hr class="docutils" />
+<section id="proxymetrics">
+<h3>ProxyMetrics<a class="headerlink" href="#proxymetrics" title="Link to this heading">¶</a></h3>
+<p>Per-proxy mutable metrics maintained by a strategy. Encapsulates performance metrics that a strategy tracks for each proxy independently from the <code class="docutils literal notranslate"><span class="pre">Proxy</span></code> model.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyMetrics</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">metrics</span> <span class="o">=</span> <span class="n">ProxyMetrics</span><span class="p">()</span>
+</span><span data-line="4"><span class="n">metrics</span><span class="o">.</span><span class="n">update_ema</span><span class="p">(</span><span class="n">response_time_ms</span><span class="o">=</span><span class="mf">150.0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+</span><span data-line="5"><span class="nb">print</span><span class="p">(</span><span class="n">metrics</span><span class="o">.</span><span class="n">success_rate</span><span class="p">)</span>  <span class="c1"># 0.0-1.0</span>
+</span></pre></div>
+</div>
+<p><strong>Fields:</strong></p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ema_response_time_ms</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">float</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>EMA of response times</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">total_requests</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Total requests through this proxy</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">total_successes</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Successful requests</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">total_failures</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Failed requests</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">last_response_time_ms</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">float</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Most recent response time</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">window_start</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">datetime</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Start of current sliding window</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Methods:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">update_ema(response_time_ms:</span> <span class="pre">float,</span> <span class="pre">alpha:</span> <span class="pre">float)</span></code> - Update EMA with new response time</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&#64;property</span> <span class="pre">success_rate</span> <span class="pre">-&gt;</span> <span class="pre">float</span></code> - Calculate success rate (0.0-1.0)</p></li>
+</ul>
+</section>
 </section>
 <hr class="docutils" />
 <section id="data-models">
@@ -1292,7 +1434,7 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">start_request()</span></code> - Mark proxy as handling a request (increments <code class="docutils literal notranslate"><span class="pre">requests_started</span></code>, <code class="docutils literal notranslate"><span class="pre">requests_active</span></code>)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">complete_request(success:</span> <span class="pre">bool,</span> <span class="pre">response_time_ms:</span> <span class="pre">float)</span></code> - Complete request and update metrics (decrements <code class="docutils literal notranslate"><span class="pre">requests_active</span></code>, updates EMA, records success/failure)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&#64;property</span> <span class="pre">success_rate</span> <span class="pre">-&gt;</span> <span class="pre">float</span></code> - Calculate success rate (0.0-1.0)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">&#64;property</span> <span class="pre">is_healthy</span> <span class="pre">-&gt;</span> <span class="pre">bool</span></code> - Check if proxy is healthy (HEALTHY or UNKNOWN status)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">&#64;property</span> <span class="pre">is_healthy</span> <span class="pre">-&gt;</span> <span class="pre">bool</span></code> - Check if proxy is healthy (HEALTHY status only)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&#64;property</span> <span class="pre">is_expired</span> <span class="pre">-&gt;</span> <span class="pre">bool</span></code> - Check if proxy has expired based on TTL</p></li>
 </ul>
 <p><strong>Validators:</strong></p>
@@ -1341,7 +1483,7 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">get_healthy_proxies()</span> <span class="pre">-&gt;</span> <span class="pre">list[Proxy]</span></code> - Get all healthy proxies (HEALTHY, UNKNOWN, DEGRADED)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">get_all_proxies()</span> <span class="pre">-&gt;</span> <span class="pre">list[Proxy]</span></code> - Get all proxies regardless of health</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">clear_unhealthy()</span> <span class="pre">-&gt;</span> <span class="pre">int</span></code> - Remove UNHEALTHY and DEAD proxies, return count removed</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">get_source_breakdown()</span> <span class="pre">-&gt;</span> <span class="pre">dict[ProxySource,</span> <span class="pre">int]</span></code> - Count proxies by source type</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">get_source_breakdown()</span> <span class="pre">-&gt;</span> <span class="pre">dict[str,</span> <span class="pre">int]</span></code> - Count proxies by source type (keys are source value strings)</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">&#64;property</span> <span class="pre">size</span> <span class="pre">-&gt;</span> <span class="pre">int</span></code> - Get total proxy count</p></li>
 </ul>
 </section>
@@ -1796,7 +1938,258 @@
 </span><span data-line="28"><span class="n">manager</span><span class="o">.</span><span class="n">warm_from_file</span><span class="p">(</span><span class="s2">&quot;proxies.jsonl&quot;</span><span class="p">,</span> <span class="n">ttl_override</span><span class="o">=</span><span class="mi">3600</span><span class="p">)</span>
 </span></pre></div>
 </div>
-<p><strong>Note:</strong> CacheManager is currently a minimal stub implementation. Full functionality is planned for future releases.</p>
+<p>For complete CacheManager documentation including all methods, see <a class="reference internal" href="cache-api.html"><span class="std std-doc">Cache API</span></a>.</p>
+</section>
+<hr class="docutils" />
+<section id="cachehealthstatus">
+<h3>CacheHealthStatus<a class="headerlink" href="#cachehealthstatus" title="Link to this heading">¶</a></h3>
+<p>Alias for <code class="docutils literal notranslate"><span class="pre">HealthStatus</span></code> from the cache module. Re-exported at the top level for convenience when working with cache entry health states.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">CacheHealthStatus</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="c1"># Same enum as proxywhirl.cache.models.HealthStatus</span>
+</span><span data-line="4"><span class="n">status</span> <span class="o">=</span> <span class="n">CacheHealthStatus</span><span class="o">.</span><span class="n">HEALTHY</span>
+</span><span data-line="5"><span class="nb">print</span><span class="p">(</span><span class="n">status</span><span class="o">.</span><span class="n">value</span><span class="p">)</span>  <span class="c1"># &quot;healthy&quot;</span>
+</span></pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="healthmonitor">
+<h3>HealthMonitor<a class="headerlink" href="#healthmonitor" title="Link to this heading">¶</a></h3>
+<p>Continuous health monitoring for proxy pools with automatic eviction of failing proxies.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">HealthMonitor</span><span class="p">,</span> <span class="n">ProxyPool</span><span class="p">,</span> <span class="n">Proxy</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">pool</span> <span class="o">=</span> <span class="n">ProxyPool</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;my_pool&quot;</span><span class="p">)</span>
+</span><span data-line="4"><span class="n">pool</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy.example.com:8080&quot;</span><span class="p">))</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="n">monitor</span> <span class="o">=</span> <span class="n">HealthMonitor</span><span class="p">(</span>
+</span><span data-line="7">    <span class="n">pool</span><span class="o">=</span><span class="n">pool</span><span class="p">,</span>
+</span><span data-line="8">    <span class="n">check_interval</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>       <span class="c1"># Seconds between health checks</span>
+</span><span data-line="9">    <span class="n">failure_threshold</span><span class="o">=</span><span class="mi">3</span>       <span class="c1"># Consecutive failures before eviction</span>
+</span><span data-line="10"><span class="p">)</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="c1"># Start/stop background monitoring</span>
+</span><span data-line="13"><span class="k">await</span> <span class="n">monitor</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+</span><span data-line="14"><span class="c1"># ... proxies are monitored continuously ...</span>
+</span><span data-line="15"><span class="k">await</span> <span class="n">monitor</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
+</span></pre></div>
+</div>
+<p><strong>Constructor Parameters:</strong></p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">pool</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ProxyPool</span></code></p></td>
+<td><p>Required</p></td>
+<td><p>ProxyPool to monitor</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">check_interval</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">60</span></code></p></td>
+<td><p>Seconds between health checks (must be &gt; 0)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">failure_threshold</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+<td><p>Consecutive failures before eviction (must be &gt; 0)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Methods:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">async</span> <span class="pre">start()</span></code> - Start background health monitoring (idempotent)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">async</span> <span class="pre">stop()</span></code> - Stop background health monitoring</p></li>
+</ul>
+<p><strong>Attributes:</strong></p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">is_running</span></code> (bool) - Whether monitoring is active</p></li>
+</ul>
+</section>
+<hr class="docutils" />
+<section id="sourcestats">
+<h3>SourceStats<a class="headerlink" href="#sourcestats" title="Link to this heading">¶</a></h3>
+<p>Statistics for a proxy source, tracking fetch results and errors.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">SourceStats</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">stats</span> <span class="o">=</span> <span class="n">SourceStats</span><span class="p">(</span>
+</span><span data-line="4">    <span class="n">source_url</span><span class="o">=</span><span class="s2">&quot;https://api.example.com/proxies&quot;</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">total_fetched</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+</span><span data-line="6">    <span class="n">valid_count</span><span class="o">=</span><span class="mi">85</span><span class="p">,</span>
+</span><span data-line="7">    <span class="n">invalid_count</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+</span><span data-line="8">    <span class="n">fetch_failure_count</span><span class="o">=</span><span class="mi">0</span>
+</span><span data-line="9"><span class="p">)</span>
+</span></pre></div>
+</div>
+<p><strong>Fields:</strong></p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">source_url</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">str</span></code></p></td>
+<td><p>Required</p></td>
+<td><p>URL of the proxy source</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">total_fetched</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Total proxies fetched from this source</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">valid_count</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Number of valid proxies</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">invalid_count</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Number of invalid proxies</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">last_fetch_at</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">datetime</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Timestamp of last fetch</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">last_fetch_duration_ms</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">float</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Duration of last fetch in ms</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fetch_failure_count</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Number of failed fetches</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">last_error</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">str</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Last error message</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="hourlyaggregate">
+<h3>HourlyAggregate<a class="headerlink" href="#hourlyaggregate" title="Link to this heading">¶</a></h3>
+<p>Hourly aggregated retry metrics for time-series monitoring.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">HourlyAggregate</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">aggregate</span> <span class="o">=</span> <span class="n">HourlyAggregate</span><span class="p">(</span>
+</span><span data-line="4">    <span class="n">hour</span><span class="o">=</span><span class="n">datetime</span><span class="p">(</span><span class="mi">2024</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">),</span>
+</span><span data-line="5">    <span class="n">total_requests</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
+</span><span data-line="6">    <span class="n">total_retries</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>
+</span><span data-line="7">    <span class="n">avg_latency</span><span class="o">=</span><span class="mf">150.0</span>
+</span><span data-line="8"><span class="p">)</span>
+</span></pre></div>
+</div>
+<p><strong>Fields:</strong></p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">hour</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">datetime</span></code></p></td>
+<td><p>Required</p></td>
+<td><p>Hour timestamp (truncated)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">total_requests</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Total requests in this hour</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">total_retries</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p>Total retries in this hour</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">success_by_attempt</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dict[int,</span> <span class="pre">int]</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{}</span></code></p></td>
+<td><p>Success count by attempt number</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">failure_by_reason</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">dict[str,</span> <span class="pre">int]</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">{}</span></code></p></td>
+<td><p>Failure count by error reason</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">avg_latency</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">float</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">0.0</span></code></p></td>
+<td><p>Average latency in ms</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="circuitbreakerevent">
+<h3>CircuitBreakerEvent<a class="headerlink" href="#circuitbreakerevent" title="Link to this heading">¶</a></h3>
+<p>Records a circuit breaker state change for monitoring and metrics.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">CircuitBreakerEvent</span><span class="p">,</span> <span class="n">CircuitBreakerState</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="n">event</span> <span class="o">=</span> <span class="n">CircuitBreakerEvent</span><span class="p">(</span>
+</span><span data-line="5">    <span class="n">proxy_id</span><span class="o">=</span><span class="s2">&quot;proxy-1&quot;</span><span class="p">,</span>
+</span><span data-line="6">    <span class="n">from_state</span><span class="o">=</span><span class="n">CircuitBreakerState</span><span class="o">.</span><span class="n">CLOSED</span><span class="p">,</span>
+</span><span data-line="7">    <span class="n">to_state</span><span class="o">=</span><span class="n">CircuitBreakerState</span><span class="o">.</span><span class="n">OPEN</span><span class="p">,</span>
+</span><span data-line="8">    <span class="n">timestamp</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">),</span>
+</span><span data-line="9">    <span class="n">failure_count</span><span class="o">=</span><span class="mi">5</span>
+</span><span data-line="10"><span class="p">)</span>
+</span></pre></div>
+</div>
+<p><strong>Fields:</strong></p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Field</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">proxy_id</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">str</span></code></p></td>
+<td><p>Proxy ID</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">from_state</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CircuitBreakerState</span></code></p></td>
+<td><p>Previous state</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">to_state</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CircuitBreakerState</span></code></p></td>
+<td><p>New state</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">timestamp</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">datetime</span></code></p></td>
+<td><p>When state changed</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">failure_count</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p>Failure count at time of change</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 </section>
 <hr class="docutils" />
 <section id="cacheconfig">
@@ -1873,7 +2266,7 @@
 <h3>CacheEntry<a class="headerlink" href="#cacheentry" title="Link to this heading">¶</a></h3>
 <p>Individual cache entry with TTL, health tracking, and secure credential storage.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">CacheEntry</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.cache_models</span><span class="w"> </span><span class="kn">import</span> <span class="n">HealthStatus</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.cache.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">HealthStatus</span>
 </span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span><span class="p">,</span> <span class="n">timedelta</span>
 </span><span data-line="4"><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">SecretStr</span>
 </span><span data-line="5">
@@ -2838,36 +3231,31 @@
 <section id="individual-sources">
 <h3>Individual Sources<a class="headerlink" href="#individual-sources" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span data-line="2">    <span class="c1"># ProxyScrape (API-based, high quality)</span>
-</span><span data-line="3">    <span class="n">PROXY_SCRAPE_HTTP</span><span class="p">,</span>
-</span><span data-line="4">    <span class="n">PROXY_SCRAPE_SOCKS4</span><span class="p">,</span>
-</span><span data-line="5">    <span class="n">PROXY_SCRAPE_SOCKS5</span><span class="p">,</span>
+</span><span data-line="2">    <span class="c1"># Geonode (API-based, geo-targeting)</span>
+</span><span data-line="3">    <span class="n">GEONODE_HTTP</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">GEONODE_SOCKS4</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">GEONODE_SOCKS5</span><span class="p">,</span>
 </span><span data-line="6">
-</span><span data-line="7">    <span class="c1"># Geonode (API-based, geo-targeting)</span>
-</span><span data-line="8">    <span class="n">GEONODE_HTTP</span><span class="p">,</span>
-</span><span data-line="9">    <span class="n">GEONODE_SOCKS4</span><span class="p">,</span>
-</span><span data-line="10">    <span class="n">GEONODE_SOCKS5</span><span class="p">,</span>
+</span><span data-line="7">    <span class="c1"># GitHub: TheSpeedX (community-maintained, large pool)</span>
+</span><span data-line="8">    <span class="n">GITHUB_THESPEEDX_HTTP</span><span class="p">,</span>
+</span><span data-line="9">    <span class="n">GITHUB_THESPEEDX_SOCKS4</span><span class="p">,</span>
+</span><span data-line="10">    <span class="n">GITHUB_THESPEEDX_SOCKS5</span><span class="p">,</span>
 </span><span data-line="11">
-</span><span data-line="12">    <span class="c1"># GitHub: TheSpeedX (community-maintained, large pool)</span>
-</span><span data-line="13">    <span class="n">GITHUB_THESPEEDX_HTTP</span><span class="p">,</span>
-</span><span data-line="14">    <span class="n">GITHUB_THESPEEDX_SOCKS4</span><span class="p">,</span>
-</span><span data-line="15">    <span class="n">GITHUB_THESPEEDX_SOCKS5</span><span class="p">,</span>
+</span><span data-line="12">    <span class="c1"># GitHub: monosans (frequently updated)</span>
+</span><span data-line="13">    <span class="n">GITHUB_MONOSANS_HTTP</span><span class="p">,</span>
+</span><span data-line="14">    <span class="n">GITHUB_MONOSANS_SOCKS4</span><span class="p">,</span>
+</span><span data-line="15">    <span class="n">GITHUB_MONOSANS_SOCKS5</span><span class="p">,</span>
 </span><span data-line="16">
-</span><span data-line="17">    <span class="c1"># GitHub: monosans (frequently updated)</span>
-</span><span data-line="18">    <span class="n">GITHUB_MONOSANS_HTTP</span><span class="p">,</span>
-</span><span data-line="19">    <span class="n">GITHUB_MONOSANS_SOCKS4</span><span class="p">,</span>
-</span><span data-line="20">    <span class="n">GITHUB_MONOSANS_SOCKS5</span><span class="p">,</span>
+</span><span data-line="17">    <span class="c1"># GitHub: Proxifly (validated proxies)</span>
+</span><span data-line="18">    <span class="n">GITHUB_PROXIFLY_HTTP</span><span class="p">,</span>
+</span><span data-line="19">    <span class="n">GITHUB_PROXIFLY_SOCKS4</span><span class="p">,</span>
+</span><span data-line="20">    <span class="n">GITHUB_PROXIFLY_SOCKS5</span><span class="p">,</span>
 </span><span data-line="21">
-</span><span data-line="22">    <span class="c1"># GitHub: Proxifly (validated proxies)</span>
-</span><span data-line="23">    <span class="n">GITHUB_PROXIFLY_HTTP</span><span class="p">,</span>
-</span><span data-line="24">    <span class="n">GITHUB_PROXIFLY_SOCKS4</span><span class="p">,</span>
-</span><span data-line="25">    <span class="n">GITHUB_PROXIFLY_SOCKS5</span><span class="p">,</span>
-</span><span data-line="26">
-</span><span data-line="27">    <span class="c1"># GitHub: Komutan (reliable sources)</span>
-</span><span data-line="28">    <span class="n">GITHUB_KOMUTAN_HTTP</span><span class="p">,</span>
-</span><span data-line="29">    <span class="n">GITHUB_KOMUTAN_SOCKS4</span><span class="p">,</span>
-</span><span data-line="30">    <span class="n">GITHUB_KOMUTAN_SOCKS5</span>
-</span><span data-line="31"><span class="p">)</span>
+</span><span data-line="22">    <span class="c1"># GitHub: Komutan (reliable sources)</span>
+</span><span data-line="23">    <span class="n">GITHUB_KOMUTAN_HTTP</span><span class="p">,</span>
+</span><span data-line="24">    <span class="n">GITHUB_KOMUTAN_SOCKS4</span><span class="p">,</span>
+</span><span data-line="25">    <span class="n">GITHUB_KOMUTAN_SOCKS5</span>
+</span><span data-line="26"><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
@@ -2930,17 +3318,21 @@
 </div>
 <p><strong>Exception Hierarchy:</strong></p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1">Exception
-</span><span data-line="2">└── ProxyWhirlError (base)
-</span><span data-line="3">    ├── ProxyValidationError
-</span><span data-line="4">    ├── ProxyPoolEmptyError
-</span><span data-line="5">    ├── ProxyConnectionError
-</span><span data-line="6">    ├── ProxyAuthenticationError
-</span><span data-line="7">    ├── ProxyFetchError
-</span><span data-line="8">    ├── ProxyStorageError
-</span><span data-line="9">    ├── CacheCorruptionError
-</span><span data-line="10">    ├── CacheStorageError
-</span><span data-line="11">    ├── CacheValidationError (also inherits ValueError)
-</span><span data-line="12">    └── RequestQueueFullError
+</span><span data-line="2">├── ProxyWhirlError (base)
+</span><span data-line="3">│   ├── ProxyValidationError
+</span><span data-line="4">│   ├── ProxyPoolEmptyError
+</span><span data-line="5">│   ├── ProxyConnectionError
+</span><span data-line="6">│   ├── ProxyAuthenticationError
+</span><span data-line="7">│   ├── ProxyFetchError
+</span><span data-line="8">│   ├── ProxyStorageError
+</span><span data-line="9">│   ├── CacheCorruptionError
+</span><span data-line="10">│   ├── CacheStorageError
+</span><span data-line="11">│   ├── CacheValidationError (also inherits ValueError)
+</span><span data-line="12">│   └── RequestQueueFullError
+</span><span data-line="13">├── RetryableError          (triggers retry in RetryExecutor)
+</span><span data-line="14">├── NonRetryableError       (skips retry in RetryExecutor)
+</span><span data-line="15">├── RegexTimeoutError       (ReDoS protection - regex timeout)
+</span><span data-line="16">└── RegexComplexityError    (ReDoS protection - pattern rejected)
 </span></pre></div>
 </div>
 <div class="admonition seealso">
@@ -3000,7 +3392,7 @@
 <h2>Version<a class="headerlink" href="#version" title="Link to this heading">¶</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">proxywhirl</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="nb">print</span><span class="p">(</span><span class="n">proxywhirl</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>  <span class="c1"># &quot;1.0.0&quot;</span>
+</span><span data-line="3"><span class="nb">print</span><span class="p">(</span><span class="n">proxywhirl</span><span class="o">.</span><span class="n">__version__</span><span class="p">)</span>  <span class="c1"># &quot;0.2.0&quot;</span>
 </span></pre></div>
 </div>
 </section>

@@ -11,7 +11,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=43a92ad3" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=b31b09b0" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,12 +24,12 @@
     <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://proxywhirl.readthedocs.io/reference/exceptions.html"/>
   <meta property="og:title" content="Exceptions Reference"/>
-  <meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
     <meta name="twitter:card" content="summary"/>
-<meta name="twitter:creator" content="@@wyaborern"/>
-<meta name="twitter:site" content="@@wyaborern"/>
+<meta name="twitter:creator" content="@wyaborern"/>
+<meta name="twitter:site" content="@wyaborern"/>
   </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="pw-navbar">
   <div class="pw-navbar-inner">
     
@@ -38,7 +38,7 @@
     </button>
 
     
-    <a href="/" class="pw-navbar-brand">
+    <a href="../index.html" class="pw-navbar-brand">
       <svg class="pw-navbar-logo" viewBox="0 0 100 100" aria-hidden="true">
         <defs>
           <linearGradient id="pw-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -60,17 +60,25 @@
     </a>
 
     
-    <nav class="pw-navbar-links">
-      <a href="/docs/" class="pw-navbar-link active">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-        Docs
+    <nav class="pw-navbar-links" aria-label="Main navigation">
+      <a href="../getting-started/index.html" class="pw-navbar-link" data-section="getting-started">
+        Getting Started
+      </a>
+      <a href="../guides/index.html" class="pw-navbar-link" data-section="guides">
+        Guides
+      </a>
+      <a href="index.html" class="pw-navbar-link" data-section="reference">
+        Reference
+      </a>
+      <a href="../project/index.html" class="pw-navbar-link" data-section="project">
+        Project
       </a>
     </nav>
 
     
     <div class="pw-navbar-actions">
       
-      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme">
+      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme" aria-pressed="false">
         <svg class="pw-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
         <svg class="pw-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       </button>
@@ -82,24 +90,43 @@
     </div>
   </div>
 </header>
+<div id="main-content"></div>
 
 <script>
 (function() {
+  /* Theme toggle */
   var toggle = document.getElementById('pw-theme-toggle');
-  if (!toggle) return;
-  toggle.addEventListener('click', function() {
-    var isDark = document.documentElement.classList.contains('dark');
-    var next = isDark ? 'light' : 'dark';
-    localStorage._theme = next;
-    if (typeof setColorMode === 'function') {
-      setColorMode(next);
-    } else {
-      var html = document.documentElement;
-      html.classList.remove('dark', 'light');
-      html.classList.add(next);
-      html.setAttribute('data-color-mode', next);
+  if (toggle) {
+    /* Set initial aria-pressed based on current theme */
+    var currentlyDark = document.documentElement.classList.contains('dark');
+    toggle.setAttribute('aria-pressed', currentlyDark ? 'true' : 'false');
+
+    toggle.addEventListener('click', function() {
+      var isDark = document.documentElement.classList.contains('dark');
+      var next = isDark ? 'light' : 'dark';
+      localStorage._theme = next;
+      if (typeof setColorMode === 'function') {
+        setColorMode(next);
+      } else {
+        var html = document.documentElement;
+        html.classList.remove('dark', 'light');
+        html.classList.add(next);
+        html.setAttribute('data-color-mode', next);
+      }
+      toggle.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+    });
+  }
+
+  /* Active nav link detection — highlight current section */
+  var path = window.location.pathname;
+  var links = document.querySelectorAll('.pw-navbar-link[data-section]');
+  links.forEach(function(link) {
+    var section = link.getAttribute('data-section');
+    if (path.indexOf('/' + section) !== -1) {
+      link.classList.add('active');
     }
   });
+  /* Mark home page — none active, or all inactive is fine */
 })();
 </script>
 <div class="sy-page sy-container flex mx-auto">
@@ -114,19 +141,24 @@
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#basic-usage-sync">Basic Usage (sync)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#async-usage">Async Usage</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#context-manager-pattern">Context Manager Pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#authenticated-proxies">Authenticated Proxies</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#using-free-proxy-lists">Using Free Proxy Lists</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#fetching-proxies-programmatically">Fetching Proxies Programmatically</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#choosing-a-rotation-strategy">Choosing a Rotation Strategy</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#configuring-retry-and-circuit-breakers">Configuring Retry and Circuit Breakers</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#monitoring-your-pool">Monitoring Your Pool</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#troubleshooting">Troubleshooting</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#next-steps">Next Steps</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#for-contributors">For Contributors</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a Rotator</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#quick-pick-guide">Quick-Pick Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-reference">Strategy Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#comparison-at-a-glance">Comparison At a Glance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
@@ -134,19 +166,6 @@
 </li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l1 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#core-strategies">Core Strategies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#advanced-strategies">Advanced Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l1 _expand"><a class="reference internal" href="../guides/index.html">Guides</a><ul>
@@ -224,7 +243,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#overview">Overview</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a></li>
@@ -257,7 +275,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#automating-releases">Automating Releases</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#docsearch-credentials">DocSearch Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#ci-stage-summary">CI Stage Summary</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#further-reading">Further Reading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#see-also">See Also</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/mcp-server.html">MCP Server Guide</a><ul>
@@ -291,6 +309,7 @@
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#getting-started">Getting Started</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rest-api.html#middleware">Middleware</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#endpoint-reference">Endpoint Reference</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#rate-limiting">Rate Limiting</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#error-handling">Error Handling</a></li>
@@ -392,23 +411,25 @@
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#code-style">Code Style</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#pre-commit-hooks">Pre-commit Hooks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#testing-guidelines">Testing Guidelines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#extending-with-custom-strategies">Extending with Custom Strategies</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#ci-cd-pipelines">CI/CD Pipelines</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#quality-gate-pipeline">Quality Gate Pipeline</a></li>
 </ul>
 </li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#module-map">Module Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-exports">Key Exports</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#changelog-highlights">Changelog Highlights</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#recent">Recent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#phase-completion-status">Phase Completion Status</a></li>
 </ul>
 </li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-modules">Key Modules</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#license">License</a></li>
 </ul>
 </li>
@@ -502,6 +523,26 @@
 <li><a class="reference internal" href="#id28">Attributes</a></li>
 <li><a class="reference internal" href="#id29">Example</a></li>
 <li><a class="reference internal" href="#id30">Resolution Steps</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#retryableerror">RetryableError</a><ul>
+<li><a class="reference internal" href="#id31">When Raised</a></li>
+<li><a class="reference internal" href="#id32">Example</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#nonretryableerror">NonRetryableError</a><ul>
+<li><a class="reference internal" href="#id33">When Raised</a></li>
+<li><a class="reference internal" href="#id34">Example</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#regextimeouterror">RegexTimeoutError</a><ul>
+<li><a class="reference internal" href="#id35">When Raised</a></li>
+<li><a class="reference internal" href="#id36">Example</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#regexcomplexityerror">RegexComplexityError</a><ul>
+<li><a class="reference internal" href="#id37">When Raised</a></li>
+<li><a class="reference internal" href="#id38">Example</a></li>
 </ul>
 </li>
 </ul>
@@ -599,7 +640,7 @@
         </a></div>
     </div>
   </div>
-</div><article class="yue" role="main">
+</div><article class="yue dark-code" role="main">
           <section id="exceptions-reference">
 <h1>Exceptions Reference<a class="headerlink" href="#exceptions-reference" title="Link to this heading">¶</a></h1>
 <p>Complete guide to ProxyWhirl’s exception hierarchy, error codes, and error handling best practices.</p>
@@ -633,6 +674,10 @@
 <li><p><a class="reference internal" href="#requestqueuefullerror">RequestQueueFullError</a></p></li>
 </ul>
 </li>
+<li><p><a class="reference internal" href="#retryableerror">RetryableError</a></p></li>
+<li><p><a class="reference internal" href="#nonretryableerror">NonRetryableError</a></p></li>
+<li><p><a class="reference internal" href="#regextimeouterror">RegexTimeoutError</a></p></li>
+<li><p><a class="reference internal" href="#regexcomplexityerror">RegexComplexityError</a></p></li>
 <li><p><a class="reference internal" href="#error-handling-patterns">Error Handling Patterns</a></p></li>
 <li><p><a class="reference internal" href="#best-practices">Best Practices</a></p></li>
 </ul>
@@ -641,17 +686,21 @@
 <h2>Exception Hierarchy<a class="headerlink" href="#exception-hierarchy" title="Link to this heading">¶</a></h2>
 <p>ProxyWhirl uses a hierarchical exception system with a common base class for all library-specific errors:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1">Exception
-</span><span data-line="2">└── ProxyWhirlError (base)
-</span><span data-line="3">    ├── ProxyValidationError
-</span><span data-line="4">    ├── ProxyPoolEmptyError
-</span><span data-line="5">    ├── ProxyConnectionError
-</span><span data-line="6">    ├── ProxyAuthenticationError
-</span><span data-line="7">    ├── ProxyFetchError
-</span><span data-line="8">    ├── ProxyStorageError
-</span><span data-line="9">    ├── CacheCorruptionError
-</span><span data-line="10">    ├── CacheStorageError
-</span><span data-line="11">    ├── CacheValidationError (also inherits from ValueError)
-</span><span data-line="12">    └── RequestQueueFullError
+</span><span data-line="2">├── ProxyWhirlError (base)
+</span><span data-line="3">│   ├── ProxyValidationError
+</span><span data-line="4">│   ├── ProxyPoolEmptyError
+</span><span data-line="5">│   ├── ProxyConnectionError
+</span><span data-line="6">│   ├── ProxyAuthenticationError
+</span><span data-line="7">│   ├── ProxyFetchError
+</span><span data-line="8">│   ├── ProxyStorageError
+</span><span data-line="9">│   ├── CacheCorruptionError
+</span><span data-line="10">│   ├── CacheStorageError
+</span><span data-line="11">│   ├── CacheValidationError (also inherits from ValueError)
+</span><span data-line="12">│   └── RequestQueueFullError
+</span><span data-line="13">├── RetryableError          (retry module - triggers retry)
+</span><span data-line="14">├── NonRetryableError       (retry module - skips retry)
+</span><span data-line="15">├── RegexTimeoutError       (safe_regex module - ReDoS protection)
+</span><span data-line="16">└── RegexComplexityError    (safe_regex module - ReDoS protection)
 </span></pre></div>
 </div>
 <div class="admonition note">
@@ -1445,6 +1494,124 @@
 <li><p>Add more proxy workers to increase throughput</p></li>
 <li><p>Monitor queue metrics to optimize size</p></li>
 </ol>
+</section>
+</section>
+<hr class="docutils" />
+<section id="retryableerror">
+<h3>RetryableError<a class="headerlink" href="#retryableerror" title="Link to this heading">¶</a></h3>
+<p><strong>Raised to signal that an operation should be retried by the retry executor.</strong></p>
+<ul class="simple">
+<li><p><strong>Module:</strong> <code class="docutils literal notranslate"><span class="pre">proxywhirl.retry</span></code></p></li>
+<li><p><strong>Inherits:</strong> <code class="docutils literal notranslate"><span class="pre">Exception</span></code> (not <code class="docutils literal notranslate"><span class="pre">ProxyWhirlError</span></code>)</p></li>
+</ul>
+<section id="id31">
+<h4>When Raised<a class="headerlink" href="#id31" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p>Transient network failures during proxied requests</p></li>
+<li><p>Temporary proxy unavailability</p></li>
+<li><p>Retryable HTTP status codes (502, 503, 504)</p></li>
+</ul>
+</section>
+<section id="id32">
+<h4>Example<a class="headerlink" href="#id32" title="Link to this heading">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">RetryableError</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="k">try</span><span class="p">:</span>
+</span><span data-line="4">    <span class="n">response</span> <span class="o">=</span> <span class="n">make_request_through_proxy</span><span class="p">()</span>
+</span><span data-line="5"><span class="k">except</span> <span class="n">RetryableError</span><span class="p">:</span>
+</span><span data-line="6">    <span class="c1"># RetryExecutor catches this and retries automatically</span>
+</span><span data-line="7">    <span class="k">pass</span>
+</span></pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="nonretryableerror">
+<h3>NonRetryableError<a class="headerlink" href="#nonretryableerror" title="Link to this heading">¶</a></h3>
+<p><strong>Raised to signal that an operation should NOT be retried.</strong></p>
+<ul class="simple">
+<li><p><strong>Module:</strong> <code class="docutils literal notranslate"><span class="pre">proxywhirl.retry</span></code></p></li>
+<li><p><strong>Inherits:</strong> <code class="docutils literal notranslate"><span class="pre">Exception</span></code> (not <code class="docutils literal notranslate"><span class="pre">ProxyWhirlError</span></code>)</p></li>
+</ul>
+<section id="id33">
+<h4>When Raised<a class="headerlink" href="#id33" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p>Authentication failures (401/407)</p></li>
+<li><p>Invalid request format</p></li>
+<li><p>Permanent proxy configuration errors</p></li>
+</ul>
+</section>
+<section id="id34">
+<h4>Example<a class="headerlink" href="#id34" title="Link to this heading">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">NonRetryableError</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="k">try</span><span class="p">:</span>
+</span><span data-line="4">    <span class="n">response</span> <span class="o">=</span> <span class="n">make_request_through_proxy</span><span class="p">()</span>
+</span><span data-line="5"><span class="k">except</span> <span class="n">NonRetryableError</span><span class="p">:</span>
+</span><span data-line="6">    <span class="c1"># Do not retry - fix the underlying issue</span>
+</span><span data-line="7">    <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;Non-retryable error, check proxy credentials&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="regextimeouterror">
+<h3>RegexTimeoutError<a class="headerlink" href="#regextimeouterror" title="Link to this heading">¶</a></h3>
+<p><strong>Raised when regex compilation or matching exceeds the configured timeout.</strong></p>
+<ul class="simple">
+<li><p><strong>Module:</strong> <code class="docutils literal notranslate"><span class="pre">proxywhirl.safe_regex</span></code></p></li>
+<li><p><strong>Inherits:</strong> <code class="docutils literal notranslate"><span class="pre">Exception</span></code> (not <code class="docutils literal notranslate"><span class="pre">ProxyWhirlError</span></code>)</p></li>
+<li><p><strong>Purpose:</strong> ReDoS (Regular Expression Denial of Service) protection</p></li>
+</ul>
+<section id="id35">
+<h4>When Raised<a class="headerlink" href="#id35" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p>Regex pattern takes too long to compile</p></li>
+<li><p>Regex matching exceeds timeout threshold</p></li>
+<li><p>Catastrophic backtracking detected</p></li>
+</ul>
+</section>
+<section id="id36">
+<h4>Example<a class="headerlink" href="#id36" title="Link to this heading">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">RegexTimeoutError</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.safe_regex</span><span class="w"> </span><span class="kn">import</span> <span class="n">safe_match</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="k">try</span><span class="p">:</span>
+</span><span data-line="5">    <span class="n">result</span> <span class="o">=</span> <span class="n">safe_match</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">text</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="6"><span class="k">except</span> <span class="n">RegexTimeoutError</span><span class="p">:</span>
+</span><span data-line="7">    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Regex timed out - possible ReDoS pattern&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="regexcomplexityerror">
+<h3>RegexComplexityError<a class="headerlink" href="#regexcomplexityerror" title="Link to this heading">¶</a></h3>
+<p><strong>Raised when a regex pattern is too complex or potentially dangerous.</strong></p>
+<ul class="simple">
+<li><p><strong>Module:</strong> <code class="docutils literal notranslate"><span class="pre">proxywhirl.safe_regex</span></code></p></li>
+<li><p><strong>Inherits:</strong> <code class="docutils literal notranslate"><span class="pre">Exception</span></code> (not <code class="docutils literal notranslate"><span class="pre">ProxyWhirlError</span></code>)</p></li>
+<li><p><strong>Purpose:</strong> Prevent ReDoS attacks from user-provided patterns</p></li>
+</ul>
+<section id="id37">
+<h4>When Raised<a class="headerlink" href="#id37" title="Link to this heading">¶</a></h4>
+<ul class="simple">
+<li><p>Pattern contains nested quantifiers (e.g., <code class="docutils literal notranslate"><span class="pre">(a+)+</span></code>)</p></li>
+<li><p>Pattern exceeds complexity threshold</p></li>
+<li><p>Pattern contains known ReDoS-vulnerable constructs</p></li>
+</ul>
+</section>
+<section id="id38">
+<h4>Example<a class="headerlink" href="#id38" title="Link to this heading">¶</a></h4>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">RegexComplexityError</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.safe_regex</span><span class="w"> </span><span class="kn">import</span> <span class="n">safe_compile</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="k">try</span><span class="p">:</span>
+</span><span data-line="5">    <span class="n">pattern</span> <span class="o">=</span> <span class="n">safe_compile</span><span class="p">(</span><span class="n">user_provided_pattern</span><span class="p">)</span>
+</span><span data-line="6"><span class="k">except</span> <span class="n">RegexComplexityError</span><span class="p">:</span>
+</span><span data-line="7">    <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;Regex pattern rejected - too complex&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
 </section>
 </section>
 </section>

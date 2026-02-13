@@ -16,7 +16,7 @@ By the end of this guide you will have a working proxy rotator that:
 - Works with both synchronous scripts and async frameworks like FastAPI
 
 ```{tip}
-If you just need a quick proxy list to get started, ProxyWhirl publishes **free, validated lists** updated every 2 hours at [proxywhirl.com](https://proxywhirl.com/).
+If you just need a quick proxy list to get started, ProxyWhirl publishes **free, validated lists** updated every 6 hours at [proxywhirl.com](https://proxywhirl.com/).
 ```
 
 ---
@@ -41,10 +41,17 @@ pip install proxywhirl
 ```
 :::
 
-:::{tab-item} With all extras
+:::{tab-item} Extras
 ```bash
+# Install with specific extras
+pip install "proxywhirl[storage]"     # SQLite persistence (sqlmodel)
+pip install "proxywhirl[security]"    # Credential encryption (cryptography)
+pip install "proxywhirl[js]"          # JS-rendered proxy sources (playwright)
+pip install "proxywhirl[analytics]"   # Analytics & ML (pandas, numpy, scikit-learn)
+pip install "proxywhirl[mcp]"         # MCP server for AI assistants (Python 3.10+)
+
+# Install everything
 pip install "proxywhirl[all]"
-# Includes: storage, security, js, analytics, mcp
 ```
 :::
 
@@ -59,7 +66,7 @@ uv sync
 ::::
 
 ```{note}
-ProxyWhirl requires **Python 3.9+**. SOCKS proxy support needs the optional `httpx-socks` dependency, which is included in the `[all]` extra.
+ProxyWhirl requires **Python 3.9+**. SOCKS proxy support uses `httpx-socks`, which is included in the core dependencies. The `[mcp]` extra requires Python 3.10+.
 ```
 
 ---
@@ -69,14 +76,16 @@ ProxyWhirl requires **Python 3.9+**. SOCKS proxy support needs the optional `htt
 ### Basic Usage (sync)
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyRotator, Proxy
 
-# Create a rotator with your proxies
-rotator = ProxyRotator(proxies=[
-    "http://proxy1.example.com:8080",
-    "http://proxy2.example.com:8080",
-    "socks5://proxy3.example.com:1080",
-])
+# Create Proxy objects and pass them to the rotator
+proxies = [
+    Proxy(url="http://proxy1.example.com:8080"),
+    Proxy(url="http://proxy2.example.com:8080"),
+    Proxy(url="socks5://proxy3.example.com:1080"),
+]
+
+rotator = ProxyRotator(proxies=proxies)
 
 # Make requests -- proxies rotate automatically
 response = rotator.get("https://httpbin.org/ip")
@@ -86,27 +95,36 @@ print(response.json())  # {"origin": "185.x.x.47"}
 response = rotator.get("https://api.example.com/data")
 ```
 
+You can also add proxies from URL strings after construction:
+
+```python
+rotator = ProxyRotator()
+rotator.add_proxy("http://proxy1.example.com:8080")
+rotator.add_proxy("socks5://proxy2.example.com:1080")
+```
+
 ### Async Usage
 
 ```python
 import asyncio
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyRotator, Proxy
 
 async def main():
-    rotator = AsyncProxyRotator(proxies=[
-        "http://proxy1:8080",
-        "http://proxy2:8080",
-    ])
+    proxies = [
+        Proxy(url="http://proxy1.example.com:8080"),
+        Proxy(url="http://proxy2.example.com:8080"),
+    ]
 
-    # Concurrent requests with automatic rotation
-    tasks = [rotator.get(f"https://api.example.com/{i}") for i in range(10)]
-    responses = await asyncio.gather(*tasks)
+    async with AsyncProxyRotator(proxies=proxies) as rotator:
+        # Concurrent requests with automatic rotation
+        tasks = [rotator.get(f"https://api.example.com/{i}") for i in range(10)]
+        responses = await asyncio.gather(*tasks)
 
 asyncio.run(main())
 ```
 
 ```{tip}
-Use `AsyncProxyRotator` when you need high concurrency (100+ parallel requests) or are integrating with an async framework. For simple scripts and sequential work, `ProxyRotator` is simpler to debug. See [Async Client](../guides/async-client.md) for a deeper comparison.
+Use `AsyncProxyRotator` when you need high concurrency (100+ parallel requests) or are integrating with an async framework. For simple scripts and sequential work, `ProxyRotator` is simpler to debug. See {doc}`/guides/async-client` for a deeper comparison.
 ```
 
 ### Context Manager Pattern
@@ -114,25 +132,47 @@ Use `AsyncProxyRotator` when you need high concurrency (100+ parallel requests) 
 Both rotators support context managers for clean resource handling:
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyRotator, Proxy
 
-with ProxyRotator(proxies=["http://proxy1:8080"]) as rotator:
+with ProxyRotator(proxies=[Proxy(url="http://proxy1.example.com:8080")]) as rotator:
     response = rotator.get("https://httpbin.org/ip")
     print(response.json())
 # httpx clients are closed automatically on exit
 ```
 
+### Authenticated Proxies
+
+Pass credentials directly on the `Proxy` model:
+
+```python
+from pydantic import SecretStr
+from proxywhirl import ProxyRotator, Proxy
+
+rotator = ProxyRotator(proxies=[
+    Proxy(
+        url="http://proxy.example.com:8080",
+        username=SecretStr("user"),
+        password=SecretStr("pass"),
+    ),
+])
+response = rotator.get("https://httpbin.org/ip")
+```
+
 ### Using Free Proxy Lists
 
-ProxyWhirl publishes free proxy lists updated every 2 hours:
+ProxyWhirl publishes free proxy lists updated every 6 hours:
 
 ```python
 import httpx
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyRotator, Proxy
 
 # Fetch the free HTTP proxy list
 response = httpx.get("https://proxywhirl.com/proxy-lists/http.txt")
-proxies = [f"http://{line}" for line in response.text.strip().split("\n")]
+proxies = [
+    Proxy(url=f"http://{line}")
+    for line in response.text.strip().split("\n")
+    if line.strip()
+]
 
 rotator = ProxyRotator(proxies=proxies)
 response = rotator.get("https://httpbin.org/ip")
@@ -150,6 +190,10 @@ raw_proxies = fetcher.fetch(RECOMMENDED_SOURCES)
 unique = deduplicate_proxies(raw_proxies)
 
 rotator = ProxyRotator(proxies=unique)
+```
+
+```{seealso}
+ProxyWhirl ships 15+ built-in proxy sources organized by protocol. See {data}`proxywhirl.ALL_SOURCES`, {data}`proxywhirl.ALL_HTTP_SOURCES`, {data}`proxywhirl.ALL_SOCKS4_SOURCES`, and {data}`proxywhirl.ALL_SOCKS5_SOURCES` for the full catalog.
 ```
 
 ---
@@ -205,28 +249,50 @@ ProxyWhirl ships with **9 built-in strategies**. Pass a strategy name string or 
 ```
 
 ```python
-# Use a specific strategy by name
+# Use a strategy by name (for round-robin, random, weighted, least-used)
 rotator = ProxyRotator(
     proxies=proxies,
-    strategy="performance-based",
+    strategy="random",
 )
 
-# Or pass an instantiated strategy for full control
-from proxywhirl.strategies import WeightedStrategy, StrategyConfig
+# Or instantiate for full control over parameters
+from proxywhirl import PerformanceBasedStrategy
 
-weights = StrategyConfig(
-    weights={
-        "http://fast-proxy:8080": 0.6,
-        "http://slow-proxy:8080": 0.4,
-    }
-)
 rotator = ProxyRotator(
     proxies=proxies,
-    strategy=WeightedStrategy(config=weights),
+    strategy=PerformanceBasedStrategy(exploration_count=3),
 )
 ```
 
-See [Rotation Strategies](rotation-strategies.md) for recipes, a decision matrix, and advanced configuration.
+```{note}
+The ``strategy`` string shorthand in `ProxyRotator` and `AsyncProxyRotator` supports: ``"round-robin"``, ``"random"``, ``"weighted"``, and ``"least-used"``. For other strategies (``performance-based``, ``session-persistence``, ``geo-targeted``, ``cost-aware``, ``composite``), pass an instantiated strategy object. You can also hot-swap strategies at runtime with {meth}`set_strategy() <proxywhirl.ProxyRotator.set_strategy>`.
+```
+
+See {doc}`rotation-strategies` for detailed recipes, a decision matrix, and configuration for all 9 strategies.
+
+---
+
+## Configuring Retry and Circuit Breakers
+
+ProxyWhirl includes built-in retry logic and circuit breakers to handle failures gracefully:
+
+```python
+from proxywhirl import ProxyRotator, Proxy, RetryPolicy
+
+rotator = ProxyRotator(
+    proxies=[Proxy(url="http://proxy1.example.com:8080")],
+    retry_policy=RetryPolicy(
+        max_attempts=5,
+        base_delay=1.0,
+        max_backoff_delay=30.0,
+    ),
+)
+
+# Requests automatically retry with backoff on failure
+response = rotator.get("https://api.example.com/data")
+```
+
+See {doc}`/guides/retry-failover` for circuit breaker configuration and advanced failover patterns.
 
 ---
 
@@ -253,7 +319,7 @@ uv run proxywhirl health
 uv run proxywhirl pool list
 ```
 
-See [CLI Reference](../guides/cli-reference.md) for the full command reference.
+See {doc}`/guides/cli-reference` for the full command reference.
 
 ---
 
@@ -270,13 +336,15 @@ See [CLI Reference](../guides/cli-reference.md) for the full command reference.
 * - ``ProxyPoolEmptyError``
   - All proxies failed health checks. Add more proxies or check network connectivity.
 * - SOCKS proxies not working
-  - Install ``httpx-socks``: ``uv pip install httpx-socks`` (included in ``[all]`` extra).
+  - ``httpx-socks`` is included in core dependencies. Run ``uv sync`` to ensure it's installed.
 * - Async test errors
   - Ensure ``asyncio_mode = "auto"`` is set in ``pyproject.toml`` under ``[tool.pytest.ini_options]``.
 * - Slow proxy validation
   - Increase concurrency: ``proxywhirl fetch --concurrency 2000``.
 * - Import errors when running tests
   - Always use ``uv run pytest`` instead of bare ``pytest``.
+* - Strings rejected by ``ProxyRotator(proxies=...)``
+  - The ``proxies`` parameter expects ``list[Proxy]`` objects. Use ``Proxy(url="http://...")`` or add strings via ``rotator.add_proxy("http://...")``.
 ```
 
 ---
@@ -290,39 +358,53 @@ See [CLI Reference](../guides/cli-reference.md) for the full command reference.
 :link: rotation-strategies
 :link-type: doc
 
-Configure, compose, and build custom proxy selection logic.
+Configure, compose, and build custom proxy selection logic with all 9 built-in strategies.
+:::
+
+:::{grid-item-card} Advanced Strategies
+:link: /guides/advanced-strategies
+:link-type: doc
+
+Deep dive into composite pipelines, EMA tuning, and custom strategy development.
 :::
 
 :::{grid-item-card} Async Client Guide
-:link: ../guides/async-client
+:link: /guides/async-client
 :link-type: doc
 
 High-concurrency patterns with `AsyncProxyRotator`.
 :::
 
 :::{grid-item-card} Retry & Failover
-:link: ../guides/retry-failover
+:link: /guides/retry-failover
 :link-type: doc
 
 Circuit breakers, backoff policies, and automatic failover.
 :::
 
 :::{grid-item-card} CLI Reference
-:link: ../guides/cli-reference
+:link: /guides/cli-reference
 :link-type: doc
 
 Manage pools, fetch proxies, and monitor health from the terminal.
 :::
 
 :::{grid-item-card} REST API
-:link: ../reference/rest-api
+:link: /reference/rest-api
 :link-type: doc
 
 Operate ProxyWhirl over HTTP with the FastAPI server.
 :::
 
+:::{grid-item-card} Caching
+:link: /guides/caching
+:link-type: doc
+
+Multi-tier caching for proxy data and validation results.
+:::
+
 :::{grid-item-card} Automation & CI
-:link: ../guides/automation
+:link: /guides/automation
 :link-type: doc
 
 GitHub Actions, Docker deployment, and cron-based proxy refreshing.
@@ -352,7 +434,7 @@ uv run ruff check proxywhirl/ tests/
 uv run ty check proxywhirl/
 ```
 
-See [Automation](../guides/automation.md) for CI/CD integration and the full quality-gate pipeline.
+See {doc}`/guides/automation` for CI/CD integration and the full quality-gate pipeline.
 
 ```{toctree}
 :maxdepth: 2

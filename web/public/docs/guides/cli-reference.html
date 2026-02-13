@@ -11,7 +11,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=43a92ad3" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=b31b09b0" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,12 +24,12 @@
     <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://proxywhirl.readthedocs.io/guides/cli-reference.html"/>
   <meta property="og:title" content="CLI Reference"/>
-  <meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
     <meta name="twitter:card" content="summary"/>
-<meta name="twitter:creator" content="@@wyaborern"/>
-<meta name="twitter:site" content="@@wyaborern"/>
+<meta name="twitter:creator" content="@wyaborern"/>
+<meta name="twitter:site" content="@wyaborern"/>
   </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="pw-navbar">
   <div class="pw-navbar-inner">
     
@@ -38,7 +38,7 @@
     </button>
 
     
-    <a href="/" class="pw-navbar-brand">
+    <a href="../index.html" class="pw-navbar-brand">
       <svg class="pw-navbar-logo" viewBox="0 0 100 100" aria-hidden="true">
         <defs>
           <linearGradient id="pw-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -60,17 +60,25 @@
     </a>
 
     
-    <nav class="pw-navbar-links">
-      <a href="/docs/" class="pw-navbar-link active">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-        Docs
+    <nav class="pw-navbar-links" aria-label="Main navigation">
+      <a href="../getting-started/index.html" class="pw-navbar-link" data-section="getting-started">
+        Getting Started
+      </a>
+      <a href="index.html" class="pw-navbar-link" data-section="guides">
+        Guides
+      </a>
+      <a href="../reference/index.html" class="pw-navbar-link" data-section="reference">
+        Reference
+      </a>
+      <a href="../project/index.html" class="pw-navbar-link" data-section="project">
+        Project
       </a>
     </nav>
 
     
     <div class="pw-navbar-actions">
       
-      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme">
+      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme" aria-pressed="false">
         <svg class="pw-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
         <svg class="pw-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       </button>
@@ -82,24 +90,43 @@
     </div>
   </div>
 </header>
+<div id="main-content"></div>
 
 <script>
 (function() {
+  /* Theme toggle */
   var toggle = document.getElementById('pw-theme-toggle');
-  if (!toggle) return;
-  toggle.addEventListener('click', function() {
-    var isDark = document.documentElement.classList.contains('dark');
-    var next = isDark ? 'light' : 'dark';
-    localStorage._theme = next;
-    if (typeof setColorMode === 'function') {
-      setColorMode(next);
-    } else {
-      var html = document.documentElement;
-      html.classList.remove('dark', 'light');
-      html.classList.add(next);
-      html.setAttribute('data-color-mode', next);
+  if (toggle) {
+    /* Set initial aria-pressed based on current theme */
+    var currentlyDark = document.documentElement.classList.contains('dark');
+    toggle.setAttribute('aria-pressed', currentlyDark ? 'true' : 'false');
+
+    toggle.addEventListener('click', function() {
+      var isDark = document.documentElement.classList.contains('dark');
+      var next = isDark ? 'light' : 'dark';
+      localStorage._theme = next;
+      if (typeof setColorMode === 'function') {
+        setColorMode(next);
+      } else {
+        var html = document.documentElement;
+        html.classList.remove('dark', 'light');
+        html.classList.add(next);
+        html.setAttribute('data-color-mode', next);
+      }
+      toggle.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+    });
+  }
+
+  /* Active nav link detection — highlight current section */
+  var path = window.location.pathname;
+  var links = document.querySelectorAll('.pw-navbar-link[data-section]');
+  links.forEach(function(link) {
+    var section = link.getAttribute('data-section');
+    if (path.indexOf('/' + section) !== -1) {
+      link.classList.add('active');
     }
   });
+  /* Mark home page — none active, or all inactive is fine */
 })();
 </script>
 <div class="sy-page sy-container flex mx-auto">
@@ -114,19 +141,24 @@
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#basic-usage-sync">Basic Usage (sync)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#async-usage">Async Usage</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#context-manager-pattern">Context Manager Pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#authenticated-proxies">Authenticated Proxies</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#using-free-proxy-lists">Using Free Proxy Lists</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#fetching-proxies-programmatically">Fetching Proxies Programmatically</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#choosing-a-rotation-strategy">Choosing a Rotation Strategy</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#configuring-retry-and-circuit-breakers">Configuring Retry and Circuit Breakers</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#monitoring-your-pool">Monitoring Your Pool</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#troubleshooting">Troubleshooting</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#next-steps">Next Steps</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#for-contributors">For Contributors</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a Rotator</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#quick-pick-guide">Quick-Pick Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-reference">Strategy Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#comparison-at-a-glance">Comparison At a Glance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
@@ -134,19 +166,6 @@
 </li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l1 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#core-strategies">Core Strategies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#advanced-strategies">Advanced Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Guides</a><ul class="current">
@@ -224,7 +243,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="deployment-security.html#overview">Overview</a></li>
 <li class="toctree-l4"><a class="reference internal" href="deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a></li>
 <li class="toctree-l4"><a class="reference internal" href="deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a></li>
@@ -257,7 +275,7 @@
 <li class="toctree-l4"><a class="reference internal" href="automation.html#automating-releases">Automating Releases</a></li>
 <li class="toctree-l4"><a class="reference internal" href="automation.html#docsearch-credentials">DocSearch Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="automation.html#ci-stage-summary">CI Stage Summary</a></li>
-<li class="toctree-l4"><a class="reference internal" href="automation.html#further-reading">Further Reading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="automation.html#see-also">See Also</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="mcp-server.html">MCP Server Guide</a><ul>
@@ -291,6 +309,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#getting-started">Getting Started</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#middleware">Middleware</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#endpoint-reference">Endpoint Reference</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#rate-limiting">Rate Limiting</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#error-handling">Error Handling</a></li>
@@ -392,23 +411,25 @@
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#code-style">Code Style</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#pre-commit-hooks">Pre-commit Hooks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#testing-guidelines">Testing Guidelines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#extending-with-custom-strategies">Extending with Custom Strategies</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#ci-cd-pipelines">CI/CD Pipelines</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#quality-gate-pipeline">Quality Gate Pipeline</a></li>
 </ul>
 </li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#module-map">Module Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-exports">Key Exports</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#changelog-highlights">Changelog Highlights</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#recent">Recent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#phase-completion-status">Phase Completion Status</a></li>
 </ul>
 </li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-modules">Key Modules</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#license">License</a></li>
 </ul>
 </li>
@@ -436,8 +457,15 @@
 <li><a class="reference internal" href="#fetch">fetch</a></li>
 <li><a class="reference internal" href="#export">export</a></li>
 <li><a class="reference internal" href="#setup-geoip">setup-geoip</a></li>
-<li><a class="reference internal" href="#sources">sources</a></li>
+<li><a class="reference internal" href="#sources">sources</a><ul>
+<li><a class="reference internal" href="#sources-list-validate">sources (list/validate)</a></li>
+<li><a class="reference internal" href="#sources-audit">sources audit</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#stats">stats</a></li>
+<li><a class="reference internal" href="#tui">tui</a></li>
+<li><a class="reference internal" href="#db-stats">db-stats</a></li>
+<li><a class="reference internal" href="#cleanup">cleanup</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#output-formats">Output Formats</a><ul>
@@ -533,12 +561,66 @@
         </a></div>
     </div>
   </div>
-</div><article class="yue" role="main">
+</div><article class="yue dark-code" role="main">
           <section id="cli-reference">
 <h1>CLI Reference<a class="headerlink" href="#cli-reference" title="Link to this heading">¶</a></h1>
 <p>ProxyWhirl provides a full-featured command-line interface for proxy rotation, pool management, health monitoring, statistics, and data export. All commands support multiple output formats (text/JSON/CSV) and integrate with the configuration system.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#installation" id="id1">Installation</a></p></li>
+<li><p><a class="reference internal" href="#global-options" id="id2">Global Options</a></p>
+<ul>
+<li><p><a class="reference internal" href="#config-auto-discovery" id="id3">Config Auto-Discovery</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#commands" id="id4">Commands</a></p>
+<ul>
+<li><p><a class="reference internal" href="#request" id="id5">request</a></p></li>
+<li><p><a class="reference internal" href="#pool" id="id6">pool</a></p></li>
+<li><p><a class="reference internal" href="#config" id="id7">config</a></p></li>
+<li><p><a class="reference internal" href="#health" id="id8">health</a></p></li>
+<li><p><a class="reference internal" href="#fetch" id="id9">fetch</a></p></li>
+<li><p><a class="reference internal" href="#export" id="id10">export</a></p></li>
+<li><p><a class="reference internal" href="#setup-geoip" id="id11">setup-geoip</a></p></li>
+<li><p><a class="reference internal" href="#sources" id="id12">sources</a></p></li>
+<li><p><a class="reference internal" href="#stats" id="id13">stats</a></p></li>
+<li><p><a class="reference internal" href="#tui" id="id14">tui</a></p></li>
+<li><p><a class="reference internal" href="#db-stats" id="id15">db-stats</a></p></li>
+<li><p><a class="reference internal" href="#cleanup" id="id16">cleanup</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#output-formats" id="id17">Output Formats</a></p>
+<ul>
+<li><p><a class="reference internal" href="#text-default" id="id18">Text (default)</a></p></li>
+<li><p><a class="reference internal" href="#json" id="id19">JSON</a></p></li>
+<li><p><a class="reference internal" href="#csv" id="id20">CSV</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#configuration-file" id="id21">Configuration File</a></p></li>
+<li><p><a class="reference internal" href="#advanced-usage" id="id22">Advanced Usage</a></p>
+<ul>
+<li><p><a class="reference internal" href="#scripting-with-json-output" id="id23">Scripting with JSON Output</a></p></li>
+<li><p><a class="reference internal" href="#automated-proxy-refresh" id="id24">Automated Proxy Refresh</a></p></li>
+<li><p><a class="reference internal" href="#ci-cd-integration" id="id25">CI/CD Integration</a></p></li>
+<li><p><a class="reference internal" href="#multi-environment-configuration" id="id26">Multi-Environment Configuration</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#troubleshooting" id="id27">Troubleshooting</a></p>
+<ul>
+<li><p><a class="reference internal" href="#configuration-not-found" id="id28">Configuration Not Found</a></p></li>
+<li><p><a class="reference internal" href="#lock-file-issues" id="id29">Lock File Issues</a></p></li>
+<li><p><a class="reference internal" href="#slow-validation" id="id30">Slow Validation</a></p></li>
+<li><p><a class="reference internal" href="#geoip-enrichment-not-working" id="id31">GeoIP Enrichment Not Working</a></p></li>
+<li><p><a class="reference internal" href="#ssrf-protection-blocking-local-tests" id="id32">SSRF Protection Blocking Local Tests</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#environment-variables" id="id33">Environment Variables</a></p></li>
+<li><p><a class="reference internal" href="#exit-codes" id="id34">Exit Codes</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id35">See Also</a></p></li>
+</ul>
+</nav>
 <section id="installation">
-<h2>Installation<a class="headerlink" href="#installation" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id1" role="doc-backlink">Installation</a><a class="headerlink" href="#installation" title="Link to this heading">¶</a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Install with CLI support</span>
 </span><span data-line="2">uv<span class="w"> </span>pip<span class="w"> </span>install<span class="w"> </span>proxywhirl
 </span><span data-line="3">
@@ -549,7 +631,7 @@
 </div>
 </section>
 <section id="global-options">
-<h2>Global Options<a class="headerlink" href="#global-options" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">Global Options</a><a class="headerlink" href="#global-options" title="Link to this heading">¶</a></h2>
 <p>All commands support these global options:</p>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
@@ -585,10 +667,10 @@
 </table>
 </div>
 <section id="config-auto-discovery">
-<h3>Config Auto-Discovery<a class="headerlink" href="#config-auto-discovery" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id3" role="doc-backlink">Config Auto-Discovery</a><a class="headerlink" href="#config-auto-discovery" title="Link to this heading">¶</a></h3>
 <p>When <code class="docutils literal notranslate"><span class="pre">--config</span></code> is not provided, ProxyWhirl searches for configuration in this order:</p>
 <ol class="arabic simple">
-<li><p><strong>Project directory</strong>: <code class="docutils literal notranslate"><span class="pre">./pyproject.toml</span></code> (with <code class="docutils literal notranslate"><span class="pre">[tool.proxywhirl]</span></code> section)</p></li>
+<li><p><strong>Project directory</strong>: <code class="docutils literal notranslate"><span class="pre">./.proxywhirl.toml</span></code></p></li>
 <li><p><strong>User directory</strong>: <code class="docutils literal notranslate"><span class="pre">~/.config/proxywhirl/config.toml</span></code> (Linux/macOS) or <code class="docutils literal notranslate"><span class="pre">%APPDATA%\proxywhirl\config.toml</span></code> (Windows)</p></li>
 <li><p><strong>Defaults</strong>: In-memory configuration with sensible defaults</p></li>
 </ol>
@@ -599,9 +681,9 @@
 </section>
 </section>
 <section id="commands">
-<h2>Commands<a class="headerlink" href="#commands" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id4" role="doc-backlink">Commands</a><a class="headerlink" href="#commands" title="Link to this heading">¶</a></h2>
 <section id="request">
-<h3>request<a class="headerlink" href="#request" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id5" role="doc-backlink">request</a><a class="headerlink" href="#request" title="Link to this heading">¶</a></h3>
 <p>Make HTTP requests through rotating proxies with automatic retry and failover.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>request<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>URL
@@ -645,6 +727,10 @@
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--retries</span> <span class="pre">NUM</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
 <td><p>Maximum retry attempts (overrides config)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--allow-private</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Allow requests to localhost/private IPs (use with caution)</p></td>
 </tr>
 </tbody>
 </table>
@@ -694,7 +780,7 @@
 </section>
 <hr class="docutils" />
 <section id="pool">
-<h3>pool<a class="headerlink" href="#pool" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">pool</a><a class="headerlink" href="#pool" title="Link to this heading">¶</a></h3>
 <p>Manage the proxy pool: list proxies, add new ones, remove proxies, or test connectivity.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>pool<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span><span class="w"> </span>ACTION<span class="w"> </span><span class="o">[</span>PROXY<span class="o">]</span>
@@ -793,7 +879,7 @@
 </section>
 <hr class="docutils" />
 <section id="config">
-<h3>config<a class="headerlink" href="#config" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">config</a><a class="headerlink" href="#config" title="Link to this heading">¶</a></h3>
 <p>Manage CLI configuration: show current settings, get/set individual values, or initialize a new config file.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>config<span class="w"> </span>ACTION<span class="w"> </span><span class="o">[</span>KEY<span class="o">]</span><span class="w"> </span><span class="o">[</span>VALUE<span class="o">]</span>
@@ -877,7 +963,7 @@
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">default_format</span></code></p></td>
 <td><p>str</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">human</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">text</span></code></p></td>
 <td><p>Default output format</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">color</span></code></p></td>
@@ -895,6 +981,21 @@
 <td><p><code class="docutils literal notranslate"><span class="pre">file</span></code></p></td>
 <td><p>Storage backend type</p></td>
 </tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">storage_path</span></code></p></td>
+<td><p>path or null</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Path for file/sqlite storage</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">encrypt_credentials</span></code></p></td>
+<td><p>bool</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
+<td><p>Encrypt credentials in config file</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">encryption_key_env</span></code></p></td>
+<td><p>str</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_KEY</span></code></p></td>
+<td><p>Environment variable name for encryption key</p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -911,14 +1012,14 @@
 </span><span data-line="10"><span class="n">default_format</span><span class="p">:</span> <span class="n">text</span>
 </span><span data-line="11"><span class="n">color</span><span class="p">:</span> <span class="kc">True</span>
 </span><span data-line="12"><span class="n">verbose</span><span class="p">:</span> <span class="kc">False</span>
-</span><span data-line="13"><span class="n">storage_backend</span><span class="p">:</span> <span class="n">memory</span>
+</span><span data-line="13"><span class="n">storage_backend</span><span class="p">:</span> <span class="n">file</span>
 </span><span data-line="14"><span class="n">storage_path</span><span class="p">:</span> <span class="kc">None</span>
 </span></pre></div>
 </div>
 </section>
 <hr class="docutils" />
 <section id="health">
-<h3>health<a class="headerlink" href="#health" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id8" role="doc-backlink">health</a><a class="headerlink" href="#health" title="Link to this heading">¶</a></h3>
 <p>Check health of all proxies in the pool. Supports continuous monitoring mode for long-running checks.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>health<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
@@ -939,17 +1040,17 @@
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--continuous,</span> <span class="pre">-c</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--continuous,</span> <span class="pre">-C</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Run continuously with periodic checks</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--interval,</span> <span class="pre">-i</span> <span class="pre">SECONDS</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">300</span></code></p></td>
-<td><p>Check interval in seconds (for continuous mode)</p></td>
+<td><p>Config value</p></td>
+<td><p>Check interval in seconds (for continuous mode; falls back to <code class="docutils literal notranslate"><span class="pre">health_check_interval</span></code> config)</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--target-url</span> <span class="pre">URL</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">https://httpbin.org/ip</span></code></p></td>
-<td><p>Target URL for health checks (http/https only)</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--target-url,</span> <span class="pre">-t</span> <span class="pre">URL</span></code></p></td>
+<td><p>None</p></td>
+<td><p>Target URL for health checks (http/https only; falls back to <code class="docutils literal notranslate"><span class="pre">httpbin.org/ip</span></code> at runtime)</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--allow-private</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
@@ -962,11 +1063,11 @@
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Single health check</span>
 </span><span data-line="2">proxywhirl<span class="w"> </span>health
 </span><span data-line="3">
-</span><span data-line="4"><span class="c1"># Continuous monitoring with default interval (300s)</span>
-</span><span data-line="5">proxywhirl<span class="w"> </span>health<span class="w"> </span>--continuous
+</span><span data-line="4"><span class="c1"># Continuous monitoring with config interval</span>
+</span><span data-line="5">proxywhirl<span class="w"> </span>health<span class="w"> </span>-C
 </span><span data-line="6">
 </span><span data-line="7"><span class="c1"># Continuous monitoring with custom interval</span>
-</span><span data-line="8">proxywhirl<span class="w"> </span>health<span class="w"> </span>--continuous<span class="w"> </span>--interval<span class="w"> </span><span class="m">60</span>
+</span><span data-line="8">proxywhirl<span class="w"> </span>health<span class="w"> </span>-C<span class="w"> </span>--interval<span class="w"> </span><span class="m">60</span>
 </span><span data-line="9">
 </span><span data-line="10"><span class="c1"># Health check with custom target URL</span>
 </span><span data-line="11">proxywhirl<span class="w"> </span>health<span class="w"> </span>--target-url<span class="w"> </span>https://api.example.com
@@ -1045,7 +1146,7 @@
 </section>
 <hr class="docutils" />
 <section id="fetch">
-<h3>fetch<a class="headerlink" href="#fetch" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">fetch</a><a class="headerlink" href="#fetch" title="Link to this heading">¶</a></h3>
 <p>Fetch proxies from 60+ free proxy sources, validate them, and save to database and files.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>fetch<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
@@ -1066,33 +1167,33 @@
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--validate</span> <span class="pre">/</span> <span class="pre">--no-validate</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
-<td><p>Validate proxies after fetching</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--no-validate</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Skip proxy validation</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--save-db</span> <span class="pre">/</span> <span class="pre">--no-save-db</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
-<td><p>Save validated proxies to database</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--no-save-db</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Don’t save to database</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--export</span> <span class="pre">/</span> <span class="pre">--no-export</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">true</span></code></p></td>
-<td><p>Export to text/JSON files</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--no-export</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Don’t export to files</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--output,</span> <span class="pre">-o</span> <span class="pre">DIR</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">docs/proxy-lists</span></code></p></td>
-<td><p>Output directory for exported files</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--timeout</span> <span class="pre">SECONDS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10</span></code></p></td>
+<td><p>Validation timeout in seconds</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--db</span> <span class="pre">PATH</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">proxywhirl.db</span></code></p></td>
-<td><p>Path to SQLite database</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--concurrency</span> <span class="pre">NUM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">100</span></code></p></td>
+<td><p>Concurrent validation requests</p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--timeout,</span> <span class="pre">-t</span> <span class="pre">SECONDS</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">5.0</span></code></p></td>
-<td><p>Validation timeout per proxy</p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--revalidate,</span> <span class="pre">-R</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Re-validate existing proxies in database instead of fetching new ones</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--concurrency,</span> <span class="pre">-c</span> <span class="pre">NUM</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">500</span></code></p></td>
-<td><p>Parallel validation concurrency</p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--prune-failed</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Delete failed proxies instead of marking them as DEAD (use with <code class="docutils literal notranslate"><span class="pre">--revalidate</span></code>)</p></td>
 </tr>
 </tbody>
 </table>
@@ -1104,14 +1205,17 @@
 </span><span data-line="4"><span class="c1"># Fast fetch without validation (raw proxies)</span>
 </span><span data-line="5">proxywhirl<span class="w"> </span>fetch<span class="w"> </span>--no-validate
 </span><span data-line="6">
-</span><span data-line="7"><span class="c1"># High-concurrency validation (fast, uses more resources)</span>
-</span><span data-line="8">proxywhirl<span class="w"> </span>fetch<span class="w"> </span>--concurrency<span class="w"> </span><span class="m">2000</span>
+</span><span data-line="7"><span class="c1"># Custom timeout and concurrency</span>
+</span><span data-line="8">proxywhirl<span class="w"> </span>fetch<span class="w"> </span>--timeout<span class="w"> </span><span class="m">5</span><span class="w"> </span>--concurrency<span class="w"> </span><span class="m">50</span>
 </span><span data-line="9">
-</span><span data-line="10"><span class="c1"># Fetch to custom location</span>
-</span><span data-line="11">proxywhirl<span class="w"> </span>fetch<span class="w"> </span>--output<span class="w"> </span>./proxies<span class="w"> </span>--db<span class="w"> </span>./proxies.db
+</span><span data-line="10"><span class="c1"># Re-validate existing proxies in the database</span>
+</span><span data-line="11">proxywhirl<span class="w"> </span>fetch<span class="w"> </span>--revalidate<span class="w"> </span>--timeout<span class="w"> </span><span class="m">5</span><span class="w"> </span>--concurrency<span class="w"> </span><span class="m">2000</span>
 </span><span data-line="12">
-</span><span data-line="13"><span class="c1"># Fetch without database save (files only)</span>
-</span><span data-line="14">proxywhirl<span class="w"> </span>fetch<span class="w"> </span>--no-save-db
+</span><span data-line="13"><span class="c1"># Re-validate and delete failed proxies</span>
+</span><span data-line="14">proxywhirl<span class="w"> </span>fetch<span class="w"> </span>--revalidate<span class="w"> </span>--prune-failed
+</span><span data-line="15">
+</span><span data-line="16"><span class="c1"># Fetch without database save (files only)</span>
+</span><span data-line="17">proxywhirl<span class="w"> </span>fetch<span class="w"> </span>--no-save-db
 </span></pre></div>
 </div>
 <p><strong>Process:</strong></p>
@@ -1134,7 +1238,7 @@
 </span><span data-line="9">
 </span><span data-line="10">✓ Trusted sources: 13,146 proxies added without validation
 </span><span data-line="11">
-</span><span data-line="12">Validating 49,257 proxies with concurrency=500...
+</span><span data-line="12">Validating 49,257 proxies with concurrency=100...
 </span><span data-line="13">Progress: 10000/49257 checked, 1234 valid (12.3%), 2000 proxies/sec
 </span><span data-line="14">Progress: 20000/49257 checked, 2567 valid (12.8%), 2050 proxies/sec
 </span><span data-line="15">...
@@ -1160,12 +1264,12 @@
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>Use <code class="docutils literal notranslate"><span class="pre">--concurrency</span> <span class="pre">2000</span></code> for faster validation on systems with high network capacity. Lower it to <code class="docutils literal notranslate"><span class="pre">100</span></code> on rate-limited networks. For automated fetching via CI/CD, see <a class="reference internal" href="automation.html"><span class="doc">Automation &amp; CI/CD Runbook</span></a>.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">--concurrency</span> <span class="pre">2000</span></code> for faster validation on systems with high network capacity. The default is <code class="docutils literal notranslate"><span class="pre">100</span></code>. For automated fetching via CI/CD, see <a class="reference internal" href="automation.html"><span class="doc">Automation &amp; CI/CD Runbook</span></a>.</p>
 </div>
 </section>
 <hr class="docutils" />
 <section id="export">
-<h3>export<a class="headerlink" href="#export" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">export</a><a class="headerlink" href="#export" title="Link to this heading">¶</a></h3>
 <p>Export proxy data for web dashboards and analytics. Generates <code class="docutils literal notranslate"><span class="pre">stats.json</span></code> and <code class="docutils literal notranslate"><span class="pre">proxies-rich.json</span></code> files with full metadata.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span><span class="nb">export</span><span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
@@ -1242,7 +1346,7 @@
 </section>
 <hr class="docutils" />
 <section id="setup-geoip">
-<h3>setup-geoip<a class="headerlink" href="#setup-geoip" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id11" role="doc-backlink">setup-geoip</a><a class="headerlink" href="#setup-geoip" title="Link to this heading">¶</a></h3>
 <p>Set up the MaxMind GeoLite2 database for offline geo enrichment of proxy data.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>setup-geoip<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
@@ -1321,12 +1425,15 @@
 </section>
 <hr class="docutils" />
 <section id="sources">
-<h3>sources<a class="headerlink" href="#sources" title="Link to this heading">¶</a></h3>
-<p>List and validate all configured proxy sources. Useful for identifying stale or broken sources.</p>
+<h3><a class="toc-backref" href="#id12" role="doc-backlink">sources</a><a class="headerlink" href="#sources" title="Link to this heading">¶</a></h3>
+<p>Command group for listing, validating, and auditing proxy sources. When invoked without a subcommand, lists or validates all configured sources.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>sources<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span><span data-line="2">proxywhirl<span class="w"> </span>sources<span class="w"> </span>audit<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
 </span></pre></div>
 </div>
+<section id="sources-list-validate">
+<h4>sources (list/validate)<a class="headerlink" href="#sources-list-validate" title="Link to this heading">¶</a></h4>
 <p><strong>Options:</strong></p>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
@@ -1350,7 +1457,7 @@
 <td><p><code class="docutils literal notranslate"><span class="pre">15.0</span></code></p></td>
 <td><p>Timeout per source in seconds</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--concurrency,</span> <span class="pre">-c</span> <span class="pre">NUM</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--concurrency,</span> <span class="pre">-j</span> <span class="pre">NUM</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">20</span></code></p></td>
 <td><p>Maximum concurrent requests</p></td>
 </tr>
@@ -1400,6 +1507,7 @@
 </span><span data-line="19">Total: 60 sources
 </span><span data-line="20">
 </span><span data-line="21">Use --validate to check source health
+</span><span data-line="22">Use &#39;proxywhirl sources audit&#39; for detailed auditing
 </span></pre></div>
 </div>
 <p><strong>Output (validate mode):</strong></p>
@@ -1427,9 +1535,81 @@
 <p>Run <code class="docutils literal notranslate"><span class="pre">proxywhirl</span> <span class="pre">sources</span> <span class="pre">--validate</span> <span class="pre">--fail-on-unhealthy</span></code> in CI to catch broken sources early.</p>
 </div>
 </section>
+<section id="sources-audit">
+<h4>sources audit<a class="headerlink" href="#sources-audit" title="Link to this heading">¶</a></h4>
+<p>Audit proxy sources for broken or stale entries. Tests each source by fetching from it and checking if it returns valid proxies. A source is considered “broken” if it returns a non-200 status, times out after retries, returns fewer proxies than <code class="docutils literal notranslate"><span class="pre">--min-proxies</span></code>, or returns malformed content.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>sources<span class="w"> </span>audit<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%" />
+<col style="width: 15.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--timeout,</span> <span class="pre">-t</span> <span class="pre">SECONDS</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">15.0</span></code></p></td>
+<td><p>Timeout per source in seconds</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--concurrency,</span> <span class="pre">-j</span> <span class="pre">NUM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">20</span></code></p></td>
+<td><p>Maximum concurrent requests</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--retries,</span> <span class="pre">-r</span> <span class="pre">NUM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">3</span></code></p></td>
+<td><p>Number of retries for each source before marking as broken</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--fix</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Remove broken sources from <a class="reference external" href="http://sources.py">sources.py</a> (creates backup)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--dry-run,</span> <span class="pre">-n</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Show what would be removed without making changes (implies <code class="docutils literal notranslate"><span class="pre">--fix</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--min-proxies</span> <span class="pre">NUM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+<td><p>Minimum proxies required for a source to be considered healthy</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--protocol,</span> <span class="pre">-p</span> <span class="pre">PROTOCOL</span></code></p></td>
+<td><p>None</p></td>
+<td><p>Only audit sources of specific protocol (<code class="docutils literal notranslate"><span class="pre">http</span></code>, <code class="docutils literal notranslate"><span class="pre">socks4</span></code>, <code class="docutils literal notranslate"><span class="pre">socks5</span></code>)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Examples:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Audit all sources</span>
+</span><span data-line="2">proxywhirl<span class="w"> </span>sources<span class="w"> </span>audit
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Only audit HTTP sources</span>
+</span><span data-line="5">proxywhirl<span class="w"> </span>sources<span class="w"> </span>audit<span class="w"> </span>--protocol<span class="w"> </span>http
+</span><span data-line="6">
+</span><span data-line="7"><span class="c1"># Remove broken sources (creates backup)</span>
+</span><span data-line="8">proxywhirl<span class="w"> </span>sources<span class="w"> </span>audit<span class="w"> </span>--fix
+</span><span data-line="9">
+</span><span data-line="10"><span class="c1"># Preview what would be removed</span>
+</span><span data-line="11">proxywhirl<span class="w"> </span>sources<span class="w"> </span>audit<span class="w"> </span>--dry-run
+</span><span data-line="12">
+</span><span data-line="13"><span class="c1"># More retries before marking broken</span>
+</span><span data-line="14">proxywhirl<span class="w"> </span>sources<span class="w"> </span>audit<span class="w"> </span>--retries<span class="w"> </span><span class="m">5</span>
+</span></pre></div>
+</div>
+</section>
+</section>
 <hr class="docutils" />
 <section id="stats">
-<h3>stats<a class="headerlink" href="#stats" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">stats</a><a class="headerlink" href="#stats" title="Link to this heading">¶</a></h3>
 <p>Display retry and circuit breaker statistics for monitoring proxy performance and reliability.</p>
 <p><strong>Usage:</strong></p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>stats<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
@@ -1458,7 +1638,7 @@
 <td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
 <td><p>Show circuit breaker state transitions</p></td>
 </tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--hours,</span> <span class="pre">-h</span> <span class="pre">NUM</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--hours,</span> <span class="pre">-r</span> <span class="pre">NUM</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">24</span></code></p></td>
 <td><p>Time window in hours for statistics</p></td>
 </tr>
@@ -1550,27 +1730,235 @@
 <p>The <code class="docutils literal notranslate"><span class="pre">stats</span></code> command shows both if neither <code class="docutils literal notranslate"><span class="pre">--retry</span></code> nor <code class="docutils literal notranslate"><span class="pre">--circuit-breaker</span></code> is specified. For programmatic access to retry metrics and circuit breaker state, see <a class="reference internal" href="retry-failover.html"><span class="doc">Retry &amp; Failover Guide</span></a>.</p>
 </div>
 </section>
+<hr class="docutils" />
+<section id="tui">
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">tui</a><a class="headerlink" href="#tui" title="Link to this heading">¶</a></h3>
+<p>Launch the interactive Terminal User Interface (TUI) dashboard for real-time proxy management.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>tui
+</span></pre></div>
+</div>
+<p>The TUI provides a full-featured dashboard with:</p>
+<ul class="simple">
+<li><p><strong>Real-time metrics</strong> and sparkline visualizations</p></li>
+<li><p><strong>Proxy table</strong> with filtering, sorting, and health status</p></li>
+<li><p><strong>Manual proxy management</strong> (add/remove)</p></li>
+<li><p><strong>Health checks</strong> with progress bars</p></li>
+<li><p><strong>Circuit breaker monitoring</strong> (see <a class="reference internal" href="retry-failover.html"><span class="doc">Retry &amp; Failover Guide</span></a> for circuit breaker details)</p></li>
+<li><p><strong>Request testing</strong> with multiple HTTP methods</p></li>
+<li><p><strong>Export functionality</strong> with format preview</p></li>
+</ul>
+<p><strong>Keyboard Shortcuts:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 20.0%" />
+<col style="width: 80.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Key</p></th>
+<th class="head"><p>Action</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">j/k</span></code></p></td>
+<td><p>Navigate up/down</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">g/G</span></code></p></td>
+<td><p>Jump to first/last</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Enter</span></code></p></td>
+<td><p>View proxy details</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">c</span></code></p></td>
+<td><p>Copy proxy URL</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">t</span></code></p></td>
+<td><p>Quick test proxy</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">/</span></code></p></td>
+<td><p>Focus search</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">?</span></code></p></td>
+<td><p>Show help modal</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Ctrl+A</span></code></p></td>
+<td><p>Toggle auto-refresh</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Ctrl+R</span></code></p></td>
+<td><p>Refresh all data</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Ctrl+F</span></code></p></td>
+<td><p>Fetch tab</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Ctrl+E</span></code></p></td>
+<td><p>Export tab</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">Ctrl+T</span></code></p></td>
+<td><p>Test tab</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">Ctrl+H</span></code></p></td>
+<td><p>Health tab</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The TUI is an alternative to the CLI commands for users who prefer a visual interface. It uses the same underlying proxy pool and configuration.</p>
+</div>
+</section>
+<hr class="docutils" />
+<section id="db-stats">
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">db-stats</a><a class="headerlink" href="#db-stats" title="Link to this heading">¶</a></h3>
+<p>Show comprehensive database statistics including counts by health status, protocol, and validation metrics.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>db-stats<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--db</span> <span class="pre">PATH</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">proxywhirl.db</span></code></p></td>
+<td><p>Path to SQLite database</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Examples:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Show database statistics</span>
+</span><span data-line="2">proxywhirl<span class="w"> </span>db-stats
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Use custom database path</span>
+</span><span data-line="5">proxywhirl<span class="w"> </span>db-stats<span class="w"> </span>--db<span class="w"> </span>custom.db
+</span><span data-line="6">
+</span><span data-line="7"><span class="c1"># Get stats as JSON</span>
+</span><span data-line="8">proxywhirl<span class="w"> </span>--format<span class="w"> </span>json<span class="w"> </span>db-stats
+</span></pre></div>
+</div>
+<p><strong>Output (text format):</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1">Proxy Database Statistics
+</span><span data-line="2">┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+</span><span data-line="3">┃ Metric              ┃     Value ┃
+</span><span data-line="4">┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+</span><span data-line="5">│ Total Proxies       │    19,935 │
+</span><span data-line="6">│                     │           │
+</span><span data-line="7">│ By Health Status    │           │
+</span><span data-line="8">│   healthy           │    12,456 │
+</span><span data-line="9">│   unknown           │     5,234 │
+</span><span data-line="10">│   dead              │     2,245 │
+</span><span data-line="11">│                     │           │
+</span><span data-line="12">│ By Protocol         │           │
+</span><span data-line="13">│   http              │    15,678 │
+</span><span data-line="14">│   socks4            │     2,345 │
+</span><span data-line="15">│   socks5            │     1,912 │
+</span><span data-line="16">│                     │           │
+</span><span data-line="17">│ Database Size       │   12.34 MB│
+</span><span data-line="18">└─────────────────────┴───────────┘
+</span></pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="cleanup">
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">cleanup</a><a class="headerlink" href="#cleanup" title="Link to this heading">¶</a></h3>
+<p>Clean up stale and dead proxies from the database. Performs a dry run by default.</p>
+<p><strong>Usage:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>cleanup<span class="w"> </span><span class="o">[</span>OPTIONS<span class="o">]</span>
+</span></pre></div>
+</div>
+<p><strong>Options:</strong></p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Option</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--db</span> <span class="pre">PATH</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">proxywhirl.db</span></code></p></td>
+<td><p>Path to SQLite database</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">--stale-days</span> <span class="pre">NUM</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">7</span></code></p></td>
+<td><p>Remove proxies not validated in N days</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">--execute</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">false</span></code></p></td>
+<td><p>Actually perform cleanup (dry run by default)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>Examples:</strong></p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Dry run - shows what would be removed</span>
+</span><span data-line="2">proxywhirl<span class="w"> </span>cleanup
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Actually remove stale proxies</span>
+</span><span data-line="5">proxywhirl<span class="w"> </span>cleanup<span class="w"> </span>--execute
+</span><span data-line="6">
+</span><span data-line="7"><span class="c1"># Remove proxies not validated in 14 days</span>
+</span><span data-line="8">proxywhirl<span class="w"> </span>cleanup<span class="w"> </span>--stale-days<span class="w"> </span><span class="m">14</span><span class="w"> </span>--execute
+</span><span data-line="9">
+</span><span data-line="10"><span class="c1"># Get results as JSON</span>
+</span><span data-line="11">proxywhirl<span class="w"> </span>--format<span class="w"> </span>json<span class="w"> </span>cleanup<span class="w"> </span>--execute
+</span></pre></div>
+</div>
+<p><strong>Output (dry run):</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">Dry</span> <span class="n">run</span> <span class="o">-</span> <span class="n">showing</span> <span class="n">what</span> <span class="n">would</span> <span class="n">be</span> <span class="n">removed</span><span class="p">:</span>
+</span><span data-line="2">  <span class="n">dead</span><span class="p">:</span> <span class="mi">2</span><span class="p">,</span><span class="mi">245</span>
+</span></pre></div>
+</div>
+<p><strong>Output (execute):</strong></p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1">✓ Cleanup completed: removed 2,245 proxies
+</span><span data-line="2">  dead: 2,245
+</span></pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">cleanup</span></code> in CI/CD pipelines before <code class="docutils literal notranslate"><span class="pre">export</span></code> to ensure only valid proxies are included. See <a class="reference internal" href="automation.html"><span class="doc">Automation &amp; CI/CD Runbook</span></a> for proxy refresh workflows.</p>
+</div>
+</section>
 </section>
 <hr class="docutils" />
 <section id="output-formats">
-<h2>Output Formats<a class="headerlink" href="#output-formats" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id17" role="doc-backlink">Output Formats</a><a class="headerlink" href="#output-formats" title="Link to this heading">¶</a></h2>
 <p>All commands support three output formats via the <code class="docutils literal notranslate"><span class="pre">--format</span></code> global option:</p>
 <section id="text-default">
-<h3>Text (default)<a class="headerlink" href="#text-default" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Text (default)</a><a class="headerlink" href="#text-default" title="Link to this heading">¶</a></h3>
 <p>Human-readable output with colors and formatting. Ideal for interactive terminal use.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>pool<span class="w"> </span>list
 </span></pre></div>
 </div>
 </section>
 <section id="json">
-<h3>JSON<a class="headerlink" href="#json" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">JSON</a><a class="headerlink" href="#json" title="Link to this heading">¶</a></h3>
 <p>Machine-readable JSON for parsing and automation. Includes all fields with type information.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>--format<span class="w"> </span>json<span class="w"> </span>pool<span class="w"> </span>list
 </span></pre></div>
 </div>
 </section>
 <section id="csv">
-<h3>CSV<a class="headerlink" href="#csv" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id20" role="doc-backlink">CSV</a><a class="headerlink" href="#csv" title="Link to this heading">¶</a></h3>
 <p>Tabular output for spreadsheet import or data analysis. Only available for list/table commands.</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">proxywhirl<span class="w"> </span>--format<span class="w"> </span>csv<span class="w"> </span>pool<span class="w"> </span>list<span class="w"> </span>&gt;<span class="w"> </span>proxies.csv
 </span></pre></div>
@@ -1578,7 +1966,7 @@
 </section>
 </section>
 <section id="configuration-file">
-<h2>Configuration File<a class="headerlink" href="#configuration-file" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id21" role="doc-backlink">Configuration File</a><a class="headerlink" href="#configuration-file" title="Link to this heading">¶</a></h2>
 <p>ProxyWhirl uses TOML configuration files. Example <code class="docutils literal notranslate"><span class="pre">~/.config/proxywhirl/config.toml</span></code>:</p>
 <div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Proxy pool</span>
 </span><span data-line="2"><span class="k">[[proxies]]</span>
@@ -1605,7 +1993,7 @@
 </span><span data-line="23"><span class="n">verbose</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">false</span>
 </span><span data-line="24">
 </span><span data-line="25"><span class="c1"># Storage settings</span>
-</span><span data-line="26"><span class="n">storage_backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;memory&quot;</span>
+</span><span data-line="26"><span class="n">storage_backend</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">&quot;file&quot;</span>
 </span><span data-line="27">
 </span><span data-line="28"><span class="c1"># Security</span>
 </span><span data-line="29"><span class="n">encrypt_credentials</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
@@ -1633,9 +2021,9 @@
 </div>
 </section>
 <section id="advanced-usage">
-<h2>Advanced Usage<a class="headerlink" href="#advanced-usage" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id22" role="doc-backlink">Advanced Usage</a><a class="headerlink" href="#advanced-usage" title="Link to this heading">¶</a></h2>
 <section id="scripting-with-json-output">
-<h3>Scripting with JSON Output<a class="headerlink" href="#scripting-with-json-output" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">Scripting with JSON Output</a><a class="headerlink" href="#scripting-with-json-output" title="Link to this heading">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="ch">#!/bin/bash</span>
 </span><span data-line="2"><span class="c1"># Get healthy proxy count</span>
 </span><span data-line="3"><span class="nv">HEALTHY</span><span class="o">=</span><span class="k">$(</span>proxywhirl<span class="w"> </span>--format<span class="w"> </span>json<span class="w"> </span>health<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.healthy&#39;</span><span class="k">)</span>
@@ -1650,7 +2038,7 @@
 </div>
 </section>
 <section id="automated-proxy-refresh">
-<h3>Automated Proxy Refresh<a class="headerlink" href="#automated-proxy-refresh" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Automated Proxy Refresh</a><a class="headerlink" href="#automated-proxy-refresh" title="Link to this heading">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="ch">#!/bin/bash</span>
 </span><span data-line="2"><span class="c1"># Daily proxy refresh script</span>
 </span><span data-line="3">proxywhirl<span class="w"> </span>fetch<span class="w"> </span>--concurrency<span class="w"> </span><span class="m">1000</span>
@@ -1659,7 +2047,7 @@
 </div>
 </section>
 <section id="ci-cd-integration">
-<h3>CI/CD Integration<a class="headerlink" href="#ci-cd-integration" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">CI/CD Integration</a><a class="headerlink" href="#ci-cd-integration" title="Link to this heading">¶</a></h3>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># .github/workflows/validate-proxies.yml</span>
 </span><span data-line="2"><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Validate Proxy Sources</span>
 </span><span data-line="3"><span class="nt">on</span><span class="p">:</span>
@@ -1679,7 +2067,7 @@
 </div>
 </section>
 <section id="multi-environment-configuration">
-<h3>Multi-Environment Configuration<a class="headerlink" href="#multi-environment-configuration" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">Multi-Environment Configuration</a><a class="headerlink" href="#multi-environment-configuration" title="Link to this heading">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Development</span>
 </span><span data-line="2">proxywhirl<span class="w"> </span>--config<span class="w"> </span>dev.toml<span class="w"> </span>pool<span class="w"> </span>list
 </span><span data-line="3">
@@ -1693,9 +2081,9 @@
 </section>
 </section>
 <section id="troubleshooting">
-<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id27" role="doc-backlink">Troubleshooting</a><a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
 <section id="configuration-not-found">
-<h3>Configuration Not Found<a class="headerlink" href="#configuration-not-found" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">Configuration Not Found</a><a class="headerlink" href="#configuration-not-found" title="Link to this heading">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Check discovery path</span>
 </span><span data-line="2">proxywhirl<span class="w"> </span>config<span class="w"> </span>show
 </span><span data-line="3">
@@ -1705,7 +2093,7 @@
 </div>
 </section>
 <section id="lock-file-issues">
-<h3>Lock File Issues<a class="headerlink" href="#lock-file-issues" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">Lock File Issues</a><a class="headerlink" href="#lock-file-issues" title="Link to this heading">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Skip locking for debugging</span>
 </span><span data-line="2">proxywhirl<span class="w"> </span>--no-lock<span class="w"> </span>pool<span class="w"> </span>list
 </span><span data-line="3">
@@ -1715,8 +2103,8 @@
 </div>
 </section>
 <section id="slow-validation">
-<h3>Slow Validation<a class="headerlink" href="#slow-validation" title="Link to this heading">¶</a></h3>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Increase concurrency</span>
+<h3><a class="toc-backref" href="#id30" role="doc-backlink">Slow Validation</a><a class="headerlink" href="#slow-validation" title="Link to this heading">¶</a></h3>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Increase concurrency (default is 100)</span>
 </span><span data-line="2">proxywhirl<span class="w"> </span>fetch<span class="w"> </span>--concurrency<span class="w"> </span><span class="m">2000</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Skip validation for testing</span>
@@ -1725,7 +2113,7 @@
 </div>
 </section>
 <section id="geoip-enrichment-not-working">
-<h3>GeoIP Enrichment Not Working<a class="headerlink" href="#geoip-enrichment-not-working" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id31" role="doc-backlink">GeoIP Enrichment Not Working</a><a class="headerlink" href="#geoip-enrichment-not-working" title="Link to this heading">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Check database status</span>
 </span><span data-line="2">proxywhirl<span class="w"> </span>setup-geoip<span class="w"> </span>--check
 </span><span data-line="3">
@@ -1735,7 +2123,7 @@
 </div>
 </section>
 <section id="ssrf-protection-blocking-local-tests">
-<h3>SSRF Protection Blocking Local Tests<a class="headerlink" href="#ssrf-protection-blocking-local-tests" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id32" role="doc-backlink">SSRF Protection Blocking Local Tests</a><a class="headerlink" href="#ssrf-protection-blocking-local-tests" title="Link to this heading">¶</a></h3>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Use --allow-private flag for local testing</span>
 </span><span data-line="2">proxywhirl<span class="w"> </span>pool<span class="w"> </span><span class="nb">test</span><span class="w"> </span>http://proxy.example.com:8080<span class="w"> </span><span class="se">\</span>
 </span><span data-line="3"><span class="w">  </span>--target-url<span class="w"> </span>http://localhost:8000<span class="w"> </span><span class="se">\</span>
@@ -1747,7 +2135,7 @@
 </section>
 </section>
 <section id="environment-variables">
-<h2>Environment Variables<a class="headerlink" href="#environment-variables" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id33" role="doc-backlink">Environment Variables</a><a class="headerlink" href="#environment-variables" title="Link to this heading">¶</a></h2>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
@@ -1777,7 +2165,7 @@
 </div>
 </section>
 <section id="exit-codes">
-<h2>Exit Codes<a class="headerlink" href="#exit-codes" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id34" role="doc-backlink">Exit Codes</a><a class="headerlink" href="#exit-codes" title="Link to this heading">¶</a></h2>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
@@ -1816,7 +2204,7 @@
 </div>
 </section>
 <section id="see-also">
-<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id35" role="doc-backlink">See Also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
 <div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-3 sd-g-xs-3 sd-g-sm-3 sd-g-md-3 sd-g-lg-3 docutils">
 <div class="sd-col sd-d-flex-row docutils">

@@ -14,6 +14,7 @@ For deployment and security best practices, see [Deployment Security](../guides/
 
 - [Getting Started](#getting-started)
 - [Authentication](#authentication)
+- [Middleware](#middleware)
 - [Endpoint Reference](#endpoint-reference)
 - [Rate Limiting](#rate-limiting)
 - [Error Handling](#error-handling)
@@ -55,6 +56,21 @@ docker-compose down
 - ReDoc: http://localhost:8000/redoc
 - OpenAPI JSON: http://localhost:8000/openapi.json
 
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PROXYWHIRL_REQUIRE_AUTH` | `false` | Enable API key authentication |
+| `PROXYWHIRL_API_KEY` | -- | API key for authentication |
+| `PROXYWHIRL_STRATEGY` | `round-robin` | Default rotation strategy |
+| `PROXYWHIRL_TIMEOUT` | `30` | Default request timeout (seconds) |
+| `PROXYWHIRL_MAX_RETRIES` | `3` | Default max retry attempts |
+| `PROXYWHIRL_CORS_ORIGINS` | (empty) | Comma-separated CORS origins |
+| `PROXYWHIRL_STORAGE_PATH` | -- | SQLite database path for persistence |
+| `PROXYWHIRL_RATE_LIMIT` | `100/minute` | Default rate limit for all endpoints |
+| `PROXYWHIRL_API_KEY_RATE_LIMIT` | (same as rate limit) | Per-API-key rate limit |
+| `PROXYWHIRL_AUDIT_LOG` | `true` | Enable structured audit logging |
+
 ## Authentication
 
 ### No Authentication (Default)
@@ -85,27 +101,81 @@ curl http://localhost:8000/api/v1/proxies \
   -H "X-API-Key: your-secret-key-here"
 ```
 
+## Middleware
+
+The API applies the following middleware to all requests (in order of execution):
+
+1. **Audit Logging Middleware** -- Structured audit logging for write/admin operations on `/api/` paths. Controlled by the `PROXYWHIRL_AUDIT_LOG` environment variable (default: `true`). Redacts sensitive fields (passwords, tokens, API keys) in request bodies.
+
+2. **Request ID Middleware** -- Adds an `X-Request-ID` header to every response for request tracing. If the client sends an `X-Request-ID` header, that value is used; otherwise a new UUID v4 is generated.
+
+3. **Security Headers Middleware** -- Adds security headers to all responses:
+   - `X-Content-Type-Options: nosniff`
+   - `X-Frame-Options: DENY`
+   - `X-XSS-Protection: 1; mode=block`
+   - `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+   - `Content-Security-Policy: default-src 'self'; frame-ancestors 'none'`
+   - `Referrer-Policy: strict-origin-when-cross-origin`
+   - `Permissions-Policy: geolocation=(), microphone=(), camera=()`
+
+4. **Request Logging Middleware** -- Logs all HTTP requests with method, path, client IP, duration, and status code.
+
+5. **CORS Middleware** -- Configured via `PROXYWHIRL_CORS_ORIGINS`. Wildcard origin (`*`) with `allow_credentials=True` raises a startup error (security protection).
+
+6. **SSRF Protection** -- `POST /api/v1/request` validates all target URLs to block localhost, private IPs, link-local addresses, internal domain names, and non-HTTP schemes.
+
 ## Endpoint Reference
+
+### Quick Endpoint Summary
+
+| Method | Path | Description | Rate Limit |
+|--------|------|-------------|------------|
+| {bdg-success}`POST` | `/api/v1/request` | Make proxied HTTP request | 50/min |
+| {bdg-primary}`GET` | `/api/v1/proxies` | List all proxies (paginated) | 100/min |
+| {bdg-success}`POST` | `/api/v1/proxies` | Add proxy to pool | 10/min |
+| {bdg-primary}`GET` | `/api/v1/proxies/{id}` | Get proxy details | 100/min |
+| {bdg-danger}`DELETE` | `/api/v1/proxies/{id}` | Remove proxy from pool | 100/min |
+| {bdg-success}`POST` | `/api/v1/proxies/health-check` | Run health check on proxies | 100/min |
+| {bdg-success}`POST` | `/api/v1/proxies/test` | Health check (deprecated) | 100/min |
+| {bdg-primary}`GET` | `/api/v1/health` | Health check for load balancers | 100/min |
+| {bdg-primary}`GET` | `/api/v1/ready` | Readiness probe (Kubernetes) | 100/min |
+| {bdg-primary}`GET` | `/api/v1/status` | Detailed pool status | 100/min |
+| {bdg-primary}`GET` | `/api/v1/stats` | Performance statistics (JSON) | 100/min |
+| {bdg-primary}`GET` | `/api/v1/config` | Get current configuration | 100/min |
+| {bdg-warning}`PUT` | `/api/v1/config` | Update configuration | 5/min |
+| {bdg-primary}`GET` | `/api/v1/circuit-breakers` | List circuit breaker states | 100/min |
+| {bdg-primary}`GET` | `/api/v1/circuit-breakers/metrics` | Circuit breaker event history | 100/min |
+| {bdg-primary}`GET` | `/api/v1/circuit-breakers/{id}` | Get circuit breaker for proxy | 100/min |
+| {bdg-success}`POST` | `/api/v1/circuit-breakers/{id}/reset` | Reset circuit breaker | 10/min |
+| {bdg-primary}`GET` | `/api/v1/retry/policy` | Get retry policy | 100/min |
+| {bdg-warning}`PUT` | `/api/v1/retry/policy` | Update retry policy | 100/min |
+| {bdg-primary}`GET` | `/api/v1/metrics/retries` | Retry metrics summary | 100/min |
+| {bdg-primary}`GET` | `/api/v1/metrics/retries/timeseries` | Retry metrics time-series | 100/min |
+| {bdg-primary}`GET` | `/api/v1/metrics/retries/by-proxy` | Retry metrics by proxy | 100/min |
+| {bdg-primary}`GET` | `/metrics` | Prometheus metrics (text) | None |
+| {bdg-primary}`GET` | `/metrics/retry` | Retry statistics (JSON/Prometheus) | 100/min |
+| {bdg-primary}`GET` | `/metrics/circuit-breaker` | Circuit breaker metrics | 100/min |
 
 ### Rotation Strategy Configuration
 
 #### Understanding Rotation Strategies
 
-ProxyWhirl supports 7 advanced rotation strategies that can be configured via the API:
+The API supports 4 rotation strategies that can be configured at runtime via `PUT /api/v1/config`:
 
-| Strategy | Use Case | Performance | Key Feature |
-|----------|----------|-------------|-------------|
-| `round-robin` | Fair distribution | ~3μs | Perfect load balance |
-| `random` | Unpredictable patterns | ~7μs | Uniform distribution |
-| `weighted` | Prefer best proxies | ~9μs | Success-rate based |
-| `least-used` | Even load balance | ~3μs | Tracks request counts |
-| `performance-based` | Minimize latency | ~5μs | 15-25% faster |
-| `session-persistence` | Sticky sessions | ~3μs | 99.9% same-proxy |
-| `geo-targeted` | Region-specific | ~5μs | Country/region filter |
+| Strategy | Use Case | Key Feature |
+|----------|----------|-------------|
+| `round-robin` | Fair distribution | Perfect load balance |
+| `random` | Unpredictable patterns | Uniform distribution |
+| `weighted` | Prefer best proxies | Success-rate based |
+| `least-used` | Even load balance | Tracks request counts |
+
+:::{note}
+The full library supports additional strategies (performance-based, session-persistence, geo-targeted), but the REST API config endpoint only accepts the 4 strategies listed above.
+:::
 
 #### GET /api/v1/config
 
-Get current rotation strategy and configuration:
+Get current configuration:
 
 ```bash
 curl http://localhost:8000/api/v1/config
@@ -114,126 +184,83 @@ curl http://localhost:8000/api/v1/config
 **Response:**
 ```json
 {
-  "rotation_strategy": "round-robin",
-  "timeout": 30,
-  "max_retries": 3,
-  "strategy_config": {
-    "ema_alpha": 0.2,
-    "session_ttl": 3600,
-    "geo_fallback_enabled": false
+  "status": "success",
+  "data": {
+    "rotation_strategy": "round-robin",
+    "timeout": 30,
+    "max_retries": 3,
+    "rate_limits": {
+      "default_limit": 100,
+      "request_endpoint_limit": 50
+    },
+    "auth_enabled": false,
+    "cors_origins": ["*"]
+  },
+  "error": null,
+  "meta": {
+    "request_id": "550e8400-e29b-41d4-a716-446655440000",
+    "timestamp": "2025-01-01T12:00:00Z",
+    "version": "1.0.0"
   }
 }
 ```
 
 #### PUT /api/v1/config
 
-Update rotation strategy at runtime (hot-swapping):
+Update configuration at runtime. All fields are optional (partial updates supported).
 
-**Basic Strategy Change:**
+**Rate limit:** 5 requests/minute.
+
 ```bash
 curl -X PUT http://localhost:8000/api/v1/config \
   -H "Content-Type: application/json" \
   -d '{
-    "rotation_strategy": "performance-based"
+    "rotation_strategy": "weighted"
   }'
 ```
 
-**With Strategy Configuration:**
-```bash
-# Performance-based with custom EMA alpha
-curl -X PUT http://localhost:8000/api/v1/config \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rotation_strategy": "performance-based",
-    "strategy_config": {
-      "ema_alpha": 0.3
-    }
-  }'
+**Accepted fields:**
 
-# Weighted strategy with custom weights
-curl -X PUT http://localhost:8000/api/v1/config \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rotation_strategy": "weighted",
-    "strategy_config": {
-      "weights": {
-        "http://proxy1.com:8080": 0.5,
-        "http://proxy2.com:8080": 0.3,
-        "http://proxy3.com:8080": 0.2
-      }
-    }
-  }'
+| Field | Type | Description |
+|-------|------|-------------|
+| `rotation_strategy` | string | One of: `round-robin`, `random`, `weighted`, `least-used` |
+| `timeout` | int (1-300) | Request timeout in seconds |
+| `max_retries` | int (1-10) | Maximum retry attempts |
+| `rate_limits` | object | `{default_limit: int, request_endpoint_limit: int}` |
+| `cors_origins` | list[string] | CORS allowed origins |
 
-# Session persistence with custom TTL
-curl -X PUT http://localhost:8000/api/v1/config \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rotation_strategy": "session-persistence",
-    "strategy_config": {
-      "session_ttl": 7200
-    }
-  }'
-
-# Geo-targeted with fallback
-curl -X PUT http://localhost:8000/api/v1/config \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rotation_strategy": "geo-targeted",
-    "strategy_config": {
-      "geo_fallback_enabled": true,
-      "geo_secondary_strategy": "round-robin"
-    }
-  }'
-```
-
-**Response:**
+**Response:** `APIResponse[ConfigurationSettings]` envelope:
 ```json
 {
   "status": "success",
-  "message": "Configuration updated",
-  "config": {
-    "rotation_strategy": "performance-based",
+  "data": {
+    "rotation_strategy": "weighted",
     "timeout": 30,
     "max_retries": 3,
-    "strategy_config": {
-      "ema_alpha": 0.3
-    }
+    "rate_limits": {
+      "default_limit": 100,
+      "request_endpoint_limit": 50
+    },
+    "auth_enabled": false,
+    "cors_origins": ["*"]
+  },
+  "error": null,
+  "meta": {
+    "request_id": "...",
+    "timestamp": "...",
+    "version": "1.0.0"
   }
 }
 ```
 
-#### Strategy-Specific Request Context
-
-Some strategies support request-specific context via headers:
-
-**Session Persistence:**
-```bash
-curl -X POST http://localhost:8000/api/v1/request \
-  -H "Content-Type: application/json" \
-  -H "X-Session-ID: user-123" \
-  -d '{
-    "url": "https://example.com/login",
-    "method": "POST"
-  }'
-```
-
-**Geo-Targeting:**
-```bash
-curl -X POST http://localhost:8000/api/v1/request \
-  -H "Content-Type: application/json" \
-  -H "X-Target-Country: US" \
-  -H "X-Target-Region: California" \
-  -d '{
-    "url": "https://us-content.com/data",
-    "method": "GET"
-  }'
-```
+**Errors:**
+- HTTP 400 if invalid values (e.g., unknown strategy)
 
 ### Proxied Requests
 
 #### POST /api/v1/request
 
-Make HTTP requests through rotating proxies.
+Make HTTP requests through rotating proxies. SSRF protection validates all target URLs.
 
 **Request Body:**
 ```json
@@ -256,10 +283,7 @@ Make HTTP requests through rotating proxies.
     "status_code": 200,
     "headers": {"Content-Type": "application/json"},
     "body": "{\"result\": \"data\"}",
-    "proxy_used": {
-      "id": "proxy-123",
-      "url": "http://proxy.example.com:8080"
-    },
+    "proxy_used": "http://proxy.example.com:8080",
     "elapsed_ms": 245
   },
   "meta": {
@@ -268,6 +292,10 @@ Make HTTP requests through rotating proxies.
   }
 }
 ```
+
+:::{note}
+The `proxy_used` field is a string (the proxy URL), not an object.
+:::
 
 **Supported Methods:**
 - GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
@@ -286,8 +314,8 @@ List all proxies with pagination.
 
 **Query Parameters:**
 - `page` (int, default 1): Page number
-- `page_size` (int, default 50): Items per page
-- `status_filter` (str, optional): Filter by status (active, failed, validating)
+- `page_size` (int, default 50, max 100): Items per page
+- `status_filter` (str, optional): Filter by status -- `healthy`, `unhealthy`, or `active`
 
 **Response:**
 ```json
@@ -305,7 +333,7 @@ List all proxies with pagination.
           "total_requests": 100,
           "successful_requests": 95,
           "failed_requests": 5,
-          "avg_latency_ms": 250.5
+          "avg_latency_ms": 250
         },
         "created_at": "2025-01-01T00:00:00Z",
         "updated_at": "2025-01-01T12:00:00Z"
@@ -323,6 +351,8 @@ List all proxies with pagination.
 #### POST /api/v1/proxies
 
 Add a new proxy to the pool.
+
+**Rate limit:** 10 requests/minute.
 
 **Request Body:**
 ```json
@@ -351,7 +381,16 @@ Get details for a specific proxy.
     "id": "proxy-123",
     "url": "http://proxy.example.com:8080",
     "protocol": "http",
-    "health": "healthy"
+    "status": "active",
+    "health": "healthy",
+    "stats": {
+      "total_requests": 100,
+      "successful_requests": 95,
+      "failed_requests": 5,
+      "avg_latency_ms": 250
+    },
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T12:00:00Z"
   }
 }
 ```
@@ -368,11 +407,7 @@ Remove a proxy from the pool.
 **Errors:**
 - HTTP 404 if proxy not found
 
-#### POST /api/v1/proxies/test
-
-:::{note}
-There is also a `POST /api/v1/proxies/health-check` endpoint with similar functionality. Both endpoints can be used to verify proxy health.
-:::
+#### POST /api/v1/proxies/health-check
 
 Run health check on proxies.
 
@@ -401,11 +436,109 @@ Omit `proxy_ids` to check all proxies.
 }
 ```
 
-:::{note}
-The API also exposes circuit breaker management endpoints (`/api/v1/circuit-breakers`), retry policy endpoints (`/api/v1/retry/policy`), and detailed retry metrics endpoints (`/api/v1/metrics/retries`). Access the interactive Swagger UI at `http://localhost:8000/docs` for the complete endpoint reference.
+#### POST /api/v1/proxies/test
+
+:::{deprecated} 1.0.0
+Use `POST /api/v1/proxies/health-check` instead. This endpoint is kept for backward compatibility and will be removed in a future version.
 :::
 
+Same request/response format as `/api/v1/proxies/health-check`.
+
 ### Monitoring
+
+#### GET /metrics
+
+Prometheus metrics endpoint (text format). Returns metrics for monitoring:
+
+- `proxywhirl_requests_total` -- Total HTTP requests by endpoint, method, and status
+- `proxywhirl_request_duration_seconds` -- Request duration histogram
+- `proxywhirl_proxies_total` -- Total proxies in pool
+- `proxywhirl_proxies_healthy` -- Number of healthy proxies
+- `proxywhirl_circuit_breaker_state` -- Circuit breaker states (0=closed, 1=open, 2=half-open)
+
+```bash
+curl http://localhost:8000/metrics
+```
+
+**Response:** Prometheus text format (`text/plain; version=0.0.4`)
+
+:::{note}
+This endpoint is at `/metrics` (not `/api/v1/metrics`). It is not included in the OpenAPI schema but is always available.
+:::
+
+#### GET /metrics/retry
+
+Retry statistics with optional Prometheus format.
+
+**Query Parameters:**
+- `format` (str, optional): `"prometheus"` for Prometheus text format (default: JSON)
+- `hours` (int, default 24): Hours of data to include
+
+**Response (JSON):**
+```json
+{
+  "status": "success",
+  "data": {
+    "summary": {
+      "total_retries": 1250,
+      "success_by_attempt": {"0": 850, "1": 300, "2": 80, "3": 20},
+      "circuit_breaker_events_count": 15,
+      "retention_hours": 24
+    },
+    "timeseries": [
+      {
+        "timestamp": "2025-01-01T12:00:00Z",
+        "total_requests": 1000,
+        "total_retries": 150,
+        "success_rate": 0.95,
+        "avg_latency": 0.25
+      }
+    ],
+    "by_proxy": {
+      "proxy1:8080": {
+        "proxy_id": "proxy1:8080",
+        "total_attempts": 500,
+        "success_count": 450,
+        "failure_count": 50,
+        "avg_latency": 0.3,
+        "circuit_breaker_opens": 2
+      }
+    }
+  }
+}
+```
+
+#### GET /metrics/circuit-breaker
+
+Circuit breaker metrics with optional Prometheus format.
+
+**Query Parameters:**
+- `format` (str, optional): `"prometheus"` for Prometheus text format (default: JSON)
+- `hours` (int, default 24): Hours of event history to include
+
+**Response (JSON):**
+```json
+{
+  "status": "success",
+  "data": {
+    "states": [
+      {
+        "proxy_id": "proxy-123",
+        "state": "closed",
+        "failure_count": 2,
+        "failure_threshold": 5,
+        "window_duration": 60.0,
+        "timeout_duration": 30.0,
+        "next_test_time": null,
+        "last_state_change": "2025-01-01T12:00:00Z"
+      }
+    ],
+    "events": [],
+    "total_events": 0,
+    "hours": 24
+  }
+}
+```
 
 #### GET /api/v1/health
 
@@ -463,91 +596,109 @@ Detailed pool status and statistics.
 }
 ```
 
-#### GET /api/v1/metrics
+#### GET /api/v1/stats
 
-Performance metrics for monitoring.
+Performance statistics for monitoring. Returns a `MetricsResponse` with aggregate and per-proxy stats.
 
 **Response:**
 ```json
 {
-  "requests_total": 1000,
-  "requests_per_second": 5.5,
-  "avg_latency_ms": 250.0,
-  "error_rate": 0.05,
-  "proxy_stats": [
-    {
-      "proxy_id": "proxy-123",
-      "requests": 100,
-      "success_rate": 0.95,
-      "avg_latency_ms": 245.0,
-      "last_used": "2025-01-01T12:00:00Z"
-    }
-  ]
+  "status": "success",
+  "data": {
+    "requests_total": 1000,
+    "requests_per_second": 5.5,
+    "avg_latency_ms": 250.0,
+    "error_rate": 0.05,
+    "proxy_stats": [
+      {
+        "proxy_id": "proxy-123",
+        "requests": 100,
+        "successes": 95,
+        "failures": 5,
+        "avg_latency_ms": 245
+      }
+    ]
+  }
 }
 ```
 
 ### Configuration
 
-#### GET /api/v1/config
+See [Rotation Strategy Configuration](#rotation-strategy-configuration) above for `GET /api/v1/config` and `PUT /api/v1/config` details.
 
-Get current configuration.
+### Circuit Breakers
+
+#### GET /api/v1/circuit-breakers
+
+List all circuit breaker states.
 
 **Response:**
 ```json
 {
-  "rotation_strategy": "round-robin",
-  "timeout": 30,
-  "max_retries": 3,
-  "rate_limits": {
-    "default_limit": 100,
-    "request_endpoint_limit": 50
-  },
-  "auth_enabled": false,
-  "cors_origins": ["*"]
+  "status": "success",
+  "data": [
+    {
+      "proxy_id": "proxy1.example.com:8080",
+      "state": "closed",
+      "failure_count": 2,
+      "failure_threshold": 5,
+      "window_duration": 60.0,
+      "timeout_duration": 30.0,
+      "next_test_time": null,
+      "last_state_change": "2025-01-01T12:00:00Z"
+    }
+  ]
 }
 ```
 
-#### PUT /api/v1/config
+:::{note}
+The `data` field is a **list** of circuit breaker states, not a dict.
+:::
 
-Update configuration at runtime.
+#### GET /api/v1/circuit-breakers/metrics
 
-**Request Body:**
+Get circuit breaker event history (state change events).
+
+**Query Parameters:**
+- `hours` (int, default 24): Hours of event history to include
+
+**Response:**
 ```json
 {
-  "rotation_strategy": "random",
-  "timeout": 60,
-  "max_retries": 5
+  "status": "success",
+  "data": [
+    {
+      "proxy_id": "proxy1.example.com:8080",
+      "from_state": "closed",
+      "to_state": "open",
+      "timestamp": "2025-01-01T12:00:00Z",
+      "failure_count": 5
+    }
+  ]
 }
 ```
-
-All fields are optional (partial updates supported).
-
-**Response:** Updated configuration
-
-**Errors:**
-- HTTP 400 if invalid values
-
-### Additional Endpoints
-
-#### GET /api/v1/stats
-
-Detailed pool statistics with source breakdown.
-
-#### GET /api/v1/circuit-breakers
-
-List all circuit breaker states for monitoring.
 
 #### GET /api/v1/circuit-breakers/{proxy_id}
 
 Get circuit breaker state for a specific proxy.
 
+**Errors:**
+- HTTP 404 if circuit breaker not found for the given proxy
+
 #### POST /api/v1/circuit-breakers/{proxy_id}/reset
 
 Manually reset a circuit breaker to CLOSED state.
 
+**Rate limit:** 10 requests/minute.
+
+**Errors:**
+- HTTP 404 if circuit breaker not found for the given proxy
+
 :::{seealso}
 For circuit breaker concepts and configuration, see [Retry & Failover](../guides/retry-failover.md).
 :::
+
+### Retry & Failover
 
 #### GET /api/v1/retry/policy
 
@@ -565,22 +716,29 @@ Get retry metrics summary.
 
 Get retry metrics as time-series data.
 
+**Query Parameters:**
+- `hours` (int, default 24): Number of hours to retrieve
+
 #### GET /api/v1/metrics/retries/by-proxy
 
 Get retry metrics broken down by proxy.
 
-#### POST /api/v1/proxies/health-check
-
-Run health check on proxies (separate from the test endpoint).
+**Query Parameters:**
+- `hours` (int, default 24): Number of hours to analyze
 
 ## Rate Limiting
 
-The API includes built-in rate limiting per IP address:
+The API includes built-in rate limiting per IP address (or per API key for authenticated requests):
 
 | Endpoint | Limit |
 |----------|-------|
 | Default | 100 requests/minute |
 | POST /api/v1/request | 50 requests/minute |
+| POST /api/v1/proxies | 10 requests/minute |
+| PUT /api/v1/config | 5 requests/minute |
+| POST /api/v1/circuit-breakers/{id}/reset | 10 requests/minute |
+
+The default rate limit can be overridden with the `PROXYWHIRL_RATE_LIMIT` environment variable (e.g., `200/minute`). The per-API-key limit can be set separately with `PROXYWHIRL_API_KEY_RATE_LIMIT`.
 
 When exceeded, the API returns:
 - HTTP 429 Too Many Requests
@@ -596,31 +754,45 @@ All errors follow a consistent format:
   "error": {
     "code": "PROXY_POOL_EMPTY",
     "message": "No proxies available in pool",
-    "details": null
+    "details": null,
+    "timestamp": "2025-01-01T12:00:00Z"
   },
   "meta": {
     "timestamp": "2025-01-01T12:00:00Z",
-    "request_id": "req-abc123"
+    "request_id": "req-abc123",
+    "version": "1.0.0"
   }
 }
 ```
 
 ### Error Codes
 
-**Proxied Requests:**
-- `PROXY_POOL_EMPTY`: No proxies configured
-- `PROXY_FAILOVER_EXHAUSTED`: All proxies failed
-- `TARGET_UNREACHABLE`: Cannot reach target server
-- `REQUEST_TIMEOUT`: Request exceeded timeout
-
-**Pool Management:**
-- `PROXY_NOT_FOUND`: Proxy ID not found
-- `PROXY_ALREADY_EXISTS`: Duplicate proxy URL
+**Validation Errors (4xx):**
+- `VALIDATION_ERROR`: Invalid request parameters
+- `INVALID_URL`: Invalid URL format
 - `INVALID_PROXY_FORMAT`: Malformed proxy URL
+- `INVALID_METHOD`: Unsupported HTTP method
+- `INVALID_TIMEOUT`: Timeout value out of range
 
-**Configuration:**
-- `VALIDATION_ERROR`: Invalid configuration values
-- `INVALID_STRATEGY`: Unknown rotation strategy
+**Proxy Errors:**
+- `PROXY_POOL_EMPTY` (503): No proxies configured
+- `PROXY_FAILOVER_EXHAUSTED` (502): All proxies failed
+- `PROXY_NOT_FOUND` (404): Proxy ID not found
+- `PROXY_ALREADY_EXISTS` (409): Duplicate proxy URL
+- `PROXY_ERROR` (502): General proxy error
+
+**Target/Request Errors:**
+- `TARGET_UNREACHABLE` (504): Cannot reach target server
+- `REQUEST_TIMEOUT` (504): Request exceeded timeout
+- `REQUEST_FAILED` (502): Request failed for other reasons
+
+**Configuration Errors:**
+- `CONFIGURATION_ERROR`: General configuration error
+- `INVALID_CONFIGURATION`: Invalid configuration values
+
+**System Errors:**
+- `INTERNAL_ERROR` (500): Internal server error
+- `SERVICE_UNAVAILABLE` (503): Service not ready
 
 ## Performance Tips
 
@@ -659,7 +831,7 @@ Track key metrics to optimize performance:
 
 ```bash
 # Check every minute
-watch -n 60 'curl -s http://localhost:8000/api/v1/metrics | jq .error_rate'
+watch -n 60 'curl -s http://localhost:8000/api/v1/stats | jq .data.error_rate'
 ```
 
 ### 5. Configure Appropriate Timeouts
@@ -707,7 +879,7 @@ export PROXYWHIRL_MAX_RETRIES=5
 
 ### X-Forwarded-For Security Warning
 
-> **⚠️ CRITICAL SECURITY CONSIDERATION**
+> **CRITICAL SECURITY CONSIDERATION**
 >
 > When deploying ProxyWhirl behind a reverse proxy (Nginx, Caddy, HAProxy,
 > cloud load balancers), the rate limiting feature uses the client IP address
@@ -931,14 +1103,18 @@ uv run uvicorn proxywhirl.api:app --log-level debug
 ### Proxies Not Working
 
 1. Check proxy pool: `GET /api/v1/proxies`
-2. Run health check: `POST /api/v1/proxies/test`
-3. Check metrics: `GET /api/v1/metrics`
+2. Run health check: `POST /api/v1/proxies/health-check`
+3. Check stats: `GET /api/v1/stats`
 
 ### Rate Limiting Issues
 
-Adjust limits via configuration:
+Adjust limits via environment variable:
 ```bash
-# Increase limits
+export PROXYWHIRL_RATE_LIMIT="200/minute"
+```
+
+Or update request endpoint limit via configuration:
+```bash
 curl -X PUT http://localhost:8000/api/v1/config \
   -H "Content-Type: application/json" \
   -d '{"rate_limits": {"request_endpoint_limit": 100}}'
@@ -946,7 +1122,7 @@ curl -X PUT http://localhost:8000/api/v1/config \
 
 ### High Latency
 
-- Check proxy quality with metrics
+- Check proxy quality with stats endpoint
 - Reduce timeout values
 - Switch to faster rotation strategy (least-used)
 - Remove slow proxies from pool

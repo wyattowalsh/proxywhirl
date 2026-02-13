@@ -11,7 +11,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=43a92ad3" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=b31b09b0" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,12 +24,12 @@
     <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://proxywhirl.readthedocs.io/reference/rate-limiting-api.html"/>
   <meta property="og:title" content="Rate Limiting API Reference"/>
-  <meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
     <meta name="twitter:card" content="summary"/>
-<meta name="twitter:creator" content="@@wyaborern"/>
-<meta name="twitter:site" content="@@wyaborern"/>
+<meta name="twitter:creator" content="@wyaborern"/>
+<meta name="twitter:site" content="@wyaborern"/>
   </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="pw-navbar">
   <div class="pw-navbar-inner">
     
@@ -38,7 +38,7 @@
     </button>
 
     
-    <a href="/" class="pw-navbar-brand">
+    <a href="../index.html" class="pw-navbar-brand">
       <svg class="pw-navbar-logo" viewBox="0 0 100 100" aria-hidden="true">
         <defs>
           <linearGradient id="pw-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -60,17 +60,25 @@
     </a>
 
     
-    <nav class="pw-navbar-links">
-      <a href="/docs/" class="pw-navbar-link active">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-        Docs
+    <nav class="pw-navbar-links" aria-label="Main navigation">
+      <a href="../getting-started/index.html" class="pw-navbar-link" data-section="getting-started">
+        Getting Started
+      </a>
+      <a href="../guides/index.html" class="pw-navbar-link" data-section="guides">
+        Guides
+      </a>
+      <a href="index.html" class="pw-navbar-link" data-section="reference">
+        Reference
+      </a>
+      <a href="../project/index.html" class="pw-navbar-link" data-section="project">
+        Project
       </a>
     </nav>
 
     
     <div class="pw-navbar-actions">
       
-      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme">
+      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme" aria-pressed="false">
         <svg class="pw-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
         <svg class="pw-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       </button>
@@ -82,24 +90,43 @@
     </div>
   </div>
 </header>
+<div id="main-content"></div>
 
 <script>
 (function() {
+  /* Theme toggle */
   var toggle = document.getElementById('pw-theme-toggle');
-  if (!toggle) return;
-  toggle.addEventListener('click', function() {
-    var isDark = document.documentElement.classList.contains('dark');
-    var next = isDark ? 'light' : 'dark';
-    localStorage._theme = next;
-    if (typeof setColorMode === 'function') {
-      setColorMode(next);
-    } else {
-      var html = document.documentElement;
-      html.classList.remove('dark', 'light');
-      html.classList.add(next);
-      html.setAttribute('data-color-mode', next);
+  if (toggle) {
+    /* Set initial aria-pressed based on current theme */
+    var currentlyDark = document.documentElement.classList.contains('dark');
+    toggle.setAttribute('aria-pressed', currentlyDark ? 'true' : 'false');
+
+    toggle.addEventListener('click', function() {
+      var isDark = document.documentElement.classList.contains('dark');
+      var next = isDark ? 'light' : 'dark';
+      localStorage._theme = next;
+      if (typeof setColorMode === 'function') {
+        setColorMode(next);
+      } else {
+        var html = document.documentElement;
+        html.classList.remove('dark', 'light');
+        html.classList.add(next);
+        html.setAttribute('data-color-mode', next);
+      }
+      toggle.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+    });
+  }
+
+  /* Active nav link detection — highlight current section */
+  var path = window.location.pathname;
+  var links = document.querySelectorAll('.pw-navbar-link[data-section]');
+  links.forEach(function(link) {
+    var section = link.getAttribute('data-section');
+    if (path.indexOf('/' + section) !== -1) {
+      link.classList.add('active');
     }
   });
+  /* Mark home page — none active, or all inactive is fine */
 })();
 </script>
 <div class="sy-page sy-container flex mx-auto">
@@ -114,19 +141,24 @@
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#basic-usage-sync">Basic Usage (sync)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#async-usage">Async Usage</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#context-manager-pattern">Context Manager Pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#authenticated-proxies">Authenticated Proxies</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#using-free-proxy-lists">Using Free Proxy Lists</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#fetching-proxies-programmatically">Fetching Proxies Programmatically</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#choosing-a-rotation-strategy">Choosing a Rotation Strategy</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#configuring-retry-and-circuit-breakers">Configuring Retry and Circuit Breakers</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#monitoring-your-pool">Monitoring Your Pool</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#troubleshooting">Troubleshooting</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#next-steps">Next Steps</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#for-contributors">For Contributors</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a Rotator</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#quick-pick-guide">Quick-Pick Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-reference">Strategy Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#comparison-at-a-glance">Comparison At a Glance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
@@ -134,19 +166,6 @@
 </li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l1 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#core-strategies">Core Strategies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#advanced-strategies">Advanced Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l1 _expand"><a class="reference internal" href="../guides/index.html">Guides</a><ul>
@@ -224,7 +243,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#overview">Overview</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a></li>
@@ -257,7 +275,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#automating-releases">Automating Releases</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#docsearch-credentials">DocSearch Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#ci-stage-summary">CI Stage Summary</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#further-reading">Further Reading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#see-also">See Also</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/mcp-server.html">MCP Server Guide</a><ul>
@@ -291,6 +309,7 @@
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#getting-started">Getting Started</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rest-api.html#middleware">Middleware</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#endpoint-reference">Endpoint Reference</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#rate-limiting">Rate Limiting</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rest-api.html#error-handling">Error Handling</a></li>
@@ -392,23 +411,25 @@
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#code-style">Code Style</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#pre-commit-hooks">Pre-commit Hooks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#testing-guidelines">Testing Guidelines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#extending-with-custom-strategies">Extending with Custom Strategies</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#ci-cd-pipelines">CI/CD Pipelines</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#quality-gate-pipeline">Quality Gate Pipeline</a></li>
 </ul>
 </li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#module-map">Module Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-exports">Key Exports</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#changelog-highlights">Changelog Highlights</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#recent">Recent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#phase-completion-status">Phase Completion Status</a></li>
 </ul>
 </li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-modules">Key Modules</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#license">License</a></li>
 </ul>
 </li>
@@ -549,7 +570,7 @@
         </a></div>
     </div>
   </div>
-</div><article class="yue" role="main">
+</div><article class="yue dark-code" role="main">
           <section id="rate-limiting-api-reference">
 <h1>Rate Limiting API Reference<a class="headerlink" href="#rate-limiting-api-reference" title="Link to this heading">¶</a></h1>
 <p>Complete reference for ProxyWhirl’s rate limiting system with per-proxy and global rate limits using token bucket algorithm.</p>
@@ -583,7 +604,7 @@
 <section id="ratelimiter-legacy">
 <h3>RateLimiter (Legacy)<a class="headerlink" href="#ratelimiter-legacy" title="Link to this heading">¶</a></h3>
 <div class="deprecated">
-<p><span class="versionmodified deprecated">Deprecated since version 1.0.0: </span>Use <code class="docutils literal notranslate"><span class="pre">SyncRateLimiter</span></code> for synchronous contexts or <code class="docutils literal notranslate"><span class="pre">AsyncRateLimiter</span></code> for async contexts. This class is maintained for backwards compatibility.</p>
+<p><span class="versionmodified deprecated">Deprecated since version 0.1.1: </span>Use <code class="docutils literal notranslate"><span class="pre">SyncRateLimiter</span></code> for synchronous contexts or <code class="docutils literal notranslate"><span class="pre">AsyncRateLimiter</span></code> for async contexts. This class is maintained for backwards compatibility.</p>
 </div>
 <p>Synchronous rate limiter with per-proxy and global limits using token bucket algorithm. Uses <code class="docutils literal notranslate"><span class="pre">threading.RLock</span></code> for thread safety.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
@@ -695,9 +716,9 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">limit</span></code> (RateLimit): Rate limit configuration</p></li>
 </ul>
 <p><strong>Example:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">SyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimiter</span><span class="p">()</span>
+</span><span data-line="3"><span class="n">limiter</span> <span class="o">=</span> <span class="n">SyncRateLimiter</span><span class="p">()</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="c1"># Set different limits for different proxies</span>
 </span><span data-line="6"><span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span>
@@ -906,13 +927,13 @@
 <h2>Usage Examples<a class="headerlink" href="#usage-examples" title="Link to this heading">¶</a></h2>
 <section id="basic-rate-limiting">
 <h3>Basic Rate Limiting<a class="headerlink" href="#basic-rate-limiting" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="c1"># Create limiter</span>
-</span><span data-line="4"><span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimiter</span><span class="p">()</span>
+</span><span data-line="3"><span class="c1"># Create async limiter</span>
+</span><span data-line="4"><span class="n">limiter</span> <span class="o">=</span> <span class="n">AsyncRateLimiter</span><span class="p">()</span>
 </span><span data-line="5">
 </span><span data-line="6"><span class="c1"># Set per-proxy limits</span>
-</span><span data-line="7"><span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span>
+</span><span data-line="7"><span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span>
 </span><span data-line="8">    <span class="s2">&quot;proxy1&quot;</span><span class="p">,</span>
 </span><span data-line="9">    <span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># 10 req/sec</span>
 </span><span data-line="10"><span class="p">)</span>
@@ -938,16 +959,16 @@
 <hr class="docutils" />
 <section id="global-per-proxy-limits">
 <h3>Global + Per-Proxy Limits<a class="headerlink" href="#global-per-proxy-limits" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># Global limit: 1000 req/min across all proxies</span>
 </span><span data-line="4"><span class="c1"># Per-proxy limit: 10 req/sec per proxy</span>
-</span><span data-line="5"><span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimiter</span><span class="p">(</span>
+</span><span data-line="5"><span class="n">limiter</span> <span class="o">=</span> <span class="n">AsyncRateLimiter</span><span class="p">(</span>
 </span><span data-line="6">    <span class="n">global_limit</span><span class="o">=</span><span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
 </span><span data-line="7"><span class="p">)</span>
 </span><span data-line="8">
 </span><span data-line="9"><span class="k">for</span> <span class="n">proxy_id</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;proxy1&quot;</span><span class="p">,</span> <span class="s2">&quot;proxy2&quot;</span><span class="p">,</span> <span class="s2">&quot;proxy3&quot;</span><span class="p">]:</span>
-</span><span data-line="10">    <span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span>
+</span><span data-line="10">    <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span>
 </span><span data-line="11">        <span class="n">proxy_id</span><span class="p">,</span>
 </span><span data-line="12">        <span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </span><span data-line="13">    <span class="p">)</span>
@@ -966,11 +987,11 @@
 <hr class="docutils" />
 <section id="burst-handling">
 <h3>Burst Handling<a class="headerlink" href="#burst-handling" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># Allow bursts up to 50 requests, then throttle to 10 req/sec</span>
-</span><span data-line="4"><span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimiter</span><span class="p">()</span>
-</span><span data-line="5"><span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span>
+</span><span data-line="4"><span class="n">limiter</span> <span class="o">=</span> <span class="n">AsyncRateLimiter</span><span class="p">()</span>
+</span><span data-line="5"><span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span>
 </span><span data-line="6">    <span class="s2">&quot;proxy1&quot;</span><span class="p">,</span>
 </span><span data-line="7">    <span class="n">RateLimit</span><span class="p">(</span>
 </span><span data-line="8">        <span class="n">max_requests</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
@@ -1000,12 +1021,12 @@
 <hr class="docutils" />
 <section id="dynamic-limit-adjustment">
 <h3>Dynamic Limit Adjustment<a class="headerlink" href="#dynamic-limit-adjustment" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimiter</span><span class="p">()</span>
+</span><span data-line="3"><span class="n">limiter</span> <span class="o">=</span> <span class="n">AsyncRateLimiter</span><span class="p">()</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="c1"># Start with conservative limit</span>
-</span><span data-line="6"><span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span>
+</span><span data-line="6"><span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span>
 </span><span data-line="7">    <span class="s2">&quot;proxy1&quot;</span><span class="p">,</span>
 </span><span data-line="8">    <span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </span><span data-line="9"><span class="p">)</span>
@@ -1018,7 +1039,7 @@
 </span><span data-line="16">
 </span><span data-line="17">            <span class="c1"># Success - increase limit</span>
 </span><span data-line="18">            <span class="k">if</span> <span class="n">response</span><span class="o">.</span><span class="n">status_code</span> <span class="o">==</span> <span class="mi">200</span><span class="p">:</span>
-</span><span data-line="19">                <span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span>
+</span><span data-line="19">                <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span>
 </span><span data-line="20">                    <span class="n">proxy_id</span><span class="p">,</span>
 </span><span data-line="21">                    <span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </span><span data-line="22">                <span class="p">)</span>
@@ -1026,7 +1047,7 @@
 </span><span data-line="24">            <span class="k">return</span> <span class="n">response</span>
 </span><span data-line="25">        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
 </span><span data-line="26">            <span class="c1"># Failure - decrease limit</span>
-</span><span data-line="27">            <span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span>
+</span><span data-line="27">            <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span>
 </span><span data-line="28">                <span class="n">proxy_id</span><span class="p">,</span>
 </span><span data-line="29">                <span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </span><span data-line="30">            <span class="p">)</span>
@@ -1040,11 +1061,11 @@
 <section id="integration-with-proxyrotator">
 <h3>Integration with ProxyRotator<a class="headerlink" href="#integration-with-proxyrotator" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">SyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="3">
-</span><span data-line="4"><span class="c1"># Create rotator and limiter</span>
+</span><span data-line="4"><span class="c1"># Create rotator and sync limiter</span>
 </span><span data-line="5"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
-</span><span data-line="6"><span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimiter</span><span class="p">(</span>
+</span><span data-line="6"><span class="n">limiter</span> <span class="o">=</span> <span class="n">SyncRateLimiter</span><span class="p">(</span>
 </span><span data-line="7">    <span class="n">global_limit</span><span class="o">=</span><span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
 </span><span data-line="8"><span class="p">)</span>
 </span><span data-line="9">
@@ -1059,34 +1080,34 @@
 </span><span data-line="18">    <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;http://</span><span class="si">{</span><span class="n">proxy_id</span><span class="si">}</span><span class="s2">.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="19">    <span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">,</span> <span class="n">limit</span><span class="p">)</span>
 </span><span data-line="20">
-</span><span data-line="21"><span class="c1"># Make requests with rate limiting</span>
-</span><span data-line="22"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">make_request_with_rate_limit</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
+</span><span data-line="21"><span class="c1"># Make requests with rate limiting (sync)</span>
+</span><span data-line="22"><span class="k">def</span><span class="w"> </span><span class="nf">make_request_with_rate_limit</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
 </span><span data-line="23">    <span class="c1"># Get proxy from rotator</span>
 </span><span data-line="24">    <span class="n">proxy</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">()</span>
-</span><span data-line="25">    <span class="n">proxy_id</span> <span class="o">=</span> <span class="n">proxy</span><span class="o">.</span><span class="n">id</span>
+</span><span data-line="25">    <span class="n">proxy_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">proxy</span><span class="o">.</span><span class="n">id</span><span class="p">)</span>
 </span><span data-line="26">
-</span><span data-line="27">    <span class="c1"># Check rate limit</span>
-</span><span data-line="28">    <span class="k">if</span> <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">check_limit</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">):</span>
-</span><span data-line="29">        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+</span><span data-line="27">    <span class="c1"># Check rate limit (sync - no await needed)</span>
+</span><span data-line="28">    <span class="k">if</span> <span class="n">limiter</span><span class="o">.</span><span class="n">check_limit</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">):</span>
+</span><span data-line="29">        <span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 </span><span data-line="30">        <span class="k">return</span> <span class="n">response</span>
 </span><span data-line="31">    <span class="k">else</span><span class="p">:</span>
 </span><span data-line="32">        <span class="c1"># Rate limited, try different proxy</span>
-</span><span data-line="33">        <span class="k">return</span> <span class="k">await</span> <span class="n">make_request_with_rate_limit</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+</span><span data-line="33">        <span class="k">return</span> <span class="n">make_request_with_rate_limit</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 </span><span data-line="34">
 </span><span data-line="35"><span class="c1"># Use in application</span>
-</span><span data-line="36"><span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">make_request_with_rate_limit</span><span class="p">(</span><span class="s2">&quot;https://api.example.com&quot;</span><span class="p">)</span>
+</span><span data-line="36"><span class="n">response</span> <span class="o">=</span> <span class="n">make_request_with_rate_limit</span><span class="p">(</span><span class="s2">&quot;https://api.example.com&quot;</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
 <hr class="docutils" />
 <section id="monitoring-and-logging">
 <h3>Monitoring and Logging<a class="headerlink" href="#monitoring-and-logging" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span><span class="p">,</span> <span class="n">RateLimitEvent</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span><span class="p">,</span> <span class="n">RateLimitEvent</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timezone</span>
 </span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">loguru</span><span class="w"> </span><span class="kn">import</span> <span class="n">logger</span>
 </span><span data-line="4">
-</span><span data-line="5"><span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimiter</span><span class="p">()</span>
-</span><span data-line="6"><span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span><span class="s2">&quot;proxy1&quot;</span><span class="p">,</span> <span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+</span><span data-line="5"><span class="n">limiter</span> <span class="o">=</span> <span class="n">AsyncRateLimiter</span><span class="p">()</span>
+</span><span data-line="6"><span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span><span class="s2">&quot;proxy1&quot;</span><span class="p">,</span> <span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
 </span><span data-line="7">
 </span><span data-line="8"><span class="c1"># Track rate limit events</span>
 </span><span data-line="9"><span class="n">events</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1126,11 +1147,11 @@
 <hr class="docutils" />
 <section id="retry-with-backoff">
 <h3>Retry with Backoff<a class="headerlink" href="#retry-with-backoff" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="2"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 </span><span data-line="3">
-</span><span data-line="4"><span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimiter</span><span class="p">()</span>
-</span><span data-line="5"><span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span><span class="s2">&quot;proxy1&quot;</span><span class="p">,</span> <span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+</span><span data-line="4"><span class="n">limiter</span> <span class="o">=</span> <span class="n">AsyncRateLimiter</span><span class="p">()</span>
+</span><span data-line="5"><span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span><span class="s2">&quot;proxy1&quot;</span><span class="p">,</span> <span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
 </span><span data-line="6">
 </span><span data-line="7"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">make_request_with_retry</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">max_retries</span><span class="o">=</span><span class="mi">3</span><span class="p">):</span>
 </span><span data-line="8">    <span class="k">for</span> <span class="n">attempt</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_retries</span><span class="p">):</span>
@@ -1158,27 +1179,28 @@
 <hr class="docutils" />
 <section id="thread-safety">
 <h2>Thread Safety<a class="headerlink" href="#thread-safety" title="Link to this heading">¶</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">RateLimiter</span></code> is thread-safe using <code class="docutils literal notranslate"><span class="pre">threading.RLock</span></code>:</p>
+<p><code class="docutils literal notranslate"><span class="pre">SyncRateLimiter</span></code> and <code class="docutils literal notranslate"><span class="pre">RateLimiter</span></code> are thread-safe using <code class="docutils literal notranslate"><span class="pre">threading.RLock</span></code>. <code class="docutils literal notranslate"><span class="pre">AsyncRateLimiter</span></code> uses <code class="docutils literal notranslate"><span class="pre">asyncio.Lock</span></code> for async safety.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="3">
-</span><span data-line="4"><span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimiter</span><span class="p">()</span>
-</span><span data-line="5"><span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span><span class="s2">&quot;proxy1&quot;</span><span class="p">,</span> <span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
-</span><span data-line="6">
-</span><span data-line="7"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">worker</span><span class="p">(</span><span class="n">worker_id</span><span class="p">):</span>
-</span><span data-line="8">    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">):</span>
-</span><span data-line="9">        <span class="k">if</span> <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">check_limit</span><span class="p">(</span><span class="s2">&quot;proxy1&quot;</span><span class="p">):</span>
-</span><span data-line="10">            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Worker </span><span class="si">{</span><span class="n">worker_id</span><span class="si">}</span><span class="s2">: Request </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> allowed&quot;</span><span class="p">)</span>
-</span><span data-line="11">        <span class="k">else</span><span class="p">:</span>
-</span><span data-line="12">            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Worker </span><span class="si">{</span><span class="n">worker_id</span><span class="si">}</span><span class="s2">: Request </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> rate limited&quot;</span><span class="p">)</span>
-</span><span data-line="13">        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.01</span><span class="p">)</span>
-</span><span data-line="14">
-</span><span data-line="15"><span class="c1"># Run concurrent workers</span>
-</span><span data-line="16"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span data-line="17">    <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">worker</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)]</span>
-</span><span data-line="18">    <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="n">tasks</span><span class="p">)</span>
-</span><span data-line="19">
-</span><span data-line="20"><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</span><span data-line="4"><span class="n">limiter</span> <span class="o">=</span> <span class="n">AsyncRateLimiter</span><span class="p">()</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
+</span><span data-line="7">    <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span><span class="s2">&quot;proxy1&quot;</span><span class="p">,</span> <span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+</span><span data-line="8">
+</span><span data-line="9">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">worker</span><span class="p">(</span><span class="n">worker_id</span><span class="p">):</span>
+</span><span data-line="10">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">20</span><span class="p">):</span>
+</span><span data-line="11">            <span class="k">if</span> <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">check_limit</span><span class="p">(</span><span class="s2">&quot;proxy1&quot;</span><span class="p">):</span>
+</span><span data-line="12">                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Worker </span><span class="si">{</span><span class="n">worker_id</span><span class="si">}</span><span class="s2">: Request </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> allowed&quot;</span><span class="p">)</span>
+</span><span data-line="13">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="14">                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Worker </span><span class="si">{</span><span class="n">worker_id</span><span class="si">}</span><span class="s2">: Request </span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2"> rate limited&quot;</span><span class="p">)</span>
+</span><span data-line="15">            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.01</span><span class="p">)</span>
+</span><span data-line="16">
+</span><span data-line="17">    <span class="c1"># Run concurrent workers</span>
+</span><span data-line="18">    <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">worker</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)]</span>
+</span><span data-line="19">    <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="n">tasks</span><span class="p">)</span>
+</span><span data-line="20">
+</span><span data-line="21"><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </span></pre></div>
 </div>
 </section>
@@ -1238,12 +1260,12 @@
 </ul>
 <p><strong>Optimization:</strong></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Option 1: Use global limit only (minimal memory)</span>
-</span><span data-line="2"><span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimiter</span><span class="p">(</span>
+</span><span data-line="2"><span class="n">limiter</span> <span class="o">=</span> <span class="n">SyncRateLimiter</span><span class="p">(</span>
 </span><span data-line="3">    <span class="n">global_limit</span><span class="o">=</span><span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
 </span><span data-line="4"><span class="p">)</span>
 </span><span data-line="5">
 </span><span data-line="6"><span class="c1"># Option 2: Set limits only for high-traffic proxies</span>
-</span><span data-line="7"><span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimiter</span><span class="p">()</span>
+</span><span data-line="7"><span class="n">limiter</span> <span class="o">=</span> <span class="n">SyncRateLimiter</span><span class="p">()</span>
 </span><span data-line="8"><span class="k">for</span> <span class="n">proxy_id</span> <span class="ow">in</span> <span class="n">high_traffic_proxies</span><span class="p">:</span>
 </span><span data-line="9">    <span class="n">limiter</span><span class="o">.</span><span class="n">set_proxy_limit</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">,</span> <span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
 </span></pre></div>
@@ -1251,21 +1273,25 @@
 </section>
 <section id="concurrency">
 <h3>Concurrency<a class="headerlink" href="#concurrency" title="Link to this heading">¶</a></h3>
-<p><strong>Async/Await:</strong></p>
+<p><strong>Async/Await (AsyncRateLimiter):</strong></p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">check_limit()</span></code> and <code class="docutils literal notranslate"><span class="pre">acquire()</span></code> are async-safe</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">check_limit()</span></code> and <code class="docutils literal notranslate"><span class="pre">acquire()</span></code> are async-safe via <code class="docutils literal notranslate"><span class="pre">asyncio.Lock</span></code></p></li>
 <li><p>Lock contention is minimal (only during limiter access)</p></li>
 <li><p>No blocking I/O</p></li>
 </ul>
+<p><strong>Sync (SyncRateLimiter/RateLimiter):</strong></p>
+<ul class="simple">
+<li><p>Thread-safe via <code class="docutils literal notranslate"><span class="pre">threading.RLock</span></code></p></li>
+<li><p>All methods are synchronous (no <code class="docutils literal notranslate"><span class="pre">await</span></code> needed)</p></li>
+</ul>
 <p><strong>Best Practices:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Good: Check limit before expensive operation</span>
-</span><span data-line="2"><span class="k">if</span> <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">check_limit</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">):</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Good: Check limit before expensive operation (async)</span>
+</span><span data-line="2"><span class="k">if</span> <span class="k">await</span> <span class="n">async_limiter</span><span class="o">.</span><span class="n">check_limit</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">):</span>
 </span><span data-line="3">    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">expensive_api_call</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">)</span>
 </span><span data-line="4">
-</span><span data-line="5"><span class="c1"># Bad: Check limit inside expensive operation</span>
-</span><span data-line="6"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">expensive_api_call</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">):</span>
-</span><span data-line="7">    <span class="k">if</span> <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">check_limit</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">):</span>  <span class="c1"># Too late</span>
-</span><span data-line="8">        <span class="k">return</span> <span class="k">await</span> <span class="n">http_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+</span><span data-line="5"><span class="c1"># Good: Check limit before expensive operation (sync)</span>
+</span><span data-line="6"><span class="k">if</span> <span class="n">sync_limiter</span><span class="o">.</span><span class="n">check_limit</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">):</span>
+</span><span data-line="7">    <span class="n">response</span> <span class="o">=</span> <span class="n">make_request</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
@@ -1276,7 +1302,7 @@
 <section id="prometheus-metrics">
 <h3>Prometheus Metrics<a class="headerlink" href="#prometheus-metrics" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">prometheus_client</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span><span class="p">,</span> <span class="n">Gauge</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Define metrics</span>
 </span><span data-line="5"><span class="n">rate_limit_allowed</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span>
@@ -1290,7 +1316,7 @@
 </span><span data-line="13">    <span class="p">[</span><span class="s1">&#39;proxy_id&#39;</span><span class="p">]</span>
 </span><span data-line="14"><span class="p">)</span>
 </span><span data-line="15">
-</span><span data-line="16"><span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimiter</span><span class="p">()</span>
+</span><span data-line="16"><span class="n">limiter</span> <span class="o">=</span> <span class="n">AsyncRateLimiter</span><span class="p">()</span>
 </span><span data-line="17">
 </span><span data-line="18"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">make_request_with_metrics</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
 </span><span data-line="19">    <span class="k">if</span> <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">check_limit</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">):</span>
@@ -1306,9 +1332,9 @@
 <section id="datadog-integration">
 <h3>DataDog Integration<a class="headerlink" href="#datadog-integration" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">datadog</span><span class="w"> </span><span class="kn">import</span> <span class="n">statsd</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="3">
-</span><span data-line="4"><span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimiter</span><span class="p">()</span>
+</span><span data-line="4"><span class="n">limiter</span> <span class="o">=</span> <span class="n">AsyncRateLimiter</span><span class="p">()</span>
 </span><span data-line="5">
 </span><span data-line="6"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">make_request_with_datadog</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
 </span><span data-line="7">    <span class="k">if</span> <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">check_limit</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">):</span>
@@ -1373,63 +1399,72 @@
 <h2>Common Patterns<a class="headerlink" href="#common-patterns" title="Link to this heading">¶</a></h2>
 <section id="fallback-to-different-proxy">
 <h3>Fallback to Different Proxy<a class="headerlink" href="#fallback-to-different-proxy" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">make_request_with_fallback</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">proxy_ids</span><span class="p">):</span>
-</span><span data-line="2">    <span class="k">for</span> <span class="n">proxy_id</span> <span class="ow">in</span> <span class="n">proxy_ids</span><span class="p">:</span>
-</span><span data-line="3">        <span class="k">if</span> <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">check_limit</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">):</span>
-</span><span data-line="4">            <span class="k">try</span><span class="p">:</span>
-</span><span data-line="5">                <span class="k">return</span> <span class="k">await</span> <span class="n">http_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">proxy</span><span class="o">=</span><span class="n">proxy_id</span><span class="p">)</span>
-</span><span data-line="6">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
-</span><span data-line="7">                <span class="k">continue</span>
-</span><span data-line="8">
-</span><span data-line="9">    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;All proxies rate limited or failed&quot;</span><span class="p">)</span>
-</span><span data-line="10">
-</span><span data-line="11"><span class="c1"># Use</span>
-</span><span data-line="12"><span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">make_request_with_fallback</span><span class="p">(</span>
-</span><span data-line="13">    <span class="s2">&quot;https://api.example.com&quot;</span><span class="p">,</span>
-</span><span data-line="14">    <span class="p">[</span><span class="s2">&quot;proxy1&quot;</span><span class="p">,</span> <span class="s2">&quot;proxy2&quot;</span><span class="p">,</span> <span class="s2">&quot;proxy3&quot;</span><span class="p">]</span>
-</span><span data-line="15"><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">limiter</span> <span class="o">=</span> <span class="n">AsyncRateLimiter</span><span class="p">(</span><span class="n">global_limit</span><span class="o">=</span><span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">60</span><span class="p">))</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">make_request_with_fallback</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">proxy_ids</span><span class="p">):</span>
+</span><span data-line="6">    <span class="k">for</span> <span class="n">proxy_id</span> <span class="ow">in</span> <span class="n">proxy_ids</span><span class="p">:</span>
+</span><span data-line="7">        <span class="k">if</span> <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">check_limit</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">):</span>
+</span><span data-line="8">            <span class="k">try</span><span class="p">:</span>
+</span><span data-line="9">                <span class="k">return</span> <span class="k">await</span> <span class="n">http_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">proxy</span><span class="o">=</span><span class="n">proxy_id</span><span class="p">)</span>
+</span><span data-line="10">            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+</span><span data-line="11">                <span class="k">continue</span>
+</span><span data-line="12">
+</span><span data-line="13">    <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s2">&quot;All proxies rate limited or failed&quot;</span><span class="p">)</span>
+</span><span data-line="14">
+</span><span data-line="15"><span class="c1"># Use</span>
+</span><span data-line="16"><span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">make_request_with_fallback</span><span class="p">(</span>
+</span><span data-line="17">    <span class="s2">&quot;https://api.example.com&quot;</span><span class="p">,</span>
+</span><span data-line="18">    <span class="p">[</span><span class="s2">&quot;proxy1&quot;</span><span class="p">,</span> <span class="s2">&quot;proxy2&quot;</span><span class="p">,</span> <span class="s2">&quot;proxy3&quot;</span><span class="p">]</span>
+</span><span data-line="19"><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
 <hr class="docutils" />
 <section id="batch-requests-with-rate-limiting">
 <h3>Batch Requests with Rate Limiting<a class="headerlink" href="#batch-requests-with-rate-limiting" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">batch_request_with_rate_limit</span><span class="p">(</span><span class="n">urls</span><span class="p">,</span> <span class="n">proxy_id</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
-</span><span data-line="2">    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="3">
-</span><span data-line="4">    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">urls</span><span class="p">),</span> <span class="n">batch_size</span><span class="p">):</span>
-</span><span data-line="5">        <span class="n">batch</span> <span class="o">=</span> <span class="n">urls</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="n">batch_size</span><span class="p">]</span>
-</span><span data-line="6">
-</span><span data-line="7">        <span class="c1"># Check if we can make batch_size requests</span>
-</span><span data-line="8">        <span class="n">allowed_count</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="9">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">)):</span>
-</span><span data-line="10">            <span class="k">if</span> <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">check_limit</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">):</span>
-</span><span data-line="11">                <span class="n">allowed_count</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="12">            <span class="k">else</span><span class="p">:</span>
-</span><span data-line="13">                <span class="k">break</span>
-</span><span data-line="14">
-</span><span data-line="15">        <span class="c1"># Make allowed requests</span>
-</span><span data-line="16">        <span class="n">batch_results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="p">[</span>
-</span><span data-line="17">            <span class="n">http_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">proxy</span><span class="o">=</span><span class="n">proxy_id</span><span class="p">)</span>
-</span><span data-line="18">            <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">[:</span><span class="n">allowed_count</span><span class="p">]</span>
-</span><span data-line="19">        <span class="p">])</span>
-</span><span data-line="20">        <span class="n">results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">batch_results</span><span class="p">)</span>
-</span><span data-line="21">
-</span><span data-line="22">        <span class="c1"># Wait if rate limited</span>
-</span><span data-line="23">        <span class="k">if</span> <span class="n">allowed_count</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">):</span>
-</span><span data-line="24">            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
-</span><span data-line="25">
-</span><span data-line="26">    <span class="k">return</span> <span class="n">results</span>
+</span><span data-line="4"><span class="n">limiter</span> <span class="o">=</span> <span class="n">AsyncRateLimiter</span><span class="p">(</span><span class="n">global_limit</span><span class="o">=</span><span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">60</span><span class="p">))</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">batch_request_with_rate_limit</span><span class="p">(</span><span class="n">urls</span><span class="p">,</span> <span class="n">proxy_id</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+</span><span data-line="7">    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="8">
+</span><span data-line="9">    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">urls</span><span class="p">),</span> <span class="n">batch_size</span><span class="p">):</span>
+</span><span data-line="10">        <span class="n">batch</span> <span class="o">=</span> <span class="n">urls</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span> <span class="o">+</span> <span class="n">batch_size</span><span class="p">]</span>
+</span><span data-line="11">
+</span><span data-line="12">        <span class="c1"># Check if we can make batch_size requests</span>
+</span><span data-line="13">        <span class="n">allowed_count</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="14">        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">)):</span>
+</span><span data-line="15">            <span class="k">if</span> <span class="k">await</span> <span class="n">limiter</span><span class="o">.</span><span class="n">check_limit</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">):</span>
+</span><span data-line="16">                <span class="n">allowed_count</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="17">            <span class="k">else</span><span class="p">:</span>
+</span><span data-line="18">                <span class="k">break</span>
+</span><span data-line="19">
+</span><span data-line="20">        <span class="c1"># Make allowed requests</span>
+</span><span data-line="21">        <span class="n">batch_results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="p">[</span>
+</span><span data-line="22">            <span class="n">http_client</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">proxy</span><span class="o">=</span><span class="n">proxy_id</span><span class="p">)</span>
+</span><span data-line="23">            <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">batch</span><span class="p">[:</span><span class="n">allowed_count</span><span class="p">]</span>
+</span><span data-line="24">        <span class="p">])</span>
+</span><span data-line="25">        <span class="n">results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">batch_results</span><span class="p">)</span>
+</span><span data-line="26">
+</span><span data-line="27">        <span class="c1"># Wait if rate limited</span>
+</span><span data-line="28">        <span class="k">if</span> <span class="n">allowed_count</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">batch</span><span class="p">):</span>
+</span><span data-line="29">            <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">1.0</span><span class="p">)</span>
+</span><span data-line="30">
+</span><span data-line="31">    <span class="k">return</span> <span class="n">results</span>
 </span></pre></div>
 </div>
 </section>
 <hr class="docutils" />
 <section id="circuit-breaker-integration">
 <h3>Circuit Breaker Integration<a class="headerlink" href="#circuit-breaker-integration" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">RateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">CircuitBreaker</span>
 </span><span data-line="3">
-</span><span data-line="4"><span class="n">limiter</span> <span class="o">=</span> <span class="n">RateLimiter</span><span class="p">()</span>
+</span><span data-line="4"><span class="n">limiter</span> <span class="o">=</span> <span class="n">AsyncRateLimiter</span><span class="p">(</span><span class="n">global_limit</span><span class="o">=</span><span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">60</span><span class="p">))</span>
 </span><span data-line="5"><span class="n">circuit_breakers</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span data-line="6">
 </span><span data-line="7"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">make_request_with_circuit_breaker</span><span class="p">(</span><span class="n">proxy_id</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>

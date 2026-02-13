@@ -10,10 +10,10 @@ Deep dives and operational runbooks that extend the quickstart. Each guide mirro
 
 ```{admonition} Not sure where to start?
 :class: tip
-- **Building a scraper or crawler?** Start with [Async Client](async-client.md) and [Advanced Strategies](advanced-strategies.md)
-- **Deploying to production?** Read [Retry & Failover](retry-failover.md) then [Deployment Security](deployment-security.md)
-- **Automating proxy management?** See [CLI Reference](cli-reference.md) and [Automation](automation.md)
-- **Integrating with AI tools?** Jump to [MCP Server](mcp-server.md)
+- **Building a scraper or crawler?** Start with {doc}`async-client` and {doc}`advanced-strategies`
+- **Deploying to production?** Read {doc}`retry-failover` then {doc}`deployment-security`
+- **Automating proxy management?** See {doc}`cli-reference` and {doc}`automation`
+- **Integrating with AI tools?** Jump to {doc}`mcp-server`
 ```
 
 ## Client & Concurrency
@@ -120,12 +120,13 @@ Reverse proxy configuration, X-Forwarded-For security, and production hardening.
 :link-type: doc
 :class-card: sd-shadow-sm
 
-Complete command-line interface documentation for all 9 commands.
+Complete command-line interface documentation for all 12 commands.
 
 - [Global options](cli-reference.md#global-options) -- config path, verbosity, output format
 - [`request` command](cli-reference.md#request) -- GET/POST with proxy rotation
 - [`pool` command](cli-reference.md#pool) -- list, add, remove, test proxies
-- [`config`, `health`, `export`](cli-reference.md#config) -- manage settings and data
+- [`fetch`, `export`, `cleanup`](cli-reference.md#fetch) -- manage proxy data
+- [`tui` dashboard](cli-reference.md#tui) -- interactive terminal UI
 
 +++
 {bdg-success}`CLI` {bdg-secondary}`typer`
@@ -174,7 +175,7 @@ Model Context Protocol server for AI assistant integration.
 
 ---
 
-**Related:** [Getting Started](../getting-started/index.md) for installation | [API Reference](../reference/index.md) for API specs | [Project](../project/index.md) for contributing
+**Related:** {doc}`/getting-started/index` for installation | {doc}`/reference/index` for API specs | {doc}`/project/index` for contributing
 
 ```{toctree}
 :maxdepth: 2

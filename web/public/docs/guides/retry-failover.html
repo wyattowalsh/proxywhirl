@@ -11,7 +11,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=43a92ad3" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=b31b09b0" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,12 +24,12 @@
     <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://proxywhirl.readthedocs.io/guides/retry-failover.html"/>
   <meta property="og:title" content="Retry &amp; Failover Guide"/>
-  <meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
     <meta name="twitter:card" content="summary"/>
-<meta name="twitter:creator" content="@@wyaborern"/>
-<meta name="twitter:site" content="@@wyaborern"/>
+<meta name="twitter:creator" content="@wyaborern"/>
+<meta name="twitter:site" content="@wyaborern"/>
   </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="pw-navbar">
   <div class="pw-navbar-inner">
     
@@ -38,7 +38,7 @@
     </button>
 
     
-    <a href="/" class="pw-navbar-brand">
+    <a href="../index.html" class="pw-navbar-brand">
       <svg class="pw-navbar-logo" viewBox="0 0 100 100" aria-hidden="true">
         <defs>
           <linearGradient id="pw-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -60,17 +60,25 @@
     </a>
 
     
-    <nav class="pw-navbar-links">
-      <a href="/docs/" class="pw-navbar-link active">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-        Docs
+    <nav class="pw-navbar-links" aria-label="Main navigation">
+      <a href="../getting-started/index.html" class="pw-navbar-link" data-section="getting-started">
+        Getting Started
+      </a>
+      <a href="index.html" class="pw-navbar-link" data-section="guides">
+        Guides
+      </a>
+      <a href="../reference/index.html" class="pw-navbar-link" data-section="reference">
+        Reference
+      </a>
+      <a href="../project/index.html" class="pw-navbar-link" data-section="project">
+        Project
       </a>
     </nav>
 
     
     <div class="pw-navbar-actions">
       
-      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme">
+      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme" aria-pressed="false">
         <svg class="pw-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
         <svg class="pw-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       </button>
@@ -82,24 +90,43 @@
     </div>
   </div>
 </header>
+<div id="main-content"></div>
 
 <script>
 (function() {
+  /* Theme toggle */
   var toggle = document.getElementById('pw-theme-toggle');
-  if (!toggle) return;
-  toggle.addEventListener('click', function() {
-    var isDark = document.documentElement.classList.contains('dark');
-    var next = isDark ? 'light' : 'dark';
-    localStorage._theme = next;
-    if (typeof setColorMode === 'function') {
-      setColorMode(next);
-    } else {
-      var html = document.documentElement;
-      html.classList.remove('dark', 'light');
-      html.classList.add(next);
-      html.setAttribute('data-color-mode', next);
+  if (toggle) {
+    /* Set initial aria-pressed based on current theme */
+    var currentlyDark = document.documentElement.classList.contains('dark');
+    toggle.setAttribute('aria-pressed', currentlyDark ? 'true' : 'false');
+
+    toggle.addEventListener('click', function() {
+      var isDark = document.documentElement.classList.contains('dark');
+      var next = isDark ? 'light' : 'dark';
+      localStorage._theme = next;
+      if (typeof setColorMode === 'function') {
+        setColorMode(next);
+      } else {
+        var html = document.documentElement;
+        html.classList.remove('dark', 'light');
+        html.classList.add(next);
+        html.setAttribute('data-color-mode', next);
+      }
+      toggle.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+    });
+  }
+
+  /* Active nav link detection — highlight current section */
+  var path = window.location.pathname;
+  var links = document.querySelectorAll('.pw-navbar-link[data-section]');
+  links.forEach(function(link) {
+    var section = link.getAttribute('data-section');
+    if (path.indexOf('/' + section) !== -1) {
+      link.classList.add('active');
     }
   });
+  /* Mark home page — none active, or all inactive is fine */
 })();
 </script>
 <div class="sy-page sy-container flex mx-auto">
@@ -114,19 +141,24 @@
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#basic-usage-sync">Basic Usage (sync)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#async-usage">Async Usage</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#context-manager-pattern">Context Manager Pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#authenticated-proxies">Authenticated Proxies</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#using-free-proxy-lists">Using Free Proxy Lists</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#fetching-proxies-programmatically">Fetching Proxies Programmatically</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#choosing-a-rotation-strategy">Choosing a Rotation Strategy</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#configuring-retry-and-circuit-breakers">Configuring Retry and Circuit Breakers</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#monitoring-your-pool">Monitoring Your Pool</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#troubleshooting">Troubleshooting</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#next-steps">Next Steps</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#for-contributors">For Contributors</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a Rotator</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#quick-pick-guide">Quick-Pick Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-reference">Strategy Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#comparison-at-a-glance">Comparison At a Glance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
@@ -134,19 +166,6 @@
 </li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l1 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#core-strategies">Core Strategies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#advanced-strategies">Advanced Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Guides</a><ul class="current">
@@ -224,7 +243,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="deployment-security.html#overview">Overview</a></li>
 <li class="toctree-l4"><a class="reference internal" href="deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a></li>
 <li class="toctree-l4"><a class="reference internal" href="deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a></li>
@@ -257,7 +275,7 @@
 <li class="toctree-l4"><a class="reference internal" href="automation.html#automating-releases">Automating Releases</a></li>
 <li class="toctree-l4"><a class="reference internal" href="automation.html#docsearch-credentials">DocSearch Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="automation.html#ci-stage-summary">CI Stage Summary</a></li>
-<li class="toctree-l4"><a class="reference internal" href="automation.html#further-reading">Further Reading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="automation.html#see-also">See Also</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="mcp-server.html">MCP Server Guide</a><ul>
@@ -291,6 +309,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#getting-started">Getting Started</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#middleware">Middleware</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#endpoint-reference">Endpoint Reference</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#rate-limiting">Rate Limiting</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#error-handling">Error Handling</a></li>
@@ -392,23 +411,25 @@
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#code-style">Code Style</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#pre-commit-hooks">Pre-commit Hooks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#testing-guidelines">Testing Guidelines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#extending-with-custom-strategies">Extending with Custom Strategies</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#ci-cd-pipelines">CI/CD Pipelines</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#quality-gate-pipeline">Quality Gate Pipeline</a></li>
 </ul>
 </li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#module-map">Module Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-exports">Key Exports</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#changelog-highlights">Changelog Highlights</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#recent">Recent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#phase-completion-status">Phase Completion Status</a></li>
 </ul>
 </li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-modules">Key Modules</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#license">License</a></li>
 </ul>
 </li>
@@ -447,7 +468,6 @@
 <li><a class="reference internal" href="#sync-vs-async-circuit-breakers">Sync vs Async Circuit Breakers</a></li>
 <li><a class="reference internal" href="#state-machine">State Machine</a></li>
 <li><a class="reference internal" href="#thresholds-and-configuration">Thresholds and Configuration</a></li>
-<li><a class="reference internal" href="#circuit-breaker-persistence">Circuit Breaker Persistence</a></li>
 <li><a class="reference internal" href="#state-transitions">State Transitions</a><ul>
 <li><a class="reference internal" href="#closed-open">CLOSED &#8594; OPEN</a></li>
 <li><a class="reference internal" href="#open-half-open">OPEN &#8594; HALF_OPEN</a></li>
@@ -587,12 +607,104 @@
         </a></div>
     </div>
   </div>
-</div><article class="yue" role="main">
+</div><article class="yue dark-code" role="main">
           <section id="retry-failover-guide">
 <h1>Retry &amp; Failover Guide<a class="headerlink" href="#retry-failover-guide" title="Link to this heading">¶</a></h1>
 <p>ProxyWhirl provides intelligent retry logic, circuit breaker protection, and automatic proxy failover to maximize request success rates. This guide covers the complete retry and failover system, from basic configuration to advanced observability.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#architecture-overview" id="id1">Architecture Overview</a></p></li>
+<li><p><a class="reference internal" href="#when-to-use-retry-vs-failover" id="id2">When to Use Retry vs Failover</a></p>
+<ul>
+<li><p><a class="reference internal" href="#retry-same-proxy" id="id3">Retry (Same Proxy)</a></p></li>
+<li><p><a class="reference internal" href="#failover-different-proxy" id="id4">Failover (Different Proxy)</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#retrypolicy-configuration" id="id5">RetryPolicy Configuration</a></p>
+<ul>
+<li><p><a class="reference internal" href="#basic-configuration" id="id6">Basic Configuration</a></p></li>
+<li><p><a class="reference internal" href="#backoff-strategies" id="id7">Backoff Strategies</a></p></li>
+<li><p><a class="reference internal" href="#jitter-explained" id="id8">Jitter Explained</a></p></li>
+<li><p><a class="reference internal" href="#retryable-status-codes" id="id9">Retryable Status Codes</a></p></li>
+<li><p><a class="reference internal" href="#timeout-behavior" id="id10">Timeout Behavior</a></p></li>
+<li><p><a class="reference internal" href="#non-idempotent-requests" id="id11">Non-Idempotent Requests</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#circuit-breaker-configuration" id="id12">Circuit Breaker Configuration</a></p>
+<ul>
+<li><p><a class="reference internal" href="#sync-vs-async-circuit-breakers" id="id13">Sync vs Async Circuit Breakers</a></p></li>
+<li><p><a class="reference internal" href="#state-machine" id="id14">State Machine</a></p></li>
+<li><p><a class="reference internal" href="#thresholds-and-configuration" id="id15">Thresholds and Configuration</a></p></li>
+<li><p><a class="reference internal" href="#state-transitions" id="id16">State Transitions</a></p></li>
+<li><p><a class="reference internal" href="#rolling-window-behavior" id="id17">Rolling Window Behavior</a></p></li>
+<li><p><a class="reference internal" href="#manual-reset" id="id18">Manual Reset</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#intelligent-proxy-selection" id="id19">Intelligent Proxy Selection</a></p>
+<ul>
+<li><p><a class="reference internal" href="#selection-algorithm" id="id20">Selection Algorithm</a></p></li>
+<li><p><a class="reference internal" href="#example-performance-based-selection" id="id21">Example: Performance-Based Selection</a></p></li>
+<li><p><a class="reference internal" href="#example-geo-targeted-selection" id="id22">Example: Geo-Targeted Selection</a></p></li>
+<li><p><a class="reference internal" href="#exclusion-rules" id="id23">Exclusion Rules</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#retrymetrics-and-observability" id="id24">RetryMetrics and Observability</a></p>
+<ul>
+<li><p><a class="reference internal" href="#collecting-metrics" id="id25">Collecting Metrics</a></p></li>
+<li><p><a class="reference internal" href="#summary-statistics" id="id26">Summary Statistics</a></p></li>
+<li><p><a class="reference internal" href="#time-series-data" id="id27">Time-Series Data</a></p></li>
+<li><p><a class="reference internal" href="#per-proxy-statistics" id="id28">Per-Proxy Statistics</a></p></li>
+<li><p><a class="reference internal" href="#circuit-breaker-events" id="id29">Circuit Breaker Events</a></p></li>
+<li><p><a class="reference internal" href="#hourly-aggregation" id="id30">Hourly Aggregation</a></p></li>
+<li><p><a class="reference internal" href="#retention-configuration" id="id31">Retention Configuration</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#retryexecutor-deep-dive" id="id32">RetryExecutor Deep Dive</a></p>
+<ul>
+<li><p><a class="reference internal" href="#how-retries-work-internally" id="id33">How Retries Work Internally</a></p></li>
+<li><p><a class="reference internal" href="#retryable-vs-non-retryable-errors" id="id34">Retryable vs Non-Retryable Errors</a></p></li>
+<li><p><a class="reference internal" href="#direct-retryexecutor-usage" id="id35">Direct RetryExecutor Usage</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#integration-with-proxyrotator" id="id36">Integration with ProxyRotator</a></p>
+<ul>
+<li><p><a class="reference internal" href="#basic-usage" id="id37">Basic Usage</a></p></li>
+<li><p><a class="reference internal" href="#custom-error-handling" id="id38">Custom Error Handling</a></p></li>
+<li><p><a class="reference internal" href="#monitoring-circuit-breakers" id="id39">Monitoring Circuit Breakers</a></p></li>
+<li><p><a class="reference internal" href="#manual-circuit-reset" id="id40">Manual Circuit Reset</a></p></li>
+<li><p><a class="reference internal" href="#integration-with-rotation-strategies" id="id41">Integration with Rotation Strategies</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#advanced-patterns" id="id42">Advanced Patterns</a></p>
+<ul>
+<li><p><a class="reference internal" href="#adaptive-retry-policy" id="id43">Adaptive Retry Policy</a></p></li>
+<li><p><a class="reference internal" href="#circuit-breaker-alerts" id="id44">Circuit Breaker Alerts</a></p></li>
+<li><p><a class="reference internal" href="#request-level-retry-override" id="id45">Request-Level Retry Override</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#best-practices" id="id46">Best Practices</a></p>
+<ul>
+<li><p><a class="reference internal" href="#start-conservative-tune-later" id="id47">1. Start Conservative, Tune Later</a></p></li>
+<li><p><a class="reference internal" href="#always-use-jitter-in-production" id="id48">2. Always Use Jitter in Production</a></p></li>
+<li><p><a class="reference internal" href="#monitor-circuit-breaker-opens" id="id49">3. Monitor Circuit Breaker Opens</a></p></li>
+<li><p><a class="reference internal" href="#set-timeouts-for-time-sensitive-requests" id="id50">4. Set Timeouts for Time-Sensitive Requests</a></p></li>
+<li><p><a class="reference internal" href="#use-metrics-for-capacity-planning" id="id51">5. Use Metrics for Capacity Planning</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#troubleshooting" id="id52">Troubleshooting</a></p>
+<ul>
+<li><p><a class="reference internal" href="#all-retries-exhausted" id="id53">All Retries Exhausted</a></p></li>
+<li><p><a class="reference internal" href="#high-latency" id="id54">High Latency</a></p></li>
+<li><p><a class="reference internal" href="#non-retryable-errors" id="id55">Non-Retryable Errors</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#performance-impact" id="id56">Performance Impact</a></p></li>
+<li><p><a class="reference internal" href="#see-also" id="id57">See Also</a></p></li>
+<li><p><a class="reference internal" href="#summary" id="id58">Summary</a></p></li>
+</ul>
+</nav>
 <section id="architecture-overview">
-<h2>Architecture Overview<a class="headerlink" href="#architecture-overview" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id1" role="doc-backlink">Architecture Overview</a><a class="headerlink" href="#architecture-overview" title="Link to this heading">¶</a></h2>
 <p>The retry system consists of four main components:</p>
 <ol class="arabic simple">
 <li><p><strong>RetryPolicy</strong> - Configures retry behavior and backoff strategies</p></li>
@@ -602,9 +714,9 @@
 </ol>
 </section>
 <section id="when-to-use-retry-vs-failover">
-<h2>When to Use Retry vs Failover<a class="headerlink" href="#when-to-use-retry-vs-failover" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id2" role="doc-backlink">When to Use Retry vs Failover</a><a class="headerlink" href="#when-to-use-retry-vs-failover" title="Link to this heading">¶</a></h2>
 <section id="retry-same-proxy">
-<h3>Retry (Same Proxy)<a class="headerlink" href="#retry-same-proxy" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id3" role="doc-backlink">Retry (Same Proxy)</a><a class="headerlink" href="#retry-same-proxy" title="Link to this heading">¶</a></h3>
 <p>Use retry when:</p>
 <ul class="simple">
 <li><p>Network is temporarily unstable (connection timeout, packet loss)</p></li>
@@ -613,7 +725,7 @@
 </ul>
 </section>
 <section id="failover-different-proxy">
-<h3>Failover (Different Proxy)<a class="headerlink" href="#failover-different-proxy" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id4" role="doc-backlink">Failover (Different Proxy)</a><a class="headerlink" href="#failover-different-proxy" title="Link to this heading">¶</a></h3>
 <p>Use failover when:</p>
 <ul class="simple">
 <li><p>Proxy authentication fails (407)</p></li>
@@ -625,9 +737,9 @@
 </section>
 </section>
 <section id="retrypolicy-configuration">
-<h2>RetryPolicy Configuration<a class="headerlink" href="#retrypolicy-configuration" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">RetryPolicy Configuration</a><a class="headerlink" href="#retrypolicy-configuration" title="Link to this heading">¶</a></h2>
 <section id="basic-configuration">
-<h3>Basic Configuration<a class="headerlink" href="#basic-configuration" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">Basic Configuration</a><a class="headerlink" href="#basic-configuration" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">RetryPolicy</span><span class="p">,</span> <span class="n">BackoffStrategy</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># Default policy: 3 attempts, exponential backoff</span>
@@ -640,7 +752,7 @@
 </span><span data-line="10">    <span class="n">base_delay</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>                          <span class="c1"># Initial delay (seconds)</span>
 </span><span data-line="11">    <span class="n">multiplier</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>                          <span class="c1"># Exponential multiplier</span>
 </span><span data-line="12">    <span class="n">max_backoff_delay</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>                  <span class="c1"># Maximum delay cap</span>
-</span><span data-line="13">    <span class="n">jitter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>                             <span class="c1"># Randomize delays ±50%</span>
+</span><span data-line="13">    <span class="n">jitter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>                             <span class="c1"># AWS decorrelated jitter</span>
 </span><span data-line="14">    <span class="n">retry_status_codes</span><span class="o">=</span><span class="p">[</span><span class="mi">502</span><span class="p">,</span> <span class="mi">503</span><span class="p">,</span> <span class="mi">504</span><span class="p">],</span>      <span class="c1"># Retryable HTTP errors</span>
 </span><span data-line="15">    <span class="n">timeout</span><span class="o">=</span><span class="mf">60.0</span><span class="p">,</span>                            <span class="c1"># Total timeout for all attempts</span>
 </span><span data-line="16">    <span class="n">retry_non_idempotent</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>              <span class="c1"># Don&#39;t retry POST by default</span>
@@ -651,7 +763,7 @@
 </div>
 </section>
 <section id="backoff-strategies">
-<h3>Backoff Strategies<a class="headerlink" href="#backoff-strategies" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">Backoff Strategies</a><a class="headerlink" href="#backoff-strategies" title="Link to this heading">¶</a></h3>
 <p>ProxyWhirl supports three backoff strategies:</p>
 <section id="exponential-backoff-recommended">
 <h4>Exponential Backoff (Recommended)<a class="headerlink" href="#exponential-backoff-recommended" title="Link to this heading">¶</a></h4>
@@ -661,15 +773,13 @@
 </span><span data-line="3">    <span class="n">base_delay</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
 </span><span data-line="4">    <span class="n">multiplier</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
 </span><span data-line="5">    <span class="n">max_backoff_delay</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>
-</span><span data-line="6">    <span class="n">jitter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Prevents thundering herd</span>
+</span><span data-line="6">    <span class="n">jitter</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># AWS decorrelated jitter</span>
 </span><span data-line="7"><span class="p">)</span>
 </span><span data-line="8">
-</span><span data-line="9"><span class="c1"># Attempt 0: 1.0s ± 50% jitter</span>
-</span><span data-line="10"><span class="c1"># Attempt 1: 2.0s ± 50% jitter</span>
-</span><span data-line="11"><span class="c1"># Attempt 2: 4.0s ± 50% jitter</span>
-</span><span data-line="12"><span class="c1"># Attempt 3: 8.0s ± 50% jitter</span>
-</span><span data-line="13"><span class="c1"># Attempt 4: 16.0s ± 50% jitter</span>
-</span><span data-line="14"><span class="c1"># Attempt 5+: 30.0s (capped) ± 50% jitter</span>
+</span><span data-line="9"><span class="c1"># Attempt 0: random(0, 1.0s)</span>
+</span><span data-line="10"><span class="c1"># Attempt 1: random(1.0s, previous * 3), capped at 30s</span>
+</span><span data-line="11"><span class="c1"># Attempt 2: random(1.0s, previous * 3), capped at 30s</span>
+</span><span data-line="12"><span class="c1"># Each delay decorrelated from the previous (AWS algorithm)</span>
 </span></pre></div>
 </div>
 </section>
@@ -704,19 +814,25 @@
 </section>
 </section>
 <section id="jitter-explained">
-<h3>Jitter Explained<a class="headerlink" href="#jitter-explained" title="Link to this heading">¶</a></h3>
-<p>Jitter adds randomization to delays (±50%) to prevent synchronized retries across multiple clients:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Without jitter: All clients retry at exactly 1.0s, 2.0s, 4.0s...</span>
-</span><span data-line="2"><span class="c1"># With jitter: Clients retry at random times:</span>
-</span><span data-line="3"><span class="c1">#   Client A: 0.7s, 1.3s, 2.8s...</span>
-</span><span data-line="4"><span class="c1">#   Client B: 1.4s, 2.9s, 5.1s...</span>
-</span><span data-line="5"><span class="c1">#   Client C: 0.9s, 1.1s, 3.7s...</span>
+<h3><a class="toc-backref" href="#id8" role="doc-backlink">Jitter Explained</a><a class="headerlink" href="#jitter-explained" title="Link to this heading">¶</a></h3>
+<p>Jitter uses the <strong>AWS decorrelated jitter algorithm</strong> to prevent synchronized retries across multiple clients. Instead of simple randomization, each retry delay depends on the previous delay:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># AWS decorrelated jitter formula:</span>
+</span><span data-line="2"><span class="c1">#   delay = min(cap, random(base_delay, previous_delay * 3))</span>
+</span><span data-line="3"><span class="c1">#</span>
+</span><span data-line="4"><span class="c1"># First attempt: uniform random from 0 to base delay</span>
+</span><span data-line="5"><span class="c1"># Subsequent attempts: decorrelated from previous delay</span>
+</span><span data-line="6"><span class="c1">#</span>
+</span><span data-line="7"><span class="c1"># Without jitter: All clients retry at exactly 1.0s, 2.0s, 4.0s...</span>
+</span><span data-line="8"><span class="c1"># With jitter: Clients retry at decorrelated random times:</span>
+</span><span data-line="9"><span class="c1">#   Client A: 0.7s, 1.3s, 2.8s...</span>
+</span><span data-line="10"><span class="c1">#   Client B: 1.4s, 2.9s, 5.1s...</span>
+</span><span data-line="11"><span class="c1">#   Client C: 0.9s, 1.1s, 3.7s...</span>
 </span></pre></div>
 </div>
-<p>This prevents “thundering herd” problems where many clients overwhelm a recovering server.</p>
+<p>This prevents “thundering herd” problems where many clients overwhelm a recovering server. See the <a class="reference external" href="https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/">AWS Architecture Blog</a> for background on decorrelated jitter.</p>
 </section>
 <section id="retryable-status-codes">
-<h3>Retryable Status Codes<a class="headerlink" href="#retryable-status-codes" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">Retryable Status Codes</a><a class="headerlink" href="#retryable-status-codes" title="Link to this heading">¶</a></h3>
 <p>By default, ProxyWhirl retries on gateway errors:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Default retry status codes</span>
 </span><span data-line="2"><span class="n">retry_status_codes</span> <span class="o">=</span> <span class="p">[</span><span class="mi">502</span><span class="p">,</span> <span class="mi">503</span><span class="p">,</span> <span class="mi">504</span><span class="p">]</span>
@@ -730,7 +846,7 @@
 <p>4xx errors (client errors) are never retried as they indicate permanent failures.</p>
 </section>
 <section id="timeout-behavior">
-<h3>Timeout Behavior<a class="headerlink" href="#timeout-behavior" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id10" role="doc-backlink">Timeout Behavior</a><a class="headerlink" href="#timeout-behavior" title="Link to this heading">¶</a></h3>
 <p>The <code class="docutils literal notranslate"><span class="pre">timeout</span></code> parameter caps total execution time across all retry attempts:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">policy</span> <span class="o">=</span> <span class="n">RetryPolicy</span><span class="p">(</span>
 </span><span data-line="2">    <span class="n">max_attempts</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
@@ -743,7 +859,7 @@
 </div>
 </section>
 <section id="non-idempotent-requests">
-<h3>Non-Idempotent Requests<a class="headerlink" href="#non-idempotent-requests" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id11" role="doc-backlink">Non-Idempotent Requests</a><a class="headerlink" href="#non-idempotent-requests" title="Link to this heading">¶</a></h3>
 <p>By default, POST/PATCH requests are not retried (they’re not idempotent):</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Default: POST fails immediately without retry</span>
 </span><span data-line="2"><span class="n">rotator</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">&quot;POST&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">json</span><span class="o">=</span><span class="n">data</span><span class="p">)</span>
@@ -760,10 +876,10 @@
 </section>
 </section>
 <section id="circuit-breaker-configuration">
-<h2>Circuit Breaker Configuration<a class="headerlink" href="#circuit-breaker-configuration" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id12" role="doc-backlink">Circuit Breaker Configuration</a><a class="headerlink" href="#circuit-breaker-configuration" title="Link to this heading">¶</a></h2>
 <p>Circuit breakers protect against cascading failures by temporarily removing unhealthy proxies from the rotation pool.</p>
 <section id="sync-vs-async-circuit-breakers">
-<h3>Sync vs Async Circuit Breakers<a class="headerlink" href="#sync-vs-async-circuit-breakers" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">Sync vs Async Circuit Breakers</a><a class="headerlink" href="#sync-vs-async-circuit-breakers" title="Link to this heading">¶</a></h3>
 <p>ProxyWhirl provides two circuit breaker implementations. See <a class="reference internal" href="async-client.html"><span class="doc">Async Client Guide</span></a> for guidance on choosing between sync and async patterns.</p>
 <ul class="simple">
 <li><p><strong><code class="docutils literal notranslate"><span class="pre">CircuitBreaker</span></code></strong> - Synchronous implementation using <code class="docutils literal notranslate"><span class="pre">threading.Lock</span></code></p></li>
@@ -779,7 +895,7 @@
 </span><span data-line="7">    <span class="n">cb</span><span class="o">.</span><span class="n">record_success</span><span class="p">()</span>
 </span><span data-line="8">
 </span><span data-line="9"><span class="c1"># ✅ For async code - use AsyncCircuitBreaker</span>
-</span><span data-line="10"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.circuit_breaker_async</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncCircuitBreaker</span>
+</span><span data-line="10"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.circuit_breaker</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncCircuitBreaker</span>
 </span><span data-line="11">
 </span><span data-line="12"><span class="n">cb</span> <span class="o">=</span> <span class="n">AsyncCircuitBreaker</span><span class="p">(</span><span class="n">proxy_id</span><span class="o">=</span><span class="s2">&quot;proxy-1&quot;</span><span class="p">)</span>
 </span><span data-line="13"><span class="k">await</span> <span class="n">cb</span><span class="o">.</span><span class="n">record_failure</span><span class="p">()</span>  <span class="c1"># Event loop safe</span>
@@ -787,10 +903,10 @@
 </span><span data-line="15">    <span class="k">await</span> <span class="n">cb</span><span class="o">.</span><span class="n">record_success</span><span class="p">()</span>
 </span></pre></div>
 </div>
-<p><strong>WARNING:</strong> Do NOT mix sync locks with async code. The <code class="docutils literal notranslate"><span class="pre">CircuitBreaker</span></code> class has some async methods (<code class="docutils literal notranslate"><span class="pre">save_state</span></code>, <code class="docutils literal notranslate"><span class="pre">load_state</span></code>) for backward compatibility, but these use <code class="docutils literal notranslate"><span class="pre">threading.Lock</span></code> internally which can block the event loop. For production async applications, always use <code class="docutils literal notranslate"><span class="pre">AsyncCircuitBreaker</span></code>.</p>
+<p><strong>WARNING:</strong> Do NOT mix sync locks with async code. The <code class="docutils literal notranslate"><span class="pre">CircuitBreaker</span></code> class uses <code class="docutils literal notranslate"><span class="pre">threading.Lock</span></code> internally which can block the event loop. For production async applications, always use <code class="docutils literal notranslate"><span class="pre">AsyncCircuitBreaker</span></code>.</p>
 </section>
 <section id="state-machine">
-<h3>State Machine<a class="headerlink" href="#state-machine" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id14" role="doc-backlink">State Machine</a><a class="headerlink" href="#state-machine" title="Link to this heading">¶</a></h3>
 <p>Circuit breakers transition through three states:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1">CLOSED → OPEN → HALF_OPEN → CLOSED
 </span><span data-line="2">  ↑                            ↓
@@ -804,7 +920,7 @@
 </ol>
 </section>
 <section id="thresholds-and-configuration">
-<h3>Thresholds and Configuration<a class="headerlink" href="#thresholds-and-configuration" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">Thresholds and Configuration</a><a class="headerlink" href="#thresholds-and-configuration" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.circuit_breaker</span><span class="w"> </span><span class="kn">import</span> <span class="n">CircuitBreaker</span><span class="p">,</span> <span class="n">CircuitBreakerConfig</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># Circuit breakers are created automatically by ProxyRotator</span>
@@ -820,85 +936,8 @@
 </span></pre></div>
 </div>
 </section>
-<section id="circuit-breaker-persistence">
-<h3>Circuit Breaker Persistence<a class="headerlink" href="#circuit-breaker-persistence" title="Link to this heading">¶</a></h3>
-<p>Circuit breaker state can optionally persist across application restarts using SQLite storage.</p>
-<p><strong>For async applications (recommended):</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.circuit_breaker_async</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncCircuitBreaker</span><span class="p">,</span> <span class="n">CircuitBreakerConfig</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.storage</span><span class="w"> </span><span class="kn">import</span> <span class="n">SQLiteStorage</span>
-</span><span data-line="3">
-</span><span data-line="4"><span class="c1"># Configure persistence</span>
-</span><span data-line="5"><span class="n">cb_config</span> <span class="o">=</span> <span class="n">CircuitBreakerConfig</span><span class="p">(</span>
-</span><span data-line="6">    <span class="n">persist_state</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>            <span class="c1"># Enable state persistence</span>
-</span><span data-line="7">    <span class="n">failure_threshold</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-</span><span data-line="8">    <span class="n">window_duration</span><span class="o">=</span><span class="mf">60.0</span><span class="p">,</span>
-</span><span data-line="9">    <span class="n">timeout_duration</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>
-</span><span data-line="10"><span class="p">)</span>
-</span><span data-line="11">
-</span><span data-line="12"><span class="c1"># Initialize storage</span>
-</span><span data-line="13"><span class="n">storage</span> <span class="o">=</span> <span class="n">SQLiteStorage</span><span class="p">(</span><span class="s2">&quot;proxywhirl.db&quot;</span><span class="p">)</span>
-</span><span data-line="14"><span class="k">await</span> <span class="n">storage</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
-</span><span data-line="15">
-</span><span data-line="16"><span class="c1"># Create async circuit breaker with persistence</span>
-</span><span data-line="17"><span class="n">cb</span> <span class="o">=</span> <span class="k">await</span> <span class="n">AsyncCircuitBreaker</span><span class="o">.</span><span class="n">create_with_storage</span><span class="p">(</span>
-</span><span data-line="18">    <span class="n">proxy_id</span><span class="o">=</span><span class="s2">&quot;proxy-123&quot;</span><span class="p">,</span>
-</span><span data-line="19">    <span class="n">storage</span><span class="o">=</span><span class="n">storage</span><span class="p">,</span>
-</span><span data-line="20">    <span class="n">config</span><span class="o">=</span><span class="n">cb_config</span><span class="p">,</span>
-</span><span data-line="21"><span class="p">)</span>
-</span><span data-line="22">
-</span><span data-line="23"><span class="c1"># State automatically saves to database</span>
-</span><span data-line="24"><span class="k">await</span> <span class="n">cb</span><span class="o">.</span><span class="n">record_failure</span><span class="p">()</span>
-</span><span data-line="25"><span class="k">await</span> <span class="n">cb</span><span class="o">.</span><span class="n">save_state</span><span class="p">()</span>
-</span><span data-line="26">
-</span><span data-line="27"><span class="c1"># On next startup, state is restored</span>
-</span><span data-line="28"><span class="n">cb2</span> <span class="o">=</span> <span class="k">await</span> <span class="n">AsyncCircuitBreaker</span><span class="o">.</span><span class="n">create_with_storage</span><span class="p">(</span>
-</span><span data-line="29">    <span class="n">proxy_id</span><span class="o">=</span><span class="s2">&quot;proxy-123&quot;</span><span class="p">,</span>
-</span><span data-line="30">    <span class="n">storage</span><span class="o">=</span><span class="n">storage</span><span class="p">,</span>
-</span><span data-line="31">    <span class="n">config</span><span class="o">=</span><span class="n">cb_config</span><span class="p">,</span>
-</span><span data-line="32"><span class="p">)</span>
-</span><span data-line="33"><span class="nb">print</span><span class="p">(</span><span class="n">cb2</span><span class="o">.</span><span class="n">state</span><span class="p">)</span>           <span class="c1"># Restored from database</span>
-</span></pre></div>
-</div>
-<p><strong>For sync applications:</strong></p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">CircuitBreaker</span><span class="p">,</span> <span class="n">CircuitBreakerConfig</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.storage</span><span class="w"> </span><span class="kn">import</span> <span class="n">SQLiteStorage</span>
-</span><span data-line="3">
-</span><span data-line="4"><span class="n">cb_config</span> <span class="o">=</span> <span class="n">CircuitBreakerConfig</span><span class="p">(</span><span class="n">persist_state</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="5"><span class="n">storage</span> <span class="o">=</span> <span class="n">SQLiteStorage</span><span class="p">(</span><span class="s2">&quot;proxywhirl.db&quot;</span><span class="p">)</span>
-</span><span data-line="6"><span class="k">await</span> <span class="n">storage</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
-</span><span data-line="7">
-</span><span data-line="8"><span class="c1"># Note: CircuitBreaker has async methods for I/O but uses threading.Lock</span>
-</span><span data-line="9"><span class="n">cb</span> <span class="o">=</span> <span class="k">await</span> <span class="n">CircuitBreaker</span><span class="o">.</span><span class="n">create_with_storage</span><span class="p">(</span>
-</span><span data-line="10">    <span class="n">proxy_id</span><span class="o">=</span><span class="s2">&quot;proxy-123&quot;</span><span class="p">,</span>
-</span><span data-line="11">    <span class="n">storage</span><span class="o">=</span><span class="n">storage</span><span class="p">,</span>
-</span><span data-line="12">    <span class="n">config</span><span class="o">=</span><span class="n">cb_config</span><span class="p">,</span>
-</span><span data-line="13"><span class="p">)</span>
-</span><span data-line="14"><span class="nb">print</span><span class="p">(</span><span class="n">cb2</span><span class="o">.</span><span class="n">failure_count</span><span class="p">)</span>   <span class="c1"># Restored from database</span>
-</span></pre></div>
-</div>
-<p><strong>Persistence Benefits:</strong></p>
-<ul class="simple">
-<li><p><strong>Prevents flood on restart</strong>: Circuit breakers remain OPEN if they were failing</p></li>
-<li><p><strong>Maintains failure history</strong>: Rolling window survives application restarts</p></li>
-<li><p><strong>Coordination</strong>: Multiple processes can share circuit breaker state via shared database</p></li>
-</ul>
-<p><strong>Storage Schema:</strong></p>
-<p>The <code class="docutils literal notranslate"><span class="pre">CircuitBreakerStateTable</span></code> stores:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">proxy_id</span></code>: Unique proxy identifier</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">state</span></code>: Current state (CLOSED/OPEN/HALF_OPEN)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">failure_count</span></code>: Current failure count</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">failure_window_json</span></code>: JSON-serialized failure timestamps</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">next_test_time</span></code>: When to test recovery (for OPEN state)</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">last_state_change</span></code>: Timestamp of last state transition</p></li>
-</ul>
-<div class="admonition warning">
-<p class="admonition-title">Warning</p>
-<p>Enable persistence only when necessary - it adds database I/O overhead on every state change.</p>
-</div>
-</section>
 <section id="state-transitions">
-<h3>State Transitions<a class="headerlink" href="#state-transitions" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">State Transitions</a><a class="headerlink" href="#state-transitions" title="Link to this heading">¶</a></h3>
 <section id="closed-open">
 <h4>CLOSED → OPEN<a class="headerlink" href="#closed-open" title="Link to this heading">¶</a></h4>
 <p>Circuit opens when failure count exceeds threshold within the rolling window:</p>
@@ -958,7 +997,7 @@
 </section>
 </section>
 <section id="rolling-window-behavior">
-<h3>Rolling Window Behavior<a class="headerlink" href="#rolling-window-behavior" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id17" role="doc-backlink">Rolling Window Behavior</a><a class="headerlink" href="#rolling-window-behavior" title="Link to this heading">¶</a></h3>
 <p>The circuit breaker uses a sliding window to track recent failures:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">cb</span> <span class="o">=</span> <span class="n">CircuitBreaker</span><span class="p">(</span>
 </span><span data-line="2">    <span class="n">proxy_id</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">proxy</span><span class="o">.</span><span class="n">id</span><span class="p">),</span>
@@ -982,7 +1021,7 @@
 </div>
 </section>
 <section id="manual-reset">
-<h3>Manual Reset<a class="headerlink" href="#manual-reset" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Manual Reset</a><a class="headerlink" href="#manual-reset" title="Link to this heading">¶</a></h3>
 <p>Reset circuit breaker to CLOSED state manually:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Force reset (useful for testing or manual intervention)</span>
 </span><span data-line="2"><span class="n">cb</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
@@ -994,10 +1033,10 @@
 </section>
 </section>
 <section id="intelligent-proxy-selection">
-<h2>Intelligent Proxy Selection<a class="headerlink" href="#intelligent-proxy-selection" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id19" role="doc-backlink">Intelligent Proxy Selection</a><a class="headerlink" href="#intelligent-proxy-selection" title="Link to this heading">¶</a></h2>
 <p>When retries are exhausted, ProxyWhirl automatically selects the best alternative proxy using performance-based scoring.</p>
 <section id="selection-algorithm">
-<h3>Selection Algorithm<a class="headerlink" href="#selection-algorithm" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id20" role="doc-backlink">Selection Algorithm</a><a class="headerlink" href="#selection-algorithm" title="Link to this heading">¶</a></h3>
 <p>The executor scores each candidate proxy using:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span><span data-line="1">score = (0.7 × success_rate) + (0.3 × (1 - normalized_latency))
 </span></pre></div>
@@ -1009,7 +1048,7 @@
 </ul>
 </section>
 <section id="example-performance-based-selection">
-<h3>Example: Performance-Based Selection<a class="headerlink" href="#example-performance-based-selection" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">Example: Performance-Based Selection</a><a class="headerlink" href="#example-performance-based-selection" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">ProxyRotator</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># Create proxies with different success rates</span>
@@ -1032,7 +1071,7 @@
 </div>
 </section>
 <section id="example-geo-targeted-selection">
-<h3>Example: Geo-Targeted Selection<a class="headerlink" href="#example-geo-targeted-selection" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id22" role="doc-backlink">Example: Geo-Targeted Selection</a><a class="headerlink" href="#example-geo-targeted-selection" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Create proxies with different regions</span>
 </span><span data-line="2"><span class="n">proxy_us</span> <span class="o">=</span> <span class="n">Proxy</span><span class="p">(</span>
 </span><span data-line="3">    <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy-us.example.com:8080&quot;</span><span class="p">,</span>
@@ -1064,7 +1103,7 @@
 </div>
 </section>
 <section id="exclusion-rules">
-<h3>Exclusion Rules<a class="headerlink" href="#exclusion-rules" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">Exclusion Rules</a><a class="headerlink" href="#exclusion-rules" title="Link to this heading">¶</a></h3>
 <p>The selection algorithm excludes:</p>
 <ol class="arabic simple">
 <li><p><strong>Failed proxy</strong> - The proxy that just failed is never selected</p></li>
@@ -1079,14 +1118,14 @@
 </section>
 </section>
 <section id="retrymetrics-and-observability">
-<h2>RetryMetrics and Observability<a class="headerlink" href="#retrymetrics-and-observability" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id24" role="doc-backlink">RetryMetrics and Observability</a><a class="headerlink" href="#retrymetrics-and-observability" title="Link to this heading">¶</a></h2>
 <p>ProxyWhirl tracks detailed metrics for monitoring, debugging, and analytics.</p>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
 <p>You can also view retry and circuit breaker statistics from the command line using <code class="docutils literal notranslate"><span class="pre">proxywhirl</span> <span class="pre">stats</span> <span class="pre">--retry</span> <span class="pre">--circuit-breaker</span></code>. See <a class="reference internal" href="cli-reference.html"><span class="doc">CLI Reference</span></a> for details.</p>
 </div>
 <section id="collecting-metrics">
-<h3>Collecting Metrics<a class="headerlink" href="#collecting-metrics" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id25" role="doc-backlink">Collecting Metrics</a><a class="headerlink" href="#collecting-metrics" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
@@ -1101,7 +1140,7 @@
 </div>
 </section>
 <section id="summary-statistics">
-<h3>Summary Statistics<a class="headerlink" href="#summary-statistics" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">Summary Statistics</a><a class="headerlink" href="#summary-statistics" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">summary</span> <span class="o">=</span> <span class="n">metrics</span><span class="o">.</span><span class="n">get_summary</span><span class="p">()</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="nb">print</span><span class="p">(</span><span class="n">summary</span><span class="p">)</span>
@@ -1119,7 +1158,7 @@
 </div>
 </section>
 <section id="time-series-data">
-<h3>Time-Series Data<a class="headerlink" href="#time-series-data" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id27" role="doc-backlink">Time-Series Data</a><a class="headerlink" href="#time-series-data" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Get hourly aggregated data for last 24 hours</span>
 </span><span data-line="2"><span class="n">timeseries</span> <span class="o">=</span> <span class="n">metrics</span><span class="o">.</span><span class="n">get_timeseries</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">24</span><span class="p">)</span>
 </span><span data-line="3">
@@ -1136,7 +1175,7 @@
 </div>
 </section>
 <section id="per-proxy-statistics">
-<h3>Per-Proxy Statistics<a class="headerlink" href="#per-proxy-statistics" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">Per-Proxy Statistics</a><a class="headerlink" href="#per-proxy-statistics" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Get retry statistics by proxy</span>
 </span><span data-line="2"><span class="n">by_proxy</span> <span class="o">=</span> <span class="n">metrics</span><span class="o">.</span><span class="n">get_by_proxy</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">24</span><span class="p">)</span>
 </span><span data-line="3">
@@ -1154,7 +1193,7 @@
 </div>
 </section>
 <section id="circuit-breaker-events">
-<h3>Circuit Breaker Events<a class="headerlink" href="#circuit-breaker-events" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">Circuit Breaker Events</a><a class="headerlink" href="#circuit-breaker-events" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Access circuit breaker state changes</span>
 </span><span data-line="2"><span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">circuit_breaker_events</span><span class="p">:</span>
 </span><span data-line="3">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">timestamp</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">event</span><span class="o">.</span><span class="n">proxy_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
@@ -1177,7 +1216,7 @@
 </div>
 </section>
 <section id="hourly-aggregation">
-<h3>Hourly Aggregation<a class="headerlink" href="#hourly-aggregation" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id30" role="doc-backlink">Hourly Aggregation</a><a class="headerlink" href="#hourly-aggregation" title="Link to this heading">¶</a></h3>
 <p>Metrics automatically aggregate into hourly summaries to prevent unbounded memory growth:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Manually trigger aggregation (normally runs automatically)</span>
 </span><span data-line="2"><span class="n">metrics</span><span class="o">.</span><span class="n">aggregate_hourly</span><span class="p">()</span>
@@ -1191,8 +1230,8 @@
 </div>
 </section>
 <section id="retention-configuration">
-<h3>Retention Configuration<a class="headerlink" href="#retention-configuration" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.retry_metrics</span><span class="w"> </span><span class="kn">import</span> <span class="n">RetryMetrics</span>
+<h3><a class="toc-backref" href="#id31" role="doc-backlink">Retention Configuration</a><a class="headerlink" href="#retention-configuration" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.retry</span><span class="w"> </span><span class="kn">import</span> <span class="n">RetryMetrics</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># Custom retention and limits</span>
 </span><span data-line="4"><span class="n">metrics</span> <span class="o">=</span> <span class="n">RetryMetrics</span><span class="p">(</span>
@@ -1207,10 +1246,10 @@
 </section>
 </section>
 <section id="retryexecutor-deep-dive">
-<h2>RetryExecutor Deep Dive<a class="headerlink" href="#retryexecutor-deep-dive" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id32" role="doc-backlink">RetryExecutor Deep Dive</a><a class="headerlink" href="#retryexecutor-deep-dive" title="Link to this heading">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">RetryExecutor</span></code> is the core orchestration class that coordinates retry logic, circuit breakers, and metrics collection.</p>
 <section id="how-retries-work-internally">
-<h3>How Retries Work Internally<a class="headerlink" href="#how-retries-work-internally" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id33" role="doc-backlink">How Retries Work Internally</a><a class="headerlink" href="#how-retries-work-internally" title="Link to this heading">¶</a></h3>
 <p>When you call <code class="docutils literal notranslate"><span class="pre">rotator.request()</span></code>, the following sequence occurs:</p>
 <ol class="arabic simple">
 <li><p><strong>Idempotency Check</strong>: Determines if the HTTP method is safe to retry (GET/HEAD/OPTIONS/DELETE/PUT are idempotent)</p></li>
@@ -1224,7 +1263,7 @@
 </ol>
 </section>
 <section id="retryable-vs-non-retryable-errors">
-<h3>Retryable vs Non-Retryable Errors<a class="headerlink" href="#retryable-vs-non-retryable-errors" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id34" role="doc-backlink">Retryable vs Non-Retryable Errors</a><a class="headerlink" href="#retryable-vs-non-retryable-errors" title="Link to this heading">¶</a></h3>
 <p>The executor classifies errors into two categories:</p>
 <p><strong>Retryable Errors</strong> (trigger retry with backoff):</p>
 <ul class="simple">
@@ -1242,7 +1281,7 @@
 <li><p><code class="docutils literal notranslate"><span class="pre">NonRetryableError</span></code> (custom application errors)</p></li>
 <li><p>Any exception not in the retryable types list</p></li>
 </ul>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.retry_executor</span><span class="w"> </span><span class="kn">import</span> <span class="n">RetryExecutor</span><span class="p">,</span> <span class="n">NonRetryableError</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.retry</span><span class="w"> </span><span class="kn">import</span> <span class="n">RetryExecutor</span><span class="p">,</span> <span class="n">NonRetryableError</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># Custom error handling</span>
 </span><span data-line="4"><span class="k">try</span><span class="p">:</span>
@@ -1254,10 +1293,10 @@
 </div>
 </section>
 <section id="direct-retryexecutor-usage">
-<h3>Direct RetryExecutor Usage<a class="headerlink" href="#direct-retryexecutor-usage" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id35" role="doc-backlink">Direct RetryExecutor Usage</a><a class="headerlink" href="#direct-retryexecutor-usage" title="Link to this heading">¶</a></h3>
 <p>For advanced use cases, you can use <code class="docutils literal notranslate"><span class="pre">RetryExecutor</span></code> directly:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">RetryPolicy</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.retry_executor</span><span class="w"> </span><span class="kn">import</span> <span class="n">RetryExecutor</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.retry</span><span class="w"> </span><span class="kn">import</span> <span class="n">RetryExecutor</span>
 </span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">httpx</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="c1"># Create executor with custom policy</span>
@@ -1288,9 +1327,9 @@
 </section>
 </section>
 <section id="integration-with-proxyrotator">
-<h2>Integration with ProxyRotator<a class="headerlink" href="#integration-with-proxyrotator" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id36" role="doc-backlink">Integration with ProxyRotator</a><a class="headerlink" href="#integration-with-proxyrotator" title="Link to this heading">¶</a></h2>
 <section id="basic-usage">
-<h3>Basic Usage<a class="headerlink" href="#basic-usage" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id37" role="doc-backlink">Basic Usage</a><a class="headerlink" href="#basic-usage" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">RetryPolicy</span><span class="p">,</span> <span class="n">BackoffStrategy</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># Automatic retry and failover</span>
@@ -1309,9 +1348,9 @@
 </div>
 </section>
 <section id="custom-error-handling">
-<h3>Custom Error Handling<a class="headerlink" href="#custom-error-handling" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id38" role="doc-backlink">Custom Error Handling</a><a class="headerlink" href="#custom-error-handling" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyConnectionError</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.retry_executor</span><span class="w"> </span><span class="kn">import</span> <span class="n">NonRetryableError</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.retry</span><span class="w"> </span><span class="kn">import</span> <span class="n">NonRetryableError</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="k">try</span><span class="p">:</span>
 </span><span data-line="5">    <span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
@@ -1325,7 +1364,7 @@
 </div>
 </section>
 <section id="monitoring-circuit-breakers">
-<h3>Monitoring Circuit Breakers<a class="headerlink" href="#monitoring-circuit-breakers" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id39" role="doc-backlink">Monitoring Circuit Breakers</a><a class="headerlink" href="#monitoring-circuit-breakers" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Check circuit breaker status</span>
 </span><span data-line="2"><span class="k">for</span> <span class="n">proxy</span> <span class="ow">in</span> <span class="n">rotator</span><span class="o">.</span><span class="n">pool</span><span class="o">.</span><span class="n">proxies</span><span class="p">:</span>
 </span><span data-line="3">    <span class="n">cb</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">circuit_breakers</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">proxy</span><span class="o">.</span><span class="n">id</span><span class="p">))</span>
@@ -1340,7 +1379,7 @@
 </div>
 </section>
 <section id="manual-circuit-reset">
-<h3>Manual Circuit Reset<a class="headerlink" href="#manual-circuit-reset" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id40" role="doc-backlink">Manual Circuit Reset</a><a class="headerlink" href="#manual-circuit-reset" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Reset all circuit breakers</span>
 </span><span data-line="2"><span class="k">for</span> <span class="n">cb</span> <span class="ow">in</span> <span class="n">rotator</span><span class="o">.</span><span class="n">circuit_breakers</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
 </span><span data-line="3">    <span class="n">cb</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
@@ -1352,7 +1391,7 @@
 </div>
 </section>
 <section id="integration-with-rotation-strategies">
-<h3>Integration with Rotation Strategies<a class="headerlink" href="#integration-with-rotation-strategies" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id41" role="doc-backlink">Integration with Rotation Strategies</a><a class="headerlink" href="#integration-with-rotation-strategies" title="Link to this heading">¶</a></h3>
 <p>Retry and failover logic works seamlessly with all rotation strategies. For detailed strategy configuration, see <a class="reference internal" href="advanced-strategies.html"><span class="doc">Advanced Rotation Strategies</span></a>.</p>
 <section id="round-robin-with-automatic-failover">
 <h4>Round-Robin with Automatic Failover<a class="headerlink" href="#round-robin-with-automatic-failover" title="Link to this heading">¶</a></h4>
@@ -1452,9 +1491,9 @@
 </section>
 </section>
 <section id="advanced-patterns">
-<h2>Advanced Patterns<a class="headerlink" href="#advanced-patterns" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id42" role="doc-backlink">Advanced Patterns</a><a class="headerlink" href="#advanced-patterns" title="Link to this heading">¶</a></h2>
 <section id="adaptive-retry-policy">
-<h3>Adaptive Retry Policy<a class="headerlink" href="#adaptive-retry-policy" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id43" role="doc-backlink">Adaptive Retry Policy</a><a class="headerlink" href="#adaptive-retry-policy" title="Link to this heading">¶</a></h3>
 <p>Adjust retry policy based on conditions:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">def</span><span class="w"> </span><span class="nf">get_adaptive_policy</span><span class="p">(</span><span class="n">time_sensitive</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RetryPolicy</span><span class="p">:</span>
 </span><span data-line="2"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Adjust retry policy based on request priority.&quot;&quot;&quot;</span>
@@ -1486,7 +1525,7 @@
 </div>
 </section>
 <section id="circuit-breaker-alerts">
-<h3>Circuit Breaker Alerts<a class="headerlink" href="#circuit-breaker-alerts" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id44" role="doc-backlink">Circuit Breaker Alerts</a><a class="headerlink" href="#circuit-breaker-alerts" title="Link to this heading">¶</a></h3>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Circuit breaker state changes also trigger cache health invalidation when configured. See <a class="reference internal" href="caching.html"><span class="doc">Caching Subsystem Guide</span></a> for cache-level health integration.</p>
@@ -1513,7 +1552,7 @@
 </div>
 </section>
 <section id="request-level-retry-override">
-<h3>Request-Level Retry Override<a class="headerlink" href="#request-level-retry-override" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id45" role="doc-backlink">Request-Level Retry Override</a><a class="headerlink" href="#request-level-retry-override" title="Link to this heading">¶</a></h3>
 <p>Override retry policy for specific requests:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">RetryPolicy</span><span class="p">,</span> <span class="n">BackoffStrategy</span>
 </span><span data-line="2">
@@ -1532,7 +1571,7 @@
 </span><span data-line="15">
 </span><span data-line="16"><span class="c1"># Note: Currently requires creating new executor</span>
 </span><span data-line="17"><span class="c1"># This pattern may be simplified in future versions</span>
-</span><span data-line="18"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.retry_executor</span><span class="w"> </span><span class="kn">import</span> <span class="n">RetryExecutor</span>
+</span><span data-line="18"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.retry</span><span class="w"> </span><span class="kn">import</span> <span class="n">RetryExecutor</span>
 </span><span data-line="19">
 </span><span data-line="20"><span class="n">executor</span> <span class="o">=</span> <span class="n">RetryExecutor</span><span class="p">(</span>
 </span><span data-line="21">    <span class="n">critical_policy</span><span class="p">,</span>
@@ -1547,9 +1586,9 @@
 </section>
 </section>
 <section id="best-practices">
-<h2>Best Practices<a class="headerlink" href="#best-practices" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id46" role="doc-backlink">Best Practices</a><a class="headerlink" href="#best-practices" title="Link to this heading">¶</a></h2>
 <section id="start-conservative-tune-later">
-<h3>1. Start Conservative, Tune Later<a class="headerlink" href="#start-conservative-tune-later" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id47" role="doc-backlink">1. Start Conservative, Tune Later</a><a class="headerlink" href="#start-conservative-tune-later" title="Link to this heading">¶</a></h3>
 <p>Begin with safe defaults and adjust based on metrics:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Start here</span>
 </span><span data-line="2"><span class="n">policy</span> <span class="o">=</span> <span class="n">RetryPolicy</span><span class="p">(</span>
@@ -1566,7 +1605,7 @@
 </div>
 </section>
 <section id="always-use-jitter-in-production">
-<h3>2. Always Use Jitter in Production<a class="headerlink" href="#always-use-jitter-in-production" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id48" role="doc-backlink">2. Always Use Jitter in Production</a><a class="headerlink" href="#always-use-jitter-in-production" title="Link to this heading">¶</a></h3>
 <p>Jitter prevents thundering herd problems:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Production: Use jitter</span>
 </span><span data-line="2"><span class="n">policy</span> <span class="o">=</span> <span class="n">RetryPolicy</span><span class="p">(</span><span class="n">jitter</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
@@ -1577,7 +1616,7 @@
 </div>
 </section>
 <section id="monitor-circuit-breaker-opens">
-<h3>3. Monitor Circuit Breaker Opens<a class="headerlink" href="#monitor-circuit-breaker-opens" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id49" role="doc-backlink">3. Monitor Circuit Breaker Opens</a><a class="headerlink" href="#monitor-circuit-breaker-opens" title="Link to this heading">¶</a></h3>
 <p>Frequent circuit opens indicate systemic issues:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Alert if &gt;10% of proxies have open circuits</span>
 </span><span data-line="2"><span class="n">open_circuits</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
@@ -1592,7 +1631,7 @@
 </div>
 </section>
 <section id="set-timeouts-for-time-sensitive-requests">
-<h3>4. Set Timeouts for Time-Sensitive Requests<a class="headerlink" href="#set-timeouts-for-time-sensitive-requests" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id50" role="doc-backlink">4. Set Timeouts for Time-Sensitive Requests</a><a class="headerlink" href="#set-timeouts-for-time-sensitive-requests" title="Link to this heading">¶</a></h3>
 <p>Prevent unbounded retry delays:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Time-sensitive request: Fail fast</span>
 </span><span data-line="2"><span class="n">policy</span> <span class="o">=</span> <span class="n">RetryPolicy</span><span class="p">(</span>
@@ -1609,7 +1648,7 @@
 </div>
 </section>
 <section id="use-metrics-for-capacity-planning">
-<h3>5. Use Metrics for Capacity Planning<a class="headerlink" href="#use-metrics-for-capacity-planning" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id51" role="doc-backlink">5. Use Metrics for Capacity Planning</a><a class="headerlink" href="#use-metrics-for-capacity-planning" title="Link to this heading">¶</a></h3>
 <p>Track retry rates to identify proxy quality issues:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">summary</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">retry_metrics</span><span class="o">.</span><span class="n">get_summary</span><span class="p">()</span>
 </span><span data-line="2"><span class="n">success_first_attempt</span> <span class="o">=</span> <span class="n">summary</span><span class="p">[</span><span class="s2">&quot;success_by_attempt&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
@@ -1627,9 +1666,9 @@
 </section>
 </section>
 <section id="troubleshooting">
-<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id52" role="doc-backlink">Troubleshooting</a><a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
 <section id="all-retries-exhausted">
-<h3>All Retries Exhausted<a class="headerlink" href="#all-retries-exhausted" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id53" role="doc-backlink">All Retries Exhausted</a><a class="headerlink" href="#all-retries-exhausted" title="Link to this heading">¶</a></h3>
 <p><strong>Symptom:</strong> <code class="docutils literal notranslate"><span class="pre">ProxyConnectionError:</span> <span class="pre">Request</span> <span class="pre">failed</span> <span class="pre">after</span> <span class="pre">N</span> <span class="pre">attempts</span></code></p>
 <p><strong>Causes:</strong></p>
 <ol class="arabic simple">
@@ -1649,19 +1688,16 @@
 </span><span data-line="9"><span class="k">for</span> <span class="n">cb</span> <span class="ow">in</span> <span class="n">rotator</span><span class="o">.</span><span class="n">circuit_breakers</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
 </span><span data-line="10">    <span class="n">cb</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 </span><span data-line="11">
-</span><span data-line="12"><span class="c1"># Refresh proxy pool</span>
-</span><span data-line="13"><span class="n">rotator</span><span class="o">.</span><span class="n">refresh</span><span class="p">()</span>
-</span><span data-line="14">
-</span><span data-line="15"><span class="c1"># Check per-proxy statistics</span>
-</span><span data-line="16"><span class="n">by_proxy</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">retry_metrics</span><span class="o">.</span><span class="n">get_by_proxy</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</span><span data-line="17"><span class="k">for</span> <span class="n">proxy_id</span><span class="p">,</span> <span class="n">stats</span> <span class="ow">in</span> <span class="n">by_proxy</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span data-line="18">    <span class="k">if</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;success_count&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="19">        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dead proxy: </span><span class="si">{</span><span class="n">proxy_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="12"><span class="c1"># Check per-proxy statistics</span>
+</span><span data-line="13"><span class="n">by_proxy</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">retry_metrics</span><span class="o">.</span><span class="n">get_by_proxy</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="14"><span class="k">for</span> <span class="n">proxy_id</span><span class="p">,</span> <span class="n">stats</span> <span class="ow">in</span> <span class="n">by_proxy</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span data-line="15">    <span class="k">if</span> <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;success_count&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="16">        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Dead proxy: </span><span class="si">{</span><span class="n">proxy_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
 <section id="high-latency">
-<h3>High Latency<a class="headerlink" href="#high-latency" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id54" role="doc-backlink">High Latency</a><a class="headerlink" href="#high-latency" title="Link to this heading">¶</a></h3>
 <p><strong>Symptom:</strong> Requests take a long time to complete</p>
 <p><strong>Causes:</strong></p>
 <ol class="arabic simple">
@@ -1691,7 +1727,7 @@
 </div>
 </section>
 <section id="non-retryable-errors">
-<h3>Non-Retryable Errors<a class="headerlink" href="#non-retryable-errors" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id55" role="doc-backlink">Non-Retryable Errors</a><a class="headerlink" href="#non-retryable-errors" title="Link to this heading">¶</a></h3>
 <p><strong>Symptom:</strong> <code class="docutils literal notranslate"><span class="pre">NonRetryableError</span></code> raised immediately</p>
 <p><strong>Causes:</strong></p>
 <ol class="arabic simple">
@@ -1709,7 +1745,7 @@
 </section>
 </section>
 <section id="performance-impact">
-<h2>Performance Impact<a class="headerlink" href="#performance-impact" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id56" role="doc-backlink">Performance Impact</a><a class="headerlink" href="#performance-impact" title="Link to this heading">¶</a></h2>
 <p>Retry logic adds minimal overhead:</p>
 <ul class="simple">
 <li><p><strong>Circuit breaker check:</strong> O(1) dictionary lookup</p></li>
@@ -1725,7 +1761,7 @@
 </ul>
 </section>
 <section id="see-also">
-<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id57" role="doc-backlink">See Also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
 <div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-3 sd-g-xs-3 sd-g-sm-3 sd-g-md-3 sd-g-lg-3 docutils">
 <div class="sd-col sd-d-flex-row docutils">
@@ -1786,7 +1822,7 @@ CLI Reference</div>
 </div>
 </section>
 <section id="summary">
-<h2>Summary<a class="headerlink" href="#summary" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id58" role="doc-backlink">Summary</a><a class="headerlink" href="#summary" title="Link to this heading">¶</a></h2>
 <p>ProxyWhirl’s retry and failover system provides:</p>
 <ul class="simple">
 <li><p><strong>Flexible retry policies</strong> with exponential, linear, or fixed backoff</p></li>

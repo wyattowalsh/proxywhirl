@@ -11,7 +11,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=43a92ad3" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=b31b09b0" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,12 +24,12 @@
     <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://proxywhirl.readthedocs.io/guides/advanced-strategies.html"/>
   <meta property="og:title" content="Advanced Rotation Strategies"/>
-  <meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
     <meta name="twitter:card" content="summary"/>
-<meta name="twitter:creator" content="@@wyaborern"/>
-<meta name="twitter:site" content="@@wyaborern"/>
+<meta name="twitter:creator" content="@wyaborern"/>
+<meta name="twitter:site" content="@wyaborern"/>
   </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="pw-navbar">
   <div class="pw-navbar-inner">
     
@@ -38,7 +38,7 @@
     </button>
 
     
-    <a href="/" class="pw-navbar-brand">
+    <a href="../index.html" class="pw-navbar-brand">
       <svg class="pw-navbar-logo" viewBox="0 0 100 100" aria-hidden="true">
         <defs>
           <linearGradient id="pw-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -60,17 +60,25 @@
     </a>
 
     
-    <nav class="pw-navbar-links">
-      <a href="/docs/" class="pw-navbar-link active">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-        Docs
+    <nav class="pw-navbar-links" aria-label="Main navigation">
+      <a href="../getting-started/index.html" class="pw-navbar-link" data-section="getting-started">
+        Getting Started
+      </a>
+      <a href="index.html" class="pw-navbar-link" data-section="guides">
+        Guides
+      </a>
+      <a href="../reference/index.html" class="pw-navbar-link" data-section="reference">
+        Reference
+      </a>
+      <a href="../project/index.html" class="pw-navbar-link" data-section="project">
+        Project
       </a>
     </nav>
 
     
     <div class="pw-navbar-actions">
       
-      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme">
+      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme" aria-pressed="false">
         <svg class="pw-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
         <svg class="pw-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       </button>
@@ -82,24 +90,43 @@
     </div>
   </div>
 </header>
+<div id="main-content"></div>
 
 <script>
 (function() {
+  /* Theme toggle */
   var toggle = document.getElementById('pw-theme-toggle');
-  if (!toggle) return;
-  toggle.addEventListener('click', function() {
-    var isDark = document.documentElement.classList.contains('dark');
-    var next = isDark ? 'light' : 'dark';
-    localStorage._theme = next;
-    if (typeof setColorMode === 'function') {
-      setColorMode(next);
-    } else {
-      var html = document.documentElement;
-      html.classList.remove('dark', 'light');
-      html.classList.add(next);
-      html.setAttribute('data-color-mode', next);
+  if (toggle) {
+    /* Set initial aria-pressed based on current theme */
+    var currentlyDark = document.documentElement.classList.contains('dark');
+    toggle.setAttribute('aria-pressed', currentlyDark ? 'true' : 'false');
+
+    toggle.addEventListener('click', function() {
+      var isDark = document.documentElement.classList.contains('dark');
+      var next = isDark ? 'light' : 'dark';
+      localStorage._theme = next;
+      if (typeof setColorMode === 'function') {
+        setColorMode(next);
+      } else {
+        var html = document.documentElement;
+        html.classList.remove('dark', 'light');
+        html.classList.add(next);
+        html.setAttribute('data-color-mode', next);
+      }
+      toggle.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+    });
+  }
+
+  /* Active nav link detection — highlight current section */
+  var path = window.location.pathname;
+  var links = document.querySelectorAll('.pw-navbar-link[data-section]');
+  links.forEach(function(link) {
+    var section = link.getAttribute('data-section');
+    if (path.indexOf('/' + section) !== -1) {
+      link.classList.add('active');
     }
   });
+  /* Mark home page — none active, or all inactive is fine */
 })();
 </script>
 <div class="sy-page sy-container flex mx-auto">
@@ -114,19 +141,24 @@
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#basic-usage-sync">Basic Usage (sync)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#async-usage">Async Usage</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#context-manager-pattern">Context Manager Pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#authenticated-proxies">Authenticated Proxies</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#using-free-proxy-lists">Using Free Proxy Lists</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#fetching-proxies-programmatically">Fetching Proxies Programmatically</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#choosing-a-rotation-strategy">Choosing a Rotation Strategy</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#configuring-retry-and-circuit-breakers">Configuring Retry and Circuit Breakers</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#monitoring-your-pool">Monitoring Your Pool</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#troubleshooting">Troubleshooting</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#next-steps">Next Steps</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#for-contributors">For Contributors</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a Rotator</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#quick-pick-guide">Quick-Pick Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-reference">Strategy Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#comparison-at-a-glance">Comparison At a Glance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
@@ -134,19 +166,6 @@
 </li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l1 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#core-strategies">Core Strategies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#advanced-strategies">Advanced Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Guides</a><ul class="current">
@@ -224,7 +243,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="deployment-security.html#overview">Overview</a></li>
 <li class="toctree-l4"><a class="reference internal" href="deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a></li>
 <li class="toctree-l4"><a class="reference internal" href="deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a></li>
@@ -257,7 +275,7 @@
 <li class="toctree-l4"><a class="reference internal" href="automation.html#automating-releases">Automating Releases</a></li>
 <li class="toctree-l4"><a class="reference internal" href="automation.html#docsearch-credentials">DocSearch Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="automation.html#ci-stage-summary">CI Stage Summary</a></li>
-<li class="toctree-l4"><a class="reference internal" href="automation.html#further-reading">Further Reading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="automation.html#see-also">See Also</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="mcp-server.html">MCP Server Guide</a><ul>
@@ -291,6 +309,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#getting-started">Getting Started</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#middleware">Middleware</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#endpoint-reference">Endpoint Reference</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#rate-limiting">Rate Limiting</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#error-handling">Error Handling</a></li>
@@ -392,23 +411,25 @@
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#code-style">Code Style</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#pre-commit-hooks">Pre-commit Hooks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#testing-guidelines">Testing Guidelines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#extending-with-custom-strategies">Extending with Custom Strategies</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#ci-cd-pipelines">CI/CD Pipelines</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#quality-gate-pipeline">Quality Gate Pipeline</a></li>
 </ul>
 </li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#module-map">Module Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-exports">Key Exports</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#changelog-highlights">Changelog Highlights</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#recent">Recent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#phase-completion-status">Phase Completion Status</a></li>
 </ul>
 </li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-modules">Key Modules</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#license">License</a></li>
 </ul>
 </li>
@@ -603,10 +624,10 @@
         </a></div>
     </div>
   </div>
-</div><article class="yue" role="main">
+</div><article class="yue dark-code" role="main">
           <section id="advanced-rotation-strategies">
 <h1>Advanced Rotation Strategies<a class="headerlink" href="#advanced-rotation-strategies" title="Link to this heading">¶</a></h1>
-<p>ProxyWhirl provides 8 built-in rotation strategies for intelligent proxy selection. This guide covers the advanced strategies beyond basic round-robin and random selection, including performance-based routing, session persistence, geo-targeting, cost optimization, and composite strategies.</p>
+<p>ProxyWhirl provides 9 built-in rotation strategies for intelligent proxy selection. This guide covers the advanced strategies beyond basic round-robin and random selection, including performance-based routing, session persistence, geo-targeting, cost optimization, and composite strategies.</p>
 <nav class="contents local" id="contents">
 <ul class="simple">
 <li><p><a class="reference internal" href="#overview" id="id18">Overview</a></p>
@@ -839,12 +860,12 @@
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Create proxies</span>
 </span><span data-line="5"><span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span>
-</span><span data-line="6">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">,</span> <span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">),</span>
-</span><span data-line="7">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">,</span> <span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">),</span>
-</span><span data-line="8">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy3.example.com:8080&quot;</span><span class="p">,</span> <span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">),</span>
+</span><span data-line="6">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">),</span>
+</span><span data-line="7">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">),</span>
+</span><span data-line="8">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy3.example.com:8080&quot;</span><span class="p">),</span>
 </span><span data-line="9"><span class="p">]</span>
 </span><span data-line="10">
-</span><span data-line="11"><span class="c1"># Configure strategy with EMA parameters</span>
+</span><span data-line="11"><span class="c1"># Configure strategy with EMA parameters via StrategyConfig (not on Proxy)</span>
 </span><span data-line="12"><span class="n">config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span>
 </span><span data-line="13">    <span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>  <span class="c1"># Smoothing factor: higher = more weight to recent values</span>
 </span><span data-line="14"><span class="p">)</span>
@@ -1496,12 +1517,12 @@
 </span><span data-line="6">
 </span><span data-line="7"><span class="n">us_proxies</span> <span class="o">=</span> <span class="p">[</span>
 </span><span data-line="8">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://us</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.com:8080&quot;</span><span class="p">,</span> <span class="n">country_code</span><span class="o">=</span><span class="s2">&quot;US&quot;</span><span class="p">,</span>
-</span><span data-line="9">          <span class="n">health_status</span><span class="o">=</span><span class="n">HealthStatus</span><span class="o">.</span><span class="n">HEALTHY</span><span class="p">,</span> <span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+</span><span data-line="9">          <span class="n">health_status</span><span class="o">=</span><span class="n">HealthStatus</span><span class="o">.</span><span class="n">HEALTHY</span><span class="p">)</span>
 </span><span data-line="10">    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
 </span><span data-line="11"><span class="p">]</span>
 </span><span data-line="12"><span class="n">uk_proxies</span> <span class="o">=</span> <span class="p">[</span>
 </span><span data-line="13">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://uk</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.com:8080&quot;</span><span class="p">,</span> <span class="n">country_code</span><span class="o">=</span><span class="s2">&quot;GB&quot;</span><span class="p">,</span>
-</span><span data-line="14">          <span class="n">health_status</span><span class="o">=</span><span class="n">HealthStatus</span><span class="o">.</span><span class="n">HEALTHY</span><span class="p">,</span> <span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+</span><span data-line="14">          <span class="n">health_status</span><span class="o">=</span><span class="n">HealthStatus</span><span class="o">.</span><span class="n">HEALTHY</span><span class="p">)</span>
 </span><span data-line="15">    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
 </span><span data-line="16"><span class="p">]</span>
 </span><span data-line="17">
@@ -1549,29 +1570,28 @@
 </span><span data-line="8">        <span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://proxy</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.com:8080&quot;</span><span class="p">,</span>
 </span><span data-line="9">        <span class="n">country_code</span><span class="o">=</span><span class="n">country</span><span class="p">,</span>
 </span><span data-line="10">        <span class="n">health_status</span><span class="o">=</span><span class="n">HealthStatus</span><span class="o">.</span><span class="n">HEALTHY</span><span class="p">,</span>
-</span><span data-line="11">        <span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
-</span><span data-line="12">    <span class="p">)</span>
-</span><span data-line="13">    <span class="n">proxy</span><span class="o">.</span><span class="n">start_request</span><span class="p">()</span>
-</span><span data-line="14">    <span class="n">proxy</span><span class="o">.</span><span class="n">complete_request</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">response_time_ms</span><span class="o">=</span><span class="mf">100.0</span><span class="p">)</span>
-</span><span data-line="15">    <span class="n">pool</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">proxy</span><span class="p">)</span>
-</span><span data-line="16">
-</span><span data-line="17"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CompositeStrategy</span><span class="p">(</span>
-</span><span data-line="18">    <span class="n">filters</span><span class="o">=</span><span class="p">[</span><span class="n">GeoTargetedStrategy</span><span class="p">()],</span>
-</span><span data-line="19">    <span class="n">selector</span><span class="o">=</span><span class="n">PerformanceBasedStrategy</span><span class="p">(),</span>
-</span><span data-line="20"><span class="p">)</span>
-</span><span data-line="21">
-</span><span data-line="22"><span class="c1"># Measure performance</span>
-</span><span data-line="23"><span class="n">context</span> <span class="o">=</span> <span class="n">SelectionContext</span><span class="p">(</span><span class="n">target_country</span><span class="o">=</span><span class="s2">&quot;US&quot;</span><span class="p">)</span>
-</span><span data-line="24"><span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
-</span><span data-line="25">
-</span><span data-line="26"><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">):</span>
-</span><span data-line="27">    <span class="n">strategy</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
-</span><span data-line="28">
-</span><span data-line="29"><span class="n">elapsed_ms</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1000</span>
-</span><span data-line="30"><span class="n">avg_ms</span> <span class="o">=</span> <span class="n">elapsed_ms</span> <span class="o">/</span> <span class="mi">1000</span>
-</span><span data-line="31">
-</span><span data-line="32"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average selection time: </span><span class="si">{</span><span class="n">avg_ms</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">ms&quot;</span><span class="p">)</span>
-</span><span data-line="33"><span class="k">assert</span> <span class="n">avg_ms</span> <span class="o">&lt;</span> <span class="mf">5.0</span>  <span class="c1"># Meets SC-007</span>
+</span><span data-line="11">    <span class="p">)</span>
+</span><span data-line="12">    <span class="n">proxy</span><span class="o">.</span><span class="n">start_request</span><span class="p">()</span>
+</span><span data-line="13">    <span class="n">proxy</span><span class="o">.</span><span class="n">complete_request</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">response_time_ms</span><span class="o">=</span><span class="mf">100.0</span><span class="p">)</span>
+</span><span data-line="14">    <span class="n">pool</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">proxy</span><span class="p">)</span>
+</span><span data-line="15">
+</span><span data-line="16"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CompositeStrategy</span><span class="p">(</span>
+</span><span data-line="17">    <span class="n">filters</span><span class="o">=</span><span class="p">[</span><span class="n">GeoTargetedStrategy</span><span class="p">()],</span>
+</span><span data-line="18">    <span class="n">selector</span><span class="o">=</span><span class="n">PerformanceBasedStrategy</span><span class="p">(),</span>
+</span><span data-line="19"><span class="p">)</span>
+</span><span data-line="20">
+</span><span data-line="21"><span class="c1"># Measure performance</span>
+</span><span data-line="22"><span class="n">context</span> <span class="o">=</span> <span class="n">SelectionContext</span><span class="p">(</span><span class="n">target_country</span><span class="o">=</span><span class="s2">&quot;US&quot;</span><span class="p">)</span>
+</span><span data-line="23"><span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+</span><span data-line="24">
+</span><span data-line="25"><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">):</span>
+</span><span data-line="26">    <span class="n">strategy</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+</span><span data-line="27">
+</span><span data-line="28"><span class="n">elapsed_ms</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1000</span>
+</span><span data-line="29"><span class="n">avg_ms</span> <span class="o">=</span> <span class="n">elapsed_ms</span> <span class="o">/</span> <span class="mi">1000</span>
+</span><span data-line="30">
+</span><span data-line="31"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average selection time: </span><span class="si">{</span><span class="n">avg_ms</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">ms&quot;</span><span class="p">)</span>
+</span><span data-line="32"><span class="k">assert</span> <span class="n">avg_ms</span> <span class="o">&lt;</span> <span class="mf">5.0</span>  <span class="c1"># Meets SC-007</span>
 </span></pre></div>
 </div>
 </section>
@@ -2154,21 +2174,20 @@
 </span><span data-line="12">        <span class="n">proxy</span> <span class="o">=</span> <span class="n">Proxy</span><span class="p">(</span>
 </span><span data-line="13">            <span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://proxy</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.example.com:8080&quot;</span><span class="p">,</span>
 </span><span data-line="14">            <span class="n">health_status</span><span class="o">=</span><span class="n">HealthStatus</span><span class="o">.</span><span class="n">HEALTHY</span><span class="p">,</span>
-</span><span data-line="15">            <span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>
-</span><span data-line="16">        <span class="p">)</span>
-</span><span data-line="17">        <span class="c1"># Warm up</span>
-</span><span data-line="18">        <span class="n">proxy</span><span class="o">.</span><span class="n">start_request</span><span class="p">()</span>
-</span><span data-line="19">        <span class="n">proxy</span><span class="o">.</span><span class="n">complete_request</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">response_time_ms</span><span class="o">=</span><span class="mf">100.0</span><span class="p">)</span>
-</span><span data-line="20">        <span class="n">pool</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">proxy</span><span class="p">)</span>
-</span><span data-line="21">
-</span><span data-line="22">    <span class="n">strategy</span> <span class="o">=</span> <span class="n">PerformanceBasedStrategy</span><span class="p">()</span>
-</span><span data-line="23">
-</span><span data-line="24">    <span class="c1"># Act</span>
-</span><span data-line="25">    <span class="n">proxy</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">pool</span><span class="p">)</span>
-</span><span data-line="26">
-</span><span data-line="27">    <span class="c1"># Assert</span>
-</span><span data-line="28">    <span class="k">assert</span> <span class="n">proxy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-</span><span data-line="29">    <span class="k">assert</span> <span class="n">proxy</span><span class="o">.</span><span class="n">ema_response_time_ms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="15">        <span class="p">)</span>
+</span><span data-line="16">        <span class="c1"># Warm up</span>
+</span><span data-line="17">        <span class="n">proxy</span><span class="o">.</span><span class="n">start_request</span><span class="p">()</span>
+</span><span data-line="18">        <span class="n">proxy</span><span class="o">.</span><span class="n">complete_request</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">response_time_ms</span><span class="o">=</span><span class="mf">100.0</span><span class="p">)</span>
+</span><span data-line="19">        <span class="n">pool</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">proxy</span><span class="p">)</span>
+</span><span data-line="20">
+</span><span data-line="21">    <span class="n">strategy</span> <span class="o">=</span> <span class="n">PerformanceBasedStrategy</span><span class="p">()</span>
+</span><span data-line="22">
+</span><span data-line="23">    <span class="c1"># Act</span>
+</span><span data-line="24">    <span class="n">proxy</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">pool</span><span class="p">)</span>
+</span><span data-line="25">
+</span><span data-line="26">    <span class="c1"># Assert</span>
+</span><span data-line="27">    <span class="k">assert</span> <span class="n">proxy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+</span><span data-line="28">    <span class="k">assert</span> <span class="n">proxy</span><span class="o">.</span><span class="n">ema_response_time_ms</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 </span></pre></div>
 </div>
 </section>

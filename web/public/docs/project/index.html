@@ -11,7 +11,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=43a92ad3" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=b31b09b0" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,12 +24,12 @@
     <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://proxywhirl.readthedocs.io/project/"/>
   <meta property="og:title" content="Project"/>
-  <meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
     <meta name="twitter:card" content="summary"/>
-<meta name="twitter:creator" content="@@wyaborern"/>
-<meta name="twitter:site" content="@@wyaborern"/>
+<meta name="twitter:creator" content="@wyaborern"/>
+<meta name="twitter:site" content="@wyaborern"/>
   </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="pw-navbar">
   <div class="pw-navbar-inner">
     
@@ -38,7 +38,7 @@
     </button>
 
     
-    <a href="/" class="pw-navbar-brand">
+    <a href="../index.html" class="pw-navbar-brand">
       <svg class="pw-navbar-logo" viewBox="0 0 100 100" aria-hidden="true">
         <defs>
           <linearGradient id="pw-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -60,17 +60,25 @@
     </a>
 
     
-    <nav class="pw-navbar-links">
-      <a href="/docs/" class="pw-navbar-link active">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-        Docs
+    <nav class="pw-navbar-links" aria-label="Main navigation">
+      <a href="../getting-started/index.html" class="pw-navbar-link" data-section="getting-started">
+        Getting Started
+      </a>
+      <a href="../guides/index.html" class="pw-navbar-link" data-section="guides">
+        Guides
+      </a>
+      <a href="../reference/index.html" class="pw-navbar-link" data-section="reference">
+        Reference
+      </a>
+      <a href="#" class="pw-navbar-link" data-section="project">
+        Project
       </a>
     </nav>
 
     
     <div class="pw-navbar-actions">
       
-      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme">
+      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme" aria-pressed="false">
         <svg class="pw-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
         <svg class="pw-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       </button>
@@ -82,24 +90,43 @@
     </div>
   </div>
 </header>
+<div id="main-content"></div>
 
 <script>
 (function() {
+  /* Theme toggle */
   var toggle = document.getElementById('pw-theme-toggle');
-  if (!toggle) return;
-  toggle.addEventListener('click', function() {
-    var isDark = document.documentElement.classList.contains('dark');
-    var next = isDark ? 'light' : 'dark';
-    localStorage._theme = next;
-    if (typeof setColorMode === 'function') {
-      setColorMode(next);
-    } else {
-      var html = document.documentElement;
-      html.classList.remove('dark', 'light');
-      html.classList.add(next);
-      html.setAttribute('data-color-mode', next);
+  if (toggle) {
+    /* Set initial aria-pressed based on current theme */
+    var currentlyDark = document.documentElement.classList.contains('dark');
+    toggle.setAttribute('aria-pressed', currentlyDark ? 'true' : 'false');
+
+    toggle.addEventListener('click', function() {
+      var isDark = document.documentElement.classList.contains('dark');
+      var next = isDark ? 'light' : 'dark';
+      localStorage._theme = next;
+      if (typeof setColorMode === 'function') {
+        setColorMode(next);
+      } else {
+        var html = document.documentElement;
+        html.classList.remove('dark', 'light');
+        html.classList.add(next);
+        html.setAttribute('data-color-mode', next);
+      }
+      toggle.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+    });
+  }
+
+  /* Active nav link detection — highlight current section */
+  var path = window.location.pathname;
+  var links = document.querySelectorAll('.pw-navbar-link[data-section]');
+  links.forEach(function(link) {
+    var section = link.getAttribute('data-section');
+    if (path.indexOf('/' + section) !== -1) {
+      link.classList.add('active');
     }
   });
+  /* Mark home page — none active, or all inactive is fine */
 })();
 </script>
 <div class="sy-page sy-container flex mx-auto">
@@ -114,19 +141,24 @@
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#basic-usage-sync">Basic Usage (sync)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#async-usage">Async Usage</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#context-manager-pattern">Context Manager Pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#authenticated-proxies">Authenticated Proxies</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#using-free-proxy-lists">Using Free Proxy Lists</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#fetching-proxies-programmatically">Fetching Proxies Programmatically</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#choosing-a-rotation-strategy">Choosing a Rotation Strategy</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#configuring-retry-and-circuit-breakers">Configuring Retry and Circuit Breakers</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#monitoring-your-pool">Monitoring Your Pool</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#troubleshooting">Troubleshooting</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#next-steps">Next Steps</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#for-contributors">For Contributors</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a Rotator</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#quick-pick-guide">Quick-Pick Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-reference">Strategy Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#comparison-at-a-glance">Comparison At a Glance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
@@ -134,19 +166,6 @@
 </li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l1 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#core-strategies">Core Strategies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#advanced-strategies">Advanced Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l1 _expand"><a class="reference internal" href="../guides/index.html">Guides</a><ul>
@@ -224,7 +243,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#overview">Overview</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a></li>
@@ -257,7 +275,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#automating-releases">Automating Releases</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#docsearch-credentials">DocSearch Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#ci-stage-summary">CI Stage Summary</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#further-reading">Further Reading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#see-also">See Also</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/mcp-server.html">MCP Server Guide</a><ul>
@@ -291,6 +309,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#getting-started">Getting Started</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#middleware">Middleware</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#endpoint-reference">Endpoint Reference</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#rate-limiting">Rate Limiting</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#error-handling">Error Handling</a></li>
@@ -392,23 +411,25 @@
 <li class="toctree-l3"><a class="reference internal" href="#code-style">Code Style</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#pre-commit-hooks">Pre-commit Hooks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#testing-guidelines">Testing Guidelines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#extending-with-custom-strategies">Extending with Custom Strategies</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="#ci-cd-pipelines">CI/CD Pipelines</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#quality-gate-pipeline">Quality Gate Pipeline</a></li>
 </ul>
 </li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#module-map">Module Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#key-exports">Key Exports</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="#environment-variables">Environment Variables</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="#current-health">Current Health</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="#changelog-highlights">Changelog Highlights</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#recent">Recent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#phase-completion-status">Phase Completion Status</a></li>
 </ul>
 </li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="#current-health">Current Health</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="#architecture">Architecture</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#key-modules">Key Modules</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="#environment-variables">Environment Variables</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="#license">License</a></li>
 </ul>
 </li>
@@ -437,23 +458,25 @@
 <li><a class="reference internal" href="#code-style">Code Style</a></li>
 <li><a class="reference internal" href="#pre-commit-hooks">Pre-commit Hooks</a></li>
 <li><a class="reference internal" href="#testing-guidelines">Testing Guidelines</a></li>
+<li><a class="reference internal" href="#extending-with-custom-strategies">Extending with Custom Strategies</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#ci-cd-pipelines">CI/CD Pipelines</a><ul>
 <li><a class="reference internal" href="#quality-gate-pipeline">Quality Gate Pipeline</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#architecture">Architecture</a><ul>
+<li><a class="reference internal" href="#module-map">Module Map</a></li>
+<li><a class="reference internal" href="#key-exports">Key Exports</a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#environment-variables">Environment Variables</a></li>
+<li><a class="reference internal" href="#current-health">Current Health</a></li>
 <li><a class="reference internal" href="#changelog-highlights">Changelog Highlights</a><ul>
 <li><a class="reference internal" href="#recent">Recent</a></li>
 <li><a class="reference internal" href="#phase-completion-status">Phase Completion Status</a></li>
 </ul>
 </li>
-<li><a class="reference internal" href="#current-health">Current Health</a></li>
-<li><a class="reference internal" href="#architecture">Architecture</a><ul>
-<li><a class="reference internal" href="#key-modules">Key Modules</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#environment-variables">Environment Variables</a></li>
 <li><a class="reference internal" href="#license">License</a></li>
 </ul>
 </div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
@@ -519,7 +542,7 @@
         </a></div>
     </div>
   </div>
-</div><article class="yue" role="main">
+</div><article class="yue dark-code" role="main">
           <section id="project">
 <h1>Project<a class="headerlink" href="#project" title="Link to this heading">¶</a></h1>
 <section id="development-setup">
@@ -528,7 +551,7 @@
 <section id="prerequisites">
 <h3>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">¶</a></h3>
 <ul class="simple">
-<li><p><strong>Python 3.9+</strong> (3.11+ recommended)</p></li>
+<li><p><strong>Python 3.9+</strong> (3.11+ recommended for best performance)</p></li>
 <li><p><strong><a class="reference external" href="https://docs.astral.sh/uv/">uv</a></strong> – fast Python package manager from Astral</p></li>
 <li><p><strong>git</strong> with pre-commit support</p></li>
 </ul>
@@ -586,7 +609,7 @@
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">type-check</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span> <span class="pre">ty</span> <span class="pre">check</span> <span class="pre">proxywhirl/</span></code></p></td>
-<td><p>Type check with ty</p></td>
+<td><p>Type check with ty (Astral)</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">quality-gates</span></code></p></td>
 <td><p>all of the above</p></td>
@@ -724,6 +747,24 @@
 </span></pre></div>
 </div>
 </section>
+<section id="extending-with-custom-strategies">
+<h3>Extending with Custom Strategies<a class="headerlink" href="#extending-with-custom-strategies" title="Link to this heading">¶</a></h3>
+<p>ProxyWhirl supports a plugin architecture via <code class="docutils literal notranslate"><span class="pre">StrategyRegistry</span></code>. Implement the <code class="docutils literal notranslate"><span class="pre">RotationStrategy</span></code> protocol and register your strategy:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRegistry</span><span class="p">,</span> <span class="n">RotationStrategy</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="k">class</span><span class="w"> </span><span class="nc">MyStrategy</span><span class="p">:</span>
+</span><span data-line="4">    <span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pool</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+</span><span data-line="5">        <span class="k">return</span> <span class="n">pool</span><span class="o">.</span><span class="n">get_healthy_proxies</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+</span><span data-line="6">
+</span><span data-line="7">    <span class="k">def</span><span class="w"> </span><span class="nf">record_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">proxy</span><span class="p">,</span> <span class="n">success</span><span class="p">,</span> <span class="n">response_time_ms</span><span class="p">):</span>
+</span><span data-line="8">        <span class="k">pass</span>
+</span><span data-line="9">
+</span><span data-line="10"><span class="n">registry</span> <span class="o">=</span> <span class="n">StrategyRegistry</span><span class="p">()</span>
+</span><span data-line="11"><span class="n">registry</span><span class="o">.</span><span class="n">register_strategy</span><span class="p">(</span><span class="s2">&quot;my-strategy&quot;</span><span class="p">,</span> <span class="n">MyStrategy</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>See <a class="reference internal" href="../reference/python-api.html"><span class="doc">Python API Reference</span></a> for the full <code class="docutils literal notranslate"><span class="pre">RotationStrategy</span></code> protocol and <a class="reference internal" href="../guides/advanced-strategies.html"><span class="doc">Advanced Rotation Strategies</span></a> for composite strategy patterns.</p>
+</section>
 </section>
 <section id="ci-cd-pipelines">
 <h2>CI/CD Pipelines<a class="headerlink" href="#ci-cd-pipelines" title="Link to this heading">¶</a></h2>
@@ -752,7 +793,7 @@
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">generate-proxies.yml</span></code></p></td>
 <td><p>cron (every 6h)</p></td>
-<td><p>Fetch proxies from 64+ sources, update <code class="docutils literal notranslate"><span class="pre">proxywhirl.db</span></code></p></td>
+<td><p>Fetch proxies from 100+ sources, update <code class="docutils literal notranslate"><span class="pre">proxywhirl.db</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">validate-sources.yml</span></code></p></td>
 <td><p>push / PR</p></td>
@@ -787,14 +828,155 @@
 </div>
 </section>
 </section>
+<section id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">¶</a></h2>
+<section id="module-map">
+<h3>Module Map<a class="headerlink" href="#module-map" title="Link to this heading">¶</a></h3>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 78.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Module</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">models/</span></code></p></td>
+<td><p>Pydantic models: <code class="docutils literal notranslate"><span class="pre">Proxy</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyPool</span></code>, <code class="docutils literal notranslate"><span class="pre">Session</span></code>, <code class="docutils literal notranslate"><span class="pre">SelectionContext</span></code>, <code class="docutils literal notranslate"><span class="pre">*Config</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">strategies/</span></code></p></td>
+<td><p>9 rotation strategies + <code class="docutils literal notranslate"><span class="pre">RotationStrategy</span></code> protocol + <code class="docutils literal notranslate"><span class="pre">StrategyRegistry</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rotator/</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code> (sync) and <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code> (async) – core HTTP clients</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">storage.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">SQLiteStorage</span></code>, <code class="docutils literal notranslate"><span class="pre">FileStorage</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyTable</span></code> (SQLModel ORM)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fetchers.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ProxyFetcher</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyValidator</span></code>, parsers (<code class="docutils literal notranslate"><span class="pre">JSON</span></code>, <code class="docutils literal notranslate"><span class="pre">CSV</span></code>, <code class="docutils literal notranslate"><span class="pre">PlainText</span></code>, <code class="docutils literal notranslate"><span class="pre">HTMLTable</span></code>)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sources.py</span></code></p></td>
+<td><p>100+ pre-configured <code class="docutils literal notranslate"><span class="pre">ProxySourceConfig</span></code> instances (<code class="docutils literal notranslate"><span class="pre">ALL_SOURCES</span></code>, <code class="docutils literal notranslate"><span class="pre">RECOMMENDED_SOURCES</span></code>)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cache/</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CacheManager</span></code> with L1 in-memory, L2 encrypted disk, L3 SQLite tiers</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">circuit_breaker/</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">CircuitBreaker</span></code>, <code class="docutils literal notranslate"><span class="pre">AsyncCircuitBreaker</span></code> with state machine</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">retry/</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">RetryExecutor</span></code>, <code class="docutils literal notranslate"><span class="pre">RetryPolicy</span></code>, backoff strategies (exponential, linear)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">rate_limiting/</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">RateLimiter</span></code> (token bucket), sync and async variants</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">api/</span></code></p></td>
+<td><p>FastAPI REST API (<code class="docutils literal notranslate"><span class="pre">/api/v1/*</span></code> routes) with OpenAPI</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">mcp/</span></code></p></td>
+<td><p>MCP server for AI assistant integration (Claude, GPT)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cli.py</span></code></p></td>
+<td><p>Typer CLI (<code class="docutils literal notranslate"><span class="pre">proxywhirl</span></code> command, 9 subcommands)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">config.py</span></code></p></td>
+<td><p>TOML config loader, <code class="docutils literal notranslate"><span class="pre">CLIConfig</span></code>, <code class="docutils literal notranslate"><span class="pre">DataStorageConfig</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">exceptions.py</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ProxyWhirlError</span></code> hierarchy, <code class="docutils literal notranslate"><span class="pre">ProxyErrorCode</span></code> enum, URL redaction</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">safe_regex.py</span></code></p></td>
+<td><p>ReDoS-safe regex utilities</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">geo.py</span></code></p></td>
+<td><p>IP geolocation enrichment (GeoIP2)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>For the full public API surface, see <a class="reference internal" href="../reference/python-api.html"><span class="doc">Python API Reference</span></a>.</p>
+</section>
+<section id="key-exports">
+<h3>Key Exports<a class="headerlink" href="#key-exports" title="Link to this heading">¶</a></h3>
+<p>The top-level <code class="docutils literal notranslate"><span class="pre">proxywhirl</span></code> package exports:</p>
+<ul class="simple">
+<li><p><strong>Rotators</strong>: <code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code>, <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code></p></li>
+<li><p><strong>Models</strong>: <code class="docutils literal notranslate"><span class="pre">Proxy</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyPool</span></code>, <code class="docutils literal notranslate"><span class="pre">Session</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxySource</span></code>, <code class="docutils literal notranslate"><span class="pre">HealthStatus</span></code>, <code class="docutils literal notranslate"><span class="pre">SelectionContext</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyCredentials</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyConfiguration</span></code></p></li>
+<li><p><strong>Strategies</strong>: <code class="docutils literal notranslate"><span class="pre">RoundRobinStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">RandomStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">WeightedStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">LeastUsedStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">PerformanceBasedStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">SessionPersistenceStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">GeoTargetedStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">CostAwareStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">CompositeStrategy</span></code></p></li>
+<li><p><strong>Config</strong>: <code class="docutils literal notranslate"><span class="pre">StrategyConfig</span></code>, <code class="docutils literal notranslate"><span class="pre">CircuitBreakerConfig</span></code>, <code class="docutils literal notranslate"><span class="pre">RetryPolicy</span></code>, <code class="docutils literal notranslate"><span class="pre">CacheConfig</span></code>, <code class="docutils literal notranslate"><span class="pre">DataStorageConfig</span></code></p></li>
+<li><p><strong>Components</strong>: <code class="docutils literal notranslate"><span class="pre">CacheManager</span></code>, <code class="docutils literal notranslate"><span class="pre">CircuitBreaker</span></code>, <code class="docutils literal notranslate"><span class="pre">AsyncCircuitBreaker</span></code>, <code class="docutils literal notranslate"><span class="pre">RetryExecutor</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyFetcher</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyValidator</span></code>, <code class="docutils literal notranslate"><span class="pre">BrowserRenderer</span></code></p></li>
+<li><p><strong>Sources</strong>: <code class="docutils literal notranslate"><span class="pre">ALL_SOURCES</span></code>, <code class="docutils literal notranslate"><span class="pre">RECOMMENDED_SOURCES</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_HTTP_SOURCES</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_SOCKS4_SOURCES</span></code>, <code class="docutils literal notranslate"><span class="pre">ALL_SOCKS5_SOURCES</span></code>, <code class="docutils literal notranslate"><span class="pre">API_SOURCES</span></code></p></li>
+<li><p><strong>Utilities</strong>: <code class="docutils literal notranslate"><span class="pre">configure_logging</span></code>, <code class="docutils literal notranslate"><span class="pre">encrypt_credentials</span></code>, <code class="docutils literal notranslate"><span class="pre">decrypt_credentials</span></code>, <code class="docutils literal notranslate"><span class="pre">deduplicate_proxies</span></code></p></li>
+</ul>
+</section>
+</section>
+<section id="environment-variables">
+<h2>Environment Variables<a class="headerlink" href="#environment-variables" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 35.0%" />
+<col style="width: 15.0%" />
+<col style="width: 50.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Variable</p></th>
+<th class="head"><p>Component</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_KEY</span></code></p></td>
+<td><p>CLI/config</p></td>
+<td><p>Master encryption key</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_CACHE_ENCRYPTION_KEY</span></code></p></td>
+<td><p>cache</p></td>
+<td><p>Fernet key for L2 cache</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_STORAGE_PATH</span></code></p></td>
+<td><p>api</p></td>
+<td><p>SQLite database path</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_API_KEY</span></code></p></td>
+<td><p>api</p></td>
+<td><p>API authentication key</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_MCP_API_KEY</span></code></p></td>
+<td><p>mcp</p></td>
+<td><p>MCP server auth key</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_MCP_DB</span></code></p></td>
+<td><p>mcp</p></td>
+<td><p>MCP database path</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>See <a class="reference internal" href="../reference/configuration.html"><span class="doc">Configuration Reference</span></a> for the full TOML configuration reference and environment variable override behavior.</p>
+</section>
+<section id="current-health">
+<h2>Current Health<a class="headerlink" href="#current-health" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Tests</strong>: 2700+ passing across unit, integration, property, contract, and benchmark suites</p></li>
+<li><p><strong>Performance</strong>: All selection strategies operate within 2.8-26 us (&lt;5 ms target)</p></li>
+<li><p><strong>Proxy sources</strong>: 100+ sources, refreshed every 6 hours via CI</p></li>
+<li><p><strong>Python</strong>: Tested on 3.9, 3.10, 3.11, 3.12, and 3.13</p></li>
+</ul>
+</section>
 <section id="changelog-highlights">
 <h2>Changelog Highlights<a class="headerlink" href="#changelog-highlights" title="Link to this heading">¶</a></h2>
 <section id="recent">
 <h3>Recent<a class="headerlink" href="#recent" title="Link to this heading">¶</a></h3>
 <ul class="simple">
-<li><p><strong>Composite strategies</strong> – chain filters and selectors with &lt;5 us overhead</p></li>
+<li><p><strong>Composite strategies</strong> – chain filters and selectors with &lt;5 us overhead via <code class="docutils literal notranslate"><span class="pre">CompositeStrategy</span></code></p></li>
+<li><p><strong>Cost-aware strategy</strong> – budget-optimize proxy selection with <code class="docutils literal notranslate"><span class="pre">CostAwareStrategy</span></code></p></li>
 <li><p><strong>MCP server</strong> – Model Context Protocol integration for AI assistants</p></li>
-<li><p><strong>Free proxy lists</strong> – auto-updated every 6 hours from 64+ sources</p></li>
+<li><p><strong>Free proxy lists</strong> – auto-updated every 6 hours from 100+ sources</p></li>
 <li><p><strong>Interactive dashboard</strong> – browse and export at <a class="reference external" href="https://proxywhirl.com/">proxywhirl.com</a></p></li>
 <li><p><strong>Rate limiting API</strong> – token bucket algorithm, per-proxy and global limits</p></li>
 <li><p><strong>Cache encryption</strong> – Fernet-encrypted L2 cache tier</p></li>
@@ -841,115 +1023,11 @@
 </div>
 </section>
 </section>
-<section id="current-health">
-<h2>Current Health<a class="headerlink" href="#current-health" title="Link to this heading">¶</a></h2>
-<ul class="simple">
-<li><p><strong>Tests</strong>: 2700+ passing across unit, integration, property, and contract suites</p></li>
-<li><p><strong>Performance</strong>: All selection strategies operate within 2.8-26 us (&lt;5 ms target)</p></li>
-<li><p><strong>Proxy sources</strong>: 64+ sources, refreshed every 6 hours via CI</p></li>
-</ul>
-</section>
-<section id="architecture">
-<h2>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">¶</a></h2>
-<section id="key-modules">
-<h3>Key Modules<a class="headerlink" href="#key-modules" title="Link to this heading">¶</a></h3>
-<div class="table-wrapper colwidths-given docutils container">
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 22.0%" />
-<col style="width: 78.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Module</p></th>
-<th class="head"><p>Purpose</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">models/</span></code></p></td>
-<td><p>Pydantic models: <code class="docutils literal notranslate"><span class="pre">Proxy</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyPool</span></code>, <code class="docutils literal notranslate"><span class="pre">Session</span></code>, <code class="docutils literal notranslate"><span class="pre">*Config</span></code></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">strategies/</span></code></p></td>
-<td><p>9 rotation strategies including composite pipelines</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rotator/</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code> (sync), <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code> (async)</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">storage.py</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">SQLiteStorage</span></code>, <code class="docutils literal notranslate"><span class="pre">FileStorage</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyTable</span></code> (SQLModel)</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fetchers.py</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">ProxyFetcher</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyValidator</span></code>, format parsers</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cache/</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">CacheManager</span></code>, multi-tier L1/L2/L3 caching</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">circuit_breaker/</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">CircuitBreaker</span></code>, <code class="docutils literal notranslate"><span class="pre">AsyncCircuitBreaker</span></code></p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">api/</span></code></p></td>
-<td><p>FastAPI REST API (<code class="docutils literal notranslate"><span class="pre">/api/v1/*</span></code>)</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">mcp/</span></code></p></td>
-<td><p>MCP server for AI assistant integration</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cli.py</span></code></p></td>
-<td><p>Typer CLI (<code class="docutils literal notranslate"><span class="pre">proxywhirl</span></code> command)</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>For full module details, see the <a class="reference internal" href="../reference/python-api.html"><span class="std std-doc">Python API</span></a>.</p>
-</section>
-</section>
-<section id="environment-variables">
-<h2>Environment Variables<a class="headerlink" href="#environment-variables" title="Link to this heading">¶</a></h2>
-<div class="table-wrapper colwidths-given docutils container">
-<table class="docutils align-default">
-<colgroup>
-<col style="width: 35.0%" />
-<col style="width: 15.0%" />
-<col style="width: 50.0%" />
-</colgroup>
-<thead>
-<tr class="row-odd"><th class="head"><p>Variable</p></th>
-<th class="head"><p>Component</p></th>
-<th class="head"><p>Purpose</p></th>
-</tr>
-</thead>
-<tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_KEY</span></code></p></td>
-<td><p>CLI/config</p></td>
-<td><p>Master encryption key</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_CACHE_ENCRYPTION_KEY</span></code></p></td>
-<td><p>cache</p></td>
-<td><p>Fernet key for L2 cache</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_STORAGE_PATH</span></code></p></td>
-<td><p>api</p></td>
-<td><p>SQLite database path</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_API_KEY</span></code></p></td>
-<td><p>api</p></td>
-<td><p>API authentication key</p></td>
-</tr>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_MCP_API_KEY</span></code></p></td>
-<td><p>mcp</p></td>
-<td><p>MCP server auth key</p></td>
-</tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_MCP_DB</span></code></p></td>
-<td><p>mcp</p></td>
-<td><p>MCP database path</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
 <section id="license">
 <h2>License<a class="headerlink" href="#license" title="Link to this heading">¶</a></h2>
 <p>ProxyWhirl is open source software released under the <a class="reference external" href="https://github.com/wyattowalsh/proxywhirl/blob/main/LICENSE">MIT License</a>.</p>
 <hr class="docutils" />
-<p><strong>Related:</strong> <a class="reference internal" href="../guides/automation.html"><span class="std std-doc">Automation</span></a> for CI integration | <a class="reference internal" href="../reference/configuration.html"><span class="std std-doc">Configuration</span></a> for config reference | <a class="reference internal" href="../getting-started/index.html"><span class="std std-doc">Getting Started</span></a> for quickstart</p>
+<p><strong>Related:</strong> <a class="reference internal" href="../guides/automation.html"><span class="doc">Automation &amp; CI/CD Runbook</span></a> for CI integration | <a class="reference internal" href="../reference/configuration.html"><span class="doc">Configuration Reference</span></a> for config reference | <a class="reference internal" href="../getting-started/index.html"><span class="doc">Getting Started</span></a> for quickstart</p>
 <div class="info admonition">
 <p class="admonition-title">Historical reports</p>
 <p>Detailed phase completion reports live alongside the source tree under <code class="docutils literal notranslate"><span class="pre">docs/</span></code> (e.g., <code class="docutils literal notranslate"><span class="pre">PHASE_9_COMPLETION.md</span></code>) and capture acceptance criteria per milestone.</p>

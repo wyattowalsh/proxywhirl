@@ -11,7 +11,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=43a92ad3" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=b31b09b0" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,12 +24,12 @@
     <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://proxywhirl.readthedocs.io/guides/caching.html"/>
   <meta property="og:title" content="Caching Subsystem Guide"/>
-  <meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
     <meta name="twitter:card" content="summary"/>
-<meta name="twitter:creator" content="@@wyaborern"/>
-<meta name="twitter:site" content="@@wyaborern"/>
+<meta name="twitter:creator" content="@wyaborern"/>
+<meta name="twitter:site" content="@wyaborern"/>
   </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="pw-navbar">
   <div class="pw-navbar-inner">
     
@@ -38,7 +38,7 @@
     </button>
 
     
-    <a href="/" class="pw-navbar-brand">
+    <a href="../index.html" class="pw-navbar-brand">
       <svg class="pw-navbar-logo" viewBox="0 0 100 100" aria-hidden="true">
         <defs>
           <linearGradient id="pw-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -60,17 +60,25 @@
     </a>
 
     
-    <nav class="pw-navbar-links">
-      <a href="/docs/" class="pw-navbar-link active">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-        Docs
+    <nav class="pw-navbar-links" aria-label="Main navigation">
+      <a href="../getting-started/index.html" class="pw-navbar-link" data-section="getting-started">
+        Getting Started
+      </a>
+      <a href="index.html" class="pw-navbar-link" data-section="guides">
+        Guides
+      </a>
+      <a href="../reference/index.html" class="pw-navbar-link" data-section="reference">
+        Reference
+      </a>
+      <a href="../project/index.html" class="pw-navbar-link" data-section="project">
+        Project
       </a>
     </nav>
 
     
     <div class="pw-navbar-actions">
       
-      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme">
+      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme" aria-pressed="false">
         <svg class="pw-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
         <svg class="pw-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       </button>
@@ -82,24 +90,43 @@
     </div>
   </div>
 </header>
+<div id="main-content"></div>
 
 <script>
 (function() {
+  /* Theme toggle */
   var toggle = document.getElementById('pw-theme-toggle');
-  if (!toggle) return;
-  toggle.addEventListener('click', function() {
-    var isDark = document.documentElement.classList.contains('dark');
-    var next = isDark ? 'light' : 'dark';
-    localStorage._theme = next;
-    if (typeof setColorMode === 'function') {
-      setColorMode(next);
-    } else {
-      var html = document.documentElement;
-      html.classList.remove('dark', 'light');
-      html.classList.add(next);
-      html.setAttribute('data-color-mode', next);
+  if (toggle) {
+    /* Set initial aria-pressed based on current theme */
+    var currentlyDark = document.documentElement.classList.contains('dark');
+    toggle.setAttribute('aria-pressed', currentlyDark ? 'true' : 'false');
+
+    toggle.addEventListener('click', function() {
+      var isDark = document.documentElement.classList.contains('dark');
+      var next = isDark ? 'light' : 'dark';
+      localStorage._theme = next;
+      if (typeof setColorMode === 'function') {
+        setColorMode(next);
+      } else {
+        var html = document.documentElement;
+        html.classList.remove('dark', 'light');
+        html.classList.add(next);
+        html.setAttribute('data-color-mode', next);
+      }
+      toggle.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+    });
+  }
+
+  /* Active nav link detection — highlight current section */
+  var path = window.location.pathname;
+  var links = document.querySelectorAll('.pw-navbar-link[data-section]');
+  links.forEach(function(link) {
+    var section = link.getAttribute('data-section');
+    if (path.indexOf('/' + section) !== -1) {
+      link.classList.add('active');
     }
   });
+  /* Mark home page — none active, or all inactive is fine */
 })();
 </script>
 <div class="sy-page sy-container flex mx-auto">
@@ -114,19 +141,24 @@
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#basic-usage-sync">Basic Usage (sync)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#async-usage">Async Usage</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#context-manager-pattern">Context Manager Pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#authenticated-proxies">Authenticated Proxies</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#using-free-proxy-lists">Using Free Proxy Lists</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/index.html#fetching-proxies-programmatically">Fetching Proxies Programmatically</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#choosing-a-rotation-strategy">Choosing a Rotation Strategy</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#configuring-retry-and-circuit-breakers">Configuring Retry and Circuit Breakers</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#monitoring-your-pool">Monitoring Your Pool</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#troubleshooting">Troubleshooting</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#next-steps">Next Steps</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/index.html#for-contributors">For Contributors</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a Rotator</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#quick-pick-guide">Quick-Pick Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-reference">Strategy Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#comparison-at-a-glance">Comparison At a Glance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
@@ -134,19 +166,6 @@
 </li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l1 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#strategy-recipes">Strategy Recipes</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#core-strategies">Core Strategies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../getting-started/rotation-strategies.html#advanced-strategies">Advanced Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Guides</a><ul class="current">
@@ -224,7 +243,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="deployment-security.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="deployment-security.html#overview">Overview</a></li>
 <li class="toctree-l4"><a class="reference internal" href="deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a></li>
 <li class="toctree-l4"><a class="reference internal" href="deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a></li>
@@ -257,7 +275,7 @@
 <li class="toctree-l4"><a class="reference internal" href="automation.html#automating-releases">Automating Releases</a></li>
 <li class="toctree-l4"><a class="reference internal" href="automation.html#docsearch-credentials">DocSearch Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="automation.html#ci-stage-summary">CI Stage Summary</a></li>
-<li class="toctree-l4"><a class="reference internal" href="automation.html#further-reading">Further Reading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="automation.html#see-also">See Also</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="mcp-server.html">MCP Server Guide</a><ul>
@@ -291,6 +309,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#getting-started">Getting Started</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#middleware">Middleware</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#endpoint-reference">Endpoint Reference</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#rate-limiting">Rate Limiting</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#error-handling">Error Handling</a></li>
@@ -392,23 +411,25 @@
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#code-style">Code Style</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#pre-commit-hooks">Pre-commit Hooks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#testing-guidelines">Testing Guidelines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#extending-with-custom-strategies">Extending with Custom Strategies</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#ci-cd-pipelines">CI/CD Pipelines</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#quality-gate-pipeline">Quality Gate Pipeline</a></li>
 </ul>
 </li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#module-map">Module Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-exports">Key Exports</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#changelog-highlights">Changelog Highlights</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#recent">Recent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#phase-completion-status">Phase Completion Status</a></li>
 </ul>
 </li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-modules">Key Modules</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#license">License</a></li>
 </ul>
 </li>
@@ -425,7 +446,8 @@
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#architecture-overview">Architecture Overview</a><ul>
 <li><a class="reference internal" href="#tier-promotion-demotion">Tier Promotion &amp; Demotion</a></li>
-<li><a class="reference internal" href="#l2-vs-l3-sqlite-differences">L2 vs L3 SQLite Differences</a></li>
+<li><a class="reference internal" href="#l2-backend-selection">L2 Backend Selection</a></li>
+<li><a class="reference internal" href="#l2-sqlite-vs-l3-sqlite-differences">L2 (SQLite) vs L3 SQLite Differences</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#core-components">Core Components</a><ul>
@@ -551,12 +573,87 @@
         </a></div>
     </div>
   </div>
-</div><article class="yue" role="main">
+</div><article class="yue dark-code" role="main">
           <section id="caching-subsystem-guide">
 <h1>Caching Subsystem Guide<a class="headerlink" href="#caching-subsystem-guide" title="Link to this heading">¶</a></h1>
 <p>ProxyWhirl implements a sophisticated three-tier caching system for proxy persistence, performance optimization, and credential security. This guide covers architecture, configuration, encryption, and performance tuning.</p>
+<nav class="contents local" id="contents">
+<ul class="simple">
+<li><p><a class="reference internal" href="#architecture-overview" id="id1">Architecture Overview</a></p>
+<ul>
+<li><p><a class="reference internal" href="#tier-promotion-demotion" id="id2">Tier Promotion &amp; Demotion</a></p></li>
+<li><p><a class="reference internal" href="#l2-backend-selection" id="id3">L2 Backend Selection</a></p></li>
+<li><p><a class="reference internal" href="#l2-sqlite-vs-l3-sqlite-differences" id="id4">L2 (SQLite) vs L3 SQLite Differences</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#core-components" id="id5">Core Components</a></p>
+<ul>
+<li><p><a class="reference internal" href="#cachemanager" id="id6">CacheManager</a></p></li>
+<li><p><a class="reference internal" href="#cacheentry" id="id7">CacheEntry</a></p></li>
+<li><p><a class="reference internal" href="#cacheconfig" id="id8">CacheConfig</a></p></li>
+<li><p><a class="reference internal" href="#cachestatistics" id="id9">CacheStatistics</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#credential-encryption" id="id10">Credential Encryption</a></p>
+<ul>
+<li><p><a class="reference internal" href="#encryption-setup" id="id11">Encryption Setup</a></p></li>
+<li><p><a class="reference internal" href="#key-rotation" id="id12">Key Rotation</a></p></li>
+<li><p><a class="reference internal" href="#encryption-behavior" id="id13">Encryption Behavior</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#ttl-and-expiration" id="id14">TTL and Expiration</a></p>
+<ul>
+<li><p><a class="reference internal" href="#ttl-configuration" id="id15">TTL Configuration</a></p></li>
+<li><p><a class="reference internal" href="#expiration-strategies" id="id16">Expiration Strategies</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#health-invalidation" id="id17">Health Invalidation</a></p>
+<ul>
+<li><p><a class="reference internal" href="#configuration" id="id18">Configuration</a></p></li>
+<li><p><a class="reference internal" href="#invalidation-workflow" id="id19">Invalidation Workflow</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#migration-from-jsonl-l2-cache" id="id20">Migration from JSONL L2 Cache</a></p>
+<ul>
+<li><p><a class="reference internal" href="#migrating-legacy-jsonl-caches" id="id21">Migrating Legacy JSONL Caches</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#cache-warming" id="id22">Cache Warming</a></p>
+<ul>
+<li><p><a class="reference internal" href="#supported-formats" id="id23">Supported Formats</a></p></li>
+<li><p><a class="reference internal" href="#warming-from-file" id="id24">Warming from File</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#performance-tuning" id="id25">Performance Tuning</a></p>
+<ul>
+<li><p><a class="reference internal" href="#tier-sizing-recommendations" id="id26">Tier Sizing Recommendations</a></p></li>
+<li><p><a class="reference internal" href="#eviction-policy-selection" id="id27">Eviction Policy Selection</a></p></li>
+<li><p><a class="reference internal" href="#performance-characteristics" id="id28">Performance Characteristics</a></p></li>
+<li><p><a class="reference internal" href="#graceful-degradation" id="id29">Graceful Degradation</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#cli-integration" id="id30">CLI Integration</a></p></li>
+<li><p><a class="reference internal" href="#best-practices" id="id31">Best Practices</a></p>
+<ul>
+<li><p><a class="reference internal" href="#security" id="id32">Security</a></p></li>
+<li><p><a class="reference internal" href="#performance" id="id33">Performance</a></p></li>
+<li><p><a class="reference internal" href="#reliability" id="id34">Reliability</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#example-complete-cache-setup" id="id35">Example: Complete Cache Setup</a></p></li>
+<li><p><a class="reference internal" href="#troubleshooting" id="id36">Troubleshooting</a></p>
+<ul>
+<li><p><a class="reference internal" href="#low-hit-rates" id="id37">Low Hit Rates</a></p></li>
+<li><p><a class="reference internal" href="#high-memory-usage" id="id38">High Memory Usage</a></p></li>
+<li><p><a class="reference internal" href="#encryption-errors" id="id39">Encryption Errors</a></p></li>
+<li><p><a class="reference internal" href="#tier-degradation" id="id40">Tier Degradation</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference internal" href="#see-also" id="id41">See Also</a></p></li>
+</ul>
+</nav>
 <section id="architecture-overview">
-<h2>Architecture Overview<a class="headerlink" href="#architecture-overview" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id1" role="doc-backlink">Architecture Overview</a><a class="headerlink" href="#architecture-overview" title="Link to this heading">¶</a></h2>
 <p>The caching subsystem uses a hierarchical three-tier design for optimal performance and durability:</p>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
@@ -583,10 +680,10 @@
 <td><p>Hot proxies, LRU eviction</p></td>
 </tr>
 <tr class="row-odd"><td><p><strong>L2</strong></p></td>
-<td><p>SQLite (l2_cache.db)</p></td>
+<td><p>JSONL (default) or SQLite</p></td>
 <td><p>~1-10 ms</p></td>
 <td><p>5,000 entries (default)</p></td>
-<td><p>Warm storage, B-tree indexed</p></td>
+<td><p>Warm storage, configurable backend</p></td>
 </tr>
 <tr class="row-even"><td><p><strong>L3</strong></p></td>
 <td><p>SQLite Database</p></td>
@@ -598,7 +695,7 @@
 </table>
 </div>
 <section id="tier-promotion-demotion">
-<h3>Tier Promotion &amp; Demotion<a class="headerlink" href="#tier-promotion-demotion" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id2" role="doc-backlink">Tier Promotion &amp; Demotion</a><a class="headerlink" href="#tier-promotion-demotion" title="Link to this heading">¶</a></h3>
 <p>Proxies automatically promote from slower to faster tiers on access:</p>
 <ul class="simple">
 <li><p><strong>L3 → L2 → L1</strong>: On cache hit, entry copies to higher tiers</p></li>
@@ -609,10 +706,53 @@
 <p>This design minimizes latency for frequently-used proxies while maintaining full persistence in L3.</p>
 </div>
 </section>
-<section id="l2-vs-l3-sqlite-differences">
-<h3>L2 vs L3 SQLite Differences<a class="headerlink" href="#l2-vs-l3-sqlite-differences" title="Link to this heading">¶</a></h3>
-<p>Both L2 and L3 use SQLite databases, but with different schemas and purposes:</p>
-<p><strong>L2 (l2_cache.db)</strong>:</p>
+<section id="l2-backend-selection">
+<h3><a class="toc-backref" href="#id3" role="doc-backlink">L2 Backend Selection</a><a class="headerlink" href="#l2-backend-selection" title="Link to this heading">¶</a></h3>
+<p>L2 supports two backends, configured via <code class="docutils literal notranslate"><span class="pre">l2_backend</span></code> in <code class="docutils literal notranslate"><span class="pre">CacheConfig</span></code>:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.cache.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">L2BackendType</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="c1"># JSONL backend (default) -- file-based, human-readable, best for &lt;10K entries</span>
+</span><span data-line="4"><span class="n">config</span> <span class="o">=</span> <span class="n">CacheConfig</span><span class="p">(</span><span class="n">l2_backend</span><span class="o">=</span><span class="n">L2BackendType</span><span class="o">.</span><span class="n">JSONL</span><span class="p">)</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="c1"># SQLite backend -- faster for &gt;10K entries, O(log n) indexed lookups</span>
+</span><span data-line="7"><span class="n">config</span> <span class="o">=</span> <span class="n">CacheConfig</span><span class="p">(</span><span class="n">l2_backend</span><span class="o">=</span><span class="n">L2BackendType</span><span class="o">.</span><span class="n">SQLITE</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Backend</p></th>
+<th class="head"><p>Format</p></th>
+<th class="head"><p>Best For</p></th>
+<th class="head"><p>Lookup</p></th>
+<th class="head"><p>Notes</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">JSONL</span></code> (default)</p></td>
+<td><p>Sharded JSON Lines files</p></td>
+<td><p>&lt;10K entries, portability</p></td>
+<td><p>O(n) scan</p></td>
+<td><p>Human-readable, file-locked</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">SQLITE</span></code></p></td>
+<td><p>SQLite database (<code class="docutils literal notranslate"><span class="pre">l2_cache.db</span></code>)</p></td>
+<td><p>&gt;10K entries, concurrency</p></td>
+<td><p>O(log n) B-tree</p></td>
+<td><p>Atomic operations</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="l2-sqlite-vs-l3-sqlite-differences">
+<h3><a class="toc-backref" href="#id4" role="doc-backlink">L2 (SQLite) vs L3 SQLite Differences</a><a class="headerlink" href="#l2-sqlite-vs-l3-sqlite-differences" title="Link to this heading">¶</a></h3>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This comparison only applies when <code class="docutils literal notranslate"><span class="pre">l2_backend=L2BackendType.SQLITE</span></code>. When using the default JSONL backend, L2 uses sharded <code class="docutils literal notranslate"><span class="pre">.jsonl</span></code> files instead of SQLite.</p>
+</div>
+<p>When both L2 and L3 use SQLite, they have different schemas and purposes:</p>
+<p><strong>L2 (l2_cache.db)</strong> – when <code class="docutils literal notranslate"><span class="pre">l2_backend=L2BackendType.SQLITE</span></code>:</p>
 <ul class="simple">
 <li><p>Simpler schema optimized for fast lookups</p></li>
 <li><p>Stores basic cache fields (proxy_url, credentials, TTL, health status)</p></li>
@@ -630,19 +770,19 @@
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>The dual-SQLite design provides performance benefits:</p>
+<p>When using the SQLite L2 backend, the dual-SQLite design provides performance benefits:</p>
 <ul class="simple">
 <li><p>L2 uses a lighter schema for faster writes during rotation</p></li>
 <li><p>L3 maintains full historical data for analytics and monitoring</p></li>
-<li><p>Both use B-tree indexes for O(log n) lookups instead of O(n) JSONL scans</p></li>
+<li><p>Both use B-tree indexes for O(log n) lookups</p></li>
 </ul>
 </div>
 </section>
 </section>
 <section id="core-components">
-<h2>Core Components<a class="headerlink" href="#core-components" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id5" role="doc-backlink">Core Components</a><a class="headerlink" href="#core-components" title="Link to this heading">¶</a></h2>
 <section id="cachemanager">
-<h3>CacheManager<a class="headerlink" href="#cachemanager" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id6" role="doc-backlink">CacheManager</a><a class="headerlink" href="#cachemanager" title="Link to this heading">¶</a></h3>
 <p>Central orchestrator for all cache operations across tiers.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.cache</span><span class="w"> </span><span class="kn">import</span> <span class="n">CacheManager</span><span class="p">,</span> <span class="n">CacheConfig</span>
 </span><span data-line="2">
@@ -667,7 +807,7 @@
 </ul>
 </section>
 <section id="cacheentry">
-<h3>CacheEntry<a class="headerlink" href="#cacheentry" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id7" role="doc-backlink">CacheEntry</a><a class="headerlink" href="#cacheentry" title="Link to this heading">¶</a></h3>
 <p>Pydantic model representing a single cached proxy with metadata.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.cache</span><span class="w"> </span><span class="kn">import</span> <span class="n">CacheEntry</span><span class="p">,</span> <span class="n">HealthStatus</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">SecretStr</span>
@@ -719,59 +859,61 @@
 </ul>
 </section>
 <section id="cacheconfig">
-<h3>CacheConfig<a class="headerlink" href="#cacheconfig" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id8" role="doc-backlink">CacheConfig</a><a class="headerlink" href="#cacheconfig" title="Link to this heading">¶</a></h3>
 <p>Comprehensive configuration for cache behavior and tier settings.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.cache</span><span class="w"> </span><span class="kn">import</span> <span class="n">CacheConfig</span><span class="p">,</span> <span class="n">CacheTierConfig</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">SecretStr</span>
-</span><span data-line="3">
-</span><span data-line="4"><span class="n">config</span> <span class="o">=</span> <span class="n">CacheConfig</span><span class="p">(</span>
-</span><span data-line="5">    <span class="c1"># Tier configuration</span>
-</span><span data-line="6">    <span class="n">l1_config</span><span class="o">=</span><span class="n">CacheTierConfig</span><span class="p">(</span>
-</span><span data-line="7">        <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span data-line="8">        <span class="n">max_entries</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
-</span><span data-line="9">        <span class="n">eviction_policy</span><span class="o">=</span><span class="s2">&quot;lru&quot;</span><span class="p">,</span>  <span class="c1"># lru | lfu | fifo</span>
-</span><span data-line="10">    <span class="p">),</span>
-</span><span data-line="11">    <span class="n">l2_config</span><span class="o">=</span><span class="n">CacheTierConfig</span><span class="p">(</span>
-</span><span data-line="12">        <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span data-line="13">        <span class="n">max_entries</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span>
-</span><span data-line="14">        <span class="n">eviction_policy</span><span class="o">=</span><span class="s2">&quot;lru&quot;</span><span class="p">,</span>
-</span><span data-line="15">    <span class="p">),</span>
-</span><span data-line="16">    <span class="n">l3_config</span><span class="o">=</span><span class="n">CacheTierConfig</span><span class="p">(</span>
-</span><span data-line="17">        <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span data-line="18">        <span class="n">max_entries</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># unlimited</span>
-</span><span data-line="19">        <span class="n">eviction_policy</span><span class="o">=</span><span class="s2">&quot;lru&quot;</span><span class="p">,</span>
-</span><span data-line="20">    <span class="p">),</span>
-</span><span data-line="21">
-</span><span data-line="22">    <span class="c1"># TTL configuration</span>
-</span><span data-line="23">    <span class="n">default_ttl_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>
-</span><span data-line="24">    <span class="n">ttl_cleanup_interval</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
-</span><span data-line="25">    <span class="n">enable_background_cleanup</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span data-line="26">    <span class="n">cleanup_interval_seconds</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
-</span><span data-line="27">    <span class="n">per_source_ttl</span><span class="o">=</span><span class="p">{</span>
-</span><span data-line="28">        <span class="s2">&quot;premium&quot;</span><span class="p">:</span> <span class="mi">7200</span><span class="p">,</span>
-</span><span data-line="29">        <span class="s2">&quot;free&quot;</span><span class="p">:</span> <span class="mi">1800</span><span class="p">,</span>
-</span><span data-line="30">    <span class="p">},</span>
-</span><span data-line="31">
-</span><span data-line="32">    <span class="c1"># Storage paths</span>
-</span><span data-line="33">    <span class="n">l2_cache_dir</span><span class="o">=</span><span class="s2">&quot;.cache/proxies&quot;</span><span class="p">,</span>           <span class="c1"># L2 SQLite: .cache/proxies/l2_cache.db</span>
-</span><span data-line="34">    <span class="n">l3_database_path</span><span class="o">=</span><span class="s2">&quot;.cache/db/proxywhirl.db&quot;</span><span class="p">,</span>  <span class="c1"># L3 SQLite main database</span>
-</span><span data-line="35">
-</span><span data-line="36">    <span class="c1"># Encryption</span>
-</span><span data-line="37">    <span class="n">encryption_key</span><span class="o">=</span><span class="n">SecretStr</span><span class="p">(</span><span class="s2">&quot;...&quot;</span><span class="p">),</span>  <span class="c1"># or set PROXYWHIRL_CACHE_ENCRYPTION_KEY</span>
-</span><span data-line="38">
-</span><span data-line="39">    <span class="c1"># Health integration</span>
-</span><span data-line="40">    <span class="n">health_check_invalidation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span data-line="41">    <span class="n">failure_threshold</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
-</span><span data-line="42">
-</span><span data-line="43">    <span class="c1"># Performance tuning</span>
-</span><span data-line="44">    <span class="n">enable_statistics</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span data-line="45">    <span class="n">statistics_interval</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
-</span><span data-line="46"><span class="p">)</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.cache.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">L2BackendType</span>
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">SecretStr</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="n">config</span> <span class="o">=</span> <span class="n">CacheConfig</span><span class="p">(</span>
+</span><span data-line="6">    <span class="c1"># Tier configuration</span>
+</span><span data-line="7">    <span class="n">l1_config</span><span class="o">=</span><span class="n">CacheTierConfig</span><span class="p">(</span>
+</span><span data-line="8">        <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="9">        <span class="n">max_entries</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+</span><span data-line="10">        <span class="n">eviction_policy</span><span class="o">=</span><span class="s2">&quot;lru&quot;</span><span class="p">,</span>  <span class="c1"># lru | lfu | fifo</span>
+</span><span data-line="11">    <span class="p">),</span>
+</span><span data-line="12">    <span class="n">l2_config</span><span class="o">=</span><span class="n">CacheTierConfig</span><span class="p">(</span>
+</span><span data-line="13">        <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="14">        <span class="n">max_entries</span><span class="o">=</span><span class="mi">5000</span><span class="p">,</span>
+</span><span data-line="15">        <span class="n">eviction_policy</span><span class="o">=</span><span class="s2">&quot;lru&quot;</span><span class="p">,</span>
+</span><span data-line="16">    <span class="p">),</span>
+</span><span data-line="17">    <span class="n">l2_backend</span><span class="o">=</span><span class="n">L2BackendType</span><span class="o">.</span><span class="n">JSONL</span><span class="p">,</span>  <span class="c1"># or L2BackendType.SQLITE</span>
+</span><span data-line="18">    <span class="n">l3_config</span><span class="o">=</span><span class="n">CacheTierConfig</span><span class="p">(</span>
+</span><span data-line="19">        <span class="n">enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="20">        <span class="n">max_entries</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>  <span class="c1"># unlimited</span>
+</span><span data-line="21">        <span class="n">eviction_policy</span><span class="o">=</span><span class="s2">&quot;lru&quot;</span><span class="p">,</span>
+</span><span data-line="22">    <span class="p">),</span>
+</span><span data-line="23">
+</span><span data-line="24">    <span class="c1"># TTL configuration</span>
+</span><span data-line="25">    <span class="n">default_ttl_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>
+</span><span data-line="26">    <span class="n">ttl_cleanup_interval</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+</span><span data-line="27">    <span class="n">enable_background_cleanup</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="28">    <span class="n">cleanup_interval_seconds</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
+</span><span data-line="29">    <span class="n">per_source_ttl</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="30">        <span class="s2">&quot;premium&quot;</span><span class="p">:</span> <span class="mi">7200</span><span class="p">,</span>
+</span><span data-line="31">        <span class="s2">&quot;free&quot;</span><span class="p">:</span> <span class="mi">1800</span><span class="p">,</span>
+</span><span data-line="32">    <span class="p">},</span>
+</span><span data-line="33">
+</span><span data-line="34">    <span class="c1"># Storage paths</span>
+</span><span data-line="35">    <span class="n">l2_cache_dir</span><span class="o">=</span><span class="s2">&quot;.cache/proxies&quot;</span><span class="p">,</span>           <span class="c1"># L2 SQLite: .cache/proxies/l2_cache.db</span>
+</span><span data-line="36">    <span class="n">l3_database_path</span><span class="o">=</span><span class="s2">&quot;.cache/db/proxywhirl.db&quot;</span><span class="p">,</span>  <span class="c1"># L3 SQLite main database</span>
+</span><span data-line="37">
+</span><span data-line="38">    <span class="c1"># Encryption</span>
+</span><span data-line="39">    <span class="n">encryption_key</span><span class="o">=</span><span class="n">SecretStr</span><span class="p">(</span><span class="s2">&quot;...&quot;</span><span class="p">),</span>  <span class="c1"># or set PROXYWHIRL_CACHE_ENCRYPTION_KEY</span>
+</span><span data-line="40">
+</span><span data-line="41">    <span class="c1"># Health integration</span>
+</span><span data-line="42">    <span class="n">health_check_invalidation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="43">    <span class="n">failure_threshold</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+</span><span data-line="44">
+</span><span data-line="45">    <span class="c1"># Performance tuning</span>
+</span><span data-line="46">    <span class="n">enable_statistics</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="47">    <span class="n">statistics_interval</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+</span><span data-line="48"><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
 <section id="cachestatistics">
-<h3>CacheStatistics<a class="headerlink" href="#cachestatistics" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id9" role="doc-backlink">CacheStatistics</a><a class="headerlink" href="#cachestatistics" title="Link to this heading">¶</a></h3>
 <p>Real-time statistics across all tiers for monitoring and optimization.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">stats</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">get_statistics</span><span class="p">()</span>
 </span><span data-line="2">
@@ -818,10 +960,10 @@
 </section>
 </section>
 <section id="credential-encryption">
-<h2>Credential Encryption<a class="headerlink" href="#credential-encryption" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id10" role="doc-backlink">Credential Encryption</a><a class="headerlink" href="#credential-encryption" title="Link to this heading">¶</a></h2>
 <p>The <code class="docutils literal notranslate"><span class="pre">CredentialEncryptor</span></code> class provides Fernet symmetric encryption (AES-128-CBC + HMAC) for proxy credentials stored in L2 (JSONL files) and L3 (SQLite database).</p>
 <section id="encryption-setup">
-<h3>Encryption Setup<a class="headerlink" href="#encryption-setup" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id11" role="doc-backlink">Encryption Setup</a><a class="headerlink" href="#encryption-setup" title="Link to this heading">¶</a></h3>
 <p>Set the encryption key via environment variable:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nb">export</span><span class="w"> </span><span class="nv">PROXYWHIRL_CACHE_ENCRYPTION_KEY</span><span class="o">=</span><span class="k">$(</span>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">&quot;from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())&quot;</span><span class="k">)</span>
 </span></pre></div>
@@ -847,7 +989,7 @@
 </div>
 </section>
 <section id="key-rotation">
-<h3>Key Rotation<a class="headerlink" href="#key-rotation" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id12" role="doc-backlink">Key Rotation</a><a class="headerlink" href="#key-rotation" title="Link to this heading">¶</a></h3>
 <p>ProxyWhirl supports gradual key rotation using MultiFernet, allowing you to rotate encryption keys without downtime or data loss.</p>
 <p><strong>How Key Rotation Works:</strong></p>
 <ol class="arabic simple">
@@ -919,10 +1061,10 @@
 </div>
 </section>
 <section id="encryption-behavior">
-<h3>Encryption Behavior<a class="headerlink" href="#encryption-behavior" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id13" role="doc-backlink">Encryption Behavior</a><a class="headerlink" href="#encryption-behavior" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p><strong>L1 (Memory)</strong>: Credentials stored as <code class="docutils literal notranslate"><span class="pre">SecretStr</span></code> (not encrypted)</p></li>
-<li><p><strong>L2 (SQLite)</strong>: Credentials encrypted as BLOB fields in <code class="docutils literal notranslate"><span class="pre">l2_cache.db</span></code></p></li>
+<li><p><strong>L2 (Disk)</strong>: Credentials encrypted in JSONL shards (default) or as BLOB fields in <code class="docutils literal notranslate"><span class="pre">l2_cache.db</span></code> (SQLite backend), depending on <code class="docutils literal notranslate"><span class="pre">l2_backend</span></code> setting</p></li>
 <li><p><strong>L3 (SQLite)</strong>: Credentials encrypted as BLOB fields in main database</p></li>
 </ul>
 <p><strong>Automatic Encryption/Decryption:</strong></p>
@@ -949,9 +1091,9 @@
 </section>
 </section>
 <section id="ttl-and-expiration">
-<h2>TTL and Expiration<a class="headerlink" href="#ttl-and-expiration" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id14" role="doc-backlink">TTL and Expiration</a><a class="headerlink" href="#ttl-and-expiration" title="Link to this heading">¶</a></h2>
 <section id="ttl-configuration">
-<h3>TTL Configuration<a class="headerlink" href="#ttl-configuration" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id15" role="doc-backlink">TTL Configuration</a><a class="headerlink" href="#ttl-configuration" title="Link to this heading">¶</a></h3>
 <p>Proxies have configurable time-to-live (TTL) with per-source overrides:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">config</span> <span class="o">=</span> <span class="n">CacheConfig</span><span class="p">(</span>
 </span><span data-line="2">    <span class="n">default_ttl_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>  <span class="c1"># 1 hour default</span>
@@ -965,7 +1107,7 @@
 </div>
 </section>
 <section id="expiration-strategies">
-<h3>Expiration Strategies<a class="headerlink" href="#expiration-strategies" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id16" role="doc-backlink">Expiration Strategies</a><a class="headerlink" href="#expiration-strategies" title="Link to this heading">¶</a></h3>
 <p>ProxyWhirl uses <strong>hybrid lazy + background cleanup</strong>:</p>
 <ol class="arabic simple">
 <li><p><strong>Lazy Expiration</strong>: On every <code class="docutils literal notranslate"><span class="pre">get()</span></code> operation, checks <code class="docutils literal notranslate"><span class="pre">entry.is_expired</span></code> and deletes if expired</p></li>
@@ -1000,10 +1142,10 @@
 </section>
 </section>
 <section id="health-invalidation">
-<h2>Health Invalidation<a class="headerlink" href="#health-invalidation" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id17" role="doc-backlink">Health Invalidation</a><a class="headerlink" href="#health-invalidation" title="Link to this heading">¶</a></h2>
 <p>The cache integrates with the health monitoring system to automatically evict failing proxies. This works in tandem with the <a class="reference internal" href="retry-failover.html"><span class="doc">Retry &amp; Failover Guide</span></a> circuit breaker system.</p>
 <section id="configuration">
-<h3>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id18" role="doc-backlink">Configuration</a><a class="headerlink" href="#configuration" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">config</span> <span class="o">=</span> <span class="n">CacheConfig</span><span class="p">(</span>
 </span><span data-line="2">    <span class="n">health_check_invalidation</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># enable auto-eviction</span>
 </span><span data-line="3">    <span class="n">failure_threshold</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>              <span class="c1"># evict after 3 consecutive failures</span>
@@ -1012,7 +1154,7 @@
 </div>
 </section>
 <section id="invalidation-workflow">
-<h3>Invalidation Workflow<a class="headerlink" href="#invalidation-workflow" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id19" role="doc-backlink">Invalidation Workflow</a><a class="headerlink" href="#invalidation-workflow" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p>Health check fails for a proxy</p></li>
 <li><p><code class="docutils literal notranslate"><span class="pre">invalidate_by_health(key)</span></code> increments <code class="docutils literal notranslate"><span class="pre">failure_count</span></code></p></li>
@@ -1031,13 +1173,17 @@
 <p class="admonition-title">Note</p>
 <p>Even if <code class="docutils literal notranslate"><span class="pre">health_check_invalidation=False</span></code>, failure counts are still tracked. This allows post-hoc analysis without automatic eviction.</p>
 </div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>Cache health invalidation integrates directly with the circuit breaker system. When a proxy’s circuit breaker opens (see <a class="reference internal" href="retry-failover.html"><span class="doc">Retry &amp; Failover Guide</span></a>), the cache can automatically evict it. This ensures stale or unhealthy proxies are removed from all cache tiers.</p>
+</div>
 </section>
 </section>
 <section id="migration-from-jsonl-l2-cache">
-<h2>Migration from JSONL L2 Cache<a class="headerlink" href="#migration-from-jsonl-l2-cache" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id20" role="doc-backlink">Migration from JSONL L2 Cache</a><a class="headerlink" href="#migration-from-jsonl-l2-cache" title="Link to this heading">¶</a></h2>
 <p>ProxyWhirl previously used JSONL files for L2 cache but has migrated to SQLite for better performance. The <code class="docutils literal notranslate"><span class="pre">DiskCacheTier</span></code> class provides a migration utility for existing JSONL cache data.</p>
 <section id="migrating-legacy-jsonl-caches">
-<h3>Migrating Legacy JSONL Caches<a class="headerlink" href="#migrating-legacy-jsonl-caches" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id21" role="doc-backlink">Migrating Legacy JSONL Caches</a><a class="headerlink" href="#migrating-legacy-jsonl-caches" title="Link to this heading">¶</a></h3>
 <p>If you have existing <code class="docutils literal notranslate"><span class="pre">shard_*.jsonl</span></code> files from a previous version, migrate them to the new SQLite L2 cache:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.cache</span><span class="w"> </span><span class="kn">import</span> <span class="n">CacheConfig</span><span class="p">,</span> <span class="n">CacheManager</span>
@@ -1071,10 +1217,10 @@
 </section>
 </section>
 <section id="cache-warming">
-<h2>Cache Warming<a class="headerlink" href="#cache-warming" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id22" role="doc-backlink">Cache Warming</a><a class="headerlink" href="#cache-warming" title="Link to this heading">¶</a></h2>
 <p>Pre-populate the cache from external proxy lists for faster startup.</p>
 <section id="supported-formats">
-<h3>Supported Formats<a class="headerlink" href="#supported-formats" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id23" role="doc-backlink">Supported Formats</a><a class="headerlink" href="#supported-formats" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p><strong>JSON</strong>: Array of proxy objects</p></li>
 <li><p><strong>JSONL</strong>: Newline-delimited JSON objects</p></li>
@@ -1082,7 +1228,7 @@
 </ul>
 </section>
 <section id="warming-from-file">
-<h3>Warming from File<a class="headerlink" href="#warming-from-file" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id24" role="doc-backlink">Warming from File</a><a class="headerlink" href="#warming-from-file" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Warm cache from JSONL file</span>
 </span><span data-line="2"><span class="n">result</span> <span class="o">=</span> <span class="n">manager</span><span class="o">.</span><span class="n">warm_from_file</span><span class="p">(</span>
 </span><span data-line="3">    <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;proxies.jsonl&quot;</span><span class="p">,</span>
@@ -1113,9 +1259,9 @@
 </section>
 </section>
 <section id="performance-tuning">
-<h2>Performance Tuning<a class="headerlink" href="#performance-tuning" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id25" role="doc-backlink">Performance Tuning</a><a class="headerlink" href="#performance-tuning" title="Link to this heading">¶</a></h2>
 <section id="tier-sizing-recommendations">
-<h3>Tier Sizing Recommendations<a class="headerlink" href="#tier-sizing-recommendations" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id26" role="doc-backlink">Tier Sizing Recommendations</a><a class="headerlink" href="#tier-sizing-recommendations" title="Link to this heading">¶</a></h3>
 <p><strong>Low-memory environments</strong> (serverless, containers):</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">config</span> <span class="o">=</span> <span class="n">CacheConfig</span><span class="p">(</span>
 </span><span data-line="2">    <span class="n">l1_config</span><span class="o">=</span><span class="n">CacheTierConfig</span><span class="p">(</span><span class="n">max_entries</span><span class="o">=</span><span class="mi">100</span><span class="p">),</span>
@@ -1143,7 +1289,7 @@
 </div>
 </section>
 <section id="eviction-policy-selection">
-<h3>Eviction Policy Selection<a class="headerlink" href="#eviction-policy-selection" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id27" role="doc-backlink">Eviction Policy Selection</a><a class="headerlink" href="#eviction-policy-selection" title="Link to this heading">¶</a></h3>
 <div class="table-wrapper colwidths-given docutils container">
 <table class="docutils align-default">
 <colgroup>
@@ -1184,7 +1330,7 @@
 </div>
 </section>
 <section id="performance-characteristics">
-<h3>Performance Characteristics<a class="headerlink" href="#performance-characteristics" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id28" role="doc-backlink">Performance Characteristics</a><a class="headerlink" href="#performance-characteristics" title="Link to this heading">¶</a></h3>
 <p><strong>Operation Latencies</strong> (approximate):</p>
 <div class="table-wrapper colwidths-auto docutils container">
 <table class="docutils align-default">
@@ -1222,7 +1368,7 @@
 <p><strong>Memory Usage</strong> (approximate):</p>
 <ul class="simple">
 <li><p><strong>L1</strong>: ~500 bytes per entry (Python object overhead)</p></li>
-<li><p><strong>L2</strong>: ~400 bytes per entry (SQLite storage in <code class="docutils literal notranslate"><span class="pre">l2_cache.db</span></code>)</p></li>
+<li><p><strong>L2</strong>: ~400 bytes per entry (JSONL or SQLite, depending on <code class="docutils literal notranslate"><span class="pre">l2_backend</span></code>)</p></li>
 <li><p><strong>L3</strong>: ~450 bytes per entry (SQLite storage with health fields)</p></li>
 </ul>
 <div class="admonition warning">
@@ -1231,7 +1377,7 @@
 </div>
 </section>
 <section id="graceful-degradation">
-<h3>Graceful Degradation<a class="headerlink" href="#graceful-degradation" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id29" role="doc-backlink">Graceful Degradation</a><a class="headerlink" href="#graceful-degradation" title="Link to this heading">¶</a></h3>
 <p>If a tier fails repeatedly (e.g., disk full, database locked), it auto-disables after 3 consecutive failures:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># L2 disk full → tier disabled</span>
 </span><span data-line="2"><span class="n">manager</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">entry</span><span class="p">)</span>
@@ -1246,7 +1392,7 @@
 </section>
 </section>
 <section id="cli-integration">
-<h2>CLI Integration<a class="headerlink" href="#cli-integration" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id30" role="doc-backlink">CLI Integration</a><a class="headerlink" href="#cli-integration" title="Link to this heading">¶</a></h2>
 <p>The CLI exposes cache configuration via TOML config file. See <a class="reference internal" href="cli-reference.html"><span class="doc">CLI Reference</span></a> for full CLI command documentation and <a class="reference internal" href="../reference/configuration.html"><span class="doc">Configuration Reference</span></a> for all configuration keys.</p>
 <div class="highlight-toml notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># ~/.config/proxywhirl/config.toml</span>
 </span><span data-line="2"><span class="n">cache_enabled</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
@@ -1264,9 +1410,9 @@
 </div>
 </section>
 <section id="best-practices">
-<h2>Best Practices<a class="headerlink" href="#best-practices" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id31" role="doc-backlink">Best Practices</a><a class="headerlink" href="#best-practices" title="Link to this heading">¶</a></h2>
 <section id="security">
-<h3>Security<a class="headerlink" href="#security" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id32" role="doc-backlink">Security</a><a class="headerlink" href="#security" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p><strong>Always encrypt credentials</strong>: Set <code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_CACHE_ENCRYPTION_KEY</span></code> in production</p></li>
 <li><p><strong>Rotate encryption keys</strong>: Re-encrypt cache data periodically</p></li>
@@ -1275,7 +1421,7 @@
 </ol>
 </section>
 <section id="performance">
-<h3>Performance<a class="headerlink" href="#performance" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id33" role="doc-backlink">Performance</a><a class="headerlink" href="#performance" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p><strong>Size L1 appropriately</strong>: Too large → GC pauses, too small → excessive L2/L3 access</p></li>
 <li><p><strong>Enable background cleanup</strong>: For write-heavy workloads with short TTLs</p></li>
@@ -1284,7 +1430,7 @@
 </ol>
 </section>
 <section id="reliability">
-<h3>Reliability<a class="headerlink" href="#reliability" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id34" role="doc-backlink">Reliability</a><a class="headerlink" href="#reliability" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
 <li><p><strong>Handle degraded tiers</strong>: Check <code class="docutils literal notranslate"><span class="pre">CacheStatistics.l{1,2,3}_degraded</span></code> in metrics</p></li>
 <li><p><strong>Monitor eviction reasons</strong>: High <code class="docutils literal notranslate"><span class="pre">evictions_health</span></code> → upstream proxy issues</p></li>
@@ -1294,7 +1440,7 @@
 </section>
 </section>
 <section id="example-complete-cache-setup">
-<h2>Example: Complete Cache Setup<a class="headerlink" href="#example-complete-cache-setup" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id35" role="doc-backlink">Example: Complete Cache Setup</a><a class="headerlink" href="#example-complete-cache-setup" title="Link to this heading">¶</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.cache</span><span class="w"> </span><span class="kn">import</span> <span class="n">CacheManager</span><span class="p">,</span> <span class="n">CacheConfig</span><span class="p">,</span> <span class="n">CacheTierConfig</span><span class="p">,</span> <span class="n">CacheEntry</span><span class="p">,</span> <span class="n">HealthStatus</span>
 </span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">SecretStr</span>
@@ -1373,9 +1519,9 @@
 </div>
 </section>
 <section id="troubleshooting">
-<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id36" role="doc-backlink">Troubleshooting</a><a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
 <section id="low-hit-rates">
-<h3>Low Hit Rates<a class="headerlink" href="#low-hit-rates" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id37" role="doc-backlink">Low Hit Rates</a><a class="headerlink" href="#low-hit-rates" title="Link to this heading">¶</a></h3>
 <p><strong>Symptom</strong>: <code class="docutils literal notranslate"><span class="pre">overall_hit_rate</span> <span class="pre">&lt;</span> <span class="pre">0.5</span></code></p>
 <p><strong>Solutions</strong>:</p>
 <ul class="simple">
@@ -1386,7 +1532,7 @@
 </ul>
 </section>
 <section id="high-memory-usage">
-<h3>High Memory Usage<a class="headerlink" href="#high-memory-usage" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id38" role="doc-backlink">High Memory Usage</a><a class="headerlink" href="#high-memory-usage" title="Link to this heading">¶</a></h3>
 <p><strong>Symptom</strong>: Python process RSS &gt; expected</p>
 <p><strong>Solutions</strong>:</p>
 <ul class="simple">
@@ -1396,7 +1542,7 @@
 </ul>
 </section>
 <section id="encryption-errors">
-<h3>Encryption Errors<a class="headerlink" href="#encryption-errors" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id39" role="doc-backlink">Encryption Errors</a><a class="headerlink" href="#encryption-errors" title="Link to this heading">¶</a></h3>
 <p><strong>Symptom</strong>: <code class="docutils literal notranslate"><span class="pre">ValueError:</span> <span class="pre">Decryption</span> <span class="pre">failed</span></code></p>
 <p><strong>Solutions</strong>:</p>
 <ul class="simple">
@@ -1406,7 +1552,7 @@
 </ul>
 </section>
 <section id="tier-degradation">
-<h3>Tier Degradation<a class="headerlink" href="#tier-degradation" title="Link to this heading">¶</a></h3>
+<h3><a class="toc-backref" href="#id40" role="doc-backlink">Tier Degradation</a><a class="headerlink" href="#tier-degradation" title="Link to this heading">¶</a></h3>
 <p><strong>Symptom</strong>: <code class="docutils literal notranslate"><span class="pre">l2_degraded=True</span></code> or <code class="docutils literal notranslate"><span class="pre">l3_degraded=True</span></code></p>
 <p><strong>Solutions</strong>:</p>
 <ul class="simple">
@@ -1418,7 +1564,7 @@
 </section>
 </section>
 <section id="see-also">
-<h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
+<h2><a class="toc-backref" href="#id41" role="doc-backlink">See Also</a><a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
 <div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-3 sd-g-xs-3 sd-g-sm-3 sd-g-md-3 sd-g-lg-3 docutils">
 <div class="sd-col sd-d-flex-row docutils">

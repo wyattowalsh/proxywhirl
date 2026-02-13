@@ -4,7 +4,7 @@ title: Advanced Rotation Strategies
 
 # Advanced Rotation Strategies
 
-ProxyWhirl provides 8 built-in rotation strategies for intelligent proxy selection. This guide covers the advanced strategies beyond basic round-robin and random selection, including performance-based routing, session persistence, geo-targeting, cost optimization, and composite strategies.
+ProxyWhirl provides 9 built-in rotation strategies for intelligent proxy selection. This guide covers the advanced strategies beyond basic round-robin and random selection, including performance-based routing, session persistence, geo-targeting, cost optimization, and composite strategies.
 
 ```{contents}
 :local:
@@ -75,12 +75,12 @@ from proxywhirl.strategies import PerformanceBasedStrategy, StrategyConfig
 
 # Create proxies
 proxies = [
-    Proxy(url="http://proxy1.example.com:8080", ema_alpha=0.2),
-    Proxy(url="http://proxy2.example.com:8080", ema_alpha=0.2),
-    Proxy(url="http://proxy3.example.com:8080", ema_alpha=0.2),
+    Proxy(url="http://proxy1.example.com:8080"),
+    Proxy(url="http://proxy2.example.com:8080"),
+    Proxy(url="http://proxy3.example.com:8080"),
 ]
 
-# Configure strategy with EMA parameters
+# Configure strategy with EMA parameters via StrategyConfig (not on Proxy)
 config = StrategyConfig(
     ema_alpha=0.2,  # Smoothing factor: higher = more weight to recent values
 )
@@ -728,12 +728,12 @@ pool = ProxyPool(name="global-pool")
 
 us_proxies = [
     Proxy(url=f"http://us{i}.com:8080", country_code="US",
-          health_status=HealthStatus.HEALTHY, ema_alpha=0.2)
+          health_status=HealthStatus.HEALTHY)
     for i in range(5)
 ]
 uk_proxies = [
     Proxy(url=f"http://uk{i}.com:8080", country_code="GB",
-          health_status=HealthStatus.HEALTHY, ema_alpha=0.2)
+          health_status=HealthStatus.HEALTHY)
     for i in range(5)
 ]
 
@@ -782,7 +782,6 @@ for i in range(100):
         url=f"http://proxy{i}.com:8080",
         country_code=country,
         health_status=HealthStatus.HEALTHY,
-        ema_alpha=0.2,
     )
     proxy.start_request()
     proxy.complete_request(success=True, response_time_ms=100.0)
@@ -1388,7 +1387,6 @@ def test_my_use_case():
         proxy = Proxy(
             url=f"http://proxy{i}.example.com:8080",
             health_status=HealthStatus.HEALTHY,
-            ema_alpha=0.2,
         )
         # Warm up
         proxy.start_request()

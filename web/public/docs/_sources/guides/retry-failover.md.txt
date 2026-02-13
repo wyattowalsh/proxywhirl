@@ -6,6 +6,11 @@ title: Retry & Failover Guide
 
 ProxyWhirl provides intelligent retry logic, circuit breaker protection, and automatic proxy failover to maximize request success rates. This guide covers the complete retry and failover system, from basic configuration to advanced observability.
 
+```{contents}
+:local:
+:depth: 2
+```
+
 ## Architecture Overview
 
 The retry system consists of four main components:
@@ -49,7 +54,7 @@ policy = RetryPolicy(
     base_delay=1.0,                          # Initial delay (seconds)
     multiplier=2.0,                          # Exponential multiplier
     max_backoff_delay=30.0,                  # Maximum delay cap
-    jitter=True,                             # Randomize delays ±50%
+    jitter=True,                             # AWS decorrelated jitter
     retry_status_codes=[502, 503, 504],      # Retryable HTTP errors
     timeout=60.0,                            # Total timeout for all attempts
     retry_non_idempotent=False,              # Don't retry POST by default
@@ -71,15 +76,13 @@ policy = RetryPolicy(
     base_delay=1.0,
     multiplier=2.0,
     max_backoff_delay=30.0,
-    jitter=True,  # Prevents thundering herd
+    jitter=True,  # AWS decorrelated jitter
 )
 
-# Attempt 0: 1.0s ± 50% jitter
-# Attempt 1: 2.0s ± 50% jitter
-# Attempt 2: 4.0s ± 50% jitter
-# Attempt 3: 8.0s ± 50% jitter
-# Attempt 4: 16.0s ± 50% jitter
-# Attempt 5+: 30.0s (capped) ± 50% jitter
+# Attempt 0: random(0, 1.0s)
+# Attempt 1: random(1.0s, previous * 3), capped at 30s
+# Attempt 2: random(1.0s, previous * 3), capped at 30s
+# Each delay decorrelated from the previous (AWS algorithm)
 ```
 
 #### Linear Backoff
@@ -113,17 +116,23 @@ policy = RetryPolicy(
 
 ### Jitter Explained
 
-Jitter adds randomization to delays (±50%) to prevent synchronized retries across multiple clients:
+Jitter uses the **AWS decorrelated jitter algorithm** to prevent synchronized retries across multiple clients. Instead of simple randomization, each retry delay depends on the previous delay:
 
 ```python
+# AWS decorrelated jitter formula:
+#   delay = min(cap, random(base_delay, previous_delay * 3))
+#
+# First attempt: uniform random from 0 to base delay
+# Subsequent attempts: decorrelated from previous delay
+#
 # Without jitter: All clients retry at exactly 1.0s, 2.0s, 4.0s...
-# With jitter: Clients retry at random times:
+# With jitter: Clients retry at decorrelated random times:
 #   Client A: 0.7s, 1.3s, 2.8s...
 #   Client B: 1.4s, 2.9s, 5.1s...
 #   Client C: 0.9s, 1.1s, 3.7s...
 ```
 
-This prevents "thundering herd" problems where many clients overwhelm a recovering server.
+This prevents "thundering herd" problems where many clients overwhelm a recovering server. See the [AWS Architecture Blog](https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/) for background on decorrelated jitter.
 
 ### Retryable Status Codes
 
@@ -196,7 +205,7 @@ if cb.should_attempt_request():
     cb.record_success()
 
 # ✅ For async code - use AsyncCircuitBreaker
-from proxywhirl.circuit_breaker_async import AsyncCircuitBreaker
+from proxywhirl.circuit_breaker import AsyncCircuitBreaker
 
 cb = AsyncCircuitBreaker(proxy_id="proxy-1")
 await cb.record_failure()  # Event loop safe
@@ -204,7 +213,7 @@ if await cb.should_attempt_request():
     await cb.record_success()
 ```
 
-**WARNING:** Do NOT mix sync locks with async code. The `CircuitBreaker` class has some async methods (`save_state`, `load_state`) for backward compatibility, but these use `threading.Lock` internally which can block the event loop. For production async applications, always use `AsyncCircuitBreaker`.
+**WARNING:** Do NOT mix sync locks with async code. The `CircuitBreaker` class uses `threading.Lock` internally which can block the event loop. For production async applications, always use `AsyncCircuitBreaker`.
 
 ### State Machine
 
@@ -235,87 +244,6 @@ cb = rotator.circuit_breakers[str(proxy.id)]
 print(cb.failure_threshold)   # Default: 5 failures
 print(cb.window_duration)     # Default: 60 seconds (rolling window)
 print(cb.timeout_duration)    # Default: 30 seconds (OPEN timeout)
-```
-
-### Circuit Breaker Persistence
-
-Circuit breaker state can optionally persist across application restarts using SQLite storage.
-
-**For async applications (recommended):**
-
-```python
-from proxywhirl.circuit_breaker_async import AsyncCircuitBreaker, CircuitBreakerConfig
-from proxywhirl.storage import SQLiteStorage
-
-# Configure persistence
-cb_config = CircuitBreakerConfig(
-    persist_state=True,            # Enable state persistence
-    failure_threshold=5,
-    window_duration=60.0,
-    timeout_duration=30.0,
-)
-
-# Initialize storage
-storage = SQLiteStorage("proxywhirl.db")
-await storage.initialize()
-
-# Create async circuit breaker with persistence
-cb = await AsyncCircuitBreaker.create_with_storage(
-    proxy_id="proxy-123",
-    storage=storage,
-    config=cb_config,
-)
-
-# State automatically saves to database
-await cb.record_failure()
-await cb.save_state()
-
-# On next startup, state is restored
-cb2 = await AsyncCircuitBreaker.create_with_storage(
-    proxy_id="proxy-123",
-    storage=storage,
-    config=cb_config,
-)
-print(cb2.state)           # Restored from database
-```
-
-**For sync applications:**
-
-```python
-from proxywhirl import CircuitBreaker, CircuitBreakerConfig
-from proxywhirl.storage import SQLiteStorage
-
-cb_config = CircuitBreakerConfig(persist_state=True)
-storage = SQLiteStorage("proxywhirl.db")
-await storage.initialize()
-
-# Note: CircuitBreaker has async methods for I/O but uses threading.Lock
-cb = await CircuitBreaker.create_with_storage(
-    proxy_id="proxy-123",
-    storage=storage,
-    config=cb_config,
-)
-print(cb2.failure_count)   # Restored from database
-```
-
-**Persistence Benefits:**
-
-- **Prevents flood on restart**: Circuit breakers remain OPEN if they were failing
-- **Maintains failure history**: Rolling window survives application restarts
-- **Coordination**: Multiple processes can share circuit breaker state via shared database
-
-**Storage Schema:**
-
-The `CircuitBreakerStateTable` stores:
-- `proxy_id`: Unique proxy identifier
-- `state`: Current state (CLOSED/OPEN/HALF_OPEN)
-- `failure_count`: Current failure count
-- `failure_window_json`: JSON-serialized failure timestamps
-- `next_test_time`: When to test recovery (for OPEN state)
-- `last_state_change`: Timestamp of last state transition
-
-```{warning}
-Enable persistence only when necessary - it adds database I/O overhead on every state change.
 ```
 
 ### State Transitions
@@ -616,7 +544,7 @@ for hour, agg in metrics.hourly_aggregates.items():
 ### Retention Configuration
 
 ```python
-from proxywhirl.retry_metrics import RetryMetrics
+from proxywhirl.retry import RetryMetrics
 
 # Custom retention and limits
 metrics = RetryMetrics(
@@ -664,7 +592,7 @@ The executor classifies errors into two categories:
 - Any exception not in the retryable types list
 
 ```python
-from proxywhirl.retry_executor import RetryExecutor, NonRetryableError
+from proxywhirl.retry import RetryExecutor, NonRetryableError
 
 # Custom error handling
 try:
@@ -680,7 +608,7 @@ For advanced use cases, you can use `RetryExecutor` directly:
 
 ```python
 from proxywhirl import ProxyRotator, Proxy, RetryPolicy
-from proxywhirl.retry_executor import RetryExecutor
+from proxywhirl.retry import RetryExecutor
 import httpx
 
 # Create executor with custom policy
@@ -733,7 +661,7 @@ response = rotator.request("GET", "https://httpbin.org/ip")
 
 ```python
 from proxywhirl.exceptions import ProxyConnectionError
-from proxywhirl.retry_executor import NonRetryableError
+from proxywhirl.retry import NonRetryableError
 
 try:
     response = rotator.request("GET", url)
@@ -957,7 +885,7 @@ critical_policy = RetryPolicy(
 
 # Note: Currently requires creating new executor
 # This pattern may be simplified in future versions
-from proxywhirl.retry_executor import RetryExecutor
+from proxywhirl.retry import RetryExecutor
 
 executor = RetryExecutor(
     critical_policy,
@@ -1076,9 +1004,6 @@ print(f"{open_count} circuits open")
 # Reset circuits if blocking legitimate traffic
 for cb in rotator.circuit_breakers.values():
     cb.reset()
-
-# Refresh proxy pool
-rotator.refresh()
 
 # Check per-proxy statistics
 by_proxy = rotator.retry_metrics.get_by_proxy(hours=1)

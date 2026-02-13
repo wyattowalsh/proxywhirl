@@ -11,7 +11,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=43a92ad3" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=b31b09b0" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,12 +24,12 @@
     <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://proxywhirl.readthedocs.io/getting-started/"/>
   <meta property="og:title" content="Getting Started"/>
-  <meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
     <meta name="twitter:card" content="summary"/>
-<meta name="twitter:creator" content="@@wyaborern"/>
-<meta name="twitter:site" content="@@wyaborern"/>
+<meta name="twitter:creator" content="@wyaborern"/>
+<meta name="twitter:site" content="@wyaborern"/>
   </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="pw-navbar">
   <div class="pw-navbar-inner">
     
@@ -38,7 +38,7 @@
     </button>
 
     
-    <a href="/" class="pw-navbar-brand">
+    <a href="../index.html" class="pw-navbar-brand">
       <svg class="pw-navbar-logo" viewBox="0 0 100 100" aria-hidden="true">
         <defs>
           <linearGradient id="pw-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -60,17 +60,25 @@
     </a>
 
     
-    <nav class="pw-navbar-links">
-      <a href="/docs/" class="pw-navbar-link active">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-        Docs
+    <nav class="pw-navbar-links" aria-label="Main navigation">
+      <a href="#" class="pw-navbar-link" data-section="getting-started">
+        Getting Started
+      </a>
+      <a href="../guides/index.html" class="pw-navbar-link" data-section="guides">
+        Guides
+      </a>
+      <a href="../reference/index.html" class="pw-navbar-link" data-section="reference">
+        Reference
+      </a>
+      <a href="../project/index.html" class="pw-navbar-link" data-section="project">
+        Project
       </a>
     </nav>
 
     
     <div class="pw-navbar-actions">
       
-      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme">
+      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme" aria-pressed="false">
         <svg class="pw-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
         <svg class="pw-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       </button>
@@ -82,24 +90,43 @@
     </div>
   </div>
 </header>
+<div id="main-content"></div>
 
 <script>
 (function() {
+  /* Theme toggle */
   var toggle = document.getElementById('pw-theme-toggle');
-  if (!toggle) return;
-  toggle.addEventListener('click', function() {
-    var isDark = document.documentElement.classList.contains('dark');
-    var next = isDark ? 'light' : 'dark';
-    localStorage._theme = next;
-    if (typeof setColorMode === 'function') {
-      setColorMode(next);
-    } else {
-      var html = document.documentElement;
-      html.classList.remove('dark', 'light');
-      html.classList.add(next);
-      html.setAttribute('data-color-mode', next);
+  if (toggle) {
+    /* Set initial aria-pressed based on current theme */
+    var currentlyDark = document.documentElement.classList.contains('dark');
+    toggle.setAttribute('aria-pressed', currentlyDark ? 'true' : 'false');
+
+    toggle.addEventListener('click', function() {
+      var isDark = document.documentElement.classList.contains('dark');
+      var next = isDark ? 'light' : 'dark';
+      localStorage._theme = next;
+      if (typeof setColorMode === 'function') {
+        setColorMode(next);
+      } else {
+        var html = document.documentElement;
+        html.classList.remove('dark', 'light');
+        html.classList.add(next);
+        html.setAttribute('data-color-mode', next);
+      }
+      toggle.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+    });
+  }
+
+  /* Active nav link detection — highlight current section */
+  var path = window.location.pathname;
+  var links = document.querySelectorAll('.pw-navbar-link[data-section]');
+  links.forEach(function(link) {
+    var section = link.getAttribute('data-section');
+    if (path.indexOf('/' + section) !== -1) {
+      link.classList.add('active');
     }
   });
+  /* Mark home page — none active, or all inactive is fine */
 })();
 </script>
 <div class="sy-page sy-container flex mx-auto">
@@ -114,19 +141,24 @@
 <li class="toctree-l3"><a class="reference internal" href="#basic-usage-sync">Basic Usage (sync)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#async-usage">Async Usage</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#context-manager-pattern">Context Manager Pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#authenticated-proxies">Authenticated Proxies</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#using-free-proxy-lists">Using Free Proxy Lists</a></li>
 <li class="toctree-l3"><a class="reference internal" href="#fetching-proxies-programmatically">Fetching Proxies Programmatically</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="#choosing-a-rotation-strategy">Choosing a Rotation Strategy</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="#configuring-retry-and-circuit-breakers">Configuring Retry and Circuit Breakers</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="#monitoring-your-pool">Monitoring Your Pool</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="#next-steps">Next Steps</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="#for-contributors">For Contributors</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rotation-strategies.html#bootstrap-a-rotator">Bootstrap a Rotator</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l4"><a class="reference internal" href="rotation-strategies.html#strategy-recipes">Strategy Recipes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rotation-strategies.html#quick-pick-guide">Quick-Pick Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rotation-strategies.html#strategy-reference">Strategy Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rotation-strategies.html#comparison-at-a-glance">Comparison At a Glance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="rotation-strategies.html#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="rotation-strategies.html#further-reading">Further Reading</a></li>
@@ -134,19 +166,6 @@
 </li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l1 _expand"><a class="reference internal" href="rotation-strategies.html">Rotation Strategies</a><ul>
-<li class="toctree-l2 _expand"><a class="reference internal" href="rotation-strategies.html#bootstrap-a-rotator">Bootstrap a rotator</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="rotation-strategies.html#strategy-recipes">Strategy Recipes</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="rotation-strategies.html#core-strategies">Core Strategies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="rotation-strategies.html#advanced-strategies">Advanced Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="rotation-strategies.html#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l1 _expand"><a class="reference internal" href="../guides/index.html">Guides</a><ul>
@@ -224,7 +243,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#overview">Overview</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a></li>
@@ -257,7 +275,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#automating-releases">Automating Releases</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#docsearch-credentials">DocSearch Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#ci-stage-summary">CI Stage Summary</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#further-reading">Further Reading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#see-also">See Also</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/mcp-server.html">MCP Server Guide</a><ul>
@@ -291,6 +309,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#getting-started">Getting Started</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#middleware">Middleware</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#endpoint-reference">Endpoint Reference</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#rate-limiting">Rate Limiting</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#error-handling">Error Handling</a></li>
@@ -392,23 +411,25 @@
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#code-style">Code Style</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#pre-commit-hooks">Pre-commit Hooks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#testing-guidelines">Testing Guidelines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#extending-with-custom-strategies">Extending with Custom Strategies</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#ci-cd-pipelines">CI/CD Pipelines</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#quality-gate-pipeline">Quality Gate Pipeline</a></li>
 </ul>
 </li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#module-map">Module Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-exports">Key Exports</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#changelog-highlights">Changelog Highlights</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#recent">Recent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#phase-completion-status">Phase Completion Status</a></li>
 </ul>
 </li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-modules">Key Modules</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#license">License</a></li>
 </ul>
 </li>
@@ -429,11 +450,13 @@
 <li><a class="reference internal" href="#basic-usage-sync">Basic Usage (sync)</a></li>
 <li><a class="reference internal" href="#async-usage">Async Usage</a></li>
 <li><a class="reference internal" href="#context-manager-pattern">Context Manager Pattern</a></li>
+<li><a class="reference internal" href="#authenticated-proxies">Authenticated Proxies</a></li>
 <li><a class="reference internal" href="#using-free-proxy-lists">Using Free Proxy Lists</a></li>
 <li><a class="reference internal" href="#fetching-proxies-programmatically">Fetching Proxies Programmatically</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#choosing-a-rotation-strategy">Choosing a Rotation Strategy</a></li>
+<li><a class="reference internal" href="#configuring-retry-and-circuit-breakers">Configuring Retry and Circuit Breakers</a></li>
 <li><a class="reference internal" href="#monitoring-your-pool">Monitoring Your Pool</a></li>
 <li><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
 <li><a class="reference internal" href="#next-steps">Next Steps</a></li>
@@ -502,7 +525,7 @@
         </a></div>
     </div>
   </div>
-</div><article class="yue" role="main">
+</div><article class="yue dark-code" role="main">
           <p>Get ProxyWhirl running in minutes with intelligent proxy rotation for your Python applications.</p>
 <section id="getting-started">
 <h1>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading">¶</a></h1>
@@ -517,7 +540,7 @@
 </ul>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>If you just need a quick proxy list to get started, ProxyWhirl publishes <strong>free, validated lists</strong> updated every 2 hours at <a class="reference external" href="https://proxywhirl.com/">proxywhirl.com</a>.</p>
+<p>If you just need a quick proxy list to get started, ProxyWhirl publishes <strong>free, validated lists</strong> updated every 6 hours at <a class="reference external" href="https://proxywhirl.com/">proxywhirl.com</a>.</p>
 </div>
 </section>
 <hr class="docutils" />
@@ -544,9 +567,16 @@ pip</label><div class="sd-tab-content docutils">
 </div>
 <input id="sd-tab-item-2" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-2">
-With all extras</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1">pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;proxywhirl[all]&quot;</span>
-</span><span data-line="2"><span class="c1"># Includes: storage, security, js, analytics, mcp</span>
+Extras</label><div class="sd-tab-content docutils">
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Install with specific extras</span>
+</span><span data-line="2">pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;proxywhirl[storage]&quot;</span><span class="w">     </span><span class="c1"># SQLite persistence (sqlmodel)</span>
+</span><span data-line="3">pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;proxywhirl[security]&quot;</span><span class="w">    </span><span class="c1"># Credential encryption (cryptography)</span>
+</span><span data-line="4">pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;proxywhirl[js]&quot;</span><span class="w">          </span><span class="c1"># JS-rendered proxy sources (playwright)</span>
+</span><span data-line="5">pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;proxywhirl[analytics]&quot;</span><span class="w">   </span><span class="c1"># Analytics &amp; ML (pandas, numpy, scikit-learn)</span>
+</span><span data-line="6">pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;proxywhirl[mcp]&quot;</span><span class="w">         </span><span class="c1"># MCP server for AI assistants (Python 3.10+)</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="c1"># Install everything</span>
+</span><span data-line="9">pip<span class="w"> </span>install<span class="w"> </span><span class="s2">&quot;proxywhirl[all]&quot;</span>
 </span></pre></div>
 </div>
 </div>
@@ -562,7 +592,7 @@ From source</label><div class="sd-tab-content docutils">
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>ProxyWhirl requires <strong>Python 3.9+</strong>. SOCKS proxy support needs the optional <code class="docutils literal notranslate"><span class="pre">httpx-socks</span></code> dependency, which is included in the <code class="docutils literal notranslate"><span class="pre">[all]</span></code> extra.</p>
+<p>ProxyWhirl requires <strong>Python 3.9+</strong>. SOCKS proxy support uses <code class="docutils literal notranslate"><span class="pre">httpx-socks</span></code>, which is included in the core dependencies. The <code class="docutils literal notranslate"><span class="pre">[mcp]</span></code> extra requires Python 3.10+.</p>
 </div>
 </section>
 <hr class="docutils" />
@@ -570,71 +600,101 @@ From source</label><div class="sd-tab-content docutils">
 <h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading">¶</a></h2>
 <section id="basic-usage-sync">
 <h3>Basic Usage (sync)<a class="headerlink" href="#basic-usage-sync" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="c1"># Create a rotator with your proxies</span>
-</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="p">[</span>
-</span><span data-line="5">    <span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">,</span>
-</span><span data-line="6">    <span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">,</span>
-</span><span data-line="7">    <span class="s2">&quot;socks5://proxy3.example.com:1080&quot;</span><span class="p">,</span>
-</span><span data-line="8"><span class="p">])</span>
+</span><span data-line="3"><span class="c1"># Create Proxy objects and pass them to the rotator</span>
+</span><span data-line="4"><span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="5">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">),</span>
+</span><span data-line="6">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">),</span>
+</span><span data-line="7">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;socks5://proxy3.example.com:1080&quot;</span><span class="p">),</span>
+</span><span data-line="8"><span class="p">]</span>
 </span><span data-line="9">
-</span><span data-line="10"><span class="c1"># Make requests -- proxies rotate automatically</span>
-</span><span data-line="11"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
-</span><span data-line="12"><span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>  <span class="c1"># {&quot;origin&quot;: &quot;185.x.x.47&quot;}</span>
-</span><span data-line="13">
-</span><span data-line="14"><span class="c1"># Dead proxies are ejected, slow ones deprioritized</span>
-</span><span data-line="15"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://api.example.com/data&quot;</span><span class="p">)</span>
+</span><span data-line="10"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">)</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="c1"># Make requests -- proxies rotate automatically</span>
+</span><span data-line="13"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
+</span><span data-line="14"><span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>  <span class="c1"># {&quot;origin&quot;: &quot;185.x.x.47&quot;}</span>
+</span><span data-line="15">
+</span><span data-line="16"><span class="c1"># Dead proxies are ejected, slow ones deprioritized</span>
+</span><span data-line="17"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://api.example.com/data&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>You can also add proxies from URL strings after construction:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
+</span><span data-line="2"><span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
+</span><span data-line="3"><span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;socks5://proxy2.example.com:1080&quot;</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
 <section id="async-usage">
 <h3>Async Usage<a class="headerlink" href="#async-usage" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span data-line="5">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="p">[</span>
-</span><span data-line="6">        <span class="s2">&quot;http://proxy1:8080&quot;</span><span class="p">,</span>
-</span><span data-line="7">        <span class="s2">&quot;http://proxy2:8080&quot;</span><span class="p">,</span>
-</span><span data-line="8">    <span class="p">])</span>
+</span><span data-line="5">    <span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="6">        <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">),</span>
+</span><span data-line="7">        <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">),</span>
+</span><span data-line="8">    <span class="p">]</span>
 </span><span data-line="9">
-</span><span data-line="10">    <span class="c1"># Concurrent requests with automatic rotation</span>
-</span><span data-line="11">    <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;https://api.example.com/</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)]</span>
-</span><span data-line="12">    <span class="n">responses</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="n">tasks</span><span class="p">)</span>
-</span><span data-line="13">
-</span><span data-line="14"><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
+</span><span data-line="10">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="11">        <span class="c1"># Concurrent requests with automatic rotation</span>
+</span><span data-line="12">        <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;https://api.example.com/</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">)]</span>
+</span><span data-line="13">        <span class="n">responses</span> <span class="o">=</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="n">tasks</span><span class="p">)</span>
+</span><span data-line="14">
+</span><span data-line="15"><span class="n">asyncio</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">main</span><span class="p">())</span>
 </span></pre></div>
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>Use <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code> when you need high concurrency (100+ parallel requests) or are integrating with an async framework. For simple scripts and sequential work, <code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code> is simpler to debug. See <a class="reference internal" href="../guides/async-client.html"><span class="std std-doc">Async Client</span></a> for a deeper comparison.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code> when you need high concurrency (100+ parallel requests) or are integrating with an async framework. For simple scripts and sequential work, <code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code> is simpler to debug. See <a class="reference internal" href="../guides/async-client.html"><span class="doc">Async Client Guide</span></a> for a deeper comparison.</p>
 </div>
 </section>
 <section id="context-manager-pattern">
 <h3>Context Manager Pattern<a class="headerlink" href="#context-manager-pattern" title="Link to this heading">¶</a></h3>
 <p>Both rotators support context managers for clean resource handling:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="k">with</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;http://proxy1:8080&quot;</span><span class="p">])</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="3"><span class="k">with</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="p">[</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)])</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="4">    <span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
 </span><span data-line="5">    <span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
 </span><span data-line="6"><span class="c1"># httpx clients are closed automatically on exit</span>
 </span></pre></div>
 </div>
 </section>
+<section id="authenticated-proxies">
+<h3>Authenticated Proxies<a class="headerlink" href="#authenticated-proxies" title="Link to this heading">¶</a></h3>
+<p>Pass credentials directly on the <code class="docutils literal notranslate"><span class="pre">Proxy</span></code> model:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">SecretStr</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="p">[</span>
+</span><span data-line="5">    <span class="n">Proxy</span><span class="p">(</span>
+</span><span data-line="6">        <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy.example.com:8080&quot;</span><span class="p">,</span>
+</span><span data-line="7">        <span class="n">username</span><span class="o">=</span><span class="n">SecretStr</span><span class="p">(</span><span class="s2">&quot;user&quot;</span><span class="p">),</span>
+</span><span data-line="8">        <span class="n">password</span><span class="o">=</span><span class="n">SecretStr</span><span class="p">(</span><span class="s2">&quot;pass&quot;</span><span class="p">),</span>
+</span><span data-line="9">    <span class="p">),</span>
+</span><span data-line="10"><span class="p">])</span>
+</span><span data-line="11"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
 <section id="using-free-proxy-lists">
 <h3>Using Free Proxy Lists<a class="headerlink" href="#using-free-proxy-lists" title="Link to this heading">¶</a></h3>
-<p>ProxyWhirl publishes free proxy lists updated every 2 hours:</p>
+<p>ProxyWhirl publishes free proxy lists updated every 6 hours:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">httpx</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Fetch the free HTTP proxy list</span>
 </span><span data-line="5"><span class="n">response</span> <span class="o">=</span> <span class="n">httpx</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://proxywhirl.com/proxy-lists/http.txt&quot;</span><span class="p">)</span>
-</span><span data-line="6"><span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;http://</span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)]</span>
-</span><span data-line="7">
-</span><span data-line="8"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">)</span>
-</span><span data-line="9"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
+</span><span data-line="6"><span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="7">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://</span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="8">    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">response</span><span class="o">.</span><span class="n">text</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="9">    <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+</span><span data-line="10"><span class="p">]</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">)</span>
+</span><span data-line="13"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
@@ -649,6 +709,10 @@ From source</label><div class="sd-tab-content docutils">
 </span><span data-line="6">
 </span><span data-line="7"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">unique</span><span class="p">)</span>
 </span></pre></div>
+</div>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>ProxyWhirl ships 15+ built-in proxy sources organized by protocol. See <code class="xref py py-data docutils literal notranslate"><span class="pre">proxywhirl.ALL_SOURCES</span></code>, <code class="xref py py-data docutils literal notranslate"><span class="pre">proxywhirl.ALL_HTTP_SOURCES</span></code>, <code class="xref py py-data docutils literal notranslate"><span class="pre">proxywhirl.ALL_SOCKS4_SOURCES</span></code>, and <code class="xref py py-data docutils literal notranslate"><span class="pre">proxywhirl.ALL_SOCKS5_SOURCES</span></code> for the full catalog.</p>
 </div>
 </section>
 </section>
@@ -720,28 +784,47 @@ From source</label><div class="sd-tab-content docutils">
 </tbody>
 </table>
 </div>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Use a specific strategy by name</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Use a strategy by name (for round-robin, random, weighted, least-used)</span>
 </span><span data-line="2"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span>
 </span><span data-line="3">    <span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span>
-</span><span data-line="4">    <span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;performance-based&quot;</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;random&quot;</span><span class="p">,</span>
 </span><span data-line="5"><span class="p">)</span>
 </span><span data-line="6">
-</span><span data-line="7"><span class="c1"># Or pass an instantiated strategy for full control</span>
-</span><span data-line="8"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">WeightedStrategy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
+</span><span data-line="7"><span class="c1"># Or instantiate for full control over parameters</span>
+</span><span data-line="8"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerformanceBasedStrategy</span>
 </span><span data-line="9">
-</span><span data-line="10"><span class="n">weights</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span>
-</span><span data-line="11">    <span class="n">weights</span><span class="o">=</span><span class="p">{</span>
-</span><span data-line="12">        <span class="s2">&quot;http://fast-proxy:8080&quot;</span><span class="p">:</span> <span class="mf">0.6</span><span class="p">,</span>
-</span><span data-line="13">        <span class="s2">&quot;http://slow-proxy:8080&quot;</span><span class="p">:</span> <span class="mf">0.4</span><span class="p">,</span>
-</span><span data-line="14">    <span class="p">}</span>
-</span><span data-line="15"><span class="p">)</span>
-</span><span data-line="16"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span>
-</span><span data-line="17">    <span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span>
-</span><span data-line="18">    <span class="n">strategy</span><span class="o">=</span><span class="n">WeightedStrategy</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">weights</span><span class="p">),</span>
-</span><span data-line="19"><span class="p">)</span>
+</span><span data-line="10"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span>
+</span><span data-line="11">    <span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span>
+</span><span data-line="12">    <span class="n">strategy</span><span class="o">=</span><span class="n">PerformanceBasedStrategy</span><span class="p">(</span><span class="n">exploration_count</span><span class="o">=</span><span class="mi">3</span><span class="p">),</span>
+</span><span data-line="13"><span class="p">)</span>
 </span></pre></div>
 </div>
-<p>See <a class="reference internal" href="rotation-strategies.html"><span class="std std-doc">Rotation Strategies</span></a> for recipes, a decision matrix, and advanced configuration.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">strategy</span></code> string shorthand in <code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code> and <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code> supports: <code class="docutils literal notranslate"><span class="pre">&quot;round-robin&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;weighted&quot;</span></code>, and <code class="docutils literal notranslate"><span class="pre">&quot;least-used&quot;</span></code>. For other strategies (<code class="docutils literal notranslate"><span class="pre">performance-based</span></code>, <code class="docutils literal notranslate"><span class="pre">session-persistence</span></code>, <code class="docutils literal notranslate"><span class="pre">geo-targeted</span></code>, <code class="docutils literal notranslate"><span class="pre">cost-aware</span></code>, <code class="docutils literal notranslate"><span class="pre">composite</span></code>), pass an instantiated strategy object. You can also hot-swap strategies at runtime with <code class="xref py py-meth docutils literal notranslate"><span class="pre">set_strategy()</span></code>.</p>
+</div>
+<p>See <a class="reference internal" href="rotation-strategies.html"><span class="doc">Rotation Strategies</span></a> for detailed recipes, a decision matrix, and configuration for all 9 strategies.</p>
+</section>
+<hr class="docutils" />
+<section id="configuring-retry-and-circuit-breakers">
+<h2>Configuring Retry and Circuit Breakers<a class="headerlink" href="#configuring-retry-and-circuit-breakers" title="Link to this heading">¶</a></h2>
+<p>ProxyWhirl includes built-in retry logic and circuit breakers to handle failures gracefully:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">RetryPolicy</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span>
+</span><span data-line="4">    <span class="n">proxies</span><span class="o">=</span><span class="p">[</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)],</span>
+</span><span data-line="5">    <span class="n">retry_policy</span><span class="o">=</span><span class="n">RetryPolicy</span><span class="p">(</span>
+</span><span data-line="6">        <span class="n">max_attempts</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+</span><span data-line="7">        <span class="n">base_delay</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
+</span><span data-line="8">        <span class="n">max_backoff_delay</span><span class="o">=</span><span class="mf">30.0</span><span class="p">,</span>
+</span><span data-line="9">    <span class="p">),</span>
+</span><span data-line="10"><span class="p">)</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="c1"># Requests automatically retry with backoff on failure</span>
+</span><span data-line="13"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://api.example.com/data&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>See <a class="reference internal" href="../guides/retry-failover.html"><span class="doc">Retry &amp; Failover Guide</span></a> for circuit breaker configuration and advanced failover patterns.</p>
 </section>
 <hr class="docutils" />
 <section id="monitoring-your-pool">
@@ -763,7 +846,7 @@ From source</label><div class="sd-tab-content docutils">
 </span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>proxywhirl<span class="w"> </span>pool<span class="w"> </span>list
 </span></pre></div>
 </div>
-<p>See <a class="reference internal" href="../guides/cli-reference.html"><span class="std std-doc">CLI Reference</span></a> for the full command reference.</p>
+<p>See <a class="reference internal" href="../guides/cli-reference.html"><span class="doc">CLI Reference</span></a> for the full command reference.</p>
 </section>
 <hr class="docutils" />
 <section id="troubleshooting">
@@ -787,7 +870,7 @@ From source</label><div class="sd-tab-content docutils">
 <td><p>All proxies failed health checks. Add more proxies or check network connectivity.</p></td>
 </tr>
 <tr class="row-even"><td><p>SOCKS proxies not working</p></td>
-<td><p>Install <code class="docutils literal notranslate"><span class="pre">httpx-socks</span></code>: <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">pip</span> <span class="pre">install</span> <span class="pre">httpx-socks</span></code> (included in <code class="docutils literal notranslate"><span class="pre">[all]</span></code> extra).</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">httpx-socks</span></code> is included in core dependencies. Run <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">sync</span></code> to ensure it’s installed.</p></td>
 </tr>
 <tr class="row-odd"><td><p>Async test errors</p></td>
 <td><p>Ensure <code class="docutils literal notranslate"><span class="pre">asyncio_mode</span> <span class="pre">=</span> <span class="pre">&quot;auto&quot;</span></code> is set in <code class="docutils literal notranslate"><span class="pre">pyproject.toml</span></code> under <code class="docutils literal notranslate"><span class="pre">[tool.pytest.ini_options]</span></code>.</p></td>
@@ -797,6 +880,9 @@ From source</label><div class="sd-tab-content docutils">
 </tr>
 <tr class="row-odd"><td><p>Import errors when running tests</p></td>
 <td><p>Always use <code class="docutils literal notranslate"><span class="pre">uv</span> <span class="pre">run</span> <span class="pre">pytest</span></code> instead of bare <code class="docutils literal notranslate"><span class="pre">pytest</span></code>.</p></td>
+</tr>
+<tr class="row-even"><td><p>Strings rejected by <code class="docutils literal notranslate"><span class="pre">ProxyRotator(proxies=...)</span></code></p></td>
+<td><p>The <code class="docutils literal notranslate"><span class="pre">proxies</span></code> parameter expects <code class="docutils literal notranslate"><span class="pre">list[Proxy]</span></code> objects. Use <code class="docutils literal notranslate"><span class="pre">Proxy(url=&quot;http://...&quot;)</span></code> or add strings via <code class="docutils literal notranslate"><span class="pre">rotator.add_proxy(&quot;http://...&quot;)</span></code>.</p></td>
 </tr>
 </tbody>
 </table>
@@ -812,9 +898,18 @@ From source</label><div class="sd-tab-content docutils">
 <div class="sd-card-body docutils">
 <div class="sd-card-title sd-font-weight-bold docutils">
 Rotation Strategies</div>
-<p class="sd-card-text">Configure, compose, and build custom proxy selection logic.</p>
+<p class="sd-card-text">Configure, compose, and build custom proxy selection logic with all 9 built-in strategies.</p>
 </div>
 <a class="sd-stretched-link sd-hide-link-text reference internal" href="rotation-strategies.html"><span class="doc">Rotation Strategies</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+Advanced Strategies</div>
+<p class="sd-card-text">Deep dive into composite pipelines, EMA tuning, and custom strategy development.</p>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="../guides/advanced-strategies.html"><span class="doc">Advanced Rotation Strategies</span></a></div>
 </div>
 <div class="sd-col sd-d-flex-row docutils">
 <div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover docutils">
@@ -856,6 +951,15 @@ REST API</div>
 <div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover docutils">
 <div class="sd-card-body docutils">
 <div class="sd-card-title sd-font-weight-bold docutils">
+Caching</div>
+<p class="sd-card-text">Multi-tier caching for proxy data and validation results.</p>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="../guides/caching.html"><span class="doc">Caching Subsystem Guide</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
 Automation &amp; CI</div>
 <p class="sd-card-text">GitHub Actions, Docker deployment, and cron-based proxy refreshing.</p>
 </div>
@@ -884,7 +988,7 @@ Automation &amp; CI</div>
 </span><span data-line="11">uv<span class="w"> </span>run<span class="w"> </span>ty<span class="w"> </span>check<span class="w"> </span>proxywhirl/
 </span></pre></div>
 </div>
-<p>See <a class="reference internal" href="../guides/automation.html"><span class="std std-doc">Automation</span></a> for CI/CD integration and the full quality-gate pipeline.</p>
+<p>See <a class="reference internal" href="../guides/automation.html"><span class="doc">Automation &amp; CI/CD Runbook</span></a> for CI/CD integration and the full quality-gate pipeline.</p>
 <div class="toctree-wrapper compound">
 </div>
 </section>

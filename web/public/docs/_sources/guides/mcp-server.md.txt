@@ -14,6 +14,11 @@ The MCP server exposes ProxyWhirl's proxy management capabilities through a stan
 - **Resources**: Real-time proxy pool health and configuration data
 - **Prompts**: Guided workflows for proxy selection and troubleshooting
 
+```{contents}
+:local:
+:depth: 2
+```
+
 ```{note}
 The MCP server requires Python 3.10 or higher due to FastMCP dependencies.
 ```
@@ -50,7 +55,7 @@ python -m proxywhirl.mcp.server
 
 ### Auto-Loading Proxies
 
-The MCP server automatically loads proxies from `proxywhirl.db` if it exists in the current directory. Use the {doc}`cli-reference` to populate the database first:
+The MCP server automatically loads proxies from `proxywhirl.db` if it exists in the current directory (or the path set by `PROXYWHIRL_MCP_DB`). Use the {doc}`cli-reference` to populate the database first:
 
 ```bash
 # Fetch proxies and save to database
@@ -58,6 +63,10 @@ proxywhirl fetch --sources recommended --output proxywhirl.db
 
 # Then run MCP server (proxies load automatically)
 proxywhirl-mcp
+```
+
+```{note}
+**Auto-fetch fallback:** If the database does not exist or is empty after loading, the MCP server will automatically fetch proxies from public sources (up to 100 proxies) to ensure the pool is not empty on startup. This cold-start behavior means the server is usable even without pre-populating the database.
 ```
 
 ### CLI Options
@@ -89,7 +98,7 @@ The MCP server exposes a single unified tool called `proxywhirl` that handles al
 | `rotate` | Get next proxy using rotation strategy | - | `api_key` |
 | `status` | Get detailed status for a specific proxy | `proxy_id` | `api_key` |
 | `recommend` | Get best proxy based on criteria | - | `criteria`, `api_key` |
-| `health` | Get pool health overview | - | - |
+| `health` | Get pool health overview | - | `api_key` |
 | `reset_cb` | Reset circuit breaker for a proxy | `proxy_id` | `api_key` |
 | `add` | Add a new proxy to the pool | `proxy_url` | `api_key` |
 | `remove` | Remove a proxy from the pool | `proxy_id` | `api_key` |
@@ -381,6 +390,10 @@ Pool status values match those in the {doc}`/reference/rest-api` `/api/v1/health
 ```
 
 Omit `proxy_id` to validate all proxies in the pool.
+
+```{note}
+When validating all proxies, the `results` array in the response is truncated to the first 10 entries to limit response size. The `validated`, `valid`, and `invalid` counts still reflect all proxies tested.
+```
 
 #### Set Strategy
 
@@ -683,11 +696,11 @@ from proxywhirl import AsyncProxyRotator, ProxyConfiguration
 async def main():
     # Create custom rotator
     config = ProxyConfiguration(
-        timeout=60.0,
+        timeout=60,
         pool_connections=50,
     )
     rotator = AsyncProxyRotator(
-        strategy="performance-based",
+        strategy="round-robin",
         config=config
     )
 

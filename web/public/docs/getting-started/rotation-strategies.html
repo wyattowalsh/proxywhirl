@@ -11,7 +11,7 @@
     <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
     <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
     <link media="print" rel="stylesheet" type="text/css" href="../_static/print.css?v=20ff2c19" />
-    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=43a92ad3" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=b31b09b0" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -24,12 +24,12 @@
     <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://proxywhirl.readthedocs.io/getting-started/rotation-strategies.html"/>
   <meta property="og:title" content="Rotation Strategies"/>
-  <meta property="og:image" content="https://proxywhirl.readthedocs.io/_static/og-image.png"/>
     <meta name="twitter:card" content="summary"/>
-<meta name="twitter:creator" content="@@wyaborern"/>
-<meta name="twitter:site" content="@@wyaborern"/>
+<meta name="twitter:creator" content="@wyaborern"/>
+<meta name="twitter:site" content="@wyaborern"/>
   </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to content</a>
 <header class="pw-navbar">
   <div class="pw-navbar-inner">
     
@@ -38,7 +38,7 @@
     </button>
 
     
-    <a href="/" class="pw-navbar-brand">
+    <a href="../index.html" class="pw-navbar-brand">
       <svg class="pw-navbar-logo" viewBox="0 0 100 100" aria-hidden="true">
         <defs>
           <linearGradient id="pw-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -60,17 +60,25 @@
     </a>
 
     
-    <nav class="pw-navbar-links">
-      <a href="/docs/" class="pw-navbar-link active">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-        Docs
+    <nav class="pw-navbar-links" aria-label="Main navigation">
+      <a href="index.html" class="pw-navbar-link" data-section="getting-started">
+        Getting Started
+      </a>
+      <a href="../guides/index.html" class="pw-navbar-link" data-section="guides">
+        Guides
+      </a>
+      <a href="../reference/index.html" class="pw-navbar-link" data-section="reference">
+        Reference
+      </a>
+      <a href="../project/index.html" class="pw-navbar-link" data-section="project">
+        Project
       </a>
     </nav>
 
     
     <div class="pw-navbar-actions">
       
-      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme">
+      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme" aria-pressed="false">
         <svg class="pw-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
         <svg class="pw-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
       </button>
@@ -82,24 +90,43 @@
     </div>
   </div>
 </header>
+<div id="main-content"></div>
 
 <script>
 (function() {
+  /* Theme toggle */
   var toggle = document.getElementById('pw-theme-toggle');
-  if (!toggle) return;
-  toggle.addEventListener('click', function() {
-    var isDark = document.documentElement.classList.contains('dark');
-    var next = isDark ? 'light' : 'dark';
-    localStorage._theme = next;
-    if (typeof setColorMode === 'function') {
-      setColorMode(next);
-    } else {
-      var html = document.documentElement;
-      html.classList.remove('dark', 'light');
-      html.classList.add(next);
-      html.setAttribute('data-color-mode', next);
+  if (toggle) {
+    /* Set initial aria-pressed based on current theme */
+    var currentlyDark = document.documentElement.classList.contains('dark');
+    toggle.setAttribute('aria-pressed', currentlyDark ? 'true' : 'false');
+
+    toggle.addEventListener('click', function() {
+      var isDark = document.documentElement.classList.contains('dark');
+      var next = isDark ? 'light' : 'dark';
+      localStorage._theme = next;
+      if (typeof setColorMode === 'function') {
+        setColorMode(next);
+      } else {
+        var html = document.documentElement;
+        html.classList.remove('dark', 'light');
+        html.classList.add(next);
+        html.setAttribute('data-color-mode', next);
+      }
+      toggle.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+    });
+  }
+
+  /* Active nav link detection — highlight current section */
+  var path = window.location.pathname;
+  var links = document.querySelectorAll('.pw-navbar-link[data-section]');
+  links.forEach(function(link) {
+    var section = link.getAttribute('data-section');
+    if (path.indexOf('/' + section) !== -1) {
+      link.classList.add('active');
     }
   });
+  /* Mark home page — none active, or all inactive is fine */
 })();
 </script>
 <div class="sy-page sy-container flex mx-auto">
@@ -114,19 +141,24 @@
 <li class="toctree-l3"><a class="reference internal" href="index.html#basic-usage-sync">Basic Usage (sync)</a></li>
 <li class="toctree-l3"><a class="reference internal" href="index.html#async-usage">Async Usage</a></li>
 <li class="toctree-l3"><a class="reference internal" href="index.html#context-manager-pattern">Context Manager Pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="index.html#authenticated-proxies">Authenticated Proxies</a></li>
 <li class="toctree-l3"><a class="reference internal" href="index.html#using-free-proxy-lists">Using Free Proxy Lists</a></li>
 <li class="toctree-l3"><a class="reference internal" href="index.html#fetching-proxies-programmatically">Fetching Proxies Programmatically</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="index.html#choosing-a-rotation-strategy">Choosing a Rotation Strategy</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="index.html#configuring-retry-and-circuit-breakers">Configuring Retry and Circuit Breakers</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="index.html#monitoring-your-pool">Monitoring Your Pool</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="index.html#troubleshooting">Troubleshooting</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="index.html#next-steps">Next Steps</a></li>
 <li class="toctree-l2 current"><a class="reference internal" href="index.html#for-contributors">For Contributors</a><ul class="current">
 <li class="toctree-l3 current"><a class="current reference internal" href="#">Rotation Strategies</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#bootstrap-a-rotator">Bootstrap a rotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#bootstrap-a-rotator">Bootstrap a Rotator</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l4"><a class="reference internal" href="#strategy-recipes">Strategy Recipes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#quick-pick-guide">Quick-Pick Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#strategy-reference">Strategy Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#comparison-at-a-glance">Comparison At a Glance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#observe-the-pool">Observe the Pool</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#building-a-custom-strategy">Building a Custom Strategy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="#further-reading">Further Reading</a></li>
@@ -134,19 +166,6 @@
 </li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l1 current"><a class="current reference internal" href="#">Rotation Strategies</a><ul>
-<li class="toctree-l2 _expand"><a class="reference internal" href="#bootstrap-a-rotator">Bootstrap a rotator</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="#decision-matrix">Decision Matrix</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="#strategy-recipes">Strategy Recipes</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#core-strategies">Core Strategies</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#advanced-strategies">Advanced Strategies</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="#observe-the-pool">Observe the Pool</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="#building-a-custom-strategy">Building a Custom Strategy</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="#further-reading">Further Reading</a></li>
 </ul>
 </li>
 <li class="toctree-l1 _expand"><a class="reference internal" href="../guides/index.html">Guides</a><ul>
@@ -224,7 +243,6 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#overview">Overview</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a></li>
@@ -257,7 +275,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#automating-releases">Automating Releases</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#docsearch-credentials">DocSearch Credentials</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#ci-stage-summary">CI Stage Summary</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#further-reading">Further Reading</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/automation.html#see-also">See Also</a></li>
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="../guides/mcp-server.html">MCP Server Guide</a><ul>
@@ -291,6 +309,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#table-of-contents">Table of Contents</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#getting-started">Getting Started</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#middleware">Middleware</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#endpoint-reference">Endpoint Reference</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#rate-limiting">Rate Limiting</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../reference/rest-api.html#error-handling">Error Handling</a></li>
@@ -392,23 +411,25 @@
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#code-style">Code Style</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#pre-commit-hooks">Pre-commit Hooks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#testing-guidelines">Testing Guidelines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#extending-with-custom-strategies">Extending with Custom Strategies</a></li>
 </ul>
 </li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#ci-cd-pipelines">CI/CD Pipelines</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#quality-gate-pipeline">Quality Gate Pipeline</a></li>
 </ul>
 </li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#module-map">Module Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-exports">Key Exports</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#changelog-highlights">Changelog Highlights</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#recent">Recent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../project/index.html#phase-completion-status">Phase Completion Status</a></li>
 </ul>
 </li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#current-health">Current Health</a></li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#architecture">Architecture</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../project/index.html#key-modules">Key Modules</a></li>
-</ul>
-</li>
-<li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#environment-variables">Environment Variables</a></li>
 <li class="toctree-l2 _expand"><a class="reference internal" href="../project/index.html#license">License</a></li>
 </ul>
 </li>
@@ -423,13 +444,23 @@
       <i class="i-lucide close"></i>
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
-<li><a class="reference internal" href="#bootstrap-a-rotator">Bootstrap a rotator</a></li>
+<li><a class="reference internal" href="#bootstrap-a-rotator">Bootstrap a Rotator</a></li>
 <li><a class="reference internal" href="#decision-matrix">Decision Matrix</a></li>
-<li><a class="reference internal" href="#strategy-recipes">Strategy Recipes</a><ul>
-<li><a class="reference internal" href="#core-strategies">Core Strategies</a></li>
-<li><a class="reference internal" href="#advanced-strategies">Advanced Strategies</a></li>
+<li><a class="reference internal" href="#quick-pick-guide">Quick-Pick Guide</a></li>
+<li><a class="reference internal" href="#strategy-reference">Strategy Reference</a><ul>
+<li><a class="reference internal" href="#round-robin">1. Round-Robin</a></li>
+<li><a class="reference internal" href="#random">2. Random</a></li>
+<li><a class="reference internal" href="#weighted">3. Weighted</a></li>
+<li><a class="reference internal" href="#least-used">4. Least-Used</a></li>
+<li><a class="reference internal" href="#performance-based">5. Performance-Based</a></li>
+<li><a class="reference internal" href="#session-persistence">6. Session Persistence</a></li>
+<li><a class="reference internal" href="#geo-targeted">7. Geo-Targeted</a></li>
+<li><a class="reference internal" href="#cost-aware">8. Cost-Aware</a></li>
+<li><a class="reference internal" href="#composite">9. Composite</a></li>
 </ul>
 </li>
+<li><a class="reference internal" href="#comparison-at-a-glance">Comparison At a Glance</a></li>
+<li><a class="reference internal" href="#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
 <li><a class="reference internal" href="#observe-the-pool">Observe the Pool</a></li>
 <li><a class="reference internal" href="#building-a-custom-strategy">Building a Custom Strategy</a></li>
 <li><a class="reference internal" href="#further-reading">Further Reading</a></li>
@@ -501,12 +532,12 @@
         </a></div>
     </div>
   </div>
-</div><article class="yue" role="main">
+</div><article class="yue dark-code" role="main">
           <p>ProxyWhirl ships <strong>9 rotation strategies</strong> covering everything from simple round-robin to composite filter-then-select pipelines. This guide shows how to configure each one, when to use it, and how to build custom strategies.</p>
 <section id="rotation-strategies">
 <h1>Rotation Strategies<a class="headerlink" href="#rotation-strategies" title="Link to this heading">¶</a></h1>
 <section id="bootstrap-a-rotator">
-<h2>Bootstrap a rotator<a class="headerlink" href="#bootstrap-a-rotator" title="Link to this heading">¶</a></h2>
+<h2>Bootstrap a Rotator<a class="headerlink" href="#bootstrap-a-rotator" title="Link to this heading">¶</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">SecretStr</span>
 </span><span data-line="3">
@@ -515,7 +546,7 @@
 </span><span data-line="6">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">),</span>
 </span><span data-line="7">    <span class="n">Proxy</span><span class="p">(</span>
 </span><span data-line="8">        <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy3.example.com:8080&quot;</span><span class="p">,</span>
-</span><span data-line="9">        <span class="n">username</span><span class="o">=</span><span class="s2">&quot;demo&quot;</span><span class="p">,</span>
+</span><span data-line="9">        <span class="n">username</span><span class="o">=</span><span class="n">SecretStr</span><span class="p">(</span><span class="s2">&quot;demo&quot;</span><span class="p">),</span>
 </span><span data-line="10">        <span class="n">password</span><span class="o">=</span><span class="n">SecretStr</span><span class="p">(</span><span class="s2">&quot;pass&quot;</span><span class="p">),</span>
 </span><span data-line="11">    <span class="p">),</span>
 </span><span data-line="12"><span class="p">]</span>
@@ -527,7 +558,7 @@
 </div>
 <div class="admonition tip">
 <p class="admonition-title">Tip</p>
-<p>Need a larger pool? Use :class:<code class="docutils literal notranslate"><span class="pre">proxywhirl.ProxyFetcher</span></code> with :data:<code class="docutils literal notranslate"><span class="pre">proxywhirl.RECOMMENDED_SOURCES</span></code> to hydrate your rotator, then call :func:<code class="docutils literal notranslate"><span class="pre">proxywhirl.deduplicate_proxies</span></code> before adding user-supplied proxies.</p>
+<p>Need a larger pool? Use <code class="xref py py-class docutils literal notranslate"><span class="pre">proxywhirl.ProxyFetcher</span></code> with <code class="xref py py-data docutils literal notranslate"><span class="pre">proxywhirl.RECOMMENDED_SOURCES</span></code> to hydrate your rotator, then call <code class="xref py py-func docutils literal notranslate"><span class="pre">proxywhirl.deduplicate_proxies()</span></code> before adding user-supplied proxies.</p>
 </div>
 </section>
 <hr class="docutils" />
@@ -539,9 +570,9 @@
 <colgroup>
 <col style="width: 16.0%" />
 <col style="width: 20.0%" />
-<col style="width: 18.0%" />
-<col style="width: 18.0%" />
-<col style="width: 28.0%" />
+<col style="width: 14.0%" />
+<col style="width: 14.0%" />
+<col style="width: 36.0%" />
 </colgroup>
 <thead>
 <tr class="row-odd"><th class="head"><p>Strategy</p></th>
@@ -579,7 +610,7 @@
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">performance-based</span></code></p></td>
 <td><p>Speed-critical scraping</p></td>
 <td><p>~12 us</p></td>
-<td><p>Lock-based</p></td>
+<td><p>GIL-safe</p></td>
 <td><p>EMA smoothing of response times (configurable alpha)</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">session-persistence</span></code></p></td>
@@ -591,19 +622,19 @@
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">geo-targeted</span></code></p></td>
 <td><p>Geo-specific content, localization QA</p></td>
 <td><p>~8 us</p></td>
-<td><p>Lock-based</p></td>
+<td><p>Stateless</p></td>
 <td><p>Filters by country code from proxy metadata</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">cost-aware</span></code></p></td>
 <td><p>Budget-constrained environments</p></td>
 <td><p>~10 us</p></td>
-<td><p>Lock-based</p></td>
-<td><p>Considers per-request cost metadata</p></td>
+<td><p>GIL-safe</p></td>
+<td><p>Favors free proxies with configurable cost ceiling</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">composite</span></code></p></td>
 <td><p>Complex multi-criteria selection</p></td>
 <td><p>varies</p></td>
-<td><p>Lock-based</p></td>
+<td><p>Inherited</p></td>
 <td><p>Chains filter + select strategies in a pipeline</p></td>
 </tr>
 </tbody>
@@ -611,128 +642,554 @@
 </div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>All strategies implement the :class:<code class="docutils literal notranslate"><span class="pre">proxywhirl.strategies.RotationStrategy</span></code> protocol, which requires two methods: <code class="docutils literal notranslate"><span class="pre">select(pool,</span> <span class="pre">context)</span></code> and <code class="docutils literal notranslate"><span class="pre">record_result(proxy,</span> <span class="pre">success,</span> <span class="pre">response_time_ms)</span></code>.</p>
+<p>All strategies implement the <code class="xref py py-class docutils literal notranslate"><span class="pre">RotationStrategy</span></code> protocol, which requires two methods: <code class="docutils literal notranslate"><span class="pre">select(pool,</span> <span class="pre">context)</span></code> and <code class="docutils literal notranslate"><span class="pre">record_result(proxy,</span> <span class="pre">success,</span> <span class="pre">response_time_ms)</span></code>.</p>
 </div>
 </section>
 <hr class="docutils" />
-<section id="strategy-recipes">
-<h2>Strategy Recipes<a class="headerlink" href="#strategy-recipes" title="Link to this heading">¶</a></h2>
-<section id="core-strategies">
-<h3>Core Strategies<a class="headerlink" href="#core-strategies" title="Link to this heading">¶</a></h3>
-<div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-0">
-Round-robin</label><div class="sd-tab-content docutils">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span>
-</span><span data-line="2"><span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://example.com&quot;</span><span class="p">)</span>
+<section id="quick-pick-guide">
+<h2>Quick-Pick Guide<a class="headerlink" href="#quick-pick-guide" title="Link to this heading">¶</a></h2>
+<p>Not sure which strategy to use? Follow this decision tree:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 50.0%" />
+<col style="width: 25.0%" />
+<col style="width: 25.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Question</p></th>
+<th class="head"><p>Yes</p></th>
+<th class="head"><p>No</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Need sticky sessions for stateful APIs?</p></td>
+<td><p><strong>session-persistence</strong></p></td>
+<td><p>Continue</p></td>
+</tr>
+<tr class="row-odd"><td><p>Need proxies from a specific country?</p></td>
+<td><p><strong>geo-targeted</strong></p></td>
+<td><p>Continue</p></td>
+</tr>
+<tr class="row-even"><td><p>Need to minimize proxy costs?</p></td>
+<td><p><strong>cost-aware</strong></p></td>
+<td><p>Continue</p></td>
+</tr>
+<tr class="row-odd"><td><p>Is latency more important than fairness?</p></td>
+<td><p><strong>performance-based</strong></p></td>
+<td><p>Continue</p></td>
+</tr>
+<tr class="row-even"><td><p>Want to avoid detectable rotation patterns?</p></td>
+<td><p><strong>random</strong></p></td>
+<td><p>Continue</p></td>
+</tr>
+<tr class="row-odd"><td><p>Running a long crawl needing even distribution?</p></td>
+<td><p><strong>least-used</strong></p></td>
+<td><p>Continue</p></td>
+</tr>
+<tr class="row-even"><td><p>Have premium proxies that deserve more traffic?</p></td>
+<td><p><strong>weighted</strong></p></td>
+<td><p>Continue</p></td>
+</tr>
+<tr class="row-odd"><td><p>Need multiple criteria (e.g., geo + speed)?</p></td>
+<td><p><strong>composite</strong></p></td>
+<td><p><strong>round-robin</strong> (default)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="strategy-reference">
+<h2>Strategy Reference<a class="headerlink" href="#strategy-reference" title="Link to this heading">¶</a></h2>
+<section id="round-robin">
+<h3>1. Round-Robin<a class="headerlink" href="#round-robin" title="Link to this heading">¶</a></h3>
+<p><strong>Class:</strong> <code class="xref py py-class docutils literal notranslate"><span class="pre">RoundRobinStrategy</span></code> | <strong>Name:</strong> <code class="docutils literal notranslate"><span class="pre">&quot;round-robin&quot;</span></code></p>
+<p>Cycles through healthy proxies sequentially: A -&gt; B -&gt; C -&gt; A. The default strategy.</p>
+<p><strong>Constructor:</strong> <code class="docutils literal notranslate"><span class="pre">RoundRobinStrategy()</span></code> – no parameters.</p>
+<p><strong>When to use:</strong> Predictable workloads where even distribution matters more than performance optimization.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="4">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">),</span>
+</span><span data-line="5">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">),</span>
+</span><span data-line="6">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy3.example.com:8080&quot;</span><span class="p">),</span>
+</span><span data-line="7"><span class="p">]</span>
+</span><span data-line="8">
+</span><span data-line="9"><span class="c1"># By name (simplest)</span>
+</span><span data-line="10"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span>
+</span><span data-line="11"><span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://example.com&quot;</span><span class="p">)</span>
+</span><span data-line="12">
+</span><span data-line="13"><span class="c1"># Or by instance (equivalent)</span>
+</span><span data-line="14"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">RoundRobinStrategy</span>
+</span><span data-line="15"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="n">RoundRobinStrategy</span><span class="p">())</span>
 </span></pre></div>
 </div>
-<p>Cycles A -&gt; B -&gt; C -&gt; A sequentially. Best for predictable, even distribution.</p>
-</div>
-<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-1">
-Random</label><div class="sd-tab-content docutils">
+</section>
+<hr class="docutils" />
+<section id="random">
+<h3>2. Random<a class="headerlink" href="#random" title="Link to this heading">¶</a></h3>
+<p><strong>Class:</strong> <code class="xref py py-class docutils literal notranslate"><span class="pre">RandomStrategy</span></code> | <strong>Name:</strong> <code class="docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code></p>
+<p>Picks a random healthy proxy for each request. No state to track.</p>
+<p><strong>Constructor:</strong> <code class="docutils literal notranslate"><span class="pre">RandomStrategy()</span></code> – no parameters.</p>
+<p><strong>When to use:</strong> Rate-limit avoidance, load testing, or when you want unpredictable access patterns.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;random&quot;</span><span class="p">)</span>
 </span><span data-line="2"><span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://api.example.com/data&quot;</span><span class="p">)</span>
 </span></pre></div>
 </div>
-<p>Picks a random healthy proxy each time. Use when you want to avoid detectable patterns.</p>
+</section>
+<hr class="docutils" />
+<section id="weighted">
+<h3>3. Weighted<a class="headerlink" href="#weighted" title="Link to this heading">¶</a></h3>
+<p><strong>Class:</strong> <code class="xref py py-class docutils literal notranslate"><span class="pre">WeightedStrategy</span></code> | <strong>Name:</strong> <code class="docutils literal notranslate"><span class="pre">&quot;weighted&quot;</span></code></p>
+<p>Selects proxies using weighted random sampling. Weights can be set explicitly or are auto-derived from each proxy’s success rate. Every proxy gets a minimum weight of <code class="docutils literal notranslate"><span class="pre">0.1</span></code> to prevent starvation.</p>
+<p><strong>Constructor:</strong> <code class="docutils literal notranslate"><span class="pre">WeightedStrategy()</span></code> – no parameters. Configure via <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyConfig</span></code>.</p>
+<p><strong>When to use:</strong> When you have premium/reliable proxies that should receive more traffic, or want health-based load balancing.</p>
+<div class="sd-tab-set docutils">
+<input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-0">
+Auto weights (success rate)</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Weights are automatically derived from proxy success rates</span>
+</span><span data-line="2"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;weighted&quot;</span><span class="p">)</span>
+</span></pre></div>
 </div>
-<input id="sd-tab-item-2" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-2">
-Weighted</label><div class="sd-tab-content docutils">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">WeightedStrategy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
+</div>
+<input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
+<label class="sd-tab-label" for="sd-tab-item-1">
+Custom weights</label><div class="sd-tab-content docutils">
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">WeightedStrategy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="n">weights</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span>
+</span><span data-line="3"><span class="n">config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span>
 </span><span data-line="4">    <span class="n">weights</span><span class="o">=</span><span class="p">{</span>
 </span><span data-line="5">        <span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">:</span> <span class="mf">0.55</span><span class="p">,</span>
 </span><span data-line="6">        <span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">:</span> <span class="mf">0.30</span><span class="p">,</span>
 </span><span data-line="7">        <span class="s2">&quot;http://proxy3.example.com:8080&quot;</span><span class="p">:</span> <span class="mf">0.15</span><span class="p">,</span>
 </span><span data-line="8">    <span class="p">}</span>
 </span><span data-line="9"><span class="p">)</span>
-</span><span data-line="10"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span>
-</span><span data-line="11">    <span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span>
-</span><span data-line="12">    <span class="n">strategy</span><span class="o">=</span><span class="n">WeightedStrategy</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">weights</span><span class="p">),</span>
-</span><span data-line="13"><span class="p">)</span>
+</span><span data-line="10"><span class="n">strategy</span> <span class="o">=</span> <span class="n">WeightedStrategy</span><span class="p">()</span>
+</span><span data-line="11"><span class="n">strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</span><span data-line="12">
+</span><span data-line="13"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span>
 </span></pre></div>
 </div>
-<p>When no custom weights are provided, weights are auto-derived from each proxy’s <code class="docutils literal notranslate"><span class="pre">success_rate</span></code>. A minimum weight of <code class="docutils literal notranslate"><span class="pre">0.1</span></code> ensures every proxy has a selection chance.</p>
 </div>
-<input id="sd-tab-item-3" name="sd-tab-set-0" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-3">
-Least-used</label><div class="sd-tab-content docutils">
+</div>
+</section>
+<hr class="docutils" />
+<section id="least-used">
+<h3>4. Least-Used<a class="headerlink" href="#least-used" title="Link to this heading">¶</a></h3>
+<p><strong>Class:</strong> <code class="xref py py-class docutils literal notranslate"><span class="pre">LeastUsedStrategy</span></code> | <strong>Name:</strong> <code class="docutils literal notranslate"><span class="pre">&quot;least-used&quot;</span></code></p>
+<p>Selects the proxy with the fewest total requests using a min-heap for O(log n) selection. The heap is lazily rebuilt when the pool changes.</p>
+<p><strong>Constructor:</strong> <code class="docutils literal notranslate"><span class="pre">LeastUsedStrategy()</span></code> – no parameters.</p>
+<p><strong>When to use:</strong> Long-running crawls that need even utilization across all proxies.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;least-used&quot;</span><span class="p">)</span>
 </span><span data-line="2"><span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
 </span></pre></div>
 </div>
-<p>Selects the proxy with the fewest total requests. Ideal for long-running crawls that need even utilization.</p>
-</div>
-</div>
 </section>
-<section id="advanced-strategies">
-<h3>Advanced Strategies<a class="headerlink" href="#advanced-strategies" title="Link to this heading">¶</a></h3>
-<div class="sd-tab-set docutils">
-<input checked="checked" id="sd-tab-item-4" name="sd-tab-set-1" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-4">
-Performance-based</label><div class="sd-tab-content docutils">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerformanceBasedStrategy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
+<hr class="docutils" />
+<section id="performance-based">
+<h3>5. Performance-Based<a class="headerlink" href="#performance-based" title="Link to this heading">¶</a></h3>
+<p><strong>Class:</strong> <code class="xref py py-class docutils literal notranslate"><span class="pre">PerformanceBasedStrategy</span></code> | <strong>Name:</strong> <code class="docutils literal notranslate"><span class="pre">&quot;performance-based&quot;</span></code></p>
+<p>Ranks proxies by inverse EMA (Exponential Moving Average) of response times – faster proxies get higher selection probability. New proxies without enough data receive “exploration trials” before performance scoring kicks in.</p>
+<p><strong>Constructor parameters:</strong></p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">exploration_count</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">5</span></code></p></td>
+<td><p>Minimum trials for new proxies before performance-based selection applies. Set to <code class="docutils literal notranslate"><span class="pre">0</span></code> to disable exploration.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>When to use:</strong> Speed-critical scraping or API calls where latency matters.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">PerformanceBasedStrategy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="n">config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span><span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>  <span class="c1"># Higher alpha = more weight to recent times</span>
-</span><span data-line="4"><span class="n">strategy</span> <span class="o">=</span> <span class="n">PerformanceBasedStrategy</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span>
+</span><span data-line="3"><span class="c1"># Default: 5 exploration trials per new proxy</span>
+</span><span data-line="4"><span class="n">strategy</span> <span class="o">=</span> <span class="n">PerformanceBasedStrategy</span><span class="p">()</span>
 </span><span data-line="5">
-</span><span data-line="6"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span>
+</span><span data-line="6"><span class="c1"># Or tune exploration and EMA alpha</span>
+</span><span data-line="7"><span class="n">strategy</span> <span class="o">=</span> <span class="n">PerformanceBasedStrategy</span><span class="p">(</span><span class="n">exploration_count</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+</span><span data-line="8"><span class="n">config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span><span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>  <span class="c1"># Higher alpha = react faster to recent times</span>
+</span><span data-line="9"><span class="n">strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</span><span data-line="10">
+</span><span data-line="11"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span>
 </span></pre></div>
 </div>
-<p>Ranks proxies by exponential moving average (EMA) of response times. The <code class="docutils literal notranslate"><span class="pre">ema_alpha</span></code> parameter controls how quickly the strategy adapts: higher values respond faster to recent performance changes.</p>
-</div>
-<input id="sd-tab-item-5" name="sd-tab-set-1" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-5">
-Session persistence</label><div class="sd-tab-content docutils">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">SessionPersistenceStrategy</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SelectionContext</span>
-</span><span data-line="3">
-</span><span data-line="4"><span class="n">strategy</span> <span class="o">=</span> <span class="n">SessionPersistenceStrategy</span><span class="p">()</span>
-</span><span data-line="5"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span>
-</span><span data-line="6">
-</span><span data-line="7"><span class="c1"># Bind a session key to a consistent proxy</span>
-</span><span data-line="8"><span class="n">context</span> <span class="o">=</span> <span class="n">SelectionContext</span><span class="p">(</span><span class="n">session_id</span><span class="o">=</span><span class="s2">&quot;user-12345&quot;</span><span class="p">)</span>
-</span><span data-line="9"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://api.example.com/profile&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">)</span>
-</span></pre></div>
-</div>
-<p>Maps session keys to proxy IDs so that repeated requests with the same <code class="docutils literal notranslate"><span class="pre">session_id</span></code> always route through the same proxy – essential for cookie-dependent or stateful APIs.</p>
-</div>
-<input id="sd-tab-item-6" name="sd-tab-set-1" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-6">
-Geo-targeted</label><div class="sd-tab-content docutils">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoTargetedStrategy</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SelectionContext</span>
-</span><span data-line="3">
-</span><span data-line="4"><span class="n">strategy</span> <span class="o">=</span> <span class="n">GeoTargetedStrategy</span><span class="p">()</span>
-</span><span data-line="5"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span>
-</span><span data-line="6">
-</span><span data-line="7"><span class="c1"># Route through US-based proxies only</span>
-</span><span data-line="8"><span class="n">context</span> <span class="o">=</span> <span class="n">SelectionContext</span><span class="p">(</span><span class="n">target_countries</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">])</span>
-</span><span data-line="9"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://api.example.com/local&quot;</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">)</span>
-</span></pre></div>
-</div>
-<p>Filters the pool by country code from proxy metadata. Requires proxies enriched with geo data (see <code class="docutils literal notranslate"><span class="pre">proxywhirl</span> <span class="pre">setup-geoip</span></code>).</p>
-</div>
-<input id="sd-tab-item-7" name="sd-tab-set-1" type="radio">
-<label class="sd-tab-label" for="sd-tab-item-7">
-Composite</label><div class="sd-tab-content docutils">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompositeStrategy</span><span class="p">,</span> <span class="n">GeoTargetedStrategy</span><span class="p">,</span> <span class="n">PerformanceBasedStrategy</span>
-</span><span data-line="2">
-</span><span data-line="3"><span class="c1"># First filter by geography, then pick the fastest</span>
-</span><span data-line="4"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CompositeStrategy</span><span class="p">(</span>
-</span><span data-line="5">    <span class="n">strategies</span><span class="o">=</span><span class="p">[</span><span class="n">GeoTargetedStrategy</span><span class="p">(),</span> <span class="n">PerformanceBasedStrategy</span><span class="p">()],</span>
-</span><span data-line="6"><span class="p">)</span>
-</span><span data-line="7"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span>
-</span></pre></div>
-</div>
-<p>Chains multiple strategies into a pipeline: earlier strategies filter the pool and later strategies make the final selection.</p>
-</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">ema_alpha</span></code> parameter controls how quickly the strategy adapts to performance changes. Values closer to <code class="docutils literal notranslate"><span class="pre">1.0</span></code> weight recent observations heavily (reacts fast, noisy). Values closer to <code class="docutils literal notranslate"><span class="pre">0.0</span></code> smooth over longer history (reacts slowly, stable). Default is <code class="docutils literal notranslate"><span class="pre">0.2</span></code>.</p>
 </div>
 </section>
+<hr class="docutils" />
+<section id="session-persistence">
+<h3>6. Session Persistence<a class="headerlink" href="#session-persistence" title="Link to this heading">¶</a></h3>
+<p><strong>Class:</strong> <code class="xref py py-class docutils literal notranslate"><span class="pre">SessionPersistenceStrategy</span></code> | <strong>Name:</strong> <code class="docutils literal notranslate"><span class="pre">&quot;session-persistence&quot;</span></code></p>
+<p>Maps session IDs to specific proxies so that repeated requests with the same <code class="docutils literal notranslate"><span class="pre">session_id</span></code> always route through the same proxy. If the assigned proxy becomes unhealthy, the session automatically fails over to a new proxy.</p>
+<p><strong>Constructor parameters:</strong></p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_sessions</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10000</span></code></p></td>
+<td><p>Maximum concurrent sessions before LRU eviction</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">auto_cleanup_threshold</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">int</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">100</span></code></p></td>
+<td><p>Operations between automatic expired-session cleanup</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>When to use:</strong> Stateful APIs, cookie-dependent flows, or any workflow where a user/session must consistently use the same proxy.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">SessionPersistenceStrategy</span><span class="p">,</span> <span class="n">SelectionContext</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">strategy</span> <span class="o">=</span> <span class="n">SessionPersistenceStrategy</span><span class="p">(</span><span class="n">max_sessions</span><span class="o">=</span><span class="mi">5000</span><span class="p">)</span>
+</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span>
+</span><span data-line="5">
+</span><span data-line="6"><span class="c1"># Select a proxy bound to a session key</span>
+</span><span data-line="7"><span class="n">context</span> <span class="o">=</span> <span class="n">SelectionContext</span><span class="p">(</span><span class="n">session_id</span><span class="o">=</span><span class="s2">&quot;user-12345&quot;</span><span class="p">)</span>
+</span><span data-line="8"><span class="n">proxy</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">rotator</span><span class="o">.</span><span class="n">pool</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">)</span>
+</span><span data-line="9"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Session bound to proxy: </span><span class="si">{</span><span class="n">proxy</span><span class="o">.</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="10">
+</span><span data-line="11"><span class="c1"># Make requests -- the rotator uses the strategy internally</span>
+</span><span data-line="12"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://api.example.com/profile&quot;</span><span class="p">)</span>
+</span><span data-line="13">
+</span><span data-line="14"><span class="c1"># Later selections with the same session_id return the same proxy</span>
+</span><span data-line="15"><span class="n">proxy_again</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">rotator</span><span class="o">.</span><span class="n">pool</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">)</span>
+</span><span data-line="16"><span class="k">assert</span> <span class="n">proxy</span><span class="o">.</span><span class="n">id</span> <span class="o">==</span> <span class="n">proxy_again</span><span class="o">.</span><span class="n">id</span>  <span class="c1"># Same proxy for same session</span>
+</span></pre></div>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Sessions expire after 1 hour by default. Configure via <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyConfig</span></code> with <code class="docutils literal notranslate"><span class="pre">session_stickiness_duration_seconds</span></code>.</p>
+</div>
+</section>
+<hr class="docutils" />
+<section id="geo-targeted">
+<h3>7. Geo-Targeted<a class="headerlink" href="#geo-targeted" title="Link to this heading">¶</a></h3>
+<p><strong>Class:</strong> <code class="xref py py-class docutils literal notranslate"><span class="pre">GeoTargetedStrategy</span></code> | <strong>Name:</strong> <code class="docutils literal notranslate"><span class="pre">&quot;geo-targeted&quot;</span></code></p>
+<p>Filters the proxy pool by geographic location (country or region) specified in the <code class="docutils literal notranslate"><span class="pre">SelectionContext</span></code>. Falls back to any healthy proxy when no match is found (configurable).</p>
+<p><strong>Constructor:</strong> <code class="docutils literal notranslate"><span class="pre">GeoTargetedStrategy()</span></code> – no parameters. Configure via <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyConfig</span></code>.</p>
+<p><strong>When to use:</strong> Geo-specific content scraping, localization QA, region-locked API access.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">GeoTargetedStrategy</span><span class="p">,</span> <span class="n">SelectionContext</span><span class="p">,</span> <span class="n">Proxy</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="c1"># Proxies with geo metadata</span>
+</span><span data-line="4"><span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="5">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://us-proxy.example.com:8080&quot;</span><span class="p">,</span> <span class="n">country_code</span><span class="o">=</span><span class="s2">&quot;US&quot;</span><span class="p">),</span>
+</span><span data-line="6">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://gb-proxy.example.com:8080&quot;</span><span class="p">,</span> <span class="n">country_code</span><span class="o">=</span><span class="s2">&quot;GB&quot;</span><span class="p">),</span>
+</span><span data-line="7">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://de-proxy.example.com:8080&quot;</span><span class="p">,</span> <span class="n">country_code</span><span class="o">=</span><span class="s2">&quot;DE&quot;</span><span class="p">),</span>
+</span><span data-line="8"><span class="p">]</span>
+</span><span data-line="9">
+</span><span data-line="10"><span class="n">strategy</span> <span class="o">=</span> <span class="n">GeoTargetedStrategy</span><span class="p">()</span>
+</span><span data-line="11"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span>
+</span><span data-line="12">
+</span><span data-line="13"><span class="c1"># Select a US-based proxy using the strategy directly</span>
+</span><span data-line="14"><span class="n">context</span> <span class="o">=</span> <span class="n">SelectionContext</span><span class="p">(</span><span class="n">target_country</span><span class="o">=</span><span class="s2">&quot;US&quot;</span><span class="p">)</span>
+</span><span data-line="15"><span class="n">proxy</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">rotator</span><span class="o">.</span><span class="n">pool</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">)</span>
+</span><span data-line="16"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Selected US proxy: </span><span class="si">{</span><span class="n">proxy</span><span class="o">.</span><span class="n">url</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">proxy</span><span class="o">.</span><span class="n">country_code</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+</span><span data-line="17">
+</span><span data-line="18"><span class="c1"># Make requests -- the rotator handles proxy selection internally</span>
+</span><span data-line="19"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://api.example.com/local&quot;</span><span class="p">)</span>
+</span><span data-line="20">
+</span><span data-line="21"><span class="c1"># Or target by region</span>
+</span><span data-line="22"><span class="n">context</span> <span class="o">=</span> <span class="n">SelectionContext</span><span class="p">(</span><span class="n">target_region</span><span class="o">=</span><span class="s2">&quot;Europe&quot;</span><span class="p">)</span>
+</span><span data-line="23"><span class="n">proxy</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">rotator</span><span class="o">.</span><span class="n">pool</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">)</span>
+</span><span data-line="24"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Selected European proxy: </span><span class="si">{</span><span class="n">proxy</span><span class="o">.</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>Country codes use ISO 3166-1 alpha-2 format (e.g., <code class="docutils literal notranslate"><span class="pre">&quot;US&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;GB&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;DE&quot;</span></code>). Enrich proxies with geo data using <code class="docutils literal notranslate"><span class="pre">proxywhirl</span> <span class="pre">setup-geoip</span></code> or set <code class="docutils literal notranslate"><span class="pre">country_code</span></code> directly on the <code class="xref py py-class docutils literal notranslate"><span class="pre">Proxy</span></code> model.</p>
+</div>
+<p><strong>Configuration options</strong> via <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyConfig</span></code>:</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Config Field</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">geo_fallback_enabled</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">True</span></code></p></td>
+<td><p>Fall back to any proxy when no geo match found</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">geo_secondary_strategy</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">&quot;round_robin&quot;</span></code></p></td>
+<td><p>Strategy for selecting from geo-filtered proxies (<code class="docutils literal notranslate"><span class="pre">&quot;round_robin&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;least_used&quot;</span></code>)</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="cost-aware">
+<h3>8. Cost-Aware<a class="headerlink" href="#cost-aware" title="Link to this heading">¶</a></h3>
+<p><strong>Class:</strong> <code class="xref py py-class docutils literal notranslate"><span class="pre">CostAwareStrategy</span></code> | <strong>Name:</strong> <code class="docutils literal notranslate"><span class="pre">&quot;cost-aware&quot;</span></code></p>
+<p>Prioritizes free proxies over paid ones using inverse-cost weighted random selection. Free proxies receive a configurable boost multiplier (default 10x).</p>
+<p><strong>Constructor parameters:</strong></p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_cost_per_request</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">float</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Maximum acceptable cost per request. Proxies exceeding this cost are filtered out. <code class="docutils literal notranslate"><span class="pre">None</span></code> means no limit.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>When to use:</strong> Budget-constrained environments where you mix free and paid proxies.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">CostAwareStrategy</span><span class="p">,</span> <span class="n">StrategyConfig</span><span class="p">,</span> <span class="n">Proxy</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="4">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://free-proxy.example.com:8080&quot;</span><span class="p">,</span> <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.0</span><span class="p">),</span>
+</span><span data-line="5">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://cheap-proxy.example.com:8080&quot;</span><span class="p">,</span> <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.01</span><span class="p">),</span>
+</span><span data-line="6">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://premium-proxy.example.com:8080&quot;</span><span class="p">,</span> <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.10</span><span class="p">),</span>
+</span><span data-line="7"><span class="p">]</span>
+</span><span data-line="8">
+</span><span data-line="9"><span class="c1"># Basic: favor free proxies</span>
+</span><span data-line="10"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CostAwareStrategy</span><span class="p">()</span>
+</span><span data-line="11"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span>
+</span><span data-line="12">
+</span><span data-line="13"><span class="c1"># With cost ceiling: exclude expensive proxies</span>
+</span><span data-line="14"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CostAwareStrategy</span><span class="p">(</span><span class="n">max_cost_per_request</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+</span><span data-line="15"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p><strong>Configuration options</strong> via <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyConfig</span></code> metadata:</p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Metadata Key</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">max_cost_per_request</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">None</span></code></p></td>
+<td><p>Maximum cost threshold (overrides constructor)</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">free_proxy_boost</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">10.0</span></code></p></td>
+<td><p>Weight multiplier for free proxies</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span><span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="2">    <span class="s2">&quot;max_cost_per_request&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>
+</span><span data-line="3">    <span class="s2">&quot;free_proxy_boost&quot;</span><span class="p">:</span> <span class="mf">20.0</span><span class="p">,</span>
+</span><span data-line="4"><span class="p">})</span>
+</span><span data-line="5"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CostAwareStrategy</span><span class="p">()</span>
+</span><span data-line="6"><span class="n">strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</section>
+<hr class="docutils" />
+<section id="composite">
+<h3>9. Composite<a class="headerlink" href="#composite" title="Link to this heading">¶</a></h3>
+<p><strong>Class:</strong> <code class="xref py py-class docutils literal notranslate"><span class="pre">CompositeStrategy</span></code> | <strong>Name:</strong> <code class="docutils literal notranslate"><span class="pre">&quot;composite&quot;</span></code></p>
+<p>Chains multiple strategies into a pipeline: <strong>filter</strong> strategies narrow the pool, then a <strong>selector</strong> strategy makes the final pick.</p>
+<p><strong>Constructor parameters:</strong></p>
+<div class="table-wrapper colwidths-auto docutils container">
+<table class="docutils align-default">
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Type</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">filters</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">list[RotationStrategy]</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">[]</span></code></p></td>
+<td><p>Strategies that filter the proxy pool sequentially</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">selector</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">RotationStrategy</span> <span class="pre">|</span> <span class="pre">None</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">RoundRobinStrategy()</span></code></p></td>
+<td><p>Strategy that selects from the filtered pool</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>When to use:</strong> Complex selection criteria that require multiple stages (e.g., “from US proxies, pick the fastest”).</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="2">    <span class="n">ProxyRotator</span><span class="p">,</span>
+</span><span data-line="3">    <span class="n">CompositeStrategy</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">GeoTargetedStrategy</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">PerformanceBasedStrategy</span><span class="p">,</span>
+</span><span data-line="6">    <span class="n">SelectionContext</span><span class="p">,</span>
+</span><span data-line="7"><span class="p">)</span>
+</span><span data-line="8">
+</span><span data-line="9"><span class="c1"># Filter by geography, then select by performance</span>
+</span><span data-line="10"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CompositeStrategy</span><span class="p">(</span>
+</span><span data-line="11">    <span class="n">filters</span><span class="o">=</span><span class="p">[</span><span class="n">GeoTargetedStrategy</span><span class="p">()],</span>
+</span><span data-line="12">    <span class="n">selector</span><span class="o">=</span><span class="n">PerformanceBasedStrategy</span><span class="p">(),</span>
+</span><span data-line="13"><span class="p">)</span>
+</span><span data-line="14"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span>
+</span><span data-line="15">
+</span><span data-line="16"><span class="c1"># Select a proxy: geo-filter to US, then pick the fastest</span>
+</span><span data-line="17"><span class="n">context</span> <span class="o">=</span> <span class="n">SelectionContext</span><span class="p">(</span><span class="n">target_country</span><span class="o">=</span><span class="s2">&quot;US&quot;</span><span class="p">)</span>
+</span><span data-line="18"><span class="n">proxy</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">rotator</span><span class="o">.</span><span class="n">pool</span><span class="p">,</span> <span class="n">context</span><span class="o">=</span><span class="n">context</span><span class="p">)</span>
+</span><span data-line="19"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Selected fastest US proxy: </span><span class="si">{</span><span class="n">proxy</span><span class="o">.</span><span class="n">url</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="20">
+</span><span data-line="21"><span class="c1"># Make the request</span>
+</span><span data-line="22"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://api.example.com/data&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>You can also build composites from config dicts:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CompositeStrategy</span><span class="o">.</span><span class="n">from_config</span><span class="p">({</span>
+</span><span data-line="2">    <span class="s2">&quot;filters&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;geo-targeted&quot;</span><span class="p">],</span>
+</span><span data-line="3">    <span class="s2">&quot;selector&quot;</span><span class="p">:</span> <span class="s2">&quot;performance-based&quot;</span><span class="p">,</span>
+</span><span data-line="4"><span class="p">})</span>
+</span></pre></div>
+</div>
+</section>
+</section>
+<hr class="docutils" />
+<section id="comparison-at-a-glance">
+<h2>Comparison At a Glance<a class="headerlink" href="#comparison-at-a-glance" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 18.0%" />
+<col style="width: 14.0%" />
+<col style="width: 14.0%" />
+<col style="width: 14.0%" />
+<col style="width: 14.0%" />
+<col style="width: 26.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Strategy</p></th>
+<th class="head"><p>State</p></th>
+<th class="head"><p>Context Needed</p></th>
+<th class="head"><p>Metadata Needed</p></th>
+<th class="head"><p>Complexity</p></th>
+<th class="head"><p>Best Scenario</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>Round-Robin</p></td>
+<td><p>Index counter</p></td>
+<td><p>No</p></td>
+<td><p>None</p></td>
+<td><p>O(1)</p></td>
+<td><p>Default, even distribution</p></td>
+</tr>
+<tr class="row-odd"><td><p>Random</p></td>
+<td><p>None</p></td>
+<td><p>No</p></td>
+<td><p>None</p></td>
+<td><p>O(1)</p></td>
+<td><p>Anti-pattern masking</p></td>
+</tr>
+<tr class="row-even"><td><p>Weighted</p></td>
+<td><p>Weight cache</p></td>
+<td><p>No</p></td>
+<td><p>Weights (optional)</p></td>
+<td><p>O(n)</p></td>
+<td><p>Premium proxy prioritization</p></td>
+</tr>
+<tr class="row-odd"><td><p>Least-Used</p></td>
+<td><p>Min-heap</p></td>
+<td><p>No</p></td>
+<td><p>None</p></td>
+<td><p>O(log n)</p></td>
+<td><p>Long crawls</p></td>
+</tr>
+<tr class="row-even"><td><p>Performance</p></td>
+<td><p>EMA scores</p></td>
+<td><p>No</p></td>
+<td><p>None (auto-built)</p></td>
+<td><p>O(n)</p></td>
+<td><p>Latency-sensitive</p></td>
+</tr>
+<tr class="row-odd"><td><p>Session</p></td>
+<td><p>Session map</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">session_id</span></code></p></td>
+<td><p>None</p></td>
+<td><p>O(1) lookup</p></td>
+<td><p>Stateful APIs</p></td>
+</tr>
+<tr class="row-even"><td><p>Geo-Targeted</p></td>
+<td><p>None</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">target_country</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">country_code</span></code></p></td>
+<td><p>O(n) filter</p></td>
+<td><p>Region-locked content</p></td>
+</tr>
+<tr class="row-odd"><td><p>Cost-Aware</p></td>
+<td><p>None</p></td>
+<td><p>No</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">cost_per_request</span></code></p></td>
+<td><p>O(n)</p></td>
+<td><p>Budget optimization</p></td>
+</tr>
+<tr class="row-even"><td><p>Composite</p></td>
+<td><p>Inherited</p></td>
+<td><p>Varies</p></td>
+<td><p>Varies</p></td>
+<td><p>Sum of parts</p></td>
+<td><p>Multi-criteria</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<hr class="docutils" />
+<section id="hot-swapping-strategies">
+<h2>Hot-Swapping Strategies<a class="headerlink" href="#hot-swapping-strategies" title="Link to this heading">¶</a></h2>
+<p>Switch strategies at runtime without restarting:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span>
+</span><span data-line="2">
+</span><span data-line="3"><span class="c1"># ... after observing proxy performance ...</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="c1"># Hot-swap to performance-based</span>
+</span><span data-line="6"><span class="n">rotator</span><span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="s2">&quot;performance-based&quot;</span><span class="p">)</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="c1"># Or swap to a custom-configured strategy</span>
+</span><span data-line="9"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">WeightedStrategy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
+</span><span data-line="10">
+</span><span data-line="11"><span class="n">strategy</span> <span class="o">=</span> <span class="n">WeightedStrategy</span><span class="p">()</span>
+</span><span data-line="12"><span class="n">strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">StrategyConfig</span><span class="p">(</span><span class="n">weights</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="13">    <span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span>
+</span><span data-line="14">    <span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span>
+</span><span data-line="15"><span class="p">}))</span>
+</span><span data-line="16"><span class="n">rotator</span><span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="n">strategy</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<p>Hot-swap is atomic and completes in &lt;100ms. In-flight requests finish with their original strategy; new requests immediately use the new one. Supported strategy names for <code class="docutils literal notranslate"><span class="pre">set_strategy()</span></code>: <code class="docutils literal notranslate"><span class="pre">&quot;round-robin&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;random&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;weighted&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;least-used&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;performance-based&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;session&quot;</span></code>, <code class="docutils literal notranslate"><span class="pre">&quot;geo-targeted&quot;</span></code>.</p>
 </section>
 <hr class="docutils" />
 <section id="observe-the-pool">
@@ -745,7 +1202,7 @@ Composite</label><div class="sd-tab-content docutils">
 </span><span data-line="6"><span class="p">)</span>
 </span></pre></div>
 </div>
-<p>Use :func:<code class="docutils literal notranslate"><span class="pre">ProxyRotator.clear_unhealthy_proxies</span></code> to evict failing endpoints during long-running crawls.</p>
+<p>Use <code class="docutils literal notranslate"><span class="pre">rotator.clear_unhealthy_proxies()</span></code> to evict failing endpoints during long-running crawls.</p>
 <p>You can also monitor from the command line:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># One-shot health check</span>
 </span><span data-line="2">uv<span class="w"> </span>run<span class="w"> </span>proxywhirl<span class="w"> </span>health
@@ -757,21 +1214,21 @@ Composite</label><div class="sd-tab-content docutils">
 </span><span data-line="8">uv<span class="w"> </span>run<span class="w"> </span>proxywhirl<span class="w"> </span>stats<span class="w"> </span>--retry<span class="w"> </span>--circuit-breaker
 </span></pre></div>
 </div>
-<p>See <a class="reference internal" href="../guides/cli-reference.html"><span class="std std-doc">CLI Reference</span></a> for the full CLI reference.</p>
+<p>See <a class="reference internal" href="../guides/cli-reference.html"><span class="doc">CLI Reference</span></a> for the full CLI reference.</p>
 </section>
 <hr class="docutils" />
 <section id="building-a-custom-strategy">
 <h2>Building a Custom Strategy<a class="headerlink" href="#building-a-custom-strategy" title="Link to this heading">¶</a></h2>
-<p>Any class implementing the :class:<code class="docutils literal notranslate"><span class="pre">~proxywhirl.strategies.RotationStrategy</span></code> protocol can be used as a strategy. The protocol requires two methods:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">ProxyPool</span><span class="p">,</span> <span class="n">SelectionContext</span>
-</span><span data-line="2">
-</span><span data-line="3"><span class="k">class</span><span class="w"> </span><span class="nc">PriorityStrategy</span><span class="p">:</span>
-</span><span data-line="4"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Always selects the first healthy proxy (simple priority queue).&quot;&quot;&quot;</span>
-</span><span data-line="5">
-</span><span data-line="6">    <span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pool</span><span class="p">:</span> <span class="n">ProxyPool</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">SelectionContext</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Proxy</span><span class="p">:</span>
-</span><span data-line="7">        <span class="n">healthy</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">get_healthy_proxies</span><span class="p">()</span>
-</span><span data-line="8">        <span class="k">if</span> <span class="ow">not</span> <span class="n">healthy</span><span class="p">:</span>
-</span><span data-line="9">            <span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyPoolEmptyError</span>
+<p>Any class implementing the <code class="xref py py-class docutils literal notranslate"><span class="pre">RotationStrategy</span></code> protocol can be used as a strategy. The protocol requires two methods:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">ProxyPool</span><span class="p">,</span> <span class="n">SelectionContext</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyPoolEmptyError</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="k">class</span><span class="w"> </span><span class="nc">PriorityStrategy</span><span class="p">:</span>
+</span><span data-line="5"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Always selects the first healthy proxy (simple priority queue).&quot;&quot;&quot;</span>
+</span><span data-line="6">
+</span><span data-line="7">    <span class="k">def</span><span class="w"> </span><span class="nf">select</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pool</span><span class="p">:</span> <span class="n">ProxyPool</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">SelectionContext</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Proxy</span><span class="p">:</span>
+</span><span data-line="8">        <span class="n">healthy</span> <span class="o">=</span> <span class="n">pool</span><span class="o">.</span><span class="n">get_healthy_proxies</span><span class="p">()</span>
+</span><span data-line="9">        <span class="k">if</span> <span class="ow">not</span> <span class="n">healthy</span><span class="p">:</span>
 </span><span data-line="10">            <span class="k">raise</span> <span class="n">ProxyPoolEmptyError</span><span class="p">(</span><span class="s2">&quot;No healthy proxies available&quot;</span><span class="p">)</span>
 </span><span data-line="11">        <span class="k">return</span> <span class="n">healthy</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 </span><span data-line="12">
@@ -780,7 +1237,7 @@ Composite</label><div class="sd-tab-content docutils">
 </span></pre></div>
 </div>
 <p>Register it globally so other components can look it up by name:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRegistry</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRegistry</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="n">registry</span> <span class="o">=</span> <span class="n">StrategyRegistry</span><span class="p">()</span>
 </span><span data-line="4"><span class="n">registry</span><span class="o">.</span><span class="n">register_strategy</span><span class="p">(</span><span class="s2">&quot;priority&quot;</span><span class="p">,</span> <span class="n">PriorityStrategy</span><span class="p">)</span>
@@ -792,17 +1249,17 @@ Composite</label><div class="sd-tab-content docutils">
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
-<p>Custom strategies used in multi-threaded code must be thread-safe. Protect shared mutable state with <code class="docutils literal notranslate"><span class="pre">threading.Lock</span></code> or use :class:<code class="docutils literal notranslate"><span class="pre">proxywhirl.strategies.StrategyState</span></code> for per-proxy metrics tracking.</p>
+<p>Custom strategies used in multi-threaded code must be thread-safe. Protect shared mutable state with <code class="docutils literal notranslate"><span class="pre">threading.Lock</span></code> or use <code class="xref py py-class docutils literal notranslate"><span class="pre">StrategyState</span></code> for per-proxy metrics tracking.</p>
 </div>
 </section>
 <hr class="docutils" />
 <section id="further-reading">
 <h2>Further Reading<a class="headerlink" href="#further-reading" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="../guides/advanced-strategies.html"><span class="std std-doc">Advanced Strategies</span></a> – deep dive into composite pipelines and EMA tuning</p></li>
-<li><p><a class="reference internal" href="../guides/retry-failover.html"><span class="std std-doc">Retry &amp; Failover</span></a> – circuit breakers and retry policies that work alongside strategies</p></li>
-<li><p><a class="reference internal" href="../guides/async-client.html"><span class="std std-doc">Async Client</span></a> – async patterns with strategy selection</p></li>
-<li><p><a class="reference internal" href="../reference/python-api.html"><span class="std std-doc">Python API</span></a> – complete API reference for all strategy classes</p></li>
+<li><p><a class="reference internal" href="../guides/advanced-strategies.html"><span class="doc">Advanced Rotation Strategies</span></a> – deep dive into composite pipelines and EMA tuning</p></li>
+<li><p><a class="reference internal" href="../guides/retry-failover.html"><span class="doc">Retry &amp; Failover Guide</span></a> – circuit breakers and retry policies that work alongside strategies</p></li>
+<li><p><a class="reference internal" href="../guides/async-client.html"><span class="doc">Async Client Guide</span></a> – async patterns with strategy selection</p></li>
+<li><p><a class="reference internal" href="../reference/python-api.html"><span class="doc">Python API Reference</span></a> – complete API reference for all strategy classes</p></li>
 </ul>
 </section>
 </section>

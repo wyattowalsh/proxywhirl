@@ -6,6 +6,11 @@ title: CLI Reference
 
 ProxyWhirl provides a full-featured command-line interface for proxy rotation, pool management, health monitoring, statistics, and data export. All commands support multiple output formats (text/JSON/CSV) and integrate with the configuration system.
 
+```{contents}
+:local:
+:depth: 2
+```
+
 ## Installation
 
 ```bash
@@ -46,7 +51,7 @@ All commands support these global options:
 
 When ``--config`` is not provided, ProxyWhirl searches for configuration in this order:
 
-1. **Project directory**: ``./pyproject.toml`` (with ``[tool.proxywhirl]`` section)
+1. **Project directory**: ``./.proxywhirl.toml``
 2. **User directory**: ``~/.config/proxywhirl/config.toml`` (Linux/macOS) or ``%APPDATA%\proxywhirl\config.toml`` (Windows)
 3. **Defaults**: In-memory configuration with sensible defaults
 
@@ -92,6 +97,9 @@ proxywhirl request [OPTIONS] URL
 * - ``--retries NUM``
   - ``3``
   - Maximum retry attempts (overrides config)
+* - ``--allow-private``
+  - ``false``
+  - Allow requests to localhost/private IPs (use with caution)
 ```
 
 **Examples:**
@@ -310,7 +318,7 @@ proxywhirl config set verify_ssl false
   - Verify SSL certificates
 * - ``default_format``
   - str
-  - ``human``
+  - ``text``
   - Default output format
 * - ``color``
   - bool
@@ -324,6 +332,18 @@ proxywhirl config set verify_ssl false
   - str
   - ``file``
   - Storage backend type
+* - ``storage_path``
+  - path or null
+  - ``None``
+  - Path for file/sqlite storage
+* - ``encrypt_credentials``
+  - bool
+  - ``true``
+  - Encrypt credentials in config file
+* - ``encryption_key_env``
+  - str
+  - ``PROXYWHIRL_KEY``
+  - Environment variable name for encryption key
 ```
 
 **Output (show, text format):**
@@ -340,7 +360,7 @@ verify_ssl: True
 default_format: text
 color: True
 verbose: False
-storage_backend: memory
+storage_backend: file
 storage_path: None
 ```
 
@@ -364,15 +384,15 @@ proxywhirl health [OPTIONS]
 * - Option
   - Default
   - Description
-* - ``--continuous, -c``
+* - ``--continuous, -C``
   - ``false``
   - Run continuously with periodic checks
 * - ``--interval, -i SECONDS``
-  - ``300``
-  - Check interval in seconds (for continuous mode)
-* - ``--target-url URL``
-  - ``https://httpbin.org/ip``
-  - Target URL for health checks (http/https only)
+  - Config value
+  - Check interval in seconds (for continuous mode; falls back to ``health_check_interval`` config)
+* - ``--target-url, -t URL``
+  - None
+  - Target URL for health checks (http/https only; falls back to ``httpbin.org/ip`` at runtime)
 * - ``--allow-private``
   - ``false``
   - Allow testing against localhost/private IPs (use with caution)
@@ -384,11 +404,11 @@ proxywhirl health [OPTIONS]
 # Single health check
 proxywhirl health
 
-# Continuous monitoring with default interval (300s)
-proxywhirl health --continuous
+# Continuous monitoring with config interval
+proxywhirl health -C
 
 # Continuous monitoring with custom interval
-proxywhirl health --continuous --interval 60
+proxywhirl health -C --interval 60
 
 # Health check with custom target URL
 proxywhirl health --target-url https://api.example.com
@@ -487,27 +507,27 @@ proxywhirl fetch [OPTIONS]
 * - Option
   - Default
   - Description
-* - ``--validate / --no-validate``
-  - ``true``
-  - Validate proxies after fetching
-* - ``--save-db / --no-save-db``
-  - ``true``
-  - Save validated proxies to database
-* - ``--export / --no-export``
-  - ``true``
-  - Export to text/JSON files
-* - ``--output, -o DIR``
-  - ``docs/proxy-lists``
-  - Output directory for exported files
-* - ``--db PATH``
-  - ``proxywhirl.db``
-  - Path to SQLite database
-* - ``--timeout, -t SECONDS``
-  - ``5.0``
-  - Validation timeout per proxy
-* - ``--concurrency, -c NUM``
-  - ``500``
-  - Parallel validation concurrency
+* - ``--no-validate``
+  - ``false``
+  - Skip proxy validation
+* - ``--no-save-db``
+  - ``false``
+  - Don't save to database
+* - ``--no-export``
+  - ``false``
+  - Don't export to files
+* - ``--timeout SECONDS``
+  - ``10``
+  - Validation timeout in seconds
+* - ``--concurrency NUM``
+  - ``100``
+  - Concurrent validation requests
+* - ``--revalidate, -R``
+  - ``false``
+  - Re-validate existing proxies in database instead of fetching new ones
+* - ``--prune-failed``
+  - ``false``
+  - Delete failed proxies instead of marking them as DEAD (use with ``--revalidate``)
 ```
 
 **Examples:**
@@ -519,11 +539,14 @@ proxywhirl fetch
 # Fast fetch without validation (raw proxies)
 proxywhirl fetch --no-validate
 
-# High-concurrency validation (fast, uses more resources)
-proxywhirl fetch --concurrency 2000
+# Custom timeout and concurrency
+proxywhirl fetch --timeout 5 --concurrency 50
 
-# Fetch to custom location
-proxywhirl fetch --output ./proxies --db ./proxies.db
+# Re-validate existing proxies in the database
+proxywhirl fetch --revalidate --timeout 5 --concurrency 2000
+
+# Re-validate and delete failed proxies
+proxywhirl fetch --revalidate --prune-failed
 
 # Fetch without database save (files only)
 proxywhirl fetch --no-save-db
@@ -549,7 +572,7 @@ Untrusted proxies: 45,678 (http), 1,234 (socks4), 2,345 (socks5)
 
 ✓ Trusted sources: 13,146 proxies added without validation
 
-Validating 49,257 proxies with concurrency=500...
+Validating 49,257 proxies with concurrency=100...
 Progress: 10000/49257 checked, 1234 valid (12.3%), 2000 proxies/sec
 Progress: 20000/49257 checked, 2567 valid (12.8%), 2050 proxies/sec
 ...
@@ -574,7 +597,7 @@ Proxy aggregation complete!
 ```
 
 ```{tip}
-Use ``--concurrency 2000`` for faster validation on systems with high network capacity. Lower it to ``100`` on rate-limited networks. For automated fetching via CI/CD, see {doc}`automation`.
+Use ``--concurrency 2000`` for faster validation on systems with high network capacity. The default is ``100``. For automated fetching via CI/CD, see {doc}`automation`.
 ```
 
 ---
@@ -729,12 +752,15 @@ GeoIP enrichment is optional. Without the database, ``proxywhirl fetch`` still p
 
 ### sources
 
-List and validate all configured proxy sources. Useful for identifying stale or broken sources.
+Command group for listing, validating, and auditing proxy sources. When invoked without a subcommand, lists or validates all configured sources.
 
 **Usage:**
 ```bash
 proxywhirl sources [OPTIONS]
+proxywhirl sources audit [OPTIONS]
 ```
+
+#### sources (list/validate)
 
 **Options:**
 
@@ -751,7 +777,7 @@ proxywhirl sources [OPTIONS]
 * - ``--timeout, -t SECONDS``
   - ``15.0``
   - Timeout per source in seconds
-* - ``--concurrency, -c NUM``
+* - ``--concurrency, -j NUM``
   - ``20``
   - Maximum concurrent requests
 * - ``--fail-on-unhealthy, -f``
@@ -801,6 +827,7 @@ SOCKS5 Sources (7):
 Total: 60 sources
 
 Use --validate to check source health
+Use 'proxywhirl sources audit' for detailed auditing
 ```
 
 **Output (validate mode):**
@@ -826,6 +853,66 @@ Unhealthy sources:
 
 ```{tip}
 Run ``proxywhirl sources --validate --fail-on-unhealthy`` in CI to catch broken sources early.
+```
+
+#### sources audit
+
+Audit proxy sources for broken or stale entries. Tests each source by fetching from it and checking if it returns valid proxies. A source is considered "broken" if it returns a non-200 status, times out after retries, returns fewer proxies than ``--min-proxies``, or returns malformed content.
+
+**Usage:**
+```bash
+proxywhirl sources audit [OPTIONS]
+```
+
+**Options:**
+
+```{list-table}
+:header-rows: 1
+:widths: 35 15 50
+
+* - Option
+  - Default
+  - Description
+* - ``--timeout, -t SECONDS``
+  - ``15.0``
+  - Timeout per source in seconds
+* - ``--concurrency, -j NUM``
+  - ``20``
+  - Maximum concurrent requests
+* - ``--retries, -r NUM``
+  - ``3``
+  - Number of retries for each source before marking as broken
+* - ``--fix``
+  - ``false``
+  - Remove broken sources from sources.py (creates backup)
+* - ``--dry-run, -n``
+  - ``false``
+  - Show what would be removed without making changes (implies ``--fix``)
+* - ``--min-proxies NUM``
+  - ``1``
+  - Minimum proxies required for a source to be considered healthy
+* - ``--protocol, -p PROTOCOL``
+  - None
+  - Only audit sources of specific protocol (``http``, ``socks4``, ``socks5``)
+```
+
+**Examples:**
+
+```bash
+# Audit all sources
+proxywhirl sources audit
+
+# Only audit HTTP sources
+proxywhirl sources audit --protocol http
+
+# Remove broken sources (creates backup)
+proxywhirl sources audit --fix
+
+# Preview what would be removed
+proxywhirl sources audit --dry-run
+
+# More retries before marking broken
+proxywhirl sources audit --retries 5
 ```
 
 ---
@@ -854,7 +941,7 @@ proxywhirl stats [OPTIONS]
 * - ``--circuit-breaker``
   - ``false``
   - Show circuit breaker state transitions
-* - ``--hours, -h NUM``
+* - ``--hours, -r NUM``
   - ``24``
   - Time window in hours for statistics
 ```
@@ -950,6 +1037,190 @@ The ``stats`` command shows both if neither ``--retry`` nor ``--circuit-breaker`
 
 ---
 
+### tui
+
+Launch the interactive Terminal User Interface (TUI) dashboard for real-time proxy management.
+
+**Usage:**
+```bash
+proxywhirl tui
+```
+
+The TUI provides a full-featured dashboard with:
+
+- **Real-time metrics** and sparkline visualizations
+- **Proxy table** with filtering, sorting, and health status
+- **Manual proxy management** (add/remove)
+- **Health checks** with progress bars
+- **Circuit breaker monitoring** (see {doc}`retry-failover` for circuit breaker details)
+- **Request testing** with multiple HTTP methods
+- **Export functionality** with format preview
+
+**Keyboard Shortcuts:**
+
+```{list-table}
+:header-rows: 1
+:widths: 20 80
+
+* - Key
+  - Action
+* - ``j/k``
+  - Navigate up/down
+* - ``g/G``
+  - Jump to first/last
+* - ``Enter``
+  - View proxy details
+* - ``c``
+  - Copy proxy URL
+* - ``t``
+  - Quick test proxy
+* - ``/``
+  - Focus search
+* - ``?``
+  - Show help modal
+* - ``Ctrl+A``
+  - Toggle auto-refresh
+* - ``Ctrl+R``
+  - Refresh all data
+* - ``Ctrl+F``
+  - Fetch tab
+* - ``Ctrl+E``
+  - Export tab
+* - ``Ctrl+T``
+  - Test tab
+* - ``Ctrl+H``
+  - Health tab
+```
+
+```{tip}
+The TUI is an alternative to the CLI commands for users who prefer a visual interface. It uses the same underlying proxy pool and configuration.
+```
+
+---
+
+### db-stats
+
+Show comprehensive database statistics including counts by health status, protocol, and validation metrics.
+
+**Usage:**
+```bash
+proxywhirl db-stats [OPTIONS]
+```
+
+**Options:**
+
+```{list-table}
+:header-rows: 1
+:widths: 30 15 55
+
+* - Option
+  - Default
+  - Description
+* - ``--db PATH``
+  - ``proxywhirl.db``
+  - Path to SQLite database
+```
+
+**Examples:**
+
+```bash
+# Show database statistics
+proxywhirl db-stats
+
+# Use custom database path
+proxywhirl db-stats --db custom.db
+
+# Get stats as JSON
+proxywhirl --format json db-stats
+```
+
+**Output (text format):**
+```
+Proxy Database Statistics
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
+┃ Metric              ┃     Value ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
+│ Total Proxies       │    19,935 │
+│                     │           │
+│ By Health Status    │           │
+│   healthy           │    12,456 │
+│   unknown           │     5,234 │
+│   dead              │     2,245 │
+│                     │           │
+│ By Protocol         │           │
+│   http              │    15,678 │
+│   socks4            │     2,345 │
+│   socks5            │     1,912 │
+│                     │           │
+│ Database Size       │   12.34 MB│
+└─────────────────────┴───────────┘
+```
+
+---
+
+### cleanup
+
+Clean up stale and dead proxies from the database. Performs a dry run by default.
+
+**Usage:**
+```bash
+proxywhirl cleanup [OPTIONS]
+```
+
+**Options:**
+
+```{list-table}
+:header-rows: 1
+:widths: 30 15 55
+
+* - Option
+  - Default
+  - Description
+* - ``--db PATH``
+  - ``proxywhirl.db``
+  - Path to SQLite database
+* - ``--stale-days NUM``
+  - ``7``
+  - Remove proxies not validated in N days
+* - ``--execute``
+  - ``false``
+  - Actually perform cleanup (dry run by default)
+```
+
+**Examples:**
+
+```bash
+# Dry run - shows what would be removed
+proxywhirl cleanup
+
+# Actually remove stale proxies
+proxywhirl cleanup --execute
+
+# Remove proxies not validated in 14 days
+proxywhirl cleanup --stale-days 14 --execute
+
+# Get results as JSON
+proxywhirl --format json cleanup --execute
+```
+
+**Output (dry run):**
+```
+Dry run - showing what would be removed:
+  dead: 2,245
+```
+
+**Output (execute):**
+```
+✓ Cleanup completed: removed 2,245 proxies
+  dead: 2,245
+```
+
+```{tip}
+Use ``cleanup`` in CI/CD pipelines before ``export`` to ensure only valid proxies are included. See {doc}`automation` for proxy refresh workflows.
+```
+
+---
+
 ## Output Formats
 
 All commands support three output formats via the ``--format`` global option:
@@ -1008,7 +1279,7 @@ color = true
 verbose = false
 
 # Storage settings
-storage_backend = "memory"
+storage_backend = "file"
 
 # Security
 encrypt_credentials = true
@@ -1118,7 +1389,7 @@ rm ~/.config/proxywhirl/.proxywhirl.lock
 ### Slow Validation
 
 ```bash
-# Increase concurrency
+# Increase concurrency (default is 100)
 proxywhirl fetch --concurrency 2000
 
 # Skip validation for testing
