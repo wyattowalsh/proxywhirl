@@ -516,7 +516,7 @@
 </div><article class="yue dark-code" role="main">
           <section class="sy-hero">
   <h1>ProxyWhirl</h1>
-  <p>Production-grade proxy rotation for Python. 9 intelligent strategies, 100+ built-in sources, circuit breakers, multi-tier caching, and four interfaces -- all in one library.</p>
+  <p>Production-grade proxy rotation for Python. 9 intelligent strategies, hundreds of built-in sources, circuit breakers, multi-tier caching, and four interfaces -- all in one library.</p>
   <div class="sd-btn-group">
     <a class="sd-btn sd-btn-primary sd-shadow-sm" href="getting-started/index.html">Get Started</a>
     <a class="sd-btn sd-btn-secondary" href="https://proxywhirl.com/" rel="noopener" target="_blank">Free Proxy Lists</a>
@@ -596,7 +596,7 @@ Python (async)</label><div class="sd-tab-content docutils">
 Auto-Fetch Proxies</label><div class="sd-tab-content docutils">
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyFetcher</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="c1"># Fetch and validate proxies from 100+ built-in sources</span>
+</span><span data-line="3"><span class="c1"># Fetch and validate proxies from all built-in sources</span>
 </span><span data-line="4"><span class="n">fetcher</span> <span class="o">=</span> <span class="n">ProxyFetcher</span><span class="p">()</span>
 </span><span data-line="5"><span class="n">proxies</span> <span class="o">=</span> <span class="k">await</span> <span class="n">fetcher</span><span class="o">.</span><span class="n">fetch_all</span><span class="p">(</span><span class="n">validate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span data-line="6"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">proxies</span><span class="p">)</span><span class="si">}</span><span class="s2"> working proxies&quot;</span><span class="p">)</span>
@@ -622,7 +622,7 @@ REST API</label><div class="sd-tab-content docutils">
 <input id="sd-tab-item-4" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-4">
 CLI</label><div class="sd-tab-content docutils">
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Fetch fresh proxies from 100+ sources</span>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Fetch fresh proxies from all built-in sources</span>
 </span><span data-line="2">proxywhirl<span class="w"> </span>fetch<span class="w"> </span>--timeout<span class="w"> </span><span class="m">5</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Validate proxies</span>
@@ -813,7 +813,7 @@ Project</div>
 <li><p>2700+ tests: unit, integration, property-based, contract, benchmarks</p></li>
 <li><p>&lt;5 us strategy selection overhead</p></li>
 <li><p>SQLite persistence with Fernet encryption – <a class="reference internal" href="reference/configuration.html"><span class="doc">Configuration Reference</span></a></p></li>
-<li><p>100+ built-in proxy sources, auto-refreshed every 6 hours via CI</p></li>
+<li><p>Hundreds of built-in proxy sources, auto-refreshed every 6 hours via CI</p></li>
 </ul>
 </div>
 </div>
@@ -825,7 +825,7 @@ Project</div>
 <li><p><strong>Composite Strategies</strong> – chain filters and selectors with &lt;5 us overhead via <code class="docutils literal notranslate"><span class="pre">CompositeStrategy</span></code></p></li>
 <li><p><strong>Cost-Aware Strategy</strong> – budget-optimize proxy selection with <code class="docutils literal notranslate"><span class="pre">CostAwareStrategy</span></code></p></li>
 <li><p><strong>MCP Server</strong> – Model Context Protocol integration for Claude, GPT, and more</p></li>
-<li><p><strong>Free Proxy Lists</strong> – updated every 6 hours from 100+ sources at <a class="reference external" href="https://proxywhirl.com/">proxywhirl.com</a></p></li>
+<li><p><strong>Free Proxy Lists</strong> – updated every 6 hours from hundreds of sources at <a class="reference external" href="https://proxywhirl.com/">proxywhirl.com</a></p></li>
 <li><p><strong>Rate Limiting</strong> – token bucket algorithm with per-proxy and global limits via <a class="reference internal" href="reference/rate-limiting-api.html"><span class="doc">Rate Limiting API Reference</span></a></p></li>
 </ul>
 <div class="tip admonition">
@@ -870,7 +870,7 @@ Project</div>
     </div>
   </div>
 </footer>
-      <script src="_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="_static/documentation_options.js?v=360bc84d"></script>
       <script src="_static/doctools.js?v=fd6eb6e6"></script>
       <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script src="_static/clipboard.min.js?v=a7894cd8"></script>

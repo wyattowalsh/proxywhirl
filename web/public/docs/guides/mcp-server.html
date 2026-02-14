@@ -644,7 +644,7 @@
 <h3>Auto-Loading Proxies<a class="headerlink" href="#auto-loading-proxies" title="Link to this heading">¶</a></h3>
 <p>The MCP server automatically loads proxies from <code class="docutils literal notranslate"><span class="pre">proxywhirl.db</span></code> if it exists in the current directory (or the path set by <code class="docutils literal notranslate"><span class="pre">PROXYWHIRL_MCP_DB</span></code>). Use the <a class="reference internal" href="cli-reference.html"><span class="doc">CLI Reference</span></a> to populate the database first:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Fetch proxies and save to database</span>
-</span><span data-line="2">proxywhirl<span class="w"> </span>fetch<span class="w"> </span>--sources<span class="w"> </span>recommended<span class="w"> </span>--output<span class="w"> </span>proxywhirl.db
+</span><span data-line="2">proxywhirl<span class="w"> </span>fetch
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Then run MCP server (proxies load automatically)</span>
 </span><span data-line="5">proxywhirl-mcp
@@ -1044,7 +1044,7 @@
 </span><span data-line="6"><span class="p">}</span>
 </span></pre></div>
 </div>
-<p>Valid strategies: <code class="docutils literal notranslate"><span class="pre">round-robin</span></code>, <code class="docutils literal notranslate"><span class="pre">random</span></code>, <code class="docutils literal notranslate"><span class="pre">weighted</span></code>, <code class="docutils literal notranslate"><span class="pre">least-used</span></code>, <code class="docutils literal notranslate"><span class="pre">performance-based</span></code>, <code class="docutils literal notranslate"><span class="pre">session-persistence</span></code>, <code class="docutils literal notranslate"><span class="pre">geo-targeted</span></code>, <code class="docutils literal notranslate"><span class="pre">cost-aware</span></code>. For detailed strategy configuration and tuning, see <a class="reference internal" href="advanced-strategies.html"><span class="doc">Advanced Rotation Strategies</span></a>.</p>
+<p>Valid strategies: <code class="docutils literal notranslate"><span class="pre">round-robin</span></code>, <code class="docutils literal notranslate"><span class="pre">random</span></code>, <code class="docutils literal notranslate"><span class="pre">weighted</span></code>, <code class="docutils literal notranslate"><span class="pre">least-used</span></code>, <code class="docutils literal notranslate"><span class="pre">performance-based</span></code>, <code class="docutils literal notranslate"><span class="pre">session</span></code>, <code class="docutils literal notranslate"><span class="pre">geo-targeted</span></code>. For detailed strategy configuration and tuning, see <a class="reference internal" href="advanced-strategies.html"><span class="doc">Advanced Rotation Strategies</span></a>.</p>
 </section>
 </section>
 </section>
@@ -1083,7 +1083,7 @@
 </span><span data-line="4"><span class="w">  </span><span class="nt">&quot;verify_ssl&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 </span><span data-line="5"><span class="w">  </span><span class="nt">&quot;follow_redirects&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
 </span><span data-line="6"><span class="w">  </span><span class="nt">&quot;pool_connections&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">10</span><span class="p">,</span>
-</span><span data-line="7"><span class="w">  </span><span class="nt">&quot;pool_max_keepalive&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
+</span><span data-line="7"><span class="w">  </span><span class="nt">&quot;pool_max_keepalive&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">20</span><span class="p">,</span>
 </span><span data-line="8"><span class="w">  </span><span class="nt">&quot;circuit_breaker&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 </span><span data-line="9"><span class="w">    </span><span class="nt">&quot;failure_threshold&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span>
 </span><span data-line="10"><span class="w">    </span><span class="nt">&quot;timeout_duration&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">60</span><span class="p">,</span>
@@ -1642,7 +1642,7 @@ Python API Reference</div>
     </div>
   </div>
 </footer>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=360bc84d"></script>
       <script src="../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script src="../_static/clipboard.min.js?v=a7894cd8"></script>

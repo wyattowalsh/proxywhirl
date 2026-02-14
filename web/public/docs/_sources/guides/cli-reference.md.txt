@@ -51,12 +51,12 @@ All commands support these global options:
 
 When ``--config`` is not provided, ProxyWhirl searches for configuration in this order:
 
-1. **Project directory**: ``./.proxywhirl.toml``
+1. **Project directory**: ``./pyproject.toml`` (requires ``[tool.proxywhirl]`` section)
 2. **User directory**: ``~/.config/proxywhirl/config.toml`` (Linux/macOS) or ``%APPDATA%\proxywhirl\config.toml`` (Windows)
 3. **Defaults**: In-memory configuration with sensible defaults
 
 ```{tip}
-Use ``proxywhirl config init`` to create a starter configuration file in the current directory. See {doc}`/reference/configuration` for a complete list of all configurable keys.
+Use ``proxywhirl config init`` to create a starter configuration file (``.proxywhirl.toml``) in the current directory. To use project-local auto-discovery, add a ``[tool.proxywhirl]`` section to your ``pyproject.toml`` instead. For user-global configuration, place your config at ``~/.config/proxywhirl/config.toml``. See {doc}`/reference/configuration` for a complete list of all configurable keys.
 ```
 
 ## Commands
@@ -349,7 +349,7 @@ proxywhirl config set verify_ssl false
 **Output (show, text format):**
 ```
 Configuration
-Config file: /Users/user/project/.proxywhirl.toml
+Config file: /Users/user/project/pyproject.toml
 
 rotation_strategy: round-robin
 health_check_interval: 300s
@@ -884,7 +884,7 @@ proxywhirl sources audit [OPTIONS]
   - Number of retries for each source before marking as broken
 * - ``--fix``
   - ``false``
-  - Remove broken sources from sources.py (creates backup)
+  - Remove broken sources from ``sources.py`` (creates backup)
 * - ``--dry-run, -n``
   - ``false``
   - Show what would be removed without making changes (implies ``--fix``)

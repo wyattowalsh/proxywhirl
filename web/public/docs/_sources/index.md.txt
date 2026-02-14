@@ -5,7 +5,7 @@ title: ProxyWhirl Docs
 ```{raw} html
 <section class="sy-hero">
   <h1>ProxyWhirl</h1>
-  <p>Production-grade proxy rotation for Python. 9 intelligent strategies, 100+ built-in sources, circuit breakers, multi-tier caching, and four interfaces -- all in one library.</p>
+  <p>Production-grade proxy rotation for Python. 9 intelligent strategies, hundreds of built-in sources, circuit breakers, multi-tier caching, and four interfaces -- all in one library.</p>
   <div class="sd-btn-group">
     <a class="sd-btn sd-btn-primary sd-shadow-sm" href="getting-started/index.html">Get Started</a>
     <a class="sd-btn sd-btn-secondary" href="https://proxywhirl.com/" rel="noopener" target="_blank">Free Proxy Lists</a>
@@ -78,7 +78,7 @@ See {doc}`/guides/async-client` for connection pooling, error handling, and conc
 ```python
 from proxywhirl import ProxyFetcher
 
-# Fetch and validate proxies from 100+ built-in sources
+# Fetch and validate proxies from all built-in sources
 fetcher = ProxyFetcher()
 proxies = await fetcher.fetch_all(validate=True)
 print(f"Found {len(proxies)} working proxies")
@@ -102,7 +102,7 @@ See {doc}`/reference/rest-api` for endpoint reference, authentication, and Docke
 
 :::{tab-item} CLI
 ```bash
-# Fetch fresh proxies from 100+ sources
+# Fetch fresh proxies from all built-in sources
 proxywhirl fetch --timeout 5
 
 # Validate proxies
@@ -273,7 +273,7 @@ Contributing, development setup, CI/CD, changelog, and project status.
 - 2700+ tests: unit, integration, property-based, contract, benchmarks
 - <5 us strategy selection overhead
 - SQLite persistence with Fernet encryption -- {doc}`/reference/configuration`
-- 100+ built-in proxy sources, auto-refreshed every 6 hours via CI
+- Hundreds of built-in proxy sources, auto-refreshed every 6 hours via CI
 :::
 
 ::::
@@ -283,7 +283,7 @@ Contributing, development setup, CI/CD, changelog, and project status.
 - **Composite Strategies** -- chain filters and selectors with <5 us overhead via `CompositeStrategy`
 - **Cost-Aware Strategy** -- budget-optimize proxy selection with `CostAwareStrategy`
 - **MCP Server** -- Model Context Protocol integration for Claude, GPT, and more
-- **Free Proxy Lists** -- updated every 6 hours from 100+ sources at [proxywhirl.com](https://proxywhirl.com/)
+- **Free Proxy Lists** -- updated every 6 hours from hundreds of sources at [proxywhirl.com](https://proxywhirl.com/)
 - **Rate Limiting** -- token bucket algorithm with per-proxy and global limits via {doc}`/reference/rate-limiting-api`
 
 ```{admonition} Looking for proxy lists?

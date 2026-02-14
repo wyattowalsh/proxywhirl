@@ -793,7 +793,7 @@
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">generate-proxies.yml</span></code></p></td>
 <td><p>cron (every 6h)</p></td>
-<td><p>Fetch proxies from 100+ sources, update <code class="docutils literal notranslate"><span class="pre">proxywhirl.db</span></code></p></td>
+<td><p>Fetch proxies from all built-in sources, update <code class="docutils literal notranslate"><span class="pre">proxywhirl.db</span></code></p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">validate-sources.yml</span></code></p></td>
 <td><p>push / PR</p></td>
@@ -860,7 +860,7 @@
 <td><p><code class="docutils literal notranslate"><span class="pre">ProxyFetcher</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyValidator</span></code>, parsers (<code class="docutils literal notranslate"><span class="pre">JSON</span></code>, <code class="docutils literal notranslate"><span class="pre">CSV</span></code>, <code class="docutils literal notranslate"><span class="pre">PlainText</span></code>, <code class="docutils literal notranslate"><span class="pre">HTMLTable</span></code>)</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">sources.py</span></code></p></td>
-<td><p>100+ pre-configured <code class="docutils literal notranslate"><span class="pre">ProxySourceConfig</span></code> instances (<code class="docutils literal notranslate"><span class="pre">ALL_SOURCES</span></code>, <code class="docutils literal notranslate"><span class="pre">RECOMMENDED_SOURCES</span></code>)</p></td>
+<td><p>Hundreds of pre-configured <code class="docutils literal notranslate"><span class="pre">ProxySourceConfig</span></code> instances (<code class="docutils literal notranslate"><span class="pre">ALL_SOURCES</span></code>, <code class="docutils literal notranslate"><span class="pre">RECOMMENDED_SOURCES</span></code>)</p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">cache/</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">CacheManager</span></code> with L1 in-memory, L2 encrypted disk, L3 SQLite tiers</p></td>
@@ -964,7 +964,7 @@
 <ul class="simple">
 <li><p><strong>Tests</strong>: 2700+ passing across unit, integration, property, contract, and benchmark suites</p></li>
 <li><p><strong>Performance</strong>: All selection strategies operate within 2.8-26 us (&lt;5 ms target)</p></li>
-<li><p><strong>Proxy sources</strong>: 100+ sources, refreshed every 6 hours via CI</p></li>
+<li><p><strong>Proxy sources</strong>: Hundreds of sources, refreshed every 6 hours via CI</p></li>
 <li><p><strong>Python</strong>: Tested on 3.9, 3.10, 3.11, 3.12, and 3.13</p></li>
 </ul>
 </section>
@@ -976,7 +976,7 @@
 <li><p><strong>Composite strategies</strong> – chain filters and selectors with &lt;5 us overhead via <code class="docutils literal notranslate"><span class="pre">CompositeStrategy</span></code></p></li>
 <li><p><strong>Cost-aware strategy</strong> – budget-optimize proxy selection with <code class="docutils literal notranslate"><span class="pre">CostAwareStrategy</span></code></p></li>
 <li><p><strong>MCP server</strong> – Model Context Protocol integration for AI assistants</p></li>
-<li><p><strong>Free proxy lists</strong> – auto-updated every 6 hours from 100+ sources</p></li>
+<li><p><strong>Free proxy lists</strong> – auto-updated every 6 hours from hundreds of sources</p></li>
 <li><p><strong>Interactive dashboard</strong> – browse and export at <a class="reference external" href="https://proxywhirl.com/">proxywhirl.com</a></p></li>
 <li><p><strong>Rate limiting API</strong> – token bucket algorithm, per-proxy and global limits</p></li>
 <li><p><strong>Cache encryption</strong> – Fernet-encrypted L2 cache tier</p></li>
@@ -1068,7 +1068,7 @@
     </div>
   </div>
 </footer>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=360bc84d"></script>
       <script src="../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script src="../_static/clipboard.min.js?v=a7894cd8"></script>

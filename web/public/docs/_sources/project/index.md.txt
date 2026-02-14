@@ -190,7 +190,7 @@ All workflows live in `.github/workflows/`:
   - Dependency audit, secret scanning
 * - `generate-proxies.yml`
   - cron (every 6h)
-  - Fetch proxies from 100+ sources, update `proxywhirl.db`
+  - Fetch proxies from all built-in sources, update `proxywhirl.db`
 * - `validate-sources.yml`
   - push / PR
   - Verify proxy source URLs are reachable
@@ -240,7 +240,7 @@ Level 3: coverage + build  (depends on all tests)
 * - `fetchers.py`
   - `ProxyFetcher`, `ProxyValidator`, parsers (`JSON`, `CSV`, `PlainText`, `HTMLTable`)
 * - `sources.py`
-  - 100+ pre-configured `ProxySourceConfig` instances (`ALL_SOURCES`, `RECOMMENDED_SOURCES`)
+  - Hundreds of pre-configured `ProxySourceConfig` instances (`ALL_SOURCES`, `RECOMMENDED_SOURCES`)
 * - `cache/`
   - `CacheManager` with L1 in-memory, L2 encrypted disk, L3 SQLite tiers
 * - `circuit_breaker/`
@@ -314,7 +314,7 @@ See {doc}`/reference/configuration` for the full TOML configuration reference an
 
 - **Tests**: 2700+ passing across unit, integration, property, contract, and benchmark suites
 - **Performance**: All selection strategies operate within 2.8-26 us (<5 ms target)
-- **Proxy sources**: 100+ sources, refreshed every 6 hours via CI
+- **Proxy sources**: Hundreds of sources, refreshed every 6 hours via CI
 - **Python**: Tested on 3.9, 3.10, 3.11, 3.12, and 3.13
 
 ## Changelog Highlights
@@ -324,7 +324,7 @@ See {doc}`/reference/configuration` for the full TOML configuration reference an
 - **Composite strategies** -- chain filters and selectors with <5 us overhead via `CompositeStrategy`
 - **Cost-aware strategy** -- budget-optimize proxy selection with `CostAwareStrategy`
 - **MCP server** -- Model Context Protocol integration for AI assistants
-- **Free proxy lists** -- auto-updated every 6 hours from 100+ sources
+- **Free proxy lists** -- auto-updated every 6 hours from hundreds of sources
 - **Interactive dashboard** -- browse and export at [proxywhirl.com](https://proxywhirl.com/)
 - **Rate limiting API** -- token bucket algorithm, per-proxy and global limits
 - **Cache encryption** -- Fernet-encrypted L2 cache tier

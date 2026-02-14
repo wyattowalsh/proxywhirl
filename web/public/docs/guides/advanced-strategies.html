@@ -855,8 +855,8 @@
 </section>
 <section id="configuration">
 <h3><a class="toc-backref" href="#id23" role="doc-backlink">Configuration</a><a class="headerlink" href="#configuration" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerformanceBasedStrategy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerformanceBasedStrategy</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Create proxies</span>
 </span><span data-line="5"><span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span>
@@ -988,8 +988,8 @@
 </section>
 <section id="id3">
 <h3><a class="toc-backref" href="#id31" role="doc-backlink">Configuration</a><a class="headerlink" href="#id3" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">SessionPersistenceStrategy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SelectionContext</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyConfig</span><span class="p">,</span> <span class="n">SelectionContext</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">SessionPersistenceStrategy</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Create strategy with session limits</span>
 </span><span data-line="5"><span class="n">strategy</span> <span class="o">=</span> <span class="n">SessionPersistenceStrategy</span><span class="p">(</span>
@@ -1143,8 +1143,8 @@
 </section>
 <section id="id7">
 <h3><a class="toc-backref" href="#id41" role="doc-backlink">Configuration</a><a class="headerlink" href="#id7" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoTargetedStrategy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SelectionContext</span><span class="p">,</span> <span class="n">Proxy</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyConfig</span><span class="p">,</span> <span class="n">SelectionContext</span><span class="p">,</span> <span class="n">Proxy</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">GeoTargetedStrategy</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Create proxies with country codes</span>
 </span><span data-line="5"><span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span>
@@ -1309,26 +1309,30 @@
 <section id="id10">
 <h3><a class="toc-backref" href="#id50" role="doc-backlink">Configuration</a><a class="headerlink" href="#id10" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
-</span><span data-line="2">
-</span><span data-line="3"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;cost-aware&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
-</span><span data-line="4">    <span class="c1"># Add proxies with cost metadata</span>
-</span><span data-line="5">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span>
-</span><span data-line="6">        <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://free-proxy1.com:8080&quot;</span><span class="p">,</span>
-</span><span data-line="7">        <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.0</span>  <span class="c1"># Free</span>
-</span><span data-line="8">    <span class="p">))</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">CostAwareStrategy</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Create cost-aware strategy instance</span>
+</span><span data-line="5"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CostAwareStrategy</span><span class="p">()</span>
+</span><span data-line="6">
+</span><span data-line="7"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="8">    <span class="c1"># Add proxies with cost metadata</span>
 </span><span data-line="9">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span>
-</span><span data-line="10">        <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://cheap-proxy.com:8080&quot;</span><span class="p">,</span>
-</span><span data-line="11">        <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.01</span>  <span class="c1"># $0.01 per request</span>
+</span><span data-line="10">        <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://free-proxy1.com:8080&quot;</span><span class="p">,</span>
+</span><span data-line="11">        <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.0</span>  <span class="c1"># Free</span>
 </span><span data-line="12">    <span class="p">))</span>
 </span><span data-line="13">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span>
-</span><span data-line="14">        <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://premium-proxy.com:8080&quot;</span><span class="p">,</span>
-</span><span data-line="15">        <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.10</span>  <span class="c1"># $0.10 per request</span>
+</span><span data-line="14">        <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://cheap-proxy.com:8080&quot;</span><span class="p">,</span>
+</span><span data-line="15">        <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.01</span>  <span class="c1"># $0.01 per request</span>
 </span><span data-line="16">    <span class="p">))</span>
-</span><span data-line="17">
-</span><span data-line="18">    <span class="c1"># Free proxy heavily favored (~91% selection probability)</span>
-</span><span data-line="19">    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
-</span><span data-line="20">        <span class="n">proxy</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">()</span>
-</span><span data-line="21">        <span class="c1"># Likely free-proxy1</span>
+</span><span data-line="17">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span>
+</span><span data-line="18">        <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://premium-proxy.com:8080&quot;</span><span class="p">,</span>
+</span><span data-line="19">        <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.10</span>  <span class="c1"># $0.10 per request</span>
+</span><span data-line="20">    <span class="p">))</span>
+</span><span data-line="21">
+</span><span data-line="22">    <span class="c1"># Free proxy heavily favored (~91% selection probability)</span>
+</span><span data-line="23">    <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+</span><span data-line="24">        <span class="n">proxy</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">()</span>
+</span><span data-line="25">        <span class="c1"># Likely free-proxy1</span>
 </span></pre></div>
 </div>
 </section>
@@ -1347,24 +1351,27 @@
 </section>
 <section id="cost-threshold-filtering">
 <h3><a class="toc-backref" href="#id52" role="doc-backlink">Cost Threshold Filtering</a><a class="headerlink" href="#cost-threshold-filtering" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyConfig</span>
-</span><span data-line="2">
-</span><span data-line="3"><span class="n">config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span>
-</span><span data-line="4">    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
-</span><span data-line="5">        <span class="s2">&quot;max_cost_per_request&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>  <span class="c1"># Filter out expensive proxies</span>
-</span><span data-line="6">        <span class="s2">&quot;free_proxy_boost&quot;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span>      <span class="c1"># Weight multiplier for free proxies</span>
-</span><span data-line="7">    <span class="p">}</span>
-</span><span data-line="8"><span class="p">)</span>
-</span><span data-line="9">
-</span><span data-line="10"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;cost-aware&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
-</span><span data-line="11">    <span class="n">rotator</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-</span><span data-line="12">
-</span><span data-line="13">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://cheap.com:8080&quot;</span><span class="p">,</span> <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.01</span><span class="p">))</span>
-</span><span data-line="14">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://expensive.com:8080&quot;</span><span class="p">,</span> <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.20</span><span class="p">))</span>
-</span><span data-line="15">
-</span><span data-line="16">    <span class="c1"># expensive-proxy filtered out (exceeds max_cost_per_request)</span>
-</span><span data-line="17">    <span class="n">proxy</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">()</span>
-</span><span data-line="18">    <span class="k">assert</span> <span class="n">proxy</span><span class="o">.</span><span class="n">cost_per_request</span> <span class="o">&lt;=</span> <span class="mf">0.05</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">CostAwareStrategy</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Configure strategy with cost thresholds</span>
+</span><span data-line="5"><span class="n">config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span>
+</span><span data-line="6">    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="7">        <span class="s2">&quot;max_cost_per_request&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>  <span class="c1"># Filter out expensive proxies</span>
+</span><span data-line="8">        <span class="s2">&quot;free_proxy_boost&quot;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span>      <span class="c1"># Weight multiplier for free proxies</span>
+</span><span data-line="9">    <span class="p">}</span>
+</span><span data-line="10"><span class="p">)</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CostAwareStrategy</span><span class="p">()</span>
+</span><span data-line="13"><span class="n">strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</span><span data-line="14">
+</span><span data-line="15"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="16">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://cheap.com:8080&quot;</span><span class="p">,</span> <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.01</span><span class="p">))</span>
+</span><span data-line="17">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://expensive.com:8080&quot;</span><span class="p">,</span> <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.20</span><span class="p">))</span>
+</span><span data-line="18">
+</span><span data-line="19">    <span class="c1"># expensive-proxy filtered out (exceeds max_cost_per_request)</span>
+</span><span data-line="20">    <span class="n">proxy</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">()</span>
+</span><span data-line="21">    <span class="k">assert</span> <span class="n">proxy</span><span class="o">.</span><span class="n">cost_per_request</span> <span class="o">&lt;=</span> <span class="mf">0.05</span>
 </span></pre></div>
 </div>
 </section>
@@ -1376,18 +1383,23 @@
 <li><p>Adjust <code class="docutils literal notranslate"><span class="pre">free_proxy_boost</span></code> based on free proxy reliability (lower if unreliable)</p></li>
 <li><p>Combine with <code class="docutils literal notranslate"><span class="pre">PerformanceBasedStrategy</span></code> via <code class="docutils literal notranslate"><span class="pre">CompositeStrategy</span></code> for cost + speed optimization</p></li>
 </ul>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyConfig</span>
-</span><span data-line="2">
-</span><span data-line="3"><span class="c1"># Recommended production configuration</span>
-</span><span data-line="4"><span class="n">config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span>
-</span><span data-line="5">    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
-</span><span data-line="6">        <span class="s2">&quot;max_cost_per_request&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>  <span class="c1"># $0.05 budget ceiling</span>
-</span><span data-line="7">        <span class="s2">&quot;free_proxy_boost&quot;</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">,</span>       <span class="c1"># Lower boost if free proxies unreliable</span>
-</span><span data-line="8">    <span class="p">}</span>
-</span><span data-line="9"><span class="p">)</span>
-</span><span data-line="10">
-</span><span data-line="11"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;cost-aware&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
-</span><span data-line="12">    <span class="n">rotator</span><span class="o">.</span><span class="n">strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">StrategyConfig</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">CostAwareStrategy</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Recommended production configuration</span>
+</span><span data-line="5"><span class="n">config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span>
+</span><span data-line="6">    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="7">        <span class="s2">&quot;max_cost_per_request&quot;</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>  <span class="c1"># $0.05 budget ceiling</span>
+</span><span data-line="8">        <span class="s2">&quot;free_proxy_boost&quot;</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">,</span>       <span class="c1"># Lower boost if free proxies unreliable</span>
+</span><span data-line="9">    <span class="p">}</span>
+</span><span data-line="10"><span class="p">)</span>
+</span><span data-line="11">
+</span><span data-line="12"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CostAwareStrategy</span><span class="p">()</span>
+</span><span data-line="13"><span class="n">strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</span><span data-line="14">
+</span><span data-line="15"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="16">    <span class="c1"># Add proxies with cost metadata</span>
+</span><span data-line="17">    <span class="k">pass</span>
 </span></pre></div>
 </div>
 </section>
@@ -1422,12 +1434,12 @@
     </pre></section>
 <section id="basic-composition">
 <h3><a class="toc-backref" href="#id58" role="doc-backlink">Basic Composition</a><a class="headerlink" href="#basic-composition" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span data-line="2">    <span class="n">CompositeStrategy</span><span class="p">,</span>
-</span><span data-line="3">    <span class="n">GeoTargetedStrategy</span><span class="p">,</span>
-</span><span data-line="4">    <span class="n">PerformanceBasedStrategy</span><span class="p">,</span>
-</span><span data-line="5"><span class="p">)</span>
-</span><span data-line="6"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SelectionContext</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">SelectionContext</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span data-line="3">    <span class="n">CompositeStrategy</span><span class="p">,</span>
+</span><span data-line="4">    <span class="n">GeoTargetedStrategy</span><span class="p">,</span>
+</span><span data-line="5">    <span class="n">PerformanceBasedStrategy</span><span class="p">,</span>
+</span><span data-line="6"><span class="p">)</span>
 </span><span data-line="7">
 </span><span data-line="8"><span class="c1"># Geo-filter + performance-based selection</span>
 </span><span data-line="9"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CompositeStrategy</span><span class="p">(</span>
@@ -1509,89 +1521,92 @@
 </section>
 <section id="validation-example">
 <h3><a class="toc-backref" href="#id61" role="doc-backlink">Validation Example</a><a class="headerlink" href="#validation-example" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">ProxyPool</span><span class="p">,</span> <span class="n">HealthStatus</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span>
-</span><span data-line="3">
-</span><span data-line="4"><span class="c1"># Create diverse pool</span>
-</span><span data-line="5"><span class="n">pool</span> <span class="o">=</span> <span class="n">ProxyPool</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;global-pool&quot;</span><span class="p">)</span>
-</span><span data-line="6">
-</span><span data-line="7"><span class="n">us_proxies</span> <span class="o">=</span> <span class="p">[</span>
-</span><span data-line="8">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://us</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.com:8080&quot;</span><span class="p">,</span> <span class="n">country_code</span><span class="o">=</span><span class="s2">&quot;US&quot;</span><span class="p">,</span>
-</span><span data-line="9">          <span class="n">health_status</span><span class="o">=</span><span class="n">HealthStatus</span><span class="o">.</span><span class="n">HEALTHY</span><span class="p">)</span>
-</span><span data-line="10">    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
-</span><span data-line="11"><span class="p">]</span>
-</span><span data-line="12"><span class="n">uk_proxies</span> <span class="o">=</span> <span class="p">[</span>
-</span><span data-line="13">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://uk</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.com:8080&quot;</span><span class="p">,</span> <span class="n">country_code</span><span class="o">=</span><span class="s2">&quot;GB&quot;</span><span class="p">,</span>
-</span><span data-line="14">          <span class="n">health_status</span><span class="o">=</span><span class="n">HealthStatus</span><span class="o">.</span><span class="n">HEALTHY</span><span class="p">)</span>
-</span><span data-line="15">    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
-</span><span data-line="16"><span class="p">]</span>
-</span><span data-line="17">
-</span><span data-line="18"><span class="c1"># Different performance profiles</span>
-</span><span data-line="19"><span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">proxy</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">us_proxies</span><span class="p">):</span>
-</span><span data-line="20">    <span class="n">pool</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">proxy</span><span class="p">)</span>
-</span><span data-line="21">    <span class="n">proxy</span><span class="o">.</span><span class="n">start_request</span><span class="p">()</span>
-</span><span data-line="22">    <span class="n">proxy</span><span class="o">.</span><span class="n">complete_request</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">response_time_ms</span><span class="o">=</span><span class="mf">100.0</span> <span class="o">+</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">50</span><span class="p">)</span>
-</span><span data-line="23">
-</span><span data-line="24"><span class="k">for</span> <span class="n">proxy</span> <span class="ow">in</span> <span class="n">uk_proxies</span><span class="p">:</span>
-</span><span data-line="25">    <span class="n">pool</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">proxy</span><span class="p">)</span>
-</span><span data-line="26">    <span class="n">proxy</span><span class="o">.</span><span class="n">start_request</span><span class="p">()</span>
-</span><span data-line="27">    <span class="n">proxy</span><span class="o">.</span><span class="n">complete_request</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">response_time_ms</span><span class="o">=</span><span class="mf">200.0</span><span class="p">)</span>
-</span><span data-line="28">
-</span><span data-line="29"><span class="c1"># Use composite strategy</span>
-</span><span data-line="30"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CompositeStrategy</span><span class="p">(</span>
-</span><span data-line="31">    <span class="n">filters</span><span class="o">=</span><span class="p">[</span><span class="n">GeoTargetedStrategy</span><span class="p">()],</span>
-</span><span data-line="32">    <span class="n">selector</span><span class="o">=</span><span class="n">PerformanceBasedStrategy</span><span class="p">(),</span>
-</span><span data-line="33"><span class="p">)</span>
-</span><span data-line="34">
-</span><span data-line="35"><span class="n">context</span> <span class="o">=</span> <span class="n">SelectionContext</span><span class="p">(</span><span class="n">target_country</span><span class="o">=</span><span class="s2">&quot;US&quot;</span><span class="p">)</span>
-</span><span data-line="36">
-</span><span data-line="37"><span class="c1"># Make selections - should favor faster US proxies</span>
-</span><span data-line="38"><span class="n">selections</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
-</span><span data-line="39"><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
-</span><span data-line="40">    <span class="n">proxy</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
-</span><span data-line="41">    <span class="n">selections</span><span class="p">[</span><span class="n">proxy</span><span class="o">.</span><span class="n">url</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
-</span><span data-line="42">
-</span><span data-line="43"><span class="c1"># Validate: all US proxies, fastest selected most</span>
-</span><span data-line="44"><span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="s2">&quot;us&quot;</span> <span class="ow">in</span> <span class="n">url</span> <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">selections</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
-</span><span data-line="45"><span class="k">assert</span> <span class="n">selections</span><span class="p">[</span><span class="s2">&quot;http://us0.com:8080&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">selections</span><span class="p">[</span><span class="s2">&quot;http://us4.com:8080&quot;</span><span class="p">]</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">ProxyPool</span><span class="p">,</span> <span class="n">HealthStatus</span><span class="p">,</span> <span class="n">SelectionContext</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompositeStrategy</span><span class="p">,</span> <span class="n">GeoTargetedStrategy</span><span class="p">,</span> <span class="n">PerformanceBasedStrategy</span>
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="c1"># Create diverse pool</span>
+</span><span data-line="6"><span class="n">pool</span> <span class="o">=</span> <span class="n">ProxyPool</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;global-pool&quot;</span><span class="p">)</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="n">us_proxies</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="9">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://us</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.com:8080&quot;</span><span class="p">,</span> <span class="n">country_code</span><span class="o">=</span><span class="s2">&quot;US&quot;</span><span class="p">,</span>
+</span><span data-line="10">          <span class="n">health_status</span><span class="o">=</span><span class="n">HealthStatus</span><span class="o">.</span><span class="n">HEALTHY</span><span class="p">)</span>
+</span><span data-line="11">    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+</span><span data-line="12"><span class="p">]</span>
+</span><span data-line="13"><span class="n">uk_proxies</span> <span class="o">=</span> <span class="p">[</span>
+</span><span data-line="14">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://uk</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.com:8080&quot;</span><span class="p">,</span> <span class="n">country_code</span><span class="o">=</span><span class="s2">&quot;GB&quot;</span><span class="p">,</span>
+</span><span data-line="15">          <span class="n">health_status</span><span class="o">=</span><span class="n">HealthStatus</span><span class="o">.</span><span class="n">HEALTHY</span><span class="p">)</span>
+</span><span data-line="16">    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+</span><span data-line="17"><span class="p">]</span>
+</span><span data-line="18">
+</span><span data-line="19"><span class="c1"># Different performance profiles</span>
+</span><span data-line="20"><span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">proxy</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">us_proxies</span><span class="p">):</span>
+</span><span data-line="21">    <span class="n">pool</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">proxy</span><span class="p">)</span>
+</span><span data-line="22">    <span class="n">proxy</span><span class="o">.</span><span class="n">start_request</span><span class="p">()</span>
+</span><span data-line="23">    <span class="n">proxy</span><span class="o">.</span><span class="n">complete_request</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">response_time_ms</span><span class="o">=</span><span class="mf">100.0</span> <span class="o">+</span> <span class="n">i</span> <span class="o">*</span> <span class="mi">50</span><span class="p">)</span>
+</span><span data-line="24">
+</span><span data-line="25"><span class="k">for</span> <span class="n">proxy</span> <span class="ow">in</span> <span class="n">uk_proxies</span><span class="p">:</span>
+</span><span data-line="26">    <span class="n">pool</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">proxy</span><span class="p">)</span>
+</span><span data-line="27">    <span class="n">proxy</span><span class="o">.</span><span class="n">start_request</span><span class="p">()</span>
+</span><span data-line="28">    <span class="n">proxy</span><span class="o">.</span><span class="n">complete_request</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">response_time_ms</span><span class="o">=</span><span class="mf">200.0</span><span class="p">)</span>
+</span><span data-line="29">
+</span><span data-line="30"><span class="c1"># Use composite strategy</span>
+</span><span data-line="31"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CompositeStrategy</span><span class="p">(</span>
+</span><span data-line="32">    <span class="n">filters</span><span class="o">=</span><span class="p">[</span><span class="n">GeoTargetedStrategy</span><span class="p">()],</span>
+</span><span data-line="33">    <span class="n">selector</span><span class="o">=</span><span class="n">PerformanceBasedStrategy</span><span class="p">(),</span>
+</span><span data-line="34"><span class="p">)</span>
+</span><span data-line="35">
+</span><span data-line="36"><span class="n">context</span> <span class="o">=</span> <span class="n">SelectionContext</span><span class="p">(</span><span class="n">target_country</span><span class="o">=</span><span class="s2">&quot;US&quot;</span><span class="p">)</span>
+</span><span data-line="37">
+</span><span data-line="38"><span class="c1"># Make selections - should favor faster US proxies</span>
+</span><span data-line="39"><span class="n">selections</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">()</span>
+</span><span data-line="40"><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+</span><span data-line="41">    <span class="n">proxy</span> <span class="o">=</span> <span class="n">strategy</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+</span><span data-line="42">    <span class="n">selections</span><span class="p">[</span><span class="n">proxy</span><span class="o">.</span><span class="n">url</span><span class="p">]</span> <span class="o">+=</span> <span class="mi">1</span>
+</span><span data-line="43">
+</span><span data-line="44"><span class="c1"># Validate: all US proxies, fastest selected most</span>
+</span><span data-line="45"><span class="k">assert</span> <span class="nb">all</span><span class="p">(</span><span class="s2">&quot;us&quot;</span> <span class="ow">in</span> <span class="n">url</span> <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">selections</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+</span><span data-line="46"><span class="k">assert</span> <span class="n">selections</span><span class="p">[</span><span class="s2">&quot;http://us0.com:8080&quot;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">selections</span><span class="p">[</span><span class="s2">&quot;http://us4.com:8080&quot;</span><span class="p">]</span>
 </span></pre></div>
 </div>
 </section>
 <section id="performance-considerations">
 <h3><a class="toc-backref" href="#id62" role="doc-backlink">Performance Considerations</a><a class="headerlink" href="#performance-considerations" title="Link to this heading">¶</a></h3>
 <p>The composite strategy must still meet the &lt;5ms overhead target:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-</span><span data-line="2">
-</span><span data-line="3"><span class="c1"># Create large pool</span>
-</span><span data-line="4"><span class="n">pool</span> <span class="o">=</span> <span class="n">ProxyPool</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;perf-test&quot;</span><span class="p">)</span>
-</span><span data-line="5"><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
-</span><span data-line="6">    <span class="n">country</span> <span class="o">=</span> <span class="s2">&quot;US&quot;</span> <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">50</span> <span class="k">else</span> <span class="s2">&quot;GB&quot;</span>
-</span><span data-line="7">    <span class="n">proxy</span> <span class="o">=</span> <span class="n">Proxy</span><span class="p">(</span>
-</span><span data-line="8">        <span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://proxy</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.com:8080&quot;</span><span class="p">,</span>
-</span><span data-line="9">        <span class="n">country_code</span><span class="o">=</span><span class="n">country</span><span class="p">,</span>
-</span><span data-line="10">        <span class="n">health_status</span><span class="o">=</span><span class="n">HealthStatus</span><span class="o">.</span><span class="n">HEALTHY</span><span class="p">,</span>
-</span><span data-line="11">    <span class="p">)</span>
-</span><span data-line="12">    <span class="n">proxy</span><span class="o">.</span><span class="n">start_request</span><span class="p">()</span>
-</span><span data-line="13">    <span class="n">proxy</span><span class="o">.</span><span class="n">complete_request</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">response_time_ms</span><span class="o">=</span><span class="mf">100.0</span><span class="p">)</span>
-</span><span data-line="14">    <span class="n">pool</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">proxy</span><span class="p">)</span>
-</span><span data-line="15">
-</span><span data-line="16"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CompositeStrategy</span><span class="p">(</span>
-</span><span data-line="17">    <span class="n">filters</span><span class="o">=</span><span class="p">[</span><span class="n">GeoTargetedStrategy</span><span class="p">()],</span>
-</span><span data-line="18">    <span class="n">selector</span><span class="o">=</span><span class="n">PerformanceBasedStrategy</span><span class="p">(),</span>
-</span><span data-line="19"><span class="p">)</span>
-</span><span data-line="20">
-</span><span data-line="21"><span class="c1"># Measure performance</span>
-</span><span data-line="22"><span class="n">context</span> <span class="o">=</span> <span class="n">SelectionContext</span><span class="p">(</span><span class="n">target_country</span><span class="o">=</span><span class="s2">&quot;US&quot;</span><span class="p">)</span>
-</span><span data-line="23"><span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
-</span><span data-line="24">
-</span><span data-line="25"><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">):</span>
-</span><span data-line="26">    <span class="n">strategy</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
-</span><span data-line="27">
-</span><span data-line="28"><span class="n">elapsed_ms</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1000</span>
-</span><span data-line="29"><span class="n">avg_ms</span> <span class="o">=</span> <span class="n">elapsed_ms</span> <span class="o">/</span> <span class="mi">1000</span>
-</span><span data-line="30">
-</span><span data-line="31"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average selection time: </span><span class="si">{</span><span class="n">avg_ms</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">ms&quot;</span><span class="p">)</span>
-</span><span data-line="32"><span class="k">assert</span> <span class="n">avg_ms</span> <span class="o">&lt;</span> <span class="mf">5.0</span>  <span class="c1"># Meets SC-007</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">ProxyPool</span><span class="p">,</span> <span class="n">HealthStatus</span><span class="p">,</span> <span class="n">SelectionContext</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">CompositeStrategy</span><span class="p">,</span> <span class="n">GeoTargetedStrategy</span><span class="p">,</span> <span class="n">PerformanceBasedStrategy</span>
+</span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+</span><span data-line="4">
+</span><span data-line="5"><span class="c1"># Create large pool</span>
+</span><span data-line="6"><span class="n">pool</span> <span class="o">=</span> <span class="n">ProxyPool</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;perf-test&quot;</span><span class="p">)</span>
+</span><span data-line="7"><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">):</span>
+</span><span data-line="8">    <span class="n">country</span> <span class="o">=</span> <span class="s2">&quot;US&quot;</span> <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">50</span> <span class="k">else</span> <span class="s2">&quot;GB&quot;</span>
+</span><span data-line="9">    <span class="n">proxy</span> <span class="o">=</span> <span class="n">Proxy</span><span class="p">(</span>
+</span><span data-line="10">        <span class="n">url</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;http://proxy</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.com:8080&quot;</span><span class="p">,</span>
+</span><span data-line="11">        <span class="n">country_code</span><span class="o">=</span><span class="n">country</span><span class="p">,</span>
+</span><span data-line="12">        <span class="n">health_status</span><span class="o">=</span><span class="n">HealthStatus</span><span class="o">.</span><span class="n">HEALTHY</span><span class="p">,</span>
+</span><span data-line="13">    <span class="p">)</span>
+</span><span data-line="14">    <span class="n">proxy</span><span class="o">.</span><span class="n">start_request</span><span class="p">()</span>
+</span><span data-line="15">    <span class="n">proxy</span><span class="o">.</span><span class="n">complete_request</span><span class="p">(</span><span class="n">success</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">response_time_ms</span><span class="o">=</span><span class="mf">100.0</span><span class="p">)</span>
+</span><span data-line="16">    <span class="n">pool</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">proxy</span><span class="p">)</span>
+</span><span data-line="17">
+</span><span data-line="18"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CompositeStrategy</span><span class="p">(</span>
+</span><span data-line="19">    <span class="n">filters</span><span class="o">=</span><span class="p">[</span><span class="n">GeoTargetedStrategy</span><span class="p">()],</span>
+</span><span data-line="20">    <span class="n">selector</span><span class="o">=</span><span class="n">PerformanceBasedStrategy</span><span class="p">(),</span>
+</span><span data-line="21"><span class="p">)</span>
+</span><span data-line="22">
+</span><span data-line="23"><span class="c1"># Measure performance</span>
+</span><span data-line="24"><span class="n">context</span> <span class="o">=</span> <span class="n">SelectionContext</span><span class="p">(</span><span class="n">target_country</span><span class="o">=</span><span class="s2">&quot;US&quot;</span><span class="p">)</span>
+</span><span data-line="25"><span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+</span><span data-line="26">
+</span><span data-line="27"><span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1000</span><span class="p">):</span>
+</span><span data-line="28">    <span class="n">strategy</span><span class="o">.</span><span class="n">select</span><span class="p">(</span><span class="n">pool</span><span class="p">,</span> <span class="n">context</span><span class="p">)</span>
+</span><span data-line="29">
+</span><span data-line="30"><span class="n">elapsed_ms</span> <span class="o">=</span> <span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1000</span>
+</span><span data-line="31"><span class="n">avg_ms</span> <span class="o">=</span> <span class="n">elapsed_ms</span> <span class="o">/</span> <span class="mi">1000</span>
+</span><span data-line="32">
+</span><span data-line="33"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average selection time: </span><span class="si">{</span><span class="n">avg_ms</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">ms&quot;</span><span class="p">)</span>
+</span><span data-line="34"><span class="k">assert</span> <span class="n">avg_ms</span> <span class="o">&lt;</span> <span class="mf">5.0</span>  <span class="c1"># Meets SC-007</span>
 </span></pre></div>
 </div>
 </section>
@@ -1686,7 +1701,7 @@
 <p>The <code class="docutils literal notranslate"><span class="pre">SelectionContext</span></code> model provides contextual information for intelligent proxy selection.</p>
 <section id="fields">
 <h3><a class="toc-backref" href="#id70" role="doc-backlink">Fields</a><a class="headerlink" href="#fields" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">SelectionContext</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">SelectionContext</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="n">context</span> <span class="o">=</span> <span class="n">SelectionContext</span><span class="p">(</span>
 </span><span data-line="4">    <span class="c1"># Session tracking</span>
@@ -1737,65 +1752,69 @@
 <p>The <code class="docutils literal notranslate"><span class="pre">StrategyConfig</span></code> model provides configuration for all strategies.</p>
 <section id="id14">
 <h3><a class="toc-backref" href="#id73" role="doc-backlink">Fields</a><a class="headerlink" href="#id14" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyConfig</span>
-</span><span data-line="2">
-</span><span data-line="3"><span class="n">config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span>
-</span><span data-line="4">    <span class="c1"># Weighted strategy</span>
-</span><span data-line="5">    <span class="n">weights</span><span class="o">=</span><span class="p">{</span>
-</span><span data-line="6">        <span class="s2">&quot;http://proxy1.com:8080&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span>
-</span><span data-line="7">        <span class="s2">&quot;http://proxy2.com:8080&quot;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span>
-</span><span data-line="8">        <span class="s2">&quot;http://proxy3.com:8080&quot;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span>
-</span><span data-line="9">    <span class="p">},</span>
-</span><span data-line="10">
-</span><span data-line="11">    <span class="c1"># Performance-based strategy</span>
-</span><span data-line="12">    <span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>  <span class="c1"># EMA smoothing factor</span>
-</span><span data-line="13">
-</span><span data-line="14">    <span class="c1"># Session persistence</span>
-</span><span data-line="15">    <span class="n">session_stickiness_duration_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>  <span class="c1"># 1 hour TTL</span>
-</span><span data-line="16">
-</span><span data-line="17">    <span class="c1"># Geo-targeting</span>
-</span><span data-line="18">    <span class="n">preferred_countries</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">,</span> <span class="s2">&quot;GB&quot;</span><span class="p">],</span>
-</span><span data-line="19">    <span class="n">preferred_regions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;California&quot;</span><span class="p">,</span> <span class="s2">&quot;London&quot;</span><span class="p">],</span>
-</span><span data-line="20">    <span class="n">geo_fallback_enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span data-line="21">    <span class="n">geo_secondary_strategy</span><span class="o">=</span><span class="s2">&quot;round_robin&quot;</span><span class="p">,</span>
-</span><span data-line="22">
-</span><span data-line="23">    <span class="c1"># Fallback behavior</span>
-</span><span data-line="24">    <span class="n">fallback_strategy</span><span class="o">=</span><span class="s2">&quot;random&quot;</span><span class="p">,</span>
-</span><span data-line="25">
-</span><span data-line="26">    <span class="c1"># Performance thresholds</span>
-</span><span data-line="27">    <span class="n">max_response_time_ms</span><span class="o">=</span><span class="mf">5000.0</span><span class="p">,</span>
-</span><span data-line="28">    <span class="n">min_success_rate</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
-</span><span data-line="29">
-</span><span data-line="30">    <span class="c1"># Sliding window</span>
-</span><span data-line="31">    <span class="n">window_duration_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>  <span class="c1"># 1 hour</span>
-</span><span data-line="32"><span class="p">)</span>
-</span><span data-line="33">
-</span><span data-line="34"><span class="c1"># Apply to strategy</span>
-</span><span data-line="35"><span class="n">strategy</span> <span class="o">=</span> <span class="n">PerformanceBasedStrategy</span><span class="p">()</span>
-</span><span data-line="36"><span class="n">strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyConfig</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerformanceBasedStrategy</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="n">config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span>
+</span><span data-line="5">    <span class="c1"># Weighted strategy</span>
+</span><span data-line="6">    <span class="n">weights</span><span class="o">=</span><span class="p">{</span>
+</span><span data-line="7">        <span class="s2">&quot;http://proxy1.com:8080&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span>
+</span><span data-line="8">        <span class="s2">&quot;http://proxy2.com:8080&quot;</span><span class="p">:</span> <span class="mf">0.3</span><span class="p">,</span>
+</span><span data-line="9">        <span class="s2">&quot;http://proxy3.com:8080&quot;</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">,</span>
+</span><span data-line="10">    <span class="p">},</span>
+</span><span data-line="11">
+</span><span data-line="12">    <span class="c1"># Performance-based strategy</span>
+</span><span data-line="13">    <span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>  <span class="c1"># EMA smoothing factor</span>
+</span><span data-line="14">
+</span><span data-line="15">    <span class="c1"># Session persistence</span>
+</span><span data-line="16">    <span class="n">session_stickiness_duration_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>  <span class="c1"># 1 hour TTL</span>
+</span><span data-line="17">
+</span><span data-line="18">    <span class="c1"># Geo-targeting</span>
+</span><span data-line="19">    <span class="n">preferred_countries</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;US&quot;</span><span class="p">,</span> <span class="s2">&quot;GB&quot;</span><span class="p">],</span>
+</span><span data-line="20">    <span class="n">preferred_regions</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;California&quot;</span><span class="p">,</span> <span class="s2">&quot;London&quot;</span><span class="p">],</span>
+</span><span data-line="21">    <span class="n">geo_fallback_enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span data-line="22">    <span class="n">geo_secondary_strategy</span><span class="o">=</span><span class="s2">&quot;round_robin&quot;</span><span class="p">,</span>
+</span><span data-line="23">
+</span><span data-line="24">    <span class="c1"># Fallback behavior</span>
+</span><span data-line="25">    <span class="n">fallback_strategy</span><span class="o">=</span><span class="s2">&quot;random&quot;</span><span class="p">,</span>
+</span><span data-line="26">
+</span><span data-line="27">    <span class="c1"># Performance thresholds</span>
+</span><span data-line="28">    <span class="n">max_response_time_ms</span><span class="o">=</span><span class="mf">5000.0</span><span class="p">,</span>
+</span><span data-line="29">    <span class="n">min_success_rate</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+</span><span data-line="30">
+</span><span data-line="31">    <span class="c1"># Sliding window</span>
+</span><span data-line="32">    <span class="n">window_duration_seconds</span><span class="o">=</span><span class="mi">3600</span><span class="p">,</span>  <span class="c1"># 1 hour</span>
+</span><span data-line="33"><span class="p">)</span>
+</span><span data-line="34">
+</span><span data-line="35"><span class="c1"># Apply to strategy</span>
+</span><span data-line="36"><span class="n">strategy</span> <span class="o">=</span> <span class="n">PerformanceBasedStrategy</span><span class="p">()</span>
+</span><span data-line="37"><span class="n">strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
 <section id="per-strategy-configuration">
 <h3><a class="toc-backref" href="#id74" role="doc-backlink">Per-Strategy Configuration</a><a class="headerlink" href="#per-strategy-configuration" title="Link to this heading">¶</a></h3>
 <p>Different strategies use different fields:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Performance-based: uses ema_alpha</span>
-</span><span data-line="2"><span class="n">perf_config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span><span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
-</span><span data-line="3"><span class="n">perf_strategy</span> <span class="o">=</span> <span class="n">PerformanceBasedStrategy</span><span class="p">()</span>
-</span><span data-line="4"><span class="n">perf_strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">perf_config</span><span class="p">)</span>
-</span><span data-line="5">
-</span><span data-line="6"><span class="c1"># Session persistence: uses session_stickiness_duration_seconds</span>
-</span><span data-line="7"><span class="n">session_config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span><span class="n">session_stickiness_duration_seconds</span><span class="o">=</span><span class="mi">1800</span><span class="p">)</span>
-</span><span data-line="8"><span class="n">session_strategy</span> <span class="o">=</span> <span class="n">SessionPersistenceStrategy</span><span class="p">()</span>
-</span><span data-line="9"><span class="n">session_strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">session_config</span><span class="p">)</span>
-</span><span data-line="10">
-</span><span data-line="11"><span class="c1"># Geo-targeted: uses geo_* fields</span>
-</span><span data-line="12"><span class="n">geo_config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span>
-</span><span data-line="13">    <span class="n">geo_fallback_enabled</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-</span><span data-line="14">    <span class="n">geo_secondary_strategy</span><span class="o">=</span><span class="s2">&quot;least_used&quot;</span><span class="p">,</span>
-</span><span data-line="15"><span class="p">)</span>
-</span><span data-line="16"><span class="n">geo_strategy</span> <span class="o">=</span> <span class="n">GeoTargetedStrategy</span><span class="p">()</span>
-</span><span data-line="17"><span class="n">geo_strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">geo_config</span><span class="p">)</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyConfig</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerformanceBasedStrategy</span><span class="p">,</span> <span class="n">SessionPersistenceStrategy</span><span class="p">,</span> <span class="n">GeoTargetedStrategy</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Performance-based: uses ema_alpha</span>
+</span><span data-line="5"><span class="n">perf_config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span><span class="n">ema_alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+</span><span data-line="6"><span class="n">perf_strategy</span> <span class="o">=</span> <span class="n">PerformanceBasedStrategy</span><span class="p">()</span>
+</span><span data-line="7"><span class="n">perf_strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">perf_config</span><span class="p">)</span>
+</span><span data-line="8">
+</span><span data-line="9"><span class="c1"># Session persistence: uses session_stickiness_duration_seconds</span>
+</span><span data-line="10"><span class="n">session_config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span><span class="n">session_stickiness_duration_seconds</span><span class="o">=</span><span class="mi">1800</span><span class="p">)</span>
+</span><span data-line="11"><span class="n">session_strategy</span> <span class="o">=</span> <span class="n">SessionPersistenceStrategy</span><span class="p">()</span>
+</span><span data-line="12"><span class="n">session_strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">session_config</span><span class="p">)</span>
+</span><span data-line="13">
+</span><span data-line="14"><span class="c1"># Geo-targeted: uses geo_* fields</span>
+</span><span data-line="15"><span class="n">geo_config</span> <span class="o">=</span> <span class="n">StrategyConfig</span><span class="p">(</span>
+</span><span data-line="16">    <span class="n">geo_fallback_enabled</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span data-line="17">    <span class="n">geo_secondary_strategy</span><span class="o">=</span><span class="s2">&quot;least_used&quot;</span><span class="p">,</span>
+</span><span data-line="18"><span class="p">)</span>
+</span><span data-line="19"><span class="n">geo_strategy</span> <span class="o">=</span> <span class="n">GeoTargetedStrategy</span><span class="p">()</span>
+</span><span data-line="20"><span class="n">geo_strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">geo_config</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
@@ -1806,7 +1825,7 @@
 <section id="implementing-the-protocol">
 <h3><a class="toc-backref" href="#id76" role="doc-backlink">Implementing the Protocol</a><a class="headerlink" href="#implementing-the-protocol" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">ProxyPool</span><span class="p">,</span> <span class="n">SelectionContext</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">ProxyPool</span><span class="p">,</span> <span class="n">SelectionContext</span>
 </span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyPoolEmptyError</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="k">class</span><span class="w"> </span><span class="nc">PriorityStrategy</span><span class="p">:</span>
@@ -1851,26 +1870,29 @@
 <section id="registering-custom-strategies">
 <h3><a class="toc-backref" href="#id77" role="doc-backlink">Registering Custom Strategies</a><a class="headerlink" href="#registering-custom-strategies" title="Link to this heading">¶</a></h3>
 <p>Use <code class="docutils literal notranslate"><span class="pre">StrategyRegistry</span></code> to register and reuse custom strategies. Registered strategies are also available through the <a class="reference internal" href="cli-reference.html"><span class="doc">CLI Reference</span></a> (<code class="docutils literal notranslate"><span class="pre">proxywhirl</span> <span class="pre">config</span> <span class="pre">set</span> <span class="pre">rotation_strategy</span> <span class="pre">...</span></code>) and the <a class="reference internal" href="mcp-server.html"><span class="doc">MCP Server Guide</span></a> (<code class="docutils literal notranslate"><span class="pre">set_strategy</span></code> action).</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRegistry</span>
-</span><span data-line="2">
-</span><span data-line="3"><span class="c1"># Register the strategy</span>
-</span><span data-line="4"><span class="n">registry</span> <span class="o">=</span> <span class="n">StrategyRegistry</span><span class="p">()</span>
-</span><span data-line="5"><span class="n">registry</span><span class="o">.</span><span class="n">register_strategy</span><span class="p">(</span><span class="s2">&quot;priority&quot;</span><span class="p">,</span> <span class="n">PriorityStrategy</span><span class="p">)</span>
-</span><span data-line="6">
-</span><span data-line="7"><span class="c1"># Use the custom strategy</span>
-</span><span data-line="8"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;priority&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
-</span><span data-line="9">    <span class="c1"># Add proxies with priority metadata</span>
-</span><span data-line="10">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span>
-</span><span data-line="11">        <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy1.com:8080&quot;</span><span class="p">,</span>
-</span><span data-line="12">        <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">}</span>
-</span><span data-line="13">    <span class="p">))</span>
-</span><span data-line="14">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span>
-</span><span data-line="15">        <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy2.com:8080&quot;</span><span class="p">,</span>
-</span><span data-line="16">        <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">}</span>
-</span><span data-line="17">    <span class="p">))</span>
-</span><span data-line="18">
-</span><span data-line="19">    <span class="c1"># Selects proxy1 (higher priority)</span>
-</span><span data-line="20">    <span class="n">proxy</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRegistry</span>
+</span><span data-line="3">
+</span><span data-line="4"><span class="c1"># Register the strategy</span>
+</span><span data-line="5"><span class="n">registry</span> <span class="o">=</span> <span class="n">StrategyRegistry</span><span class="p">()</span>
+</span><span data-line="6"><span class="n">registry</span><span class="o">.</span><span class="n">register_strategy</span><span class="p">(</span><span class="s2">&quot;priority&quot;</span><span class="p">,</span> <span class="n">PriorityStrategy</span><span class="p">)</span>
+</span><span data-line="7">
+</span><span data-line="8"><span class="c1"># Use the custom strategy instance</span>
+</span><span data-line="9"><span class="n">strategy</span> <span class="o">=</span> <span class="n">PriorityStrategy</span><span class="p">()</span>
+</span><span data-line="10">
+</span><span data-line="11"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="12">    <span class="c1"># Add proxies with priority metadata</span>
+</span><span data-line="13">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span>
+</span><span data-line="14">        <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy1.com:8080&quot;</span><span class="p">,</span>
+</span><span data-line="15">        <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">10</span><span class="p">}</span>
+</span><span data-line="16">    <span class="p">))</span>
+</span><span data-line="17">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span>
+</span><span data-line="18">        <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy2.com:8080&quot;</span><span class="p">,</span>
+</span><span data-line="19">        <span class="n">metadata</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;priority&quot;</span><span class="p">:</span> <span class="mi">5</span><span class="p">}</span>
+</span><span data-line="20">    <span class="p">))</span>
+</span><span data-line="21">
+</span><span data-line="22">    <span class="c1"># Selects proxy1 (higher priority)</span>
+</span><span data-line="23">    <span class="n">proxy</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">()</span>
 </span></pre></div>
 </div>
 </section>
@@ -2161,7 +2183,7 @@
 <h2><a class="toc-backref" href="#id96" role="doc-backlink">Testing Strategies</a><a class="headerlink" href="#testing-strategies" title="Link to this heading">¶</a></h2>
 <p>All strategies have comprehensive integration tests in <code class="docutils literal notranslate"><span class="pre">tests/integration/test_rotation_strategies.py</span></code>. Use these as examples:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.models</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyPool</span><span class="p">,</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">HealthStatus</span><span class="p">,</span> <span class="n">SelectionContext</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyPool</span><span class="p">,</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">HealthStatus</span><span class="p">,</span> <span class="n">SelectionContext</span>
 </span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerformanceBasedStrategy</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="k">def</span><span class="w"> </span><span class="nf">test_my_use_case</span><span class="p">():</span>
@@ -2400,7 +2422,7 @@ CLI Reference</div>
     </div>
   </div>
 </footer>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=360bc84d"></script>
       <script src="../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script src="../_static/clipboard.min.js?v=a7894cd8"></script>

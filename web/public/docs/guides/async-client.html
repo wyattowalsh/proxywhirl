@@ -1462,7 +1462,7 @@
 </span><span data-line="8"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">startup</span><span class="p">():</span>
 </span><span data-line="9">    <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span>
 </span><span data-line="10">    <span class="k">await</span> <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">rotator</span><span class="o">.</span><span class="fm">__aenter__</span><span class="p">()</span>
-</span><span data-line="11">    <span class="k">await</span> <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">rotator</span><span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="s2">&quot;performance-based&quot;</span><span class="p">)</span>
+</span><span data-line="11">    <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">rotator</span><span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="s2">&quot;performance-based&quot;</span><span class="p">)</span>
 </span><span data-line="12">
 </span><span data-line="13">    <span class="c1"># Add proxies</span>
 </span><span data-line="14">    <span class="k">await</span> <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
@@ -1858,7 +1858,7 @@
 </span><span data-line="6">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">startup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span data-line="7">        <span class="bp">self</span><span class="o">.</span><span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span>
 </span><span data-line="8">        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">rotator</span><span class="o">.</span><span class="fm">__aenter__</span><span class="p">()</span>
-</span><span data-line="9">        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">rotator</span><span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="s2">&quot;performance-based&quot;</span><span class="p">)</span>
+</span><span data-line="9">        <span class="bp">self</span><span class="o">.</span><span class="n">rotator</span><span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="s2">&quot;performance-based&quot;</span><span class="p">)</span>
 </span><span data-line="10">        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="11">        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="12">
@@ -2198,7 +2198,7 @@ Rotation Strategies Overview</div>
     </div>
   </div>
 </footer>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=360bc84d"></script>
       <script src="../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script src="../_static/clipboard.min.js?v=a7894cd8"></script>

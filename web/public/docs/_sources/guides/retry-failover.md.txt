@@ -232,7 +232,8 @@ CLOSED → OPEN → HALF_OPEN → CLOSED
 ### Thresholds and Configuration
 
 ```python
-from proxywhirl.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+from proxywhirl import CircuitBreakerConfig
+from proxywhirl.circuit_breaker import CircuitBreaker
 
 # Circuit breakers are created automatically by ProxyRotator
 # Access via rotator.circuit_breakers dict
@@ -749,6 +750,14 @@ response = rotator.request("GET", "https://api.example.com/data")
 
 ```python
 from proxywhirl.strategies import GeoTargetedStrategy
+from proxywhirl import StrategyConfig, SelectionContext
+
+# Create and configure geo-targeted strategy
+strategy = GeoTargetedStrategy()
+strategy.configure(StrategyConfig(
+    geo_fallback_enabled=True,
+    geo_secondary_strategy="round_robin"
+))
 
 # Geo-targeted proxies
 rotator = ProxyRotator(
@@ -757,12 +766,13 @@ rotator = ProxyRotator(
         Proxy(url="http://us-west.example.com:8080", metadata={"region": "US-WEST"}),
         Proxy(url="http://eu-west.example.com:8080", metadata={"region": "EU-WEST"}),
     ],
-    strategy=GeoTargetedStrategy(target_region="US-EAST"),
+    strategy=strategy,
     retry_policy=RetryPolicy(max_attempts=3),
 )
 
-# Prefers US-EAST → fails over to US-WEST (same country) → then EU-WEST
-response = rotator.request("GET", "https://api.example.com/data")
+# Prefers US-EAST when specified in context
+context = SelectionContext(target_region="US-EAST")
+response = rotator.request("GET", "https://api.example.com/data", context=context)
 ```
 
 #### Performance-Based Strategy with Dynamic Failover

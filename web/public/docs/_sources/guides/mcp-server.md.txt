@@ -59,7 +59,7 @@ The MCP server automatically loads proxies from `proxywhirl.db` if it exists in 
 
 ```bash
 # Fetch proxies and save to database
-proxywhirl fetch --sources recommended --output proxywhirl.db
+proxywhirl fetch
 
 # Then run MCP server (proxies load automatically)
 proxywhirl-mcp
@@ -414,7 +414,7 @@ When validating all proxies, the `results` array in the response is truncated to
 }
 ```
 
-Valid strategies: `round-robin`, `random`, `weighted`, `least-used`, `performance-based`, `session-persistence`, `geo-targeted`, `cost-aware`. For detailed strategy configuration and tuning, see {doc}`advanced-strategies`.
+Valid strategies: `round-robin`, `random`, `weighted`, `least-used`, `performance-based`, `session`, `geo-targeted`. For detailed strategy configuration and tuning, see {doc}`advanced-strategies`.
 
 ## Resources
 
@@ -455,7 +455,7 @@ Returns current configuration settings as JSON.
   "verify_ssl": true,
   "follow_redirects": true,
   "pool_connections": 10,
-  "pool_max_keepalive": 5,
+  "pool_max_keepalive": 20,
   "circuit_breaker": {
     "failure_threshold": 5,
     "timeout_duration": 60,

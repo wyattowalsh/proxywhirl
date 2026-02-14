@@ -283,7 +283,7 @@ export PROXYWHIRL_API_KEY=$(openssl rand -hex 32)
 #### `PROXYWHIRL_CORS_ORIGINS`
 - **Purpose**: Allowed CORS origins for REST API
 - **Format**: Comma-separated URLs
-- **Default**: `"http://localhost:8000,http://127.0.0.1:8000"`
+- **Default**: `""` (empty string - CORS disabled by default for security)
 
 ```bash
 export PROXYWHIRL_CORS_ORIGINS="https://app.example.com,https://www.example.com"

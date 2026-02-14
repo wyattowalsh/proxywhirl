@@ -903,7 +903,7 @@
 <ul class="simple">
 <li><p><strong>Purpose</strong>: Allowed CORS origins for REST API</p></li>
 <li><p><strong>Format</strong>: Comma-separated URLs</p></li>
-<li><p><strong>Default</strong>: <code class="docutils literal notranslate"><span class="pre">&quot;http://localhost:8000,http://127.0.0.1:8000&quot;</span></code></p></li>
+<li><p><strong>Default</strong>: <code class="docutils literal notranslate"><span class="pre">&quot;&quot;</span></code> (empty string - CORS disabled by default for security)</p></li>
 </ul>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="nb">export</span><span class="w"> </span><span class="nv">PROXYWHIRL_CORS_ORIGINS</span><span class="o">=</span><span class="s2">&quot;https://app.example.com,https://www.example.com&quot;</span>
 </span></pre></div>
@@ -1957,7 +1957,7 @@
     </div>
   </div>
 </footer>
-      <script src="../_static/documentation_options.js?v=a58bc63e"></script>
+      <script src="../_static/documentation_options.js?v=360bc84d"></script>
       <script src="../_static/doctools.js?v=fd6eb6e6"></script>
       <script src="../_static/sphinx_highlight.js?v=6ffebe34"></script>
       <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
