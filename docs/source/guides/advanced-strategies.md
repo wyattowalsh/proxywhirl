@@ -70,8 +70,8 @@ Uses the cold-start exploration pattern: new proxies get equal selection probabi
 ### Configuration
 
 ```python
-from proxywhirl import ProxyRotator, Proxy
-from proxywhirl.strategies import PerformanceBasedStrategy, StrategyConfig
+from proxywhirl import ProxyRotator, Proxy, StrategyConfig
+from proxywhirl.strategies import PerformanceBasedStrategy
 
 # Create proxies
 proxies = [
@@ -201,8 +201,8 @@ Session persistence works well with {doc}`retry-failover` -- when a session's as
 ### Configuration
 
 ```python
-from proxywhirl.strategies import SessionPersistenceStrategy, StrategyConfig
-from proxywhirl.models import SelectionContext
+from proxywhirl import StrategyConfig, SelectionContext
+from proxywhirl.strategies import SessionPersistenceStrategy
 
 # Create strategy with session limits
 strategy = SessionPersistenceStrategy(
@@ -354,8 +354,8 @@ Filters proxies by geographical location (country or region) before selection.
 ### Configuration
 
 ```python
-from proxywhirl.strategies import GeoTargetedStrategy, StrategyConfig
-from proxywhirl.models import SelectionContext, Proxy
+from proxywhirl import StrategyConfig, SelectionContext, Proxy
+from proxywhirl.strategies import GeoTargetedStrategy
 
 # Create proxies with country codes
 proxies = [
@@ -520,8 +520,12 @@ Free proxies get a default 10x weight boost, making them highly favored while st
 
 ```python
 from proxywhirl import AsyncProxyRotator, Proxy, StrategyConfig
+from proxywhirl.strategies import CostAwareStrategy
 
-async with AsyncProxyRotator(strategy="cost-aware") as rotator:
+# Create cost-aware strategy instance
+strategy = CostAwareStrategy()
+
+async with AsyncProxyRotator(strategy=strategy) as rotator:
     # Add proxies with cost metadata
     await rotator.add_proxy(Proxy(
         url="http://free-proxy1.com:8080",
@@ -559,8 +563,10 @@ Weights are normalized to sum to 1.0
 ### Cost Threshold Filtering
 
 ```python
-from proxywhirl import StrategyConfig
+from proxywhirl import AsyncProxyRotator, Proxy, StrategyConfig
+from proxywhirl.strategies import CostAwareStrategy
 
+# Configure strategy with cost thresholds
 config = StrategyConfig(
     metadata={
         "max_cost_per_request": 0.05,  # Filter out expensive proxies
@@ -568,9 +574,10 @@ config = StrategyConfig(
     }
 )
 
-async with AsyncProxyRotator(strategy="cost-aware") as rotator:
-    rotator.strategy.configure(config)
+strategy = CostAwareStrategy()
+strategy.configure(config)
 
+async with AsyncProxyRotator(strategy=strategy) as rotator:
     await rotator.add_proxy(Proxy(url="http://cheap.com:8080", cost_per_request=0.01))
     await rotator.add_proxy(Proxy(url="http://expensive.com:8080", cost_per_request=0.20))
 
@@ -587,7 +594,8 @@ async with AsyncProxyRotator(strategy="cost-aware") as rotator:
 - Combine with `PerformanceBasedStrategy` via `CompositeStrategy` for cost + speed optimization
 
 ```python
-from proxywhirl import StrategyConfig
+from proxywhirl import AsyncProxyRotator, StrategyConfig
+from proxywhirl.strategies import CostAwareStrategy
 
 # Recommended production configuration
 config = StrategyConfig(
@@ -597,8 +605,12 @@ config = StrategyConfig(
     }
 )
 
-async with AsyncProxyRotator(strategy="cost-aware") as rotator:
-    rotator.strategy.configure(config)
+strategy = CostAwareStrategy()
+strategy.configure(config)
+
+async with AsyncProxyRotator(strategy=strategy) as rotator:
+    # Add proxies with cost metadata
+    pass
 ```
 
 ## Composite Strategy
@@ -630,12 +642,12 @@ graph LR
 ### Basic Composition
 
 ```python
+from proxywhirl import SelectionContext
 from proxywhirl.strategies import (
     CompositeStrategy,
     GeoTargetedStrategy,
     PerformanceBasedStrategy,
 )
-from proxywhirl.models import SelectionContext
 
 # Geo-filter + performance-based selection
 strategy = CompositeStrategy(
@@ -720,7 +732,8 @@ strategy = CompositeStrategy.from_config(config)
 ### Validation Example
 
 ```python
-from proxywhirl.models import Proxy, ProxyPool, HealthStatus
+from proxywhirl import Proxy, ProxyPool, HealthStatus, SelectionContext
+from proxywhirl.strategies import CompositeStrategy, GeoTargetedStrategy, PerformanceBasedStrategy
 from collections import Counter
 
 # Create diverse pool
@@ -772,6 +785,8 @@ assert selections["http://us0.com:8080"] > selections["http://us4.com:8080"]
 The composite strategy must still meet the <5ms overhead target:
 
 ```python
+from proxywhirl import Proxy, ProxyPool, HealthStatus, SelectionContext
+from proxywhirl.strategies import CompositeStrategy, GeoTargetedStrategy, PerformanceBasedStrategy
 import time
 
 # Create large pool
@@ -898,7 +913,7 @@ The `SelectionContext` model provides contextual information for intelligent pro
 ### Fields
 
 ```python
-from proxywhirl.models import SelectionContext
+from proxywhirl import SelectionContext
 
 context = SelectionContext(
     # Session tracking
@@ -950,7 +965,8 @@ The `StrategyConfig` model provides configuration for all strategies.
 ### Fields
 
 ```python
-from proxywhirl.models import StrategyConfig
+from proxywhirl import StrategyConfig
+from proxywhirl.strategies import PerformanceBasedStrategy
 
 config = StrategyConfig(
     # Weighted strategy
@@ -993,6 +1009,9 @@ strategy.configure(config)
 Different strategies use different fields:
 
 ```python
+from proxywhirl import StrategyConfig
+from proxywhirl.strategies import PerformanceBasedStrategy, SessionPersistenceStrategy, GeoTargetedStrategy
+
 # Performance-based: uses ema_alpha
 perf_config = StrategyConfig(ema_alpha=0.3)
 perf_strategy = PerformanceBasedStrategy()
@@ -1020,7 +1039,7 @@ Create custom strategies by implementing the `RotationStrategy` protocol. For th
 
 ```python
 from typing import Optional
-from proxywhirl.models import Proxy, ProxyPool, SelectionContext
+from proxywhirl import Proxy, ProxyPool, SelectionContext
 from proxywhirl.exceptions import ProxyPoolEmptyError
 
 class PriorityStrategy:
@@ -1066,14 +1085,17 @@ class PriorityStrategy:
 Use `StrategyRegistry` to register and reuse custom strategies. Registered strategies are also available through the {doc}`cli-reference` (`proxywhirl config set rotation_strategy ...`) and the {doc}`mcp-server` (`set_strategy` action).
 
 ```python
+from proxywhirl import AsyncProxyRotator, Proxy
 from proxywhirl.strategies import StrategyRegistry
 
 # Register the strategy
 registry = StrategyRegistry()
 registry.register_strategy("priority", PriorityStrategy)
 
-# Use the custom strategy
-async with AsyncProxyRotator(strategy="priority") as rotator:
+# Use the custom strategy instance
+strategy = PriorityStrategy()
+
+async with AsyncProxyRotator(strategy=strategy) as rotator:
     # Add proxies with priority metadata
     await rotator.add_proxy(Proxy(
         url="http://proxy1.com:8080",
@@ -1374,7 +1396,7 @@ All strategies have comprehensive integration tests in `tests/integration/test_r
 
 ```python
 import pytest
-from proxywhirl.models import ProxyPool, Proxy, HealthStatus, SelectionContext
+from proxywhirl import ProxyPool, Proxy, HealthStatus, SelectionContext
 from proxywhirl.strategies import PerformanceBasedStrategy
 
 def test_my_use_case():

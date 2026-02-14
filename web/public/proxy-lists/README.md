@@ -1,6 +1,6 @@
 # Placeholder for generated proxy lists
 
-This directory contains automatically generated proxy lists from 64+ free sources.
+This directory contains automatically generated proxy lists from many free sources.
 
 Files are updated every 6 hours via GitHub Actions.
 

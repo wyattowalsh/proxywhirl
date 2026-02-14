@@ -2,7 +2,7 @@ name: Generate Proxy Lists
 
 on:
   schedule:
-    # Run every 2 hours (workflow takes 60-90 min with 156 sources and 5s timeout)
+    # Run every 2 hours (workflow takes 60-90 min with all sources and 5s timeout)
     - cron: '0 */2 * * *'
   workflow_dispatch: # Allow manual triggers
 

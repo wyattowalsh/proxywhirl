@@ -14,54 +14,47 @@ Run with:
 from __future__ import annotations
 
 import asyncio
-from typing import Callable, Iterable, Optional, Tuple, Type, Union
 
 from proxywhirl.fetchers import ProxyFetcher
 from proxywhirl.models import ProxyFormat, ProxySourceConfig, RenderMode
 
+BrowserTools = tuple[type]  # BrowserRenderer only
 
-BrowserTools = Tuple[type, type, type]  # BrowserRenderer, BrowserConfig, WaitStrategy
 
-
-def load_browser_tools() -> Optional[BrowserTools]:
+def load_browser_tools() -> BrowserTools | None:
     """Lazy-import browser dependencies so the script degrades gracefully."""
     try:
-        from proxywhirl.browser import BrowserConfig, BrowserRenderer, WaitStrategy
+        from proxywhirl.browser import BrowserRenderer
     except ImportError:
         print("Playwright is not installed. Install with `uv pip install \"proxywhirl[js]\"`.")
         print("Then run `playwright install chromium` once to download a browser.")
         return None
-    return BrowserRenderer, BrowserConfig, WaitStrategy
+    return (BrowserRenderer,)
 
 
-async def basic_render(BrowserRenderer: type) -> None:
+async def basic_render(browser_renderer: type) -> None:
     print("\n=== Example 1: Basic browser render ===")
-    async with BrowserRenderer() as renderer:
+    async with browser_renderer() as renderer:
         html = await renderer.render("https://httpbin.org/html")
         print(f"Fetched {len(html)} bytes of HTML")
 
 
 async def custom_config_example(
-    BrowserRenderer: type,
-    BrowserConfig: type,
-    WaitStrategy: type,
+    browser_renderer: type,
 ) -> None:
     print("\n=== Example 2: Custom browser configuration ===")
-    config = BrowserConfig(
+    async with browser_renderer(
         headless=True,
         browser_type="chromium",
-        timeout=20,
-        wait_strategy=WaitStrategy.NETWORK_IDLE,
-    )
-    async with BrowserRenderer(config=config) as renderer:
+        timeout=20000,  # milliseconds
+        wait_until="networkidle",
+    ) as renderer:
         html = await renderer.render("https://httpbin.org/delay/1")
         print(f"Rendered with custom config, length={len(html)} bytes")
 
 
 async def fetcher_with_browser(
-    BrowserRenderer: type,
-    BrowserConfig: type,
-    WaitStrategy: type,
+    browser_renderer: type,
 ) -> None:
     print("\n=== Example 3: ProxyFetcher + browser render ===")
     fetcher = ProxyFetcher()
@@ -80,9 +73,7 @@ async def fetcher_with_browser(
 
 
 async def mixed_rendering_example(
-    BrowserRenderer: type,
-    BrowserConfig: type,
-    WaitStrategy: type,
+    browser_renderer: type,
 ) -> None:
     print("\n=== Example 4: Mixing static and browser sources ===")
     sources = [
@@ -103,7 +94,7 @@ async def mixed_rendering_example(
 
 
 async def run_examples(tools: BrowserTools) -> None:
-    BrowserRenderer, BrowserConfig, WaitStrategy = tools
+    (browser_renderer,) = tools
     for example in (
         basic_render,
         custom_config_example,
@@ -111,7 +102,7 @@ async def run_examples(tools: BrowserTools) -> None:
         mixed_rendering_example,
     ):
         try:
-            await example(BrowserRenderer, BrowserConfig, WaitStrategy)
+            await example(browser_renderer)
         except Exception as exc:  # noqa: BLE001
             print(f"Example {example.__name__} skipped due to error: {exc}")
 

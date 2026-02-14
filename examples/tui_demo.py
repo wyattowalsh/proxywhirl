@@ -25,7 +25,7 @@ def main():
     print("\n🚀 Launching ProxyWhirl TUI...")
     print("\nFeatures:")
     print("  • Overview - Real-time metrics and proxy table")
-    print("  • Fetch & Validate - Auto-fetch from 64+ sources")
+    print("  • Fetch & Validate - Auto-fetch from all built-in sources")
     print("  • Export - Save to CSV, JSON, YAML, or Text")
     print("  • Test - Send HTTP requests through proxies")
     print("  • Analytics - View statistics and insights")

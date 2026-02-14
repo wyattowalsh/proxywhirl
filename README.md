@@ -27,7 +27,7 @@
 <br/><br/>
 
 <!-- Navigation pills -->
-[<kbd> <br> 📖 Docs <br> </kbd>](https://proxywhirl.readthedocs.io)&nbsp;&nbsp;
+[<kbd> <br> 📖 Docs <br> </kbd>](https://www.proxywhirl.com/docs/)&nbsp;&nbsp;
 [<kbd> <br> 🚀 Examples <br> </kbd>](examples/)&nbsp;&nbsp;
 [<kbd> <br> 💬 Discussions <br> </kbd>](https://github.com/wyattowalsh/proxywhirl/discussions)
 
@@ -69,7 +69,7 @@ response = rotator.get("https://api.example.com/data")
 <br/>
 <img src="https://api.iconify.design/carbon:rotate-360.svg?color=%2306b6d4" width="48"/>
 <br/><br/>
-<strong>8 Strategies</strong>
+<strong>9 Strategies</strong>
 <br/>
 <sub>Round-robin, weighted, geo-targeted, performance-based & more</sub>
 <br/><br/>
@@ -198,7 +198,7 @@ curl localhost:8000/api/v1/pool
 
 ## 📚 Learn More
 
-[<kbd> <br> &nbsp;&nbsp;📖 Full Documentation&nbsp;&nbsp; <br> </kbd>](https://proxywhirl.readthedocs.io)&nbsp;&nbsp;&nbsp;
+[<kbd> <br> &nbsp;&nbsp;📖 Full Documentation&nbsp;&nbsp; <br> </kbd>](https://www.proxywhirl.com/docs/)&nbsp;&nbsp;&nbsp;
 [<kbd> <br> &nbsp;&nbsp;🎯 Strategy Guide&nbsp;&nbsp; <br> </kbd>](docs/source/guides/strategies.md)&nbsp;&nbsp;&nbsp;
 [<kbd> <br> &nbsp;&nbsp;🤖 MCP Server&nbsp;&nbsp; <br> </kbd>](docs/source/guides/mcp-server.md)&nbsp;&nbsp;&nbsp;
 [<kbd> <br> &nbsp;&nbsp;📓 Examples&nbsp;&nbsp; <br> </kbd>](examples/)

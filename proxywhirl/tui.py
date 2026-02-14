@@ -7,7 +7,7 @@ exports, and configuration management.
 ## Features
 
 - **Overview Tab**: Real-time metrics dashboard and proxy table with color-coded health status
-- **Fetch & Validate**: Auto-fetch from 64+ proxy sources with batch validation
+- **Fetch & Validate**: Auto-fetch from all built-in proxy sources with batch validation
 - **Export**: Save proxy lists in CSV, JSON, YAML, or plain text formats
 - **Test**: Send HTTP requests (GET/POST/PUT/DELETE/HEAD/PATCH/OPTIONS) through proxies
 - **Analytics**: Statistics by protocol, country, and source
@@ -456,7 +456,7 @@ class SourceFetcherPanel(Static):
 
             yield Select(
                 [
-                    ("All Sources (64+)", "all"),
+                    ("All Sources", "all"),
                     ("Recommended Only", "recommended"),
                     ("HTTP Sources", "http"),
                     ("SOCKS4 Sources", "socks4"),

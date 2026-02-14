@@ -2,7 +2,7 @@
 
 ## Free Proxy Lists 🎁
 
-**Download fresh, aggregated proxy lists** updated every 6 hours from 64+ sources:
+**Download fresh, aggregated proxy lists** updated every 6 hours from many free sources:
 
 | Format | HTTP/HTTPS | SOCKS4 | SOCKS5 | All Combined |
 |--------|-----------|--------|--------|--------------|

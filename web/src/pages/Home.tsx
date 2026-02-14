@@ -55,7 +55,7 @@ function AnalyticsSkeleton() {
 const FEATURES = [
   {
     icon: RefreshCw,
-    title: "8 Rotation Strategies",
+    title: "9 Rotation Strategies",
     description: "Round-robin, weighted, performance-based, geo-targeted, and more.",
   },
   {
@@ -113,7 +113,7 @@ asyncio.run(main())`,
     id: "cli",
     label: "CLI",
     filename: "terminal",
-    code: `# Fetch and validate proxies from 64+ sources
+    code: `# Fetch and validate proxies from all built-in sources
 $ proxywhirl fetch
 
 # Browse your proxy pool
@@ -212,7 +212,7 @@ export function Home() {
 
         <motion.p className="text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto" variants={slideUp}>
           Production-grade proxy rotation for Python. Auto-fetching, validation,
-          circuit breakers, and 8 rotation strategies out of the box.
+          circuit breakers, and 9 rotation strategies out of the box.
         </motion.p>
 
         <motion.div className="flex flex-wrap justify-center gap-4" variants={slideUp}>

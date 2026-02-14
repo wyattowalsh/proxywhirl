@@ -738,7 +738,7 @@ app = FastAPI()
 async def startup():
     app.state.rotator = AsyncProxyRotator(strategy="round-robin")
     await app.state.rotator.__aenter__()
-    await app.state.rotator.set_strategy("performance-based")
+    app.state.rotator.set_strategy("performance-based")
 
     # Add proxies
     await app.state.rotator.add_proxy("http://proxy1.example.com:8080")
@@ -1100,7 +1100,7 @@ class Application:
     async def startup(self):
         self.rotator = AsyncProxyRotator(strategy="round-robin")
         await self.rotator.__aenter__()
-        await self.rotator.set_strategy("performance-based")
+        self.rotator.set_strategy("performance-based")
         await self.rotator.add_proxy("http://proxy1.example.com:8080")
         await self.rotator.add_proxy("http://proxy2.example.com:8080")
 

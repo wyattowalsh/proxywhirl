@@ -64,7 +64,7 @@ The constructor accepts a limited set of strategy names. To use advanced strateg
 | `rate_limiter` | `SyncRateLimiter \| None` | `None` | Synchronous rate limiter for controlling request rates |
 
 :::{important}
-The `rate_limiter` parameter accepts a `SyncRateLimiter` (not `RateLimiter`). For async rotators, use `AsyncRateLimiter`. See [Rate Limiting API](rate-limiting-api.md) for details.
+The `rate_limiter` parameter accepts a `SyncRateLimiter` (not `RateLimiter`). See [Rate Limiting API](rate-limiting-api.md) for details.
 :::
 
 **HTTP Methods:**
@@ -123,7 +123,14 @@ async with AsyncProxyRotator() as rotator:
     print(response.json())
 ```
 
-**Constructor Parameters:** Same as ProxyRotator
+**Constructor Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `proxies` | `list[Proxy] \| None` | `None` | Initial list of Proxy instances |
+| `strategy` | `RotationStrategy \| str \| None` | `RoundRobinStrategy()` | Rotation strategy instance or name (`"round-robin"`, `"random"`, `"weighted"`, `"least-used"`) |
+| `config` | `ProxyConfiguration \| None` | `ProxyConfiguration()` | Configuration settings (timeout, SSL verification, etc.) |
+| `retry_policy` | `RetryPolicy \| None` | `RetryPolicy()` | Retry policy configuration |
 
 **HTTP Methods:** Same as ProxyRotator but all async (prefixed with `await`)
 
@@ -1579,9 +1586,9 @@ delay = policy.calculate_delay(attempt=1)  # Second retry delay
   - `EXPONENTIAL`: base_delay * (multiplier ^ attempt)
   - `LINEAR`: base_delay * (attempt + 1)
   - `FIXED`: base_delay (constant)
-- `base_delay` (float): Base delay in seconds (0-60, default: 1.0)
-- `multiplier` (float): Backoff multiplier (1-10, default: 2.0)
-- `max_backoff_delay` (float): Maximum backoff delay (0-300, default: 30.0)
+- `base_delay` (float): Base delay in seconds ((0, 60], default: 1.0)
+- `multiplier` (float): Backoff multiplier ((1, 10], default: 2.0)
+- `max_backoff_delay` (float): Maximum backoff delay ((0, 300], default: 30.0)
 - `jitter` (bool): Add random jitter to delays (default: False)
 - `retry_status_codes` (list[int]): HTTP status codes to retry (default: [502, 503, 504])
 - `timeout` (Optional[float]): Total timeout in seconds (optional)
@@ -1589,10 +1596,10 @@ delay = policy.calculate_delay(attempt=1)  # Second retry delay
 
 **Methods:**
 
-- `calculate_delay(attempt: int) -> float` - Calculate delay for given attempt number (0-indexed)
+- `calculate_delay(attempt: int, previous_delay: float | None = None) -> float` - Calculate delay for given attempt number (0-indexed)
   - Applies backoff strategy
   - Caps at max_backoff_delay
-  - Adds jitter if enabled (0.5x-1.5x random multiplier)
+  - Adds jitter if enabled using AWS decorrelated jitter algorithm: `delay = min(cap, random(base, previous_delay * 3))`
 
 **Validators:**
 
@@ -2564,7 +2571,7 @@ mypy your_code.py
 ```python
 import proxywhirl
 
-print(proxywhirl.__version__)  # "0.2.0"
+print(proxywhirl.__version__)  # "0.1.1"
 ```
 
 ---

@@ -598,8 +598,8 @@ For credential encryption at the cache layer, see {doc}`caching` which covers Fe
 ### Cloud Documentation
 
 - **[AWS ALB Documentation](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/)** - AWS Application Load Balancer
-- **[GCP Load Balancing](https://cloud.google.com/load-balancing/docs)** - Google Cloud Load Balancer
-- **[Azure Application Gateway](https://docs.microsoft.com/en-us/azure/application-gateway/)** - Azure gateway documentation
+- **[GCP Load Balancing](https://docs.cloud.google.com/load-balancing/docs)** - Google Cloud Load Balancer
+- **[Azure Application Gateway](https://learn.microsoft.com/en-us/azure/application-gateway/)** - Azure gateway documentation
 
 ### ProxyWhirl Documentation
 

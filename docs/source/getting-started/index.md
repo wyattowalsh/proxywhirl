@@ -193,7 +193,7 @@ rotator = ProxyRotator(proxies=unique)
 ```
 
 ```{seealso}
-ProxyWhirl ships 15+ built-in proxy sources organized by protocol. See {data}`proxywhirl.ALL_SOURCES`, {data}`proxywhirl.ALL_HTTP_SOURCES`, {data}`proxywhirl.ALL_SOCKS4_SOURCES`, and {data}`proxywhirl.ALL_SOCKS5_SOURCES` for the full catalog.
+ProxyWhirl ships many built-in proxy sources organized by protocol. See {data}`proxywhirl.ALL_SOURCES`, {data}`proxywhirl.ALL_HTTP_SOURCES`, {data}`proxywhirl.ALL_SOCKS4_SOURCES`, and {data}`proxywhirl.ALL_SOCKS5_SOURCES` for the full catalog.
 ```
 
 ---

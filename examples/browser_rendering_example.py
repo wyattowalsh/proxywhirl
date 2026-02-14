@@ -14,7 +14,7 @@ Installation:
 
 import asyncio
 
-from proxywhirl.browser import BrowserRenderer, BrowserConfig, WaitStrategy
+from proxywhirl.browser import BrowserRenderer
 from proxywhirl.fetchers import ProxyFetcher, ProxySourceConfig
 from proxywhirl.models import RenderMode
 
@@ -34,15 +34,13 @@ async def example_custom_browser_config():
     """Browser rendering with custom configuration."""
     print("\n=== Example 2: Custom Browser Configuration ===")
 
-    # Configure browser settings
-    config = BrowserConfig(
+    # Configure browser settings directly in BrowserRenderer constructor
+    async with BrowserRenderer(
         headless=True,  # Run in background (no UI)
         browser_type="chromium",  # or "firefox", "webkit"
-        timeout=30,  # Maximum wait time (seconds)
-        wait_strategy=WaitStrategy.NETWORK_IDLE,  # Wait for network to be idle
-    )
-
-    async with BrowserRenderer(config=config) as renderer:
+        timeout=30000,  # Maximum wait time in milliseconds (30 seconds)
+        wait_until="networkidle",  # Wait for network to be idle
+    ) as renderer:
         html = await renderer.render("https://example.com/proxies")
         print(f"Rendered with custom config: {len(html)} bytes")
 
@@ -126,7 +124,7 @@ async def example_error_handling():
     except TimeoutError as e:
         # Browser timeout
         print(f"TimeoutError: {e}")
-        print("Consider increasing timeout in BrowserConfig")
+        print("Consider increasing timeout parameter in BrowserRenderer constructor")
     except RuntimeError as e:
         # Browser crashed
         print(f"RuntimeError: {e}")
@@ -141,13 +139,11 @@ async def example_performance_tips():
     print("\n=== Example 6: Performance Tips ===")
 
     # Tip 1: Reuse BrowserRenderer across multiple renders
-    config = BrowserConfig(
+    async with BrowserRenderer(
         headless=True,
-        timeout=15,  # Shorter timeout for faster failure
-        wait_strategy=WaitStrategy.DOM_CONTENT_LOADED,  # Don't wait for all resources
-    )
-
-    async with BrowserRenderer(config=config) as renderer:
+        timeout=15000,  # Shorter timeout (15 seconds) for faster failure
+        wait_until="domcontentloaded",  # Don't wait for all resources
+    ) as renderer:
         # Multiple renders reuse the same browser instance
         urls = [
             "https://site1.com/proxies",
