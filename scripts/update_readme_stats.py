@@ -145,7 +145,7 @@ def get_strategy_count() -> int:
                 """
 import proxywhirl.strategies as s
 # Exclude base classes and non-strategy classes
-excluded = {'RotationStrategy', 'StrategyConfig', 'StrategyRegistry', 'CompositeStrategy'}
+excluded = {'RotationStrategy', 'StrategyConfig', 'StrategyRegistry'}
 strategies = [n for n in dir(s) if n.endswith('Strategy') and not n.startswith('_') and n not in excluded]
 print(len(strategies))
 """,

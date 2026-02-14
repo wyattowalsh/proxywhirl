@@ -69,7 +69,7 @@ response = rotator.get("https://api.example.com/data")
 <br/>
 <img src="https://api.iconify.design/carbon:rotate-360.svg?color=%2306b6d4" width="48"/>
 <br/><br/>
-<strong>8 Strategies</strong>
+<strong>9 Strategies</strong>
 <br/>
 <sub>Round-robin, weighted, geo-targeted, performance-based & more</sub>
 <br/><br/>
