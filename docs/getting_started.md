@@ -11,7 +11,7 @@
 
 📊 **Metadata**: [metadata.json](proxy-lists/metadata.json) - View stats and generation timestamp
 
-> **Note**: These lists are automatically generated every 6 hours from 64 free proxy sources. 
+> **Note**: These lists are automatically generated every 6 hours from many free proxy sources.
 > Quality may vary - always verify proxies before use in production.
 
 ---
