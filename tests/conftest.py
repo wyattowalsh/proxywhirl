@@ -258,6 +258,19 @@ def mock_proxy_sources(respx_mock: respx.MockRouter) -> respx.MockRouter:
     return respx_mock
 
 
+@pytest.fixture(autouse=True)
+def mock_lazy_bootstrap_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep lazy bootstrap tests/network deterministic by mocking source fetches."""
+
+    async def _fetch_all_sources_mock(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        return []
+
+    monkeypatch.setattr(
+        "proxywhirl.rotator._bootstrap.fetch_all_sources",
+        _fetch_all_sources_mock,
+    )
+
+
 # ============================================================================
 # HTTPX CLIENT FIXTURES
 # ============================================================================

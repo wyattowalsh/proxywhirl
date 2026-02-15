@@ -19,7 +19,7 @@ from proxywhirl import (
     HealthStatus,
     Proxy,
     ProxyConfiguration,
-    ProxyRotator,
+    ProxyWhirl,
     RequestQueueFullError,
 )
 from proxywhirl.rate_limiting import RateLimiter
@@ -30,7 +30,7 @@ class TestQueueConfiguration:
 
     def test_queue_disabled_by_default(self) -> None:
         """Test that queue is disabled by default."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         assert rotator.config.queue_enabled is False
         assert rotator._request_queue is None
 
@@ -42,7 +42,7 @@ class TestQueueConfiguration:
     def test_queue_enabled_with_config(self) -> None:
         """Test that queue can be enabled via configuration."""
         config = ProxyConfiguration(queue_enabled=True, queue_size=50)
-        rotator = ProxyRotator(config=config)
+        rotator = ProxyWhirl(config=config)
 
         assert rotator.config.queue_enabled is True
         assert rotator._request_queue is not None
@@ -90,7 +90,7 @@ class TestQueueBackpressure:
         mock_rate_limiter = MagicMock(spec=RateLimiter)
         mock_rate_limiter.check_limit = MagicMock(return_value=False)
 
-        rotator = ProxyRotator(config=config, rate_limiter=mock_rate_limiter)
+        rotator = ProxyWhirl(config=config, rate_limiter=mock_rate_limiter)
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -153,7 +153,7 @@ class TestQueueStatistics:
 
     def test_queue_stats_when_disabled(self) -> None:
         """Test queue stats when queue is disabled."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         stats = rotator.get_queue_stats()
 
         assert stats["enabled"] is False
@@ -165,7 +165,7 @@ class TestQueueStatistics:
     def test_queue_stats_when_enabled(self) -> None:
         """Test queue stats when queue is enabled."""
         config = ProxyConfiguration(queue_enabled=True, queue_size=50)
-        rotator = ProxyRotator(config=config)
+        rotator = ProxyWhirl(config=config)
 
         stats = rotator.get_queue_stats()
         assert stats["enabled"] is True
@@ -177,7 +177,7 @@ class TestQueueStatistics:
     def test_queue_stats_with_items(self) -> None:
         """Test queue stats reflect queued items."""
         config = ProxyConfiguration(queue_enabled=True, queue_size=10)
-        rotator = ProxyRotator(config=config)
+        rotator = ProxyWhirl(config=config)
 
         # Add some items to the queue (using synchronous queue.Queue)
         rotator._request_queue.put({"test": "1"})
@@ -194,7 +194,7 @@ class TestQueueStatistics:
     def test_queue_stats_when_full(self) -> None:
         """Test queue stats when queue is full."""
         config = ProxyConfiguration(queue_enabled=True, queue_size=2)
-        rotator = ProxyRotator(config=config)
+        rotator = ProxyWhirl(config=config)
 
         # Fill the queue (using synchronous queue.Queue)
         rotator._request_queue.put({"test": "1"})
@@ -213,7 +213,7 @@ class TestQueueClearing:
 
     def test_clear_queue_when_disabled(self) -> None:
         """Test that clear_queue raises error when queue is disabled."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         with pytest.raises(RuntimeError, match="not enabled"):
             rotator.clear_queue()
@@ -221,7 +221,7 @@ class TestQueueClearing:
     def test_clear_empty_queue(self) -> None:
         """Test clearing an empty queue."""
         config = ProxyConfiguration(queue_enabled=True, queue_size=10)
-        rotator = ProxyRotator(config=config)
+        rotator = ProxyWhirl(config=config)
 
         cleared = rotator.clear_queue()
         assert cleared == 0
@@ -233,7 +233,7 @@ class TestQueueClearing:
     def test_clear_queue_with_items(self) -> None:
         """Test clearing queue with items."""
         config = ProxyConfiguration(queue_enabled=True, queue_size=10)
-        rotator = ProxyRotator(config=config)
+        rotator = ProxyWhirl(config=config)
 
         # Add items to queue (using synchronous queue.Queue)
         rotator._request_queue.put({"test": "1"})
@@ -266,7 +266,7 @@ class TestQueueIntegrationWithRateLimiting:
         mock_rate_limiter = MagicMock(spec=RateLimiter)
         mock_rate_limiter.check_limit.return_value = False  # Rate limit exceeded
 
-        rotator = ProxyRotator(config=config, rate_limiter=mock_rate_limiter)
+        rotator = ProxyWhirl(config=config, rate_limiter=mock_rate_limiter)
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -294,7 +294,7 @@ class TestQueueIntegrationWithRateLimiting:
         mock_rate_limiter = MagicMock(spec=RateLimiter)
         mock_rate_limiter.check_limit.return_value = False  # Rate limit exceeded
 
-        rotator = ProxyRotator(config=config, rate_limiter=mock_rate_limiter)
+        rotator = ProxyWhirl(config=config, rate_limiter=mock_rate_limiter)
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -314,7 +314,7 @@ class TestQueueEdgeCases:
         import threading
 
         config = ProxyConfiguration(queue_enabled=True, queue_size=100)
-        rotator = ProxyRotator(config=config)
+        rotator = ProxyWhirl(config=config)
 
         def add_items():
             import contextlib
@@ -344,7 +344,7 @@ class TestQueueEdgeCases:
         # Mock rate limiter
         mock_rate_limiter = MagicMock(spec=RateLimiter)
 
-        rotator = ProxyRotator(config=config, rate_limiter=mock_rate_limiter)
+        rotator = ProxyWhirl(config=config, rate_limiter=mock_rate_limiter)
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 

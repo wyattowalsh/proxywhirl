@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import httpx
 
-from proxywhirl import Proxy, ProxyRotator
+from proxywhirl import Proxy, ProxyWhirl
 from proxywhirl.models import HealthStatus
 
 
@@ -26,7 +26,7 @@ class TestBasicRotation:
         mock_client_class.return_value = mock_client
 
         # Create rotator with 3 proxies
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy1 = Proxy(url="http://proxy1.example.com:8080")
         proxy2 = Proxy(url="http://proxy2.example.com:8080")
         proxy3 = Proxy(url="http://proxy3.example.com:8080")
@@ -74,7 +74,7 @@ class TestBasicRotation:
         mock_client_class.return_value = mock_client
 
         # Create rotator with 5 proxies
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         for i in range(5):
             proxy = Proxy(url=f"http://proxy{i}.example.com:8080")
             rotator.add_proxy(proxy)
@@ -108,7 +108,7 @@ class TestBasicRotation:
         mock_client_class.return_value = mock_client
 
         # Create rotator with 1 proxy
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy = Proxy(url="http://single-proxy.example.com:8080")
         rotator.add_proxy(proxy)
         rotator.pool.proxies[0].health_status = HealthStatus.HEALTHY
@@ -135,7 +135,7 @@ class TestBasicRotation:
         mock_client_class.return_value = mock_client
 
         # Create rotator with 3 proxies
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         for i in range(3):
             proxy = Proxy(url=f"http://proxy{i}.example.com:8080")
             rotator.add_proxy(proxy)
@@ -169,7 +169,7 @@ class TestBasicRotation:
         mock_client_class.return_value = mock_client
 
         # Create rotator with 2 proxies
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy1 = Proxy(url="http://proxy1.example.com:8080")
         proxy2 = Proxy(url="http://proxy2.example.com:8080")
         rotator.add_proxy(proxy1)

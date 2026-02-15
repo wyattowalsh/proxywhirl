@@ -158,7 +158,7 @@ async def custom_rotator_example():
     """Demonstrate using a custom rotator with MCP."""
     print("=== Custom Rotator ===\n")
 
-    from proxywhirl import AsyncProxyRotator, ProxyConfiguration
+    from proxywhirl import AsyncProxyWhirl, ProxyConfiguration
 
     # Create custom configuration
     config = ProxyConfiguration(
@@ -168,7 +168,7 @@ async def custom_rotator_example():
     )
 
     # Create custom rotator with performance-based strategy
-    rotator = AsyncProxyRotator(
+    rotator = AsyncProxyWhirl(
         strategy="performance-based",
         config=config,
     )

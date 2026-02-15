@@ -31,10 +31,10 @@ uv pip install proxywhirl
 Here's a minimal example to get you started:
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 
 # Create a proxy rotator
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 
 # Add proxies
 rotator.add_proxy("http://proxy1.example.com:8080")
@@ -52,14 +52,14 @@ response = httpx.get("https://example.com", proxies=proxy)
 Instead of manually adding proxies, use our free lists:
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 import httpx
 
 # Download and load our free HTTP proxy list
 response = httpx.get("https://your-docs-site.com/proxy-lists/http.txt")
 proxies = response.text.strip().split("\n")
 
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 for proxy in proxies:
     rotator.add_proxy(f"http://{proxy}")
 

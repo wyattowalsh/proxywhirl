@@ -19,14 +19,14 @@ EXAMPLES_DIR = CURRENT_DIR.parent
 sys.path.append(str(EXAMPLES_DIR))
 
 from _common import demo_pool, print_header  # noqa: E402
-from proxywhirl import ProxyRotator  # noqa: E402
+from proxywhirl import ProxyWhirl  # noqa: E402
 
 
 def main() -> None:
     print_header("ProxyWhirl Quickstart")
 
     pool = demo_pool(name="quickstart")
-    rotator = ProxyRotator(proxies=[p.model_copy(deep=True) for p in pool.get_all_proxies()])
+    rotator = ProxyWhirl(proxies=[p.model_copy(deep=True) for p in pool.get_all_proxies()])
 
     # Track selections so the mock handler can echo which proxy was used.
     selection_order: List[str] = []

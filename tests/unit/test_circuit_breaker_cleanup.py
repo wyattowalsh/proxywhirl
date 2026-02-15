@@ -5,7 +5,7 @@ preventing unbounded memory growth.
 """
 
 from proxywhirl.models import HealthStatus, Proxy
-from proxywhirl.rotator import AsyncProxyRotator, ProxyRotator
+from proxywhirl.rotator import AsyncProxyWhirl, ProxyWhirl
 
 
 class TestCircuitBreakerCleanup:
@@ -14,7 +14,7 @@ class TestCircuitBreakerCleanup:
     async def test_async_remove_proxy_cleans_circuit_breaker(self) -> None:
         """Test that removing a proxy also removes its circuit breaker."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         # Verify circuit breaker exists
         assert str(proxy.id) in rotator.circuit_breakers
@@ -40,7 +40,7 @@ class TestCircuitBreakerCleanup:
             ),
             Proxy(url="http://192.168.1.3:8080", health_status=HealthStatus.DEAD, allow_local=True),
         ]
-        rotator = AsyncProxyRotator(proxies=proxies)
+        rotator = AsyncProxyWhirl(proxies=proxies)
 
         # Verify all circuit breakers exist
         assert len(rotator.circuit_breakers) == 3
@@ -65,7 +65,7 @@ class TestCircuitBreakerCleanup:
     def test_sync_remove_proxy_cleans_circuit_breaker(self) -> None:
         """Test that removing a proxy also removes its circuit breaker (sync)."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = ProxyRotator(proxies=[proxy])
+        rotator = ProxyWhirl(proxies=[proxy])
 
         # Verify circuit breaker exists
         assert str(proxy.id) in rotator.circuit_breakers
@@ -91,7 +91,7 @@ class TestCircuitBreakerCleanup:
             ),
             Proxy(url="http://192.168.1.3:8080", health_status=HealthStatus.DEAD, allow_local=True),
         ]
-        rotator = ProxyRotator(proxies=proxies)
+        rotator = ProxyWhirl(proxies=proxies)
 
         # Verify all circuit breakers exist
         assert len(rotator.circuit_breakers) == 3
@@ -117,7 +117,7 @@ class TestCircuitBreakerCleanup:
         """Test that multiple proxy removals don't cause unbounded memory growth."""
         # Add 100 proxies
         proxies = [Proxy(url=f"http://192.168.1.{i}:8080", allow_local=True) for i in range(1, 101)]
-        rotator = AsyncProxyRotator(proxies=proxies)
+        rotator = AsyncProxyWhirl(proxies=proxies)
 
         # Verify 100 circuit breakers exist
         assert len(rotator.circuit_breakers) == 100
@@ -140,7 +140,7 @@ class TestCircuitBreakerCleanup:
         """Test that multiple proxy removals don't cause unbounded memory growth (sync)."""
         # Add 100 proxies
         proxies = [Proxy(url=f"http://192.168.1.{i}:8080", allow_local=True) for i in range(1, 101)]
-        rotator = ProxyRotator(proxies=proxies)
+        rotator = ProxyWhirl(proxies=proxies)
 
         # Verify 100 circuit breakers exist
         assert len(rotator.circuit_breakers) == 100

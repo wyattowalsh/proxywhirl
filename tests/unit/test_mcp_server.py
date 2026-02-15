@@ -26,7 +26,7 @@ from proxywhirl.mcp.server import (
     set_rotator,
 )
 from proxywhirl.models import HealthStatus, Proxy, ProxyPool, ProxySource
-from proxywhirl.rotator import AsyncProxyRotator
+from proxywhirl.rotator import AsyncProxyWhirl
 
 
 @pytest.fixture
@@ -105,7 +105,7 @@ def mock_rotator():
 
     pool = ProxyPool(name="test_pool", proxies=[proxy1, proxy2, proxy3, proxy4, proxy5])
 
-    rotator = AsyncProxyRotator()
+    rotator = AsyncProxyWhirl()
     rotator.pool = pool
 
     # Add circuit breakers for some proxies
@@ -172,7 +172,7 @@ class TestGetSetRotator:
         # Get rotator should create a new instance
         rotator = await get_rotator()
         assert rotator is not None
-        assert isinstance(rotator, AsyncProxyRotator)
+        assert isinstance(rotator, AsyncProxyWhirl)
 
     async def test_get_rotator_returns_existing_instance(self, mock_rotator) -> None:
         """Test that get_rotator returns the existing instance."""
@@ -262,7 +262,7 @@ class TestListProxiesTool:
 
     async def test_list_proxies_empty_pool(self) -> None:
         """Test list_proxies with empty pool."""
-        empty_rotator = AsyncProxyRotator()
+        empty_rotator = AsyncProxyWhirl()
         empty_rotator.pool = ProxyPool(name="empty_pool", proxies=[])
         await set_rotator(empty_rotator)
 
@@ -290,7 +290,7 @@ class TestRotateProxyTool:
 
     async def test_rotate_proxy_empty_pool(self) -> None:
         """Test rotate_proxy with empty pool."""
-        empty_rotator = AsyncProxyRotator()
+        empty_rotator = AsyncProxyWhirl()
         empty_rotator.pool = ProxyPool(name="empty_pool", proxies=[])
         await set_rotator(empty_rotator)
 
@@ -441,7 +441,7 @@ class TestRecommendProxyTool:
 
     async def test_recommend_proxy_empty_pool(self) -> None:
         """Test recommend_proxy with empty pool."""
-        empty_rotator = AsyncProxyRotator()
+        empty_rotator = AsyncProxyWhirl()
         empty_rotator.pool = ProxyPool(name="empty_pool", proxies=[])
         await set_rotator(empty_rotator)
 
@@ -599,7 +599,7 @@ class TestGetProxyHealthResource:
 
     async def test_get_proxy_health_pool_status_empty(self) -> None:
         """Test pool status is empty when no proxies."""
-        empty_rotator = AsyncProxyRotator()
+        empty_rotator = AsyncProxyWhirl()
         empty_rotator.pool = ProxyPool(name="empty_pool", proxies=[])
         await set_rotator(empty_rotator)
 
@@ -670,7 +670,7 @@ class TestGetProxyConfigResource:
 
     async def test_get_proxy_config_no_circuit_breakers(self) -> None:
         """Test config when no circuit breakers exist."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
         rotator.circuit_breakers = {}
         await set_rotator(rotator)
 
@@ -851,8 +851,8 @@ class TestConcurrentRotatorAccess:
 
     async def test_set_rotator_is_thread_safe(self) -> None:
         """Test that set_rotator properly synchronizes writes."""
-        rotator1 = AsyncProxyRotator()
-        rotator2 = AsyncProxyRotator()
+        rotator1 = AsyncProxyWhirl()
+        rotator2 = AsyncProxyWhirl()
 
         # Try to set different rotators concurrently
         # The last one should win, but no corruption should occur
@@ -1038,7 +1038,7 @@ class TestCleanupRotator:
         # Get rotator should create a new instance
         rotator = await get_rotator()
         assert rotator is not None
-        assert isinstance(rotator, AsyncProxyRotator)
+        assert isinstance(rotator, AsyncProxyWhirl)
 
 
 class TestMCPLifespan:
@@ -1080,7 +1080,7 @@ class TestAutoLoadFromDatabase:
                 rotator = await get_rotator()
 
                 assert rotator is not None
-                assert isinstance(rotator, AsyncProxyRotator)
+                assert isinstance(rotator, AsyncProxyWhirl)
                 # Pool should be empty since no DB exists and auto-fetch is mocked
                 assert rotator.pool.size == 0
         finally:
@@ -1123,7 +1123,7 @@ class TestAutoLoadFromDatabase:
             rotator = await get_rotator()
 
             assert rotator is not None
-            assert isinstance(rotator, AsyncProxyRotator)
+            assert isinstance(rotator, AsyncProxyWhirl)
             # Pool should have the proxy we saved
             assert rotator.pool.size == 1
             loaded_proxies = rotator.pool.get_all_proxies()
@@ -1153,7 +1153,7 @@ class TestAutoLoadFromDatabase:
             rotator = await get_rotator()
 
             assert rotator is not None
-            assert isinstance(rotator, AsyncProxyRotator)
+            assert isinstance(rotator, AsyncProxyWhirl)
         finally:
             os.chdir(original_cwd)
             await cleanup_rotator()
@@ -1162,7 +1162,7 @@ class TestAutoLoadFromDatabase:
 class TestAddProxyAction:
     """Tests for the add proxy action."""
 
-    async def test_add_proxy_success(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_add_proxy_success(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test successfully adding a proxy."""
         await set_rotator(mock_rotator)
         try:
@@ -1179,7 +1179,7 @@ class TestAddProxyAction:
         finally:
             await cleanup_rotator()
 
-    async def test_add_proxy_missing_url(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_add_proxy_missing_url(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test add proxy with missing URL."""
         await set_rotator(mock_rotator)
         try:
@@ -1191,7 +1191,7 @@ class TestAddProxyAction:
         finally:
             await cleanup_rotator()
 
-    async def test_add_proxy_with_protocol_detection(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_add_proxy_with_protocol_detection(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test add proxy detects protocol from URL."""
         await set_rotator(mock_rotator)
         try:
@@ -1211,7 +1211,7 @@ class TestAddProxyAction:
         finally:
             await cleanup_rotator()
 
-    async def test_add_proxy_auth_failure(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_add_proxy_auth_failure(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test add proxy with failed authentication."""
         await set_rotator(mock_rotator)
         set_auth(MCPAuth(api_key="secret"))
@@ -1232,7 +1232,7 @@ class TestAddProxyAction:
 class TestRemoveProxyAction:
     """Tests for the remove proxy action."""
 
-    async def test_remove_proxy_success(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_remove_proxy_success(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test successfully removing a proxy."""
         await set_rotator(mock_rotator)
         try:
@@ -1249,7 +1249,7 @@ class TestRemoveProxyAction:
         finally:
             await cleanup_rotator()
 
-    async def test_remove_proxy_missing_id(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_remove_proxy_missing_id(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test remove proxy with missing ID."""
         await set_rotator(mock_rotator)
         try:
@@ -1261,7 +1261,7 @@ class TestRemoveProxyAction:
         finally:
             await cleanup_rotator()
 
-    async def test_remove_proxy_not_found(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_remove_proxy_not_found(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test remove proxy that doesn't exist."""
         await set_rotator(mock_rotator)
         try:
@@ -1275,7 +1275,7 @@ class TestRemoveProxyAction:
         finally:
             await cleanup_rotator()
 
-    async def test_remove_proxy_invalid_uuid(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_remove_proxy_invalid_uuid(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test remove proxy with invalid UUID format."""
         await set_rotator(mock_rotator)
         try:
@@ -1291,7 +1291,7 @@ class TestRemoveProxyAction:
 class TestFetchProxiesAction:
     """Tests for the fetch proxies action."""
 
-    async def test_fetch_proxies_success(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_fetch_proxies_success(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test successfully fetching proxies."""
         await set_rotator(mock_rotator)
         try:
@@ -1325,7 +1325,7 @@ class TestFetchProxiesAction:
         finally:
             await cleanup_rotator()
 
-    async def test_fetch_proxies_auth_failure(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_fetch_proxies_auth_failure(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test fetch proxies with failed authentication."""
         await set_rotator(mock_rotator)
         set_auth(MCPAuth(api_key="secret"))
@@ -1342,7 +1342,7 @@ class TestFetchProxiesAction:
 class TestValidateProxyAction:
     """Tests for the validate proxy action."""
 
-    async def test_validate_single_proxy(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_validate_single_proxy(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test validating a single proxy."""
         await set_rotator(mock_rotator)
         try:
@@ -1381,7 +1381,7 @@ class TestValidateProxyAction:
         finally:
             await cleanup_rotator()
 
-    async def test_validate_proxy_not_found(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_validate_proxy_not_found(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test validating a proxy that doesn't exist."""
         await set_rotator(mock_rotator)
         try:
@@ -1395,7 +1395,7 @@ class TestValidateProxyAction:
         finally:
             await cleanup_rotator()
 
-    async def test_validate_proxy_invalid_uuid(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_validate_proxy_invalid_uuid(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test validating with invalid UUID format."""
         await set_rotator(mock_rotator)
         try:
@@ -1410,7 +1410,7 @@ class TestValidateProxyAction:
 class TestSetStrategyAction:
     """Tests for the set_strategy action."""
 
-    async def test_set_strategy_success(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_set_strategy_success(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test successfully changing strategy."""
         await set_rotator(mock_rotator)
         try:
@@ -1425,7 +1425,7 @@ class TestSetStrategyAction:
         finally:
             await cleanup_rotator()
 
-    async def test_set_strategy_missing(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_set_strategy_missing(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test set_strategy with missing strategy parameter."""
         await set_rotator(mock_rotator)
         try:
@@ -1437,7 +1437,7 @@ class TestSetStrategyAction:
         finally:
             await cleanup_rotator()
 
-    async def test_set_strategy_invalid(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_set_strategy_invalid(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test set_strategy with invalid strategy name."""
         await set_rotator(mock_rotator)
         try:
@@ -1452,7 +1452,7 @@ class TestSetStrategyAction:
         finally:
             await cleanup_rotator()
 
-    async def test_set_strategy_all_valid_strategies(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_set_strategy_all_valid_strategies(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test setting all valid strategies."""
         await set_rotator(mock_rotator)
         try:
@@ -1470,7 +1470,7 @@ class TestSetStrategyAction:
         finally:
             await cleanup_rotator()
 
-    async def test_set_strategy_auth_failure(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_set_strategy_auth_failure(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test set_strategy with failed authentication."""
         await set_rotator(mock_rotator)
         set_auth(MCPAuth(api_key="secret"))
@@ -1595,7 +1595,7 @@ class TestPythonVersionCheck:
 class TestEdgeCases:
     """Tests for edge cases and error handling paths."""
 
-    async def test_add_proxy_exception_during_add(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_add_proxy_exception_during_add(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test add_proxy handles exceptions during rotator.add_proxy."""
         await set_rotator(mock_rotator)
         try:
@@ -1610,7 +1610,7 @@ class TestEdgeCases:
         finally:
             await cleanup_rotator()
 
-    async def test_set_strategy_exception(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_set_strategy_exception(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test set_strategy handles exceptions."""
         await set_rotator(mock_rotator)
         try:
@@ -1628,7 +1628,7 @@ class TestEdgeCases:
 
     async def test_validate_all_proxies_empty_pool(self) -> None:
         """Test validate all proxies with empty pool."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
         await set_rotator(rotator)
         try:
             result = await _proxywhirl_tool(action="validate")
@@ -1638,7 +1638,7 @@ class TestEdgeCases:
         finally:
             await cleanup_rotator()
 
-    async def test_fetch_proxies_exception(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_fetch_proxies_exception(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test fetch_proxies handles exceptions."""
         await set_rotator(mock_rotator)
         try:
@@ -1651,7 +1651,7 @@ class TestEdgeCases:
         finally:
             await cleanup_rotator()
 
-    async def test_add_proxy_socks4_protocol(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_add_proxy_socks4_protocol(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test adding socks4 proxy detects protocol."""
         await set_rotator(mock_rotator)
         try:
@@ -1664,7 +1664,7 @@ class TestEdgeCases:
         finally:
             await cleanup_rotator()
 
-    async def test_add_proxy_https_protocol(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_add_proxy_https_protocol(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test adding https proxy detects protocol."""
         await set_rotator(mock_rotator)
         try:
@@ -1677,7 +1677,7 @@ class TestEdgeCases:
         finally:
             await cleanup_rotator()
 
-    async def test_validate_proxy_connection_failure(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_validate_proxy_connection_failure(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test validate proxy handles connection failures."""
         await set_rotator(mock_rotator)
         try:
@@ -1712,7 +1712,7 @@ class TestEdgeCases:
             # Should not raise, should log warning and return
             server.run()
 
-    async def test_remove_proxy_with_circuit_breaker(self, mock_rotator: AsyncProxyRotator) -> None:
+    async def test_remove_proxy_with_circuit_breaker(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test remove_proxy also removes circuit breaker."""
         await set_rotator(mock_rotator)
         try:

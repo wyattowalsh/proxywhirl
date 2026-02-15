@@ -14,20 +14,20 @@ For guided tutorials on using these APIs, see the [Guides](../guides/index.md) s
 
 ## Core Classes
 
-### ProxyRotator
+### ProxyWhirl
 
 Main synchronous proxy rotation class with automatic failover.
 
 Provides HTTP methods (GET, POST, PUT, DELETE, PATCH) that automatically rotate through a pool of proxies with intelligent failover on connection errors.
 
 ```python
-from proxywhirl import ProxyRotator, Proxy
+from proxywhirl import ProxyWhirl, Proxy
 
 # Initialize with default round-robin strategy
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 
 # Initialize with specific strategy
-rotator = ProxyRotator(
+rotator = ProxyWhirl(
     proxies=[proxy1, proxy2],
     strategy="performance-based",  # or strategy instance
     config=ProxyConfiguration(),
@@ -44,7 +44,7 @@ response = rotator.get("https://httpbin.org/ip")
 response = rotator.post("https://httpbin.org/post", json={"key": "value"})
 
 # Context manager usage
-with ProxyRotator() as rotator:
+with ProxyWhirl() as rotator:
     rotator.add_proxy("http://proxy.example.com:8080")
     response = rotator.get("https://httpbin.org/ip")
 ```
@@ -102,20 +102,20 @@ The `rate_limiter` parameter accepts a `SyncRateLimiter` (not `RateLimiter`). Se
 
 ---
 
-### AsyncProxyRotator
+### AsyncProxyWhirl
 
 Async proxy rotator with automatic failover and intelligent rotation.
 
-Provides async HTTP methods that automatically rotate through a pool of proxies with the same functionality as ProxyRotator but using async/await.
+Provides async HTTP methods that automatically rotate through a pool of proxies with the same functionality as ProxyWhirl but using async/await.
 
 :::{seealso}
 For detailed async usage patterns and best practices, see [Async Client](../guides/async-client.md).
 :::
 
 ```python
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
-async with AsyncProxyRotator() as rotator:
+async with AsyncProxyWhirl() as rotator:
     await rotator.add_proxy("http://proxy1.example.com:8080")
     await rotator.add_proxy("http://proxy2.example.com:8080")
 
@@ -132,7 +132,7 @@ async with AsyncProxyRotator() as rotator:
 | `config` | `ProxyConfiguration \| None` | `ProxyConfiguration()` | Configuration settings (timeout, SSL verification, etc.) |
 | `retry_policy` | `RetryPolicy \| None` | `RetryPolicy()` | Retry policy configuration |
 
-**HTTP Methods:** Same as ProxyRotator but all async (prefixed with `await`)
+**HTTP Methods:** Same as ProxyWhirl but all async (prefixed with `await`)
 
 - `async get(url: str, **kwargs) -> httpx.Response`
 - `async post(url: str, **kwargs) -> httpx.Response`
@@ -149,7 +149,7 @@ async with AsyncProxyRotator() as rotator:
 - `async get_proxy() -> Proxy` - Get the next proxy using rotation strategy
 - `async clear_unhealthy_proxies() -> int` - Remove unhealthy/dead proxies
 
-**Statistics:** Same synchronous methods as ProxyRotator
+**Statistics:** Same synchronous methods as ProxyWhirl
 
 ---
 
@@ -321,12 +321,12 @@ True
 ```
 
 ```python
-from proxywhirl import RoundRobinStrategy, ProxyRotator
+from proxywhirl import RoundRobinStrategy, ProxyWhirl
 
 strategy = RoundRobinStrategy()
-rotator = ProxyRotator(strategy=strategy)
+rotator = ProxyWhirl(strategy=strategy)
 # Or use string name
-rotator = ProxyRotator(strategy="round-robin")
+rotator = ProxyWhirl(strategy="round-robin")
 ```
 
 **Thread Safety:** Uses `threading.Lock` for atomic index increment, preventing proxy skipping or duplicate selection in multi-threaded environments.
@@ -940,7 +940,7 @@ dict_revealed = creds.to_dict(reveal=True)  # {"username": "user", ...}
 
 ### ProxyConfiguration
 
-Configuration settings for ProxyRotator and AsyncProxyRotator.
+Configuration settings for ProxyWhirl and AsyncProxyWhirl.
 
 ```python
 from proxywhirl.models import ProxyConfiguration
@@ -2524,7 +2524,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from proxywhirl import (
-        ProxyRotator,
+        ProxyWhirl,
         Proxy,
         RotationStrategy,
         RetryPolicy,
@@ -2534,16 +2534,16 @@ if TYPE_CHECKING:
 def setup_rotator(
     strategy: RotationStrategy,
     retry_policy: RetryPolicy
-) -> ProxyRotator:
-    """Create and configure a ProxyRotator instance."""
-    rotator: ProxyRotator = ProxyRotator(
+) -> ProxyWhirl:
+    """Create and configure a ProxyWhirl instance."""
+    rotator: ProxyWhirl = ProxyWhirl(
         strategy=strategy,
         retry_policy=retry_policy
     )
     return rotator
 
 def add_proxy_to_rotator(
-    rotator: ProxyRotator,
+    rotator: ProxyWhirl,
     proxy: Proxy | str
 ) -> None:
     """Add a proxy to the rotator."""

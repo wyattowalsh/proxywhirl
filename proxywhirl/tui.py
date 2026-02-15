@@ -19,8 +19,8 @@ Launch via CLI:
     $ proxywhirl tui
 
 Or programmatically:
-    >>> from proxywhirl import ProxyRotator, run_tui
-    >>> rotator = ProxyRotator()
+    >>> from proxywhirl import ProxyWhirl, run_tui
+    >>> rotator = ProxyWhirl()
     >>> run_tui(rotator=rotator)
 
 ## Keyboard Shortcuts
@@ -85,7 +85,7 @@ from textual.widgets import (
 from proxywhirl.exceptions import ProxyFetchError
 from proxywhirl.fetchers import ProxyFetcher, ProxyValidator
 from proxywhirl.models import HealthStatus, Proxy
-from proxywhirl.rotator import ProxyRotator
+from proxywhirl.rotator import ProxyWhirl
 from proxywhirl.sources import (
     ALL_HTTP_SOURCES,
     ALL_SOCKS4_SOURCES,
@@ -1075,10 +1075,10 @@ class ProxyWhirlTUI(App):
     # Start time for uptime tracking
     _app_start_time: datetime | None = None
 
-    def __init__(self, rotator: ProxyRotator | None = None):
+    def __init__(self, rotator: ProxyWhirl | None = None):
         """Initialize TUI."""
         super().__init__()
-        self.rotator = rotator or ProxyRotator()
+        self.rotator = rotator or ProxyWhirl()
         self.fetcher: ProxyFetcher | None = None
         self.validator = ProxyValidator()
         self._app_start_time = datetime.now()
@@ -2456,7 +2456,7 @@ class ProxyWhirlTUI(App):
                 pass
 
 
-def run_tui(rotator: ProxyRotator | None = None) -> None:
+def run_tui(rotator: ProxyWhirl | None = None) -> None:
     """Run the TUI application."""
     app = ProxyWhirlTUI(rotator=rotator)
     app.run()

@@ -46,9 +46,9 @@ pip install proxywhirl
 ```
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 
-rotator = ProxyRotator(proxies=["http://p1:8080", "http://p2:8080"])
+rotator = ProxyWhirl(proxies=["http://p1:8080", "http://p2:8080"])
 response = rotator.get("https://api.example.com/data")
 # Dead proxies auto-ejected ✓ | Slow ones deprioritized ✓ | Fast ones favored ✓
 ```
@@ -116,7 +116,7 @@ response = rotator.get("https://api.example.com/data")
 
 ```python
 # Switch strategies on the fly
-rotator = ProxyRotator(strategy="performance-based")
+rotator = ProxyWhirl(strategy="performance-based")
 rotator.set_strategy("geo-targeted", preferences={"US": [...], "EU": [...]})
 ```
 

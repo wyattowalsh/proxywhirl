@@ -4,7 +4,7 @@ Test that SessionPersistenceStrategy properly manages memory.
 Tests verify that sessions don't accumulate indefinitely and that
 automatic cleanup mechanisms work correctly.
 
-Also tests that ProxyRotator doesn't leak memory through circuit breakers
+Also tests that ProxyWhirl doesn't leak memory through circuit breakers
 or client pools under proxy churn.
 """
 
@@ -12,7 +12,7 @@ import time
 from datetime import datetime, timedelta, timezone
 
 from proxywhirl.models import HealthStatus, Proxy, ProxyPool, SelectionContext
-from proxywhirl.rotator import ProxyRotator
+from proxywhirl.rotator import ProxyWhirl
 from proxywhirl.strategies import SessionManager, SessionPersistenceStrategy
 
 
@@ -304,12 +304,12 @@ class TestSessionMemoryManagement:
         assert len(manager._sessions) == 25, "Expired sessions not removed from internal storage"
 
 
-class TestProxyRotatorMemoryManagement:
-    """Tests for ProxyRotator memory management including circuit breakers and client pools."""
+class TestProxyWhirlMemoryManagement:
+    """Tests for ProxyWhirl memory management including circuit breakers and client pools."""
 
     def test_circuit_breakers_cleaned_up_on_proxy_removal(self):
         """Test that circuit breakers are removed when proxies are removed."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Add proxies
         proxy_ids = []
@@ -334,7 +334,7 @@ class TestProxyRotatorMemoryManagement:
 
     def test_circuit_breakers_cleaned_up_on_unhealthy_clear(self):
         """Test that circuit breakers are removed when clearing unhealthy proxies."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Add proxies
         for i in range(10):
@@ -356,7 +356,7 @@ class TestProxyRotatorMemoryManagement:
 
     def test_client_pool_lru_eviction(self):
         """Test that client pool evicts LRU clients when limit reached."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Add proxies (within the ProxyPool's max_pool_size limit of 100)
         for i in range(50):
@@ -375,7 +375,7 @@ class TestProxyRotatorMemoryManagement:
 
     def test_proxy_churn_memory_stability(self):
         """Test that repeated add/remove of proxies doesn't leak memory."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Simulate continuous proxy churn (realistic for dynamic proxy pools)
         for cycle in range(10):
@@ -442,9 +442,9 @@ class TestProxyRotatorMemoryManagement:
         assert final_count == 1, f"Expected 1 failure after cleanup, got {final_count}"
 
     def test_rotator_destructor_cleanup(self):
-        """Test that ProxyRotator properly cleans up resources in destructor."""
+        """Test that ProxyWhirl properly cleans up resources in destructor."""
         # Create rotator in a scope
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Add proxies with clients
         for i in range(5):
@@ -467,7 +467,7 @@ class TestProxyRotatorMemoryManagement:
 
         # Create rotator with session strategy directly
         session_strategy = SessionPersistenceStrategy(max_sessions=100, auto_cleanup_threshold=50)
-        rotator = ProxyRotator(strategy=session_strategy)
+        rotator = ProxyWhirl(strategy=session_strategy)
 
         # Add proxies
         for i in range(10):

@@ -1,5 +1,5 @@
 """
-Benchmark tests for AsyncProxyRotator performance.
+Benchmark tests for AsyncProxyWhirl performance.
 
 These tests validate performance requirements for the async hot path:
 - Async proxy selection latency
@@ -29,7 +29,7 @@ from proxywhirl.models import (
     Proxy,
     ProxyPool,
 )
-from proxywhirl.rotator import AsyncProxyRotator, LRUAsyncClientPool
+from proxywhirl.rotator import AsyncProxyWhirl, LRUAsyncClientPool
 
 # ============================================================================
 # FIXTURES
@@ -61,15 +61,15 @@ def large_proxy_pool(sample_proxies: list[Proxy]) -> ProxyPool:
 
 
 @pytest.fixture
-def async_rotator_sync(sample_proxies: list[Proxy]) -> AsyncProxyRotator:
-    """Create an AsyncProxyRotator without context manager (for sync benchmark tests)."""
-    return AsyncProxyRotator(proxies=sample_proxies)
+def async_rotator_sync(sample_proxies: list[Proxy]) -> AsyncProxyWhirl:
+    """Create an AsyncProxyWhirl without context manager (for sync benchmark tests)."""
+    return AsyncProxyWhirl(proxies=sample_proxies)
 
 
 @pytest.fixture
-async def async_rotator(sample_proxies: list[Proxy]) -> AsyncGenerator[AsyncProxyRotator, None]:
-    """Create an AsyncProxyRotator with context manager (for async tests)."""
-    rotator = AsyncProxyRotator(proxies=sample_proxies)
+async def async_rotator(sample_proxies: list[Proxy]) -> AsyncGenerator[AsyncProxyWhirl, None]:
+    """Create an AsyncProxyWhirl with context manager (for async tests)."""
+    rotator = AsyncProxyWhirl(proxies=sample_proxies)
     async with rotator:
         yield rotator
 
@@ -83,7 +83,7 @@ class TestAsyncProxySelectionBenchmarks:
     """Benchmark tests for async proxy selection performance (SC-007)."""
 
     def test_async_get_proxy_latency(
-        self, benchmark: Any, async_rotator_sync: AsyncProxyRotator
+        self, benchmark: Any, async_rotator_sync: AsyncProxyWhirl
     ) -> None:
         """
         Benchmark: Async proxy selection latency using pytest-benchmark.
@@ -103,7 +103,7 @@ class TestAsyncProxySelectionBenchmarks:
         assert isinstance(result, Proxy)
 
     def test_async_get_proxy_with_circuit_breaker_check(
-        self, benchmark: Any, async_rotator_sync: AsyncProxyRotator
+        self, benchmark: Any, async_rotator_sync: AsyncProxyWhirl
     ) -> None:
         """
         Benchmark: Async proxy selection with circuit breaker filtering.
@@ -252,7 +252,7 @@ class TestStrategyHotSwapBenchmarks:
     """Benchmark tests for strategy hot-swap performance (SC-009)."""
 
     def test_strategy_hot_swap_latency(
-        self, benchmark: Any, async_rotator_sync: AsyncProxyRotator
+        self, benchmark: Any, async_rotator_sync: AsyncProxyWhirl
     ) -> None:
         """
         Benchmark: Strategy hot-swap latency.
@@ -280,7 +280,7 @@ class TestPoolStatsBenchmarks:
     """Benchmark tests for pool statistics operations."""
 
     def test_get_pool_stats_latency(
-        self, benchmark: Any, async_rotator_sync: AsyncProxyRotator
+        self, benchmark: Any, async_rotator_sync: AsyncProxyWhirl
     ) -> None:
         """
         Benchmark: get_pool_stats latency.
@@ -293,7 +293,7 @@ class TestPoolStatsBenchmarks:
         assert "total_proxies" in result
 
     def test_get_statistics_latency(
-        self, benchmark: Any, async_rotator_sync: AsyncProxyRotator
+        self, benchmark: Any, async_rotator_sync: AsyncProxyWhirl
     ) -> None:
         """
         Benchmark: get_statistics (comprehensive) latency.
@@ -322,7 +322,7 @@ class TestConcurrentAsyncThroughputStress:
     """
 
     async def test_concurrent_get_proxy_throughput_100(
-        self, async_rotator_sync: AsyncProxyRotator
+        self, async_rotator_sync: AsyncProxyWhirl
     ) -> None:
         """
         Stress test: 100 concurrent async proxy selections.
@@ -348,7 +348,7 @@ class TestConcurrentAsyncThroughputStress:
         assert elapsed < 0.5, f"100 concurrent selections took {elapsed:.3f}s, should be <0.5s"
 
     async def test_concurrent_get_proxy_throughput_1000(
-        self, async_rotator_sync: AsyncProxyRotator
+        self, async_rotator_sync: AsyncProxyWhirl
     ) -> None:
         """
         Stress test: 1,000 concurrent async proxy selections.
@@ -374,7 +374,7 @@ class TestConcurrentAsyncThroughputStress:
 
     @pytest.mark.slow
     async def test_concurrent_get_proxy_throughput_10k(
-        self, async_rotator_sync: AsyncProxyRotator
+        self, async_rotator_sync: AsyncProxyWhirl
     ) -> None:
         """
         Stress test: 10,000 concurrent async proxy selections (SC-008).
@@ -406,9 +406,7 @@ class TestConcurrentAsyncThroughputStress:
         )
 
     @pytest.mark.slow
-    async def test_batched_concurrent_throughput(
-        self, async_rotator_sync: AsyncProxyRotator
-    ) -> None:
+    async def test_batched_concurrent_throughput(self, async_rotator_sync: AsyncProxyWhirl) -> None:
         """
         Stress test: Batched concurrent selections (real-world pattern).
 
@@ -462,7 +460,7 @@ class TestConcurrentAsyncThroughputStress:
         assert elapsed < 1.0, f"1000 concurrent CB checks took {elapsed:.3f}s, should be <1s"
 
     async def test_strategy_swap_during_concurrent_requests(
-        self, async_rotator_sync: AsyncProxyRotator
+        self, async_rotator_sync: AsyncProxyWhirl
     ) -> None:
         """
         Stress test: Strategy hot-swap during concurrent request processing.
@@ -594,7 +592,7 @@ class TestAsyncLatencyValidation:
     """
 
     async def test_async_proxy_selection_latency_target(
-        self, async_rotator_sync: AsyncProxyRotator
+        self, async_rotator_sync: AsyncProxyWhirl
     ) -> None:
         """
         Validate: Async proxy selection meets <5ms target (SC-007).

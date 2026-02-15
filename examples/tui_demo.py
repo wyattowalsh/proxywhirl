@@ -4,13 +4,13 @@ Demo script for ProxyWhirl TUI.
 Shows the full-featured terminal interface with all capabilities.
 """
 
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.tui import run_tui
 
 def main():
     """Run TUI demo."""
     # Create rotator with demo proxies
-    rotator = ProxyRotator()
+    rotator = ProxyWhirl()
 
     # Add some demo proxies
     demo_proxies = [

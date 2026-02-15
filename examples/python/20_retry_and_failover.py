@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 import httpx
 
-from proxywhirl import Proxy, ProxyRotator
+from proxywhirl import Proxy, ProxyWhirl
 from proxywhirl.circuit_breaker import CircuitBreakerState
 from proxywhirl.models import HealthStatus
 from proxywhirl.retry import BackoffStrategy, RetryExecutor, RetryPolicy
@@ -47,7 +47,7 @@ def show_default_policy() -> None:
     print("Default retry policy")
     print("=" * 70)
 
-    rotator = ProxyRotator(proxies=[Proxy(url="http://proxy-default.local:8080")])
+    rotator = ProxyWhirl(proxies=[Proxy(url="http://proxy-default.local:8080")])
     policy = rotator.retry_policy
 
     print(f"Max attempts: {policy.max_attempts}")
@@ -81,7 +81,7 @@ def simulate_retry_with_metrics() -> None:
     print("=" * 70)
 
     proxy = Proxy(url="http://resilient.proxy.local:8080", health_status=HealthStatus.HEALTHY)
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         proxies=[proxy],
         retry_policy=RetryPolicy(
             max_attempts=3,
@@ -118,7 +118,7 @@ def per_request_override() -> None:
     print("Per-request policy override")
     print("=" * 70)
 
-    base_rotator = ProxyRotator(
+    base_rotator = ProxyWhirl(
         proxies=[Proxy(url="http://override.proxy.local:8080")],
         retry_policy=RetryPolicy(max_attempts=5, base_delay=0.5),
     )
@@ -144,7 +144,7 @@ def circuit_breaker_walkthrough() -> None:
     print("Circuit breaker state transitions")
     print("=" * 70)
 
-    rotator = ProxyRotator(proxies=[Proxy(url="http://cb.proxy.local:8080")])
+    rotator = ProxyWhirl(proxies=[Proxy(url="http://cb.proxy.local:8080")])
     proxy = rotator.pool.proxies[0]
     circuit_breaker = rotator.circuit_breakers[str(proxy.id)]
 

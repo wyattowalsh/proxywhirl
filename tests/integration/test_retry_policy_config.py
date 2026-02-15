@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-from proxywhirl import Proxy, ProxyRotator, RetryPolicy
+from proxywhirl import Proxy, ProxyWhirl, RetryPolicy
 from proxywhirl.exceptions import ProxyConnectionError
 from proxywhirl.retry import BackoffStrategy
 
@@ -20,7 +20,7 @@ class TestPerRequestPolicyOverride:
         # Global policy: 5 attempts
         global_policy = RetryPolicy(max_attempts=5)
 
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[Proxy(url="http://proxy1.example.com:8080")],
             retry_policy=global_policy,
         )
@@ -58,7 +58,7 @@ class TestRetryNonIdempotent:
 
     def test_post_skips_retry_by_default(self):
         """Test that POST requests skip retries by default."""
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[Proxy(url="http://proxy1.example.com:8080")],
             retry_policy=RetryPolicy(max_attempts=3),
         )
@@ -87,7 +87,7 @@ class TestRetryNonIdempotent:
         """Test that POST retries when retry_non_idempotent=True."""
         policy = RetryPolicy(max_attempts=3, retry_non_idempotent=True)
 
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[Proxy(url="http://proxy1.example.com:8080")],
             retry_policy=policy,
         )
@@ -114,7 +114,7 @@ class TestRetryNonIdempotent:
 
     def test_get_always_retries(self):
         """Test that GET requests always retry (idempotent)."""
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[Proxy(url="http://proxy1.example.com:8080")],
             retry_policy=RetryPolicy(max_attempts=3),
         )
@@ -150,7 +150,7 @@ class TestCustomStatusCodes:
             retry_status_codes=[502, 503],  # Only retry these
         )
 
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[Proxy(url="http://proxy1.example.com:8080")],
             retry_policy=policy,
         )
@@ -185,7 +185,7 @@ class TestCustomStatusCodes:
             retry_status_codes=[502, 503, 504],
         )
 
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[Proxy(url="http://proxy1.example.com:8080")],
             retry_policy=policy,
         )
@@ -232,7 +232,7 @@ class TestBackoffStrategyVariants:
             jitter=False,
         )
 
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[Proxy(url="http://proxy1.example.com:8080")],
             retry_policy=policy,
         )
@@ -269,7 +269,7 @@ class TestBackoffStrategyVariants:
             jitter=False,
         )
 
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[Proxy(url="http://proxy1.example.com:8080")],
             retry_policy=policy,
         )
@@ -306,7 +306,7 @@ class TestBackoffStrategyVariants:
             jitter=False,
         )
 
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[Proxy(url="http://proxy1.example.com:8080")],
             retry_policy=policy,
         )

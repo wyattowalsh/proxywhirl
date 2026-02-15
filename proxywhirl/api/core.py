@@ -10,7 +10,7 @@ The API uses:
 - FastAPI for async request handling and auto-generated OpenAPI docs
 - slowapi for rate limiting
 - Optional API key authentication
-- Singleton ProxyRotator for proxy management
+- Singleton ProxyWhirl for proxy management
 """
 
 # ruff: noqa: B008
@@ -64,7 +64,7 @@ from proxywhirl.api.models import (
     UpdateConfigRequest,
 )
 from proxywhirl.exceptions import ProxyWhirlError
-from proxywhirl.rotator import ProxyRotator
+from proxywhirl.rotator import ProxyWhirl
 from proxywhirl.storage import SQLiteStorage
 from proxywhirl.utils import validate_target_url_safe
 
@@ -116,7 +116,7 @@ def _parse_float_env(name: str, default: float) -> float:
 
 
 # Global singleton instances
-_rotator: ProxyRotator | None = None
+_rotator: ProxyWhirl | None = None
 _storage: SQLiteStorage | None = None
 _config: dict[str, Any] = {}
 
@@ -304,7 +304,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan manager for startup and shutdown.
 
     Handles:
-    - ProxyRotator initialization on startup
+    - ProxyWhirl initialization on startup
     - Optional SQLiteStorage initialization
     - Graceful cleanup on shutdown
     """
@@ -320,8 +320,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         _storage = SQLiteStorage(storage_path)
 
     # Initialize rotator
-    logger.info("Initializing ProxyRotator...")
-    _rotator = ProxyRotator()
+    logger.info("Initializing ProxyWhirl...")
+    _rotator = ProxyWhirl()
 
     # Load proxies from storage if available
     if _storage:
@@ -885,11 +885,11 @@ async def proxy_error_handler(request: Request, exc: ProxyWhirlError) -> JSONRes
 
 
 # Dependency injection
-def get_rotator() -> ProxyRotator:
-    """Get the singleton ProxyRotator instance.
+def get_rotator() -> ProxyWhirl:
+    """Get the singleton ProxyWhirl instance.
 
     Returns:
-        ProxyRotator instance
+        ProxyWhirl instance
 
     Raises:
         HTTPException: If rotator not initialized
@@ -897,7 +897,7 @@ def get_rotator() -> ProxyRotator:
     if _rotator is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="ProxyRotator not initialized",
+            detail="ProxyWhirl not initialized",
         )
     return _rotator
 
@@ -1035,7 +1035,7 @@ async def metrics() -> Response:
 async def make_proxied_request(
     request: Request,
     request_data: ProxiedRequest = Depends(validate_proxied_request_url),
-    rotator: ProxyRotator = Depends(get_rotator),
+    rotator: ProxyWhirl = Depends(get_rotator),
     api_key: None = Depends(verify_api_key),
 ) -> APIResponse[ProxiedResponse]:
     """Make an HTTP request through a rotating proxy.
@@ -1053,7 +1053,7 @@ async def make_proxied_request(
 
     Args:
         request_data: Request details (URL, method, headers, body, timeout) - validated for SSRF
-        rotator: ProxyRotator dependency injection
+        rotator: ProxyWhirl dependency injection
         api_key: API key verification dependency
 
     Returns:
@@ -1150,7 +1150,7 @@ async def list_proxies(
     page: int = 1,
     page_size: int = 50,
     status_filter: str | None = None,
-    rotator: ProxyRotator = Depends(get_rotator),
+    rotator: ProxyWhirl = Depends(get_rotator),
     api_key: None = Depends(verify_api_key),
 ) -> APIResponse[PaginatedResponse[ProxyResource]]:
     """List all proxies in the pool with pagination and filtering.
@@ -1159,7 +1159,7 @@ async def list_proxies(
         page: Page number (1-indexed)
         page_size: Number of items per page (max 100)
         status_filter: Filter by health status (optional)
-        rotator: ProxyRotator dependency
+        rotator: ProxyWhirl dependency
         api_key: API key verification
 
     Returns:
@@ -1256,14 +1256,14 @@ async def list_proxies(
 async def add_proxy(
     request: Request,
     proxy_data: CreateProxyRequest,
-    rotator: ProxyRotator = Depends(get_rotator),
+    rotator: ProxyWhirl = Depends(get_rotator),
     api_key: None = Depends(verify_api_key),
 ) -> APIResponse[ProxyResource]:
     """Add a new proxy to the pool.
 
     Args:
         proxy_data: Proxy URL and optional credentials
-        rotator: ProxyRotator dependency
+        rotator: ProxyWhirl dependency
         api_key: API key verification
 
     Returns:
@@ -1380,14 +1380,14 @@ async def _check_proxy_health(
 )
 async def health_check_proxies(
     request_data: HealthCheckRequest,
-    rotator: ProxyRotator = Depends(get_rotator),
+    rotator: ProxyWhirl = Depends(get_rotator),
     api_key: None = Depends(verify_api_key),
 ) -> APIResponse[list[HealthCheckResult]]:
     """Run health checks on specified proxies.
 
     Args:
         request_data: Optional list of proxy IDs to check
-        rotator: ProxyRotator dependency
+        rotator: ProxyWhirl dependency
         api_key: API key verification
 
     Returns:
@@ -1420,7 +1420,7 @@ async def health_check_proxies(
 )
 async def health_check_proxies_deprecated(
     request_data: HealthCheckRequest,
-    rotator: ProxyRotator = Depends(get_rotator),
+    rotator: ProxyWhirl = Depends(get_rotator),
     api_key: None = Depends(verify_api_key),
 ) -> APIResponse[list[HealthCheckResult]]:
     """Run health checks on specified proxies.
@@ -1430,7 +1430,7 @@ async def health_check_proxies_deprecated(
 
     Args:
         request_data: Optional list of proxy IDs to check
-        rotator: ProxyRotator dependency
+        rotator: ProxyWhirl dependency
         api_key: API key verification
 
     Returns:
@@ -1451,14 +1451,14 @@ async def health_check_proxies_deprecated(
 )
 async def get_proxy(
     proxy_id: str,
-    rotator: ProxyRotator = Depends(get_rotator),
+    rotator: ProxyWhirl = Depends(get_rotator),
     api_key: None = Depends(verify_api_key),
 ) -> APIResponse[ProxyResource]:
     """Get details of a specific proxy.
 
     Args:
         proxy_id: Proxy identifier
-        rotator: ProxyRotator dependency
+        rotator: ProxyWhirl dependency
         api_key: API key verification
 
     Returns:
@@ -1512,7 +1512,7 @@ async def get_proxy(
 )
 async def delete_proxy(
     proxy_id: str,
-    rotator: ProxyRotator = Depends(get_rotator),
+    rotator: ProxyWhirl = Depends(get_rotator),
     storage: SQLiteStorage | None = Depends(get_storage),
     api_key: None = Depends(verify_api_key),
 ) -> None:
@@ -1520,7 +1520,7 @@ async def delete_proxy(
 
     Args:
         proxy_id: Proxy identifier
-        rotator: ProxyRotator dependency
+        rotator: ProxyWhirl dependency
         storage: Optional storage dependency
         api_key: API key verification
     """
@@ -1560,14 +1560,14 @@ async def delete_proxy(
     summary="API health check",
 )
 async def health_check(
-    rotator: ProxyRotator = Depends(get_rotator),
+    rotator: ProxyWhirl = Depends(get_rotator),
 ) -> JSONResponse:
     """Check API health status.
 
     Returns 200 if healthy, 503 if unhealthy.
 
     Args:
-        rotator: ProxyRotator dependency
+        rotator: ProxyWhirl dependency
 
     Returns:
         Health status response
@@ -1614,7 +1614,7 @@ async def health_check(
     summary="API readiness check",
 )
 async def readiness_check(
-    rotator: ProxyRotator = Depends(get_rotator),
+    rotator: ProxyWhirl = Depends(get_rotator),
     storage: SQLiteStorage | None = Depends(get_storage),
 ) -> JSONResponse:
     """Check if API is ready to serve requests.
@@ -1622,7 +1622,7 @@ async def readiness_check(
     Returns 200 if ready, 503 if not ready.
 
     Args:
-        rotator: ProxyRotator dependency
+        rotator: ProxyWhirl dependency
         storage: Optional storage dependency
 
     Returns:
@@ -1654,14 +1654,14 @@ async def readiness_check(
     summary="Get system status",
 )
 async def get_status(
-    rotator: ProxyRotator = Depends(get_rotator),
+    rotator: ProxyWhirl = Depends(get_rotator),
     storage: SQLiteStorage | None = Depends(get_storage),
     config: dict[str, Any] = Depends(get_config),
 ) -> APIResponse[StatusResponse]:
     """Get detailed system status including pool stats.
 
     Args:
-        rotator: ProxyRotator dependency
+        rotator: ProxyWhirl dependency
         storage: Optional storage dependency
         config: Configuration dependency
 
@@ -1708,7 +1708,7 @@ async def get_status(
     summary="Get performance statistics",
 )
 async def get_stats(
-    rotator: ProxyRotator = Depends(get_rotator),
+    rotator: ProxyWhirl = Depends(get_rotator),
 ) -> APIResponse[MetricsResponse]:
     """Get API performance statistics (general aggregate metrics).
 
@@ -1716,7 +1716,7 @@ async def get_stats(
     distinct from the detailed Prometheus metrics available at /metrics.
 
     Args:
-        rotator: ProxyRotator dependency
+        rotator: ProxyWhirl dependency
 
     Returns:
         Performance statistics response
@@ -1823,7 +1823,7 @@ async def update_configuration(
     request: Request,
     update_data: UpdateConfigRequest,
     config: dict[str, Any] = Depends(get_config),
-    rotator: ProxyRotator = Depends(get_rotator),
+    rotator: ProxyWhirl = Depends(get_rotator),
     api_key: None = Depends(verify_api_key),
 ) -> APIResponse[ConfigurationSettings]:
     """Update API configuration at runtime.
@@ -1831,7 +1831,7 @@ async def update_configuration(
     Args:
         update_data: Configuration updates (partial)
         config: Configuration dependency
-        rotator: ProxyRotator dependency
+        rotator: ProxyWhirl dependency
         api_key: API key verification
 
     Returns:

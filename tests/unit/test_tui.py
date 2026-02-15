@@ -12,7 +12,7 @@ import pytest
 from rich.text import Text
 
 from proxywhirl.models import HealthStatus, Proxy
-from proxywhirl.rotator import ProxyRotator
+from proxywhirl.rotator import ProxyWhirl
 
 
 class TestMetricsPanel:
@@ -155,7 +155,7 @@ class TestProxyWhirlTUI:
         app = ProxyWhirlTUI()
 
         assert app.rotator is not None
-        assert isinstance(app.rotator, ProxyRotator)
+        assert isinstance(app.rotator, ProxyWhirl)
         # fetcher and validator are set in on_mount, not __init__
         assert hasattr(app, "fetcher")
         assert hasattr(app, "validator")
@@ -164,7 +164,7 @@ class TestProxyWhirlTUI:
         """Test ProxyWhirlTUI initialization with custom rotator."""
         from proxywhirl.tui import ProxyWhirlTUI
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         app = ProxyWhirlTUI(rotator=rotator)
 
         assert app.rotator is rotator
@@ -340,7 +340,7 @@ class TestRunTui:
         """Test run_tui accepts rotator argument."""
         from proxywhirl.tui import ProxyWhirlTUI, run_tui
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         with patch.object(ProxyWhirlTUI, "run") as mock_run:
             run_tui(rotator=rotator)

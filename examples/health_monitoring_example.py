@@ -190,15 +190,15 @@ async def example_error_handling():
 
 
 async def example_monitoring_with_rotator():
-    """Health monitoring integrated with ProxyRotator."""
-    print("\n=== Example 6: Monitoring with ProxyRotator ===")
+    """Health monitoring integrated with ProxyWhirl."""
+    print("\n=== Example 6: Monitoring with ProxyWhirl ===")
 
     # Import here to avoid circular dependency issues in examples
-    from proxywhirl.rotator import ProxyRotator
+    from proxywhirl import ProxyWhirl
     from proxywhirl.strategies import RandomStrategy
 
     # Create rotator (which creates its own internal pool)
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         proxies=[
             Proxy(url="http://proxy1.example.com:8080"),
             Proxy(url="http://proxy2.example.com:8080"),

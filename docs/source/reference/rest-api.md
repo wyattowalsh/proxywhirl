@@ -1129,7 +1129,7 @@ curl -X PUT http://localhost:8000/api/v1/config \
 
 ## See Also
 
-- [Python API](python-api.md) -- Python API reference (ProxyRotator, AsyncProxyRotator)
+- [Python API](python-api.md) -- Python API reference (ProxyWhirl, AsyncProxyWhirl)
 - [Configuration](configuration.md) -- Configuration options and environment variables
 - [Exceptions](exceptions.md) -- Exception types and error codes
 - [Rate Limiting API](rate-limiting-api.md) -- Rate limiting API reference

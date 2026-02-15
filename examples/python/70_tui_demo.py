@@ -6,14 +6,14 @@ This script demonstrates the ProxyWhirl Terminal User Interface (TUI),
 showcasing the beautiful, interactive dashboard for proxy management.
 """
 
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.tui import run_tui
 
 
 def main() -> None:
     """Launch TUI with sample proxies."""
     # Create a rotator with some example proxies
-    rotator = ProxyRotator(strategy="round-robin")
+    rotator = ProxyWhirl(strategy="round-robin")
 
     # Add some demo proxies (these won't actually work, just for demo)
     demo_proxies = [

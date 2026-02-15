@@ -15,7 +15,7 @@ from proxywhirl import (
     BackoffStrategy,
     CircuitBreakerState,
     Proxy,
-    ProxyRotator,
+    ProxyWhirl,
     RetryPolicy,
 )
 
@@ -31,7 +31,7 @@ def example_1_basic_retry():
         Proxy(url="http://proxy3.example.com:8080"),
     ]
 
-    rotator = ProxyRotator(proxies=proxies)
+    rotator = ProxyWhirl(proxies=proxies)
 
     print("Retry policy (default):")
     print(f"  Max attempts: {rotator.retry_policy.max_attempts}")
@@ -62,7 +62,7 @@ def example_2_custom_retry_policy():
     )
 
     proxies = [Proxy(url="http://proxy1.example.com:8080")]
-    rotator = ProxyRotator(proxies=proxies, retry_policy=policy)
+    rotator = ProxyWhirl(proxies=proxies, retry_policy=policy)
 
     print("Custom retry policy:")
     print(f"  Max attempts: {policy.max_attempts}")
@@ -80,7 +80,7 @@ def example_3_per_request_override():
     print("\n=== Example 3: Per-Request Policy Override ===\n")
 
     # Global policy: retry 3 times
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         proxies=[Proxy(url="http://proxy1.example.com:8080")],
         retry_policy=RetryPolicy(max_attempts=3),
     )
@@ -117,7 +117,7 @@ def example_4_circuit_breaker_monitoring():
         Proxy(url="http://proxy3.example.com:8080"),
     ]
 
-    rotator = ProxyRotator(proxies=proxies)
+    rotator = ProxyWhirl(proxies=proxies)
 
     # Check circuit breaker states
     states = rotator.get_circuit_breaker_states()
@@ -146,7 +146,7 @@ def example_5_retry_metrics():
     """Example 5: Retry metrics and observability."""
     print("\n=== Example 5: Retry Metrics ===\n")
 
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         proxies=[
             Proxy(url="http://proxy1.example.com:8080"),
             Proxy(url="http://proxy2.example.com:8080"),
@@ -175,7 +175,7 @@ def example_6_non_idempotent_requests():
     """Example 6: Handling non-idempotent requests (POST/PUT)."""
     print("\n=== Example 6: Non-Idempotent Requests ===\n")
 
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         proxies=[Proxy(url="http://proxy1.example.com:8080")],
         retry_policy=RetryPolicy(max_attempts=3),
     )
@@ -248,7 +248,7 @@ def example_8_geo_targeted_retry():
         ),
     ]
 
-    rotator = ProxyRotator(proxies=proxies)
+    rotator = ProxyWhirl(proxies=proxies)
 
     print("Proxies with region metadata:")
     print("  - proxy-us: US-EAST")
@@ -265,7 +265,7 @@ def example_9_manual_circuit_breaker_reset():
     print("\n=== Example 9: Manual Circuit Breaker Reset ===\n")
 
     proxies = [Proxy(url="http://proxy1.example.com:8080")]
-    rotator = ProxyRotator(proxies=proxies)
+    rotator = ProxyWhirl(proxies=proxies)
 
     proxy_id = list(rotator.circuit_breakers.keys())[0]
 
@@ -290,7 +290,7 @@ def example_10_timeout_management():
         timeout=15.0,  # Total timeout: 15 seconds
     )
 
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         proxies=[Proxy(url="http://proxy1.example.com:8080")],
         retry_policy=policy,
     )

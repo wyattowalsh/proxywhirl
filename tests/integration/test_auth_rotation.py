@@ -1,6 +1,6 @@
 """Integration tests for authenticated proxy rotation.
 
-Tests that ProxyRotator correctly applies different credentials when
+Tests that ProxyWhirl correctly applies different credentials when
 rotating between multiple authenticated proxies.
 """
 
@@ -9,7 +9,7 @@ import pytest
 import respx
 from pydantic import SecretStr
 
-from proxywhirl import Proxy, ProxyRotator
+from proxywhirl import Proxy, ProxyWhirl
 
 
 class TestAuthenticationRotation:
@@ -49,7 +49,7 @@ class TestAuthenticationRotation:
             return_value=httpx.Response(200, json={"origin": "1.2.3.4"})
         )
 
-        rotator = ProxyRotator(proxies=proxies_with_different_credentials)
+        rotator = ProxyWhirl(proxies=proxies_with_different_credentials)
 
         # Make multiple requests - should rotate through all proxies
         for _ in range(6):  # 2 full rotations
@@ -85,7 +85,7 @@ class TestAuthenticationRotation:
         # Mock all requests to succeed
         respx.get("https://httpbin.org/test").mock(return_value=httpx.Response(200, text="success"))
 
-        rotator = ProxyRotator(proxies=proxies)
+        rotator = ProxyWhirl(proxies=proxies)
 
         # Make requests through all proxies
         for i in range(3):
@@ -110,7 +110,7 @@ class TestAuthenticationRotation:
 
         respx.get("https://httpbin.org/ip").mock(side_effect=check_auth_handler)
 
-        rotator = ProxyRotator(proxies=proxies_with_different_credentials)
+        rotator = ProxyWhirl(proxies=proxies_with_different_credentials)
 
         # Make multiple requests
         responses = [rotator.get("https://httpbin.org/ip") for _ in range(3)]
@@ -133,7 +133,7 @@ class TestAuthenticationRotation:
             return_value=httpx.Response(200, json={"origin": "1.2.3.4"})
         )
 
-        rotator = ProxyRotator(proxies=[proxy])
+        rotator = ProxyWhirl(proxies=[proxy])
         response = rotator.get("https://httpbin.org/ip")
 
         assert response.status_code == 200
@@ -153,7 +153,7 @@ class TestAuthenticationRotation:
             return_value=httpx.Response(200, json={"origin": "1.2.3.4"})
         )
 
-        rotator = ProxyRotator(proxies=[proxy])
+        rotator = ProxyWhirl(proxies=[proxy])
         response = rotator.get("https://httpbin.org/ip")
 
         assert response.status_code == 200

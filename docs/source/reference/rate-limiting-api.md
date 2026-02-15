@@ -24,7 +24,7 @@ The rate limiting subsystem provides flexible request throttling for proxies wit
 Built on top of `pyrate-limiter` for robust, production-ready rate limiting.
 
 :::{important}
-There are three rate limiter classes. Use `SyncRateLimiter` with `ProxyRotator` and `AsyncRateLimiter` with `AsyncProxyRotator`. The base `RateLimiter` class is deprecated but maintained for backwards compatibility.
+There are three rate limiter classes. Use `SyncRateLimiter` with `ProxyWhirl` and `AsyncRateLimiter` with `AsyncProxyWhirl`. The base `RateLimiter` class is deprecated but maintained for backwards compatibility.
 :::
 
 ## Core Classes
@@ -54,7 +54,7 @@ if limiter.check_limit("proxy1"):
 
 ### SyncRateLimiter
 
-Synchronous rate limiter for use with `ProxyRotator`. Thread-safe via `threading.RLock`.
+Synchronous rate limiter for use with `ProxyWhirl`. Thread-safe via `threading.RLock`.
 
 ```python
 from proxywhirl.rate_limiting import SyncRateLimiter, RateLimit
@@ -73,7 +73,7 @@ if limiter.check_limit("proxy1"):
 
 ### AsyncRateLimiter
 
-Async rate limiter for use with `AsyncProxyRotator`. Uses `asyncio.Lock` for async safety.
+Async rate limiter for use with `AsyncProxyWhirl`. Uses `asyncio.Lock` for async safety.
 
 ```python
 from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit
@@ -477,14 +477,14 @@ async def adaptive_request(proxy_id):
 
 ---
 
-### Integration with ProxyRotator
+### Integration with ProxyWhirl
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.rate_limiting import SyncRateLimiter, RateLimit
 
 # Create rotator and sync limiter
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 limiter = SyncRateLimiter(
     global_limit=RateLimit(max_requests=1000, time_window=60)
 )
@@ -972,7 +972,7 @@ limiter.set_proxy_limit("proxy1_api_v2", RateLimit(max_requests=20, time_window=
 
 ## See Also
 
-- [Python API](python-api.md) -- Main ProxyRotator and AsyncProxyRotator API
+- [Python API](python-api.md) -- Main ProxyWhirl and AsyncProxyWhirl API
 - [REST API](rest-api.md) -- REST API rate limiting configuration
 - [Configuration](configuration.md) -- TOML configuration for rate limits
 - [Retry & Failover](../guides/retry-failover.md) -- Retry and circuit breaker integration

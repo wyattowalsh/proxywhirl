@@ -125,7 +125,7 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
 
 3. **Increase timeout:**
    ```python
-   rotator = ProxyRotator(
+   rotator = ProxyWhirl(
        proxies=["http://proxy1:8080"],
        timeout=60  # Default is 30 seconds
    )
@@ -218,7 +218,7 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
 
 4. **Use offline mode with cached proxies:**
    ```python
-   rotator = ProxyRotator(
+   rotator = ProxyWhirl(
        proxies=[],  # Empty, will load from storage
        storage_path="proxywhirl.db"
    )
@@ -410,7 +410,7 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
 **Solutions:**
 1. **Increase timeout:**
    ```python
-   rotator = ProxyRotator(
+   rotator = ProxyWhirl(
        proxies=["http://proxy1:8080"],
        timeout=60  # Increase from default 30s
    )
@@ -543,11 +543,11 @@ proxywhirl pool list
 
 2. **Lower health check sensitivity:**
    ```python
-   from proxywhirl import ProxyRotator
+   from proxywhirl import ProxyWhirl
    from proxywhirl.circuit_breaker import CircuitBreaker
 
    # Increase failure threshold
-   rotator = ProxyRotator(
+   rotator = ProxyWhirl(
        proxies=[...],
        circuit_breaker=CircuitBreaker(
            failure_threshold=10,  # Default is 5
@@ -564,7 +564,7 @@ proxywhirl pool list
 
 4. **Disable health checks temporarily:**
    ```python
-   rotator = ProxyRotator(
+   rotator = ProxyWhirl(
        proxies=[...],
        health_check_interval=0  # Disable automatic checks
    )
@@ -597,7 +597,7 @@ logger.add("requests.log", level="DEBUG")
        burst_size=10
    )
 
-   rotator = ProxyRotator(
+   rotator = ProxyWhirl(
        proxies=[...],
        rate_limiter=rate_limiter
    )
@@ -614,7 +614,7 @@ logger.add("requests.log", level="DEBUG")
 3. **Rotate proxies more aggressively:**
    ```python
    # Use random strategy instead of round-robin
-   rotator = ProxyRotator(
+   rotator = ProxyWhirl(
        proxies=[...],
        strategy="random"
    )
@@ -624,7 +624,7 @@ logger.add("requests.log", level="DEBUG")
    ```python
    from proxywhirl.strategies import SessionPersistenceStrategy
 
-   rotator = ProxyRotator(
+   rotator = ProxyWhirl(
        proxies=[...],
        strategy=SessionPersistenceStrategy(
            session_duration=300  # 5 minutes per session
@@ -649,7 +649,7 @@ proxywhirl pool test http://proxy.example.com:8080 --target-url https://httpbin.
 
 1. **Disable SSL verification (NOT RECOMMENDED for production):**
    ```python
-   rotator = ProxyRotator(
+   rotator = ProxyWhirl(
        proxies=[...],
        verify_ssl=False
    )
@@ -705,14 +705,14 @@ for stat in top_stats[:10]:
 
 1. **Use LRU client pool (built-in):**
    ```python
-   # ProxyRotator automatically uses LRUClientPool (max 100 clients)
-   rotator = ProxyRotator(proxies=[...])
+   # ProxyWhirl automatically uses LRUClientPool (max 100 clients)
+   rotator = ProxyWhirl(proxies=[...])
    ```
 
 2. **Close rotator when done:**
    ```python
    try:
-       rotator = ProxyRotator(proxies=[...])
+       rotator = ProxyWhirl(proxies=[...])
        # ... use rotator
    finally:
        rotator.close()  # Close all httpx clients
@@ -720,7 +720,7 @@ for stat in top_stats[:10]:
 
 3. **Use context manager:**
    ```python
-   with ProxyRotator(proxies=[...]) as rotator:
+   with ProxyWhirl(proxies=[...]) as rotator:
        response = rotator.get("https://example.com")
    ```
 
@@ -875,8 +875,8 @@ logger.add(
 )
 
 # Now all ProxyWhirl operations will log verbosely
-from proxywhirl import ProxyRotator
-rotator = ProxyRotator(proxies=["http://proxy1:8080"])
+from proxywhirl import ProxyWhirl
+rotator = ProxyWhirl(proxies=["http://proxy1:8080"])
 ```
 
 **Method 3: CLI Flag**
@@ -892,11 +892,11 @@ proxywhirl -v health
 All ProxyWhirl exceptions include rich metadata:
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import ProxyWhirlError
 
 try:
-    rotator = ProxyRotator(proxies=[])
+    rotator = ProxyWhirl(proxies=[])
     rotator.get("https://example.com")
 except ProxyWhirlError as e:
     # Access error details
@@ -1045,23 +1045,23 @@ ProxyWhirl supports multiple strategies:
 
 **1. Round-Robin (default):**
 ```python
-rotator = ProxyRotator(proxies=[...], strategy="round-robin")
+rotator = ProxyWhirl(proxies=[...], strategy="round-robin")
 ```
 
 **2. Random:**
 ```python
-rotator = ProxyRotator(proxies=[...], strategy="random")
+rotator = ProxyWhirl(proxies=[...], strategy="random")
 ```
 
 **3. Weighted (performance-based):**
 ```python
-rotator = ProxyRotator(proxies=[...], strategy="weighted")
+rotator = ProxyWhirl(proxies=[...], strategy="weighted")
 # Faster proxies get more traffic
 ```
 
 **4. Least-Used:**
 ```python
-rotator = ProxyRotator(proxies=[...], strategy="least-used")
+rotator = ProxyWhirl(proxies=[...], strategy="least-used")
 # Balances load across proxies
 ```
 
@@ -1073,7 +1073,7 @@ strategy = SessionPersistenceStrategy(
     session_duration=300,  # 5 minutes
     identifier_fn=lambda req: req.url.host  # Sticky sessions per domain
 )
-rotator = ProxyRotator(proxies=[...], strategy=strategy)
+rotator = ProxyWhirl(proxies=[...], strategy=strategy)
 ```
 
 **6. Geo-Targeted:**
@@ -1083,7 +1083,7 @@ from proxywhirl.strategies import GeoTargetedStrategy
 strategy = GeoTargetedStrategy(
     target_countries=["US", "GB", "CA"]
 )
-rotator = ProxyRotator(proxies=[...], strategy=strategy)
+rotator = ProxyWhirl(proxies=[...], strategy=strategy)
 ```
 
 **7. Performance-Based:**
@@ -1094,7 +1094,7 @@ strategy = PerformanceBasedStrategy(
     latency_weight=0.7,
     success_rate_weight=0.3
 )
-rotator = ProxyRotator(proxies=[...], strategy=strategy)
+rotator = ProxyWhirl(proxies=[...], strategy=strategy)
 ```
 
 See [`proxywhirl/strategies.py`](../proxywhirl/strategies.py) for implementation details.
@@ -1108,7 +1108,7 @@ See [`proxywhirl/strategies.py`](../proxywhirl/strategies.py) for implementation
 Use SQLite storage:
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.storage import SQLiteStorage
 
 # Initialize storage
@@ -1116,7 +1116,7 @@ storage = SQLiteStorage("proxywhirl.db")
 await storage.initialize()
 
 # Create rotator with storage
-rotator = ProxyRotator(
+rotator = ProxyWhirl(
     proxies=[],  # Will load from storage
     storage=storage
 )
@@ -1252,7 +1252,7 @@ proxywhirl health --verbose
 
 1. **Use performance-based strategy:**
    ```python
-   rotator = ProxyRotator(
+   rotator = ProxyWhirl(
        proxies=[...],
        strategy="weighted"  # Faster proxies get priority
    )
@@ -1281,14 +1281,14 @@ proxywhirl health --verbose
 
 **Answer:**
 
-Use `AsyncProxyRotator`:
+Use `AsyncProxyWhirl`:
 
 ```python
 import asyncio
-from proxywhirl.async_client import AsyncProxyRotator
+from proxywhirl.async_client import AsyncProxyWhirl
 
 async def main():
-    async with AsyncProxyRotator(
+    async with AsyncProxyWhirl(
         proxies=["http://proxy1:8080", "http://proxy2:8080"]
     ) as rotator:
         # Make async requests
@@ -1311,9 +1311,9 @@ See [`examples/python/00_quickstart.py`](../examples/python/00_quickstart.py) fo
 
 **Answer:**
 
-**Option 1: Use ProxyRotator's built-in client**
+**Option 1: Use ProxyWhirl's built-in client**
 ```python
-rotator = ProxyRotator(proxies=[...])
+rotator = ProxyWhirl(proxies=[...])
 response = rotator.get("https://api.example.com")
 # Same interface as httpx
 ```
@@ -1321,9 +1321,9 @@ response = rotator.get("https://api.example.com")
 **Option 2: Get proxy URL and use with httpx**
 ```python
 import httpx
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 
-rotator = ProxyRotator(proxies=[...])
+rotator = ProxyWhirl(proxies=[...])
 proxy = rotator.get_next()
 
 # Use with httpx directly
@@ -1333,7 +1333,7 @@ with httpx.Client(proxy=proxy.url) as client:
 
 **Option 3: Use as httpx transport**
 ```python
-# Coming soon: ProxyRotatorTransport
+# Coming soon: ProxyWhirlTransport
 ```
 
 ---
@@ -1350,7 +1350,7 @@ with httpx.Client(proxy=proxy.url) as client:
 
 2. **Enable health monitoring:**
    ```python
-   rotator = ProxyRotator(
+   rotator = ProxyWhirl(
        proxies=[...],
        health_check_interval=60  # Check every minute
    )
@@ -1360,7 +1360,7 @@ with httpx.Client(proxy=proxy.url) as client:
    ```python
    from proxywhirl.retry_policy import RetryPolicy
 
-   rotator = ProxyRotator(
+   rotator = ProxyWhirl(
        proxies=[...],
        retry_policy=RetryPolicy(
            max_attempts=5,
@@ -1381,7 +1381,7 @@ with httpx.Client(proxy=proxy.url) as client:
    ```python
    from proxywhirl.circuit_breaker import CircuitBreaker
 
-   rotator = ProxyRotator(
+   rotator = ProxyWhirl(
        proxies=[...],
        circuit_breaker=CircuitBreaker(
            failure_threshold=5,
@@ -1393,7 +1393,7 @@ with httpx.Client(proxy=proxy.url) as client:
 6. **Enable persistence:**
    ```python
    storage = SQLiteStorage("proxywhirl.db")
-   rotator = ProxyRotator(proxies=[...], storage=storage)
+   rotator = ProxyWhirl(proxies=[...], storage=storage)
    ```
 
 ---
@@ -1450,8 +1450,8 @@ Brief description of the issue
 ## Reproduction
 ```python
 # Minimal code to reproduce
-from proxywhirl import ProxyRotator
-rotator = ProxyRotator(proxies=["http://proxy:8080"])
+from proxywhirl import ProxyWhirl
+rotator = ProxyWhirl(proxies=["http://proxy:8080"])
 rotator.get("https://example.com")  # Error here
 ```
 

@@ -17,7 +17,7 @@ from proxywhirl.exceptions import (
     ProxyValidationError,
 )
 from proxywhirl.models import HealthStatus, Proxy
-from proxywhirl.rotator import ProxyRotator
+from proxywhirl.rotator import ProxyWhirl
 
 
 class TestErrorHandling:
@@ -25,7 +25,7 @@ class TestErrorHandling:
 
     def test_unavailable_proxy_raises_clear_exception_with_details(self) -> None:
         """T122/SC1: Proxy failure raises exception with proxy details."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy = Proxy(url="http://dead-proxy.example.com:8080")
         rotator.add_proxy(proxy)
 
@@ -40,7 +40,7 @@ class TestErrorHandling:
 
     def test_all_proxies_failed_raises_pool_empty_error(self) -> None:
         """T123/SC2: All proxies failed raises ProxyPoolEmptyError."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Add proxies but mark them all as dead
         for i in range(3):
@@ -97,7 +97,7 @@ class TestErrorHandling:
 
     def test_empty_pool_provides_helpful_error_message(self) -> None:
         """Edge case: Empty pool returns clear error."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Pool is empty
         assert rotator.pool.size == 0
@@ -111,7 +111,7 @@ class TestErrorHandling:
 
     def test_all_proxies_unhealthy_provides_actionable_message(self) -> None:
         """Edge case: All proxies unhealthy with actionable message."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Add unhealthy proxies
         for i in range(3):
@@ -183,7 +183,7 @@ class TestErrorHandling:
 
     def test_statistics_available_even_with_failures(self) -> None:
         """Edge case: Statistics work even when proxies fail."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Add mix of healthy and failed proxies
         healthy = Proxy(url="http://healthy.example.com:8080")

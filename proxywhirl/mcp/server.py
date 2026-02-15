@@ -15,7 +15,7 @@ from loguru import logger
 
 from proxywhirl.mcp.auth import MCPAuth
 from proxywhirl.models import HealthStatus, Proxy, ProxySource
-from proxywhirl.rotator import AsyncProxyRotator
+from proxywhirl.rotator import AsyncProxyWhirl
 
 
 def _check_python_version() -> None:
@@ -55,10 +55,10 @@ except ImportError:
     Middleware = None  # type: ignore[assignment, misc]
     MiddlewareContext = None  # type: ignore[assignment, misc]
 
-# Global AsyncProxyRotator instance for MCP server
+# Global AsyncProxyWhirl instance for MCP server
 # This will be lazily initialized on first use (thread-safe)
 _rotator_lock = asyncio.Lock()
-_rotator: AsyncProxyRotator | None = None
+_rotator: AsyncProxyWhirl | None = None
 
 # Global MCPAuth instance for authentication
 # This can be configured via set_auth() or will use default (no auth)
@@ -152,22 +152,22 @@ else:
     mcp = None  # type: ignore[assignment]
 
 
-async def get_rotator() -> AsyncProxyRotator:
-    """Get or create the global AsyncProxyRotator instance with auto-loading.
+async def get_rotator() -> AsyncProxyWhirl:
+    """Get or create the global AsyncProxyWhirl instance with auto-loading.
 
     On first initialization:
     1. If database exists (from PROXYWHIRL_MCP_DB env or proxywhirl.db), loads proxies
     2. If pool is still empty, auto-fetches proxies from public sources
 
     Returns:
-        AsyncProxyRotator instance
+        AsyncProxyWhirl instance
     """
     import os
 
     global _rotator
     async with _rotator_lock:
         if _rotator is None:
-            _rotator = AsyncProxyRotator()
+            _rotator = AsyncProxyWhirl()
 
             # Auto-load from database if it exists
             from pathlib import Path
@@ -200,80 +200,59 @@ async def get_rotator() -> AsyncProxyRotator:
 
             # Auto-fetch if pool is still empty
             if _rotator.pool.size == 0:
-                logger.info("MCP: Pool is empty, auto-fetching proxies from public sources...")
+                logger.info(
+                    "MCP: Pool is empty, auto-fetching proxies from built-in public sources..."
+                )
                 await _auto_fetch_proxies(_rotator)
 
             logger.info(
-                f"Initialized global AsyncProxyRotator for MCP server with {_rotator.pool.size} proxies"
+                f"Initialized global AsyncProxyWhirl for MCP server with {_rotator.pool.size} proxies"
             )
 
         return _rotator
 
 
-async def _auto_fetch_proxies(rotator: AsyncProxyRotator, max_proxies: int = 100) -> None:
-    """Auto-fetch proxies from public sources for cold start.
+async def _auto_fetch_proxies(rotator: AsyncProxyWhirl, max_proxies: int = 100) -> None:
+    """Auto-fetch proxies from built-in public sources for cold start.
 
     Args:
-        rotator: AsyncProxyRotator to populate
+        rotator: AsyncProxyWhirl to populate
         max_proxies: Maximum number of proxies to fetch
     """
-    from uuid import uuid4
+    from proxywhirl.rotator._bootstrap import _fetch_bootstrap_candidates
 
-    import httpx
-
-    from proxywhirl.models import HealthStatus, Proxy, ProxySource
-
-    # Public proxy list sources (reliable, no auth needed)
-    sources = [
-        "https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
-        "https://raw.githubusercontent.com/clarketm/proxy-list/master/proxy-list-raw.txt",
-        "https://raw.githubusercontent.com/ShiftyTR/Proxy-List/master/http.txt",
-    ]
+    try:
+        candidates = await _fetch_bootstrap_candidates(
+            validate=True,
+            timeout=10,
+            max_concurrent=100,
+            max_proxies=max_proxies,
+        )
+    except Exception as e:
+        logger.warning(f"MCP: Failed to auto-fetch from built-in public sources: {e}")
+        return
 
     fetched_count = 0
-    async with httpx.AsyncClient(timeout=30) as client:
-        for source_url in sources:
-            if fetched_count >= max_proxies:
-                break
-            try:
-                resp = await client.get(source_url)
-                if resp.status_code == 200:
-                    lines = resp.text.strip().split("\n")
-                    for line in lines:
-                        if fetched_count >= max_proxies:
-                            break
-                        line = line.strip()
-                        if ":" in line and line:
-                            # Parse IP:PORT format
-                            try:
-                                proxy = Proxy(
-                                    id=uuid4(),
-                                    url=f"http://{line}",
-                                    protocol="http",
-                                    source=ProxySource.FETCHED,
-                                    health_status=HealthStatus.UNKNOWN,
-                                )
-                                await rotator.add_proxy(proxy)
-                                fetched_count += 1
-                            except Exception:
-                                continue
-                    logger.info(f"MCP: Fetched proxies from {source_url[:50]}...")
-            except Exception as e:
-                logger.warning(f"MCP: Failed to fetch from {source_url}: {e}")
+    for proxy in candidates:
+        try:
+            await rotator.add_proxy(proxy)
+            fetched_count += 1
+        except Exception as e:
+            logger.debug("MCP: Skipping auto-fetched proxy during pool load", error=str(e))
 
-    logger.info(f"MCP: Auto-fetched {fetched_count} proxies from public sources")
+    logger.info(f"MCP: Auto-fetched {fetched_count} proxies from built-in public sources")
 
 
-async def set_rotator(rotator: AsyncProxyRotator) -> None:
-    """Set the global AsyncProxyRotator instance (thread-safe).
+async def set_rotator(rotator: AsyncProxyWhirl) -> None:
+    """Set the global AsyncProxyWhirl instance (thread-safe).
 
     Args:
-        rotator: AsyncProxyRotator instance to use
+        rotator: AsyncProxyWhirl instance to use
     """
     global _rotator
     async with _rotator_lock:
         _rotator = rotator
-        logger.info("Set custom AsyncProxyRotator for MCP server")
+        logger.info("Set custom AsyncProxyWhirl for MCP server")
 
 
 async def cleanup_rotator() -> None:
@@ -292,7 +271,7 @@ async def cleanup_rotator() -> None:
             if _rotator._aggregation_thread and _rotator._aggregation_thread.is_alive():
                 _rotator._aggregation_thread.join(timeout=5.0)
             _rotator = None
-            logger.info("MCP: Cleaned up AsyncProxyRotator")
+            logger.info("MCP: Cleaned up AsyncProxyWhirl")
 
 
 @asynccontextmanager
@@ -349,7 +328,7 @@ class ProxyWhirlMCPServer:
         server.run()
 
         # With custom rotator
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
         server = ProxyWhirlMCPServer(proxy_manager=rotator)
         await server.initialize()  # Must call for async setup
         server.run()
@@ -362,7 +341,7 @@ class ProxyWhirlMCPServer:
         Note: If providing a proxy_manager, you must call initialize() to set it up.
 
         Args:
-            proxy_manager: ProxyWhirl proxy manager instance (AsyncProxyRotator)
+            proxy_manager: ProxyWhirl proxy manager instance (AsyncProxyWhirl)
         """
         self.proxy_manager = proxy_manager
         logger.info("ProxyWhirl MCP Server initialized")

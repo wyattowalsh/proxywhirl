@@ -1,5 +1,5 @@
 """
-Shared base class for ProxyRotator and AsyncProxyRotator.
+Shared base class for ProxyWhirl and AsyncProxyWhirl.
 
 This module provides common functionality between sync and async rotators,
 reducing code duplication and ensuring consistent behavior.
@@ -24,8 +24,8 @@ class ProxyRotatorBase:
     """
     Shared logic for sync and async proxy rotators.
 
-    This base class provides common functionality for both ProxyRotator
-    and AsyncProxyRotator, including:
+    This base class provides common functionality for both ProxyWhirl
+    and AsyncProxyWhirl, including:
     - Proxy dictionary conversion (credentials handling)
     - Circuit breaker state checking
     - Proxy selection with circuit breaker filtering

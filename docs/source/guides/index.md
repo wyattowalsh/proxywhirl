@@ -26,7 +26,7 @@ Deep dives and operational runbooks that extend the quickstart. Each guide mirro
 :link-type: doc
 :class-card: sd-shadow-sm
 
-Use `AsyncProxyRotator` for high-concurrency workloads with asyncio.
+Use `AsyncProxyWhirl` for high-concurrency workloads with asyncio.
 
 - [When to use async vs sync](async-client.md#when-to-use-async-vs-sync)
 - [Initialization patterns](async-client.md#initialization) -- basic, with proxies, custom strategy

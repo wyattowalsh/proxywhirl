@@ -1,7 +1,7 @@
 """Integration tests for POST /api/v1/request endpoint (US1).
 
 These tests verify the proxied request functionality works end-to-end with real
-ProxyRotator integration, failover behavior, and proxy rotation.
+ProxyWhirl integration, failover behavior, and proxy rotation.
 """
 
 import pytest
@@ -24,11 +24,11 @@ async def api_client():
 @pytest.fixture
 def setup_test_proxies():
     """Set up test proxies in the global rotator."""
-    from proxywhirl import ProxyRotator
+    from proxywhirl import ProxyWhirl
 
     # Initialize rotator if not exists
     if api_core._rotator is None:
-        api_core._rotator = ProxyRotator()
+        api_core._rotator = ProxyWhirl()
 
     rotator = api_core._rotator
 

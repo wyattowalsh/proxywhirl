@@ -1,5 +1,5 @@
 """
-Integration tests for ProxyRotator with mocked HTTP.
+Integration tests for ProxyWhirl with mocked HTTP.
 """
 
 from unittest.mock import MagicMock, Mock, patch
@@ -7,16 +7,16 @@ from unittest.mock import MagicMock, Mock, patch
 import httpx
 import pytest
 
-from proxywhirl import HealthStatus, Proxy, ProxyRotator
+from proxywhirl import HealthStatus, Proxy, ProxyWhirl
 from proxywhirl.exceptions import ProxyPoolEmptyError
 
 
-class TestProxyRotatorBasics:
-    """Test basic ProxyRotator functionality."""
+class TestProxyWhirlBasics:
+    """Test basic ProxyWhirl functionality."""
 
     def test_init_empty(self):
         """Test creating empty rotator."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         assert rotator.pool.size == 0
         assert rotator.strategy is not None
         assert rotator.config is not None
@@ -27,25 +27,25 @@ class TestProxyRotatorBasics:
             Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY),  # type: ignore
             Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY),  # type: ignore
         ]
-        rotator = ProxyRotator(proxies=proxies)
+        rotator = ProxyWhirl(proxies=proxies)
         assert rotator.pool.size == 2
 
     def test_add_proxy_from_url_string(self):
         """Test adding proxy from URL string."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         rotator.add_proxy("http://proxy.example.com:8080")
         assert rotator.pool.size == 1
 
     def test_add_proxy_from_proxy_object(self):
         """Test adding proxy from Proxy object."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
         rotator.add_proxy(proxy)
         assert rotator.pool.size == 1
 
     def test_remove_proxy(self):
         """Test removing proxy."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
         rotator.add_proxy(proxy)
         assert rotator.pool.size == 1
@@ -54,12 +54,12 @@ class TestProxyRotatorBasics:
         assert rotator.pool.size == 0
 
 
-class TestProxyRotatorContextManager:
-    """Test ProxyRotator context manager."""
+class TestProxyWhirlContextManager:
+    """Test ProxyWhirl context manager."""
 
     def test_context_manager_creates_client(self):
         """Test that context manager creates HTTP client."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         assert rotator._client is None
 
         with rotator:
@@ -69,7 +69,7 @@ class TestProxyRotatorContextManager:
 
     def test_context_manager_closes_client(self):
         """Test that context manager properly closes client."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         with rotator as r:
             client = r._client
@@ -79,8 +79,8 @@ class TestProxyRotatorContextManager:
         assert rotator._client is None
 
 
-class TestProxyRotatorRequests:
-    """Test ProxyRotator HTTP request methods with mocks."""
+class TestProxyWhirlRequests:
+    """Test ProxyWhirl HTTP request methods with mocks."""
 
     @patch("httpx.Client")
     def test_get_request_with_mock(self, mock_client_class):
@@ -97,7 +97,7 @@ class TestProxyRotatorRequests:
         mock_client_class.return_value = mock_client
 
         # Create rotator and add proxy
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         rotator.add_proxy("http://proxy.example.com:8080")
         rotator.pool.proxies[0].health_status = HealthStatus.HEALTHY
 
@@ -119,7 +119,7 @@ class TestProxyRotatorRequests:
         mock_client.__exit__.return_value = None
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         rotator.add_proxy("http://proxy.example.com:8080")
         rotator.pool.proxies[0].health_status = HealthStatus.HEALTHY
 
@@ -138,7 +138,7 @@ class TestProxyRotatorRequests:
         mock_client.__exit__.return_value = None
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         rotator.add_proxy("http://proxy.example.com:8080")
         rotator.pool.proxies[0].health_status = HealthStatus.HEALTHY
 
@@ -155,7 +155,7 @@ class TestProxyRotatorRequests:
 
     def test_request_with_no_proxies_raises_error(self):
         """Test that request with no proxies raises ProxyPoolEmptyError."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         with pytest.raises(ProxyPoolEmptyError):
             rotator.get("https://example.com")
@@ -172,7 +172,7 @@ class TestProxyRotatorRequests:
         mock_client.__exit__.return_value = None
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         rotator.add_proxy("http://proxy.example.com:8080")
         rotator.pool.proxies[0].health_status = HealthStatus.HEALTHY
 
@@ -195,7 +195,7 @@ class TestProxyRotatorRequests:
         mock_client.__exit__.return_value = None
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         rotator.add_proxy("http://proxy.example.com:8080")
         rotator.pool.proxies[0].health_status = HealthStatus.HEALTHY
 
@@ -205,12 +205,12 @@ class TestProxyRotatorRequests:
         assert rotator.pool.proxies[0].total_requests == 1
 
 
-class TestProxyRotatorWithCredentials:
-    """Test ProxyRotator with authenticated proxies."""
+class TestProxyWhirlWithCredentials:
+    """Test ProxyWhirl with authenticated proxies."""
 
     def test_get_proxy_dict_without_credentials(self):
         """Test proxy dict generation without credentials."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
 
         proxy_dict = rotator._get_proxy_dict(proxy)
@@ -223,7 +223,7 @@ class TestProxyRotatorWithCredentials:
         """Test proxy dict generation with credentials."""
         from pydantic import SecretStr
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy = Proxy(
             url="http://proxy.example.com:8080",
             username=SecretStr("user"),
@@ -235,8 +235,8 @@ class TestProxyRotatorWithCredentials:
         assert "user:pass@proxy.example.com:8080" in proxy_dict["http://"]
 
 
-class TestProxyRotatorWithContextManager:
-    """Test ProxyRotator with context manager and persistent client."""
+class TestProxyWhirlWithContextManager:
+    """Test ProxyWhirl with context manager and persistent client."""
 
     @patch("httpx.Client")
     def test_request_with_persistent_client(self, mock_client_class):
@@ -248,7 +248,7 @@ class TestProxyRotatorWithContextManager:
         mock_client.request.return_value = mock_response
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         rotator.add_proxy("http://proxy.example.com:8080")
         rotator.pool.proxies[0].health_status = HealthStatus.HEALTHY
 

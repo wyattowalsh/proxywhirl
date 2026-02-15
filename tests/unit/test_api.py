@@ -25,7 +25,7 @@ def client():
 
 @pytest.fixture
 def mock_rotator():
-    """Create a mock ProxyRotator with retry metrics."""
+    """Create a mock ProxyWhirl with retry metrics."""
     rotator = MagicMock()
 
     # Create retry metrics with some test data

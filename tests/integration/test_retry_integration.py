@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-from proxywhirl import Proxy, ProxyRotator, RetryPolicy
+from proxywhirl import Proxy, ProxyWhirl, RetryPolicy
 from proxywhirl.circuit_breaker import CircuitBreakerState
 from proxywhirl.exceptions import ProxyConnectionError
 
@@ -17,7 +17,7 @@ class TestRetryExecution:
 
     def test_retry_with_intermittent_failures(self):
         """Test retry succeeds after intermittent failures."""
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[
                 Proxy(url="http://proxy1.example.com:8080"),
                 Proxy(url="http://proxy2.example.com:8080"),
@@ -56,7 +56,7 @@ class TestRetryExecution:
 
     def test_max_attempts_enforcement(self):
         """Test that retries stop after max_attempts."""
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[Proxy(url="http://proxy1.example.com:8080")],
             retry_policy=RetryPolicy(max_attempts=3),
         )
@@ -84,7 +84,7 @@ class TestRetryExecution:
 
     def test_retry_respects_status_codes(self):
         """Test that only configured status codes trigger retries."""
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[Proxy(url="http://proxy1.example.com:8080")],
             retry_policy=RetryPolicy(
                 max_attempts=3,
@@ -117,7 +117,7 @@ class TestRetryExecution:
 
     def test_timeout_enforcement(self):
         """Test that total timeout is enforced."""
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[Proxy(url="http://proxy1.example.com:8080")],
             retry_policy=RetryPolicy(
                 max_attempts=10,
@@ -142,7 +142,7 @@ class TestRetryExecution:
 
     def test_per_request_policy_override(self):
         """Test per-request retry policy override."""
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[Proxy(url="http://proxy1.example.com:8080")],
             retry_policy=RetryPolicy(max_attempts=5),  # Global: 5 attempts
         )
@@ -183,7 +183,7 @@ class TestCircuitBreakerIntegration:
         proxy1 = Proxy(url="http://proxy1.example.com:8080")
         proxy2 = Proxy(url="http://proxy2.example.com:8080")
 
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[proxy1, proxy2],
             retry_policy=RetryPolicy(max_attempts=1),  # Don't retry
         )
@@ -221,7 +221,7 @@ class TestCircuitBreakerIntegration:
         proxy1 = Proxy(url="http://proxy1.example.com:8080")
         proxy2 = Proxy(url="http://proxy2.example.com:8080")
 
-        rotator = ProxyRotator(
+        rotator = ProxyWhirl(
             proxies=[proxy1, proxy2],
         )
 
@@ -240,7 +240,7 @@ class TestCircuitBreakerIntegration:
         """Test half-open state recovery."""
         proxy = Proxy(url="http://proxy1.example.com:8080")
 
-        rotator = ProxyRotator(proxies=[proxy])
+        rotator = ProxyWhirl(proxies=[proxy])
 
         # Open circuit breaker
         cb = rotator.circuit_breakers[str(proxy.id)]

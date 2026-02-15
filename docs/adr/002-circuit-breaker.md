@@ -233,7 +233,7 @@ CREATE TABLE circuit_breaker_states (
 )
 ```
 
-**Integration with `ProxyRotator`**:
+**Integration with `ProxyWhirl`**:
 ```python
 # Before making request
 if not circuit_breaker.should_attempt_request():
@@ -294,7 +294,7 @@ class AsyncRWLock:
    - Reset on successful recovery
 
 3. **Circuit Breaker Pool**:
-   - Share failure knowledge across multiple `ProxyRotator` instances
+   - Share failure knowledge across multiple `ProxyWhirl` instances
    - Distributed circuit breaker with Redis backend
 
 4. **Metrics Integration**:

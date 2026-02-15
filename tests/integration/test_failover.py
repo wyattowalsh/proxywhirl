@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, Mock, patch
 import httpx
 import pytest
 
-from proxywhirl import Proxy, ProxyRotator
+from proxywhirl import Proxy, ProxyWhirl
 from proxywhirl.exceptions import ProxyConnectionError, ProxyPoolEmptyError
 from proxywhirl.models import HealthStatus
 from proxywhirl.retry import RetryPolicy
@@ -40,7 +40,7 @@ class TestProxyFailover:
         mock_client_class.return_value = mock_client
 
         # Create rotator with 2 proxies
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy1 = Proxy(url="http://proxy1.example.com:8080")
         proxy2 = Proxy(url="http://proxy2.example.com:8080")
         rotator.add_proxy(proxy1)
@@ -85,7 +85,7 @@ class TestProxyFailover:
         mock_client_class.return_value = mock_client
 
         # Create rotator with retries disabled
-        rotator = ProxyRotator(retry_policy=RetryPolicy(max_retries=1))
+        rotator = ProxyWhirl(retry_policy=RetryPolicy(max_retries=1))
         proxy1 = Proxy(url="http://fail-proxy.example.com:8080")
         proxy2 = Proxy(url="http://good-proxy.example.com:8080")
         rotator.add_proxy(proxy1)
@@ -113,7 +113,7 @@ class TestProxyFailover:
         mock_client_class.return_value = mock_client
 
         # Create rotator with 2 proxies
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy1 = Proxy(url="http://proxy1.example.com:8080")
         proxy2 = Proxy(url="http://proxy2.example.com:8080")
         rotator.add_proxy(proxy1)
@@ -139,7 +139,7 @@ class TestProxyFailover:
         mock_client_class.return_value = mock_client
 
         # Create rotator with 3 proxies (1 healthy, 2 unhealthy)
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy1 = Proxy(url="http://dead-proxy.example.com:8080")
         proxy2 = Proxy(url="http://healthy-proxy.example.com:8080")
         proxy3 = Proxy(url="http://unhealthy-proxy.example.com:8080")
@@ -176,7 +176,7 @@ class TestProxyFailover:
         mock_client_class.return_value = mock_client
 
         # Create rotator with 1 proxy
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy = Proxy(url="http://failing-proxy.example.com:8080")
         rotator.add_proxy(proxy)
         rotator.pool.proxies[0].health_status = HealthStatus.HEALTHY

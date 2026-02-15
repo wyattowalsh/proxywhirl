@@ -1,5 +1,5 @@
 """
-Comprehensive unit tests for ProxyRotator to achieve >= 70% coverage.
+Comprehensive unit tests for ProxyWhirl to achieve >= 70% coverage.
 
 This test suite covers:
 - All HTTP methods (GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS)
@@ -18,7 +18,7 @@ import pytest
 import respx
 from pydantic import SecretStr
 
-from proxywhirl import HealthStatus, Proxy, ProxyRotator
+from proxywhirl import HealthStatus, Proxy, ProxyWhirl
 from proxywhirl.exceptions import (
     ProxyAuthenticationError,
     ProxyConnectionError,
@@ -28,7 +28,7 @@ from proxywhirl.models import ProxyChain
 from proxywhirl.retry import RetryPolicy
 
 
-class TestProxyRotatorHTTPMethods:
+class TestProxyWhirlHTTPMethods:
     """Test all HTTP method convenience functions."""
 
     @respx.mock
@@ -48,7 +48,7 @@ class TestProxyRotatorHTTPMethods:
             mock_client.request.return_value = mock_response
             mock_client_class.return_value = mock_client
 
-            rotator = ProxyRotator()
+            rotator = ProxyWhirl()
             proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
             rotator.add_proxy(proxy)
 
@@ -71,7 +71,7 @@ class TestProxyRotatorHTTPMethods:
             mock_client.request.return_value = mock_response
             mock_client_class.return_value = mock_client
 
-            rotator = ProxyRotator()
+            rotator = ProxyWhirl()
             proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
             rotator.add_proxy(proxy)
 
@@ -92,7 +92,7 @@ class TestProxyRotatorHTTPMethods:
             mock_client.request.return_value = mock_response
             mock_client_class.return_value = mock_client
 
-            rotator = ProxyRotator()
+            rotator = ProxyWhirl()
             proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
             rotator.add_proxy(proxy)
 
@@ -113,7 +113,7 @@ class TestProxyRotatorHTTPMethods:
             mock_client.request.return_value = mock_response
             mock_client_class.return_value = mock_client
 
-            rotator = ProxyRotator()
+            rotator = ProxyWhirl()
             proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
             rotator.add_proxy(proxy)
 
@@ -134,7 +134,7 @@ class TestProxyRotatorHTTPMethods:
             mock_client.request.return_value = mock_response
             mock_client_class.return_value = mock_client
 
-            rotator = ProxyRotator()
+            rotator = ProxyWhirl()
             proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
             rotator.add_proxy(proxy)
 
@@ -155,7 +155,7 @@ class TestProxyRotatorHTTPMethods:
             mock_client.request.return_value = mock_response
             mock_client_class.return_value = mock_client
 
-            rotator = ProxyRotator()
+            rotator = ProxyWhirl()
             proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
             rotator.add_proxy(proxy)
 
@@ -176,7 +176,7 @@ class TestProxyRotatorHTTPMethods:
             mock_client.request.return_value = mock_response
             mock_client_class.return_value = mock_client
 
-            rotator = ProxyRotator()
+            rotator = ProxyWhirl()
             proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
             rotator.add_proxy(proxy)
 
@@ -193,7 +193,7 @@ class TestCircuitBreakerIntegration:
     @patch("httpx.Client")
     def test_circuit_breaker_initialized_on_add_proxy(self, mock_client_class: MagicMock) -> None:
         """Test that circuit breaker is initialized when adding a proxy."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -212,7 +212,7 @@ class TestCircuitBreakerIntegration:
         mock_client.request.return_value = mock_response
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -224,7 +224,7 @@ class TestCircuitBreakerIntegration:
 
     def test_get_circuit_breaker_states(self) -> None:
         """Test getting circuit breaker states."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -247,7 +247,7 @@ class TestRetryBehavior:
         ]
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -263,7 +263,7 @@ class TestRetryBehavior:
         mock_client.request.side_effect = httpx.ConnectError("Connection failed")
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator(retry_policy=RetryPolicy(max_attempts=2))
+        rotator = ProxyWhirl(retry_policy=RetryPolicy(max_attempts=2))
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -280,7 +280,7 @@ class TestRetryBehavior:
         mock_client.request.return_value = mock_response
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator(retry_policy=RetryPolicy(max_attempts=5))
+        rotator = ProxyWhirl(retry_policy=RetryPolicy(max_attempts=5))
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -305,7 +305,7 @@ class TestProxyRotation:
         mock_client.request.return_value = mock_response
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator(strategy="round-robin")
+        rotator = ProxyWhirl(strategy="round-robin")
         proxy1 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
         proxy2 = Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy1)
@@ -332,7 +332,7 @@ class TestAuthenticationErrors:
         mock_client.request.return_value = mock_response
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator(retry_policy=RetryPolicy(max_attempts=1))
+        rotator = ProxyWhirl(retry_policy=RetryPolicy(max_attempts=1))
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -349,7 +349,7 @@ class TestAuthenticationErrors:
         mock_client.request.return_value = mock_response
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator(retry_policy=RetryPolicy(max_attempts=1))
+        rotator = ProxyWhirl(retry_policy=RetryPolicy(max_attempts=1))
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -366,7 +366,7 @@ class TestAuthenticationErrors:
         mock_client.request.return_value = mock_response
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator(retry_policy=RetryPolicy(max_attempts=1))
+        rotator = ProxyWhirl(retry_policy=RetryPolicy(max_attempts=1))
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -486,7 +486,7 @@ class TestProxyChains:
 
     def test_add_chain_creates_circuit_breaker(self) -> None:
         """Test that adding a chain creates circuit breaker for entry proxy."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxies = [
             Proxy(url="http://proxy1.example.com:8080"),
             Proxy(url="http://proxy2.example.com:8080"),
@@ -500,7 +500,7 @@ class TestProxyChains:
 
     def test_remove_chain_removes_circuit_breaker(self) -> None:
         """Test that removing a chain removes circuit breaker."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxies = [
             Proxy(url="http://proxy1.example.com:8080"),
             Proxy(url="http://proxy2.example.com:8080"),
@@ -528,7 +528,7 @@ class TestNonRetryableErrors:
         mock_client.request.side_effect = auth_error
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator(retry_policy=RetryPolicy(max_attempts=1))
+        rotator = ProxyWhirl(retry_policy=RetryPolicy(max_attempts=1))
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -550,7 +550,7 @@ class TestSessionPersistence:
         mock_client.request.return_value = mock_response
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator(strategy="round-robin")
+        rotator = ProxyWhirl(strategy="round-robin")
         proxy1 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
         proxy2 = Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy1)
@@ -569,7 +569,7 @@ class TestStatistics:
 
     def test_get_pool_stats_with_proxies(self) -> None:
         """Test get_pool_stats with multiple proxies."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy1 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
         proxy2 = Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.UNHEALTHY)
         rotator.add_proxy(proxy1)
@@ -583,7 +583,7 @@ class TestStatistics:
 
     def test_get_statistics_includes_source_breakdown(self) -> None:
         """Test that get_statistics includes source breakdown."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy = Proxy(url="http://proxy.example.com:8080")
         rotator.add_proxy(proxy)
 
@@ -598,7 +598,7 @@ class TestContextManager:
 
     def test_context_manager_creates_client(self) -> None:
         """Test that entering context manager creates HTTP client."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         with rotator as r:
             assert r._client is not None
@@ -606,7 +606,7 @@ class TestContextManager:
 
     def test_context_manager_closes_pooled_clients(self) -> None:
         """Test that exiting context manager closes pooled clients."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         mock_client = MagicMock(spec=httpx.Client)
         rotator._client_pool["test"] = mock_client
 
@@ -630,7 +630,7 @@ class TestClientPooling:
         mock_client.request.return_value = mock_response
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -643,13 +643,13 @@ class TestClientPooling:
 
 
 class TestSyncQueueImplementation:
-    """Test that ProxyRotator uses sync queue.Queue instead of asyncio.Queue."""
+    """Test that ProxyWhirl uses sync queue.Queue instead of asyncio.Queue."""
 
     def test_queue_enabled_without_event_loop(self) -> None:
-        """Test ProxyRotator with queue_enabled=True works without an event loop.
+        """Test ProxyWhirl with queue_enabled=True works without an event loop.
 
         This verifies the fix for using queue.Queue instead of asyncio.Queue
-        in the synchronous ProxyRotator class.
+        in the synchronous ProxyWhirl class.
         """
         import queue
 
@@ -660,7 +660,7 @@ class TestSyncQueueImplementation:
 
         # This should NOT raise an error about missing event loop
         # (previously it would fail because asyncio.Queue requires an event loop)
-        rotator = ProxyRotator(config=config)
+        rotator = ProxyWhirl(config=config)
 
         # Verify the queue was created
         assert rotator._request_queue is not None
@@ -676,7 +676,7 @@ class TestSyncQueueImplementation:
         from proxywhirl.models import ProxyConfiguration
 
         config = ProxyConfiguration(queue_enabled=True, queue_size=5)
-        rotator = ProxyRotator(config=config)
+        rotator = ProxyWhirl(config=config)
 
         assert rotator._request_queue is not None
         q = rotator._request_queue
@@ -709,7 +709,7 @@ class TestSyncQueueImplementation:
         from proxywhirl.models import ProxyConfiguration
 
         config = ProxyConfiguration(queue_enabled=True, queue_size=10)
-        rotator = ProxyRotator(config=config)
+        rotator = ProxyWhirl(config=config)
 
         # Verify the queue exists and is the correct type
         assert rotator._request_queue is not None
@@ -728,7 +728,7 @@ class TestSyncQueueImplementation:
 
     def test_queue_disabled_by_default(self) -> None:
         """Test that queue is disabled by default."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         assert rotator._request_queue is None
         assert rotator.config.queue_enabled is False
@@ -738,7 +738,7 @@ class TestSyncQueueImplementation:
         from proxywhirl.models import ProxyConfiguration
 
         config = ProxyConfiguration(queue_enabled=True, queue_size=10)
-        rotator = ProxyRotator(config=config)
+        rotator = ProxyWhirl(config=config)
 
         stats = rotator.get_queue_stats()
 
@@ -754,7 +754,7 @@ class TestCredentialsHandling:
 
     def test_get_proxy_dict_with_special_chars_in_username(self) -> None:
         """Test that special characters in username are URL-encoded."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Create proxy with special characters in username
         proxy = Proxy(
@@ -773,7 +773,7 @@ class TestCredentialsHandling:
 
     def test_get_proxy_dict_with_special_chars_in_password(self) -> None:
         """Test that special characters in password are URL-encoded."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Create proxy with special characters in password
         proxy = Proxy(
@@ -793,7 +793,7 @@ class TestCredentialsHandling:
 
     def test_get_proxy_dict_with_url_unsafe_chars(self) -> None:
         """Test URL encoding of all unsafe URL characters."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Create proxy with unsafe characters: space, !, #, $, %, &, ', ", +, ,, ;, =, ?, [, ]
         proxy = Proxy(
@@ -816,7 +816,7 @@ class TestCredentialsHandling:
 
     def test_get_proxy_dict_both_protocols_contain_encoded_creds(self) -> None:
         """Test that both http and https proxies have encoded credentials."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         proxy = Proxy(
             url="http://proxy.example.com:8080",
@@ -837,7 +837,7 @@ class TestCredentialsHandling:
 
     def test_get_proxy_dict_without_credentials(self) -> None:
         """Test that proxy without credentials works correctly."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         proxy = Proxy(
             url="http://proxy.example.com:8080",
@@ -858,7 +858,7 @@ class TestExpiredProxyHandling:
         """Test that expired proxies are skipped during proxy selection."""
         from datetime import datetime, timedelta, timezone
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Create an expired proxy (TTL in past)
         expired_proxy = Proxy(
@@ -887,7 +887,7 @@ class TestExpiredProxyHandling:
         """Test that ProxyPoolEmptyError is raised when all proxies are expired."""
         from datetime import datetime, timedelta, timezone
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Create only expired proxies
         proxy1 = Proxy(
@@ -912,7 +912,7 @@ class TestExpiredProxyHandling:
         """Test scenario where both expired and circuit-broken proxies exist."""
         from datetime import datetime, timedelta, timezone
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Create an expired proxy
         expired_proxy = Proxy(
@@ -974,7 +974,7 @@ class TestExpiredProxyHandling:
         mock_client.request.return_value = mock_response
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Add expired proxy
         expired_proxy = Proxy(
@@ -1004,11 +1004,15 @@ class TestEdgeCases:
     """Test edge cases and error handling."""
 
     def test_empty_pool_raises_error(self) -> None:
-        """Test that making request with empty pool raises ProxyPoolEmptyError."""
-        rotator = ProxyRotator()
+        """Test that making request with empty pool raises ProxyPoolEmptyError after bootstrap fails."""
+        rotator = ProxyWhirl()
 
-        with pytest.raises(ProxyPoolEmptyError):
-            rotator.get("https://httpbin.org/get")
+        # Mock bootstrap to fail (simulating no proxies fetched from sources)
+        with patch.object(
+            rotator, "_bootstrap_pool_if_empty", side_effect=ProxyPoolEmptyError("Bootstrap failed")
+        ):
+            with pytest.raises(ProxyPoolEmptyError):
+                rotator.get("https://httpbin.org/get")
 
     @patch("httpx.Client")
     def test_generic_exception_handling(self, mock_client_class: MagicMock) -> None:
@@ -1017,7 +1021,7 @@ class TestEdgeCases:
         mock_client.request.side_effect = Exception("Unknown error")
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyRotator(retry_policy=RetryPolicy(max_attempts=1))
+        rotator = ProxyWhirl(retry_policy=RetryPolicy(max_attempts=1))
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
@@ -1026,7 +1030,7 @@ class TestEdgeCases:
 
     def test_clear_unhealthy_removes_circuit_breakers(self) -> None:
         """Test that clearing unhealthy proxies also removes their circuit breakers."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.DEAD)
         rotator.add_proxy(proxy)
 

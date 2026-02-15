@@ -1581,7 +1581,7 @@ Tiers implement graceful degradation:
 
 ## See Also
 
-- [Python API](python-api.md) -- Main ProxyRotator API (CacheManager, CacheConfig usage)
+- [Python API](python-api.md) -- Main ProxyWhirl API (CacheManager, CacheConfig usage)
 - [Configuration](configuration.md) -- TOML cache configuration options
 - [Exceptions](exceptions.md) -- Cache-specific exceptions (CacheCorruptionError, CacheStorageError, CacheValidationError)
 - [Rate Limiting API](rate-limiting-api.md) -- Rate limiting integration

@@ -409,7 +409,7 @@ def request(
     elif ctx.config.proxies:
         # Use rotator to select proxy based on configured strategy
         from proxywhirl.models import Proxy
-        from proxywhirl.rotator import ProxyRotator
+        from proxywhirl.rotator import ProxyWhirl
 
         # Convert config proxies to Proxy objects
         proxies_list = [
@@ -422,7 +422,7 @@ def request(
         ]
 
         # Create rotator with configured strategy
-        rotator = ProxyRotator(proxies=proxies_list, strategy=ctx.config.rotation_strategy)
+        rotator = ProxyWhirl(proxies=proxies_list, strategy=ctx.config.rotation_strategy)
 
         # Select proxy using rotation strategy
         try:
@@ -566,7 +566,7 @@ def pool(
 
     from proxywhirl.config import ProxyConfig, save_config
     from proxywhirl.models import HealthStatus, PoolSummary, Proxy, ProxyStatus
-    from proxywhirl.rotator import ProxyRotator
+    from proxywhirl.rotator import ProxyWhirl
 
     command_ctx = get_context()
 
@@ -589,7 +589,7 @@ def pool(
             )
         )
 
-    rotator = ProxyRotator(proxies=proxies, strategy=command_ctx.config.rotation_strategy)
+    rotator = ProxyWhirl(proxies=proxies, strategy=command_ctx.config.rotation_strategy)
 
     if action == "list":
         # List all proxies in pool (thread-safe snapshot)
@@ -1607,7 +1607,7 @@ def health(
     import httpx
 
     from proxywhirl.models import HealthStatus, PoolSummary, Proxy, ProxyStatus
-    from proxywhirl.rotator import ProxyRotator
+    from proxywhirl.rotator import ProxyWhirl
 
     command_ctx = get_context()
 
@@ -1634,7 +1634,7 @@ def health(
         command_ctx.console.print("Add proxies using: proxywhirl pool add <URL>")
         raise typer.Exit(code=0)
 
-    rotator = ProxyRotator(proxies=proxies, strategy=command_ctx.config.rotation_strategy)
+    rotator = ProxyWhirl(proxies=proxies, strategy=command_ctx.config.rotation_strategy)
     check_interval = interval if interval is not None else command_ctx.config.health_check_interval
 
     def check_health() -> list[ProxyStatus]:

@@ -129,7 +129,7 @@ intersphinx_mapping = {
 nitpicky = True
 nitpick_ignore = [
     ("py:class", "Proxy"),
-    ("py:class", "ProxyRotator"),
+    ("py:class", "ProxyWhirl"),
     ("py:class", "TierType"),
     ("py:class", "Path"),
     ("py:class", "SecretStr"),

@@ -6,22 +6,22 @@ with automatic failover, circuit breakers, and connection pooling.
 
 Usage:
     Synchronous:
-        >>> from proxywhirl.rotator import ProxyRotator
-        >>> rotator = ProxyRotator(proxies=[...])
+        >>> from proxywhirl.rotator import ProxyWhirl
+        >>> rotator = ProxyWhirl(proxies=[...])
 
     Asynchronous:
-        >>> from proxywhirl.rotator import AsyncProxyRotator
-        >>> rotator = AsyncProxyRotator(proxies=[...])
+        >>> from proxywhirl.rotator import AsyncProxyWhirl
+        >>> rotator = AsyncProxyWhirl(proxies=[...])
 """
 
-from proxywhirl.rotator.async_ import AsyncProxyRotator, LRUAsyncClientPool
+from proxywhirl.rotator.async_ import AsyncProxyWhirl, LRUAsyncClientPool
 from proxywhirl.rotator.base import ProxyRotatorBase
 from proxywhirl.rotator.client_pool import LRUClientPool
-from proxywhirl.rotator.sync import ProxyRotator
+from proxywhirl.rotator.sync import ProxyWhirl
 
 __all__ = [
-    "ProxyRotator",
-    "AsyncProxyRotator",
+    "ProxyWhirl",
+    "AsyncProxyWhirl",
     "ProxyRotatorBase",
     "LRUClientPool",
     "LRUAsyncClientPool",

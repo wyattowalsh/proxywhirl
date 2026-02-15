@@ -1,20 +1,20 @@
 """
-Example demonstrating AsyncProxyRotator usage.
+Example demonstrating AsyncProxyWhirl usage.
 
 This example shows how to use the async API client for proxywhirl.
 """
 
 import asyncio
 
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
 
 async def main():
     """Demonstrate basic async proxy rotation."""
-    print("=== AsyncProxyRotator Example ===\n")
+    print("=== AsyncProxyWhirl Example ===\n")
 
     # Create async rotator with round-robin strategy
-    async with AsyncProxyRotator(strategy="round-robin") as rotator:
+    async with AsyncProxyWhirl(strategy="round-robin") as rotator:
         # Add some example proxies (replace with real proxies for actual use)
         await rotator.add_proxy("http://proxy1.example.com:8080")
         await rotator.add_proxy("http://proxy2.example.com:8080")

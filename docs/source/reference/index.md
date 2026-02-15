@@ -13,8 +13,8 @@ Authoritative resources for the runtime APIs, configuration knobs, and public da
 :::{tab-item} By Interface
 | Interface | Entry Point | Docs |
 |-----------|------------|------|
-| Python sync | `ProxyRotator` | {doc}`Python API <python-api>` |
-| Python async | `AsyncProxyRotator` | {doc}`Python API <python-api>` |
+| Python sync | `ProxyWhirl` | {doc}`Python API <python-api>` |
+| Python async | `AsyncProxyWhirl` | {doc}`Python API <python-api>` |
 | REST API | `GET/POST /api/v1/*` | {doc}`REST API <rest-api>` |
 | CLI | `proxywhirl <command>` | {doc}`CLI Reference <../guides/cli-reference>` |
 | MCP | `proxywhirl mcp` | {doc}`MCP Server <../guides/mcp-server>` |
@@ -34,8 +34,8 @@ Authoritative resources for the runtime APIs, configuration knobs, and public da
 :::{tab-item} By Class
 | Class | Module | Docs |
 |-------|--------|------|
-| `ProxyRotator` | `proxywhirl.rotator` | [Sync rotator](python-api.md#proxyrotator) |
-| `AsyncProxyRotator` | `proxywhirl.rotator` | [Async rotator](python-api.md#asyncproxyrotator) |
+| `ProxyWhirl` | `proxywhirl.rotator` | [Sync rotator](python-api.md#proxyrotator) |
+| `AsyncProxyWhirl` | `proxywhirl.rotator` | [Async rotator](python-api.md#asyncproxyrotator) |
 | `ProxyFetcher` | `proxywhirl.fetchers` | [Fetcher](python-api.md#proxyfetcher) |
 | `ProxyValidator` | `proxywhirl.fetchers` | [Validator](python-api.md#proxyvalidator) |
 | `CacheManager` | `proxywhirl.cache` | {doc}`Cache API <cache-api>` |
@@ -85,8 +85,8 @@ Complete REST endpoint documentation with examples, error codes, and deployment 
 
 Core classes, strategies, models, and utility functions.
 
-- [ProxyRotator](python-api.md#proxyrotator) -- sync client with context manager
-- [AsyncProxyRotator](python-api.md#asyncproxyrotator) -- async client, connection pooling
+- [ProxyWhirl](python-api.md#proxyrotator) -- sync client with context manager
+- [AsyncProxyWhirl](python-api.md#asyncproxyrotator) -- async client, connection pooling
 - [Rotation strategies](python-api.md#rotation-strategies) -- all 9 strategy classes
 - [ProxyFetcher & Validator](python-api.md#proxyfetcher) -- fetch, validate, enrich
 - [BrowserRenderer](python-api.md#browserrenderer) -- Playwright JS-rendered sources

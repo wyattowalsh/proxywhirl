@@ -4,7 +4,7 @@ import httpx
 import pytest
 import respx
 
-from proxywhirl import Proxy, ProxyRotator
+from proxywhirl import Proxy, ProxyWhirl
 from proxywhirl.models import HealthStatus
 
 
@@ -16,7 +16,7 @@ class TestRuntimeProxyUpdates:
         """Test that newly added proxies are immediately available for rotation."""
         # Start with one proxy
         proxy1 = Proxy(url="http://proxy1.example.com:8080")
-        rotator = ProxyRotator(proxies=[proxy1])
+        rotator = ProxyWhirl(proxies=[proxy1])
 
         # Mark as healthy so it can be selected
         proxy1.health_status = HealthStatus.HEALTHY
@@ -57,7 +57,7 @@ class TestRuntimeProxyUpdates:
         # Start with two proxies
         proxy1 = Proxy(url="http://proxy1.example.com:8080")
         proxy2 = Proxy(url="http://proxy2.example.com:8080")
-        rotator = ProxyRotator(proxies=[proxy1, proxy2])
+        rotator = ProxyWhirl(proxies=[proxy1, proxy2])
 
         proxy1.health_status = HealthStatus.HEALTHY
         proxy2.health_status = HealthStatus.HEALTHY
@@ -99,7 +99,7 @@ class TestRuntimeProxyUpdates:
         # Start with two proxies
         proxy1 = Proxy(url="http://proxy1.example.com:8080")
         proxy2 = Proxy(url="http://proxy2.example.com:8080")
-        rotator = ProxyRotator(proxies=[proxy1, proxy2])
+        rotator = ProxyWhirl(proxies=[proxy1, proxy2])
 
         proxy1.health_status = HealthStatus.HEALTHY
         proxy2.health_status = HealthStatus.HEALTHY
@@ -149,7 +149,7 @@ class TestRuntimeProxyUpdates:
     def test_pool_remains_functional_after_updates(self):
         """Test that pool continues to function correctly after adds/removes."""
         proxy1 = Proxy(url="http://proxy1.example.com:8080")
-        rotator = ProxyRotator(proxies=[proxy1])
+        rotator = ProxyWhirl(proxies=[proxy1])
         proxy1.health_status = HealthStatus.HEALTHY
 
         respx.get("https://httpbin.org/ip").mock(
@@ -181,7 +181,7 @@ class TestRuntimeProxyUpdates:
         """Test behavior when all proxies are removed."""
         proxy1 = Proxy(url="http://proxy1.example.com:8080")
         proxy2 = Proxy(url="http://proxy2.example.com:8080")
-        rotator = ProxyRotator(proxies=[proxy1, proxy2])
+        rotator = ProxyWhirl(proxies=[proxy1, proxy2])
 
         proxy1.health_status = HealthStatus.HEALTHY
         proxy2.health_status = HealthStatus.HEALTHY

@@ -22,6 +22,7 @@ from proxywhirl.exceptions import (
 )
 from proxywhirl.models import Proxy, ProxyChain, ProxyConfiguration, ProxyPool
 from proxywhirl.retry import NonRetryableError, RetryExecutor, RetryMetrics, RetryPolicy
+from proxywhirl.rotator._bootstrap import bootstrap_pool_if_empty_sync
 from proxywhirl.rotator.base import ProxyRotatorBase
 from proxywhirl.rotator.client_pool import (
     LRUClientPool,  # noqa: F401 - re-export for backward compatibility
@@ -39,7 +40,7 @@ if TYPE_CHECKING:
     from proxywhirl.rate_limiting import SyncRateLimiter
 
 
-class ProxyRotator(ProxyRotatorBase):
+class ProxyWhirl(ProxyRotatorBase):
     """
     Main class for proxy rotation with automatic failover.
 
@@ -48,9 +49,9 @@ class ProxyRotator(ProxyRotatorBase):
 
     Example:
         ```python
-        from proxywhirl import ProxyRotator, Proxy
+        from proxywhirl import ProxyWhirl, Proxy
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         rotator.add_proxy("http://proxy1.example.com:8080")
         rotator.add_proxy("http://proxy2.example.com:8080")
 
@@ -68,7 +69,7 @@ class ProxyRotator(ProxyRotatorBase):
         rate_limiter: SyncRateLimiter | None = None,
     ) -> None:
         """
-        Initialize ProxyRotator.
+        Initialize ProxyWhirl.
 
         Args:
             proxies: Initial list of proxies (optional)
@@ -129,6 +130,9 @@ class ProxyRotator(ProxyRotatorBase):
 
         # Initialize strategy lock for atomic strategy swapping
         self._strategy_lock = threading.RLock()
+        self._bootstrap_lock = threading.Lock()
+        self._bootstrap_attempted = False
+        self._bootstrap_error_message: str | None = None
 
         # Start periodic metrics aggregation timer (every 5 minutes)
         self._aggregation_timer: threading.Timer | None = None
@@ -144,7 +148,7 @@ class ProxyRotator(ProxyRotatorBase):
                 redact_credentials=self.config.log_redact_credentials,
             )
 
-    def __enter__(self) -> ProxyRotator:
+    def __enter__(self) -> ProxyWhirl:
         """Enter context manager."""
         self._client = httpx.Client(
             timeout=self.config.timeout,
@@ -227,6 +231,46 @@ class ProxyRotator(ProxyRotatorBase):
         self.pool.remove_proxy(UUID(proxy_id))
         logger.info(f"Removed proxy from pool: {proxy_id}")
 
+    def _bootstrap_pool_if_empty(
+        self,
+        *,
+        validate: bool = True,
+        timeout: int = 10,
+        max_concurrent: int = 100,
+        max_proxies: int | None = None,
+    ) -> int:
+        """Bootstrap pool from built-in sources when empty."""
+        return bootstrap_pool_if_empty_sync(
+            pool=self.pool,
+            add_proxy=self.add_proxy,
+            validate=validate,
+            timeout=timeout,
+            max_concurrent=max_concurrent,
+            max_proxies=max_proxies,
+        )
+
+    def _ensure_bootstrap_for_empty_pool(self) -> None:
+        """Trigger one-time lazy bootstrap before request-time proxy selection."""
+        if self.pool.size > 0:
+            return
+
+        with self._bootstrap_lock:
+            if self.pool.size > 0:
+                return
+
+            if self._bootstrap_error_message is not None:
+                raise ProxyPoolEmptyError(self._bootstrap_error_message)
+
+            if self._bootstrap_attempted:
+                return
+
+            self._bootstrap_attempted = True
+            try:
+                self._bootstrap_pool_if_empty()
+            except ProxyPoolEmptyError as exc:
+                self._bootstrap_error_message = str(exc)
+                raise
+
     def add_chain(self, chain: ProxyChain) -> None:
         """
         Add a proxy chain to the rotator.
@@ -243,7 +287,7 @@ class ProxyRotator(ProxyRotatorBase):
             chain: ProxyChain instance to register
 
         Example:
-            >>> rotator = ProxyRotator()
+            >>> rotator = ProxyWhirl()
             >>> chain = ProxyChain(
             ...     proxies=[
             ...         Proxy(url="http://proxy1.com:8080"),
@@ -337,7 +381,7 @@ class ProxyRotator(ProxyRotatorBase):
                    immediate replacement (faster but may affect in-flight requests)
 
         Example:
-            >>> rotator = ProxyRotator(strategy="round-robin")
+            >>> rotator = ProxyWhirl(strategy="round-robin")
             >>> # ... after some requests ...
             >>> rotator.set_strategy("performance-based")  # Hot-swap
             >>> # New requests now use performance-based strategy
@@ -617,6 +661,8 @@ class ProxyRotator(ProxyRotatorBase):
             ProxyConnectionError: If all retry attempts fail
             RequestQueueFullError: If queue is full and cannot accept request
         """
+        self._ensure_bootstrap_for_empty_pool()
+
         # Select proxy with circuit breaker filtering
         try:
             proxy = self._select_proxy_with_circuit_breaker()

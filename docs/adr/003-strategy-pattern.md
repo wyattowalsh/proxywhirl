@@ -273,7 +273,7 @@ strategy:
 proxywhirl/
 ├── strategies.py         # All strategies + registry
 ├── models.py            # StrategyConfig, SelectionContext
-└── rotator.py           # ProxyRotator integration
+└── rotator.py           # ProxyWhirl integration
 ```
 
 ### Key Classes
@@ -303,10 +303,10 @@ class StrategyConfig(BaseModel):
     geo_secondary_strategy: Optional[str] = None      # For GeoTargetedStrategy
 ```
 
-### Integration with ProxyRotator
+### Integration with ProxyWhirl
 
 ```python
-class ProxyRotator:
+class ProxyWhirl:
     def __init__(self, strategy: Union[str, RotationStrategy] = "round-robin"):
         if isinstance(strategy, str):
             registry = StrategyRegistry()

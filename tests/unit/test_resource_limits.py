@@ -159,6 +159,7 @@ class TestLargeProxyPoolOperations:
     """Test operations on large proxy pools (1k+ proxies)."""
 
     @pytest.mark.slow
+    @pytest.mark.timeout(120)
     def test_pool_with_large_proxies_creation(self) -> None:
         """Test creating a large pool with 1,000 proxies."""
         # Create proxies efficiently without factory timeout
@@ -510,14 +511,14 @@ class TestConnectionPoolExhaustion:
 
     def test_rotator_with_small_connection_limit(self) -> None:
         """Test proxy rotator behavior with small connection limits."""
-        from proxywhirl.rotator import ProxyRotator
+        from proxywhirl.rotator import ProxyWhirl
 
         # Create simple proxies
         proxies = [
             Proxy(url=f"http://proxy{i}.example.com:8080", health_status=HealthStatus.HEALTHY)
             for i in range(5)
         ]
-        rotator = ProxyRotator(proxies=proxies)
+        rotator = ProxyWhirl(proxies=proxies)
 
         # Verify proxies are added
         assert rotator.pool.size == 5
@@ -527,9 +528,9 @@ class TestConnectionPoolExhaustion:
 
     def test_client_pool_cleanup_on_proxy_removal(self) -> None:
         """Test that client pool properly cleans up when proxies are removed."""
-        from proxywhirl.rotator import ProxyRotator
+        from proxywhirl.rotator import ProxyWhirl
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Add proxies
         proxy_ids = []
@@ -553,14 +554,14 @@ class TestConnectionPoolExhaustion:
 
     def test_concurrent_client_access_thread_safety(self) -> None:
         """Test that concurrent client access is thread-safe."""
-        from proxywhirl.rotator import ProxyRotator
+        from proxywhirl.rotator import ProxyWhirl
 
         # Create simple proxies without factory to avoid timezone issues
         proxies = [
             Proxy(url=f"http://proxy{i}.example.com:8080", health_status=HealthStatus.HEALTHY)
             for i in range(10)
         ]
-        rotator = ProxyRotator(proxies=proxies)
+        rotator = ProxyWhirl(proxies=proxies)
 
         errors = []
         lock = threading.Lock()
@@ -703,9 +704,9 @@ class TestCircuitBreakerMemoryManagement:
 
     def test_circuit_breakers_cleaned_on_proxy_removal(self) -> None:
         """Test that circuit breakers are removed when proxies are removed."""
-        from proxywhirl.rotator import ProxyRotator
+        from proxywhirl.rotator import ProxyWhirl
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Add proxies
         proxy_ids = []

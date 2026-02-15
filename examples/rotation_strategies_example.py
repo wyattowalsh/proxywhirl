@@ -21,7 +21,7 @@ from proxywhirl import (
     PerformanceBasedStrategy,
     Proxy,
     ProxyPool,
-    ProxyRotator,
+    ProxyWhirl,
     RandomStrategy,
     RoundRobinStrategy,
     SessionPersistenceStrategy,
@@ -45,7 +45,7 @@ def example_round_robin():
     ]
 
     # Create rotator with round-robin strategy
-    rotator = ProxyRotator(proxies=proxies, strategy=RoundRobinStrategy())
+    rotator = ProxyWhirl(proxies=proxies, strategy=RoundRobinStrategy())
 
     # Select 6 proxies - should cycle through proxies evenly
     print("\nSelecting 6 proxies with round-robin:")
@@ -71,7 +71,7 @@ def example_random_and_weighted():
 
     # Random strategy - uniform distribution
     print("\nRandom Strategy (uniform):")
-    random_rotator = ProxyRotator(proxies=proxies, strategy=RandomStrategy())
+    random_rotator = ProxyWhirl(proxies=proxies, strategy=RandomStrategy())
     for i in range(3):
         proxy = random_rotator.strategy.select(random_rotator.pool)
         print(f"  Request {i + 1}: {proxy.url}")
@@ -86,7 +86,7 @@ def example_random_and_weighted():
     proxies[2].total_successes = 80
     proxies[2].total_requests = 100
 
-    weighted_rotator = ProxyRotator(proxies=proxies, strategy=WeightedStrategy())
+    weighted_rotator = ProxyWhirl(proxies=proxies, strategy=WeightedStrategy())
     print("  Proxies with 95%, 50%, 80% success rates")
     print("  Expect more selections from high-success proxies")
 
@@ -109,7 +109,7 @@ def example_least_used():
     proxies[1].requests_completed = 5
     proxies[2].requests_completed = 8
 
-    rotator = ProxyRotator(proxies=proxies, strategy=LeastUsedStrategy())
+    rotator = ProxyWhirl(proxies=proxies, strategy=LeastUsedStrategy())
 
     print("\nInitial request counts:")
     for p in proxies:
@@ -150,7 +150,7 @@ def example_performance_based():
     for p in proxies:
         p.total_requests = 10
 
-    rotator = ProxyRotator(proxies=proxies, strategy=PerformanceBasedStrategy())
+    rotator = ProxyWhirl(proxies=proxies, strategy=PerformanceBasedStrategy())
 
     print("\nProxy latencies (EMA):")
     for p in proxies:
@@ -174,7 +174,7 @@ def example_session_persistence():
         Proxy(url="http://proxy3.example.com:8080"),
     ]
 
-    rotator = ProxyRotator(proxies=proxies, strategy=SessionPersistenceStrategy())
+    rotator = ProxyWhirl(proxies=proxies, strategy=SessionPersistenceStrategy())
 
     # Create session context
     session_id = "user-12345-session"
@@ -219,7 +219,7 @@ def example_geo_targeted():
         ),
     ]
 
-    rotator = ProxyRotator(proxies=proxies, strategy=GeoTargetedStrategy())
+    rotator = ProxyWhirl(proxies=proxies, strategy=GeoTargetedStrategy())
 
     print("\nAvailable proxies:")
     for p in proxies:
@@ -284,7 +284,7 @@ def example_strategy_composition():
         filters=[GeoTargetedStrategy()], selector=PerformanceBasedStrategy()
     )
 
-    rotator = ProxyRotator(proxies=proxies, strategy=composite)
+    rotator = ProxyWhirl(proxies=proxies, strategy=composite)
     context = SelectionContext(target_country="US")
 
     print("  Step 1: Filter to US proxies (us-fast, us-slow)")
@@ -309,7 +309,7 @@ def example_hot_swapping():
     ]
 
     # Start with round-robin
-    rotator = ProxyRotator(proxies=proxies, strategy=RoundRobinStrategy())
+    rotator = ProxyWhirl(proxies=proxies, strategy=RoundRobinStrategy())
     print("\nInitial strategy: Round-Robin")
     proxy = rotator.strategy.select(rotator.pool)
     print(f"  Selected: {proxy.url}")
@@ -372,7 +372,7 @@ def example_custom_plugin():
     # Retrieve and instantiate
     strategy_class = registry.get_strategy("always-first")
     strategy = strategy_class()
-    rotator = ProxyRotator(proxies=proxies, strategy=strategy)
+    rotator = ProxyWhirl(proxies=proxies, strategy=strategy)
 
     print("\nUsing custom strategy (3 requests):")
     for i in range(3):

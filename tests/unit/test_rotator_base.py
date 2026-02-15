@@ -1,7 +1,7 @@
 """
 Unit tests for ProxyRotatorBase shared functionality.
 
-Tests verify the base class methods used by both ProxyRotator and AsyncProxyRotator.
+Tests verify the base class methods used by both ProxyWhirl and AsyncProxyWhirl.
 """
 
 import pytest

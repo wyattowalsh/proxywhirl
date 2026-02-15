@@ -12,7 +12,7 @@ import respx
 
 from proxywhirl.fetchers import ProxyFetcher, ProxySourceConfig
 from proxywhirl.models import HealthStatus, Proxy, ProxySource
-from proxywhirl.rotator import ProxyRotator
+from proxywhirl.rotator import ProxyWhirl
 from proxywhirl.strategies import WeightedStrategy
 
 
@@ -32,7 +32,7 @@ class TestMixedProxySources:
         )
 
         # Create rotator and add user-provided proxies
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
         user_proxy1 = Proxy(url="http://user1.example.com:8080")
         user_proxy2 = Proxy(url="http://user2.example.com:3128")
         rotator.add_proxy(user_proxy1)
@@ -71,7 +71,7 @@ class TestMixedProxySources:
 
     def test_weighted_rotation_prefers_user_proxies(self) -> None:
         """T115/SC2: Weighted rotation prefers user-defined proxies over fetched."""
-        rotator = ProxyRotator(strategy=WeightedStrategy())
+        rotator = ProxyWhirl(strategy=WeightedStrategy())
 
         # Add user-provided proxies (should get higher weight)
         user_proxy = Proxy(
@@ -109,7 +109,7 @@ class TestMixedProxySources:
 
     def test_statistics_indicate_source_for_each_proxy(self) -> None:
         """T116/SC3: Statistics clearly indicate source for each proxy."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Add mix of proxies
         user_proxy = Proxy(url="http://user.example.com:8080", source=ProxySource.USER)
@@ -131,7 +131,7 @@ class TestMixedProxySources:
 
     def test_mixed_sources_maintain_independent_health_tracking(self) -> None:
         """Verify user and fetched proxies track health independently."""
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Add proxies from different sources
         user_proxy = Proxy(url="http://user.example.com:8080", source=ProxySource.USER)
@@ -162,7 +162,7 @@ class TestMixedProxySources:
         route = respx.get("https://proxy-source.example.com/api")
         route.mock(return_value=httpx.Response(200, json=json_data_initial))
 
-        rotator = ProxyRotator()
+        rotator = ProxyWhirl()
 
         # Add user proxy (should persist)
         user_proxy = Proxy(url="http://user.example.com:8080", source=ProxySource.USER)

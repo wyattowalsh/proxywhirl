@@ -21,6 +21,7 @@ from proxywhirl.exceptions import (
 )
 from proxywhirl.models import Proxy, ProxyConfiguration, ProxyPool
 from proxywhirl.retry import RetryExecutor, RetryMetrics, RetryPolicy
+from proxywhirl.rotator._bootstrap import bootstrap_pool_if_empty_async
 from proxywhirl.rotator.base import ProxyRotatorBase
 from proxywhirl.strategies import (
     LeastUsedStrategy,
@@ -150,7 +151,7 @@ class LRUAsyncClientPool:
         await self.remove(proxy_id)
 
 
-class AsyncProxyRotator(ProxyRotatorBase):
+class AsyncProxyWhirl(ProxyRotatorBase):
     """
     Async proxy rotator with automatic failover and intelligent rotation.
 
@@ -159,9 +160,9 @@ class AsyncProxyRotator(ProxyRotatorBase):
 
     Example:
         ```python
-        from proxywhirl import AsyncProxyRotator, Proxy
+        from proxywhirl import AsyncProxyWhirl, Proxy
 
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             await rotator.add_proxy("http://proxy1.example.com:8080")
             await rotator.add_proxy("http://proxy2.example.com:8080")
 
@@ -169,6 +170,10 @@ class AsyncProxyRotator(ProxyRotatorBase):
             print(response.json())
         ```
     """
+
+    _BOOTSTRAP_EMPTY_MESSAGE = (
+        "Lazy auto-fetch bootstrap yielded zero proxies from built-in public sources"
+    )
 
     def __init__(
         self,
@@ -178,7 +183,7 @@ class AsyncProxyRotator(ProxyRotatorBase):
         retry_policy: RetryPolicy | None = None,
     ) -> None:
         """
-        Initialize AsyncProxyRotator.
+        Initialize AsyncProxyWhirl.
 
         Args:
             proxies: Initial list of proxies (optional)
@@ -212,6 +217,8 @@ class AsyncProxyRotator(ProxyRotatorBase):
         self.config = config or ProxyConfiguration()
         self._client: httpx.AsyncClient | None = None
         self._client_pool = LRUAsyncClientPool(maxsize=100)  # LRU cache with max 100 clients
+        self._bootstrap_lock = asyncio.Lock()
+        self._bootstrap_attempted = False
 
         # Retry and circuit breaker components
         self.retry_policy = retry_policy or RetryPolicy()
@@ -246,7 +253,7 @@ class AsyncProxyRotator(ProxyRotatorBase):
                 redact_credentials=self.config.log_redact_credentials,
             )
 
-    async def __aenter__(self) -> AsyncProxyRotator:
+    async def __aenter__(self) -> AsyncProxyWhirl:
         """Enter async context manager."""
         self._client = httpx.AsyncClient(
             timeout=self.config.timeout,
@@ -282,7 +289,7 @@ class AsyncProxyRotator(ProxyRotatorBase):
         that the background aggregation thread is stopped to prevent resource leaks.
 
         Note:
-            Using AsyncProxyRotator as a context manager (async with) is strongly
+            Using AsyncProxyWhirl as a context manager (async with) is strongly
             recommended for proper async cleanup of httpx clients.
         """
         if hasattr(self, "_stop_event"):
@@ -290,7 +297,7 @@ class AsyncProxyRotator(ProxyRotatorBase):
         if hasattr(self, "_aggregation_thread") and self._aggregation_thread.is_alive():
             self._aggregation_thread.join(timeout=1.0)
             logger.debug(
-                "AsyncProxyRotator cleanup via __del__ - context manager usage recommended",
+                "AsyncProxyWhirl cleanup via __del__ - context manager usage recommended",
                 thread_name=self._aggregation_thread.name,
             )
 
@@ -337,6 +344,41 @@ class AsyncProxyRotator(ProxyRotatorBase):
         self.pool.remove_proxy(UUID(proxy_id))
         logger.info(f"Removed proxy from pool: {proxy_id}")
 
+    async def _bootstrap_pool_if_empty(
+        self,
+        *,
+        validate: bool = True,
+        timeout: int = 10,
+        max_concurrent: int = 100,
+        max_proxies: int | None = None,
+    ) -> int:
+        """Bootstrap pool from built-in sources when empty."""
+        return await bootstrap_pool_if_empty_async(
+            pool=self.pool,
+            add_proxy=self.add_proxy,
+            validate=validate,
+            timeout=timeout,
+            max_concurrent=max_concurrent,
+            max_proxies=max_proxies,
+        )
+
+    async def _ensure_request_bootstrap(self) -> None:
+        """Run one-time lazy bootstrap for async request path when pool starts empty."""
+        if self.pool.size > 0:
+            return
+
+        async with self._bootstrap_lock:
+            if self.pool.size > 0:
+                return
+            if self._bootstrap_attempted:
+                raise ProxyPoolEmptyError(self._BOOTSTRAP_EMPTY_MESSAGE)
+
+            self._bootstrap_attempted = True
+            await self._bootstrap_pool_if_empty()
+
+        if self.pool.size == 0:
+            raise ProxyPoolEmptyError(self._BOOTSTRAP_EMPTY_MESSAGE)
+
     async def get_proxy(self) -> Proxy:
         """
         Get the next proxy from the pool using the rotation strategy.
@@ -367,7 +409,7 @@ class AsyncProxyRotator(ProxyRotatorBase):
                    immediate replacement (faster but may affect in-flight requests)
 
         Example:
-            >>> async with AsyncProxyRotator(strategy="round-robin") as rotator:
+            >>> async with AsyncProxyWhirl(strategy="round-robin") as rotator:
             ...     # ... after some requests ...
             ...     rotator.set_strategy("performance-based")  # Hot-swap
             ...     # New requests now use performance-based strategy
@@ -646,6 +688,9 @@ class AsyncProxyRotator(ProxyRotatorBase):
             ProxyPoolEmptyError: If no healthy proxies available
             ProxyConnectionError: If all retry attempts fail
         """
+        if self.pool.size == 0:
+            await self._ensure_request_bootstrap()
+
         # Select proxy with circuit breaker filtering
         try:
             proxy = self._select_proxy_with_circuit_breaker()

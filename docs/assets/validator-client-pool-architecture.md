@@ -287,6 +287,6 @@ ProxyValidator(
 ## Related Components
 
 - `ProxyFetcher`: Also uses client pooling (lines 621-819)
-- `AsyncProxyRotator`: Uses ProxyValidator for validation
+- `AsyncProxyWhirl`: Uses ProxyValidator for validation
 - `httpx.AsyncClient`: Underlying HTTP client with connection pooling
 - `httpx_socks.AsyncProxyTransport`: SOCKS transport layer

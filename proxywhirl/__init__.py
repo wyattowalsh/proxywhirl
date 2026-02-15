@@ -74,7 +74,7 @@ from proxywhirl.retry import (
     RetryOutcome,
     RetryPolicy,
 )
-from proxywhirl.rotator import AsyncProxyRotator, ProxyRotator
+from proxywhirl.rotator import AsyncProxyWhirl, ProxyWhirl
 from proxywhirl.safe_regex import RegexComplexityError, RegexTimeoutError
 from proxywhirl.sources import (
     ALL_HTTP_SOURCES,
@@ -189,8 +189,8 @@ __all__: list[str] = [
     "RenderMode",
     "ValidationLevel",
     # Core Classes
-    "ProxyRotator",
-    "AsyncProxyRotator",
+    "ProxyWhirl",
+    "AsyncProxyWhirl",
     "ProxyFetcher",
     "ProxyValidator",
     "BrowserRenderer",

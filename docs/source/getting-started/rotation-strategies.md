@@ -9,7 +9,7 @@ ProxyWhirl ships **9 rotation strategies** covering everything from simple round
 ## Bootstrap a Rotator
 
 ```python
-from proxywhirl import ProxyRotator, Proxy
+from proxywhirl import ProxyWhirl, Proxy
 from pydantic import SecretStr
 
 proxies = [
@@ -22,7 +22,7 @@ proxies = [
     ),
 ]
 
-rotator = ProxyRotator(proxies=proxies)  # round-robin by default
+rotator = ProxyWhirl(proxies=proxies)  # round-robin by default
 response = rotator.get("https://httpbin.org/ip")
 print(response.json())
 ```
@@ -151,7 +151,7 @@ Cycles through healthy proxies sequentially: A -> B -> C -> A. The default strat
 **When to use:** Predictable workloads where even distribution matters more than performance optimization.
 
 ```python
-from proxywhirl import ProxyRotator, Proxy
+from proxywhirl import ProxyWhirl, Proxy
 
 proxies = [
     Proxy(url="http://proxy1.example.com:8080"),
@@ -160,12 +160,12 @@ proxies = [
 ]
 
 # By name (simplest)
-rotator = ProxyRotator(proxies=proxies, strategy="round-robin")
+rotator = ProxyWhirl(proxies=proxies, strategy="round-robin")
 rotator.get("https://example.com")
 
 # Or by instance (equivalent)
 from proxywhirl import RoundRobinStrategy
-rotator = ProxyRotator(proxies=proxies, strategy=RoundRobinStrategy())
+rotator = ProxyWhirl(proxies=proxies, strategy=RoundRobinStrategy())
 ```
 
 ---
@@ -181,7 +181,7 @@ Picks a random healthy proxy for each request. No state to track.
 **When to use:** Rate-limit avoidance, load testing, or when you want unpredictable access patterns.
 
 ```python
-rotator = ProxyRotator(proxies=proxies, strategy="random")
+rotator = ProxyWhirl(proxies=proxies, strategy="random")
 rotator.get("https://api.example.com/data")
 ```
 
@@ -202,7 +202,7 @@ Selects proxies using weighted random sampling. Weights can be set explicitly or
 :::{tab-item} Auto weights (success rate)
 ```python
 # Weights are automatically derived from proxy success rates
-rotator = ProxyRotator(proxies=proxies, strategy="weighted")
+rotator = ProxyWhirl(proxies=proxies, strategy="weighted")
 ```
 :::
 
@@ -220,7 +220,7 @@ config = StrategyConfig(
 strategy = WeightedStrategy()
 strategy.configure(config)
 
-rotator = ProxyRotator(proxies=proxies, strategy=strategy)
+rotator = ProxyWhirl(proxies=proxies, strategy=strategy)
 ```
 :::
 
@@ -239,7 +239,7 @@ Selects the proxy with the fewest total requests using a min-heap for O(log n) s
 **When to use:** Long-running crawls that need even utilization across all proxies.
 
 ```python
-rotator = ProxyRotator(proxies=proxies, strategy="least-used")
+rotator = ProxyWhirl(proxies=proxies, strategy="least-used")
 rotator.get("https://httpbin.org/ip")
 ```
 
@@ -260,7 +260,7 @@ Ranks proxies by inverse EMA (Exponential Moving Average) of response times -- f
 **When to use:** Speed-critical scraping or API calls where latency matters.
 
 ```python
-from proxywhirl import ProxyRotator, PerformanceBasedStrategy, StrategyConfig
+from proxywhirl import ProxyWhirl, PerformanceBasedStrategy, StrategyConfig
 
 # Default: 5 exploration trials per new proxy
 strategy = PerformanceBasedStrategy()
@@ -270,7 +270,7 @@ strategy = PerformanceBasedStrategy(exploration_count=3)
 config = StrategyConfig(ema_alpha=0.3)  # Higher alpha = react faster to recent times
 strategy.configure(config)
 
-rotator = ProxyRotator(proxies=proxies, strategy=strategy)
+rotator = ProxyWhirl(proxies=proxies, strategy=strategy)
 ```
 
 ```{tip}
@@ -295,10 +295,10 @@ Maps session IDs to specific proxies so that repeated requests with the same `se
 **When to use:** Stateful APIs, cookie-dependent flows, or any workflow where a user/session must consistently use the same proxy.
 
 ```python
-from proxywhirl import ProxyRotator, SessionPersistenceStrategy, SelectionContext
+from proxywhirl import ProxyWhirl, SessionPersistenceStrategy, SelectionContext
 
 strategy = SessionPersistenceStrategy(max_sessions=5000)
-rotator = ProxyRotator(proxies=proxies, strategy=strategy)
+rotator = ProxyWhirl(proxies=proxies, strategy=strategy)
 
 # Select a proxy bound to a session key
 context = SelectionContext(session_id="user-12345")
@@ -330,7 +330,7 @@ Filters the proxy pool by geographic location (country or region) specified in t
 **When to use:** Geo-specific content scraping, localization QA, region-locked API access.
 
 ```python
-from proxywhirl import ProxyRotator, GeoTargetedStrategy, SelectionContext, Proxy
+from proxywhirl import ProxyWhirl, GeoTargetedStrategy, SelectionContext, Proxy
 
 # Proxies with geo metadata
 proxies = [
@@ -340,7 +340,7 @@ proxies = [
 ]
 
 strategy = GeoTargetedStrategy()
-rotator = ProxyRotator(proxies=proxies, strategy=strategy)
+rotator = ProxyWhirl(proxies=proxies, strategy=strategy)
 
 # Select a US-based proxy using the strategy directly
 context = SelectionContext(target_country="US")
@@ -384,7 +384,7 @@ Prioritizes free proxies over paid ones using inverse-cost weighted random selec
 **When to use:** Budget-constrained environments where you mix free and paid proxies.
 
 ```python
-from proxywhirl import ProxyRotator, CostAwareStrategy, StrategyConfig, Proxy
+from proxywhirl import ProxyWhirl, CostAwareStrategy, StrategyConfig, Proxy
 
 proxies = [
     Proxy(url="http://free-proxy.example.com:8080", cost_per_request=0.0),
@@ -394,11 +394,11 @@ proxies = [
 
 # Basic: favor free proxies
 strategy = CostAwareStrategy()
-rotator = ProxyRotator(proxies=proxies, strategy=strategy)
+rotator = ProxyWhirl(proxies=proxies, strategy=strategy)
 
 # With cost ceiling: exclude expensive proxies
 strategy = CostAwareStrategy(max_cost_per_request=0.05)
-rotator = ProxyRotator(proxies=proxies, strategy=strategy)
+rotator = ProxyWhirl(proxies=proxies, strategy=strategy)
 ```
 
 **Configuration options** via {class}`~proxywhirl.StrategyConfig` metadata:
@@ -436,7 +436,7 @@ Chains multiple strategies into a pipeline: **filter** strategies narrow the poo
 
 ```python
 from proxywhirl import (
-    ProxyRotator,
+    ProxyWhirl,
     CompositeStrategy,
     GeoTargetedStrategy,
     PerformanceBasedStrategy,
@@ -448,7 +448,7 @@ strategy = CompositeStrategy(
     filters=[GeoTargetedStrategy()],
     selector=PerformanceBasedStrategy(),
 )
-rotator = ProxyRotator(proxies=proxies, strategy=strategy)
+rotator = ProxyWhirl(proxies=proxies, strategy=strategy)
 
 # Select a proxy: geo-filter to US, then pick the fastest
 context = SelectionContext(target_country="US")
@@ -545,7 +545,7 @@ strategy = CompositeStrategy.from_config({
 Switch strategies at runtime without restarting:
 
 ```python
-rotator = ProxyRotator(proxies=proxies, strategy="round-robin")
+rotator = ProxyWhirl(proxies=proxies, strategy="round-robin")
 
 # ... after observing proxy performance ...
 
@@ -628,7 +628,7 @@ registry.register_strategy("priority", PriorityStrategy)
 
 # Retrieve later
 strategy_cls = registry.get_strategy("priority")
-rotator = ProxyRotator(proxies=proxies, strategy=strategy_cls())
+rotator = ProxyWhirl(proxies=proxies, strategy=strategy_cls())
 ```
 
 ```{warning}

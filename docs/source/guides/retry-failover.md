@@ -42,10 +42,10 @@ ProxyWhirl combines both: it retries with backoff on the current proxy, then fai
 ### Basic Configuration
 
 ```python
-from proxywhirl import ProxyRotator, RetryPolicy, BackoffStrategy
+from proxywhirl import ProxyWhirl, RetryPolicy, BackoffStrategy
 
 # Default policy: 3 attempts, exponential backoff
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 
 # Custom policy
 policy = RetryPolicy(
@@ -60,7 +60,7 @@ policy = RetryPolicy(
     retry_non_idempotent=False,              # Don't retry POST by default
 )
 
-rotator = ProxyRotator(retry_policy=policy)
+rotator = ProxyWhirl(retry_policy=policy)
 ```
 
 ### Backoff Strategies
@@ -174,7 +174,7 @@ rotator.request("POST", url, json=data)
 
 # Enable retries for POST (use with caution!)
 policy = RetryPolicy(retry_non_idempotent=True)
-rotator = ProxyRotator(retry_policy=policy)
+rotator = ProxyWhirl(retry_policy=policy)
 
 # Now POST will retry on network failures
 rotator.request("POST", url, json=data)
@@ -235,7 +235,7 @@ CLOSED → OPEN → HALF_OPEN → CLOSED
 from proxywhirl import CircuitBreakerConfig
 from proxywhirl.circuit_breaker import CircuitBreaker
 
-# Circuit breakers are created automatically by ProxyRotator
+# Circuit breakers are created automatically by ProxyWhirl
 # Access via rotator.circuit_breakers dict
 
 proxy = rotator.get_proxy()
@@ -362,7 +362,7 @@ score = (0.7 × success_rate) + (0.3 × (1 - normalized_latency))
 ### Example: Performance-Based Selection
 
 ```python
-from proxywhirl import Proxy, ProxyRotator
+from proxywhirl import Proxy, ProxyWhirl
 
 # Create proxies with different success rates
 proxy1 = Proxy(url="http://proxy1.example.com:8080")
@@ -373,7 +373,7 @@ proxy2 = Proxy(url="http://proxy2.example.com:8080")
 proxy2.total_requests = 100
 proxy2.total_successes = 60  # 60% success rate
 
-rotator = ProxyRotator(proxies=[proxy1, proxy2])
+rotator = ProxyWhirl(proxies=[proxy1, proxy2])
 
 # Intelligent selection prioritizes proxy1
 executor = rotator.retry_executor
@@ -400,7 +400,7 @@ proxy_eu = Proxy(
 proxy_eu.total_requests = 100
 proxy_eu.total_successes = 85  # 85% success rate (slightly better)
 
-rotator = ProxyRotator(proxies=[proxy_us, proxy_eu])
+rotator = ProxyWhirl(proxies=[proxy_us, proxy_eu])
 
 # Select with target region
 executor = rotator.retry_executor
@@ -439,9 +439,9 @@ You can also view retry and circuit breaker statistics from the command line usi
 ### Collecting Metrics
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 
 # Metrics are automatically collected
 response = rotator.request("GET", "https://httpbin.org/ip")
@@ -553,7 +553,7 @@ metrics = RetryMetrics(
     max_current_attempts=5000,  # Limit raw attempts deque
 )
 
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 rotator.retry_metrics = metrics
 ```
 
@@ -608,13 +608,13 @@ except NonRetryableError as e:
 For advanced use cases, you can use `RetryExecutor` directly:
 
 ```python
-from proxywhirl import ProxyRotator, Proxy, RetryPolicy
+from proxywhirl import ProxyWhirl, Proxy, RetryPolicy
 from proxywhirl.retry import RetryExecutor
 import httpx
 
 # Create executor with custom policy
 policy = RetryPolicy(max_attempts=5, base_delay=2.0)
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 executor = RetryExecutor(
     retry_policy=policy,
     circuit_breakers=rotator.circuit_breakers,
@@ -637,12 +637,12 @@ response = executor.execute_with_retry(
 )
 ```
 
-## Integration with ProxyRotator
+## Integration with ProxyWhirl
 
 ### Basic Usage
 
 ```python
-from proxywhirl import ProxyRotator, RetryPolicy, BackoffStrategy
+from proxywhirl import ProxyWhirl, RetryPolicy, BackoffStrategy
 
 # Automatic retry and failover
 policy = RetryPolicy(
@@ -652,7 +652,7 @@ policy = RetryPolicy(
     jitter=True,
 )
 
-rotator = ProxyRotator(retry_policy=policy)
+rotator = ProxyWhirl(retry_policy=policy)
 
 # Request automatically retries and fails over
 response = rotator.request("GET", "https://httpbin.org/ip")
@@ -708,11 +708,11 @@ Retry and failover logic works seamlessly with all rotation strategies. For deta
 #### Round-Robin with Automatic Failover
 
 ```python
-from proxywhirl import ProxyRotator, Proxy, RetryPolicy
+from proxywhirl import ProxyWhirl, Proxy, RetryPolicy
 from proxywhirl.strategies import RoundRobinStrategy
 
 # Round-robin ensures fair distribution
-rotator = ProxyRotator(
+rotator = ProxyWhirl(
     proxies=[
         Proxy(url="http://proxy1.example.com:8080"),
         Proxy(url="http://proxy2.example.com:8080"),
@@ -732,7 +732,7 @@ response = rotator.request("GET", "https://api.example.com/data")
 from proxywhirl.strategies import WeightedStrategy
 
 # Higher weight = more traffic
-rotator = ProxyRotator(
+rotator = ProxyWhirl(
     proxies=[
         Proxy(url="http://premium.example.com:8080", weight=3.0),  # 60% of traffic
         Proxy(url="http://standard.example.com:8080", weight=2.0), # 40% of traffic
@@ -760,7 +760,7 @@ strategy.configure(StrategyConfig(
 ))
 
 # Geo-targeted proxies
-rotator = ProxyRotator(
+rotator = ProxyWhirl(
     proxies=[
         Proxy(url="http://us-east.example.com:8080", metadata={"region": "US-EAST"}),
         Proxy(url="http://us-west.example.com:8080", metadata={"region": "US-WEST"}),
@@ -781,7 +781,7 @@ response = rotator.request("GET", "https://api.example.com/data", context=contex
 from proxywhirl.strategies import PerformanceBasedStrategy
 
 # Automatically selects fastest, most reliable proxy
-rotator = ProxyRotator(
+rotator = ProxyWhirl(
     proxies=[
         Proxy(url="http://proxy1.example.com:8080"),
         Proxy(url="http://proxy2.example.com:8080"),
@@ -857,7 +857,7 @@ Monitor circuit breaker events for alerts:
 from datetime import datetime, timezone
 from proxywhirl.circuit_breaker import CircuitBreakerState
 
-def check_circuit_health(rotator: ProxyRotator) -> None:
+def check_circuit_health(rotator: ProxyWhirl) -> None:
     """Alert on recent circuit breaker opens."""
     now = datetime.now(timezone.utc)
 
@@ -878,10 +878,10 @@ check_circuit_health(rotator)
 Override retry policy for specific requests:
 
 ```python
-from proxywhirl import ProxyRotator, RetryPolicy, BackoffStrategy
+from proxywhirl import ProxyWhirl, RetryPolicy, BackoffStrategy
 
 # Default policy
-rotator = ProxyRotator(
+rotator = ProxyWhirl(
     retry_policy=RetryPolicy(max_attempts=3)
 )
 
@@ -1139,6 +1139,6 @@ ProxyWhirl's retry and failover system provides:
 - **Circuit breaker protection** to isolate failing proxies
 - **Intelligent failover** with performance-based proxy selection
 - **Comprehensive metrics** for monitoring and debugging
-- **Automatic integration** with ProxyRotator
+- **Automatic integration** with ProxyWhirl
 
 Start with defaults and tune based on metrics. Enable jitter in production, set timeouts for time-sensitive requests, and monitor circuit breaker opens for systemic issues.

@@ -1,6 +1,6 @@
 """Integration tests for authenticated proxy requests.
 
-Tests that ProxyRotator correctly handles proxies requiring authentication,
+Tests that ProxyWhirl correctly handles proxies requiring authentication,
 including proper credential application and error handling for missing credentials.
 """
 
@@ -9,7 +9,7 @@ import pytest
 import respx
 from pydantic import SecretStr
 
-from proxywhirl import Proxy, ProxyRotator
+from proxywhirl import Proxy, ProxyWhirl
 from proxywhirl.exceptions import ProxyAuthenticationError, ProxyConnectionError
 
 
@@ -42,7 +42,7 @@ class TestAuthenticatedRequests:
             return_value=httpx.Response(200, json={"origin": "1.2.3.4"})
         )
 
-        rotator = ProxyRotator(proxies=[authenticated_proxy])
+        rotator = ProxyWhirl(proxies=[authenticated_proxy])
         response = rotator.get("https://httpbin.org/ip")
 
         assert response.status_code == 200
@@ -61,7 +61,7 @@ class TestAuthenticatedRequests:
             )
         )
 
-        rotator = ProxyRotator(proxies=[unauthenticated_proxy])
+        rotator = ProxyWhirl(proxies=[unauthenticated_proxy])
 
         # ProxyAuthenticationError is raised for 407 errors
         with pytest.raises((ProxyAuthenticationError, ProxyConnectionError)) as exc_info:
@@ -85,7 +85,7 @@ class TestAuthenticatedRequests:
             )
         )
 
-        rotator = ProxyRotator(proxies=[authenticated_proxy])
+        rotator = ProxyWhirl(proxies=[authenticated_proxy])
 
         # ProxyAuthenticationError is raised for 407 errors
         with pytest.raises((ProxyAuthenticationError, ProxyConnectionError)) as exc_info:
@@ -102,7 +102,7 @@ class TestAuthenticatedRequests:
             return_value=httpx.Response(200, json={"origin": "1.2.3.4"})
         )
 
-        rotator = ProxyRotator(proxies=[authenticated_proxy])
+        rotator = ProxyWhirl(proxies=[authenticated_proxy])
         response = rotator.get("https://httpbin.org/ip")
 
         assert response.status_code == 200
@@ -131,7 +131,7 @@ class TestAuthenticatedRequests:
             return_value=httpx.Response(200, json={"origin": "1.2.3.4"})
         )
 
-        rotator = ProxyRotator(proxies=[auth_proxy, no_auth_proxy])
+        rotator = ProxyWhirl(proxies=[auth_proxy, no_auth_proxy])
 
         # Both should work (assuming the no_auth_proxy doesn't require auth)
         response1 = rotator.get("https://httpbin.org/ip")

@@ -1,6 +1,6 @@
 """Unit tests for async_client module.
 
-Tests cover AsyncProxyRotator initialization, proxy management, strategy handling,
+Tests cover AsyncProxyWhirl initialization, proxy management, strategy handling,
 circuit breakers, and HTTP request methods.
 """
 
@@ -12,7 +12,7 @@ from pydantic import SecretStr
 from proxywhirl.exceptions import ProxyPoolEmptyError
 from proxywhirl.models import HealthStatus, Proxy, ProxyConfiguration
 from proxywhirl.retry import RetryPolicy
-from proxywhirl.rotator import AsyncProxyRotator
+from proxywhirl.rotator import AsyncProxyWhirl
 from proxywhirl.strategies import (
     LeastUsedStrategy,
     RandomStrategy,
@@ -21,12 +21,12 @@ from proxywhirl.strategies import (
 )
 
 
-class TestAsyncProxyRotatorInit:
-    """Test AsyncProxyRotator initialization."""
+class TestAsyncProxyWhirlInit:
+    """Test AsyncProxyWhirl initialization."""
 
     def test_init_defaults(self) -> None:
         """Test initialization with defaults."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         assert rotator.pool.size == 0
         assert isinstance(rotator.strategy, RoundRobinStrategy)
@@ -37,7 +37,7 @@ class TestAsyncProxyRotatorInit:
     def test_init_with_proxies(self) -> None:
         """Test initialization with initial proxies."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         assert rotator.pool.size == 1
         assert str(proxy.id) in rotator.circuit_breakers
@@ -45,39 +45,39 @@ class TestAsyncProxyRotatorInit:
     def test_init_with_strategy_instance(self) -> None:
         """Test initialization with strategy instance."""
         strategy = RandomStrategy()
-        rotator = AsyncProxyRotator(strategy=strategy)
+        rotator = AsyncProxyWhirl(strategy=strategy)
 
         assert rotator.strategy is strategy
 
     def test_init_with_strategy_string_round_robin(self) -> None:
         """Test initialization with 'round-robin' strategy string."""
-        rotator = AsyncProxyRotator(strategy="round-robin")
+        rotator = AsyncProxyWhirl(strategy="round-robin")
         assert isinstance(rotator.strategy, RoundRobinStrategy)
 
     def test_init_with_strategy_string_random(self) -> None:
         """Test initialization with 'random' strategy string."""
-        rotator = AsyncProxyRotator(strategy="random")
+        rotator = AsyncProxyWhirl(strategy="random")
         assert isinstance(rotator.strategy, RandomStrategy)
 
     def test_init_with_strategy_string_weighted(self) -> None:
         """Test initialization with 'weighted' strategy string."""
-        rotator = AsyncProxyRotator(strategy="weighted")
+        rotator = AsyncProxyWhirl(strategy="weighted")
         assert isinstance(rotator.strategy, WeightedStrategy)
 
     def test_init_with_strategy_string_least_used(self) -> None:
         """Test initialization with 'least-used' strategy string."""
-        rotator = AsyncProxyRotator(strategy="least-used")
+        rotator = AsyncProxyWhirl(strategy="least-used")
         assert isinstance(rotator.strategy, LeastUsedStrategy)
 
     def test_init_with_invalid_strategy_string(self) -> None:
         """Test initialization with invalid strategy string raises ValueError."""
         with pytest.raises(ValueError, match="Unknown strategy"):
-            AsyncProxyRotator(strategy="invalid-strategy")
+            AsyncProxyWhirl(strategy="invalid-strategy")
 
     def test_init_with_custom_config(self) -> None:
         """Test initialization with custom configuration."""
         config = ProxyConfiguration(timeout=60, verify_ssl=False)
-        rotator = AsyncProxyRotator(config=config)
+        rotator = AsyncProxyWhirl(config=config)
 
         assert rotator.config.timeout == 60
         assert rotator.config.verify_ssl is False
@@ -85,17 +85,17 @@ class TestAsyncProxyRotatorInit:
     def test_init_with_custom_retry_policy(self) -> None:
         """Test initialization with custom retry policy."""
         policy = RetryPolicy(max_attempts=5)
-        rotator = AsyncProxyRotator(retry_policy=policy)
+        rotator = AsyncProxyWhirl(retry_policy=policy)
 
         assert rotator.retry_policy.max_attempts == 5
 
 
-class TestAsyncProxyRotatorContextManager:
-    """Test AsyncProxyRotator context manager."""
+class TestAsyncProxyWhirlContextManager:
+    """Test AsyncProxyWhirl context manager."""
 
     async def test_context_manager_creates_client(self) -> None:
         """Test context manager creates httpx client."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         async with rotator as r:
             assert r._client is not None
@@ -106,7 +106,7 @@ class TestAsyncProxyRotatorContextManager:
 
     async def test_context_manager_cancels_timer(self) -> None:
         """Test context manager stops aggregation thread on exit."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         async with rotator:
             assert rotator._aggregation_thread is not None
@@ -118,12 +118,12 @@ class TestAsyncProxyRotatorContextManager:
         assert not rotator._aggregation_thread.is_alive() or rotator._aggregation_thread.daemon
 
 
-class TestAsyncProxyRotatorProxyManagement:
+class TestAsyncProxyWhirlProxyManagement:
     """Test proxy management methods."""
 
     async def test_add_proxy_with_proxy_object(self) -> None:
         """Test adding proxy with Proxy object."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
 
         await rotator.add_proxy(proxy)
@@ -133,7 +133,7 @@ class TestAsyncProxyRotatorProxyManagement:
 
     async def test_add_proxy_with_url_string(self) -> None:
         """Test adding proxy with URL string."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         await rotator.add_proxy("http://proxy.example.com:8080")
 
@@ -142,7 +142,7 @@ class TestAsyncProxyRotatorProxyManagement:
     async def test_remove_proxy(self) -> None:
         """Test removing proxy by ID."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         await rotator.remove_proxy(str(proxy.id))
 
@@ -150,7 +150,7 @@ class TestAsyncProxyRotatorProxyManagement:
 
     async def test_get_proxy_with_empty_pool_raises(self) -> None:
         """Test get_proxy with empty pool raises ProxyPoolEmptyError."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         with pytest.raises(ProxyPoolEmptyError):
             await rotator.get_proxy()
@@ -158,19 +158,19 @@ class TestAsyncProxyRotatorProxyManagement:
     async def test_get_proxy_returns_proxy(self) -> None:
         """Test get_proxy returns a proxy from pool."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         result = await rotator.get_proxy()
 
         assert result.id == proxy.id
 
 
-class TestAsyncProxyRotatorSetStrategy:
+class TestAsyncProxyWhirlSetStrategy:
     """Test set_strategy method."""
 
     def test_set_strategy_with_string(self) -> None:
         """Test set_strategy with strategy string."""
-        rotator = AsyncProxyRotator(strategy="round-robin")
+        rotator = AsyncProxyWhirl(strategy="round-robin")
 
         rotator.set_strategy("random")
 
@@ -178,7 +178,7 @@ class TestAsyncProxyRotatorSetStrategy:
 
     def test_set_strategy_with_instance(self) -> None:
         """Test set_strategy with strategy instance."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
         new_strategy = LeastUsedStrategy()
 
         rotator.set_strategy(new_strategy)
@@ -187,7 +187,7 @@ class TestAsyncProxyRotatorSetStrategy:
 
     def test_set_strategy_performance_based(self) -> None:
         """Test set_strategy with performance-based strategy."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         rotator.set_strategy("performance-based")
 
@@ -195,7 +195,7 @@ class TestAsyncProxyRotatorSetStrategy:
 
     def test_set_strategy_session(self) -> None:
         """Test set_strategy with session strategy."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         rotator.set_strategy("session")
 
@@ -203,7 +203,7 @@ class TestAsyncProxyRotatorSetStrategy:
 
     def test_set_strategy_geo_targeted(self) -> None:
         """Test set_strategy with geo-targeted strategy."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         rotator.set_strategy("geo-targeted")
 
@@ -211,14 +211,14 @@ class TestAsyncProxyRotatorSetStrategy:
 
     def test_set_strategy_invalid_raises(self) -> None:
         """Test set_strategy with invalid string raises ValueError."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         with pytest.raises(ValueError, match="Unknown strategy"):
             rotator.set_strategy("invalid")
 
     def test_set_strategy_atomic_uses_lock(self) -> None:
         """Test set_strategy with atomic=True (no-op for compatibility)."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         rotator.set_strategy("random", atomic=True)
 
@@ -227,19 +227,19 @@ class TestAsyncProxyRotatorSetStrategy:
 
     def test_set_strategy_non_atomic(self) -> None:
         """Test set_strategy with atomic=False."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         rotator.set_strategy("random", atomic=False)
 
         assert isinstance(rotator.strategy, RandomStrategy)
 
 
-class TestAsyncProxyRotatorStats:
+class TestAsyncProxyWhirlStats:
     """Test statistics methods."""
 
     def test_get_pool_stats_empty_pool(self) -> None:
         """Test get_pool_stats with empty pool."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         stats = rotator.get_pool_stats()
 
@@ -265,7 +265,7 @@ class TestAsyncProxyRotatorStats:
             ),
             Proxy(url="http://192.168.1.4:8080", allow_local=True, health_status=HealthStatus.DEAD),
         ]
-        rotator = AsyncProxyRotator(proxies=proxies)
+        rotator = AsyncProxyWhirl(proxies=proxies)
 
         stats = rotator.get_pool_stats()
 
@@ -281,7 +281,7 @@ class TestAsyncProxyRotatorStats:
         proxy.total_successes = 8
         proxy.total_failures = 2
 
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         stats = rotator.get_pool_stats()
 
@@ -291,14 +291,14 @@ class TestAsyncProxyRotatorStats:
 
     def test_get_statistics_includes_source_breakdown(self) -> None:
         """Test get_statistics includes source breakdown."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         stats = rotator.get_statistics()
 
         assert "source_breakdown" in stats
 
 
-class TestAsyncProxyRotatorClearUnhealthy:
+class TestAsyncProxyWhirlClearUnhealthy:
     """Test clear_unhealthy_proxies method."""
 
     async def test_clear_unhealthy_removes_dead_proxies(self) -> None:
@@ -314,7 +314,7 @@ class TestAsyncProxyRotatorClearUnhealthy:
             ),
             Proxy(url="http://192.168.1.3:8080", allow_local=True, health_status=HealthStatus.DEAD),
         ]
-        rotator = AsyncProxyRotator(proxies=proxies)
+        rotator = AsyncProxyWhirl(proxies=proxies)
 
         removed = await rotator.clear_unhealthy_proxies()
 
@@ -322,12 +322,12 @@ class TestAsyncProxyRotatorClearUnhealthy:
         assert rotator.pool.size == 1
 
 
-class TestAsyncProxyRotatorGetProxyDict:
+class TestAsyncProxyWhirlGetProxyDict:
     """Test _get_proxy_dict method."""
 
     def test_get_proxy_dict_without_credentials(self) -> None:
         """Test _get_proxy_dict without credentials."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
 
         result = rotator._get_proxy_dict(proxy)
@@ -337,7 +337,7 @@ class TestAsyncProxyRotatorGetProxyDict:
 
     def test_get_proxy_dict_with_credentials(self) -> None:
         """Test _get_proxy_dict with credentials."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
         proxy = Proxy(
             url="http://192.168.1.1:8080",
             allow_local=True,
@@ -351,13 +351,13 @@ class TestAsyncProxyRotatorGetProxyDict:
         assert result["https://"] == "http://user:pass@192.168.1.1:8080"
 
 
-class TestAsyncProxyRotatorCircuitBreakers:
+class TestAsyncProxyWhirlCircuitBreakers:
     """Test circuit breaker methods."""
 
     def test_get_circuit_breaker_states(self) -> None:
         """Test get_circuit_breaker_states returns copy of circuit breakers."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         states = rotator.get_circuit_breaker_states()
 
@@ -367,7 +367,7 @@ class TestAsyncProxyRotatorCircuitBreakers:
     def test_reset_circuit_breaker(self) -> None:
         """Test reset_circuit_breaker resets to CLOSED state."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         # Record some failures to open the circuit
         cb = rotator.circuit_breakers[str(proxy.id)]
@@ -381,27 +381,27 @@ class TestAsyncProxyRotatorCircuitBreakers:
 
     def test_reset_circuit_breaker_invalid_id_raises(self) -> None:
         """Test reset_circuit_breaker with invalid ID raises KeyError."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         with pytest.raises(KeyError, match="No circuit breaker found"):
             rotator.reset_circuit_breaker("invalid-id")
 
     def test_get_retry_metrics(self) -> None:
         """Test get_retry_metrics returns retry metrics."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         metrics = rotator.get_retry_metrics()
 
         assert metrics is rotator.retry_metrics
 
 
-class TestAsyncProxyRotatorSelectWithCircuitBreaker:
+class TestAsyncProxyWhirlSelectWithCircuitBreaker:
     """Test _select_proxy_with_circuit_breaker method."""
 
     def test_select_with_available_proxy(self) -> None:
         """Test selection with available proxy."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         result = rotator._select_proxy_with_circuit_breaker()
 
@@ -410,7 +410,7 @@ class TestAsyncProxyRotatorSelectWithCircuitBreaker:
     def test_select_with_all_circuit_breakers_open_raises(self) -> None:
         """Test selection raises when all circuit breakers are open."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         # Open the circuit breaker
         cb = rotator.circuit_breakers[str(proxy.id)]
@@ -424,7 +424,7 @@ class TestAsyncProxyRotatorSelectWithCircuitBreaker:
         """Test selection filters out proxies with open circuit breakers."""
         proxy1 = Proxy(url="http://192.168.1.1:8080", allow_local=True)
         proxy2 = Proxy(url="http://192.168.1.2:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy1, proxy2])
+        rotator = AsyncProxyWhirl(proxies=[proxy1, proxy2])
 
         # Open circuit breaker for proxy1
         cb = rotator.circuit_breakers[str(proxy1.id)]
@@ -437,20 +437,24 @@ class TestAsyncProxyRotatorSelectWithCircuitBreaker:
         assert result.id == proxy2.id
 
 
-class TestAsyncProxyRotatorHttpMethods:
+class TestAsyncProxyWhirlHttpMethods:
     """Test HTTP request methods."""
 
     async def test_make_request_with_empty_pool_raises(self) -> None:
-        """Test _make_request with empty pool raises ProxyPoolEmptyError."""
-        rotator = AsyncProxyRotator()
+        """Test _make_request with empty pool raises ProxyPoolEmptyError after bootstrap fails."""
+        rotator = AsyncProxyWhirl()
 
-        with pytest.raises(ProxyPoolEmptyError):
-            await rotator._make_request("GET", "https://example.com")
+        # Mock bootstrap to fail (simulating no proxies fetched from sources)
+        with patch.object(
+            rotator, "_bootstrap_pool_if_empty", side_effect=ProxyPoolEmptyError("Bootstrap failed")
+        ):
+            with pytest.raises(ProxyPoolEmptyError):
+                await rotator._make_request("GET", "https://example.com")
 
     async def test_make_request_success(self) -> None:
         """Test _make_request with successful request."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -470,7 +474,7 @@ class TestAsyncProxyRotatorHttpMethods:
         from proxywhirl.exceptions import ProxyConnectionError
 
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         with patch.object(
             rotator, "_execute_async_with_retry", new_callable=AsyncMock
@@ -483,7 +487,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_get_method(self) -> None:
         """Test get() method."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
 
@@ -498,7 +502,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_get_method_with_params(self) -> None:
         """Test GET method with query parameters."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -516,7 +520,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_get_method_with_headers(self) -> None:
         """Test GET method with custom headers."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -533,7 +537,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_post_method(self) -> None:
         """Test post() method."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
 
@@ -548,7 +552,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_post_method_with_json_body(self) -> None:
         """Test POST method with JSON body."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 201
@@ -567,7 +571,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_post_method_with_form_data(self) -> None:
         """Test POST method with form data."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -584,7 +588,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_post_method_with_files(self) -> None:
         """Test POST method with file upload."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -601,7 +605,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_put_method(self) -> None:
         """Test put() method."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
 
@@ -616,7 +620,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_put_method_with_json(self) -> None:
         """Test PUT method with JSON payload."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -635,7 +639,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_delete_method(self) -> None:
         """Test delete() method."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
 
@@ -650,7 +654,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_delete_method_with_params(self) -> None:
         """Test DELETE method with query parameters."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 204
@@ -670,7 +674,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_patch_method(self) -> None:
         """Test patch() method."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
 
@@ -685,7 +689,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_patch_method_with_partial_update(self) -> None:
         """Test PATCH method with partial update payload."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -704,7 +708,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_head_method(self) -> None:
         """Test head() method."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
 
@@ -719,7 +723,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_head_method_with_headers(self) -> None:
         """Test HEAD method with custom headers."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -739,7 +743,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_options_method(self) -> None:
         """Test options() method."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
 
@@ -754,7 +758,7 @@ class TestAsyncProxyRotatorHttpMethods:
     async def test_options_method_cors_preflight(self) -> None:
         """Test OPTIONS method for CORS preflight request."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 204
@@ -781,13 +785,13 @@ class TestAsyncProxyRotatorHttpMethods:
             )
 
 
-class TestAsyncProxyRotatorHttpMethodsTimeout:
+class TestAsyncProxyWhirlHttpMethodsTimeout:
     """Test HTTP methods with timeout handling."""
 
     async def test_get_with_timeout(self) -> None:
         """Test GET request with custom timeout."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -803,7 +807,7 @@ class TestAsyncProxyRotatorHttpMethodsTimeout:
     async def test_post_with_timeout(self) -> None:
         """Test POST request with custom timeout."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 201
@@ -819,7 +823,7 @@ class TestAsyncProxyRotatorHttpMethodsTimeout:
             )
 
 
-class TestAsyncProxyRotatorHttpMethodsProxyRotation:
+class TestAsyncProxyWhirlHttpMethodsProxyRotation:
     """Test HTTP methods with proxy rotation."""
 
     async def test_get_rotates_proxies_on_failure(self) -> None:
@@ -828,7 +832,7 @@ class TestAsyncProxyRotatorHttpMethodsProxyRotation:
 
         proxy1 = Proxy(url="http://192.168.1.1:8080", allow_local=True)
         proxy2 = Proxy(url="http://192.168.1.2:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy1, proxy2])
+        rotator = AsyncProxyWhirl(proxies=[proxy1, proxy2])
 
         # First call fails, triggering rotation
         with patch.object(
@@ -852,7 +856,7 @@ class TestAsyncProxyRotatorHttpMethodsProxyRotation:
         proxy1 = Proxy(url="http://192.168.1.1:8080", allow_local=True)
         proxy2 = Proxy(url="http://192.168.1.2:8080", allow_local=True)
         proxy3 = Proxy(url="http://192.168.1.3:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy1, proxy2, proxy3], strategy="round-robin")
+        rotator = AsyncProxyWhirl(proxies=[proxy1, proxy2, proxy3], strategy="round-robin")
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -871,13 +875,13 @@ class TestAsyncProxyRotatorHttpMethodsProxyRotation:
             assert mock_execute.call_count == 3
 
 
-class TestAsyncProxyRotatorHttpMethodsResponseHandling:
+class TestAsyncProxyWhirlHttpMethodsResponseHandling:
     """Test HTTP methods with various response scenarios."""
 
     async def test_get_handles_200_response(self) -> None:
         """Test GET handles 200 OK response."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -896,7 +900,7 @@ class TestAsyncProxyRotatorHttpMethodsResponseHandling:
     async def test_post_handles_201_created(self) -> None:
         """Test POST handles 201 Created response."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 201
@@ -915,7 +919,7 @@ class TestAsyncProxyRotatorHttpMethodsResponseHandling:
     async def test_delete_handles_204_no_content(self) -> None:
         """Test DELETE handles 204 No Content response."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 204
@@ -932,7 +936,7 @@ class TestAsyncProxyRotatorHttpMethodsResponseHandling:
     async def test_get_handles_404_not_found(self) -> None:
         """Test GET handles 404 Not Found response."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
         mock_response.status_code = 404
@@ -949,7 +953,7 @@ class TestAsyncProxyRotatorHttpMethodsResponseHandling:
     async def test_execute_async_with_retry_success(self) -> None:
         """Test _execute_async_with_retry with successful request."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
 
@@ -965,7 +969,7 @@ class TestAsyncProxyRotatorHttpMethodsResponseHandling:
     async def test_execute_async_with_retry_records_success(self) -> None:
         """Test _execute_async_with_retry records success in circuit breaker."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         mock_response = MagicMock()
 
@@ -989,7 +993,7 @@ class TestAsyncProxyRotatorHttpMethodsResponseHandling:
         """Test _execute_async_with_retry retries on failure."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
         policy = RetryPolicy(max_attempts=3, base_delay=0.01)
-        rotator = AsyncProxyRotator(proxies=[proxy], retry_policy=policy)
+        rotator = AsyncProxyWhirl(proxies=[proxy], retry_policy=policy)
 
         call_count = 0
         mock_response = MagicMock()
@@ -1011,7 +1015,7 @@ class TestAsyncProxyRotatorHttpMethodsResponseHandling:
     async def test_execute_async_with_retry_circuit_breaker_open_raises(self) -> None:
         """Test _execute_async_with_retry raises when circuit breaker is open."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyRotator(proxies=[proxy])
+        rotator = AsyncProxyWhirl(proxies=[proxy])
 
         # Open the circuit breaker
         cb = rotator.circuit_breakers[str(proxy.id)]
@@ -1032,7 +1036,7 @@ class TestAsyncProxyRotatorHttpMethodsResponseHandling:
         """Test _execute_async_with_retry raises after exhausting retries."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
         policy = RetryPolicy(max_attempts=2, base_delay=0.01)
-        rotator = AsyncProxyRotator(proxies=[proxy], retry_policy=policy)
+        rotator = AsyncProxyWhirl(proxies=[proxy], retry_policy=policy)
 
         async def mock_request_fn():
             raise ConnectionError("Connection failed")

@@ -66,10 +66,10 @@ Exception
 All ProxyWhirl exceptions inherit from `ProxyWhirlError`, making it easy to catch all library-specific errors:
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import ProxyWhirlError
 
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 
 try:
     response = rotator.request("GET", "https://httpbin.org/ip")
@@ -291,10 +291,10 @@ Same as `ProxyWhirlError`, plus automatic suggestion appended to message.
 #### Example
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import ProxyValidationError
 
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 
 try:
     # Invalid URL format (missing scheme)
@@ -331,10 +331,10 @@ except ProxyValidationError as e:
 #### Example
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import ProxyPoolEmptyError
 
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 
 try:
     # No proxies added yet
@@ -385,10 +385,10 @@ When the error message contains "timeout", the `error_code` is automatically set
 #### Example
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import ProxyConnectionError, ProxyErrorCode
 
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 rotator.add_proxy("http://unreachable.proxy.com:8080")
 
 try:
@@ -431,10 +431,10 @@ except ProxyConnectionError as e:
 #### Example
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import ProxyAuthenticationError
 
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 
 try:
     # Wrong credentials
@@ -485,11 +485,11 @@ except ProxyAuthenticationError as e:
 #### Example
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import ProxyFetchError
 import time
 
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 
 try:
     # Fetch from external source
@@ -534,20 +534,20 @@ except ProxyFetchError as e:
 #### Example
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import ProxyStorageError
 import os
 
 try:
     # Using read-only directory
-    rotator = ProxyRotator(storage_path="/read-only/proxywhirl.db")
+    rotator = ProxyWhirl(storage_path="/read-only/proxywhirl.db")
 except ProxyStorageError as e:
     print(f"Storage error: {e}")
 
     # Solution: Use writable directory
     storage_path = os.path.expanduser("~/.proxywhirl/proxies.db")
     os.makedirs(os.path.dirname(storage_path), exist_ok=True)
-    rotator = ProxyRotator(storage_path=storage_path)
+    rotator = ProxyWhirl(storage_path=storage_path)
 ```
 
 #### Resolution Steps
@@ -727,12 +727,12 @@ Same as `ProxyWhirlError`, plus:
 #### Example
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import RequestQueueFullError
 import time
 
 # Configure with small queue for testing
-rotator = ProxyRotator(queue_size=10)
+rotator = ProxyWhirl(queue_size=10)
 
 try:
     # Flood the queue with requests
@@ -746,7 +746,7 @@ except RequestQueueFullError as e:
     rotator.request("GET", "https://httpbin.org/ip")
 
     # Solution 2: Increase queue size
-    rotator = ProxyRotator(queue_size=100)
+    rotator = ProxyWhirl(queue_size=100)
 
     # Solution 3: Implement request throttling
     import asyncio
@@ -887,14 +887,14 @@ except RegexComplexityError:
 Catch specific exceptions for targeted error handling:
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import (
     ProxyPoolEmptyError,
     ProxyConnectionError,
     ProxyAuthenticationError,
 )
 
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 
 try:
     response = rotator.request("GET", "https://httpbin.org/ip")
@@ -921,10 +921,10 @@ except ProxyConnectionError as e:
 Use `ProxyWhirlError` to catch all library-specific errors:
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import ProxyWhirlError
 
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 
 try:
     response = rotator.request("GET", "https://httpbin.org/ip")
@@ -944,7 +944,7 @@ except ProxyWhirlError as e:
 Implement smart retry logic based on error metadata:
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import ProxyWhirlError
 import time
 
@@ -974,7 +974,7 @@ Handle errors in async contexts:
 
 ```python
 import asyncio
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 from proxywhirl.exceptions import (
     ProxyPoolEmptyError,
     ProxyConnectionError,
@@ -982,7 +982,7 @@ from proxywhirl.exceptions import (
 
 async def fetch_with_fallback(url):
     """Fetch URL with automatic fallback strategy."""
-    rotator = AsyncProxyRotator()
+    rotator = AsyncProxyWhirl()
 
     try:
         response = await rotator.request("GET", url)
@@ -1016,7 +1016,7 @@ Handle exceptions in REST API endpoints:
 
 ```python
 from fastapi import FastAPI, HTTPException, status
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import (
     ProxyWhirlError,
     ProxyPoolEmptyError,
@@ -1024,7 +1024,7 @@ from proxywhirl.exceptions import (
 )
 
 app = FastAPI()
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 
 @app.post("/api/v1/request")
 async def proxied_request(url: str):
@@ -1071,13 +1071,13 @@ Use context managers for automatic cleanup on errors:
 
 ```python
 from contextlib import contextmanager
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import ProxyWhirlError
 
 @contextmanager
 def rotator_session(storage_path=None):
-    """Context manager for ProxyRotator with automatic cleanup."""
-    rotator = ProxyRotator(storage_path=storage_path)
+    """Context manager for ProxyWhirl with automatic cleanup."""
+    rotator = ProxyWhirl(storage_path=storage_path)
     try:
         yield rotator
     except ProxyWhirlError as e:
@@ -1100,12 +1100,12 @@ with rotator_session("/tmp/proxies.db") as rotator:
 Aggregate multiple errors for batch operations:
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import ProxyValidationError
 from typing import List, Tuple
 
 def add_proxies_bulk(
-    rotator: ProxyRotator,
+    rotator: ProxyWhirl,
     proxy_urls: List[str]
 ) -> Tuple[int, List[Tuple[str, Exception]]]:
     """Add multiple proxies, collecting errors."""
@@ -1128,7 +1128,7 @@ urls = [
     "http://proxy2.example.com:8080",
 ]
 
-rotator = ProxyRotator()
+rotator = ProxyWhirl()
 success, errors = add_proxies_bulk(rotator, urls)
 
 print(f"Added {success} proxies")
@@ -1224,10 +1224,10 @@ except ProxyWhirlError as e:
 Use circuit breakers to prevent cascading failures:
 
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import ProxyConnectionError
 
-rotator = ProxyRotator(
+rotator = ProxyWhirl(
     circuit_breaker_enabled=True,
     failure_threshold=5,
     recovery_timeout=60
@@ -1287,7 +1287,7 @@ Write tests for error scenarios:
 
 ```python
 import pytest
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 from proxywhirl.exceptions import (
     ProxyPoolEmptyError,
     ProxyValidationError,
@@ -1295,7 +1295,7 @@ from proxywhirl.exceptions import (
 
 def test_empty_pool_error():
     """Test that empty pool raises appropriate error."""
-    rotator = ProxyRotator()
+    rotator = ProxyWhirl()
 
     with pytest.raises(ProxyPoolEmptyError) as exc_info:
         rotator.request("GET", "https://httpbin.org/ip")
@@ -1305,7 +1305,7 @@ def test_empty_pool_error():
 
 def test_invalid_proxy_error():
     """Test that invalid proxy URL raises validation error."""
-    rotator = ProxyRotator()
+    rotator = ProxyWhirl()
 
     with pytest.raises(ProxyValidationError) as exc_info:
         rotator.add_proxy("invalid-url")
@@ -1352,12 +1352,12 @@ Use proper async error handling patterns:
 
 ```python
 import asyncio
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 from proxywhirl.exceptions import ProxyWhirlError
 
 async def async_request_with_timeout(url, timeout=30):
     """Async request with timeout and error handling."""
-    rotator = AsyncProxyRotator()
+    rotator = AsyncProxyWhirl()
 
     try:
         # Add timeout to prevent hanging
@@ -1426,7 +1426,7 @@ Use specific exception types for targeted error handling, check the `retry_recom
 
 ## See Also
 
-- [Python API](python-api.md) -- Main ProxyRotator API reference
+- [Python API](python-api.md) -- Main ProxyWhirl API reference
 - [REST API](rest-api.md) -- REST API error codes and responses
 - [Cache API](cache-api.md) -- Cache-specific error handling
 - [Retry & Failover](../guides/retry-failover.md) -- Retry patterns and circuit breaker integration

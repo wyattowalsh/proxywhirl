@@ -13,7 +13,7 @@ from proxywhirl.mcp.server import (
     set_rotator,
 )
 from proxywhirl.models import HealthStatus, Proxy, ProxyPool, ProxySource
-from proxywhirl.rotator import AsyncProxyRotator
+from proxywhirl.rotator import AsyncProxyWhirl
 
 # Use _proxywhirl_tool for testing as the decorated proxywhirl becomes a
 # FunctionTool object when FastMCP is available and is not directly callable
@@ -65,7 +65,7 @@ async def mcp_rotator():
 
     pool = ProxyPool(name="mcp_test_pool", proxies=[proxy1, proxy2, proxy3])
 
-    rotator = AsyncProxyRotator()
+    rotator = AsyncProxyWhirl()
     rotator.pool = pool
 
     # Add circuit breakers
@@ -261,7 +261,7 @@ class TestMCPEmptyPool:
     async def test_mcp_list_empty_pool(self) -> None:
         """Test list action with empty pool."""
         # Create empty rotator
-        empty_rotator = AsyncProxyRotator()
+        empty_rotator = AsyncProxyWhirl()
         empty_rotator.pool = ProxyPool(name="empty_pool", proxies=[])
         await set_rotator(empty_rotator)
         set_auth(MCPAuth())
@@ -275,7 +275,7 @@ class TestMCPEmptyPool:
 
     async def test_mcp_rotate_empty_pool(self) -> None:
         """Test rotate action with empty pool returns error."""
-        empty_rotator = AsyncProxyRotator()
+        empty_rotator = AsyncProxyWhirl()
         empty_rotator.pool = ProxyPool(name="empty_pool", proxies=[])
         await set_rotator(empty_rotator)
         set_auth(MCPAuth())
@@ -288,7 +288,7 @@ class TestMCPEmptyPool:
 
     async def test_mcp_recommend_empty_pool(self) -> None:
         """Test recommend action with empty pool returns error."""
-        empty_rotator = AsyncProxyRotator()
+        empty_rotator = AsyncProxyWhirl()
         empty_rotator.pool = ProxyPool(name="empty_pool", proxies=[])
         await set_rotator(empty_rotator)
         set_auth(MCPAuth())
@@ -302,7 +302,7 @@ class TestMCPEmptyPool:
 
     async def test_mcp_health_empty_pool(self) -> None:
         """Test health action with empty pool returns empty status."""
-        empty_rotator = AsyncProxyRotator()
+        empty_rotator = AsyncProxyWhirl()
         empty_rotator.pool = ProxyPool(name="empty_pool", proxies=[])
         await set_rotator(empty_rotator)
         set_auth(MCPAuth())

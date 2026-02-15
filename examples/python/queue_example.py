@@ -11,7 +11,7 @@ This example shows how to:
 from proxywhirl import (
     Proxy,
     ProxyConfiguration,
-    ProxyRotator,
+    ProxyWhirl,
     RequestQueueFullError,
 )
 from proxywhirl.rate_limiting import RateLimiter
@@ -19,7 +19,7 @@ from proxywhirl.rate_limiting import RateLimiter
 
 def main():
     """Demonstrate request queuing functionality."""
-    # Configure ProxyRotator with queuing enabled
+    # Configure ProxyWhirl with queuing enabled
     config = ProxyConfiguration(
         queue_enabled=True,  # Enable request queuing
         queue_size=50,       # Max 50 queued requests
@@ -32,7 +32,7 @@ def main():
     )
 
     # Initialize rotator with queuing and rate limiting
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         config=config,
         rate_limiter=rate_limiter,
     )
@@ -92,7 +92,7 @@ def example_without_queue():
     config = ProxyConfiguration(queue_enabled=False)
     rate_limiter = RateLimiter(max_requests=1, time_window=1.0)
 
-    rotator = ProxyRotator(config=config, rate_limiter=rate_limiter)
+    rotator = ProxyWhirl(config=config, rate_limiter=rate_limiter)
     rotator.add_proxy("http://proxy1.example.com:8080")
 
     # When rate limited without queue, requests will raise errors

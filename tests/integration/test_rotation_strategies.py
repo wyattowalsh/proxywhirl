@@ -837,11 +837,11 @@ class TestStrategyHotSwapping:
         import time
 
         from proxywhirl.models import HealthStatus
-        from proxywhirl.rotator import ProxyRotator
+        from proxywhirl.rotator import ProxyWhirl
         from proxywhirl.strategies import PerformanceBasedStrategy, RoundRobinStrategy
 
         # Arrange - Create rotator with round-robin strategy
-        rotator = ProxyRotator(strategy=RoundRobinStrategy())
+        rotator = ProxyWhirl(strategy=RoundRobinStrategy())
 
         pool = ProxyPool(name="hot-swap-pool")
         for i in range(10):
@@ -873,11 +873,11 @@ class TestStrategyHotSwapping:
         import time
 
         from proxywhirl.models import HealthStatus
-        from proxywhirl.rotator import ProxyRotator
+        from proxywhirl.rotator import ProxyWhirl
         from proxywhirl.strategies import RandomStrategy, RoundRobinStrategy
 
         # Arrange - Create rotator with round-robin
-        rotator = ProxyRotator(strategy=RoundRobinStrategy())
+        rotator = ProxyWhirl(strategy=RoundRobinStrategy())
 
         for i in range(5):
             proxy = Proxy(
@@ -924,11 +924,11 @@ class TestStrategyHotSwapping:
         import time
 
         from proxywhirl.models import HealthStatus
-        from proxywhirl.rotator import ProxyRotator
+        from proxywhirl.rotator import ProxyWhirl
         from proxywhirl.strategies import LeastUsedStrategy, RoundRobinStrategy
 
         # Arrange - Create rotator with least-used strategy
-        rotator = ProxyRotator(strategy=LeastUsedStrategy())
+        rotator = ProxyWhirl(strategy=LeastUsedStrategy())
 
         for i in range(3):
             proxy = Proxy(

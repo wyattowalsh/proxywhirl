@@ -1,5 +1,5 @@
 """
-Integration tests for async workflows with AsyncProxyRotator.
+Integration tests for async workflows with AsyncProxyWhirl.
 
 Tests cover:
 - Complete async rotation workflows
@@ -17,7 +17,7 @@ import httpx
 import pytest
 import respx
 
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 from proxywhirl.circuit_breaker import CircuitBreakerState
 from proxywhirl.exceptions import (
     ProxyAuthenticationError,
@@ -33,7 +33,7 @@ class TestAsyncRotationWorkflow:
 
     async def test_async_rotation_workflow(self):
         """Test complete async rotation workflow."""
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             # Add proxies
             proxy1 = Proxy(url="http://test-proxy1:8080", protocol="http")
             proxy2 = Proxy(url="http://test-proxy2:8080", protocol="http")
@@ -56,7 +56,7 @@ class TestAsyncRotationWorkflow:
 
     async def test_async_proxy_addition_workflow(self):
         """Test async proxy addition workflow."""
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             # Add proxy from URL string
             await rotator.add_proxy("http://proxy1.example.com:8080")
             assert rotator.pool.size == 1
@@ -71,7 +71,7 @@ class TestAsyncRotationWorkflow:
 
     async def test_async_proxy_removal_workflow(self):
         """Test async proxy removal workflow."""
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             # Add proxy
             proxy = Proxy(url="http://proxy.example.com:8080", protocol="http")
             await rotator.add_proxy(proxy)
@@ -88,7 +88,7 @@ class TestAsyncRotationWorkflow:
 
     async def test_async_statistics_workflow(self):
         """Test async statistics collection workflow."""
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             # Add proxies from different sources
             proxy1 = Proxy(url="http://proxy1.example.com:8080", protocol="http", source="user")
             proxy2 = Proxy(url="http://proxy2.example.com:8080", protocol="http", source="fetched")
@@ -116,7 +116,7 @@ class TestAsyncRequestWithRetry:
             return_value=httpx.Response(200, json={"origin": "1.2.3.4"})
         )
 
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             proxy = Proxy(url="http://proxy.example.com:8080", protocol="http")
             await rotator.add_proxy(proxy)
 
@@ -148,7 +148,7 @@ class TestAsyncRequestWithRetry:
             base_delay=0.1,  # Fast retry for tests
         )
 
-        async with AsyncProxyRotator(retry_policy=retry_policy) as rotator:
+        async with AsyncProxyWhirl(retry_policy=retry_policy) as rotator:
             proxy = Proxy(url="http://proxy.example.com:8080", protocol="http")
             await rotator.add_proxy(proxy)
 
@@ -167,7 +167,7 @@ class TestAsyncRequestWithRetry:
             base_delay=0.01,
         )
 
-        async with AsyncProxyRotator(retry_policy=retry_policy) as rotator:
+        async with AsyncProxyWhirl(retry_policy=retry_policy) as rotator:
             proxy = Proxy(url="http://proxy.example.com:8080", protocol="http")
             await rotator.add_proxy(proxy)
 
@@ -193,7 +193,7 @@ class TestAsyncRequestWithRetry:
             return_value=httpx.Response(407, text="Proxy Authentication Required")
         )
 
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             proxy = Proxy(url="http://proxy.example.com:8080", protocol="http")
             await rotator.add_proxy(proxy)
 
@@ -209,7 +209,7 @@ class TestAsyncCircuitBreakerIntegration:
 
     async def test_async_circuit_breaker_triggers_on_failures(self):
         """Test circuit breaker opens after threshold failures."""
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             proxy = Proxy(url="http://proxy.example.com:8080", protocol="http")
             await rotator.add_proxy(proxy)
 
@@ -234,7 +234,7 @@ class TestAsyncCircuitBreakerIntegration:
         which requires actual timing to verify state transitions.
         """
 
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             proxy = Proxy(url="http://proxy.example.com:8080", protocol="http")
             await rotator.add_proxy(proxy)
 
@@ -264,7 +264,7 @@ class TestAsyncCircuitBreakerIntegration:
 
     async def test_async_all_circuit_breakers_open_raises_error(self):
         """Test that all open circuit breakers raises ProxyPoolEmptyError."""
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             # Add multiple proxies
             proxy1 = Proxy(url="http://proxy1.example.com:8080", protocol="http")
             proxy2 = Proxy(url="http://proxy2.example.com:8080", protocol="http")
@@ -287,7 +287,7 @@ class TestAsyncCircuitBreakerIntegration:
 
     async def test_async_circuit_breaker_manual_reset(self):
         """Test manual reset of circuit breaker."""
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             proxy = Proxy(url="http://proxy.example.com:8080", protocol="http")
             await rotator.add_proxy(proxy)
 
@@ -318,7 +318,7 @@ class TestAsyncConcurrentRequests:
             return_value=httpx.Response(200, json={"success": True})
         )
 
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             # Add multiple proxies
             for i in range(3):
                 proxy = Proxy(url=f"http://proxy{i}.example.com:8080", protocol="http")
@@ -356,7 +356,7 @@ class TestAsyncConcurrentRequests:
 
         retry_policy = RetryPolicy(max_attempts=1)  # No retries for faster test
 
-        async with AsyncProxyRotator(retry_policy=retry_policy) as rotator:
+        async with AsyncProxyWhirl(retry_policy=retry_policy) as rotator:
             proxy = Proxy(url="http://proxy.example.com:8080", protocol="http")
             await rotator.add_proxy(proxy)
 
@@ -375,7 +375,7 @@ class TestAsyncConcurrentRequests:
 
     async def test_async_concurrent_requests_stress_test(self):
         """Stress test with many concurrent requests."""
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             # Add proxies
             for i in range(5):
                 proxy = Proxy(url=f"http://proxy{i}.example.com:8080", protocol="http")
@@ -403,7 +403,7 @@ class TestAsyncContextManagerCleanup:
 
     async def test_async_context_manager_cleanup(self):
         """Test proper cleanup on context manager exit."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         # Add proxies
         await rotator.add_proxy("http://proxy1.example.com:8080")
@@ -429,7 +429,7 @@ class TestAsyncContextManagerCleanup:
 
     async def test_async_context_manager_cleanup_on_exception(self):
         """Test cleanup happens even when exception occurs."""
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         try:
             async with rotator:
@@ -451,7 +451,7 @@ class TestAsyncContextManagerCleanup:
         Marked @pytest.mark.slow: Verifies thread cleanup timing behavior
         with actual sleep to ensure thread has time to respond to stop event.
         """
-        rotator = AsyncProxyRotator()
+        rotator = AsyncProxyWhirl()
 
         # Thread should be running
         assert rotator._aggregation_thread.is_alive()
@@ -469,7 +469,7 @@ class TestAsyncContextManagerCleanup:
 
     async def test_async_client_pool_cleanup(self):
         """Test that all clients in pool are closed on cleanup."""
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             # Add proxies
             for i in range(3):
                 await rotator.add_proxy(f"http://proxy{i}.example.com:8080")
@@ -513,7 +513,7 @@ class TestAsyncHTTPMethods:
         respx.head("https://httpbin.org/head").mock(return_value=httpx.Response(200, text=""))
         respx.route(method="OPTIONS").mock(return_value=httpx.Response(200, text=""))
 
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             proxy = Proxy(url="http://proxy.example.com:8080", protocol="http")
             await rotator.add_proxy(proxy)
 
@@ -549,7 +549,7 @@ class TestAsyncStrategySwapping:
 
     async def test_async_hot_swap_strategy(self):
         """Test strategy can be swapped during runtime."""
-        async with AsyncProxyRotator(strategy="round-robin") as rotator:
+        async with AsyncProxyWhirl(strategy="round-robin") as rotator:
             # Add proxies
             for i in range(3):
                 await rotator.add_proxy(f"http://proxy{i}.example.com:8080")
@@ -570,7 +570,7 @@ class TestAsyncStrategySwapping:
         """Test strategy swap completes quickly (<100ms)."""
         import time
 
-        async with AsyncProxyRotator(strategy="round-robin") as rotator:
+        async with AsyncProxyWhirl(strategy="round-robin") as rotator:
             # Add proxies
             for i in range(10):
                 await rotator.add_proxy(f"http://proxy{i}.example.com:8080")
@@ -589,7 +589,7 @@ class TestAsyncUnhealthyProxyCleanup:
 
     async def test_async_clear_unhealthy_proxies(self):
         """Test clearing unhealthy proxies."""
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             # Add healthy and unhealthy proxies
             healthy = Proxy(url="http://healthy.example.com:8080", protocol="http")
             healthy.health_status = HealthStatus.HEALTHY
@@ -618,7 +618,7 @@ class TestAsyncUnhealthyProxyCleanup:
 
     async def test_async_clear_unhealthy_removes_circuit_breakers(self):
         """Test that clearing unhealthy proxies also removes circuit breakers."""
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             # Add unhealthy proxy
             unhealthy = Proxy(url="http://unhealthy.example.com:8080", protocol="http")
             unhealthy.health_status = HealthStatus.DEAD

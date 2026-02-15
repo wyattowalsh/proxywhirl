@@ -4,7 +4,7 @@ Integration tests for intelligent failover selection.
 
 from datetime import datetime, timezone
 
-from proxywhirl import Proxy, ProxyRotator
+from proxywhirl import Proxy, ProxyWhirl
 from proxywhirl.retry import RetryAttempt, RetryOutcome
 
 
@@ -22,7 +22,7 @@ class TestPerformanceBasedSelection:
         proxy2.total_requests = 100
         proxy2.total_successes = 60  # 60% success rate
 
-        rotator = ProxyRotator(proxies=[proxy1, proxy2])
+        rotator = ProxyWhirl(proxies=[proxy1, proxy2])
 
         # Test intelligent selection
         executor = rotator.retry_executor
@@ -42,7 +42,7 @@ class TestPerformanceBasedSelection:
         proxy2.total_requests = 100
         proxy2.total_successes = 90
 
-        rotator = ProxyRotator(proxies=[proxy1, proxy2])
+        rotator = ProxyWhirl(proxies=[proxy1, proxy2])
 
         # Add latency data for proxy1 (slower)
         for i in range(10):
@@ -89,7 +89,7 @@ class TestPerformanceBasedSelection:
         proxy_known.total_requests = 100
         proxy_known.total_successes = 50  # 50% success rate
 
-        rotator = ProxyRotator(proxies=[proxy_new, proxy_known])
+        rotator = ProxyWhirl(proxies=[proxy_new, proxy_known])
 
         executor = rotator.retry_executor
 
@@ -122,7 +122,7 @@ class TestGeoTargetingAwareness:
         proxy_eu.total_requests = 100
         proxy_eu.total_successes = 80  # 80% success rate (slightly better)
 
-        rotator = ProxyRotator(proxies=[proxy_us, proxy_eu])
+        rotator = ProxyWhirl(proxies=[proxy_us, proxy_eu])
 
         executor = rotator.retry_executor
 
@@ -149,7 +149,7 @@ class TestGeoTargetingAwareness:
         proxy_with_region.total_requests = 100
         proxy_with_region.total_successes = 75  # 75% success rate
 
-        rotator = ProxyRotator(proxies=[proxy_no_region, proxy_with_region])
+        rotator = ProxyWhirl(proxies=[proxy_no_region, proxy_with_region])
 
         executor = rotator.retry_executor
 
@@ -181,7 +181,7 @@ class TestGeoTargetingAwareness:
         proxy_eu.total_requests = 100
         proxy_eu.total_successes = 85
 
-        rotator = ProxyRotator(proxies=[proxy_us, proxy_eu])
+        rotator = ProxyWhirl(proxies=[proxy_us, proxy_eu])
 
         executor = rotator.retry_executor
 
@@ -210,7 +210,7 @@ class TestRetrySuccessRateImprovement:
         proxy_bad.total_requests = 100
         proxy_bad.total_successes = 30  # 30% success rate
 
-        rotator = ProxyRotator(proxies=[proxy_good, proxy_bad])
+        rotator = ProxyWhirl(proxies=[proxy_good, proxy_bad])
 
         executor = rotator.retry_executor
 

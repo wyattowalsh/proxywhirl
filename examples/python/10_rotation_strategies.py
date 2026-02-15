@@ -19,7 +19,7 @@ from proxywhirl import (
     PerformanceBasedStrategy,
     Proxy,
     ProxyPool,
-    ProxyRotator,
+    ProxyWhirl,
     RandomStrategy,
     RoundRobinStrategy,
     SessionPersistenceStrategy,
@@ -67,7 +67,7 @@ def _print_header(title: str) -> None:
 
 
 def _pick(
-    rotator: ProxyRotator,
+    rotator: ProxyWhirl,
     *,
     context: SelectionContext | None = None,
     success: bool = True,
@@ -86,7 +86,7 @@ def _print_sequence(label: str, proxies: Iterable[Proxy]) -> None:
 
 def round_robin_demo() -> None:
     _print_header("Round-robin for fair distribution")
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         proxies=[p.model_copy(deep=True) for p in _healthy_proxies()],
         strategy=RoundRobinStrategy(),
     )
@@ -100,7 +100,7 @@ def random_and_weighted_demo() -> None:
     proxies = _healthy_proxies()
 
     print("Random strategy (uniform chance):")
-    random_rotator = ProxyRotator(
+    random_rotator = ProxyWhirl(
         proxies=[p.model_copy(deep=True) for p in proxies],
         strategy=RandomStrategy(),
     )
@@ -124,7 +124,7 @@ def random_and_weighted_demo() -> None:
             }
         )
     )
-    weighted_rotator = ProxyRotator(
+    weighted_rotator = ProxyWhirl(
         proxies=[p.model_copy(deep=True) for p in proxies],
         strategy=weighted_strategy,
     )
@@ -140,7 +140,7 @@ def least_used_demo() -> None:
     proxies[1].requests_completed = 6
     proxies[2].requests_completed = 9
 
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         proxies=[p.model_copy(deep=True) for p in proxies],
         strategy=LeastUsedStrategy(),
     )
@@ -156,7 +156,7 @@ def performance_based_demo() -> None:
     proxies[1].ema_response_time_ms = 90.0
     proxies[2].ema_response_time_ms = 180.0
 
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         proxies=[p.model_copy(deep=True) for p in proxies],
         strategy=PerformanceBasedStrategy(),
     )
@@ -167,7 +167,7 @@ def performance_based_demo() -> None:
 
 def session_persistence_demo() -> None:
     _print_header("Session persistence for sticky sessions")
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         proxies=[p.model_copy(deep=True) for p in _healthy_proxies()],
         strategy=SessionPersistenceStrategy(),
     )
@@ -180,7 +180,7 @@ def session_persistence_demo() -> None:
 
 def geo_targeted_demo() -> None:
     _print_header("Geo-targeted routing")
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         proxies=[p.model_copy(deep=True) for p in _healthy_proxies()],
         strategy=GeoTargetedStrategy(),
     )
@@ -202,7 +202,7 @@ def composition_demo() -> None:
         filters=[GeoTargetedStrategy()],
         selector=PerformanceBasedStrategy(),
     )
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         proxies=[p.model_copy(deep=True) for p in proxies],
         strategy=composite,
     )
@@ -214,7 +214,7 @@ def composition_demo() -> None:
 
 def hot_swap_demo() -> None:
     _print_header("Hot-swapping strategies at runtime")
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         proxies=[p.model_copy(deep=True) for p in _healthy_proxies()],
         strategy=RoundRobinStrategy(),
     )
@@ -257,7 +257,7 @@ def custom_strategy_demo() -> None:
     registry.register_strategy("always-first", AlwaysFirstStrategy)
     strategy_cls = registry.get_strategy("always-first")
 
-    rotator = ProxyRotator(
+    rotator = ProxyWhirl(
         proxies=[p.model_copy(deep=True) for p in _healthy_proxies()],
         strategy=strategy_cls(),
     )
