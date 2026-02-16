@@ -34,8 +34,8 @@ Authoritative resources for the runtime APIs, configuration knobs, and public da
 :::{tab-item} By Class
 | Class | Module | Docs |
 |-------|--------|------|
-| `ProxyWhirl` | `proxywhirl.rotator` | [Sync rotator](python-api.md#proxyrotator) |
-| `AsyncProxyWhirl` | `proxywhirl.rotator` | [Async rotator](python-api.md#asyncproxyrotator) |
+| `ProxyWhirl` | `proxywhirl.rotator` | [Sync rotator](python-api.md#proxywhirl) |
+| `AsyncProxyWhirl` | `proxywhirl.rotator` | [Async rotator](python-api.md#asyncproxywhirl) |
 | `ProxyFetcher` | `proxywhirl.fetchers` | [Fetcher](python-api.md#proxyfetcher) |
 | `ProxyValidator` | `proxywhirl.fetchers` | [Validator](python-api.md#proxyvalidator) |
 | `CacheManager` | `proxywhirl.cache` | {doc}`Cache API <cache-api>` |
@@ -85,8 +85,8 @@ Complete REST endpoint documentation with examples, error codes, and deployment 
 
 Core classes, strategies, models, and utility functions.
 
-- [ProxyWhirl](python-api.md#proxyrotator) -- sync client with context manager
-- [AsyncProxyWhirl](python-api.md#asyncproxyrotator) -- async client, connection pooling
+- [ProxyWhirl](python-api.md#proxywhirl) -- sync client with context manager
+- [AsyncProxyWhirl](python-api.md#asyncproxywhirl) -- async client, connection pooling
 - [Rotation strategies](python-api.md#rotation-strategies) -- all 9 strategy classes
 - [ProxyFetcher & Validator](python-api.md#proxyfetcher) -- fetch, validate, enrich
 - [BrowserRenderer](python-api.md#browserrenderer) -- Playwright JS-rendered sources
