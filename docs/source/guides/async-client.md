@@ -70,19 +70,22 @@ async with AsyncProxyWhirl(proxies=proxies) as rotator:
 ```python
 from proxywhirl import AsyncProxyWhirl
 
-# Strategy from string (4 strategies available at init)
+# Strategy from string aliases
 async with AsyncProxyWhirl(strategy="random") as rotator:
     # Uses RandomStrategy
     pass
 
-# Available strategies at init:
+# Available string aliases at init:
 # - "round-robin" (default)
 # - "random"
 # - "weighted"
 # - "least-used"
+# - "performance-based"
+# - "session" (or "session-persistence")
+# - "geo-targeted"
 #
-# For other strategies (performance-based, session-persistence, geo-targeted,
-# cost-aware, composite), use set_strategy() after init or pass a strategy
+# Underscore aliases are also accepted (e.g., "round_robin", "geo_targeted").
+# For cost-aware and composite, use set_strategy() after init or pass a strategy
 # instance directly:
 #   from proxywhirl.strategies import PerformanceBasedStrategy
 #   async with AsyncProxyWhirl(strategy=PerformanceBasedStrategy()) as rotator:

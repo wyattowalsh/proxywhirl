@@ -28,7 +28,7 @@
 
 <!-- Navigation pills -->
 [<kbd> <br> 📖 Docs <br> </kbd>](https://www.proxywhirl.com/docs/)&nbsp;&nbsp;
-[<kbd> <br> 🚀 Examples <br> </kbd>](examples/)&nbsp;&nbsp;
+[<kbd> <br> 🚀 Examples <br> </kbd>](examples.ipynb)&nbsp;&nbsp;
 [<kbd> <br> 💬 Discussions <br> </kbd>](https://github.com/wyattowalsh/proxywhirl/discussions)
 
 </div>
@@ -162,7 +162,8 @@ proxies = await ProxyFetcher().fetch_all(validate=True)
 ```python
 rotator.get(url)
 rotator.post(url, json=data)
-await rotator.async_get(url)
+async with AsyncProxyWhirl() as async_rotator:
+    await async_rotator.get(url)
 ```
 
 </td>
@@ -181,7 +182,7 @@ proxywhirl health
 **REST API**
 ```bash
 docker-compose up -d
-curl localhost:8000/api/v1/pool
+curl localhost:8000/api/v1/proxies
 ```
 
 </td>
@@ -201,7 +202,7 @@ curl localhost:8000/api/v1/pool
 [<kbd> <br> &nbsp;&nbsp;📖 Full Documentation&nbsp;&nbsp; <br> </kbd>](https://www.proxywhirl.com/docs/)&nbsp;&nbsp;&nbsp;
 [<kbd> <br> &nbsp;&nbsp;🎯 Strategy Guide&nbsp;&nbsp; <br> </kbd>](docs/source/guides/strategies.md)&nbsp;&nbsp;&nbsp;
 [<kbd> <br> &nbsp;&nbsp;🤖 MCP Server&nbsp;&nbsp; <br> </kbd>](docs/source/guides/mcp-server.md)&nbsp;&nbsp;&nbsp;
-[<kbd> <br> &nbsp;&nbsp;📓 Examples&nbsp;&nbsp; <br> </kbd>](examples/)
+[<kbd> <br> &nbsp;&nbsp;📓 Examples&nbsp;&nbsp; <br> </kbd>](examples.ipynb)
 
 <br/><br/>
 

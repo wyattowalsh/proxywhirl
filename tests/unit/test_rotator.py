@@ -11,14 +11,15 @@ This test suite covers:
 - LRU client pool eviction
 """
 
-from unittest.mock import MagicMock, Mock, patch
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import httpx
 import pytest
 import respx
 from pydantic import SecretStr
 
-from proxywhirl import HealthStatus, Proxy, ProxyWhirl
+from proxywhirl import AsyncProxyWhirl, HealthStatus, Proxy, ProxyWhirl
 from proxywhirl.exceptions import (
     ProxyAuthenticationError,
     ProxyConnectionError,
@@ -317,6 +318,109 @@ class TestProxyRotation:
 
         # Should have used both proxies (or created clients for both)
         assert rotator.pool.proxies[0].total_requests + rotator.pool.proxies[1].total_requests >= 2
+
+
+class TestProxyWhirlInterfaceParity:
+    """Test constructor and request behavior parity across sync/async interfaces."""
+
+    @pytest.mark.parametrize(
+        ("strategy_name", "expected_class_name"),
+        [
+            ("round-robin", "RoundRobinStrategy"),
+            ("round_robin", "RoundRobinStrategy"),
+            ("random", "RandomStrategy"),
+            ("weighted", "WeightedStrategy"),
+            ("least-used", "LeastUsedStrategy"),
+            ("least_used", "LeastUsedStrategy"),
+            ("performance-based", "PerformanceBasedStrategy"),
+            ("performance_based", "PerformanceBasedStrategy"),
+            ("session", "SessionPersistenceStrategy"),
+            ("session-persistence", "SessionPersistenceStrategy"),
+            ("session_persistence", "SessionPersistenceStrategy"),
+            ("geo-targeted", "GeoTargetedStrategy"),
+            ("geo_targeted", "GeoTargetedStrategy"),
+        ],
+    )
+    def test_sync_constructor_accepts_supported_strategy_names(
+        self, strategy_name: str, expected_class_name: str
+    ) -> None:
+        """ProxyWhirl constructor should accept every built-in strategy alias."""
+        rotator = ProxyWhirl(strategy=strategy_name)
+        assert rotator.strategy.__class__.__name__ == expected_class_name
+
+    @pytest.mark.parametrize(
+        ("strategy_name", "expected_class_name"),
+        [
+            ("round-robin", "RoundRobinStrategy"),
+            ("round_robin", "RoundRobinStrategy"),
+            ("random", "RandomStrategy"),
+            ("weighted", "WeightedStrategy"),
+            ("least-used", "LeastUsedStrategy"),
+            ("least_used", "LeastUsedStrategy"),
+            ("performance-based", "PerformanceBasedStrategy"),
+            ("performance_based", "PerformanceBasedStrategy"),
+            ("session", "SessionPersistenceStrategy"),
+            ("session-persistence", "SessionPersistenceStrategy"),
+            ("session_persistence", "SessionPersistenceStrategy"),
+            ("geo-targeted", "GeoTargetedStrategy"),
+            ("geo_targeted", "GeoTargetedStrategy"),
+        ],
+    )
+    def test_async_constructor_accepts_supported_strategy_names(
+        self, strategy_name: str, expected_class_name: str
+    ) -> None:
+        """AsyncProxyWhirl constructor should accept every built-in strategy alias."""
+        rotator = AsyncProxyWhirl(strategy=strategy_name)
+        assert rotator.strategy.__class__.__name__ == expected_class_name
+
+    async def test_async_authentication_error_401_is_not_retried(self) -> None:
+        """Async authentication failures should fail fast without retry loops."""
+        proxy = Proxy(url="http://proxy-auth.example.com:8080", health_status=HealthStatus.HEALTHY)
+        rotator = AsyncProxyWhirl(retry_policy=RetryPolicy(max_attempts=3), proxies=[proxy])
+
+        mock_response = Mock(spec=httpx.Response)
+        mock_response.status_code = 401
+
+        mock_client = AsyncMock()
+        mock_client.request.return_value = mock_response
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            async with rotator:
+                with pytest.raises(ProxyAuthenticationError, match="401"):
+                    await rotator.get("https://httpbin.org/get")
+
+        # Fail fast: 401 should not trigger retry attempts.
+        assert mock_client.request.call_count == 1
+
+    async def test_async_selection_skips_expired_proxies(self) -> None:
+        """Async proxy selection should ignore expired proxies."""
+        expired_proxy = Proxy(
+            url="http://expired-proxy.example.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+        )
+        healthy_proxy = Proxy(
+            url="http://healthy-proxy.example.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            expires_at=datetime.now(timezone.utc) + timedelta(minutes=10),
+        )
+
+        rotator = AsyncProxyWhirl(strategy="round-robin", proxies=[expired_proxy, healthy_proxy])
+        selected = await rotator.get_proxy()
+        assert selected.id == healthy_proxy.id
+
+    async def test_sync_bootstrap_from_running_loop_avoids_asyncio_run_error(self) -> None:
+        """Sync bootstrap should work when invoked while an event loop is already running."""
+        rotator = ProxyWhirl()
+        bootstrap_proxy = Proxy(url="http://bootstrap-loop.example.com:8080")
+
+        with patch(
+            "proxywhirl.rotator._bootstrap._fetch_bootstrap_candidates",
+            new=AsyncMock(return_value=[bootstrap_proxy]),
+        ):
+            rotator._ensure_bootstrap_for_empty_pool()
+
+        assert rotator.pool.size == 1
 
 
 class TestAuthenticationErrors:

@@ -80,4 +80,4 @@ proxy = rotator.get_next()
 
 - Check out the [tutorials](tutorials/index.md) for in-depth guides
 - See the [API reference](api/index.md) for detailed documentation
-- Browse [examples](examples/index.md) for common use cases
+- Browse the [examples notebook](../examples.ipynb) for common use cases

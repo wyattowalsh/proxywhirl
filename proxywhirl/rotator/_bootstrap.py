@@ -5,8 +5,9 @@ Internal lazy bootstrap helpers for empty proxy pools.
 from __future__ import annotations
 
 import asyncio
+import threading
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import Any, TypeVar
 
 from loguru import logger
 
@@ -14,6 +15,8 @@ from proxywhirl.exceptions import ProxyPoolEmptyError
 from proxywhirl.models import Proxy, ProxyPool, ProxySource, ProxySourceConfig
 from proxywhirl.sources import ALL_SOURCES, fetch_all_sources
 from proxywhirl.utils import create_proxy_from_url
+
+T = TypeVar("T")
 
 
 def _coerce_proxy(proxy_data: dict[str, Any]) -> Proxy | None:
@@ -55,6 +58,39 @@ def _raise_bootstrap_empty_error() -> None:
     raise ProxyPoolEmptyError(
         "Lazy auto-fetch bootstrap yielded zero proxies from built-in public sources"
     )
+
+
+def _run_async_from_sync(coro_factory: Callable[[], Awaitable[T]]) -> T:
+    """
+    Run an async callable from synchronous code, including active-loop environments.
+
+    When called from environments that already have an event loop running
+    (e.g. Jupyter/Colab), this executes the coroutine in a short-lived worker thread
+    to avoid ``asyncio.run() cannot be called from a running event loop``.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro_factory())
+
+    result: list[T] = []
+    errors: list[BaseException] = []
+
+    def _runner() -> None:
+        try:
+            result.append(asyncio.run(coro_factory()))
+        except BaseException as exc:  # pragma: no cover - surfaced in caller
+            errors.append(exc)
+
+    thread = threading.Thread(target=_runner, daemon=True, name="proxywhirl-bootstrap-runner")
+    thread.start()
+    thread.join()
+
+    if errors:
+        raise errors[0]
+    if not result:
+        raise RuntimeError("Bootstrap runner exited without returning a result")
+    return result[0]
 
 
 async def bootstrap_pool_if_empty_async(
@@ -119,8 +155,8 @@ def bootstrap_pool_if_empty_sync(
     if pool.size > 0:
         return 0
 
-    candidates = asyncio.run(
-        _fetch_bootstrap_candidates(
+    candidates = _run_async_from_sync(
+        lambda: _fetch_bootstrap_candidates(
             validate=validate,
             timeout=timeout,
             max_concurrent=max_concurrent,

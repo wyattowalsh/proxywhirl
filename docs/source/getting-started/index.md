@@ -265,7 +265,13 @@ rotator = ProxyWhirl(
 ```
 
 ```{note}
-The ``strategy`` string shorthand in `ProxyWhirl` and `AsyncProxyWhirl` supports: ``"round-robin"``, ``"random"``, ``"weighted"``, and ``"least-used"``. For other strategies (``performance-based``, ``session-persistence``, ``geo-targeted``, ``cost-aware``, ``composite``), pass an instantiated strategy object. You can also hot-swap strategies at runtime with {meth}`set_strategy() <proxywhirl.ProxyWhirl.set_strategy>`.
+The ``strategy`` string shorthand in `ProxyWhirl` and `AsyncProxyWhirl` supports:
+``"round-robin"``, ``"random"``, ``"weighted"``, ``"least-used"``,
+``"performance-based"``, ``"session"`` (also ``"session-persistence"``), and
+``"geo-targeted"``. Underscore variants are also accepted (for example,
+``"round_robin"`` and ``"geo_targeted"``). For ``cost-aware`` and ``composite``,
+pass an instantiated strategy object. You can also hot-swap strategies at runtime
+with {meth}`set_strategy() <proxywhirl.ProxyWhirl.set_strategy>`.
 ```
 
 See {doc}`rotation-strategies` for detailed recipes, a decision matrix, and configuration for all 9 strategies.

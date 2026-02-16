@@ -30,6 +30,42 @@ from proxywhirl.strategies import (
     RoundRobinStrategy,
     WeightedStrategy,
 )
+from proxywhirl.utils import mask_proxy_url
+
+
+def _resolve_strategy(strategy: RotationStrategy | str | None) -> RotationStrategy:
+    """Resolve a strategy instance from either a strategy object or known string name."""
+    if strategy is None:
+        return RoundRobinStrategy()
+
+    if not isinstance(strategy, str):
+        return strategy
+
+    from proxywhirl.strategies import (
+        GeoTargetedStrategy,
+        PerformanceBasedStrategy,
+        SessionPersistenceStrategy,
+    )
+
+    strategy_map: dict[str, type[RotationStrategy]] = {
+        "round-robin": RoundRobinStrategy,
+        "round_robin": RoundRobinStrategy,
+        "random": RandomStrategy,
+        "weighted": WeightedStrategy,
+        "least-used": LeastUsedStrategy,
+        "least_used": LeastUsedStrategy,
+        "performance-based": PerformanceBasedStrategy,
+        "performance_based": PerformanceBasedStrategy,
+        "session": SessionPersistenceStrategy,
+        "session-persistence": SessionPersistenceStrategy,
+        "session_persistence": SessionPersistenceStrategy,
+        "geo-targeted": GeoTargetedStrategy,
+        "geo_targeted": GeoTargetedStrategy,
+    }
+    strategy_lower = strategy.lower()
+    if strategy_lower not in strategy_map:
+        raise ValueError(f"Unknown strategy: {strategy}. Valid options: {', '.join(strategy_map)}")
+    return strategy_map[strategy_lower]()
 
 
 class LRUAsyncClientPool:
@@ -188,37 +224,22 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         Args:
             proxies: Initial list of proxies (optional)
             strategy: Rotation strategy instance or strategy name string
-                     ("round-robin", "random", "weighted", "least-used")
+                     ("round-robin", "random", "weighted", "least-used",
+                      "performance-based", "session", "geo-targeted")
                      Default: RoundRobinStrategy
             config: Configuration settings (default: ProxyConfiguration())
             retry_policy: Retry policy configuration (default: RetryPolicy())
         """
         self.pool = ProxyPool(name="default", proxies=proxies or [])
 
-        # Parse strategy string or use provided instance
-        if strategy is None:
-            self.strategy: RotationStrategy = RoundRobinStrategy()
-        elif isinstance(strategy, str):
-            strategy_map = {
-                "round-robin": RoundRobinStrategy,
-                "random": RandomStrategy,
-                "weighted": WeightedStrategy,
-                "least-used": LeastUsedStrategy,
-            }
-            strategy_lower = strategy.lower()
-            if strategy_lower not in strategy_map:
-                raise ValueError(
-                    f"Unknown strategy: {strategy}. Valid options: {', '.join(strategy_map.keys())}"
-                )
-            self.strategy = strategy_map[strategy_lower]()  # type: ignore[assignment]
-        else:
-            self.strategy = strategy
+        self.strategy = _resolve_strategy(strategy)
 
         self.config = config or ProxyConfiguration()
         self._client: httpx.AsyncClient | None = None
         self._client_pool = LRUAsyncClientPool(maxsize=100)  # LRU cache with max 100 clients
         self._bootstrap_lock = asyncio.Lock()
         self._bootstrap_attempted = False
+        self._bootstrap_error_message: str | None = None
 
         # Retry and circuit breaker components
         self.retry_policy = retry_policy or RetryPolicy()
@@ -322,7 +343,8 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         # Initialize circuit breaker for new proxy (starts CLOSED per FR-021)
         self.circuit_breakers[str(proxy.id)] = CircuitBreaker(proxy_id=str(proxy.id))
 
-        logger.info(f"Added proxy to pool: {proxy.url}", proxy_id=str(proxy.id))
+        masked_url = mask_proxy_url(proxy.url)
+        logger.info(f"Added proxy to pool: {masked_url}", proxy_id=str(proxy.id))
 
     async def remove_proxy(self, proxy_id: str) -> None:
         """
@@ -370,14 +392,23 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         async with self._bootstrap_lock:
             if self.pool.size > 0:
                 return
+            if self._bootstrap_error_message is not None:
+                raise ProxyPoolEmptyError(self._bootstrap_error_message)
             if self._bootstrap_attempted:
-                raise ProxyPoolEmptyError(self._BOOTSTRAP_EMPTY_MESSAGE)
+                return
 
             self._bootstrap_attempted = True
-            await self._bootstrap_pool_if_empty()
+            try:
+                await self._bootstrap_pool_if_empty()
+            except ProxyPoolEmptyError as exc:
+                self._bootstrap_error_message = str(exc)
+                raise
 
         if self.pool.size == 0:
-            raise ProxyPoolEmptyError(self._BOOTSTRAP_EMPTY_MESSAGE)
+            self._bootstrap_error_message = (
+                self._bootstrap_error_message or self._BOOTSTRAP_EMPTY_MESSAGE
+            )
+            raise ProxyPoolEmptyError(self._bootstrap_error_message)
 
     async def get_proxy(self) -> Proxy:
         """
@@ -427,33 +458,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         start_time = time.perf_counter()
 
         # Parse strategy string or use provided instance
-        if isinstance(strategy, str):
-            from proxywhirl.strategies import (
-                GeoTargetedStrategy,
-                PerformanceBasedStrategy,
-                SessionPersistenceStrategy,
-            )
-
-            strategy_map: dict[str, type[RotationStrategy]] = {
-                "round-robin": RoundRobinStrategy,
-                "random": RandomStrategy,
-                "weighted": WeightedStrategy,
-                "least-used": LeastUsedStrategy,
-                "performance-based": PerformanceBasedStrategy,
-                "session": SessionPersistenceStrategy,
-                "geo-targeted": GeoTargetedStrategy,
-            }
-            strategy_lower = strategy.lower()
-            if strategy_lower not in strategy_map:
-                raise ValueError(
-                    f"Unknown strategy: {strategy}. Valid options: {', '.join(strategy_map.keys())}"
-                )
-
-            # Instantiate strategy
-            strategy_class = strategy_map[strategy_lower]
-            new_strategy = strategy_class()
-        else:
-            new_strategy = strategy
+        new_strategy = _resolve_strategy(strategy) if isinstance(strategy, str) else strategy
 
         # Store old strategy for logging
         old_strategy_name = self.strategy.__class__.__name__
@@ -700,10 +705,9 @@ class AsyncProxyWhirl(ProxyRotatorBase):
 
         proxy_dict = self._get_proxy_dict(proxy)
 
+        masked_url = mask_proxy_url(str(proxy.url))
         logger.info(
-            f"Making {method} request to {url}",
-            proxy_id=str(proxy.id),
-            proxy_url=str(proxy.url),
+            f"Making {method} request to {url}", proxy_id=str(proxy.id), proxy_url=masked_url
         )
 
         # Get or create pooled client for this proxy
@@ -714,15 +718,20 @@ class AsyncProxyWhirl(ProxyRotatorBase):
             # Use pooled client (no context manager - client is reused)
             response = await client.request(method, url, **kwargs)
 
-            # Check for 407 Proxy Authentication Required
-            if response.status_code == 407:
+            # Check for authentication errors (401 Unauthorized, 407 Proxy Auth Required)
+            if response.status_code in (401, 407):
                 logger.error(
-                    f"Proxy authentication failed: {proxy.url}",
+                    f"Proxy authentication failed: {masked_url}",
                     proxy_id=str(proxy.id),
-                    status_code=407,
+                    status_code=response.status_code,
+                )
+                auth_message = (
+                    "authentication required"
+                    if response.status_code == 407
+                    else "authentication failed"
                 )
                 raise ProxyAuthenticationError(
-                    f"Proxy authentication required (407) for {proxy.url}. "
+                    f"Proxy {auth_message} ({response.status_code}) for {masked_url}. "
                     "Please provide valid credentials (username and password)."
                 )
 
@@ -748,7 +757,13 @@ class AsyncProxyWhirl(ProxyRotatorBase):
 
             return response
 
-        except ProxyAuthenticationError:
+        except ProxyAuthenticationError as e:
+            self.strategy.record_result(proxy, success=False, response_time_ms=0.0)
+            logger.error(
+                f"Authentication error for proxy {proxy.id}",
+                proxy_id=str(proxy.id),
+                error=str(e),
+            )
             # Re-raise auth errors without wrapping
             raise
         except Exception as e:
@@ -807,6 +822,11 @@ class AsyncProxyWhirl(ProxyRotatorBase):
                     circuit_breaker.record_success()
 
                 return response
+            except ProxyAuthenticationError:
+                # Authentication errors are non-retryable.
+                if circuit_breaker:
+                    circuit_breaker.record_failure()
+                raise
             except Exception as e:
                 last_exception = e
 
@@ -905,34 +925,3 @@ class AsyncProxyWhirl(ProxyRotatorBase):
             RetryMetrics instance with current metrics
         """
         return self.retry_metrics
-
-    def _select_proxy_with_circuit_breaker(self) -> Proxy:
-        """
-        Select a proxy while respecting circuit breaker states.
-
-        Returns:
-            Selected proxy
-
-        Raises:
-            ProxyPoolEmptyError: If no healthy proxies available or all circuit breakers open
-        """
-        # Check if all circuit breakers are open (FR-019)
-        # Use thread-safe snapshot to avoid race conditions during iteration
-        available_proxies = []
-        for proxy in self.pool.get_all_proxies():
-            circuit_breaker = self.circuit_breakers.get(str(proxy.id))
-            if circuit_breaker and circuit_breaker.should_attempt_request():
-                available_proxies.append(proxy)
-
-        if not available_proxies:
-            logger.error("All circuit breakers are open - no proxies available")
-            raise ProxyPoolEmptyError(
-                "503 Service Temporarily Unavailable - All proxies are currently failing. "
-                "Please wait for circuit breakers to recover."
-            )
-
-        # Create temporary pool with available proxies
-        temp_pool = ProxyPool(name="temp", proxies=available_proxies)
-
-        # Select from available proxies using strategy
-        return self.strategy.select(temp_pool)

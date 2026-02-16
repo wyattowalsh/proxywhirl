@@ -1303,7 +1303,7 @@ async def main():
 asyncio.run(main())
 ```
 
-See [`examples/python/00_quickstart.py`](../examples/python/00_quickstart.py) for more examples.
+See [`examples.ipynb`](../examples.ipynb) for more examples.
 
 ---
 
@@ -1405,7 +1405,7 @@ with httpx.Client(proxy=proxy.url) as client:
 - **Getting Started:** [`docs/getting_started.md`](getting_started.md)
 - **Configuration:** [`docs/configuration.md`](configuration.md)
 - **API Reference:** [`proxywhirl/`](../proxywhirl/)
-- **Examples:** [`examples/`](../examples/)
+- **Examples:** [`examples.ipynb`](../examples.ipynb)
 
 ### Search Issues
 
@@ -1480,7 +1480,7 @@ What actually happens
 - **Configuration:** [`docs/configuration.md`](configuration.md)
 - **Error Reference:** [`proxywhirl/exceptions.py`](../proxywhirl/exceptions.py)
 - **CLI Reference:** [`proxywhirl/cli.py`](../proxywhirl/cli.py)
-- **Examples:** [`examples/`](../examples/)
+- **Examples:** [`examples.ipynb`](../examples.ipynb)
 
 ---
 

@@ -40,6 +40,41 @@ if TYPE_CHECKING:
     from proxywhirl.rate_limiting import SyncRateLimiter
 
 
+def _resolve_strategy(strategy: RotationStrategy | str | None) -> RotationStrategy:
+    """Resolve a strategy instance from either a strategy object or known string name."""
+    if strategy is None:
+        return RoundRobinStrategy()
+
+    if not isinstance(strategy, str):
+        return strategy
+
+    from proxywhirl.strategies import (
+        GeoTargetedStrategy,
+        PerformanceBasedStrategy,
+        SessionPersistenceStrategy,
+    )
+
+    strategy_map: dict[str, type[RotationStrategy]] = {
+        "round-robin": RoundRobinStrategy,
+        "round_robin": RoundRobinStrategy,
+        "random": RandomStrategy,
+        "weighted": WeightedStrategy,
+        "least-used": LeastUsedStrategy,
+        "least_used": LeastUsedStrategy,
+        "performance-based": PerformanceBasedStrategy,
+        "performance_based": PerformanceBasedStrategy,
+        "session": SessionPersistenceStrategy,
+        "session-persistence": SessionPersistenceStrategy,
+        "session_persistence": SessionPersistenceStrategy,
+        "geo-targeted": GeoTargetedStrategy,
+        "geo_targeted": GeoTargetedStrategy,
+    }
+    strategy_lower = strategy.lower()
+    if strategy_lower not in strategy_map:
+        raise ValueError(f"Unknown strategy: {strategy}. Valid options: {', '.join(strategy_map)}")
+    return strategy_map[strategy_lower]()
+
+
 class ProxyWhirl(ProxyRotatorBase):
     """
     Main class for proxy rotation with automatic failover.
@@ -74,7 +109,8 @@ class ProxyWhirl(ProxyRotatorBase):
         Args:
             proxies: Initial list of proxies (optional)
             strategy: Rotation strategy instance or strategy name string
-                     ("round-robin", "random", "weighted", "least-used")
+                     ("round-robin", "random", "weighted", "least-used",
+                      "performance-based", "session", "geo-targeted")
                      Default: RoundRobinStrategy
             config: Configuration settings (default: ProxyConfiguration())
             retry_policy: Retry policy configuration (default: RetryPolicy())
@@ -83,24 +119,7 @@ class ProxyWhirl(ProxyRotatorBase):
         self.pool = ProxyPool(name="default", proxies=proxies or [])
         self.chains: list[ProxyChain] = []  # Track registered proxy chains
 
-        # Parse strategy string or use provided instance
-        if strategy is None:
-            self.strategy: RotationStrategy = RoundRobinStrategy()
-        elif isinstance(strategy, str):
-            strategy_map = {
-                "round-robin": RoundRobinStrategy,
-                "random": RandomStrategy,
-                "weighted": WeightedStrategy,
-                "least-used": LeastUsedStrategy,
-            }
-            strategy_lower = strategy.lower()
-            if strategy_lower not in strategy_map:
-                raise ValueError(
-                    f"Unknown strategy: {strategy}. Valid options: {', '.join(strategy_map.keys())}"
-                )
-            self.strategy = strategy_map[strategy_lower]()  # type: ignore[assignment]
-        else:
-            self.strategy = strategy
+        self.strategy = _resolve_strategy(strategy)
 
         self.config = config or ProxyConfiguration()
         self._client: httpx.Client | None = None
@@ -399,33 +418,7 @@ class ProxyWhirl(ProxyRotatorBase):
         start_time = time.perf_counter()
 
         # Parse strategy string or use provided instance
-        if isinstance(strategy, str):
-            from proxywhirl.strategies import (
-                GeoTargetedStrategy,
-                PerformanceBasedStrategy,
-                SessionPersistenceStrategy,
-            )
-
-            strategy_map: dict[str, type[RotationStrategy]] = {
-                "round-robin": RoundRobinStrategy,
-                "random": RandomStrategy,
-                "weighted": WeightedStrategy,
-                "least-used": LeastUsedStrategy,
-                "performance-based": PerformanceBasedStrategy,
-                "session": SessionPersistenceStrategy,
-                "geo-targeted": GeoTargetedStrategy,
-            }
-            strategy_lower = strategy.lower()
-            if strategy_lower not in strategy_map:
-                raise ValueError(
-                    f"Unknown strategy: {strategy}. Valid options: {', '.join(strategy_map.keys())}"
-                )
-
-            # Instantiate strategy
-            strategy_class = strategy_map[strategy_lower]
-            new_strategy = strategy_class()
-        else:
-            new_strategy = strategy
+        new_strategy = _resolve_strategy(strategy) if isinstance(strategy, str) else strategy
 
         # Store old strategy for logging
         old_strategy_name = self.strategy.__class__.__name__
@@ -715,12 +708,12 @@ class ProxyWhirl(ProxyRotatorBase):
             # Check for authentication errors (401 Unauthorized, 407 Proxy Auth Required)
             if response.status_code in (401, 407):
                 logger.error(
-                    f"Proxy authentication failed: {proxy.url}",
+                    f"Proxy authentication failed: {masked_url}",
                     proxy_id=str(proxy.id),
                     status_code=response.status_code,
                 )
                 raise ProxyAuthenticationError(
-                    f"Proxy authentication failed ({response.status_code}) for {proxy.url}. "
+                    f"Proxy authentication failed ({response.status_code}) for {masked_url}. "
                     "Please provide valid credentials (username and password)."
                 )
 
@@ -898,6 +891,7 @@ class ProxyWhirl(ProxyRotatorBase):
         # Execute the request using the existing logic
         proxy_dict = self._get_proxy_dict(proxy)
         client = self._get_or_create_client(proxy, proxy_dict)
+        masked_url = mask_proxy_url(str(proxy.url))
 
         # Define request function for retry executor
         def request_fn() -> httpx.Response:
@@ -906,12 +900,12 @@ class ProxyWhirl(ProxyRotatorBase):
             # Check for authentication errors
             if response.status_code in (401, 407):
                 logger.error(
-                    f"Proxy authentication failed: {proxy.url}",
+                    f"Proxy authentication failed: {masked_url}",
                     proxy_id=str(proxy.id),
                     status_code=response.status_code,
                 )
                 raise ProxyAuthenticationError(
-                    f"Proxy authentication failed ({response.status_code}) for {proxy.url}. "
+                    f"Proxy authentication failed ({response.status_code}) for {masked_url}. "
                     "Please provide valid credentials (username and password)."
                 )
 
