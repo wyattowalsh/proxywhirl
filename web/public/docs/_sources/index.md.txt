@@ -54,9 +54,9 @@ Python sync/async API, REST service (FastAPI + OpenAPI), CLI with 9 commands (Ty
 
 :::{tab-item} Python (sync)
 ```python
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 
-rotator = ProxyRotator(proxies=["http://proxy1:8080", "http://proxy2:8080"])
+rotator = ProxyWhirl(proxies=["http://proxy1:8080", "http://proxy2:8080"])
 response = rotator.get("https://httpbin.org/ip")
 print(response.json())  # {"origin": "185.x.x.47"}
 ```
@@ -65,9 +65,9 @@ See {doc}`/getting-started/index` for full installation and setup.
 
 :::{tab-item} Python (async)
 ```python
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
-async with AsyncProxyRotator(proxies=proxies) as rotator:
+async with AsyncProxyWhirl(proxies=proxies) as rotator:
     response = await rotator.get("https://httpbin.org/ip")
     print(response.json())
 ```
@@ -262,7 +262,7 @@ Contributing, development setup, CI/CD, changelog, and project status.
 
 :::{grid-item}
 **Four Interfaces**
-- Python sync/async API (`ProxyRotator`, `AsyncProxyRotator`) -- {doc}`/reference/python-api`
+- Python sync/async API (`ProxyWhirl`, `AsyncProxyWhirl`) -- {doc}`/reference/python-api`
 - REST API with OpenAPI docs (FastAPI) -- {doc}`/reference/rest-api`
 - CLI with 9 commands (Typer + Rich) -- {doc}`/guides/cli-reference`
 - MCP server for AI assistants (Claude, GPT) -- {doc}`/guides/mcp-server`

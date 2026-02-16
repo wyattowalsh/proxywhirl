@@ -233,7 +233,7 @@
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#intelligent-proxy-selection">Intelligent Proxy Selection</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#retrymetrics-and-observability">RetryMetrics and Observability</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#retryexecutor-deep-dive">RetryExecutor Deep Dive</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#integration-with-proxyrotator">Integration with ProxyRotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#integration-with-proxywhirl">Integration with ProxyWhirl</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#advanced-patterns">Advanced Patterns</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#best-practices">Best Practices</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#troubleshooting">Troubleshooting</a></li>
@@ -445,8 +445,8 @@
     </button>
     <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
 <li><a class="reference internal" href="#when-to-use-async-vs-sync">When to Use Async vs Sync</a><ul>
-<li><a class="reference internal" href="#use-asyncproxyrotator-when">Use AsyncProxyRotator when:</a></li>
-<li><a class="reference internal" href="#use-proxyrotator-sync-when">Use ProxyRotator (sync) when:</a></li>
+<li><a class="reference internal" href="#use-asyncproxywhirl-when">Use AsyncProxyWhirl when:</a></li>
+<li><a class="reference internal" href="#use-proxywhirl-sync-when">Use ProxyWhirl (sync) when:</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#initialization">Initialization</a><ul>
@@ -595,13 +595,13 @@
 </div><article class="yue dark-code" role="main">
           <section id="async-client-guide">
 <h1>Async Client Guide<a class="headerlink" href="#async-client-guide" title="Link to this heading">¶</a></h1>
-<p>ProxyWhirl provides <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code>, a fully async implementation of proxy rotation built on <code class="docutils literal notranslate"><span class="pre">httpx.AsyncClient</span></code>. This guide covers when to use async vs sync, initialization patterns, async/await usage, and performance considerations.</p>
+<p>ProxyWhirl provides <code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code>, a fully async implementation of proxy rotation built on <code class="docutils literal notranslate"><span class="pre">httpx.AsyncClient</span></code>. This guide covers when to use async vs sync, initialization patterns, async/await usage, and performance considerations.</p>
 <nav class="contents local" id="contents">
 <ul class="simple">
 <li><p><a class="reference internal" href="#when-to-use-async-vs-sync" id="id1">When to Use Async vs Sync</a></p>
 <ul>
-<li><p><a class="reference internal" href="#use-asyncproxyrotator-when" id="id2">Use AsyncProxyRotator when:</a></p></li>
-<li><p><a class="reference internal" href="#use-proxyrotator-sync-when" id="id3">Use ProxyRotator (sync) when:</a></p></li>
+<li><p><a class="reference internal" href="#use-asyncproxywhirl-when" id="id2">Use AsyncProxyWhirl when:</a></p></li>
+<li><p><a class="reference internal" href="#use-proxywhirl-sync-when" id="id3">Use ProxyWhirl (sync) when:</a></p></li>
 </ul>
 </li>
 <li><p><a class="reference internal" href="#initialization" id="id4">Initialization</a></p>
@@ -688,8 +688,8 @@
 </nav>
 <section id="when-to-use-async-vs-sync">
 <h2><a class="toc-backref" href="#id1" role="doc-backlink">When to Use Async vs Sync</a><a class="headerlink" href="#when-to-use-async-vs-sync" title="Link to this heading">¶</a></h2>
-<section id="use-asyncproxyrotator-when">
-<h3><a class="toc-backref" href="#id2" role="doc-backlink">Use AsyncProxyRotator when:</a><a class="headerlink" href="#use-asyncproxyrotator-when" title="Link to this heading">¶</a></h3>
+<section id="use-asyncproxywhirl-when">
+<h3><a class="toc-backref" href="#id2" role="doc-backlink">Use AsyncProxyWhirl when:</a><a class="headerlink" href="#use-asyncproxywhirl-when" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p><strong>High concurrency</strong>: Making many requests in parallel (100+ concurrent requests)</p></li>
 <li><p><strong>I/O-bound workloads</strong>: Most time spent waiting for network responses</p></li>
@@ -698,8 +698,8 @@
 <li><p><strong>Web scraping at scale</strong>: Concurrent crawling of multiple sites</p></li>
 </ul>
 </section>
-<section id="use-proxyrotator-sync-when">
-<h3><a class="toc-backref" href="#id3" role="doc-backlink">Use ProxyRotator (sync) when:</a><a class="headerlink" href="#use-proxyrotator-sync-when" title="Link to this heading">¶</a></h3>
+<section id="use-proxywhirl-sync-when">
+<h3><a class="toc-backref" href="#id3" role="doc-backlink">Use ProxyWhirl (sync) when:</a><a class="headerlink" href="#use-proxywhirl-sync-when" title="Link to this heading">¶</a></h3>
 <ul class="simple">
 <li><p><strong>Simple scripts</strong>: Quick one-off tasks or small automation scripts</p></li>
 <li><p><strong>Sequential processing</strong>: Requests must happen one at a time</p></li>
@@ -709,7 +709,7 @@
 </ul>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>Both <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code> and <code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code> share the same strategy system, retry logic, and circuit breaker implementation. The only difference is the async/sync execution model. See <a class="reference internal" href="advanced-strategies.html"><span class="doc">Advanced Rotation Strategies</span></a> for strategy details and <a class="reference internal" href="retry-failover.html"><span class="doc">Retry &amp; Failover Guide</span></a> for circuit breaker configuration.</p>
+<p>Both <code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code> and <code class="docutils literal notranslate"><span class="pre">ProxyWhirl</span></code> share the same strategy system, retry logic, and circuit breaker implementation. The only difference is the async/sync execution model. See <a class="reference internal" href="advanced-strategies.html"><span class="doc">Advanced Rotation Strategies</span></a> for strategy details and <a class="reference internal" href="retry-failover.html"><span class="doc">Retry &amp; Failover Guide</span></a> for circuit breaker configuration.</p>
 </div>
 </section>
 </section>
@@ -717,10 +717,10 @@
 <h2><a class="toc-backref" href="#id4" role="doc-backlink">Initialization</a><a class="headerlink" href="#initialization" title="Link to this heading">¶</a></h2>
 <section id="basic-initialization">
 <h3><a class="toc-backref" href="#id5" role="doc-backlink">Basic Initialization</a><a class="headerlink" href="#basic-initialization" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># Default initialization (round-robin strategy)</span>
-</span><span data-line="4"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="4"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="5">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="6">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="7">
@@ -731,7 +731,7 @@
 </section>
 <section id="with-initial-proxies">
 <h3><a class="toc-backref" href="#id6" role="doc-backlink">With Initial Proxies</a><a class="headerlink" href="#with-initial-proxies" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span><span class="p">,</span> <span class="n">Proxy</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># Pre-populate proxy pool</span>
 </span><span data-line="4"><span class="n">proxies</span> <span class="o">=</span> <span class="p">[</span>
@@ -740,31 +740,34 @@
 </span><span data-line="7">    <span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy3.example.com:8080&quot;</span><span class="p">),</span>
 </span><span data-line="8"><span class="p">]</span>
 </span><span data-line="9">
-</span><span data-line="10"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="10"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="11">    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
 <section id="with-custom-strategy">
 <h3><a class="toc-backref" href="#id7" role="doc-backlink">With Custom Strategy</a><a class="headerlink" href="#with-custom-strategy" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="c1"># Strategy from string (4 strategies available at init)</span>
-</span><span data-line="4"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;random&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="3"><span class="c1"># Strategy from string aliases</span>
+</span><span data-line="4"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;random&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="5">    <span class="c1"># Uses RandomStrategy</span>
 </span><span data-line="6">    <span class="k">pass</span>
 </span><span data-line="7">
-</span><span data-line="8"><span class="c1"># Available strategies at init:</span>
+</span><span data-line="8"><span class="c1"># Available string aliases at init:</span>
 </span><span data-line="9"><span class="c1"># - &quot;round-robin&quot; (default)</span>
 </span><span data-line="10"><span class="c1"># - &quot;random&quot;</span>
 </span><span data-line="11"><span class="c1"># - &quot;weighted&quot;</span>
 </span><span data-line="12"><span class="c1"># - &quot;least-used&quot;</span>
-</span><span data-line="13"><span class="c1">#</span>
-</span><span data-line="14"><span class="c1"># For other strategies (performance-based, session-persistence, geo-targeted,</span>
-</span><span data-line="15"><span class="c1"># cost-aware, composite), use set_strategy() after init or pass a strategy</span>
-</span><span data-line="16"><span class="c1"># instance directly:</span>
-</span><span data-line="17"><span class="c1">#   from proxywhirl.strategies import PerformanceBasedStrategy</span>
-</span><span data-line="18"><span class="c1">#   async with AsyncProxyRotator(strategy=PerformanceBasedStrategy()) as rotator:</span>
+</span><span data-line="13"><span class="c1"># - &quot;performance-based&quot;</span>
+</span><span data-line="14"><span class="c1"># - &quot;session&quot; (or &quot;session-persistence&quot;)</span>
+</span><span data-line="15"><span class="c1"># - &quot;geo-targeted&quot;</span>
+</span><span data-line="16"><span class="c1">#</span>
+</span><span data-line="17"><span class="c1"># Underscore aliases are also accepted (e.g., &quot;round_robin&quot;, &quot;geo_targeted&quot;).</span>
+</span><span data-line="18"><span class="c1"># For cost-aware and composite, use set_strategy() after init or pass a strategy</span>
+</span><span data-line="19"><span class="c1"># instance directly:</span>
+</span><span data-line="20"><span class="c1">#   from proxywhirl.strategies import PerformanceBasedStrategy</span>
+</span><span data-line="21"><span class="c1">#   async with AsyncProxyWhirl(strategy=PerformanceBasedStrategy()) as rotator:</span>
 </span></pre></div>
 </div>
 <div class="admonition seealso">
@@ -774,7 +777,7 @@
 </section>
 <section id="with-custom-configuration">
 <h3><a class="toc-backref" href="#id8" role="doc-backlink">With Custom Configuration</a><a class="headerlink" href="#with-custom-configuration" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">ProxyConfiguration</span><span class="p">,</span> <span class="n">RetryPolicy</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span><span class="p">,</span> <span class="n">ProxyConfiguration</span><span class="p">,</span> <span class="n">RetryPolicy</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="n">config</span> <span class="o">=</span> <span class="n">ProxyConfiguration</span><span class="p">(</span>
 </span><span data-line="4">    <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
@@ -788,7 +791,7 @@
 </span><span data-line="12">    <span class="n">base_delay</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
 </span><span data-line="13"><span class="p">)</span>
 </span><span data-line="14">
-</span><span data-line="15"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span>
+</span><span data-line="15"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span>
 </span><span data-line="16">    <span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">,</span>
 </span><span data-line="17">    <span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span>
 </span><span data-line="18">    <span class="n">retry_policy</span><span class="o">=</span><span class="n">retry_policy</span>
@@ -806,10 +809,10 @@
 <h3><a class="toc-backref" href="#id10" role="doc-backlink">Async Context Manager (Recommended)</a><a class="headerlink" href="#async-context-manager-recommended" title="Link to this heading">¶</a></h3>
 <p>Always use <code class="docutils literal notranslate"><span class="pre">async</span> <span class="pre">with</span></code> to ensure proper cleanup of HTTP clients and background threads:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span data-line="5">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="5">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="6">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="7">
 </span><span data-line="8">        <span class="c1"># Make requests</span>
@@ -826,7 +829,7 @@
 <section id="manual-lifecycle-management-advanced">
 <h3><a class="toc-backref" href="#id11" role="doc-backlink">Manual Lifecycle Management (Advanced)</a><a class="headerlink" href="#manual-lifecycle-management-advanced" title="Link to this heading">¶</a></h3>
 <p>For advanced use cases where you need explicit control:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># Manually enter context</span>
 </span><span data-line="4"><span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="fm">__aenter__</span><span class="p">()</span>
@@ -849,8 +852,8 @@
 <h2><a class="toc-backref" href="#id12" role="doc-backlink">HTTP Request Methods</a><a class="headerlink" href="#http-request-methods" title="Link to this heading">¶</a></h2>
 <section id="all-http-methods">
 <h3><a class="toc-backref" href="#id13" role="doc-backlink">All HTTP Methods</a><a class="headerlink" href="#all-http-methods" title="Link to this heading">¶</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code> provides async versions of all standard HTTP methods:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+<p><code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code> provides async versions of all standard HTTP methods:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="2">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="3">
 </span><span data-line="4">    <span class="c1"># GET request</span>
@@ -888,7 +891,7 @@
 <section id="request-parameters">
 <h3><a class="toc-backref" href="#id14" role="doc-backlink">Request Parameters</a><a class="headerlink" href="#request-parameters" title="Link to this heading">¶</a></h3>
 <p>All methods accept standard <code class="docutils literal notranslate"><span class="pre">httpx</span></code> parameters:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="2">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="3">
 </span><span data-line="4">    <span class="c1"># Headers</span>
@@ -928,9 +931,9 @@
 <h2><a class="toc-backref" href="#id15" role="doc-backlink">Proxy Management</a><a class="headerlink" href="#proxy-management" title="Link to this heading">¶</a></h2>
 <section id="adding-proxies">
 <h3><a class="toc-backref" href="#id16" role="doc-backlink">Adding Proxies</a><a class="headerlink" href="#adding-proxies" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span><span class="p">,</span> <span class="n">Proxy</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="3"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="4">    <span class="c1"># Add from URL string</span>
 </span><span data-line="5">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="6">
@@ -949,7 +952,7 @@
 </section>
 <section id="removing-proxies">
 <h3><a class="toc-backref" href="#id17" role="doc-backlink">Removing Proxies</a><a class="headerlink" href="#removing-proxies" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="2">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="3">    <span class="n">proxy</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">()</span>
 </span><span data-line="4">
@@ -964,7 +967,7 @@
 </section>
 <section id="getting-proxy-statistics">
 <h3><a class="toc-backref" href="#id18" role="doc-backlink">Getting Proxy Statistics</a><a class="headerlink" href="#getting-proxy-statistics" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="2">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="3">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="4">
@@ -984,7 +987,7 @@
 <section id="hot-swapping-strategies">
 <h2><a class="toc-backref" href="#id19" role="doc-backlink">Hot-Swapping Strategies</a><a class="headerlink" href="#hot-swapping-strategies" title="Link to this heading">¶</a></h2>
 <p>Change rotation strategies at runtime without restarting. For a full list of available strategies and their configuration options, see <a class="reference internal" href="advanced-strategies.html"><span class="doc">Advanced Rotation Strategies</span></a>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="2">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="3">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="4">
@@ -1008,13 +1011,13 @@
 <section id="basic-exception-handling">
 <h3><a class="toc-backref" href="#id21" role="doc-backlink">Basic Exception Handling</a><a class="headerlink" href="#basic-exception-handling" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-</span><span data-line="2">    <span class="n">AsyncProxyRotator</span><span class="p">,</span>
+</span><span data-line="2">    <span class="n">AsyncProxyWhirl</span><span class="p">,</span>
 </span><span data-line="3">    <span class="n">ProxyPoolEmptyError</span><span class="p">,</span>
 </span><span data-line="4">    <span class="n">ProxyConnectionError</span><span class="p">,</span>
 </span><span data-line="5">    <span class="n">ProxyAuthenticationError</span>
 </span><span data-line="6"><span class="p">)</span>
 </span><span data-line="7">
-</span><span data-line="8"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="8"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="9">    <span class="k">try</span><span class="p">:</span>
 </span><span data-line="10">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="11">        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
@@ -1034,9 +1037,9 @@
 <section id="retry-policy-override">
 <h3><a class="toc-backref" href="#id22" role="doc-backlink">Retry Policy Override</a><a class="headerlink" href="#retry-policy-override" title="Link to this heading">¶</a></h3>
 <p>Override retry behavior per request. See <a class="reference internal" href="retry-failover.html"><span class="doc">Retry &amp; Failover Guide</span></a> for complete retry policy configuration, backoff strategies, and circuit breaker details.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">RetryPolicy</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span><span class="p">,</span> <span class="n">RetryPolicy</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="3"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="4">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="5">
 </span><span data-line="6">    <span class="c1"># Custom retry policy for this request</span>
@@ -1052,7 +1055,7 @@
 <section id="circuit-breaker-management">
 <h3><a class="toc-backref" href="#id23" role="doc-backlink">Circuit Breaker Management</a><a class="headerlink" href="#circuit-breaker-management" title="Link to this heading">¶</a></h3>
 <p>For detailed circuit breaker configuration, state transitions, and persistence options, see <a class="reference internal" href="retry-failover.html"><span class="doc">Retry &amp; Failover Guide</span></a>.</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="2">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="3">    <span class="n">proxy</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get_proxy</span><span class="p">()</span>
 </span><span data-line="4">
@@ -1072,7 +1075,7 @@
 <section id="parallel-requests-to-different-urls">
 <h3><a class="toc-backref" href="#id25" role="doc-backlink">Parallel Requests to Different URLs</a><a class="headerlink" href="#parallel-requests-to-different-urls" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_url</span><span class="p">(</span><span class="n">rotator</span><span class="p">,</span> <span class="n">url</span><span class="p">):</span>
 </span><span data-line="5"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Fetch a single URL through the proxy pool.&quot;&quot;&quot;</span>
@@ -1090,7 +1093,7 @@
 </span><span data-line="17">        <span class="s2">&quot;https://httpbin.org/get&quot;</span><span class="p">,</span>
 </span><span data-line="18">    <span class="p">]</span>
 </span><span data-line="19">
-</span><span data-line="20">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="20">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="21">        <span class="c1"># Add proxy pool</span>
 </span><span data-line="22">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="23">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">)</span>
@@ -1114,7 +1117,7 @@
 <section id="rate-limited-concurrent-scraping">
 <h3><a class="toc-backref" href="#id26" role="doc-backlink">Rate-Limited Concurrent Scraping</a><a class="headerlink" href="#rate-limited-concurrent-scraping" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">scrape_with_semaphore</span><span class="p">(</span><span class="n">rotator</span><span class="p">,</span> <span class="n">url</span><span class="p">,</span> <span class="n">semaphore</span><span class="p">):</span>
 </span><span data-line="5"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Scrape with concurrency limit.&quot;&quot;&quot;</span>
@@ -1129,7 +1132,7 @@
 </span><span data-line="14">    <span class="c1"># Generate 100 URLs to scrape</span>
 </span><span data-line="15">    <span class="n">urls</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="s2">&quot;https://httpbin.org/delay/</span><span class="si">{</span><span class="n">i</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">3</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">100</span><span class="p">)]</span>
 </span><span data-line="16">
-</span><span data-line="17">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;least-used&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="17">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;least-used&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="18">        <span class="c1"># Add proxy pool</span>
 </span><span data-line="19">        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">5</span><span class="p">):</span>
 </span><span data-line="20">            <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;http://proxy</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.example.com:8080&quot;</span><span class="p">)</span>
@@ -1153,7 +1156,7 @@
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span>
 </span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
-</span><span data-line="4"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">ProxyConfiguration</span>
+</span><span data-line="4"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span><span class="p">,</span> <span class="n">ProxyConfiguration</span>
 </span><span data-line="5">
 </span><span data-line="6"><span class="nd">@dataclass</span>
 </span><span data-line="7"><span class="k">class</span><span class="w"> </span><span class="nc">ScrapedPage</span><span class="p">:</span>
@@ -1186,7 +1189,7 @@
 </span><span data-line="34">        <span class="n">pool_max_keepalive</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
 </span><span data-line="35">    <span class="p">)</span>
 </span><span data-line="36">
-</span><span data-line="37">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="37">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="38">        <span class="c1"># Use performance-based strategy (swap after init)</span>
 </span><span data-line="39">        <span class="n">rotator</span><span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="s2">&quot;performance-based&quot;</span><span class="p">)</span>
 </span><span data-line="40">
@@ -1230,12 +1233,12 @@
 <h2><a class="toc-backref" href="#id28" role="doc-backlink">Performance Considerations</a><a class="headerlink" href="#performance-considerations" title="Link to this heading">¶</a></h2>
 <section id="connection-pooling">
 <h3><a class="toc-backref" href="#id29" role="doc-backlink">Connection Pooling</a><a class="headerlink" href="#connection-pooling" title="Link to this heading">¶</a></h3>
-<p><code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code> maintains an LRU cache of <code class="docutils literal notranslate"><span class="pre">httpx.AsyncClient</span></code> instances:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+<p><code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code> maintains an LRU cache of <code class="docutils literal notranslate"><span class="pre">httpx.AsyncClient</span></code> instances:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="c1"># Client pool caches up to 100 clients (default)</span>
 </span><span data-line="4"><span class="c1"># LRU eviction prevents unbounded memory growth</span>
-</span><span data-line="5"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="5"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="6">    <span class="c1"># Add many proxies</span>
 </span><span data-line="7">    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">200</span><span class="p">):</span>
 </span><span data-line="8">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;http://proxy</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.example.com:8080&quot;</span><span class="p">)</span>
@@ -1248,14 +1251,14 @@
 <section id="connection-limits">
 <h3><a class="toc-backref" href="#id30" role="doc-backlink">Connection Limits</a><a class="headerlink" href="#connection-limits" title="Link to this heading">¶</a></h3>
 <p>Configure connection pooling per client:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">ProxyConfiguration</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span><span class="p">,</span> <span class="n">ProxyConfiguration</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="n">config</span> <span class="o">=</span> <span class="n">ProxyConfiguration</span><span class="p">(</span>
 </span><span data-line="4">    <span class="n">pool_connections</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>        <span class="c1"># Max concurrent connections per proxy</span>
 </span><span data-line="5">    <span class="n">pool_max_keepalive</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>      <span class="c1"># Max keep-alive connections per proxy</span>
 </span><span data-line="6"><span class="p">)</span>
 </span><span data-line="7">
-</span><span data-line="8"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="8"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="9">    <span class="c1"># Each proxy client has 50 max connections</span>
 </span><span data-line="10">    <span class="c1"># And keeps 20 connections alive for reuse</span>
 </span><span data-line="11">    <span class="k">pass</span>
@@ -1279,8 +1282,8 @@
 <table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>Metric</p></th>
-<th class="head"><p>AsyncProxyRotator</p></th>
-<th class="head"><p>ProxyRotator (sync)</p></th>
+<th class="head"><p>AsyncProxyWhirl</p></th>
+<th class="head"><p>ProxyWhirl (sync)</p></th>
 <th class="head"><p>Notes</p></th>
 </tr>
 </thead>
@@ -1338,13 +1341,13 @@
 <p>Here’s a simple benchmark comparing async vs sync:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 </span><span data-line="2"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
-</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">ProxyRotator</span>
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span><span class="p">,</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">benchmark_async</span><span class="p">(</span><span class="n">urls</span><span class="p">,</span> <span class="n">proxy_url</span><span class="p">):</span>
 </span><span data-line="6"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Benchmark async implementation.&quot;&quot;&quot;</span>
 </span><span data-line="7">    <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
 </span><span data-line="8">
-</span><span data-line="9">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="9">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="10">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">proxy_url</span><span class="p">)</span>
 </span><span data-line="11">
 </span><span data-line="12">        <span class="c1"># Concurrent requests with semaphore</span>
@@ -1375,7 +1378,7 @@
 </span><span data-line="37">
 </span><span data-line="38">    <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
 </span><span data-line="39">
-</span><span data-line="40">    <span class="k">with</span> <span class="n">ProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="40">    <span class="k">with</span> <span class="n">ProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="41">        <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">proxy_url</span><span class="p">)</span>
 </span><span data-line="42">
 </span><span data-line="43">        <span class="c1"># Threaded concurrent requests</span>
@@ -1453,14 +1456,14 @@
 <p>For production FastAPI deployments, see <a class="reference internal" href="deployment-security.html"><span class="doc">Deployment Security &amp; Reverse Proxy Configuration</span></a> for reverse proxy configuration and rate limiting setup.</p>
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
 </span><span data-line="5">
 </span><span data-line="6"><span class="c1"># Initialize rotator at startup</span>
 </span><span data-line="7"><span class="nd">@app</span><span class="o">.</span><span class="n">on_event</span><span class="p">(</span><span class="s2">&quot;startup&quot;</span><span class="p">)</span>
 </span><span data-line="8"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">startup</span><span class="p">():</span>
-</span><span data-line="9">    <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span>
+</span><span data-line="9">    <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span>
 </span><span data-line="10">    <span class="k">await</span> <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">rotator</span><span class="o">.</span><span class="fm">__aenter__</span><span class="p">()</span>
 </span><span data-line="11">    <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">rotator</span><span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="s2">&quot;performance-based&quot;</span><span class="p">)</span>
 </span><span data-line="12">
@@ -1483,11 +1486,11 @@
 <h3><a class="toc-backref" href="#id35" role="doc-backlink">With aiohttp</a><a class="headerlink" href="#with-aiohttp" title="Link to this heading">¶</a></h3>
 <p>ProxyWhirl can work alongside aiohttp for more advanced use cases:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">aiohttp</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_with_aiohttp</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
 </span><span data-line="5"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Use ProxyWhirl to select proxy, then use aiohttp for request.&quot;&quot;&quot;</span>
-</span><span data-line="6">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="6">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="7">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="8">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="9">
@@ -1515,7 +1518,7 @@
 </span><span data-line="31"><span class="c1"># Advanced: Rotate proxies with aiohttp for each request</span>
 </span><span data-line="32"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_multiple_with_rotation</span><span class="p">(</span><span class="n">urls</span><span class="p">):</span>
 </span><span data-line="33"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Fetch multiple URLs, rotating proxies with aiohttp.&quot;&quot;&quot;</span>
-</span><span data-line="34">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;least-used&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="34">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;least-used&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="35">        <span class="c1"># Add proxy pool</span>
 </span><span data-line="36">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="37">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">)</span>
@@ -1552,11 +1555,11 @@
 <h3><a class="toc-backref" href="#id36" role="doc-backlink">Advanced httpx Integration</a><a class="headerlink" href="#advanced-httpx-integration" title="Link to this heading">¶</a></h3>
 <p>Since ProxyWhirl uses httpx internally, you can access advanced httpx features:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">httpx</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">advanced_httpx_example</span><span class="p">():</span>
 </span><span data-line="5"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Use ProxyWhirl&#39;s built-in methods with advanced httpx features.&quot;&quot;&quot;</span>
-</span><span data-line="6">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="6">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="7">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="8">
 </span><span data-line="9">        <span class="c1"># Custom headers</span>
@@ -1599,7 +1602,7 @@
 </span><span data-line="46">
 </span><span data-line="47"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">custom_httpx_client</span><span class="p">():</span>
 </span><span data-line="48"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Use custom httpx client configuration with ProxyWhirl proxy selection.&quot;&quot;&quot;</span>
-</span><span data-line="49">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="49">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="50">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="51">
 </span><span data-line="52">        <span class="c1"># Get proxy for manual httpx usage</span>
@@ -1625,7 +1628,7 @@
 <section id="with-asyncio-queue">
 <h3><a class="toc-backref" href="#id37" role="doc-backlink">With asyncio.Queue</a><a class="headerlink" href="#with-asyncio-queue" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">worker</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="n">rotator</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
 </span><span data-line="5"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Worker that processes URLs from queue.&quot;&quot;&quot;</span>
@@ -1652,7 +1655,7 @@
 </span><span data-line="26">    <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">urls</span><span class="p">:</span>
 </span><span data-line="27">        <span class="k">await</span> <span class="n">queue</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 </span><span data-line="28">
-</span><span data-line="29">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="29">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="30">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="31">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="32">
@@ -1683,7 +1686,7 @@
 <h2><a class="toc-backref" href="#id38" role="doc-backlink">Comparison: Async vs Sync</a><a class="headerlink" href="#comparison-async-vs-sync" title="Link to this heading">¶</a></h2>
 <section id="feature-parity">
 <h3><a class="toc-backref" href="#id39" role="doc-backlink">Feature Parity</a><a class="headerlink" href="#feature-parity" title="Link to this heading">¶</a></h3>
-<p>Both <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code> and <code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code> support:</p>
+<p>Both <code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code> and <code class="docutils literal notranslate"><span class="pre">ProxyWhirl</span></code> support:</p>
 <ul class="simple">
 <li><p>✅ All rotation strategies (round-robin, random, weighted, etc.)</p></li>
 <li><p>✅ Retry logic with configurable backoff</p></li>
@@ -1702,8 +1705,8 @@
 <table class="docutils align-default">
 <thead>
 <tr class="row-odd"><th class="head"><p>Feature</p></th>
-<th class="head"><p>AsyncProxyRotator</p></th>
-<th class="head"><p>ProxyRotator</p></th>
+<th class="head"><p>AsyncProxyWhirl</p></th>
+<th class="head"><p>ProxyWhirl</p></th>
 </tr>
 </thead>
 <tbody>
@@ -1747,9 +1750,9 @@
 <h3><a class="toc-backref" href="#id41" role="doc-backlink">Migration Example</a><a class="headerlink" href="#migration-example" title="Link to this heading">¶</a></h3>
 <p>Converting sync to async is straightforward:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Sync version</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="3">
-</span><span data-line="4"><span class="k">with</span> <span class="n">ProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="4"><span class="k">with</span> <span class="n">ProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="5">    <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="6">    <span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
 </span><span data-line="7">    <span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
@@ -1757,10 +1760,10 @@
 </div>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># Async version</span>
 </span><span data-line="2"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span data-line="6">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="6">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="7">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="8">        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
 </span><span data-line="9">        <span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
@@ -1771,7 +1774,7 @@
 <p>Changes required:</p>
 <ol class="arabic simple">
 <li><p>Add <code class="docutils literal notranslate"><span class="pre">import</span> <span class="pre">asyncio</span></code></p></li>
-<li><p>Change <code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code> → <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code></p></li>
+<li><p>Change <code class="docutils literal notranslate"><span class="pre">ProxyWhirl</span></code> → <code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code></p></li>
 <li><p>Change <code class="docutils literal notranslate"><span class="pre">with</span></code> → <code class="docutils literal notranslate"><span class="pre">async</span> <span class="pre">with</span></code></p></li>
 <li><p>Add <code class="docutils literal notranslate"><span class="pre">await</span></code> before async method calls (<code class="docutils literal notranslate"><span class="pre">add_proxy</span></code>, <code class="docutils literal notranslate"><span class="pre">get</span></code>, etc.)</p></li>
 <li><p>Wrap in <code class="docutils literal notranslate"><span class="pre">async</span> <span class="pre">def</span> <span class="pre">main()</span></code> and call with <code class="docutils literal notranslate"><span class="pre">asyncio.run(main())</span></code></p></li>
@@ -1783,12 +1786,12 @@
 <section id="always-use-context-managers">
 <h3><a class="toc-backref" href="#id43" role="doc-backlink">1. Always Use Context Managers</a><a class="headerlink" href="#always-use-context-managers" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># ✅ GOOD: Automatic cleanup</span>
-</span><span data-line="2"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="2"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="3">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="4">    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
 </span><span data-line="5">
 </span><span data-line="6"><span class="c1"># ❌ BAD: Manual cleanup required, easy to forget</span>
-</span><span data-line="7"><span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span>
+</span><span data-line="7"><span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span>
 </span><span data-line="8"><span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="fm">__aenter__</span><span class="p">()</span>
 </span><span data-line="9"><span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
 </span><span data-line="10"><span class="c1"># Forgot to call __aexit__! Resources leaked!</span>
@@ -1805,14 +1808,14 @@
 </span><span data-line="6">        <span class="k">async</span> <span class="k">with</span> <span class="n">semaphore</span><span class="p">:</span>
 </span><span data-line="7">            <span class="k">return</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 </span><span data-line="8">
-</span><span data-line="9">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="9">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="10">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="11">        <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">fetch_with_limit</span><span class="p">(</span><span class="n">url</span><span class="p">)</span> <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">urls</span><span class="p">]</span>
 </span><span data-line="12">        <span class="k">return</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="n">tasks</span><span class="p">,</span> <span class="n">return_exceptions</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </span><span data-line="13">
 </span><span data-line="14"><span class="c1"># ❌ BAD: Unbounded concurrency can crash your program</span>
 </span><span data-line="15"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">scrape_urls_bad</span><span class="p">(</span><span class="n">urls</span><span class="p">):</span>
-</span><span data-line="16">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="16">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="17">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="18">        <span class="c1"># Creating 10,000 tasks at once! Memory explosion!</span>
 </span><span data-line="19">        <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span> <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">urls</span><span class="p">]</span>
@@ -1824,7 +1827,7 @@
 <h3><a class="toc-backref" href="#id45" role="doc-backlink">3. Handle Exceptions Gracefully</a><a class="headerlink" href="#handle-exceptions-gracefully" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># ✅ GOOD: Per-request error handling with gather</span>
 </span><span data-line="2"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_all</span><span class="p">(</span><span class="n">urls</span><span class="p">):</span>
-</span><span data-line="3">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="3">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="4">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="5">
 </span><span data-line="6">        <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">safe_fetch</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
@@ -1840,7 +1843,7 @@
 </span><span data-line="16">
 </span><span data-line="17"><span class="c1"># ❌ BAD: One failure stops everything</span>
 </span><span data-line="18"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_all_bad</span><span class="p">(</span><span class="n">urls</span><span class="p">):</span>
-</span><span data-line="19">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="19">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="20">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="21">        <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span> <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">urls</span><span class="p">]</span>
 </span><span data-line="22">        <span class="c1"># First exception stops all other tasks!</span>
@@ -1856,7 +1859,7 @@
 </span><span data-line="4">        <span class="bp">self</span><span class="o">.</span><span class="n">rotator</span> <span class="o">=</span> <span class="kc">None</span>
 </span><span data-line="5">
 </span><span data-line="6">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">startup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-</span><span data-line="7">        <span class="bp">self</span><span class="o">.</span><span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span>
+</span><span data-line="7">        <span class="bp">self</span><span class="o">.</span><span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span>
 </span><span data-line="8">        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">rotator</span><span class="o">.</span><span class="fm">__aenter__</span><span class="p">()</span>
 </span><span data-line="9">        <span class="bp">self</span><span class="o">.</span><span class="n">rotator</span><span class="o">.</span><span class="n">set_strategy</span><span class="p">(</span><span class="s2">&quot;performance-based&quot;</span><span class="p">)</span>
 </span><span data-line="10">        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
@@ -1871,7 +1874,7 @@
 </span><span data-line="19"><span class="c1"># ❌ BAD: Creating new rotator for each request</span>
 </span><span data-line="20"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_bad</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
 </span><span data-line="21">    <span class="c1"># Expensive: creates new clients, circuit breakers, metrics every time!</span>
-</span><span data-line="22">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="22">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="23">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="24">        <span class="k">return</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 </span></pre></div>
@@ -1897,7 +1900,7 @@
 </span><span data-line="16">            <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">clear_unhealthy_proxies</span><span class="p">()</span>
 </span><span data-line="17">
 </span><span data-line="18"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span data-line="19">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="19">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="20">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="21">
 </span><span data-line="22">        <span class="c1"># Start background health monitoring</span>
@@ -1914,7 +1917,7 @@
 <section id="use-appropriate-retry-policies">
 <h3><a class="toc-backref" href="#id48" role="doc-backlink">6. Use Appropriate Retry Policies</a><a class="headerlink" href="#use-appropriate-retry-policies" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># ✅ GOOD: Different retry policies for different endpoints</span>
-</span><span data-line="2"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="2"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="3">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="4">
 </span><span data-line="5">    <span class="c1"># Critical endpoint: More aggressive retries</span>
@@ -1936,7 +1939,7 @@
 <section id="profile-and-optimize-connection-pooling">
 <h3><a class="toc-backref" href="#id49" role="doc-backlink">7. Profile and Optimize Connection Pooling</a><a class="headerlink" href="#profile-and-optimize-connection-pooling" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># ✅ GOOD: Configure pool limits based on your workload</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">ProxyConfiguration</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span><span class="p">,</span> <span class="n">ProxyConfiguration</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># For high-throughput scraping (many concurrent requests)</span>
 </span><span data-line="5"><span class="n">high_throughput_config</span> <span class="o">=</span> <span class="n">ProxyConfiguration</span><span class="p">(</span>
@@ -1945,7 +1948,7 @@
 </span><span data-line="8">    <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span>
 </span><span data-line="9"><span class="p">)</span>
 </span><span data-line="10">
-</span><span data-line="11"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">high_throughput_config</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="11"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">high_throughput_config</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="12">    <span class="c1"># Can handle 100+ concurrent requests efficiently</span>
 </span><span data-line="13">    <span class="k">pass</span>
 </span><span data-line="14">
@@ -1956,7 +1959,7 @@
 </span><span data-line="19">    <span class="n">timeout</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>                 <span class="c1"># Shorter timeout</span>
 </span><span data-line="20"><span class="p">)</span>
 </span><span data-line="21">
-</span><span data-line="22"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">low_latency_config</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="22"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">low_latency_config</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="23">    <span class="c1"># Optimized for speed, not throughput</span>
 </span><span data-line="24">    <span class="k">pass</span>
 </span></pre></div>
@@ -1966,7 +1969,7 @@
 <h3><a class="toc-backref" href="#id50" role="doc-backlink">8. Use Strategy Hot-Swapping for Adaptive Behavior</a><a class="headerlink" href="#use-strategy-hot-swapping-for-adaptive-behavior" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># ✅ GOOD: Adapt strategy based on performance</span>
 </span><span data-line="2"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">adaptive_scraping</span><span class="p">(</span><span class="n">urls</span><span class="p">):</span>
-</span><span data-line="3">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="3">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="4">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="5">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="6">
@@ -2004,7 +2007,7 @@
 </span><span data-line="13">            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Pool now has </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;healthy_proxies&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> healthy proxies&quot;</span><span class="p">)</span>
 </span><span data-line="14">
 </span><span data-line="15"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
-</span><span data-line="16">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="16">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="17">        <span class="c1"># Add proxies</span>
 </span><span data-line="18">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="19">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">)</span>
@@ -2025,7 +2028,7 @@
 <h3><a class="toc-backref" href="#id52" role="doc-backlink">10. Avoid Common Pitfalls</a><a class="headerlink" href="#avoid-common-pitfalls" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="c1"># ❌ COMMON PITFALL 1: Blocking operations in async code</span>
 </span><span data-line="2"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">bad_example</span><span class="p">():</span>
-</span><span data-line="3">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="3">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="4">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="5">
 </span><span data-line="6">        <span class="c1"># BAD: time.sleep blocks the event loop!</span>
@@ -2034,7 +2037,7 @@
 </span><span data-line="9">
 </span><span data-line="10"><span class="c1"># ❌ COMMON PITFALL 2: Not awaiting async operations</span>
 </span><span data-line="11"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">bad_example2</span><span class="p">():</span>
-</span><span data-line="12">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="12">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="13">        <span class="c1"># BAD: Forgot to await! This creates a coroutine but doesn&#39;t run it!</span>
 </span><span data-line="14">        <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="15">
@@ -2046,19 +2049,19 @@
 </span><span data-line="21">
 </span><span data-line="22">    <span class="c1"># BAD: Creates 100 rotator instances, wastes resources!</span>
 </span><span data-line="23">    <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">urls</span><span class="p">:</span>
-</span><span data-line="24">        <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="24">        <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="25">            <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="26">            <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 </span><span data-line="27">
 </span><span data-line="28">    <span class="c1"># GOOD: Reuse single rotator instance</span>
-</span><span data-line="29">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="29">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="30">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://proxy1.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="31">        <span class="k">for</span> <span class="n">url</span> <span class="ow">in</span> <span class="n">urls</span><span class="p">:</span>
 </span><span data-line="32">            <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
 </span><span data-line="33">
 </span><span data-line="34"><span class="c1"># ❌ COMMON PITFALL 4: Ignoring circuit breaker states</span>
 </span><span data-line="35"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">bad_example4</span><span class="p">():</span>
-</span><span data-line="36">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="36">    <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="37">        <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://bad-proxy.example.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="38">
 </span><span data-line="39">        <span class="c1"># BAD: Keeps trying even after circuit breaker opens</span>
@@ -2139,7 +2142,7 @@ REST API Reference</div>
 <div class="sd-card-body docutils">
 <div class="sd-card-title sd-font-weight-bold docutils">
 Python API Reference</div>
-<p class="sd-card-text">Complete Python API docs for <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code>, and all models.</p>
+<p class="sd-card-text">Complete Python API docs for <code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyWhirl</span></code>, and all models.</p>
 </div>
 <a class="sd-stretched-link sd-hide-link-text reference internal" href="../reference/python-api.html"><span class="doc">Python API Reference</span></a></div>
 </div>

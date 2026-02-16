@@ -473,7 +473,7 @@ ProxyWhirl uses ``respx`` (not ``responses``) for HTTP mocking in tests. Use the
 import pytest
 import respx
 from httpx import Response
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 
 @respx.mock
 def test_rotator_basic_request():
@@ -483,7 +483,7 @@ def test_rotator_basic_request():
         return_value=Response(200, json={"origin": "1.2.3.4"})
     )
 
-    rotator = ProxyRotator(proxies=["http://proxy1:8080"])
+    rotator = ProxyWhirl(proxies=["http://proxy1:8080"])
     response = rotator.get("https://httpbin.org/ip")
 
     assert response.status_code == 200
@@ -496,11 +496,11 @@ ProxyWhirl's test suite uses ``asyncio_mode = "auto"`` so async tests do not nee
 
 ```python
 import pytest
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
 @pytest.mark.asyncio
 async def test_async_rotator():
-    rotator = AsyncProxyRotator(proxies=["http://proxy1:8080"])
+    rotator = AsyncProxyWhirl(proxies=["http://proxy1:8080"])
     # ... test async operations
 ```
 

@@ -233,7 +233,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#intelligent-proxy-selection">Intelligent Proxy Selection</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#retrymetrics-and-observability">RetryMetrics and Observability</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#retryexecutor-deep-dive">RetryExecutor Deep Dive</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#integration-with-proxyrotator">Integration with ProxyRotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#integration-with-proxywhirl">Integration with ProxyWhirl</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#advanced-patterns">Advanced Patterns</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#best-practices">Best Practices</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#troubleshooting">Troubleshooting</a></li>
@@ -476,7 +476,7 @@
 <li><a class="reference internal" href="#global-per-proxy-limits">Global + Per-Proxy Limits</a></li>
 <li><a class="reference internal" href="#burst-handling">Burst Handling</a></li>
 <li><a class="reference internal" href="#dynamic-limit-adjustment">Dynamic Limit Adjustment</a></li>
-<li><a class="reference internal" href="#integration-with-proxyrotator">Integration with ProxyRotator</a></li>
+<li><a class="reference internal" href="#integration-with-proxywhirl">Integration with ProxyWhirl</a></li>
 <li><a class="reference internal" href="#monitoring-and-logging">Monitoring and Logging</a></li>
 <li><a class="reference internal" href="#retry-with-backoff">Retry with Backoff</a></li>
 </ul>
@@ -596,7 +596,7 @@
 <p>Built on top of <code class="docutils literal notranslate"><span class="pre">pyrate-limiter</span></code> for robust, production-ready rate limiting.</p>
 <div class="admonition important">
 <p class="admonition-title">Important</p>
-<p>There are three rate limiter classes. Use <code class="docutils literal notranslate"><span class="pre">SyncRateLimiter</span></code> with <code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code> and <code class="docutils literal notranslate"><span class="pre">AsyncRateLimiter</span></code> with <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code>. The base <code class="docutils literal notranslate"><span class="pre">RateLimiter</span></code> class is deprecated but maintained for backwards compatibility.</p>
+<p>There are three rate limiter classes. Use <code class="docutils literal notranslate"><span class="pre">SyncRateLimiter</span></code> with <code class="docutils literal notranslate"><span class="pre">ProxyWhirl</span></code> and <code class="docutils literal notranslate"><span class="pre">AsyncRateLimiter</span></code> with <code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code>. The base <code class="docutils literal notranslate"><span class="pre">RateLimiter</span></code> class is deprecated but maintained for backwards compatibility.</p>
 </div>
 </section>
 <section id="core-classes">
@@ -623,7 +623,7 @@
 <hr class="docutils" />
 <section id="syncratelimiter">
 <h3>SyncRateLimiter<a class="headerlink" href="#syncratelimiter" title="Link to this heading">¶</a></h3>
-<p>Synchronous rate limiter for use with <code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code>. Thread-safe via <code class="docutils literal notranslate"><span class="pre">threading.RLock</span></code>.</p>
+<p>Synchronous rate limiter for use with <code class="docutils literal notranslate"><span class="pre">ProxyWhirl</span></code>. Thread-safe via <code class="docutils literal notranslate"><span class="pre">threading.RLock</span></code>.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">SyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="n">limiter</span> <span class="o">=</span> <span class="n">SyncRateLimiter</span><span class="p">(</span>
@@ -640,7 +640,7 @@
 <hr class="docutils" />
 <section id="asyncratelimiter">
 <h3>AsyncRateLimiter<a class="headerlink" href="#asyncratelimiter" title="Link to this heading">¶</a></h3>
-<p>Async rate limiter for use with <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code>. Uses <code class="docutils literal notranslate"><span class="pre">asyncio.Lock</span></code> for async safety.</p>
+<p>Async rate limiter for use with <code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code>. Uses <code class="docutils literal notranslate"><span class="pre">asyncio.Lock</span></code> for async safety.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="2">
 </span><span data-line="3"><span class="n">limiter</span> <span class="o">=</span> <span class="n">AsyncRateLimiter</span><span class="p">(</span>
@@ -1058,13 +1058,13 @@
 </div>
 </section>
 <hr class="docutils" />
-<section id="integration-with-proxyrotator">
-<h3>Integration with ProxyRotator<a class="headerlink" href="#integration-with-proxyrotator" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<section id="integration-with-proxywhirl">
+<h3>Integration with ProxyWhirl<a class="headerlink" href="#integration-with-proxywhirl" title="Link to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.rate_limiting</span><span class="w"> </span><span class="kn">import</span> <span class="n">SyncRateLimiter</span><span class="p">,</span> <span class="n">RateLimit</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Create rotator and sync limiter</span>
-</span><span data-line="5"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
+</span><span data-line="5"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">()</span>
 </span><span data-line="6"><span class="n">limiter</span> <span class="o">=</span> <span class="n">SyncRateLimiter</span><span class="p">(</span>
 </span><span data-line="7">    <span class="n">global_limit</span><span class="o">=</span><span class="n">RateLimit</span><span class="p">(</span><span class="n">max_requests</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">time_window</span><span class="o">=</span><span class="mi">60</span><span class="p">)</span>
 </span><span data-line="8"><span class="p">)</span>
@@ -1539,7 +1539,7 @@
 <section id="see-also">
 <h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="python-api.html"><span class="std std-doc">Python API</span></a> – Main ProxyRotator and AsyncProxyRotator API</p></li>
+<li><p><a class="reference internal" href="python-api.html"><span class="std std-doc">Python API</span></a> – Main ProxyWhirl and AsyncProxyWhirl API</p></li>
 <li><p><a class="reference internal" href="rest-api.html"><span class="std std-doc">REST API</span></a> – REST API rate limiting configuration</p></li>
 <li><p><a class="reference internal" href="configuration.html"><span class="std std-doc">Configuration</span></a> – TOML configuration for rate limits</p></li>
 <li><p><a class="reference internal" href="../guides/retry-failover.html"><span class="std std-doc">Retry &amp; Failover</span></a> – Retry and circuit breaker integration</p></li>

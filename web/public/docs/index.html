@@ -233,7 +233,7 @@
 <li class="toctree-l4"><a class="reference internal" href="guides/retry-failover.html#intelligent-proxy-selection">Intelligent Proxy Selection</a></li>
 <li class="toctree-l4"><a class="reference internal" href="guides/retry-failover.html#retrymetrics-and-observability">RetryMetrics and Observability</a></li>
 <li class="toctree-l4"><a class="reference internal" href="guides/retry-failover.html#retryexecutor-deep-dive">RetryExecutor Deep Dive</a></li>
-<li class="toctree-l4"><a class="reference internal" href="guides/retry-failover.html#integration-with-proxyrotator">Integration with ProxyRotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="guides/retry-failover.html#integration-with-proxywhirl">Integration with ProxyWhirl</a></li>
 <li class="toctree-l4"><a class="reference internal" href="guides/retry-failover.html#advanced-patterns">Advanced Patterns</a></li>
 <li class="toctree-l4"><a class="reference internal" href="guides/retry-failover.html#best-practices">Best Practices</a></li>
 <li class="toctree-l4"><a class="reference internal" href="guides/retry-failover.html#troubleshooting">Troubleshooting</a></li>
@@ -570,9 +570,9 @@ Four Interfaces</div>
 <input checked="checked" id="sd-tab-item-0" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-0">
 Python (sync)</label><div class="sd-tab-content docutils">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;http://proxy1:8080&quot;</span><span class="p">,</span> <span class="s2">&quot;http://proxy2:8080&quot;</span><span class="p">])</span>
+</span><span data-line="3"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;http://proxy1:8080&quot;</span><span class="p">,</span> <span class="s2">&quot;http://proxy2:8080&quot;</span><span class="p">])</span>
 </span><span data-line="4"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
 </span><span data-line="5"><span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>  <span class="c1"># {&quot;origin&quot;: &quot;185.x.x.47&quot;}</span>
 </span></pre></div>
@@ -582,9 +582,9 @@ Python (sync)</label><div class="sd-tab-content docutils">
 <input id="sd-tab-item-1" name="sd-tab-set-0" type="radio">
 <label class="sd-tab-label" for="sd-tab-item-1">
 Python (async)</label><div class="sd-tab-content docutils">
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="2">
-</span><span data-line="3"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="3"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="4">    <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
 </span><span data-line="5">    <span class="nb">print</span><span class="p">(</span><span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">())</span>
 </span></pre></div>
@@ -801,7 +801,7 @@ Project</div>
 <div class="sd-col sd-d-flex-column docutils">
 <p><strong>Four Interfaces</strong></p>
 <ul class="simple">
-<li><p>Python sync/async API (<code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code>, <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code>) – <a class="reference internal" href="reference/python-api.html"><span class="doc">Python API Reference</span></a></p></li>
+<li><p>Python sync/async API (<code class="docutils literal notranslate"><span class="pre">ProxyWhirl</span></code>, <code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code>) – <a class="reference internal" href="reference/python-api.html"><span class="doc">Python API Reference</span></a></p></li>
 <li><p>REST API with OpenAPI docs (FastAPI) – <a class="reference internal" href="reference/rest-api.html"><span class="doc">ProxyWhirl REST API Usage Guide</span></a></p></li>
 <li><p>CLI with 9 commands (Typer + Rich) – <a class="reference internal" href="guides/cli-reference.html"><span class="doc">CLI Reference</span></a></p></li>
 <li><p>MCP server for AI assistants (Claude, GPT) – <a class="reference internal" href="guides/mcp-server.html"><span class="doc">MCP Server Guide</span></a></p></li>

@@ -70,7 +70,7 @@ Uses the cold-start exploration pattern: new proxies get equal selection probabi
 ### Configuration
 
 ```python
-from proxywhirl import ProxyRotator, Proxy, StrategyConfig
+from proxywhirl import ProxyWhirl, Proxy, StrategyConfig
 from proxywhirl.strategies import PerformanceBasedStrategy
 
 # Create proxies
@@ -89,7 +89,7 @@ strategy = PerformanceBasedStrategy()
 strategy.configure(config)
 
 # Use with rotator
-rotator = ProxyRotator(proxies=proxies, strategy=strategy)
+rotator = ProxyWhirl(proxies=proxies, strategy=strategy)
 response = rotator.get("https://api.example.com/data")
 ```
 
@@ -519,13 +519,13 @@ Free proxies get a default 10x weight boost, making them highly favored while st
 ### Configuration
 
 ```python
-from proxywhirl import AsyncProxyRotator, Proxy, StrategyConfig
+from proxywhirl import AsyncProxyWhirl, Proxy, StrategyConfig
 from proxywhirl.strategies import CostAwareStrategy
 
 # Create cost-aware strategy instance
 strategy = CostAwareStrategy()
 
-async with AsyncProxyRotator(strategy=strategy) as rotator:
+async with AsyncProxyWhirl(strategy=strategy) as rotator:
     # Add proxies with cost metadata
     await rotator.add_proxy(Proxy(
         url="http://free-proxy1.com:8080",
@@ -563,7 +563,7 @@ Weights are normalized to sum to 1.0
 ### Cost Threshold Filtering
 
 ```python
-from proxywhirl import AsyncProxyRotator, Proxy, StrategyConfig
+from proxywhirl import AsyncProxyWhirl, Proxy, StrategyConfig
 from proxywhirl.strategies import CostAwareStrategy
 
 # Configure strategy with cost thresholds
@@ -577,7 +577,7 @@ config = StrategyConfig(
 strategy = CostAwareStrategy()
 strategy.configure(config)
 
-async with AsyncProxyRotator(strategy=strategy) as rotator:
+async with AsyncProxyWhirl(strategy=strategy) as rotator:
     await rotator.add_proxy(Proxy(url="http://cheap.com:8080", cost_per_request=0.01))
     await rotator.add_proxy(Proxy(url="http://expensive.com:8080", cost_per_request=0.20))
 
@@ -594,7 +594,7 @@ async with AsyncProxyRotator(strategy=strategy) as rotator:
 - Combine with `PerformanceBasedStrategy` via `CompositeStrategy` for cost + speed optimization
 
 ```python
-from proxywhirl import AsyncProxyRotator, StrategyConfig
+from proxywhirl import AsyncProxyWhirl, StrategyConfig
 from proxywhirl.strategies import CostAwareStrategy
 
 # Recommended production configuration
@@ -608,7 +608,7 @@ config = StrategyConfig(
 strategy = CostAwareStrategy()
 strategy.configure(config)
 
-async with AsyncProxyRotator(strategy=strategy) as rotator:
+async with AsyncProxyWhirl(strategy=strategy) as rotator:
     # Add proxies with cost metadata
     pass
 ```
@@ -1085,7 +1085,7 @@ class PriorityStrategy:
 Use `StrategyRegistry` to register and reuse custom strategies. Registered strategies are also available through the {doc}`cli-reference` (`proxywhirl config set rotation_strategy ...`) and the {doc}`mcp-server` (`set_strategy` action).
 
 ```python
-from proxywhirl import AsyncProxyRotator, Proxy
+from proxywhirl import AsyncProxyWhirl, Proxy
 from proxywhirl.strategies import StrategyRegistry
 
 # Register the strategy
@@ -1095,7 +1095,7 @@ registry.register_strategy("priority", PriorityStrategy)
 # Use the custom strategy instance
 strategy = PriorityStrategy()
 
-async with AsyncProxyRotator(strategy=strategy) as rotator:
+async with AsyncProxyWhirl(strategy=strategy) as rotator:
     # Add proxies with priority metadata
     await rotator.add_proxy(Proxy(
         url="http://proxy1.com:8080",
@@ -1467,7 +1467,7 @@ def test_my_use_case():
 :link: /guides/async-client
 :link-type: doc
 
-Using `AsyncProxyRotator` with all strategies, concurrency patterns, and integration with FastAPI/aiohttp.
+Using `AsyncProxyWhirl` with all strategies, concurrency patterns, and integration with FastAPI/aiohttp.
 :::
 
 :::{grid-item-card} Retry & Failover

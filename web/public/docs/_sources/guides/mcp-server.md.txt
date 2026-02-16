@@ -656,7 +656,7 @@ from proxywhirl.mcp.server import (
     set_rotator,
     cleanup_rotator,
 )
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
 async def main():
     # List all proxies
@@ -691,7 +691,7 @@ asyncio.run(main())
 ```python
 import asyncio
 from proxywhirl.mcp.server import set_rotator, proxywhirl, cleanup_rotator
-from proxywhirl import AsyncProxyRotator, ProxyConfiguration
+from proxywhirl import AsyncProxyWhirl, ProxyConfiguration
 
 async def main():
     # Create custom rotator
@@ -699,7 +699,7 @@ async def main():
         timeout=60,
         pool_connections=50,
     )
-    rotator = AsyncProxyRotator(
+    rotator = AsyncProxyWhirl(
         strategy="round-robin",
         config=config
     )
@@ -739,7 +739,7 @@ async def run_server():
 
 ### How Lifespan Works
 
-1. **Startup**: Initializes the `AsyncProxyRotator`, loads proxies from database if available
+1. **Startup**: Initializes the `AsyncProxyWhirl`, loads proxies from database if available
 2. **Running**: Rotator is available for all tool calls
 3. **Shutdown**: Cleans up rotator resources automatically
 
@@ -752,11 +752,11 @@ mcp = FastMCP("ProxyWhirl", lifespan=_mcp_lifespan)
 
 ```python
 from proxywhirl.mcp import ProxyWhirlMCPServer
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
 async def main():
     # With custom rotator
-    rotator = AsyncProxyRotator(strategy="weighted")
+    rotator = AsyncProxyWhirl(strategy="weighted")
 
     server = ProxyWhirlMCPServer(proxy_manager=rotator)
     await server.initialize()  # Required for async setup
@@ -909,7 +909,7 @@ Solution: Verify the API key matches what was configured with `set_auth()`.
 :link: /guides/async-client
 :link-type: doc
 
-`AsyncProxyRotator` patterns used by the MCP server internally for proxy rotation.
+`AsyncProxyWhirl` patterns used by the MCP server internally for proxy rotation.
 :::
 
 :::{grid-item-card} Advanced Strategies
@@ -944,6 +944,6 @@ The REST API provides similar functionality to MCP via HTTP endpoints.
 :link: /reference/python-api
 :link-type: doc
 
-Complete API docs for `AsyncProxyRotator` and all models used by the MCP server.
+Complete API docs for `AsyncProxyWhirl` and all models used by the MCP server.
 :::
 ::::

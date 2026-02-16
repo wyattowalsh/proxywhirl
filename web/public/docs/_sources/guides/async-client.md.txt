@@ -4,7 +4,7 @@ title: Async Client Guide
 
 # Async Client Guide
 
-ProxyWhirl provides `AsyncProxyRotator`, a fully async implementation of proxy rotation built on `httpx.AsyncClient`. This guide covers when to use async vs sync, initialization patterns, async/await usage, and performance considerations.
+ProxyWhirl provides `AsyncProxyWhirl`, a fully async implementation of proxy rotation built on `httpx.AsyncClient`. This guide covers when to use async vs sync, initialization patterns, async/await usage, and performance considerations.
 
 ```{contents}
 :local:
@@ -13,7 +13,7 @@ ProxyWhirl provides `AsyncProxyRotator`, a fully async implementation of proxy r
 
 ## When to Use Async vs Sync
 
-### Use AsyncProxyRotator when:
+### Use AsyncProxyWhirl when:
 
 - **High concurrency**: Making many requests in parallel (100+ concurrent requests)
 - **I/O-bound workloads**: Most time spent waiting for network responses
@@ -21,7 +21,7 @@ ProxyWhirl provides `AsyncProxyRotator`, a fully async implementation of proxy r
 - **Resource efficiency**: Need to handle thousands of connections with minimal memory
 - **Web scraping at scale**: Concurrent crawling of multiple sites
 
-### Use ProxyRotator (sync) when:
+### Use ProxyWhirl (sync) when:
 
 - **Simple scripts**: Quick one-off tasks or small automation scripts
 - **Sequential processing**: Requests must happen one at a time
@@ -30,7 +30,7 @@ ProxyWhirl provides `AsyncProxyRotator`, a fully async implementation of proxy r
 - **Low concurrency**: Making fewer than 10 concurrent requests
 
 ```{note}
-Both `AsyncProxyRotator` and `ProxyRotator` share the same strategy system, retry logic, and circuit breaker implementation. The only difference is the async/sync execution model. See {doc}`advanced-strategies` for strategy details and {doc}`retry-failover` for circuit breaker configuration.
+Both `AsyncProxyWhirl` and `ProxyWhirl` share the same strategy system, retry logic, and circuit breaker implementation. The only difference is the async/sync execution model. See {doc}`advanced-strategies` for strategy details and {doc}`retry-failover` for circuit breaker configuration.
 ```
 
 ## Initialization
@@ -38,10 +38,10 @@ Both `AsyncProxyRotator` and `ProxyRotator` share the same strategy system, retr
 ### Basic Initialization
 
 ```python
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
 # Default initialization (round-robin strategy)
-async with AsyncProxyRotator() as rotator:
+async with AsyncProxyWhirl() as rotator:
     await rotator.add_proxy("http://proxy1.example.com:8080")
     await rotator.add_proxy("http://proxy2.example.com:8080")
 
@@ -52,7 +52,7 @@ async with AsyncProxyRotator() as rotator:
 ### With Initial Proxies
 
 ```python
-from proxywhirl import AsyncProxyRotator, Proxy
+from proxywhirl import AsyncProxyWhirl, Proxy
 
 # Pre-populate proxy pool
 proxies = [
@@ -61,31 +61,34 @@ proxies = [
     Proxy(url="http://proxy3.example.com:8080"),
 ]
 
-async with AsyncProxyRotator(proxies=proxies) as rotator:
+async with AsyncProxyWhirl(proxies=proxies) as rotator:
     response = await rotator.get("https://httpbin.org/ip")
 ```
 
 ### With Custom Strategy
 
 ```python
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
-# Strategy from string (4 strategies available at init)
-async with AsyncProxyRotator(strategy="random") as rotator:
+# Strategy from string aliases
+async with AsyncProxyWhirl(strategy="random") as rotator:
     # Uses RandomStrategy
     pass
 
-# Available strategies at init:
+# Available string aliases at init:
 # - "round-robin" (default)
 # - "random"
 # - "weighted"
 # - "least-used"
+# - "performance-based"
+# - "session" (or "session-persistence")
+# - "geo-targeted"
 #
-# For other strategies (performance-based, session-persistence, geo-targeted,
-# cost-aware, composite), use set_strategy() after init or pass a strategy
+# Underscore aliases are also accepted (e.g., "round_robin", "geo_targeted").
+# For cost-aware and composite, use set_strategy() after init or pass a strategy
 # instance directly:
 #   from proxywhirl.strategies import PerformanceBasedStrategy
-#   async with AsyncProxyRotator(strategy=PerformanceBasedStrategy()) as rotator:
+#   async with AsyncProxyWhirl(strategy=PerformanceBasedStrategy()) as rotator:
 ```
 
 :::{seealso}
@@ -95,7 +98,7 @@ For detailed strategy configuration including EMA tuning, session persistence, g
 ### With Custom Configuration
 
 ```python
-from proxywhirl import AsyncProxyRotator, ProxyConfiguration, RetryPolicy
+from proxywhirl import AsyncProxyWhirl, ProxyConfiguration, RetryPolicy
 
 config = ProxyConfiguration(
     timeout=60,
@@ -109,7 +112,7 @@ retry_policy = RetryPolicy(
     base_delay=1.5,
 )
 
-async with AsyncProxyRotator(
+async with AsyncProxyWhirl(
     strategy="round-robin",
     config=config,
     retry_policy=retry_policy
@@ -127,10 +130,10 @@ Always use `async with` to ensure proper cleanup of HTTP clients and background 
 
 ```python
 import asyncio
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
 async def main():
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
 
         # Make requests
@@ -148,7 +151,7 @@ asyncio.run(main())
 For advanced use cases where you need explicit control:
 
 ```python
-rotator = AsyncProxyRotator()
+rotator = AsyncProxyWhirl()
 
 # Manually enter context
 await rotator.__aenter__()
@@ -169,10 +172,10 @@ Manual lifecycle management requires careful exception handling to prevent resou
 
 ### All HTTP Methods
 
-`AsyncProxyRotator` provides async versions of all standard HTTP methods:
+`AsyncProxyWhirl` provides async versions of all standard HTTP methods:
 
 ```python
-async with AsyncProxyRotator() as rotator:
+async with AsyncProxyWhirl() as rotator:
     await rotator.add_proxy("http://proxy1.example.com:8080")
 
     # GET request
@@ -211,7 +214,7 @@ async with AsyncProxyRotator() as rotator:
 All methods accept standard `httpx` parameters:
 
 ```python
-async with AsyncProxyRotator() as rotator:
+async with AsyncProxyWhirl() as rotator:
     await rotator.add_proxy("http://proxy1.example.com:8080")
 
     # Headers
@@ -250,9 +253,9 @@ async with AsyncProxyRotator() as rotator:
 ### Adding Proxies
 
 ```python
-from proxywhirl import AsyncProxyRotator, Proxy
+from proxywhirl import AsyncProxyWhirl, Proxy
 
-async with AsyncProxyRotator() as rotator:
+async with AsyncProxyWhirl() as rotator:
     # Add from URL string
     await rotator.add_proxy("http://proxy1.example.com:8080")
 
@@ -271,7 +274,7 @@ async with AsyncProxyRotator() as rotator:
 ### Removing Proxies
 
 ```python
-async with AsyncProxyRotator() as rotator:
+async with AsyncProxyWhirl() as rotator:
     await rotator.add_proxy("http://proxy1.example.com:8080")
     proxy = await rotator.get_proxy()
 
@@ -286,7 +289,7 @@ async with AsyncProxyRotator() as rotator:
 ### Getting Proxy Statistics
 
 ```python
-async with AsyncProxyRotator() as rotator:
+async with AsyncProxyWhirl() as rotator:
     await rotator.add_proxy("http://proxy1.example.com:8080")
     await rotator.add_proxy("http://proxy2.example.com:8080")
 
@@ -306,7 +309,7 @@ async with AsyncProxyRotator() as rotator:
 Change rotation strategies at runtime without restarting. For a full list of available strategies and their configuration options, see {doc}`advanced-strategies`.
 
 ```python
-async with AsyncProxyRotator(strategy="round-robin") as rotator:
+async with AsyncProxyWhirl(strategy="round-robin") as rotator:
     await rotator.add_proxy("http://proxy1.example.com:8080")
     await rotator.add_proxy("http://proxy2.example.com:8080")
 
@@ -330,13 +333,13 @@ Strategy hot-swapping completes in <100ms and is thread-safe. In-flight requests
 
 ```python
 from proxywhirl import (
-    AsyncProxyRotator,
+    AsyncProxyWhirl,
     ProxyPoolEmptyError,
     ProxyConnectionError,
     ProxyAuthenticationError
 )
 
-async with AsyncProxyRotator() as rotator:
+async with AsyncProxyWhirl() as rotator:
     try:
         await rotator.add_proxy("http://proxy1.example.com:8080")
         response = await rotator.get("https://httpbin.org/ip")
@@ -357,9 +360,9 @@ async with AsyncProxyRotator() as rotator:
 Override retry behavior per request. See {doc}`retry-failover` for complete retry policy configuration, backoff strategies, and circuit breaker details.
 
 ```python
-from proxywhirl import AsyncProxyRotator, RetryPolicy
+from proxywhirl import AsyncProxyWhirl, RetryPolicy
 
-async with AsyncProxyRotator() as rotator:
+async with AsyncProxyWhirl() as rotator:
     await rotator.add_proxy("http://proxy1.example.com:8080")
 
     # Custom retry policy for this request
@@ -376,7 +379,7 @@ async with AsyncProxyRotator() as rotator:
 For detailed circuit breaker configuration, state transitions, and persistence options, see {doc}`retry-failover`.
 
 ```python
-async with AsyncProxyRotator() as rotator:
+async with AsyncProxyWhirl() as rotator:
     await rotator.add_proxy("http://proxy1.example.com:8080")
     proxy = await rotator.get_proxy()
 
@@ -395,7 +398,7 @@ async with AsyncProxyRotator() as rotator:
 
 ```python
 import asyncio
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
 async def fetch_url(rotator, url):
     """Fetch a single URL through the proxy pool."""
@@ -413,7 +416,7 @@ async def main():
         "https://httpbin.org/get",
     ]
 
-    async with AsyncProxyRotator(strategy="round-robin") as rotator:
+    async with AsyncProxyWhirl(strategy="round-robin") as rotator:
         # Add proxy pool
         await rotator.add_proxy("http://proxy1.example.com:8080")
         await rotator.add_proxy("http://proxy2.example.com:8080")
@@ -437,7 +440,7 @@ asyncio.run(main())
 
 ```python
 import asyncio
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
 async def scrape_with_semaphore(rotator, url, semaphore):
     """Scrape with concurrency limit."""
@@ -452,7 +455,7 @@ async def main():
     # Generate 100 URLs to scrape
     urls = [f"https://httpbin.org/delay/{i % 3}" for i in range(100)]
 
-    async with AsyncProxyRotator(strategy="least-used") as rotator:
+    async with AsyncProxyWhirl(strategy="least-used") as rotator:
         # Add proxy pool
         for i in range(5):
             await rotator.add_proxy(f"http://proxy{i}.example.com:8080")
@@ -476,7 +479,7 @@ asyncio.run(main())
 import asyncio
 from typing import List
 from dataclasses import dataclass
-from proxywhirl import AsyncProxyRotator, ProxyConfiguration
+from proxywhirl import AsyncProxyWhirl, ProxyConfiguration
 
 @dataclass
 class ScrapedPage:
@@ -509,7 +512,7 @@ async def batch_scrape(urls: List[str], max_concurrent: int = 50):
         pool_max_keepalive=50,
     )
 
-    async with AsyncProxyRotator(config=config) as rotator:
+    async with AsyncProxyWhirl(config=config) as rotator:
         # Use performance-based strategy (swap after init)
         rotator.set_strategy("performance-based")
 
@@ -551,14 +554,14 @@ asyncio.run(batch_scrape(urls, max_concurrent=50))
 
 ### Connection Pooling
 
-`AsyncProxyRotator` maintains an LRU cache of `httpx.AsyncClient` instances:
+`AsyncProxyWhirl` maintains an LRU cache of `httpx.AsyncClient` instances:
 
 ```python
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
 # Client pool caches up to 100 clients (default)
 # LRU eviction prevents unbounded memory growth
-async with AsyncProxyRotator() as rotator:
+async with AsyncProxyWhirl() as rotator:
     # Add many proxies
     for i in range(200):
         await rotator.add_proxy(f"http://proxy{i}.example.com:8080")
@@ -572,14 +575,14 @@ async with AsyncProxyRotator() as rotator:
 Configure connection pooling per client:
 
 ```python
-from proxywhirl import AsyncProxyRotator, ProxyConfiguration
+from proxywhirl import AsyncProxyWhirl, ProxyConfiguration
 
 config = ProxyConfiguration(
     pool_connections=50,        # Max concurrent connections per proxy
     pool_max_keepalive=20,      # Max keep-alive connections per proxy
 )
 
-async with AsyncProxyRotator(config=config) as rotator:
+async with AsyncProxyWhirl(config=config) as rotator:
     # Each proxy client has 50 max connections
     # And keeps 20 connections alive for reuse
     pass
@@ -598,7 +601,7 @@ The async client automatically manages memory:
 
 Expected performance characteristics:
 
-| Metric | AsyncProxyRotator | ProxyRotator (sync) | Notes |
+| Metric | AsyncProxyWhirl | ProxyWhirl (sync) | Notes |
 |--------|-------------------|---------------------|-------|
 | Strategy hot-swap | <100ms | <100ms | Both use atomic reference swap |
 | Request overhead | ~1-2ms | ~1-2ms | Minimal proxy selection overhead |
@@ -617,13 +620,13 @@ Here's a simple benchmark comparing async vs sync:
 ```python
 import asyncio
 import time
-from proxywhirl import AsyncProxyRotator, ProxyRotator
+from proxywhirl import AsyncProxyWhirl, ProxyWhirl
 
 async def benchmark_async(urls, proxy_url):
     """Benchmark async implementation."""
     start = time.perf_counter()
 
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy(proxy_url)
 
         # Concurrent requests with semaphore
@@ -654,7 +657,7 @@ def benchmark_sync(urls, proxy_url):
 
     start = time.perf_counter()
 
-    with ProxyRotator() as rotator:
+    with ProxyWhirl() as rotator:
         rotator.add_proxy(proxy_url)
 
         # Threaded concurrent requests
@@ -729,14 +732,14 @@ For production FastAPI deployments, see {doc}`deployment-security` for reverse p
 
 ```python
 from fastapi import FastAPI
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
 app = FastAPI()
 
 # Initialize rotator at startup
 @app.on_event("startup")
 async def startup():
-    app.state.rotator = AsyncProxyRotator(strategy="round-robin")
+    app.state.rotator = AsyncProxyWhirl(strategy="round-robin")
     await app.state.rotator.__aenter__()
     app.state.rotator.set_strategy("performance-based")
 
@@ -760,11 +763,11 @@ ProxyWhirl can work alongside aiohttp for more advanced use cases:
 
 ```python
 import aiohttp
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
 async def fetch_with_aiohttp(url):
     """Use ProxyWhirl to select proxy, then use aiohttp for request."""
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
         await rotator.add_proxy("http://proxy2.example.com:8080")
 
@@ -792,7 +795,7 @@ async def fetch_with_aiohttp(url):
 # Advanced: Rotate proxies with aiohttp for each request
 async def fetch_multiple_with_rotation(urls):
     """Fetch multiple URLs, rotating proxies with aiohttp."""
-    async with AsyncProxyRotator(strategy="least-used") as rotator:
+    async with AsyncProxyWhirl(strategy="least-used") as rotator:
         # Add proxy pool
         await rotator.add_proxy("http://proxy1.example.com:8080")
         await rotator.add_proxy("http://proxy2.example.com:8080")
@@ -830,11 +833,11 @@ Since ProxyWhirl uses httpx internally, you can access advanced httpx features:
 
 ```python
 import httpx
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
 async def advanced_httpx_example():
     """Use ProxyWhirl's built-in methods with advanced httpx features."""
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
 
         # Custom headers
@@ -877,7 +880,7 @@ async def advanced_httpx_example():
 
 async def custom_httpx_client():
     """Use custom httpx client configuration with ProxyWhirl proxy selection."""
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
 
         # Get proxy for manual httpx usage
@@ -903,7 +906,7 @@ async def custom_httpx_client():
 
 ```python
 import asyncio
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
 async def worker(queue, rotator, results):
     """Worker that processes URLs from queue."""
@@ -930,7 +933,7 @@ async def main():
     for url in urls:
         await queue.put(url)
 
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
         await rotator.add_proxy("http://proxy2.example.com:8080")
 
@@ -959,7 +962,7 @@ asyncio.run(main())
 
 ### Feature Parity
 
-Both `AsyncProxyRotator` and `ProxyRotator` support:
+Both `AsyncProxyWhirl` and `ProxyWhirl` support:
 
 - ✅ All rotation strategies (round-robin, random, weighted, etc.)
 - ✅ Retry logic with configurable backoff
@@ -973,7 +976,7 @@ Both `AsyncProxyRotator` and `ProxyRotator` support:
 
 ### Key Differences
 
-| Feature | AsyncProxyRotator | ProxyRotator |
+| Feature | AsyncProxyWhirl | ProxyWhirl |
 |---------|-------------------|--------------|
 | **Execution Model** | `async`/`await` | Synchronous |
 | **Concurrency** | Native (asyncio) | Threading |
@@ -990,9 +993,9 @@ Converting sync to async is straightforward:
 
 ```python
 # Sync version
-from proxywhirl import ProxyRotator
+from proxywhirl import ProxyWhirl
 
-with ProxyRotator() as rotator:
+with ProxyWhirl() as rotator:
     rotator.add_proxy("http://proxy1.example.com:8080")
     response = rotator.get("https://httpbin.org/ip")
     print(response.json())
@@ -1001,10 +1004,10 @@ with ProxyRotator() as rotator:
 ```python
 # Async version
 import asyncio
-from proxywhirl import AsyncProxyRotator
+from proxywhirl import AsyncProxyWhirl
 
 async def main():
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
         response = await rotator.get("https://httpbin.org/ip")
         print(response.json())
@@ -1014,7 +1017,7 @@ asyncio.run(main())
 
 Changes required:
 1. Add `import asyncio`
-2. Change `ProxyRotator` → `AsyncProxyRotator`
+2. Change `ProxyWhirl` → `AsyncProxyWhirl`
 3. Change `with` → `async with`
 4. Add `await` before async method calls (`add_proxy`, `get`, etc.)
 5. Wrap in `async def main()` and call with `asyncio.run(main())`
@@ -1025,12 +1028,12 @@ Changes required:
 
 ```python
 # ✅ GOOD: Automatic cleanup
-async with AsyncProxyRotator() as rotator:
+async with AsyncProxyWhirl() as rotator:
     await rotator.add_proxy("http://proxy1.example.com:8080")
     response = await rotator.get("https://httpbin.org/ip")
 
 # ❌ BAD: Manual cleanup required, easy to forget
-rotator = AsyncProxyRotator()
+rotator = AsyncProxyWhirl()
 await rotator.__aenter__()
 response = await rotator.get("https://httpbin.org/ip")
 # Forgot to call __aexit__! Resources leaked!
@@ -1047,14 +1050,14 @@ async def scrape_urls(urls):
         async with semaphore:
             return await rotator.get(url)
 
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
         tasks = [fetch_with_limit(url) for url in urls]
         return await asyncio.gather(*tasks, return_exceptions=True)
 
 # ❌ BAD: Unbounded concurrency can crash your program
 async def scrape_urls_bad(urls):
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
         # Creating 10,000 tasks at once! Memory explosion!
         tasks = [rotator.get(url) for url in urls]
@@ -1066,7 +1069,7 @@ async def scrape_urls_bad(urls):
 ```python
 # ✅ GOOD: Per-request error handling with gather
 async def fetch_all(urls):
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
 
         async def safe_fetch(url):
@@ -1082,7 +1085,7 @@ async def fetch_all(urls):
 
 # ❌ BAD: One failure stops everything
 async def fetch_all_bad(urls):
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
         tasks = [rotator.get(url) for url in urls]
         # First exception stops all other tasks!
@@ -1098,7 +1101,7 @@ class Application:
         self.rotator = None
 
     async def startup(self):
-        self.rotator = AsyncProxyRotator(strategy="round-robin")
+        self.rotator = AsyncProxyWhirl(strategy="round-robin")
         await self.rotator.__aenter__()
         self.rotator.set_strategy("performance-based")
         await self.rotator.add_proxy("http://proxy1.example.com:8080")
@@ -1113,7 +1116,7 @@ class Application:
 # ❌ BAD: Creating new rotator for each request
 async def fetch_bad(url):
     # Expensive: creates new clients, circuit breakers, metrics every time!
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
         return await rotator.get(url)
 ```
@@ -1139,7 +1142,7 @@ async def health_check_task(rotator):
             await rotator.clear_unhealthy_proxies()
 
 async def main():
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
 
         # Start background health monitoring
@@ -1156,7 +1159,7 @@ async def main():
 
 ```python
 # ✅ GOOD: Different retry policies for different endpoints
-async with AsyncProxyRotator() as rotator:
+async with AsyncProxyWhirl() as rotator:
     await rotator.add_proxy("http://proxy1.example.com:8080")
 
     # Critical endpoint: More aggressive retries
@@ -1178,7 +1181,7 @@ async with AsyncProxyRotator() as rotator:
 
 ```python
 # ✅ GOOD: Configure pool limits based on your workload
-from proxywhirl import AsyncProxyRotator, ProxyConfiguration
+from proxywhirl import AsyncProxyWhirl, ProxyConfiguration
 
 # For high-throughput scraping (many concurrent requests)
 high_throughput_config = ProxyConfiguration(
@@ -1187,7 +1190,7 @@ high_throughput_config = ProxyConfiguration(
     timeout=30,
 )
 
-async with AsyncProxyRotator(config=high_throughput_config) as rotator:
+async with AsyncProxyWhirl(config=high_throughput_config) as rotator:
     # Can handle 100+ concurrent requests efficiently
     pass
 
@@ -1198,7 +1201,7 @@ low_latency_config = ProxyConfiguration(
     timeout=5,                 # Shorter timeout
 )
 
-async with AsyncProxyRotator(config=low_latency_config) as rotator:
+async with AsyncProxyWhirl(config=low_latency_config) as rotator:
     # Optimized for speed, not throughput
     pass
 ```
@@ -1208,7 +1211,7 @@ async with AsyncProxyRotator(config=low_latency_config) as rotator:
 ```python
 # ✅ GOOD: Adapt strategy based on performance
 async def adaptive_scraping(urls):
-    async with AsyncProxyRotator(strategy="round-robin") as rotator:
+    async with AsyncProxyWhirl(strategy="round-robin") as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
         await rotator.add_proxy("http://proxy2.example.com:8080")
 
@@ -1246,7 +1249,7 @@ async def periodic_cleanup(rotator):
             print(f"Pool now has {stats['healthy_proxies']} healthy proxies")
 
 async def main():
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         # Add proxies
         await rotator.add_proxy("http://proxy1.example.com:8080")
         await rotator.add_proxy("http://proxy2.example.com:8080")
@@ -1267,7 +1270,7 @@ async def main():
 ```python
 # ❌ COMMON PITFALL 1: Blocking operations in async code
 async def bad_example():
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
 
         # BAD: time.sleep blocks the event loop!
@@ -1276,7 +1279,7 @@ async def bad_example():
 
 # ❌ COMMON PITFALL 2: Not awaiting async operations
 async def bad_example2():
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         # BAD: Forgot to await! This creates a coroutine but doesn't run it!
         rotator.add_proxy("http://proxy1.example.com:8080")
 
@@ -1288,19 +1291,19 @@ async def bad_example3():
 
     # BAD: Creates 100 rotator instances, wastes resources!
     for url in urls:
-        async with AsyncProxyRotator() as rotator:
+        async with AsyncProxyWhirl() as rotator:
             await rotator.add_proxy("http://proxy1.example.com:8080")
             await rotator.get(url)
 
     # GOOD: Reuse single rotator instance
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://proxy1.example.com:8080")
         for url in urls:
             await rotator.get(url)
 
 # ❌ COMMON PITFALL 4: Ignoring circuit breaker states
 async def bad_example4():
-    async with AsyncProxyRotator() as rotator:
+    async with AsyncProxyWhirl() as rotator:
         await rotator.add_proxy("http://bad-proxy.example.com:8080")
 
         # BAD: Keeps trying even after circuit breaker opens
@@ -1367,7 +1370,7 @@ Full REST API documentation for the ProxyWhirl HTTP server.
 :link: /reference/python-api
 :link-type: doc
 
-Complete Python API docs for `AsyncProxyRotator`, `ProxyRotator`, and all models.
+Complete Python API docs for `AsyncProxyWhirl`, `ProxyWhirl`, and all models.
 :::
 
 :::{grid-item-card} Rotation Strategies Overview

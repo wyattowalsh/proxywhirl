@@ -540,7 +540,7 @@ The CLI configuration accepts these strategy names:
 - `"least-used"` - Select least recently used
 
 :::{note}
-Advanced strategies (`"performance-based"`, `"session"`, `"geo-targeted"`, `"cost-aware"`, `"composite"`) are available through the Python API's `ProxyRotator.set_strategy()` method but are not yet supported in CLI configuration. See [Python API](python-api.md) and [Advanced Strategies](../guides/advanced-strategies.md).
+Advanced strategies (`"performance-based"`, `"session"`, `"geo-targeted"`, `"cost-aware"`, `"composite"`) are available through the Python API's `ProxyWhirl.set_strategy()` method but are not yet supported in CLI configuration. See [Python API](python-api.md) and [Advanced Strategies](../guides/advanced-strategies.md).
 :::
 
 ### Output Format

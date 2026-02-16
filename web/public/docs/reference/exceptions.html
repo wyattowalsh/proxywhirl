@@ -233,7 +233,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#intelligent-proxy-selection">Intelligent Proxy Selection</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#retrymetrics-and-observability">RetryMetrics and Observability</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#retryexecutor-deep-dive">RetryExecutor Deep Dive</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#integration-with-proxyrotator">Integration with ProxyRotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#integration-with-proxywhirl">Integration with ProxyWhirl</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#advanced-patterns">Advanced Patterns</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#best-practices">Best Practices</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#troubleshooting">Troubleshooting</a></li>
@@ -708,10 +708,10 @@
 <p><code class="docutils literal notranslate"><span class="pre">ProxyAuthenticationError</span></code> inherits directly from <code class="docutils literal notranslate"><span class="pre">ProxyWhirlError</span></code>, not from <code class="docutils literal notranslate"><span class="pre">ProxyConnectionError</span></code>. Catch it separately from connection errors for proper credential handling.</p>
 </div>
 <p>All ProxyWhirl exceptions inherit from <code class="docutils literal notranslate"><span class="pre">ProxyWhirlError</span></code>, making it easy to catch all library-specific errors:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirlError</span>
 </span><span data-line="3">
-</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
+</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">()</span>
 </span><span data-line="5">
 </span><span data-line="6"><span class="k">try</span><span class="p">:</span>
 </span><span data-line="7">    <span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
@@ -977,10 +977,10 @@
 </section>
 <section id="id2">
 <h4>Example<a class="headerlink" href="#id2" title="Link to this heading">¶</a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyValidationError</span>
 </span><span data-line="3">
-</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
+</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">()</span>
 </span><span data-line="5">
 </span><span data-line="6"><span class="k">try</span><span class="p">:</span>
 </span><span data-line="7">    <span class="c1"># Invalid URL format (missing scheme)</span>
@@ -1021,10 +1021,10 @@
 </section>
 <section id="id4">
 <h4>Example<a class="headerlink" href="#id4" title="Link to this heading">¶</a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyPoolEmptyError</span>
 </span><span data-line="3">
-</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
+</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">()</span>
 </span><span data-line="5">
 </span><span data-line="6"><span class="k">try</span><span class="p">:</span>
 </span><span data-line="7">    <span class="c1"># No proxies added yet</span>
@@ -1079,10 +1079,10 @@
 </section>
 <section id="id7">
 <h4>Example<a class="headerlink" href="#id7" title="Link to this heading">¶</a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyConnectionError</span><span class="p">,</span> <span class="n">ProxyErrorCode</span>
 </span><span data-line="3">
-</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
+</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">()</span>
 </span><span data-line="5"><span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;http://unreachable.proxy.com:8080&quot;</span><span class="p">)</span>
 </span><span data-line="6">
 </span><span data-line="7"><span class="k">try</span><span class="p">:</span>
@@ -1129,10 +1129,10 @@
 </section>
 <section id="id10">
 <h4>Example<a class="headerlink" href="#id10" title="Link to this heading">¶</a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyAuthenticationError</span>
 </span><span data-line="3">
-</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
+</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">()</span>
 </span><span data-line="5">
 </span><span data-line="6"><span class="k">try</span><span class="p">:</span>
 </span><span data-line="7">    <span class="c1"># Wrong credentials</span>
@@ -1187,11 +1187,11 @@
 </section>
 <section id="id13">
 <h4>Example<a class="headerlink" href="#id13" title="Link to this heading">¶</a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyFetchError</span>
 </span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 </span><span data-line="4">
-</span><span data-line="5"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
+</span><span data-line="5"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">()</span>
 </span><span data-line="6">
 </span><span data-line="7"><span class="k">try</span><span class="p">:</span>
 </span><span data-line="8">    <span class="c1"># Fetch from external source</span>
@@ -1240,20 +1240,20 @@
 </section>
 <section id="id16">
 <h4>Example<a class="headerlink" href="#id16" title="Link to this heading">¶</a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyStorageError</span>
 </span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="k">try</span><span class="p">:</span>
 </span><span data-line="6">    <span class="c1"># Using read-only directory</span>
-</span><span data-line="7">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">storage_path</span><span class="o">=</span><span class="s2">&quot;/read-only/proxywhirl.db&quot;</span><span class="p">)</span>
+</span><span data-line="7">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">(</span><span class="n">storage_path</span><span class="o">=</span><span class="s2">&quot;/read-only/proxywhirl.db&quot;</span><span class="p">)</span>
 </span><span data-line="8"><span class="k">except</span> <span class="n">ProxyStorageError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
 </span><span data-line="9">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Storage error: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span data-line="10">
 </span><span data-line="11">    <span class="c1"># Solution: Use writable directory</span>
 </span><span data-line="12">    <span class="n">storage_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="s2">&quot;~/.proxywhirl/proxies.db&quot;</span><span class="p">)</span>
 </span><span data-line="13">    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">storage_path</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="14">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">storage_path</span><span class="o">=</span><span class="n">storage_path</span><span class="p">)</span>
+</span><span data-line="14">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">(</span><span class="n">storage_path</span><span class="o">=</span><span class="n">storage_path</span><span class="p">)</span>
 </span></pre></div>
 </div>
 </section>
@@ -1451,12 +1451,12 @@
 </section>
 <section id="id29">
 <h4>Example<a class="headerlink" href="#id29" title="Link to this heading">¶</a></h4>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">RequestQueueFullError</span>
 </span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="c1"># Configure with small queue for testing</span>
-</span><span data-line="6"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">queue_size</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</span><span data-line="6"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">(</span><span class="n">queue_size</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 </span><span data-line="7">
 </span><span data-line="8"><span class="k">try</span><span class="p">:</span>
 </span><span data-line="9">    <span class="c1"># Flood the queue with requests</span>
@@ -1470,7 +1470,7 @@
 </span><span data-line="17">    <span class="n">rotator</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
 </span><span data-line="18">
 </span><span data-line="19">    <span class="c1"># Solution 2: Increase queue size</span>
-</span><span data-line="20">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">queue_size</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</span><span data-line="20">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">(</span><span class="n">queue_size</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 </span><span data-line="21">
 </span><span data-line="22">    <span class="c1"># Solution 3: Implement request throttling</span>
 </span><span data-line="23">    <span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
@@ -1621,14 +1621,14 @@
 <section id="basic-error-handling">
 <h3>Basic Error Handling<a class="headerlink" href="#basic-error-handling" title="Link to this heading">¶</a></h3>
 <p>Catch specific exceptions for targeted error handling:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
 </span><span data-line="3">    <span class="n">ProxyPoolEmptyError</span><span class="p">,</span>
 </span><span data-line="4">    <span class="n">ProxyConnectionError</span><span class="p">,</span>
 </span><span data-line="5">    <span class="n">ProxyAuthenticationError</span><span class="p">,</span>
 </span><span data-line="6"><span class="p">)</span>
 </span><span data-line="7">
-</span><span data-line="8"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
+</span><span data-line="8"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">()</span>
 </span><span data-line="9">
 </span><span data-line="10"><span class="k">try</span><span class="p">:</span>
 </span><span data-line="11">    <span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
@@ -1654,10 +1654,10 @@
 <section id="catch-all-error-handling">
 <h3>Catch-All Error Handling<a class="headerlink" href="#catch-all-error-handling" title="Link to this heading">¶</a></h3>
 <p>Use <code class="docutils literal notranslate"><span class="pre">ProxyWhirlError</span></code> to catch all library-specific errors:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirlError</span>
 </span><span data-line="3">
-</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
+</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">()</span>
 </span><span data-line="5">
 </span><span data-line="6"><span class="k">try</span><span class="p">:</span>
 </span><span data-line="7">    <span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
@@ -1676,7 +1676,7 @@
 <section id="retry-logic-based-on-error-type">
 <h3>Retry Logic Based on Error Type<a class="headerlink" href="#retry-logic-based-on-error-type" title="Link to this heading">¶</a></h3>
 <p>Implement smart retry logic based on error metadata:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirlError</span>
 </span><span data-line="3"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
 </span><span data-line="4">
@@ -1705,7 +1705,7 @@
 <h3>Async Error Handling<a class="headerlink" href="#async-error-handling" title="Link to this heading">¶</a></h3>
 <p>Handle errors in async contexts:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
 </span><span data-line="4">    <span class="n">ProxyPoolEmptyError</span><span class="p">,</span>
 </span><span data-line="5">    <span class="n">ProxyConnectionError</span><span class="p">,</span>
@@ -1713,7 +1713,7 @@
 </span><span data-line="7">
 </span><span data-line="8"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">fetch_with_fallback</span><span class="p">(</span><span class="n">url</span><span class="p">):</span>
 </span><span data-line="9"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Fetch URL with automatic fallback strategy.&quot;&quot;&quot;</span>
-</span><span data-line="10">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span>
+</span><span data-line="10">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span>
 </span><span data-line="11">
 </span><span data-line="12">    <span class="k">try</span><span class="p">:</span>
 </span><span data-line="13">        <span class="n">response</span> <span class="o">=</span> <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="n">url</span><span class="p">)</span>
@@ -1746,7 +1746,7 @@
 </div>
 <p>Handle exceptions in REST API endpoints:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">fastapi</span><span class="w"> </span><span class="kn">import</span> <span class="n">FastAPI</span><span class="p">,</span> <span class="n">HTTPException</span><span class="p">,</span> <span class="n">status</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
 </span><span data-line="4">    <span class="n">ProxyWhirlError</span><span class="p">,</span>
 </span><span data-line="5">    <span class="n">ProxyPoolEmptyError</span><span class="p">,</span>
@@ -1754,7 +1754,7 @@
 </span><span data-line="7"><span class="p">)</span>
 </span><span data-line="8">
 </span><span data-line="9"><span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">()</span>
-</span><span data-line="10"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
+</span><span data-line="10"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">()</span>
 </span><span data-line="11">
 </span><span data-line="12"><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/api/v1/request&quot;</span><span class="p">)</span>
 </span><span data-line="13"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">proxied_request</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
@@ -1800,13 +1800,13 @@
 <h3>Context Manager Pattern<a class="headerlink" href="#context-manager-pattern" title="Link to this heading">¶</a></h3>
 <p>Use context managers for automatic cleanup on errors:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirlError</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="nd">@contextmanager</span>
 </span><span data-line="6"><span class="k">def</span><span class="w"> </span><span class="nf">rotator_session</span><span class="p">(</span><span class="n">storage_path</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-</span><span data-line="7"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Context manager for ProxyRotator with automatic cleanup.&quot;&quot;&quot;</span>
-</span><span data-line="8">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">storage_path</span><span class="o">=</span><span class="n">storage_path</span><span class="p">)</span>
+</span><span data-line="7"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Context manager for ProxyWhirl with automatic cleanup.&quot;&quot;&quot;</span>
+</span><span data-line="8">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">(</span><span class="n">storage_path</span><span class="o">=</span><span class="n">storage_path</span><span class="p">)</span>
 </span><span data-line="9">    <span class="k">try</span><span class="p">:</span>
 </span><span data-line="10">        <span class="k">yield</span> <span class="n">rotator</span>
 </span><span data-line="11">    <span class="k">except</span> <span class="n">ProxyWhirlError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
@@ -1828,12 +1828,12 @@
 <section id="error-aggregation">
 <h3>Error Aggregation<a class="headerlink" href="#error-aggregation" title="Link to this heading">¶</a></h3>
 <p>Aggregate multiple errors for batch operations:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyValidationError</span>
 </span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span><span class="p">,</span> <span class="n">Tuple</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="k">def</span><span class="w"> </span><span class="nf">add_proxies_bulk</span><span class="p">(</span>
-</span><span data-line="6">    <span class="n">rotator</span><span class="p">:</span> <span class="n">ProxyRotator</span><span class="p">,</span>
+</span><span data-line="6">    <span class="n">rotator</span><span class="p">:</span> <span class="n">ProxyWhirl</span><span class="p">,</span>
 </span><span data-line="7">    <span class="n">proxy_urls</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span>
 </span><span data-line="8"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="ne">Exception</span><span class="p">]]]:</span>
 </span><span data-line="9"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Add multiple proxies, collecting errors.&quot;&quot;&quot;</span>
@@ -1856,7 +1856,7 @@
 </span><span data-line="26">    <span class="s2">&quot;http://proxy2.example.com:8080&quot;</span><span class="p">,</span>
 </span><span data-line="27"><span class="p">]</span>
 </span><span data-line="28">
-</span><span data-line="29"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
+</span><span data-line="29"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">()</span>
 </span><span data-line="30"><span class="n">success</span><span class="p">,</span> <span class="n">errors</span> <span class="o">=</span> <span class="n">add_proxies_bulk</span><span class="p">(</span><span class="n">rotator</span><span class="p">,</span> <span class="n">urls</span><span class="p">)</span>
 </span><span data-line="31">
 </span><span data-line="32"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Added </span><span class="si">{</span><span class="n">success</span><span class="si">}</span><span class="s2"> proxies&quot;</span><span class="p">)</span>
@@ -1947,10 +1947,10 @@
 <section id="implement-circuit-breaker-pattern">
 <h3>5. Implement Circuit Breaker Pattern<a class="headerlink" href="#implement-circuit-breaker-pattern" title="Link to this heading">¶</a></h3>
 <p>Use circuit breakers to prevent cascading failures:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyConnectionError</span>
 </span><span data-line="3">
-</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span>
+</span><span data-line="4"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">(</span>
 </span><span data-line="5">    <span class="n">circuit_breaker_enabled</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 </span><span data-line="6">    <span class="n">failure_threshold</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
 </span><span data-line="7">    <span class="n">recovery_timeout</span><span class="o">=</span><span class="mi">60</span>
@@ -2008,7 +2008,7 @@
 <h3>7. Test Error Handling<a class="headerlink" href="#test-error-handling" title="Link to this heading">¶</a></h3>
 <p>Write tests for error scenarios:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">pytest</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span>
 </span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
 </span><span data-line="4">    <span class="n">ProxyPoolEmptyError</span><span class="p">,</span>
 </span><span data-line="5">    <span class="n">ProxyValidationError</span><span class="p">,</span>
@@ -2016,7 +2016,7 @@
 </span><span data-line="7">
 </span><span data-line="8"><span class="k">def</span><span class="w"> </span><span class="nf">test_empty_pool_error</span><span class="p">():</span>
 </span><span data-line="9"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Test that empty pool raises appropriate error.&quot;&quot;&quot;</span>
-</span><span data-line="10">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
+</span><span data-line="10">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">()</span>
 </span><span data-line="11">
 </span><span data-line="12">    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="n">ProxyPoolEmptyError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc_info</span><span class="p">:</span>
 </span><span data-line="13">        <span class="n">rotator</span><span class="o">.</span><span class="n">request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;https://httpbin.org/ip&quot;</span><span class="p">)</span>
@@ -2026,7 +2026,7 @@
 </span><span data-line="17">
 </span><span data-line="18"><span class="k">def</span><span class="w"> </span><span class="nf">test_invalid_proxy_error</span><span class="p">():</span>
 </span><span data-line="19"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Test that invalid proxy URL raises validation error.&quot;&quot;&quot;</span>
-</span><span data-line="20">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">()</span>
+</span><span data-line="20">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">()</span>
 </span><span data-line="21">
 </span><span data-line="22">    <span class="k">with</span> <span class="n">pytest</span><span class="o">.</span><span class="n">raises</span><span class="p">(</span><span class="n">ProxyValidationError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc_info</span><span class="p">:</span>
 </span><span data-line="23">        <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="s2">&quot;invalid-url&quot;</span><span class="p">)</span>
@@ -2071,12 +2071,12 @@
 <h3>9. Handle Async Errors Properly<a class="headerlink" href="#handle-async-errors-properly" title="Link to this heading">¶</a></h3>
 <p>Use proper async error handling patterns:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.exceptions</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirlError</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">async_request_with_timeout</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="mi">30</span><span class="p">):</span>
 </span><span data-line="6"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Async request with timeout and error handling.&quot;&quot;&quot;</span>
-</span><span data-line="7">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyRotator</span><span class="p">()</span>
+</span><span data-line="7">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyWhirl</span><span class="p">()</span>
 </span><span data-line="8">
 </span><span data-line="9">    <span class="k">try</span><span class="p">:</span>
 </span><span data-line="10">        <span class="c1"># Add timeout to prevent hanging</span>
@@ -2146,7 +2146,7 @@
 <section id="see-also">
 <h2>See Also<a class="headerlink" href="#see-also" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p><a class="reference internal" href="python-api.html"><span class="std std-doc">Python API</span></a> – Main ProxyRotator API reference</p></li>
+<li><p><a class="reference internal" href="python-api.html"><span class="std std-doc">Python API</span></a> – Main ProxyWhirl API reference</p></li>
 <li><p><a class="reference internal" href="rest-api.html"><span class="std std-doc">REST API</span></a> – REST API error codes and responses</p></li>
 <li><p><a class="reference internal" href="cache-api.html"><span class="std std-doc">Cache API</span></a> – Cache-specific error handling</p></li>
 <li><p><a class="reference internal" href="../guides/retry-failover.html"><span class="std std-doc">Retry &amp; Failover</span></a> – Retry patterns and circuit breaker integration</p></li>

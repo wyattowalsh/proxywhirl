@@ -233,7 +233,7 @@
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#intelligent-proxy-selection">Intelligent Proxy Selection</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#retrymetrics-and-observability">RetryMetrics and Observability</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#retryexecutor-deep-dive">RetryExecutor Deep Dive</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#integration-with-proxyrotator">Integration with ProxyRotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#integration-with-proxywhirl">Integration with ProxyWhirl</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#advanced-patterns">Advanced Patterns</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#best-practices">Best Practices</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#troubleshooting">Troubleshooting</a></li>
@@ -1278,7 +1278,7 @@
 </span><span data-line="5">    <span class="n">set_rotator</span><span class="p">,</span>
 </span><span data-line="6">    <span class="n">cleanup_rotator</span><span class="p">,</span>
 </span><span data-line="7"><span class="p">)</span>
-</span><span data-line="8"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+</span><span data-line="8"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="9">
 </span><span data-line="10"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
 </span><span data-line="11">    <span class="c1"># List all proxies</span>
@@ -1312,7 +1312,7 @@
 <h3>Custom Rotator Configuration<a class="headerlink" href="#custom-rotator-configuration" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.mcp.server</span><span class="w"> </span><span class="kn">import</span> <span class="n">set_rotator</span><span class="p">,</span> <span class="n">proxywhirl</span><span class="p">,</span> <span class="n">cleanup_rotator</span>
-</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">ProxyConfiguration</span>
+</span><span data-line="3"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span><span class="p">,</span> <span class="n">ProxyConfiguration</span>
 </span><span data-line="4">
 </span><span data-line="5"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
 </span><span data-line="6">    <span class="c1"># Create custom rotator</span>
@@ -1320,7 +1320,7 @@
 </span><span data-line="8">        <span class="n">timeout</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span>
 </span><span data-line="9">        <span class="n">pool_connections</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
 </span><span data-line="10">    <span class="p">)</span>
-</span><span data-line="11">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span>
+</span><span data-line="11">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span>
 </span><span data-line="12">        <span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;round-robin&quot;</span><span class="p">,</span>
 </span><span data-line="13">        <span class="n">config</span><span class="o">=</span><span class="n">config</span>
 </span><span data-line="14">    <span class="p">)</span>
@@ -1361,7 +1361,7 @@
 <section id="how-lifespan-works">
 <h3>How Lifespan Works<a class="headerlink" href="#how-lifespan-works" title="Link to this heading">¶</a></h3>
 <ol class="arabic simple">
-<li><p><strong>Startup</strong>: Initializes the <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code>, loads proxies from database if available</p></li>
+<li><p><strong>Startup</strong>: Initializes the <code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code>, loads proxies from database if available</p></li>
 <li><p><strong>Running</strong>: Rotator is available for all tool calls</p></li>
 <li><p><strong>Shutdown</strong>: Cleans up rotator resources automatically</p></li>
 </ol>
@@ -1373,11 +1373,11 @@
 <section id="server-class-usage">
 <h3>Server Class Usage<a class="headerlink" href="#server-class-usage" title="Link to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.mcp</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirlMCPServer</span>
-</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span>
+</span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">():</span>
 </span><span data-line="5">    <span class="c1"># With custom rotator</span>
-</span><span data-line="6">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;weighted&quot;</span><span class="p">)</span>
+</span><span data-line="6">    <span class="n">rotator</span> <span class="o">=</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;weighted&quot;</span><span class="p">)</span>
 </span><span data-line="7">
 </span><span data-line="8">    <span class="n">server</span> <span class="o">=</span> <span class="n">ProxyWhirlMCPServer</span><span class="p">(</span><span class="n">proxy_manager</span><span class="o">=</span><span class="n">rotator</span><span class="p">)</span>
 </span><span data-line="9">    <span class="k">await</span> <span class="n">server</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>  <span class="c1"># Required for async setup</span>
@@ -1547,7 +1547,7 @@
 <div class="sd-card-body docutils">
 <div class="sd-card-title sd-font-weight-bold docutils">
 Async Client Guide</div>
-<p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code> patterns used by the MCP server internally for proxy rotation.</p>
+<p class="sd-card-text"><code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code> patterns used by the MCP server internally for proxy rotation.</p>
 </div>
 <a class="sd-stretched-link sd-hide-link-text reference internal" href="async-client.html"><span class="doc">Async Client Guide</span></a></div>
 </div>
@@ -1592,7 +1592,7 @@ REST API Reference</div>
 <div class="sd-card-body docutils">
 <div class="sd-card-title sd-font-weight-bold docutils">
 Python API Reference</div>
-<p class="sd-card-text">Complete API docs for <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code> and all models used by the MCP server.</p>
+<p class="sd-card-text">Complete API docs for <code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code> and all models used by the MCP server.</p>
 </div>
 <a class="sd-stretched-link sd-hide-link-text reference internal" href="../reference/python-api.html"><span class="doc">Python API Reference</span></a></div>
 </div>

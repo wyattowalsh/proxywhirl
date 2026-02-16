@@ -233,7 +233,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#intelligent-proxy-selection">Intelligent Proxy Selection</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#retrymetrics-and-observability">RetryMetrics and Observability</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#retryexecutor-deep-dive">RetryExecutor Deep Dive</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#integration-with-proxyrotator">Integration with ProxyRotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#integration-with-proxywhirl">Integration with ProxyWhirl</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#advanced-patterns">Advanced Patterns</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#best-practices">Best Practices</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#troubleshooting">Troubleshooting</a></li>
@@ -532,11 +532,11 @@ By Interface</label><div class="sd-tab-content docutils">
 </thead>
 <tbody>
 <tr class="row-even"><td><p>Python sync</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ProxyWhirl</span></code></p></td>
 <td><p><a class="reference internal" href="python-api.html"><span class="doc">Python API</span></a></p></td>
 </tr>
 <tr class="row-odd"><td><p>Python async</p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code></p></td>
 <td><p><a class="reference internal" href="python-api.html"><span class="doc">Python API</span></a></p></td>
 </tr>
 <tr class="row-even"><td><p>REST API</p></td>
@@ -600,11 +600,11 @@ By Class</label><div class="sd-tab-content docutils">
 </tr>
 </thead>
 <tbody>
-<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code></p></td>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ProxyWhirl</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">proxywhirl.rotator</span></code></p></td>
 <td><p><a class="reference internal" href="python-api.html#proxyrotator"><span class="std std-ref">Sync rotator</span></a></p></td>
 </tr>
-<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code></p></td>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">proxywhirl.rotator</span></code></p></td>
 <td><p><a class="reference internal" href="python-api.html#asyncproxyrotator"><span class="std std-ref">Async rotator</span></a></p></td>
 </tr>
@@ -708,8 +708,8 @@ REST API</div>
 Python API</div>
 <p class="sd-card-text">Core classes, strategies, models, and utility functions.</p>
 <ul class="simple">
-<li><p class="sd-card-text"><a class="reference internal" href="python-api.html#proxyrotator"><span class="std std-ref">ProxyRotator</span></a> – sync client with context manager</p></li>
-<li><p class="sd-card-text"><a class="reference internal" href="python-api.html#asyncproxyrotator"><span class="std std-ref">AsyncProxyRotator</span></a> – async client, connection pooling</p></li>
+<li><p class="sd-card-text"><a class="reference internal" href="python-api.html#proxyrotator"><span class="std std-ref">ProxyWhirl</span></a> – sync client with context manager</p></li>
+<li><p class="sd-card-text"><a class="reference internal" href="python-api.html#asyncproxyrotator"><span class="std std-ref">AsyncProxyWhirl</span></a> – async client, connection pooling</p></li>
 <li><p class="sd-card-text"><a class="reference internal" href="python-api.html#rotation-strategies"><span class="std std-ref">Rotation strategies</span></a> – all 9 strategy classes</p></li>
 <li><p class="sd-card-text"><a class="reference internal" href="python-api.html#proxyfetcher"><span class="std std-ref">ProxyFetcher &amp; Validator</span></a> – fetch, validate, enrich</p></li>
 <li><p class="sd-card-text"><a class="reference internal" href="python-api.html#browserrenderer"><span class="std std-ref">BrowserRenderer</span></a> – Playwright JS-rendered sources</p></li>

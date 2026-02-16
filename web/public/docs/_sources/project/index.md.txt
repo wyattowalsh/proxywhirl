@@ -234,7 +234,7 @@ Level 3: coverage + build  (depends on all tests)
 * - `strategies/`
   - 9 rotation strategies + `RotationStrategy` protocol + `StrategyRegistry`
 * - `rotator/`
-  - `ProxyRotator` (sync) and `AsyncProxyRotator` (async) -- core HTTP clients
+  - `ProxyWhirl` (sync) and `AsyncProxyWhirl` (async) -- core HTTP clients
 * - `storage.py`
   - `SQLiteStorage`, `FileStorage`, `ProxyTable` (SQLModel ORM)
 * - `fetchers.py`
@@ -271,7 +271,7 @@ For the full public API surface, see {doc}`/reference/python-api`.
 
 The top-level `proxywhirl` package exports:
 
-- **Rotators**: `ProxyRotator`, `AsyncProxyRotator`
+- **Rotators**: `ProxyWhirl`, `AsyncProxyWhirl`
 - **Models**: `Proxy`, `ProxyPool`, `Session`, `ProxySource`, `HealthStatus`, `SelectionContext`, `ProxyCredentials`, `ProxyConfiguration`
 - **Strategies**: `RoundRobinStrategy`, `RandomStrategy`, `WeightedStrategy`, `LeastUsedStrategy`, `PerformanceBasedStrategy`, `SessionPersistenceStrategy`, `GeoTargetedStrategy`, `CostAwareStrategy`, `CompositeStrategy`
 - **Config**: `StrategyConfig`, `CircuitBreakerConfig`, `RetryPolicy`, `CacheConfig`, `DataStorageConfig`

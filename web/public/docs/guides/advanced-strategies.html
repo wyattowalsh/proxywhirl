@@ -233,7 +233,7 @@
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#intelligent-proxy-selection">Intelligent Proxy Selection</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#retrymetrics-and-observability">RetryMetrics and Observability</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#retryexecutor-deep-dive">RetryExecutor Deep Dive</a></li>
-<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#integration-with-proxyrotator">Integration with ProxyRotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="retry-failover.html#integration-with-proxywhirl">Integration with ProxyWhirl</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#advanced-patterns">Advanced Patterns</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#best-practices">Best Practices</a></li>
 <li class="toctree-l4"><a class="reference internal" href="retry-failover.html#troubleshooting">Troubleshooting</a></li>
@@ -855,7 +855,7 @@
 </section>
 <section id="configuration">
 <h3><a class="toc-backref" href="#id23" role="doc-backlink">Configuration</a><a class="headerlink" href="#configuration" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyWhirl</span><span class="p">,</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">PerformanceBasedStrategy</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Create proxies</span>
@@ -874,7 +874,7 @@
 </span><span data-line="17"><span class="n">strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </span><span data-line="18">
 </span><span data-line="19"><span class="c1"># Use with rotator</span>
-</span><span data-line="20"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyRotator</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span>
+</span><span data-line="20"><span class="n">rotator</span> <span class="o">=</span> <span class="n">ProxyWhirl</span><span class="p">(</span><span class="n">proxies</span><span class="o">=</span><span class="n">proxies</span><span class="p">,</span> <span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span>
 </span><span data-line="21"><span class="n">response</span> <span class="o">=</span> <span class="n">rotator</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;https://api.example.com/data&quot;</span><span class="p">)</span>
 </span></pre></div>
 </div>
@@ -1308,13 +1308,13 @@
 </section>
 <section id="id10">
 <h3><a class="toc-backref" href="#id50" role="doc-backlink">Configuration</a><a class="headerlink" href="#id10" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span><span class="p">,</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">CostAwareStrategy</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Create cost-aware strategy instance</span>
 </span><span data-line="5"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CostAwareStrategy</span><span class="p">()</span>
 </span><span data-line="6">
-</span><span data-line="7"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="7"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="8">    <span class="c1"># Add proxies with cost metadata</span>
 </span><span data-line="9">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span>
 </span><span data-line="10">        <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://free-proxy1.com:8080&quot;</span><span class="p">,</span>
@@ -1351,7 +1351,7 @@
 </section>
 <section id="cost-threshold-filtering">
 <h3><a class="toc-backref" href="#id52" role="doc-backlink">Cost Threshold Filtering</a><a class="headerlink" href="#cost-threshold-filtering" title="Link to this heading">¶</a></h3>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span><span class="p">,</span> <span class="n">Proxy</span><span class="p">,</span> <span class="n">StrategyConfig</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">CostAwareStrategy</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Configure strategy with cost thresholds</span>
@@ -1365,7 +1365,7 @@
 </span><span data-line="12"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CostAwareStrategy</span><span class="p">()</span>
 </span><span data-line="13"><span class="n">strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </span><span data-line="14">
-</span><span data-line="15"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="15"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="16">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://cheap.com:8080&quot;</span><span class="p">,</span> <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.01</span><span class="p">))</span>
 </span><span data-line="17">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://expensive.com:8080&quot;</span><span class="p">,</span> <span class="n">cost_per_request</span><span class="o">=</span><span class="mf">0.20</span><span class="p">))</span>
 </span><span data-line="18">
@@ -1383,7 +1383,7 @@
 <li><p>Adjust <code class="docutils literal notranslate"><span class="pre">free_proxy_boost</span></code> based on free proxy reliability (lower if unreliable)</p></li>
 <li><p>Combine with <code class="docutils literal notranslate"><span class="pre">PerformanceBasedStrategy</span></code> via <code class="docutils literal notranslate"><span class="pre">CompositeStrategy</span></code> for cost + speed optimization</p></li>
 </ul>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">StrategyConfig</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span><span class="p">,</span> <span class="n">StrategyConfig</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">CostAwareStrategy</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Recommended production configuration</span>
@@ -1397,7 +1397,7 @@
 </span><span data-line="12"><span class="n">strategy</span> <span class="o">=</span> <span class="n">CostAwareStrategy</span><span class="p">()</span>
 </span><span data-line="13"><span class="n">strategy</span><span class="o">.</span><span class="n">configure</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </span><span data-line="14">
-</span><span data-line="15"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="15"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="16">    <span class="c1"># Add proxies with cost metadata</span>
 </span><span data-line="17">    <span class="k">pass</span>
 </span></pre></div>
@@ -1870,7 +1870,7 @@
 <section id="registering-custom-strategies">
 <h3><a class="toc-backref" href="#id77" role="doc-backlink">Registering Custom Strategies</a><a class="headerlink" href="#registering-custom-strategies" title="Link to this heading">¶</a></h3>
 <p>Use <code class="docutils literal notranslate"><span class="pre">StrategyRegistry</span></code> to register and reuse custom strategies. Registered strategies are also available through the <a class="reference internal" href="cli-reference.html"><span class="doc">CLI Reference</span></a> (<code class="docutils literal notranslate"><span class="pre">proxywhirl</span> <span class="pre">config</span> <span class="pre">set</span> <span class="pre">rotation_strategy</span> <span class="pre">...</span></code>) and the <a class="reference internal" href="mcp-server.html"><span class="doc">MCP Server Guide</span></a> (<code class="docutils literal notranslate"><span class="pre">set_strategy</span></code> action).</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyRotator</span><span class="p">,</span> <span class="n">Proxy</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl</span><span class="w"> </span><span class="kn">import</span> <span class="n">AsyncProxyWhirl</span><span class="p">,</span> <span class="n">Proxy</span>
 </span><span data-line="2"><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.strategies</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrategyRegistry</span>
 </span><span data-line="3">
 </span><span data-line="4"><span class="c1"># Register the strategy</span>
@@ -1880,7 +1880,7 @@
 </span><span data-line="8"><span class="c1"># Use the custom strategy instance</span>
 </span><span data-line="9"><span class="n">strategy</span> <span class="o">=</span> <span class="n">PriorityStrategy</span><span class="p">()</span>
 </span><span data-line="10">
-</span><span data-line="11"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyRotator</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
+</span><span data-line="11"><span class="k">async</span> <span class="k">with</span> <span class="n">AsyncProxyWhirl</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="n">strategy</span><span class="p">)</span> <span class="k">as</span> <span class="n">rotator</span><span class="p">:</span>
 </span><span data-line="12">    <span class="c1"># Add proxies with priority metadata</span>
 </span><span data-line="13">    <span class="k">await</span> <span class="n">rotator</span><span class="o">.</span><span class="n">add_proxy</span><span class="p">(</span><span class="n">Proxy</span><span class="p">(</span>
 </span><span data-line="14">        <span class="n">url</span><span class="o">=</span><span class="s2">&quot;http://proxy1.com:8080&quot;</span><span class="p">,</span>
@@ -2322,7 +2322,7 @@
 <div class="sd-card-body docutils">
 <div class="sd-card-title sd-font-weight-bold docutils">
 Async Client Guide</div>
-<p class="sd-card-text">Using <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code> with all strategies, concurrency patterns, and integration with FastAPI/aiohttp.</p>
+<p class="sd-card-text">Using <code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code> with all strategies, concurrency patterns, and integration with FastAPI/aiohttp.</p>
 </div>
 <a class="sd-stretched-link sd-hide-link-text reference internal" href="async-client.html"><span class="doc">Async Client Guide</span></a></div>
 </div>

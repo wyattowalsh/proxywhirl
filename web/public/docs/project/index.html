@@ -233,7 +233,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#intelligent-proxy-selection">Intelligent Proxy Selection</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#retrymetrics-and-observability">RetryMetrics and Observability</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#retryexecutor-deep-dive">RetryExecutor Deep Dive</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#integration-with-proxyrotator">Integration with ProxyRotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#integration-with-proxywhirl">Integration with ProxyWhirl</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#advanced-patterns">Advanced Patterns</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#best-practices">Best Practices</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../guides/retry-failover.html#troubleshooting">Troubleshooting</a></li>
@@ -851,7 +851,7 @@
 <td><p>9 rotation strategies + <code class="docutils literal notranslate"><span class="pre">RotationStrategy</span></code> protocol + <code class="docutils literal notranslate"><span class="pre">StrategyRegistry</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rotator/</span></code></p></td>
-<td><p><code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code> (sync) and <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code> (async) – core HTTP clients</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">ProxyWhirl</span></code> (sync) and <code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code> (async) – core HTTP clients</p></td>
 </tr>
 <tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">storage.py</span></code></p></td>
 <td><p><code class="docutils literal notranslate"><span class="pre">SQLiteStorage</span></code>, <code class="docutils literal notranslate"><span class="pre">FileStorage</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyTable</span></code> (SQLModel ORM)</p></td>
@@ -904,7 +904,7 @@
 <h3>Key Exports<a class="headerlink" href="#key-exports" title="Link to this heading">¶</a></h3>
 <p>The top-level <code class="docutils literal notranslate"><span class="pre">proxywhirl</span></code> package exports:</p>
 <ul class="simple">
-<li><p><strong>Rotators</strong>: <code class="docutils literal notranslate"><span class="pre">ProxyRotator</span></code>, <code class="docutils literal notranslate"><span class="pre">AsyncProxyRotator</span></code></p></li>
+<li><p><strong>Rotators</strong>: <code class="docutils literal notranslate"><span class="pre">ProxyWhirl</span></code>, <code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code></p></li>
 <li><p><strong>Models</strong>: <code class="docutils literal notranslate"><span class="pre">Proxy</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyPool</span></code>, <code class="docutils literal notranslate"><span class="pre">Session</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxySource</span></code>, <code class="docutils literal notranslate"><span class="pre">HealthStatus</span></code>, <code class="docutils literal notranslate"><span class="pre">SelectionContext</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyCredentials</span></code>, <code class="docutils literal notranslate"><span class="pre">ProxyConfiguration</span></code></p></li>
 <li><p><strong>Strategies</strong>: <code class="docutils literal notranslate"><span class="pre">RoundRobinStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">RandomStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">WeightedStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">LeastUsedStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">PerformanceBasedStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">SessionPersistenceStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">GeoTargetedStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">CostAwareStrategy</span></code>, <code class="docutils literal notranslate"><span class="pre">CompositeStrategy</span></code></p></li>
 <li><p><strong>Config</strong>: <code class="docutils literal notranslate"><span class="pre">StrategyConfig</span></code>, <code class="docutils literal notranslate"><span class="pre">CircuitBreakerConfig</span></code>, <code class="docutils literal notranslate"><span class="pre">RetryPolicy</span></code>, <code class="docutils literal notranslate"><span class="pre">CacheConfig</span></code>, <code class="docutils literal notranslate"><span class="pre">DataStorageConfig</span></code></p></li>
