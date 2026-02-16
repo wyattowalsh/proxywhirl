@@ -291,11 +291,11 @@ def validate_proxied_request_url(request_data: ProxiedRequest) -> ProxiedRequest
     """
     try:
         validate_target_url_safe(str(request_data.url), allow_private=False)
-    except ValueError as e:
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
+            detail="URL is blocked by security policy (SSRF protection)",
+        )
     return request_data
 
 
@@ -471,7 +471,17 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Any) -> Any:
         """Process request and add request ID correlation."""
         # Use existing header or generate new UUID
-        request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+        # Validate client-supplied request IDs to prevent log injection
+        supplied_id = request.headers.get("X-Request-ID")
+        if (
+            supplied_id
+            and len(supplied_id) <= 128
+            and supplied_id.isprintable()
+            and supplied_id.isascii()
+        ):
+            request_id = supplied_id
+        else:
+            request_id = str(uuid.uuid4())
 
         # Add to loguru context for all downstream logging
         with logger.contextualize(request_id=request_id):
@@ -578,11 +588,11 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
         if operation_type == "read":
             return await call_next(request)
 
-        # Extract audit context
-        client_ip = request.client.host if request.client else "unknown"
+        # Extract audit context - log both real and claimed IPs
+        socket_ip = request.client.host if request.client else "unknown"
+        client_ip = socket_ip
         forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            client_ip = forwarded_for.split(",")[0].strip()
+        claimed_ip = forwarded_for.split(",")[0].strip() if forwarded_for else None
 
         api_key = request.headers.get("X-API-Key")
         request_id = request.headers.get("X-Request-ID", "unknown")
@@ -608,6 +618,7 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
             method=method,
             path=path,
             client_ip=client_ip,
+            claimed_ip=claimed_ip,
             api_key_used=self._redact_api_key(api_key),
             request_id=request_id,
             body_summary=body_summary,
@@ -660,12 +671,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         """Process request and log details."""
         start_time = time.time()
 
-        # Extract client IP
+        # Extract client IP - use socket IP (do not trust X-Forwarded-For)
         client_ip = request.client.host if request.client else "unknown"
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            # Take the first IP in the chain (original client)
-            client_ip = forwarded_for.split(",")[0].strip()
 
         # Redact sensitive information from URL
         path = str(request.url.path)
@@ -826,7 +833,7 @@ async def internal_error_handler(request: Request, exc: Exception) -> JSONRespon
     response: APIResponse[None] = APIResponse.error_response(
         code=ErrorCode.INTERNAL_ERROR,
         message="Internal server error occurred",
-        details={"error_type": type(exc).__name__},
+        details=None,
     )
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1067,7 +1074,6 @@ async def make_proxied_request(
 
     start_time = time.time()
     max_retries = 3
-    last_error: Exception | None = None
 
     for attempt in range(max_retries):
         try:
@@ -1110,28 +1116,28 @@ async def make_proxied_request(
 
         except (httpx.ProxyError, httpx.ConnectError, httpx.TimeoutException) as e:
             # Proxy-related error, try next proxy
-            last_error = e
             logger.warning(f"Proxy attempt {attempt + 1} failed: {e}")
             continue
 
         except ProxyWhirlError as e:
             # Handle ProxyWhirl-specific errors
+            logger.error(f"ProxyWhirl error in proxied request: {e}")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=str(e),
+                detail="Proxy service temporarily unavailable",
             ) from e
 
         except Exception as e:
             logger.error(f"Unexpected error in proxied request: {e}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Unexpected error: {str(e)}",
+                detail="An unexpected error occurred",
             ) from e
 
     # All retries exhausted
     raise HTTPException(
         status_code=status.HTTP_502_BAD_GATEWAY,
-        detail=f"All {max_retries} proxy attempts failed. Last error: {str(last_error)}",
+        detail=f"All {max_retries} proxy attempts failed",
     )
 
 
@@ -1319,7 +1325,7 @@ async def add_proxy(
         logger.error(f"Error adding proxy: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid proxy: {str(e)}",
+            detail="Invalid proxy configuration",
         ) from e
 
 

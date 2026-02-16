@@ -4,8 +4,10 @@ Utility functions for logging, validation, and encryption.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import re
+import socket
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -263,56 +265,60 @@ def validate_target_url_safe(url: str, allow_private: bool = False) -> None:
     if not allow_private:
         hostname_lower = parsed.hostname.lower()
 
-        # Block localhost variations
-        localhost_patterns = [
-            "localhost",
-            "127.",  # 127.0.0.1, etc.
-            "0.0.0.0",  # nosec B104 - Pattern check, not a bind
-            "[::",  # IPv6 localhost variations
-            "::1",
-        ]
-
-        if any(hostname_lower.startswith(pattern) for pattern in localhost_patterns):
-            raise ValueError(
-                f"Access to localhost/loopback addresses is not allowed: {parsed.hostname}. "
-                f"This is blocked to prevent SSRF attacks."
-            )
-
-        # Block private IP ranges (RFC 1918)
-        private_ip_patterns = [
-            "10.",  # 10.0.0.0/8
-            "172.16.",
-            "172.17.",
-            "172.18.",
-            "172.19.",  # 172.16.0.0/12
-            "172.20.",
-            "172.21.",
-            "172.22.",
-            "172.23.",
-            "172.24.",
-            "172.25.",
-            "172.26.",
-            "172.27.",
-            "172.28.",
-            "172.29.",
-            "172.30.",
-            "172.31.",
-            "192.168.",  # 192.168.0.0/16
-            "169.254.",  # Link-local
-        ]
-
-        if any(hostname_lower.startswith(pattern) for pattern in private_ip_patterns):
-            raise ValueError(
-                f"Access to private IP addresses is not allowed: {parsed.hostname}. "
-                f"This is blocked to prevent SSRF attacks."
-            )
-
-        # Block internal domain names
+        # Block internal domain names first (before DNS resolution)
         internal_domains = [".local", ".internal", ".lan", ".corp"]
         if any(hostname_lower.endswith(domain) for domain in internal_domains):
             raise ValueError(
                 f"Access to internal domain names is not allowed: {parsed.hostname}. "
                 f"This is blocked to prevent SSRF attacks."
+            )
+
+        # Block "localhost" hostname explicitly
+        if hostname_lower == "localhost":
+            raise ValueError(
+                "Access to localhost is not allowed. This is blocked to prevent SSRF attacks."
+            )
+
+        # Resolve hostname and validate the resolved IP address
+        # This prevents bypasses via decimal/octal IP notation, IPv6-mapped IPv4,
+        # DNS rebinding, and other SSRF evasion techniques
+        try:
+            resolved_ip = socket.getaddrinfo(
+                parsed.hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM
+            )[0][4][0]
+            addr = ipaddress.ip_address(resolved_ip)
+        except (socket.gaierror, ValueError) as e:
+            raise ValueError(f"Cannot resolve hostname: {parsed.hostname}") from e
+
+        if addr.is_loopback:
+            raise ValueError(
+                "Access to loopback addresses is not allowed. "
+                "This is blocked to prevent SSRF attacks."
+            )
+
+        if addr.is_private:
+            raise ValueError(
+                "Access to private IP addresses is not allowed. "
+                "This is blocked to prevent SSRF attacks."
+            )
+
+        if addr.is_link_local:
+            raise ValueError(
+                "Access to link-local addresses is not allowed. "
+                "This is blocked to prevent SSRF attacks."
+            )
+
+        if addr.is_reserved or addr.is_multicast:
+            raise ValueError(
+                "Access to reserved/multicast addresses is not allowed. "
+                "This is blocked to prevent SSRF attacks."
+            )
+
+        # Block unspecified addresses (0.0.0.0, ::)
+        if addr.is_unspecified:
+            raise ValueError(
+                "Access to unspecified addresses is not allowed. "
+                "This is blocked to prevent SSRF attacks."
             )
 
 
