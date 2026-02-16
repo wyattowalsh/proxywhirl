@@ -27,8 +27,19 @@ export function useRichProxies() {
     setProgress(0) // Start at 0%
 
     try {
-      // Add cache buster to bypass browser/CDN cache
-      const res = await fetch(`${BASE_URL}proxies-rich.json?v=${Date.now()}`)
+      // Fetch metadata first to get stable version key (avoids Date.now() cache-busting CDN)
+      let version = ""
+      try {
+        const metaRes = await fetch(`${BASE_URL}metadata.json`)
+        if (metaRes.ok) {
+          const meta = await metaRes.json()
+          version = meta.generated_at ?? ""
+        }
+      } catch {
+        // Metadata fetch failed — proceed without version param
+      }
+      const versionParam = version ? `?v=${encodeURIComponent(version)}` : ""
+      const res = await fetch(`${BASE_URL}proxies-rich.json${versionParam}`)
       if (!res.ok) throw new Error("Failed to fetch proxy data")
       
       const contentLength = res.headers.get('Content-Length')

@@ -126,7 +126,7 @@ from proxywhirl.utils import (
     validate_proxy_model,
 )
 
-__version__ = "0.1.3"
+__version__ = "0.3.0"
 
 __all__: list[str] = [
     # Version

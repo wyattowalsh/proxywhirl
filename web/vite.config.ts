@@ -27,7 +27,7 @@ export default defineConfig(({ command }) => ({
       manifest: {
         name: "ProxyWhirl",
         short_name: "ProxyWhirl",
-        description: "High-quality free proxy lists updated every minute",
+        description: "High-quality free proxy lists updated every 2 hours",
         theme_color: "#0f172a",
         background_color: "#0f172a",
         display: "standalone",
