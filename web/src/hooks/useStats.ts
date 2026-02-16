@@ -22,9 +22,10 @@ export function useStats() {
 
     setLoading(true)
     try {
-      // Add cache buster to bypass browser/CDN cache
-      const url = `${STATS_BASE_URL}?v=${Date.now()}`
-      const res = await fetch(url)
+      // Normal loads: let CDN serve cached data (stale-while-revalidate handles freshness)
+      // Force refresh: cache-bust to bypass CDN
+      const cacheBuster = forceRefresh ? `?v=${Date.now()}` : ""
+      const res = await fetch(`${STATS_BASE_URL}${cacheBuster}`)
       if (!res.ok) throw new Error("Failed to fetch stats")
       const data: Stats = await res.json()
       setStats(data)
