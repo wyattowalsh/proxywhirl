@@ -19,7 +19,7 @@ from proxywhirl.exceptions import (
     ProxyConnectionError,
     ProxyPoolEmptyError,
 )
-from proxywhirl.models import Proxy, ProxyConfiguration, ProxyPool
+from proxywhirl.models import BootstrapConfig, Proxy, ProxyConfiguration, ProxyPool
 from proxywhirl.retry import RetryExecutor, RetryMetrics, RetryPolicy
 from proxywhirl.rotator._bootstrap import bootstrap_pool_if_empty_async
 from proxywhirl.rotator.base import ProxyRotatorBase
@@ -207,16 +207,13 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         ```
     """
 
-    _BOOTSTRAP_EMPTY_MESSAGE = (
-        "Lazy auto-fetch bootstrap yielded zero proxies from built-in public sources"
-    )
-
     def __init__(
         self,
         proxies: list[Proxy] | None = None,
         strategy: RotationStrategy | str | None = None,
         config: ProxyConfiguration | None = None,
         retry_policy: RetryPolicy | None = None,
+        bootstrap: BootstrapConfig | bool | None = None,
     ) -> None:
         """
         Initialize AsyncProxyWhirl.
@@ -229,6 +226,9 @@ class AsyncProxyWhirl(ProxyRotatorBase):
                      Default: RoundRobinStrategy
             config: Configuration settings (default: ProxyConfiguration())
             retry_policy: Retry policy configuration (default: RetryPolicy())
+            bootstrap: Bootstrap configuration for lazy proxy fetching.
+                      False disables auto-bootstrap (for manual proxy management).
+                      True or None uses default BootstrapConfig.
         """
         self.pool = ProxyPool(name="default", proxies=proxies or [])
 
@@ -237,6 +237,13 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         self.config = config or ProxyConfiguration()
         self._client: httpx.AsyncClient | None = None
         self._client_pool = LRUAsyncClientPool(maxsize=100)  # LRU cache with max 100 clients
+        # Coerce bool/None to BootstrapConfig
+        if bootstrap is False:
+            self._bootstrap_config = BootstrapConfig(enabled=False)
+        elif isinstance(bootstrap, BootstrapConfig):
+            self._bootstrap_config = bootstrap
+        else:
+            self._bootstrap_config = BootstrapConfig()
         self._bootstrap_lock = asyncio.Lock()
         self._bootstrap_attempted = False
         self._bootstrap_error_message: str | None = None
@@ -366,22 +373,12 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         self.pool.remove_proxy(UUID(proxy_id))
         logger.info(f"Removed proxy from pool: {proxy_id}")
 
-    async def _bootstrap_pool_if_empty(
-        self,
-        *,
-        validate: bool = True,
-        timeout: int = 10,
-        max_concurrent: int = 100,
-        max_proxies: int | None = None,
-    ) -> int:
+    async def _bootstrap_pool_if_empty(self) -> int:
         """Bootstrap pool from built-in sources when empty."""
         return await bootstrap_pool_if_empty_async(
             pool=self.pool,
             add_proxy=self.add_proxy,
-            validate=validate,
-            timeout=timeout,
-            max_concurrent=max_concurrent,
-            max_proxies=max_proxies,
+            config=self._bootstrap_config,
         )
 
     async def _ensure_request_bootstrap(self) -> None:
@@ -404,11 +401,18 @@ class AsyncProxyWhirl(ProxyRotatorBase):
                 self._bootstrap_error_message = str(exc)
                 raise
 
-        if self.pool.size == 0:
-            self._bootstrap_error_message = (
-                self._bootstrap_error_message or self._BOOTSTRAP_EMPTY_MESSAGE
-            )
-            raise ProxyPoolEmptyError(self._bootstrap_error_message)
+            # If pool is still empty after bootstrap (e.g., bootstrap disabled)
+            if self.pool.size == 0:
+                if not self._bootstrap_config.enabled:
+                    msg = (
+                        "Proxy pool is empty and auto-bootstrap is disabled. "
+                        "Call .add_proxy() to add proxies manually, or set "
+                        "bootstrap=BootstrapConfig(enabled=True)."
+                    )
+                else:
+                    msg = "Bootstrap completed but proxy pool is still empty."
+                self._bootstrap_error_message = msg
+                raise ProxyPoolEmptyError(msg)
 
     async def get_proxy(self) -> Proxy:
         """

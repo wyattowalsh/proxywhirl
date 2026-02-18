@@ -20,7 +20,7 @@ from proxywhirl.exceptions import (
     ProxyPoolEmptyError,
     RequestQueueFullError,
 )
-from proxywhirl.models import Proxy, ProxyChain, ProxyConfiguration, ProxyPool
+from proxywhirl.models import BootstrapConfig, Proxy, ProxyChain, ProxyConfiguration, ProxyPool
 from proxywhirl.retry import NonRetryableError, RetryExecutor, RetryMetrics, RetryPolicy
 from proxywhirl.rotator._bootstrap import bootstrap_pool_if_empty_sync
 from proxywhirl.rotator.base import ProxyRotatorBase
@@ -102,6 +102,7 @@ class ProxyWhirl(ProxyRotatorBase):
         config: ProxyConfiguration | None = None,
         retry_policy: RetryPolicy | None = None,
         rate_limiter: SyncRateLimiter | None = None,
+        bootstrap: BootstrapConfig | bool | None = None,
     ) -> None:
         """
         Initialize ProxyWhirl.
@@ -115,6 +116,9 @@ class ProxyWhirl(ProxyRotatorBase):
             config: Configuration settings (default: ProxyConfiguration())
             retry_policy: Retry policy configuration (default: RetryPolicy())
             rate_limiter: Synchronous rate limiter for controlling request rates (optional)
+            bootstrap: Bootstrap configuration for lazy proxy fetching.
+                      False disables auto-bootstrap (for manual proxy management).
+                      True or None uses default BootstrapConfig.
         """
         self.pool = ProxyPool(name="default", proxies=proxies or [])
         self.chains: list[ProxyChain] = []  # Track registered proxy chains
@@ -146,6 +150,14 @@ class ProxyWhirl(ProxyRotatorBase):
         # Use get_all_proxies() for consistency, even though this is during init
         for proxy in self.pool.get_all_proxies():
             self.circuit_breakers[str(proxy.id)] = CircuitBreaker(proxy_id=str(proxy.id))
+
+        # Bootstrap configuration (coerce bool/None to BootstrapConfig)
+        if bootstrap is False:
+            self._bootstrap_config = BootstrapConfig(enabled=False)
+        elif isinstance(bootstrap, BootstrapConfig):
+            self._bootstrap_config = bootstrap
+        else:
+            self._bootstrap_config = BootstrapConfig()
 
         # Initialize strategy lock for atomic strategy swapping
         self._strategy_lock = threading.RLock()
@@ -250,22 +262,12 @@ class ProxyWhirl(ProxyRotatorBase):
         self.pool.remove_proxy(UUID(proxy_id))
         logger.info(f"Removed proxy from pool: {proxy_id}")
 
-    def _bootstrap_pool_if_empty(
-        self,
-        *,
-        validate: bool = True,
-        timeout: int = 10,
-        max_concurrent: int = 100,
-        max_proxies: int | None = None,
-    ) -> int:
+    def _bootstrap_pool_if_empty(self) -> int:
         """Bootstrap pool from built-in sources when empty."""
         return bootstrap_pool_if_empty_sync(
             pool=self.pool,
             add_proxy=self.add_proxy,
-            validate=validate,
-            timeout=timeout,
-            max_concurrent=max_concurrent,
-            max_proxies=max_proxies,
+            config=self._bootstrap_config,
         )
 
     def _ensure_bootstrap_for_empty_pool(self) -> None:
@@ -289,6 +291,19 @@ class ProxyWhirl(ProxyRotatorBase):
             except ProxyPoolEmptyError as exc:
                 self._bootstrap_error_message = str(exc)
                 raise
+
+            # If pool is still empty after bootstrap (e.g., bootstrap disabled)
+            if self.pool.size == 0:
+                if not self._bootstrap_config.enabled:
+                    msg = (
+                        "Proxy pool is empty and auto-bootstrap is disabled. "
+                        "Call .add_proxy() to add proxies manually, or set "
+                        "bootstrap=BootstrapConfig(enabled=True)."
+                    )
+                else:
+                    msg = "Bootstrap completed but proxy pool is still empty."
+                self._bootstrap_error_message = msg
+                raise ProxyPoolEmptyError(msg)
 
     def add_chain(self, chain: ProxyChain) -> None:
         """

@@ -44,6 +44,7 @@ from proxywhirl.fetchers import (
     deduplicate_proxies,
 )
 from proxywhirl.models import (
+    BootstrapConfig,
     CircuitBreakerConfig,
     HealthMonitor,
     HealthStatus,
@@ -132,6 +133,7 @@ __all__: list[str] = [
     # Version
     "__version__",
     # Configuration
+    "BootstrapConfig",
     "DataStorageConfig",
     # Retry & Failover Components
     "RetryPolicy",

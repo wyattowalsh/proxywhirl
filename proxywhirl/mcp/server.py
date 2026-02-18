@@ -219,15 +219,13 @@ async def _auto_fetch_proxies(rotator: AsyncProxyWhirl, max_proxies: int = 100) 
         rotator: AsyncProxyWhirl to populate
         max_proxies: Maximum number of proxies to fetch
     """
+    from proxywhirl.models import BootstrapConfig
     from proxywhirl.rotator._bootstrap import _fetch_bootstrap_candidates
 
+    config = BootstrapConfig(show_progress=False)
     try:
-        candidates = await _fetch_bootstrap_candidates(
-            validate=True,
-            timeout=10,
-            max_concurrent=100,
-            max_proxies=max_proxies,
-        )
+        candidates = await _fetch_bootstrap_candidates(config=config)
+        candidates = candidates[:max_proxies]
     except Exception as e:
         logger.warning(f"MCP: Failed to auto-fetch from built-in public sources: {e}")
         return

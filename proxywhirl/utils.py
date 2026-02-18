@@ -8,6 +8,7 @@ import ipaddress
 import json
 import re
 import socket
+import sys
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -31,11 +32,15 @@ def configure_logging(
 
     Args:
         level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        format_type: "json" or "text"
+        format_type: "auto", "json", or "text". "auto" detects TTY on stderr.
         redact_credentials: Whether to redact sensitive data
     """
     # Remove default handler
     logger.remove()
+
+    # Resolve "auto" format: text for TTY, json otherwise
+    if format_type == "auto":
+        format_type = "text" if sys.stderr.isatty() else "json"
 
     if format_type == "json":
 

@@ -857,8 +857,8 @@ class ProxyConfiguration(BaseSettings):
     health_check_interval_seconds: int = 300
     health_check_url: HttpUrl = Field(default="http://httpbin.org/ip")  # type: ignore
     health_check_timeout: int = 10
-    log_level: str = "INFO"
-    log_format: Literal["json", "text"] = "json"
+    log_level: str = "WARNING"
+    log_format: Literal["auto", "json", "text"] = "auto"
     log_redact_credentials: bool = True
     storage_backend: Literal["memory", "sqlite", "file"] = "memory"
     storage_path: Path | None = None
@@ -919,6 +919,32 @@ class ProxySourceConfig(BaseModel):
     headers: dict[str, str] = Field(default_factory=dict)
     auth: tuple[str, str] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class BootstrapConfig(BaseModel):
+    """Configuration for the lazy bootstrap that runs on first request when the pool is empty.
+
+    Attributes:
+        enabled: Whether automatic bootstrap is enabled (set False to supply proxies manually)
+        sources: Explicit list of sources to fetch from. None = random sample from ALL_SOURCES.
+        sample_size: How many sources to randomly pick when sources is None
+        validate_proxies: Whether to validate fetched proxies
+        timeout: Validation timeout in seconds
+        max_concurrent: Maximum concurrent validation requests
+        show_progress: Show Rich progress bars. None = auto-detect TTY on stderr.
+    """
+
+    enabled: bool = True
+    sources: list[ProxySourceConfig] | None = None
+    sample_size: int = Field(default=10, ge=1)
+    validate_proxies: bool = True
+    timeout: int = Field(default=10, ge=1)
+    max_concurrent: int = Field(default=100, ge=1)
+    show_progress: bool | None = None
+
+    max_proxies: int | None = Field(default=None, ge=1)
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
 
 class SourceStats(BaseModel):

@@ -6,6 +6,7 @@ including proxies, pools, sessions, and health monitoring.
 """
 
 from proxywhirl.models.core import (
+    BootstrapConfig,
     # Config models
     CircuitBreakerConfig,
     # Protocols and utilities
@@ -42,6 +43,7 @@ __all__ = [
     "RenderMode",
     "ValidationLevel",
     # Config models
+    "BootstrapConfig",
     "CircuitBreakerConfig",
     "ProxyConfiguration",
     "ProxySourceConfig",

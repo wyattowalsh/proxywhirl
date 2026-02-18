@@ -1167,6 +1167,7 @@ class ProxyFetcher:
                     )
                 return result
             except Exception:
+                logger.opt(exception=True).warning("Failed to fetch from {}", source.url)
                 completed_sources += 1
                 if fetch_progress_callback:
                     fetch_progress_callback(completed_sources, total_sources, len(all_proxies))
