@@ -416,7 +416,7 @@ class TestProxyWhirlInterfaceParity:
 
         with patch(
             "proxywhirl.rotator._bootstrap._fetch_bootstrap_candidates",
-            new=AsyncMock(return_value=[bootstrap_proxy]),
+            new=AsyncMock(return_value=([bootstrap_proxy], 1)),
         ):
             rotator._ensure_bootstrap_for_empty_pool()
 
