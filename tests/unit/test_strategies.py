@@ -1391,13 +1391,15 @@ class TestPerformanceBasedStrategy:
         strategy = PerformanceBasedStrategy()
         context = SelectionContext()
 
-        # Act - Make multiple selections and count
-        selections = [strategy.select(pool, context) for _ in range(100)]
+        # Act - Make multiple selections and count (500 iterations to reduce variance)
+        n = 500
+        selections = [strategy.select(pool, context) for _ in range(n)]
         fast_count = sum(1 for s in selections if s.url == "http://fast.com:8080")
         slow_count = sum(1 for s in selections if s.url == "http://slow.com:8080")
 
         # Assert - Fast proxy should be selected significantly more often
-        # With 4:1 inverse weight ratio (200/50), expect at least 2:1 selection ratio
+        # With 4:1 inverse weight ratio (200/50), expected ~80/20 split.
+        # Requiring >2:1 ratio is conservative enough to avoid flakiness.
         assert fast_count > slow_count * 2, (
             f"Fast proxy not favored enough. Fast: {fast_count}, Slow: {slow_count}"
         )
