@@ -1859,7 +1859,10 @@ def sources_callback(
 
     if validate:
         # Validation mode
-        command_ctx.console.print(f"[bold]Validating {len(ALL_SOURCES)} proxy sources...[/bold]\n")
+        enabled_sources = [s for s in ALL_SOURCES if s.enabled]
+        command_ctx.console.print(
+            f"[bold]Validating {len(enabled_sources)} proxy sources...[/bold]\n"
+        )
 
         report = asyncio.run(validate_sources_async(timeout=timeout, concurrency=concurrency))
 
@@ -2022,13 +2025,13 @@ def audit(
     if protocol:
         protocol_lower = protocol.lower()
         if protocol_lower == "http":
-            sources_to_audit = ALL_HTTP_SOURCES
+            sources_to_audit = [s for s in ALL_HTTP_SOURCES if s.enabled]
             protocol_name = "HTTP"
         elif protocol_lower == "socks4":
-            sources_to_audit = ALL_SOCKS4_SOURCES
+            sources_to_audit = [s for s in ALL_SOCKS4_SOURCES if s.enabled]
             protocol_name = "SOCKS4"
         elif protocol_lower == "socks5":
-            sources_to_audit = ALL_SOCKS5_SOURCES
+            sources_to_audit = [s for s in ALL_SOCKS5_SOURCES if s.enabled]
             protocol_name = "SOCKS5"
         else:
             command_ctx.console.print(
@@ -2039,7 +2042,7 @@ def audit(
             f"[bold]Auditing {len(sources_to_audit)} {protocol_name} sources...[/bold]\n"
         )
     else:
-        sources_to_audit = ALL_SOURCES
+        sources_to_audit = [s for s in ALL_SOURCES if s.enabled]
         command_ctx.console.print(
             f"[bold]Auditing {len(sources_to_audit)} proxy sources...[/bold]\n"
         )

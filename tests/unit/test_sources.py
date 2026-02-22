@@ -5,6 +5,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 
 from proxywhirl.sources import (
+    ALL_HTTP_SOURCES,
+    ALL_SOCKS4_SOURCES,
+    ALL_SOCKS5_SOURCES,
+    ALL_SOURCES,
     ProxySourceConfig,
     SourceValidationReport,
     SourceValidationResult,
@@ -449,3 +453,36 @@ class TestValidateSourcesSync:
 
         assert report.total_sources == 1
         assert isinstance(report, SourceValidationReport)
+
+
+class TestSourceCollectionIntegrity:
+    """Tests for source collection integrity."""
+
+    def test_all_sources_no_disabled(self):
+        """Verify no disabled source appears in any ALL_* collection."""
+        for source in ALL_SOURCES:
+            assert source.enabled, f"Disabled source in ALL_SOURCES: {source.url}"
+        for source in ALL_HTTP_SOURCES:
+            assert source.enabled, f"Disabled source in ALL_HTTP_SOURCES: {source.url}"
+        for source in ALL_SOCKS4_SOURCES:
+            assert source.enabled, f"Disabled source in ALL_SOCKS4_SOURCES: {source.url}"
+        for source in ALL_SOCKS5_SOURCES:
+            assert source.enabled, f"Disabled source in ALL_SOCKS5_SOURCES: {source.url}"
+
+    async def test_validate_sources_filters_disabled(self):
+        """Verify validate_sources skips disabled sources when using defaults."""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.text = "1.2.3.4:8080\n" + "x" * 100
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = mock_response
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            report = await validate_sources()
+
+        # All sources in the report should be enabled
+        for result in report.results:
+            assert result.source.enabled, f"Disabled source validated: {result.source.url}"

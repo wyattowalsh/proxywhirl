@@ -36,11 +36,6 @@ PROXY_SCRAPE_HTTP_ANONYMOUS = ProxySourceConfig(
     format="plain_text",
 )
 
-PROXY_SCRAPE_HTTPS = ProxySourceConfig(
-    url="https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=yes&anonymity=all",
-    format="plain_text",
-)
-
 GEONODE_HTTP = ProxySourceConfig(
     url="https://proxylist.geonode.com/api/proxy-list?limit=500&page=1&sort_by=lastChecked&sort_type=desc&protocols=http%2Chttps",
     format="json",
@@ -69,30 +64,6 @@ PROXY_SCRAPE_SOCKS4 = ProxySourceConfig(
     protocol="socks4",
 )
 
-# ProxyScrape SOCKS5
-PROXY_SCRAPE_SOCKS5 = ProxySourceConfig(
-    url="https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5&timeout=10000&country=all",
-    format="plain_text",
-    protocol="socks5",
-)
-
-# PubProxy API - Random proxy API
-PUBPROXY_HTTP = ProxySourceConfig(
-    url="http://pubproxy.com/api/proxy?limit=20&format=txt&type=http",
-    format="plain_text",
-)
-
-PUBPROXY_SOCKS4 = ProxySourceConfig(
-    url="http://pubproxy.com/api/proxy?limit=20&format=txt&type=socks4",
-    format="plain_text",
-    protocol="socks4",
-)
-
-PUBPROXY_SOCKS5 = ProxySourceConfig(
-    url="http://pubproxy.com/api/proxy?limit=20&format=txt&type=socks5",
-    format="plain_text",
-    protocol="socks5",
-)
 
 # =============================================================================
 # Non-GitHub Web Sources
@@ -800,20 +771,17 @@ ALL_HTTP_SOURCES = [
     # API sources (high reliability)
     PROXY_SCRAPE_HTTP,
     PROXY_SCRAPE_HTTP_ANONYMOUS,
-    PROXY_SCRAPE_HTTPS,
     GEONODE_HTTP,
     # Non-GitHub web sources
     PROXYSPACE_HTTP,
     OPENPROXYLIST_HTTP,
     JSDELIVR_PROXIFLY_ALL,
-    PUBPROXY_HTTP,
     # GitHub sources (high volume)
     GITHUB_THESPEEDX_HTTP,
     GITHUB_MONOSANS_HTTP,
     GITHUB_ROOSTERKID_HTTP,
     GITHUB_SUNNY9577_HTTP,
     GITHUB_SUNNY9577_ALL,
-    GITHUB_ASLISK_HTTP,
     GITHUB_MMPX12_HTTP,
     GITHUB_MMPX12_HTTPS,
     GITHUB_PROXIFLY_HTTP,
@@ -824,7 +792,6 @@ ALL_HTTP_SOURCES = [
     GITHUB_VAKHOV_HTTP,
     GITHUB_VAKHOV_HTTPS,
     GITHUB_ZAEEM_HTTP,
-    GITHUB_MURONGPIG_HTTP,
     GITHUB_KOMUTAN_HTTP,
     GITHUB_ANONYM0US_HTTP,
     GITHUB_ANONYM0US_HTTPS,
@@ -863,7 +830,6 @@ ALL_SOCKS4_SOURCES = [
     # API sources
     GEONODE_SOCKS4,
     PROXY_SCRAPE_SOCKS4,
-    PUBPROXY_SOCKS4,
     # Non-GitHub web sources
     PROXYSPACE_SOCKS4,
     # GitHub sources
@@ -878,7 +844,6 @@ ALL_SOCKS4_SOURCES = [
     # High-quality verified sources
     GITHUB_VAKHOV_SOCKS4,
     GITHUB_ZAEEM_SOCKS4,
-    GITHUB_MURONGPIG_SOCKS4,
     GITHUB_KOMUTAN_SOCKS4,
     GITHUB_ANONYM0US_SOCKS4,
     GITHUB_DPANGESTUW_SOCKS4,
@@ -907,8 +872,6 @@ ALL_SOCKS4_SOURCES = [
 ALL_SOCKS5_SOURCES = [
     # API sources
     GEONODE_SOCKS5,
-    PROXY_SCRAPE_SOCKS5,
-    PUBPROXY_SOCKS5,
     # Non-GitHub web sources
     PROXYSPACE_SOCKS5,
     # GitHub sources
@@ -922,7 +885,6 @@ ALL_SOCKS5_SOURCES = [
     GITHUB_OPENPROXY_SOCKS5,
     # High-quality verified sources
     GITHUB_VAKHOV_SOCKS5,
-    GITHUB_MURONGPIG_SOCKS5,
     GITHUB_KOMUTAN_SOCKS5,
     GITHUB_ANONYM0US_SOCKS5,
     GITHUB_HOOKZOF_SOCKS5,
@@ -935,12 +897,10 @@ ALL_SOCKS5_SOURCES = [
     GITHUB_IPLOCATE_SOCKS5,
     GITHUB_PROXYSCRAPER_SOCKS5,
     GITHUB_ZLOI_SOCKS5,
-    GITHUB_ALIILAPRO_SOCKS5,
     GITHUB_SKILLTER_SOCKS5,
     # New sources (Feb 2026)
     GITHUB_R00TEE_SOCKS5,
     GITHUB_SEVENWORKS_SOCKS5,
-    GITHUB_VANNDEV_SOCKS5,
     GITHUB_CLEARPROXY_SOCKS5,
     GITHUB_TUANMINPAY_SOCKS5,
     GITHUB_VMHEAVEN_SOCKS5,
@@ -1135,7 +1095,7 @@ async def validate_sources(
     import time
 
     if sources is None:
-        sources = ALL_SOURCES
+        sources = [s for s in ALL_SOURCES if s.enabled]
 
     start = time.perf_counter()
     semaphore = asyncio.Semaphore(concurrency)
