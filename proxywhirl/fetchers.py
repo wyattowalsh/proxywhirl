@@ -182,9 +182,9 @@ class PlainTextParser:
     """Parse plain text proxy lists (one per line)."""
 
     # Pre-compiled regex pattern for IP:PORT format with anchors to prevent ReDoS
-    # Pattern: ^(\d{1,3}\.){3}\d{1,3}:\d{1,5}$
+    # Matches: 1.2.3.4:8080  or  1.2.3.4:8080:Country Name (trailing suffix ignored)
     # Groups: (1) IP address, (2) port number
-    _IP_PORT_PATTERN = re.compile(r"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})$")
+    _IP_PORT_PATTERN = re.compile(r"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})(?::.+)?$")
 
     def __init__(self, skip_invalid: bool = False) -> None:
         """
@@ -268,7 +268,7 @@ class PlainTextParser:
                     if self.skip_invalid:
                         continue
                     raise ProxyFetchError(f"Invalid IP:PORT format: {line}")
-                line = f"http://{line}"
+                line = f"http://{ip_str}:{port_str}"
 
             # Validate URL format
             try:
