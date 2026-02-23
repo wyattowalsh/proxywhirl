@@ -228,6 +228,22 @@ http://proxy2.com:3128"""
 
         assert len(proxies) == 2
 
+    def test_parse_malformed_upstream_lines_skipped_by_default(self) -> None:
+        """Skip malformed upstream proxy lines by default."""
+        from proxywhirl.fetchers import PlainTextParser
+
+        text_data = """5.255.113.177:1080123.54.197.49:20430
+185.93.89.157:82321
+192.168.1.1:8080
+10.0.0.1:3128"""
+
+        parser = PlainTextParser()
+        proxies = parser.parse(text_data)
+
+        assert len(proxies) == 2
+        assert proxies[0]["url"] == "http://192.168.1.1:8080"
+        assert proxies[1]["url"] == "http://10.0.0.1:3128"
+
 
 # T091: HTML Table Parser Tests
 class TestHTMLTableParser:

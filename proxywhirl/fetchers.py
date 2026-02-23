@@ -186,7 +186,7 @@ class PlainTextParser:
     # Groups: (1) IP address, (2) port number
     _IP_PORT_PATTERN = re.compile(r"^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})(?::.+)?$")
 
-    def __init__(self, skip_invalid: bool = False) -> None:
+    def __init__(self, skip_invalid: bool = True) -> None:
         """
         Initialize plain text parser.
 
