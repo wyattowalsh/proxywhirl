@@ -41,7 +41,24 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_design",
     "sphinxcontrib.mermaid",
+    "autoapi.extension",
 ]
+
+# -- AutoAPI configuration (static AST parsing, no import required) --------
+
+autoapi_dirs = ["../../proxywhirl"]
+autoapi_type = "python"
+autoapi_options = [
+    "members",
+    "show-inheritance",
+    "show-module-summary",
+    "imported-members",
+]
+autoapi_ignore = ["*/tests/*", "*/_version*"]
+autoapi_keep_files = True
+autoapi_add_toctree_entry = True
+autoapi_python_class_content = "both"
+autoapi_member_order = "groupwise"
 
 autosummary_generate = True
 napoleon_google_docstring = True
@@ -68,6 +85,7 @@ exclude_patterns: list[str] = [
     "_build",
     "Thumbs.db",
     ".DS_Store",
+    "autoapi/index",
 ]
 
 templates_path = ["_templates"]
@@ -98,8 +116,7 @@ html_theme_options = {
     "globaltoc_expand_depth": 2,
     "toctree_titles_only": False,
     "github_url": "https://github.com/wyattowalsh/proxywhirl",
-    # TODO: Create og-image.png and uncomment to enable Open Graph image meta tags
-    # "og_image_url": "https://proxywhirl.readthedocs.io/_static/og-image.png",
+    "og_image_url": "https://www.proxywhirl.com/docs/_static/og-image.png",
     "twitter_creator": "wyaborern",
     "twitter_site": "wyaborern",
     "light_logo": "_static/logo.svg",

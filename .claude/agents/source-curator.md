@@ -59,7 +59,7 @@ The only file with an exact hardcoded source count is `README.md` (`<strong>N So
 
 | File | What to update |
 |------|----------------|
-| `docs/source/reference/python-api.md` | Source API reference, collection docs |
+| `docs/source/reference/python-api.md` | Curated API overview (links to autoapi); update collection mentions |
 | `docs/source/guides/cli-reference.md` | CLI examples if affected |
 | `AGENTS.md` | Source count in Key Modules table |
 
@@ -167,7 +167,7 @@ Create a team `source-curation` with 3 teammates (all sonnet):
    Do NOT manually count sources in the file — runtime count is the source of truth.
 9. Update the exact count in `README.md` feature card (`<strong>N Sources</strong>`)
 10. Update documentation files that reference source names or collections:
-    - `docs/source/reference/python-api.md` — update collection references if changed
+    - `docs/source/reference/python-api.md` — curated overview; update collection mentions if changed
     - `docs/source/guides/cli-reference.md` — update any source examples if affected
     - Only touch docs if the content is actually stale; don't rewrite docs unnecessarily
 

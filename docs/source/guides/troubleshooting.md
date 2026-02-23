@@ -1,3 +1,7 @@
+---
+title: Troubleshooting
+---
+
 # Troubleshooting Guide
 
 This guide helps you diagnose and resolve common issues with ProxyWhirl. Use the error codes and solutions below to quickly fix problems.
@@ -1402,10 +1406,10 @@ with httpx.Client(proxy=proxy.url) as client:
 
 ### Check Existing Documentation
 
-- **Getting Started:** [`docs/getting_started.md`](getting_started.md)
-- **Configuration:** [`docs/configuration.md`](configuration.md)
-- **API Reference:** [`proxywhirl/`](../proxywhirl/)
-- **Examples:** [`examples.ipynb`](../examples.ipynb)
+- **Getting Started:** {doc}`/getting-started/index`
+- **Configuration:** {doc}`/reference/configuration`
+- **API Reference:** {doc}`/reference/python-api`
+- **Examples:** [examples.ipynb](https://github.com/wyattowalsh/proxywhirl/blob/main/examples.ipynb)
 
 ### Search Issues
 
@@ -1476,13 +1480,8 @@ What actually happens
 
 ## Related Documentation
 
-- **Getting Started:** [`docs/getting_started.md`](getting_started.md)
-- **Configuration:** [`docs/configuration.md`](configuration.md)
-- **Error Reference:** [`proxywhirl/exceptions.py`](../proxywhirl/exceptions.py)
-- **CLI Reference:** [`proxywhirl/cli.py`](../proxywhirl/cli.py)
-- **Examples:** [`examples.ipynb`](../examples.ipynb)
-
----
-
-**Last Updated:** 2025-12-27
-**Version:** 1.0.0
+- **Getting Started:** {doc}`/getting-started/index`
+- **Configuration:** {doc}`/reference/configuration`
+- **Error Reference:** {doc}`/reference/exceptions`
+- **CLI Reference:** {doc}`/guides/cli-reference`
+- **Examples:** [examples.ipynb](https://github.com/wyattowalsh/proxywhirl/blob/main/examples.ipynb)

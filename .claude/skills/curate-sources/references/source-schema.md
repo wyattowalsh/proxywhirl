@@ -99,7 +99,7 @@ When sources are added, removed, or disabled, these files must also be updated:
 | `known-sources.md` (this directory) | Add/remove rows, update repo list |
 | `tests/unit/test_sources.py` | Add `_get_source_name()` tests for new URL patterns |
 | `tests/contract/test_proxy_sources.py` | Update imports if top/recommended sources change |
-| `docs/source/reference/python-api.md` | Update collection docs if changed |
+| `docs/source/reference/python-api.md` | Curated overview; update collection mentions if changed |
 | `README.md` | Update feature card source count (`<strong>N Sources</strong>`) |
 
 ## `trusted=True` Criteria

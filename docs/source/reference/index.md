@@ -175,6 +175,28 @@ Per-proxy and global rate limiting with token bucket algorithm.
 
 ::::
 
+## Database & Migrations
+
+::::{grid} 1 1 2 2
+:gutter: 3
+
+:::{grid-item-card} Migrations
+:link: migrations
+:link-type: doc
+:class-card: sd-shadow-sm
+
+Alembic-based database migrations for SQLite schema management.
+
+- [Quick start](migrations.md#quick-start) -- initialize and run migrations
+- [Programmatic API](migrations.md#run-migrations-programmatically) -- library-first migration control
+- [Schema versioning](migrations.md#overview) -- track and roll back schema changes
+
++++
+{bdg-secondary}`Alembic` {bdg-info}`SQLite`
+:::
+
+::::
+
 ---
 
 **Related:** {doc}`Guides <../guides/index>` for usage guides | {doc}`Getting Started <../getting-started/index>` for quickstart | {doc}`Project <../project/index>` for contributing
@@ -189,4 +211,5 @@ configuration
 exceptions
 cache-api
 rate-limiting-api
+migrations
 ```

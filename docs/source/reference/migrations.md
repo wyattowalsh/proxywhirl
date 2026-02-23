@@ -1,3 +1,7 @@
+---
+title: Migrations
+---
+
 # Database Migrations Guide
 
 ProxyWhirl uses [Alembic](https://alembic.sqlalchemy.org/) for database schema migrations, providing robust version control for the SQLite database schema.

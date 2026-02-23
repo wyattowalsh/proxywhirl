@@ -173,6 +173,29 @@ Model Context Protocol server for AI assistant integration.
 
 ::::
 
+## Troubleshooting
+
+::::{grid} 1 1 2 2
+:gutter: 3
+
+:::{grid-item-card} Troubleshooting
+:link: troubleshooting
+:link-type: doc
+:class-card: sd-shadow-sm
+
+Diagnose and resolve common issues with error codes, debugging tips, and FAQ.
+
+- [Error codes reference](troubleshooting.md#error-codes-reference) -- all ProxyWhirl error codes
+- [Common issues](troubleshooting.md#common-issues) -- proxies unhealthy, rate limiting, SSL errors
+- [Debugging tips](troubleshooting.md#debugging-tips) -- logging, metrics, health monitoring
+- [FAQ](troubleshooting.md#faq) -- custom sources, strategies, persistence, async
+
++++
+{bdg-warning}`troubleshooting` {bdg-info}`debugging`
+:::
+
+::::
+
 ---
 
 **Related:** {doc}`/getting-started/index` for installation | {doc}`/reference/index` for API specs | {doc}`/project/index` for contributing
@@ -189,4 +212,5 @@ deployment-security
 cli-reference
 automation
 mcp-server
+troubleshooting
 ```

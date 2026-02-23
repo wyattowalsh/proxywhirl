@@ -177,6 +177,7 @@ All 9 strategies implement the `RotationStrategy` protocol and can be hot-swappe
 
 getting-started/index
 guides/index
+concepts/index
 reference/index
 project/index
 ```
@@ -210,6 +211,19 @@ Deep dives: async patterns, advanced strategies, caching, retry/failover, CLI, a
 - {doc}`Deployment security </guides/deployment-security>` -- Nginx, Caddy, HAProxy configs
 :::
 
+:::{grid-item-card} Concepts
+:link: concepts/index
+:link-type: doc
+:class-card: sd-shadow-sm
+
+Design philosophy: why things work the way they do.
+
+- {doc}`Rotation strategies </concepts/rotation-strategies>` -- Protocol pattern, registry, composition
+- {doc}`Cache architecture </concepts/cache-architecture>` -- L1/L2/L3 tiers, promotion/demotion
+- {doc}`Circuit breakers </concepts/circuit-breakers>` -- failure isolation, automatic recovery
+- {doc}`Security model </concepts/security-model>` -- encryption, redaction, SSRF protection
+:::
+
 :::{grid-item-card} API Reference
 :link: reference/index
 :link-type: doc
@@ -234,46 +248,6 @@ Contributing, development setup, CI/CD, changelog, and project status.
 - [Contributing guidelines](project/index.md#contributing)
 - [CI/CD pipelines](project/index.md#cicd-pipelines)
 - [Architecture overview](project/index.md#architecture)
-:::
-
-::::
-
-## Key Capabilities
-
-::::{grid} 1 1 2 2
-:gutter: 2
-
-:::{grid-item}
-**9 Rotation Strategies**
-- Round-robin, random, weighted, least-used
-- Performance-based with EMA latency scoring -- {doc}`/guides/advanced-strategies`
-- Session persistence (sticky sessions with TTL)
-- Geo-targeted routing by country/region
-- Cost-aware selection and composite pipelines
-:::
-
-:::{grid-item}
-**Resilience Built-In**
-- Circuit breakers (`CircuitBreaker`, `AsyncCircuitBreaker`) with auto-recovery -- {doc}`/guides/retry-failover`
-- `RetryExecutor` with exponential/linear backoff and jitter
-- Health-based proxy ejection via `HealthMonitor`
-- Multi-tier caching: L1 in-memory, L2 encrypted disk, L3 SQLite -- {doc}`/guides/caching`
-:::
-
-:::{grid-item}
-**Four Interfaces**
-- Python sync/async API (`ProxyWhirl`, `AsyncProxyWhirl`) -- {doc}`/reference/python-api`
-- REST API with OpenAPI docs (FastAPI) -- {doc}`/reference/rest-api`
-- CLI with 9 commands (Typer + Rich) -- {doc}`/guides/cli-reference`
-- MCP server for AI assistants (Claude, GPT) -- {doc}`/guides/mcp-server`
-:::
-
-:::{grid-item}
-**Production Ready**
-- 2700+ tests: unit, integration, property-based, contract, benchmarks
-- <5 us strategy selection overhead
-- SQLite persistence with Fernet encryption -- {doc}`/reference/configuration`
-- Hundreds of built-in proxy sources, auto-refreshed every 6 hours via CI
 :::
 
 ::::
