@@ -8,6 +8,7 @@
 |----------|-------|
 | **Language** | Python 3.9+ (uv package manager) |
 | **Stack** | pytest, ruff, ty (Astral), pre-commit, GitHub Actions |
+| **Docs** | Sphinx, MyST Parser, Shibuya theme, sphinx-autoapi, sphinx-design |
 | **Key Libs** | httpx, pydantic, sqlmodel, loguru, tenacity, typer, fastapi |
 
 ## Commands
@@ -21,6 +22,7 @@
 | Type check | `make type-check` / `uv run ty check proxywhirl/` |
 | Quality gates | `make quality-gates` |
 | Commit | `make commit` (conventional) |
+| Docs build | `uv run sphinx-build -b html docs/source docs/source/_build/html` |
 
 **Always prefix with `uv run`** — never bare `pytest`, `python`, or `pip`.
 

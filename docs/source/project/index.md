@@ -367,3 +367,10 @@ ProxyWhirl is open source software released under the [MIT License](https://gith
 :class: info
 Detailed phase completion reports live alongside the source tree under `docs/` (e.g., `PHASE_9_COMPLETION.md`) and capture acceptance criteria per milestone.
 ```
+
+```{toctree}
+:maxdepth: 2
+:hidden:
+
+changelog
+```
