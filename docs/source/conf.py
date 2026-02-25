@@ -195,6 +195,13 @@ linkcheck_ignore = [
     r"http://127\.0\.0\.1.*",  # Local dev server URLs
     r"https://proxywhirl\.com.*",  # Main site (may not be deployed yet)
     r"http://sources\.py",  # False positive: backtick-wrapped sources.py parsed as URL
+    r"https?://site[0-9]+\.com.*",  # Example domains in docstrings
+    r"https?://proxy[0-9]*\.example\.com.*",  # Example proxy URLs
+    r"https?://proxy[0-9]*\.com.*",  # Example proxy URLs in docstrings
+    r"http://[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+.*",  # Example IP addresses
+    r"https?://api\.example\.com.*",  # Example API URLs
+    r"https?://example\.com.*",  # Example domains
+    r"https?://httpbin\.org.*",  # External test service (may be flaky in CI)
 ]
 linkcheck_anchors = False  # Don't check anchors (can be slow/flaky)
 
