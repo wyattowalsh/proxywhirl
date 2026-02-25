@@ -194,8 +194,8 @@ class AsyncProxyWhirl(ProxyRotatorBase):
     Provides async HTTP methods (GET, POST, PUT, DELETE, PATCH) that automatically
     rotate through a pool of proxies, with intelligent failover on connection errors.
 
-    Example:
-        ```python
+    Example::
+
         from proxywhirl import AsyncProxyWhirl, Proxy
 
         async with AsyncProxyWhirl() as rotator:
@@ -204,7 +204,6 @@ class AsyncProxyWhirl(ProxyRotatorBase):
 
             response = await rotator.get("https://httpbin.org/ip")
             print(response.json())
-        ```
     """
 
     def __init__(
@@ -220,10 +219,10 @@ class AsyncProxyWhirl(ProxyRotatorBase):
 
         Args:
             proxies: Initial list of proxies (optional)
-            strategy: Rotation strategy instance or strategy name string
-                     ("round-robin", "random", "weighted", "least-used",
-                      "performance-based", "session", "geo-targeted")
-                     Default: RoundRobinStrategy
+            strategy: Rotation strategy instance or name string. Supported
+                names: ``round-robin``, ``random``, ``weighted``,
+                ``least-used``, ``performance-based``, ``session``,
+                ``geo-targeted``. Defaults to RoundRobinStrategy.
             config: Configuration settings (default: ProxyConfiguration())
             retry_policy: Retry policy configuration (default: RetryPolicy())
             bootstrap: Bootstrap configuration for lazy proxy fetching.
@@ -437,9 +436,10 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         - Swap completes in <100ms (SC-009)
 
         Args:
-            strategy: New strategy instance or strategy name string
-                     ("round-robin", "random", "weighted", "least-used",
-                      "performance-based", "session", "geo-targeted")
+            strategy: New strategy instance or name string. Supported
+                names: ``round-robin``, ``random``, ``weighted``,
+                ``least-used``, ``performance-based``, ``session``,
+                ``geo-targeted``.
             atomic: If True (default), ensures atomic swap. If False, allows
                    immediate replacement (faster but may affect in-flight requests)
 
@@ -495,15 +495,9 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         Get statistics about the proxy pool.
 
         Returns:
-            Dictionary containing pool statistics:
-            - total_proxies: Total number of proxies
-            - healthy_proxies: Number of healthy/unknown proxies
-            - unhealthy_proxies: Number of unhealthy proxies
-            - dead_proxies: Number of dead proxies
-            - total_requests: Total requests across all proxies
-            - total_successes: Total successful requests
-            - total_failures: Total failed requests
-            - average_success_rate: Average success rate across all proxies
+            dict[str, Any]: Pool statistics including total_proxies, healthy_proxies,
+            unhealthy_proxies, dead_proxies, total_requests, total_successes,
+            total_failures, and average_success_rate.
         """
         from proxywhirl.models import HealthStatus
 
@@ -545,9 +539,8 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         Get comprehensive statistics including source breakdown (FR-050).
 
         Returns:
-            Dictionary containing:
-            - All stats from get_pool_stats()
-            - source_breakdown: Count of proxies by source (USER, FETCHED, etc.)
+            dict[str, Any]: All stats from get_pool_stats() plus source_breakdown
+            mapping source names to proxy counts.
         """
         stats = self.get_pool_stats()
         stats["source_breakdown"] = self.pool.get_source_breakdown()
@@ -649,7 +642,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
             proxy: Proxy to convert
 
         Returns:
-            Dictionary with proxy URL for httpx
+            dict[str, str]: Proxy URL for httpx with "http://" and "https://" keys.
         """
         url = str(proxy.url)
 
@@ -901,7 +894,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         Get circuit breaker states for all proxies.
 
         Returns:
-            Dictionary mapping proxy IDs to their circuit breaker instances
+            dict[str, CircuitBreaker]: Mapping of proxy IDs to their circuit breaker instances.
         """
         return self.circuit_breakers.copy()
 

@@ -1564,10 +1564,8 @@ class SessionPersistenceStrategy:
         Get session statistics.
 
         Returns:
-            Dictionary with session statistics:
-            - total_sessions: Total number of active sessions
-            - max_sessions: Maximum session limit
-            - auto_cleanup_threshold: Operations between auto-cleanups
+            dict[str, int]: Session statistics including total_sessions, max_sessions,
+            and auto_cleanup_threshold.
         """
         return {
             "total_sessions": len(self._session_manager._sessions),

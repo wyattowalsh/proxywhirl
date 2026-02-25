@@ -122,7 +122,8 @@ class APIResponse(BaseModel, Generic[T]):
     - error: Error details if request failed
     - meta: Request metadata (ID, timestamp, version)
 
-    Example successful response:
+    Example successful response::
+
         {
             "status": "success",
             "data": {"id": "123", "url": "http://proxy:8080"},
@@ -130,7 +131,8 @@ class APIResponse(BaseModel, Generic[T]):
             "meta": {"request_id": "...", "timestamp": "...", "version": "1.0.0"}
         }
 
-    Example error response:
+    Example error response::
+
         {
             "status": "error",
             "data": null,

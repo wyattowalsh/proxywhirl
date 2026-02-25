@@ -217,7 +217,7 @@ def get_rate_limit_key(request: Request) -> str:
         request: FastAPI Request object
 
     Returns:
-        Rate limit key in format "apikey:{hash}" or "ip:{address}"
+        str: Rate limit key in the form ``apikey:{hash}`` or ``ip:{address}``.
     """
     # Check for API key first (primary identifier for authenticated requests)
     api_key = request.headers.get("X-API-Key")

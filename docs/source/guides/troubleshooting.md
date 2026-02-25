@@ -55,8 +55,8 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
    ```
 
 **Related Code:**
-- [`proxywhirl/exceptions.py#L152-L167`](../proxywhirl/exceptions.py)
-- [`proxywhirl/rotator.py`](../proxywhirl/rotator.py)
+- [`proxywhirl/exceptions.py#L152-L167`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/exceptions.py)
+- [`proxywhirl/rotator.py`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/rotator/)
 
 ---
 
@@ -98,8 +98,8 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
    ```
 
 **Related Code:**
-- [`proxywhirl/exceptions.py#L134-L149`](../proxywhirl/exceptions.py)
-- [`proxywhirl/config.py#L132-L141`](../proxywhirl/config.py)
+- [`proxywhirl/exceptions.py#L134-L149`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/exceptions.py)
+- [`proxywhirl/config.py#L132-L141`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/config.py)
 
 ---
 
@@ -146,8 +146,8 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
    ```
 
 **Related Code:**
-- [`proxywhirl/exceptions.py#L170-L186`](../proxywhirl/exceptions.py)
-- [`proxywhirl/cli.py#L419-L433`](../proxywhirl/cli.py)
+- [`proxywhirl/exceptions.py#L170-L186`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/exceptions.py)
+- [`proxywhirl/cli.py#L419-L433`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/cli.py)
 
 ---
 
@@ -187,7 +187,7 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
    - Rotating residential proxies may have time-limited credentials
 
 **Related Code:**
-- [`proxywhirl/exceptions.py#L189-L205`](../proxywhirl/exceptions.py)
+- [`proxywhirl/exceptions.py#L189-L205`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/exceptions.py)
 
 ---
 
@@ -229,9 +229,9 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
    ```
 
 **Related Code:**
-- [`proxywhirl/exceptions.py#L208-L222`](../proxywhirl/exceptions.py)
-- [`proxywhirl/cli.py#L1117-L1552`](../proxywhirl/cli.py)
-- [`proxywhirl/sources.py`](../proxywhirl/sources.py)
+- [`proxywhirl/exceptions.py#L208-L222`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/exceptions.py)
+- [`proxywhirl/cli.py#L1117-L1552`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/cli.py)
+- [`proxywhirl/sources.py`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/sources.py)
 
 ---
 
@@ -273,8 +273,8 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
    ```
 
 **Related Code:**
-- [`proxywhirl/exceptions.py#L225-L241`](../proxywhirl/exceptions.py)
-- [`proxywhirl/storage.py`](../proxywhirl/storage.py)
+- [`proxywhirl/exceptions.py#L225-L241`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/exceptions.py)
+- [`proxywhirl/storage.py`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/storage.py)
 
 ---
 
@@ -319,8 +319,8 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
    ```
 
 **Related Code:**
-- [`proxywhirl/exceptions.py#L244-L259`](../proxywhirl/exceptions.py)
-- [`proxywhirl/cache/`](../proxywhirl/cache/)
+- [`proxywhirl/exceptions.py#L244-L259`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/exceptions.py)
+- [`proxywhirl/cache/`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/cache/)
 
 ---
 
@@ -363,7 +363,7 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
    ```
 
 **Related Code:**
-- [`proxywhirl/exceptions.py#L262-L276`](../proxywhirl/exceptions.py)
+- [`proxywhirl/exceptions.py#L262-L276`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/exceptions.py)
 
 ---
 
@@ -393,8 +393,8 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
    ```
 
 **Related Code:**
-- [`proxywhirl/exceptions.py#L279-L292`](../proxywhirl/exceptions.py)
-- [`proxywhirl/cache/models.py`](../proxywhirl/cache/models.py)
+- [`proxywhirl/exceptions.py#L279-L292`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/exceptions.py)
+- [`proxywhirl/cache/models.py`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/cache/models.py)
 
 ---
 
@@ -436,8 +436,8 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
    ```
 
 **Related Code:**
-- [`proxywhirl/exceptions.py#L25`](../proxywhirl/exceptions.py)
-- [`proxywhirl/cli.py#L428-L431`](../proxywhirl/cli.py)
+- [`proxywhirl/exceptions.py#L25`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/exceptions.py)
+- [`proxywhirl/cli.py#L428-L431`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/cli.py)
 
 ---
 
@@ -477,7 +477,7 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
    ```
 
 **Related Code:**
-- [`proxywhirl/exceptions.py#L26`](../proxywhirl/exceptions.py)
+- [`proxywhirl/exceptions.py#L26`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/exceptions.py)
 
 ---
 
@@ -517,8 +517,8 @@ ProxyWhirl uses structured error codes for programmatic error handling. All exce
    - `storage_backend`: `file`, `sqlite`, `memory`
 
 **Related Code:**
-- [`proxywhirl/exceptions.py#L27`](../proxywhirl/exceptions.py)
-- [`proxywhirl/config.py#L195-L211`](../proxywhirl/config.py)
+- [`proxywhirl/exceptions.py#L27`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/exceptions.py)
+- [`proxywhirl/config.py#L195-L211`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/config.py)
 
 ---
 
@@ -1101,7 +1101,7 @@ strategy = PerformanceBasedStrategy(
 rotator = ProxyWhirl(proxies=[...], strategy=strategy)
 ```
 
-See [`proxywhirl/strategies.py`](../proxywhirl/strategies.py) for implementation details.
+See [`proxywhirl/strategies.py`](https://github.com/wyattowalsh/proxywhirl/blob/main/proxywhirl/strategies/) for implementation details.
 
 ---
 
@@ -1307,7 +1307,7 @@ async def main():
 asyncio.run(main())
 ```
 
-See [`examples.ipynb`](../examples.ipynb) for more examples.
+See [`examples.ipynb`](https://github.com/wyattowalsh/proxywhirl/blob/main/examples.ipynb) for more examples.
 
 ---
 

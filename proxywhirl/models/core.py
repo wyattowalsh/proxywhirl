@@ -1331,14 +1331,9 @@ class HealthMonitor:
         """Get current monitoring status.
 
         Returns:
-            Dict containing:
-                - is_running: Whether monitor is active
-                - check_interval: Seconds between checks
-                - failure_threshold: Failures before eviction
-                - total_proxies: Count of proxies in pool
-                - healthy_proxies: Count of healthy proxies
-                - failure_counts: Dict of proxy URL -> failure count
-                - uptime_seconds: Monitor runtime (if running)
+            dict[str, Any]: Monitoring status including is_running, check_interval,
+            failure_threshold, total_proxies, healthy_proxies, failure_counts,
+            and uptime_seconds (if running).
         """
         status: dict[str, Any] = {
             "is_running": self.is_running,

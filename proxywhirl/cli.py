@@ -228,9 +228,10 @@ def main(
 
     Global options apply to all subcommands.
     Configuration is auto-discovered from:
-      1. Project directory: ./.proxywhirl.toml
-      2. User directory: ~/.config/proxywhirl/config.toml (Linux/Mac)
-      3. Defaults: In-memory configuration
+
+    1. Project directory: ./.proxywhirl.toml
+    2. User directory: ~/.config/proxywhirl/config.toml (Linux/Mac)
+    3. Defaults: In-memory configuration
     """
     global _context
 
@@ -945,7 +946,7 @@ def _parse_fetch_config(
         concurrency: Concurrent validation requests
 
     Returns:
-        Dict containing validated configuration
+        dict[str, Any]: Validated configuration parameters.
     """
     return {
         "validate": not no_validate,
@@ -1992,10 +1993,11 @@ def audit(
 
     Tests each source by fetching from it and checking if it returns valid proxies.
     A source is considered "broken" if:
-      - It returns a non-200 status code
-      - It times out after retries
-      - It returns 0 proxies (or less than --min-proxies)
-      - It returns malformed/unparseable content
+
+    - It returns a non-200 status code
+    - It times out after retries
+    - It returns 0 proxies (or less than --min-proxies)
+    - It returns malformed/unparseable content
 
     Use --fix to automatically remove broken sources from sources.py.
     A backup file will be created before any modifications.

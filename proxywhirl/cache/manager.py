@@ -137,10 +137,10 @@ class CacheManager:
     Manages multi-tier caching of proxies with automatic promotion/demotion.
 
     Orchestrates caching across three tiers:
+
     - L1 (Memory): Fast in-memory cache using OrderedDict (LRU)
-    - L2 (Disk): Persistent cache with configurable backend:
-        - JSONL: File-based, human-readable, portable (default, best for <10K entries)
-        - SQLite: Database-based, faster for >10K entries with O(log n) lookups
+    - L2 (Disk): Persistent cache with configurable backend
+      (JSONL for <10K entries, SQLite for larger caches with O(log n) lookups)
     - L3 (SQLite): Database cache for cold storage with full queryability
 
     Supports TTL-based expiration, health-based invalidation, and graceful
@@ -748,10 +748,7 @@ class CacheManager:
             ttl_override: Optional TTL in seconds (overrides default_ttl_seconds)
 
         Returns:
-            Dict with counts for loaded, skipped, and failed entries
-
-        Raises:
-            No exceptions - errors are logged and failure count is incremented
+            dict[str, int]: Counts for loaded, skipped, and failed entries.
         """
         import csv
         import json

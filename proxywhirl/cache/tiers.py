@@ -487,7 +487,7 @@ class JsonlCacheTier(CacheTier):
         """Read all entries from a shard file.
 
         Returns:
-            Dict mapping key to entry data dict
+            dict[str, dict]: Mapping of key to entry data dict.
 
         """
         shard_path = self._get_shard_path(shard_id)
@@ -518,7 +518,7 @@ class JsonlCacheTier(CacheTier):
 
         Args:
             shard_id: Shard file ID
-            entries: Dict mapping key to entry data dict
+            entries: Mapping of key to entry data dict.
 
         Returns:
             True if write succeeded

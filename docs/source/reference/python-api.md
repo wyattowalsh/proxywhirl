@@ -17,6 +17,7 @@ ProxyWhirl ships two main rotator classes: **ProxyWhirl** (synchronous) and
 **AsyncProxyWhirl** (async/await). Both provide HTTP methods that automatically
 rotate through a pool of proxies with intelligent failover.
 
+(proxywhirl)=
 ### Synchronous usage
 
 ```python
@@ -37,6 +38,7 @@ Key capabilities:
 - Hot-swap strategies at runtime with `set_strategy()` (<100 ms)
 - Monitoring: `get_pool_stats()`, `get_statistics()`, `get_circuit_breaker_states()`
 
+(asyncproxywhirl)=
 ### Async usage
 
 ```python
@@ -104,6 +106,15 @@ registry.register_strategy("my-strategy", MyStrategy, validate=True)
 strategies = registry.list_strategies()
 ```
 
+(strategystate)=
+### StrategyState
+
+Per-strategy mutable metrics including EMA response times, success rates, and
+sliding windows. Each strategy maintains its own `StrategyState` instance for
+adaptive selection decisions.
+
+See {doc}`../autoapi/proxywhirl/strategies/core/index` for the full API reference.
+
 :::{seealso}
 - {doc}`../autoapi/proxywhirl/strategies/index` -- full strategy API reference
 - {doc}`../guides/advanced-strategies` -- strategy selection guide with real-world patterns
@@ -164,6 +175,23 @@ print(proxy.success_rate, proxy.is_healthy, proxy.is_expired)
 | `ValidationLevel` | `BASIC` (~100 ms), `STANDARD` (~500 ms), `FULL` (~2 s) |
 | `BackoffStrategy` | `EXPONENTIAL`, `LINEAR`, `FIXED` |
 | `CircuitBreakerState` | `CLOSED`, `OPEN`, `HALF_OPEN` |
+
+(healthmonitor)=
+### HealthMonitor
+
+Continuous background health monitoring with automatic eviction of unhealthy
+proxies. Runs periodic checks against a configurable target URL and updates
+proxy health status.
+
+See {doc}`../autoapi/proxywhirl/models/index` for the full API reference.
+
+(sourcestats)=
+### SourceStats
+
+Per-source fetch statistics and error tracking. Records success/failure counts,
+latency, and last-fetched timestamps for each configured proxy source.
+
+See {doc}`../autoapi/proxywhirl/models/index` for the full API reference.
 
 :::{seealso}
 {doc}`../autoapi/proxywhirl/models/index` -- full model and enum reference
@@ -252,6 +280,14 @@ retrieved = manager.get(key)
 stats = manager.get_statistics()
 ```
 
+(cachehealthstatus)=
+### CacheHealthStatus
+
+Health status reporting for the multi-tier cache system. Provides per-tier
+availability, hit/miss ratios, and storage utilization metrics.
+
+See {doc}`cache-api` for the full cache API reference.
+
 :::{seealso}
 - {doc}`cache-api` -- dedicated cache system reference
 - {doc}`../autoapi/proxywhirl/cache/index` -- auto-generated cache API
@@ -268,6 +304,7 @@ Implements the circuit breaker pattern with three states (CLOSED, OPEN,
 HALF_OPEN) and a rolling failure window. Prevents cascading failures by
 temporarily excluding unreliable proxies.
 
+(retryexecutor)=
 ### RetryExecutor and RetryPolicy
 
 `RetryPolicy` configures backoff strategies (exponential, linear, fixed) with
@@ -291,6 +328,22 @@ Tracks retry attempts, circuit breaker events, and hourly aggregates for
 monitoring. Provides `get_summary()`, `get_timeseries()`, and `get_by_proxy()`
 for observability.
 
+(hourlyaggregate)=
+### HourlyAggregate
+
+Hourly aggregated retry and circuit breaker statistics. Used by `RetryMetrics`
+for time-series monitoring and trend analysis.
+
+See {doc}`../autoapi/proxywhirl/retry/index` for the full API reference.
+
+(circuitbreakerevent)=
+### CircuitBreakerEvent
+
+Records individual circuit breaker state transitions (CLOSED, OPEN, HALF_OPEN)
+with timestamps and trigger context. Used for observability and debugging.
+
+See {doc}`../autoapi/proxywhirl/retry/index` for the full API reference.
+
 :::{seealso}
 - {doc}`../autoapi/proxywhirl/circuit_breaker/index` -- circuit breaker API reference
 - {doc}`../autoapi/proxywhirl/retry/index` -- retry API reference
@@ -299,6 +352,7 @@ for observability.
 
 ---
 
+(browserrenderer)=
 ## Browser Renderer
 
 `BrowserRenderer` uses Playwright for proxy sources that require full JavaScript

@@ -154,7 +154,7 @@ def mask_secret_str(secret: Any) -> str:
         secret: SecretStr instance or string to mask
 
     Returns:
-        Masked string showing "***"
+        str: Masked value (always ``"***"``).
     """
     from pydantic import SecretStr
 
@@ -348,7 +348,7 @@ def parse_proxy_url(url: str) -> dict[str, Any]:
         url: Proxy URL to parse
 
     Returns:
-        Dictionary with protocol, host, port, username, password
+        dict[str, Any]: Parsed URL components with protocol, host, port, username, password.
 
     Raises:
         ValueError: If URL is invalid

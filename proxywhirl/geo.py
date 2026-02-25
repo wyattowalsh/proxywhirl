@@ -40,7 +40,7 @@ def geolocate_with_database(ips: list[str], db_path: Path) -> dict[str, dict[str
         db_path: Path to GeoLite2-Country.mmdb file
 
     Returns:
-        Dictionary mapping IP to geo info {country, countryCode}
+        dict[str, dict[str, str]]: Mapping of IP to geo info with country and countryCode keys.
     """
     try:
         import geoip2.database
@@ -89,7 +89,7 @@ async def geolocate_with_api(
         max_batches: Maximum number of batches to process
 
     Returns:
-        Dictionary mapping IP to geo info {country, countryCode}
+        dict[str, dict[str, str]]: Mapping of IP to geo info with country and countryCode keys.
     """
     results: dict[str, dict[str, str]] = {}
     unique_ips = list(set(ips))[: batch_size * max_batches]
@@ -148,7 +148,7 @@ async def batch_geolocate(
         db_path: Optional explicit path to GeoLite2 database
 
     Returns:
-        Dictionary mapping IP to geo info {country, countryCode}
+        dict[str, dict[str, str]]: Mapping of IP to geo info with country and countryCode keys.
     """
     if not ips:
         return {}

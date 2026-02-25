@@ -319,8 +319,8 @@ class ProxyWhirlMCPServer:
     This server exposes proxy management functionality to AI assistants
     via the Model Context Protocol using FastMCP's decorator-based API.
 
-    Example:
-        ```python
+    Example::
+
         # Basic usage
         server = ProxyWhirlMCPServer()
         server.run()
@@ -330,7 +330,6 @@ class ProxyWhirlMCPServer:
         server = ProxyWhirlMCPServer(proxy_manager=rotator)
         await server.initialize()  # Must call for async setup
         server.run()
-        ```
     """
 
     def __init__(self, proxy_manager: Any = None) -> None:
@@ -455,7 +454,7 @@ async def _list_proxies_impl(ctx: Any = None) -> dict[str, Any]:
         ctx: FastMCP Context for logging (optional)
 
     Returns:
-        Dictionary containing proxy list and statistics
+        dict[str, Any]: Proxy list and pool statistics.
     """
     rotator = await get_rotator()
 
@@ -500,7 +499,7 @@ async def _rotate_proxy_impl(ctx: Any = None) -> dict[str, Any]:
         ctx: FastMCP Context for logging (optional)
 
     Returns:
-        Dictionary containing selected proxy information
+        dict[str, Any]: Selected proxy information.
     """
     rotator = await get_rotator()
 
@@ -531,7 +530,7 @@ async def _proxy_status_impl(proxy_id: str, ctx: Any = None) -> dict[str, Any]:
         ctx: FastMCP Context for logging (optional)
 
     Returns:
-        Dictionary containing proxy status and metrics
+        dict[str, Any]: Proxy status and metrics.
     """
     if not proxy_id:
         return {"error": "proxy_id is required", "code": 400}
@@ -600,7 +599,7 @@ async def _recommend_proxy_impl(
         ctx: FastMCP Context for logging (optional)
 
     Returns:
-        Dictionary containing recommendation and alternatives
+        dict[str, Any]: Recommendation and alternatives.
     """
     if performance and performance not in ["high", "medium", "low"]:
         return {
@@ -698,7 +697,7 @@ async def _get_health_impl(ctx: Any = None) -> dict[str, Any]:
         ctx: FastMCP Context for logging (optional)
 
     Returns:
-        Dictionary containing health metrics and status
+        dict[str, Any]: Health metrics and pool status.
     """
     from datetime import datetime, timezone
 
@@ -762,7 +761,7 @@ async def _reset_circuit_breaker_impl(proxy_id: str, ctx: Any = None) -> dict[st
         ctx: FastMCP Context for logging (optional)
 
     Returns:
-        Dictionary containing reset confirmation or error
+        dict[str, Any]: Reset confirmation or error.
     """
     if not proxy_id:
         return {"error": "proxy_id is required", "code": 400}
@@ -805,7 +804,7 @@ async def _add_proxy_impl(proxy_url: str, ctx: Any = None) -> dict[str, Any]:
         ctx: FastMCP Context for logging (optional)
 
     Returns:
-        Dictionary containing the added proxy info or error
+        dict[str, Any]: Added proxy info or error.
     """
     from uuid import uuid4
 
@@ -865,7 +864,7 @@ async def _remove_proxy_impl(proxy_id: str, ctx: Any = None) -> dict[str, Any]:
         ctx: FastMCP Context for logging (optional)
 
     Returns:
-        Dictionary containing removal confirmation or error
+        dict[str, Any]: Removal confirmation or error.
     """
     from uuid import UUID
 
@@ -918,7 +917,7 @@ async def _fetch_proxies_impl(
         ctx: FastMCP Context for logging/progress (optional)
 
     Returns:
-        Dictionary containing fetch results
+        dict[str, Any]: Fetch results.
     """
     rotator = await get_rotator()
     initial_size = rotator.pool.size
@@ -965,7 +964,7 @@ async def _validate_proxy_impl(
         ctx: FastMCP Context for logging/progress (optional)
 
     Returns:
-        Dictionary containing validation results
+        dict[str, Any]: Validation results.
     """
     from uuid import UUID
 
@@ -1070,7 +1069,7 @@ async def _set_strategy_impl(strategy: str, ctx: Any = None) -> dict[str, Any]:
         ctx: FastMCP Context for logging (optional)
 
     Returns:
-        Dictionary containing strategy change confirmation
+        dict[str, Any]: Strategy change confirmation.
     """
     if not strategy:
         return {"error": "strategy is required", "code": 400}
@@ -1150,7 +1149,7 @@ async def _proxywhirl_tool(
         ctx: FastMCP v2 Context for logging/progress (injected by FastMCP)
 
     Returns:
-        Operation result as dictionary
+        dict[str, Any]: Operation result.
     """
     # Auth check for direct calls (middleware handles MCP calls)
     # Only check auth if ctx is None (direct call, not via MCP)
@@ -1416,7 +1415,7 @@ async def list_proxies(api_key: str | None = None) -> dict[str, Any]:
         api_key: Optional API key for authentication
 
     Returns:
-        Dictionary containing proxy list and statistics
+        dict[str, Any]: Proxy list and pool statistics.
     """
     # Auth check for direct API calls (not via MCP middleware)
     auth = get_auth()
@@ -1432,7 +1431,7 @@ async def rotate_proxy(api_key: str | None = None) -> dict[str, Any]:
         api_key: Optional API key for authentication
 
     Returns:
-        Dictionary containing selected proxy information
+        dict[str, Any]: Selected proxy information.
     """
     auth = get_auth()
     if not auth.authenticate({"api_key": api_key}):
@@ -1448,7 +1447,7 @@ async def proxy_status(proxy_id: str, api_key: str | None = None) -> dict[str, A
         api_key: Optional API key for authentication
 
     Returns:
-        Dictionary containing proxy status and metrics
+        dict[str, Any]: Proxy status and metrics.
     """
     auth = get_auth()
     if not auth.authenticate({"api_key": api_key}):
@@ -1469,7 +1468,7 @@ async def recommend_proxy(
         api_key: Optional API key for authentication
 
     Returns:
-        Dictionary containing recommendation and alternatives
+        dict[str, Any]: Recommendation and alternatives.
     """
     auth = get_auth()
     if not auth.authenticate({"api_key": api_key}):
@@ -1498,7 +1497,7 @@ async def get_rate_limit_status(proxy_id: str, api_key: str | None = None) -> di
         api_key: Optional API key for authentication
 
     Returns:
-        Dictionary containing rate limit information
+        dict[str, Any]: Rate limit information.
     """
     from uuid import UUID
 

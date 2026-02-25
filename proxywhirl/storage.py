@@ -270,8 +270,8 @@ class SQLiteStorage:
         - EMA-based response time tracking
         - Health status state machine (unknown → healthy/unhealthy/dead)
 
-    Example:
-        ```python
+    Example::
+
         storage = SQLiteStorage("proxies.db")
         await storage.initialize()
 
@@ -291,7 +291,6 @@ class SQLiteStorage:
         stats = await storage.get_stats()
 
         await storage.close()
-        ```
     """
 
     def __init__(
@@ -979,7 +978,7 @@ class SQLiteStorage:
             vacuum: Run VACUUM after cleanup to reclaim space
 
         Returns:
-            Dictionary with counts of removed items by category
+            dict[str, int]: Counts of removed items by category (dead, stale, never_validated).
         """
         counts: dict[str, int] = {}
 
@@ -1076,7 +1075,7 @@ class SQLiteStorage:
         """Get database statistics.
 
         Returns:
-            Dictionary with comprehensive database statistics
+            dict[str, Any]: Comprehensive database statistics.
         """
         stats: dict[str, Any] = {}
 

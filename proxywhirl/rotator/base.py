@@ -78,7 +78,7 @@ class ProxyRotatorBase:
             proxy: Proxy to convert
 
         Returns:
-            Dictionary with proxy URL for httpx (keys: "http://", "https://")
+            dict[str, str]: Proxy URL for httpx with keys "http://" and "https://"
 
         Example:
             >>> proxy = Proxy(url="http://proxy.example.com:8080")
@@ -245,7 +245,7 @@ class ProxyRotatorBase:
         Get circuit breaker states for all proxies.
 
         Returns:
-            Dictionary mapping proxy IDs to their circuit breaker instances
+            dict[str, CircuitBreaker]: Mapping of proxy IDs to their circuit breaker instances.
 
         Note:
             Returns a copy to prevent external modification.
@@ -282,15 +282,9 @@ class ProxyRotatorBase:
         Get statistics about the proxy pool.
 
         Returns:
-            Dictionary containing pool statistics:
-            - total_proxies: Total number of proxies
-            - healthy_proxies: Number of healthy/unknown proxies
-            - unhealthy_proxies: Number of unhealthy proxies
-            - dead_proxies: Number of dead proxies
-            - total_requests: Total requests across all proxies
-            - total_successes: Total successful requests
-            - total_failures: Total failed requests
-            - average_success_rate: Average success rate across all proxies
+            dict[str, Any]: Pool statistics including total_proxies, healthy_proxies,
+            unhealthy_proxies, dead_proxies, total_requests, total_successes,
+            total_failures, and average_success_rate.
         """
         from proxywhirl.models import HealthStatus
 
@@ -335,9 +329,8 @@ class ProxyRotatorBase:
         Get comprehensive statistics including source breakdown (FR-050).
 
         Returns:
-            Dictionary containing:
-            - All stats from get_pool_stats()
-            - source_breakdown: Count of proxies by source (USER, FETCHED, etc.)
+            dict[str, Any]: All stats from get_pool_stats() plus source_breakdown
+            mapping source names to proxy counts.
         """
         stats = self.get_pool_stats()
         stats["source_breakdown"] = self.pool.get_source_breakdown()

@@ -17,8 +17,8 @@ Best Practices:
 - Use check_pending_migrations() in CI/CD
 - Call run_migrations() on application startup
 
-Example:
-    ```python
+Example::
+
     from proxywhirl.migrations import run_migrations, get_current_revision
 
     # Run all pending migrations
@@ -27,7 +27,6 @@ Example:
     # Check current version
     revision = await get_current_revision("sqlite+aiosqlite:///./mydb.db")
     print(f"Database at revision: {revision}")
-    ```
 """
 
 from __future__ import annotations
@@ -87,8 +86,8 @@ async def run_migrations(database_url: str | None = None, target_revision: str =
         ValueError: If target revision is invalid
         Exception: If migration fails
 
-    Example:
-        ```python
+    Example::
+
         # Migrate to latest
         await run_migrations("sqlite+aiosqlite:///./proxywhirl.db")
 
@@ -97,7 +96,6 @@ async def run_migrations(database_url: str | None = None, target_revision: str =
 
         # Rollback one revision
         await run_migrations("sqlite+aiosqlite:///./db.sqlite", "-1")
-        ```
     """
     config = _get_alembic_config(database_url)
 
@@ -125,8 +123,8 @@ async def downgrade_migrations(
         ValueError: If target revision is invalid
         Exception: If downgrade fails
 
-    Example:
-        ```python
+    Example::
+
         # Downgrade one revision
         await downgrade_migrations("sqlite+aiosqlite:///./db.sqlite")
 
@@ -135,7 +133,6 @@ async def downgrade_migrations(
 
         # Rollback all migrations
         await downgrade_migrations("sqlite+aiosqlite:///./db.sqlite", "base")
-        ```
     """
     config = _get_alembic_config(database_url)
     await asyncio.get_event_loop().run_in_executor(None, command.downgrade, config, target_revision)
@@ -150,14 +147,13 @@ async def get_current_revision(database_url: str | None = None) -> str | None:
     Returns:
         Current revision ID, or None if database is uninitialized
 
-    Example:
-        ```python
+    Example::
+
         revision = await get_current_revision("sqlite+aiosqlite:///./db.sqlite")
         if revision:
             print(f"Database at revision: {revision}")
         else:
             print("Database not initialized")
-        ```
     """
     config = _get_alembic_config(database_url)
     url = config.get_main_option("sqlalchemy.url")
@@ -190,13 +186,12 @@ async def get_head_revision(database_url: str | None = None) -> str:
     Returns:
         Head revision ID
 
-    Example:
-        ```python
+    Example::
+
         head = await get_head_revision()
         current = await get_current_revision()
         if head != current:
             print(f"Migrations pending: {current} -> {head}")
-        ```
     """
     config = _get_alembic_config(database_url)
     script_dir = ScriptDirectory.from_config(config)
@@ -219,12 +214,11 @@ async def check_pending_migrations(database_url: str | None = None) -> bool:
     Returns:
         True if pending migrations exist, False otherwise
 
-    Example:
-        ```python
+    Example::
+
         if await check_pending_migrations("sqlite+aiosqlite:///./db.sqlite"):
             print("WARNING: Pending migrations detected!")
             await run_migrations()
-        ```
     """
     current = await get_current_revision(database_url)
     head = await get_head_revision(database_url)
@@ -249,11 +243,10 @@ async def initialize_database(database_url: str | None = None) -> None:
     Raises:
         Exception: If database already has schema or initialization fails
 
-    Example:
-        ```python
+    Example::
+
         # Initialize new database
         await initialize_database("sqlite+aiosqlite:///./newdb.sqlite")
-        ```
     """
     current = await get_current_revision(database_url)
 
@@ -274,14 +267,13 @@ async def get_migration_history(
         database_url: SQLAlchemy async database URL
 
     Returns:
-        List of migration info dicts with keys: revision, down_revision, description
+        list[dict[str, str | None]]: Migration records with keys revision, down_revision, description.
 
-    Example:
-        ```python
+    Example::
+
         history = await get_migration_history()
         for migration in history:
             print(f"{migration['revision']}: {migration['description']}")
-        ```
     """
     config = _get_alembic_config(database_url)
     script_dir = ScriptDirectory.from_config(config)
@@ -312,11 +304,10 @@ async def stamp_revision(database_url: str | None = None, revision: str = "head"
         database_url: SQLAlchemy async database URL
         revision: Revision to stamp database with
 
-    Example:
-        ```python
+    Example::
+
         # Stamp database as being at head revision
         await stamp_revision("sqlite+aiosqlite:///./db.sqlite", "head")
-        ```
     """
     config = _get_alembic_config(database_url)
     await asyncio.get_event_loop().run_in_executor(None, command.stamp, config, revision)

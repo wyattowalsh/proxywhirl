@@ -80,7 +80,7 @@ async def generate_rich_proxies(
             Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.
 
     Returns:
-        Dictionary containing proxies with metadata and aggregations
+        dict[str, Any]: Proxies with metadata and aggregations.
     """
     if max_age_hours > 0:
         proxies_data = await storage.load_validated(max_age_hours)
@@ -240,8 +240,8 @@ def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
         proxy_dir: Path to directory containing proxy list files
 
     Returns:
-        Dictionary containing all dashboard statistics including health,
-        performance, validation, geographic, and source ranking data
+        dict[str, Any]: Dashboard statistics including health, performance,
+        validation, geographic, and source ranking data.
     """
     # Read existing metadata
     metadata_path = proxy_dir / "metadata.json"
@@ -414,7 +414,7 @@ async def generate_proxy_lists(
             Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.
 
     Returns:
-        Dictionary mapping protocol to proxy count
+        dict[str, int]: Mapping of protocol name to proxy count.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -516,7 +516,7 @@ async def export_for_web(
             Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.
 
     Returns:
-        Dictionary mapping output type to file path
+        dict[str, Path]: Mapping of output type to file path.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
     outputs: dict[str, Path] = {}

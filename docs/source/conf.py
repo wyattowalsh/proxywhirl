@@ -52,7 +52,6 @@ autoapi_options = [
     "members",
     "show-inheritance",
     "show-module-summary",
-    "imported-members",
 ]
 autoapi_ignore = ["*/tests/*", "*/_version*"]
 autoapi_keep_files = True
@@ -150,11 +149,41 @@ nitpick_ignore = [
     ("py:class", "TierType"),
     ("py:class", "Path"),
     ("py:class", "SecretStr"),
+    ("py:class", "Browser"),
+    ("py:class", "BrowserContext"),
+    ("py:class", "Page"),
+    ("py:class", "Context"),
+    ("py:class", "AsyncEngine"),
+    ("py:class", "T"),
+    ("py:class", "DispatchFunction"),
+    ("py:class", "Ellipsis"),
+    ("py:exc", "HTTPException"),
+    ("py:exc", "InvalidToken"),
+    ("py:obj", "T"),
 ]
 
 nitpick_ignore_regex = [
     (r"py:.*", r"proxywhirl\..*"),
     (r"py:.*", r"pydantic\..*"),
+    # External packages without objects.inv
+    (r"py:.*", r"httpx\..*"),
+    (r"py:.*", r"textual\..*"),
+    (r"py:.*", r"starlette\..*"),
+    (r"py:.*", r"playwright\..*"),
+    (r"py:.*", r"typer\..*"),
+    (r"py:.*", r"sqlalchemy\..*"),
+    (r"py:.*", r"sqlmodel\..*"),
+    (r"py:.*", r"alembic\..*"),
+    (r"py:.*", r"fastapi\..*"),
+    (r"py:.*", r"slowapi\..*"),
+    (r"py:.*", r"loguru\..*"),
+    (r"py:.*", r"tenacity\..*"),
+    (r"py:.*", r"rich\..*"),
+    (r"py:.*", r"cryptography\..*"),
+    (r"py:.*", r"click\..*"),
+    (r"py:.*", r"fastmcp\..*"),
+    (r"py:.*", r"prometheus_client\..*"),
+    (r"py:.*", r"pydantic_settings\..*"),
 ]
 
 todo_include_todos = False
