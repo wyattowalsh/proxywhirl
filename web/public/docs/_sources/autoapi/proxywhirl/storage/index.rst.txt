@@ -144,29 +144,27 @@ Module Contents
        - EMA-based response time tracking
        - Health status state machine (unknown → healthy/unhealthy/dead)
 
-   .. rubric:: Example
+   Example::
 
-   ```python
-   storage = SQLiteStorage("proxies.db")
-   await storage.initialize()
+       storage = SQLiteStorage("proxies.db")
+       await storage.initialize()
 
-   # Add proxies
-   await storage.add_proxy(proxy)
-   added, skipped = await storage.add_proxies_batch(proxies)
+       # Add proxies
+       await storage.add_proxy(proxy)
+       added, skipped = await storage.add_proxies_batch(proxies)
 
-   # Record validation results
-   await storage.record_validation(proxy_url, is_valid=True, response_time_ms=150)
+       # Record validation results
+       await storage.record_validation(proxy_url, is_valid=True, response_time_ms=150)
 
-   # Query proxies
-   healthy = await storage.get_healthy_proxies(max_age_hours=48)
-   dead = await storage.get_proxies_by_status("dead")
+       # Query proxies
+       healthy = await storage.get_healthy_proxies(max_age_hours=48)
+       dead = await storage.get_proxies_by_status("dead")
 
-   # Cleanup and stats
-   counts = await storage.cleanup(remove_dead=True, remove_stale_days=7)
-   stats = await storage.get_stats()
+       # Cleanup and stats
+       counts = await storage.cleanup(remove_dead=True, remove_stale_days=7)
+       stats = await storage.get_stats()
 
-   await storage.close()
-   ```
+       await storage.close()
 
    Initialize SQLite storage with connection pooling.
 
@@ -221,7 +219,8 @@ Module Contents
       :param remove_never_validated: Remove proxies that have never been validated
       :param vacuum: Run VACUUM after cleanup to reclaim space
 
-      :returns: Dictionary with counts of removed items by category
+      :returns: Counts of removed items by category (dead, stale, never_validated).
+      :rtype: dict[str, int]
 
 
 
@@ -289,7 +288,8 @@ Module Contents
 
       Get database statistics.
 
-      :returns: Dictionary with comprehensive database statistics
+      :returns: Comprehensive database statistics.
+      :rtype: dict[str, Any]
 
 
 

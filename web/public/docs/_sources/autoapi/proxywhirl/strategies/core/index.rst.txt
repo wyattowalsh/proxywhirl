@@ -765,12 +765,9 @@ Module Contents
 
       Get session statistics.
 
-      :returns:
-
-                - total_sessions: Total number of active sessions
-                - max_sessions: Maximum session limit
-                - auto_cleanup_threshold: Operations between auto-cleanups
-      :rtype: Dictionary with session statistics
+      :returns: Session statistics including total_sessions, max_sessions,
+                and auto_cleanup_threshold.
+      :rtype: dict[str, int]
 
 
 

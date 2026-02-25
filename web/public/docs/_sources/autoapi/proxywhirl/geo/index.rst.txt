@@ -41,7 +41,8 @@ Module Contents
    :param max_batches: Maximum API batches to process
    :param db_path: Optional explicit path to GeoLite2 database
 
-   :returns: Dictionary mapping IP to geo info {country, countryCode}
+   :returns: Mapping of IP to geo info with country and countryCode keys.
+   :rtype: dict[str, dict[str, str]]
 
 
 .. py:function:: enrich_proxies_with_geo(proxies, geo_data)
@@ -64,7 +65,8 @@ Module Contents
    :param batch_size: Number of IPs per batch (max 100 for ip-api.com)
    :param max_batches: Maximum number of batches to process
 
-   :returns: Dictionary mapping IP to geo info {country, countryCode}
+   :returns: Mapping of IP to geo info with country and countryCode keys.
+   :rtype: dict[str, dict[str, str]]
 
 
 .. py:function:: geolocate_with_database(ips, db_path)
@@ -74,6 +76,7 @@ Module Contents
    :param ips: List of IP addresses to lookup
    :param db_path: Path to GeoLite2-Country.mmdb file
 
-   :returns: Dictionary mapping IP to geo info {country, countryCode}
+   :returns: Mapping of IP to geo info with country and countryCode keys.
+   :rtype: dict[str, dict[str, str]]
 
 

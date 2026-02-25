@@ -34,8 +34,8 @@ Authoritative resources for the runtime APIs, configuration knobs, and public da
 :::{tab-item} By Class
 | Class | Module | Docs |
 |-------|--------|------|
-| `ProxyWhirl` | `proxywhirl.rotator` | [Sync rotator](python-api.md#proxywhirl) |
-| `AsyncProxyWhirl` | `proxywhirl.rotator` | [Async rotator](python-api.md#asyncproxywhirl) |
+| `ProxyWhirl` | `proxywhirl.rotator` | {ref}`Sync rotator <proxywhirl>` |
+| `AsyncProxyWhirl` | `proxywhirl.rotator` | {ref}`Async rotator <asyncproxywhirl>` |
 | `ProxyFetcher` | `proxywhirl.fetchers` | [Fetcher](python-api.md#proxyfetcher) |
 | `ProxyValidator` | `proxywhirl.fetchers` | [Validator](python-api.md#proxyvalidator) |
 | `CacheManager` | `proxywhirl.cache` | {doc}`Cache API <cache-api>` |
@@ -43,10 +43,10 @@ Authoritative resources for the runtime APIs, configuration knobs, and public da
 | `SyncRateLimiter` | `proxywhirl.rate_limiting` | [Rate Limiting API](rate-limiting-api.md#syncratelimiter) |
 | `AsyncRateLimiter` | `proxywhirl.rate_limiting` | [Rate Limiting API](rate-limiting-api.md#asyncratelimiter) |
 | `CircuitBreaker` | `proxywhirl.circuit_breaker` | {doc}`Retry & Failover <../guides/retry-failover>` |
-| `RetryExecutor` | `proxywhirl.retry` | [Python API](python-api.md#retryexecutor) |
+| `RetryExecutor` | `proxywhirl.retry` | {ref}`Python API <retryexecutor>` |
 | `StrategyRegistry` | `proxywhirl.strategies` | [Python API](python-api.md#strategyregistry) |
 | `StrategyState` | `proxywhirl.strategies` | [Python API](python-api.md#strategystate) |
-| `BrowserRenderer` | `proxywhirl.browser` | [Browser](python-api.md#browserrenderer) |
+| `BrowserRenderer` | `proxywhirl.browser` | {ref}`Browser <browserrenderer>` |
 | `CacheHealthStatus` | `proxywhirl` | [Python API](python-api.md#cachehealthstatus) |
 | `HealthMonitor` | `proxywhirl.models` | [Python API](python-api.md#healthmonitor) |
 | `SourceStats` | `proxywhirl.models` | [Python API](python-api.md#sourcestats) |
@@ -85,11 +85,11 @@ Complete REST endpoint documentation with examples, error codes, and deployment 
 
 Core classes, strategies, models, and utility functions.
 
-- [ProxyWhirl](python-api.md#proxywhirl) -- sync client with context manager
-- [AsyncProxyWhirl](python-api.md#asyncproxywhirl) -- async client, connection pooling
+- {ref}`ProxyWhirl <proxywhirl>` -- sync client with context manager
+- {ref}`AsyncProxyWhirl <asyncproxywhirl>` -- async client, connection pooling
 - [Rotation strategies](python-api.md#rotation-strategies) -- all 9 strategy classes
 - [ProxyFetcher & Validator](python-api.md#proxyfetcher) -- fetch, validate, enrich
-- [BrowserRenderer](python-api.md#browserrenderer) -- Playwright JS-rendered sources
+- {ref}`BrowserRenderer <browserrenderer>` -- Playwright JS-rendered sources
 
 +++
 {bdg-primary}`Python` {bdg-secondary}`httpx`

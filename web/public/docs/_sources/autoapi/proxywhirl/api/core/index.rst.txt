@@ -287,8 +287,8 @@ Module Contents
 
    :param request: FastAPI Request object
 
-   :returns: {hash}" or "ip:{address}"
-   :rtype: Rate limit key in format "apikey
+   :returns: Rate limit key in the form ``apikey:{hash}`` or ``ip:{address}``.
+   :rtype: str
 
 
 .. py:function:: get_retry_metrics(api_key = Depends(verify_api_key))

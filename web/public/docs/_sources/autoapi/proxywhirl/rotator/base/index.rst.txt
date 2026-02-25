@@ -63,7 +63,8 @@ Module Contents
 
       Get circuit breaker states for all proxies.
 
-      :returns: Dictionary mapping proxy IDs to their circuit breaker instances
+      :returns: Mapping of proxy IDs to their circuit breaker instances.
+      :rtype: dict[str, CircuitBreaker]
 
       .. note:: Returns a copy to prevent external modification.
 
@@ -73,17 +74,10 @@ Module Contents
 
       Get statistics about the proxy pool.
 
-      :returns:
-
-                - total_proxies: Total number of proxies
-                - healthy_proxies: Number of healthy/unknown proxies
-                - unhealthy_proxies: Number of unhealthy proxies
-                - dead_proxies: Number of dead proxies
-                - total_requests: Total requests across all proxies
-                - total_successes: Total successful requests
-                - total_failures: Total failed requests
-                - average_success_rate: Average success rate across all proxies
-      :rtype: Dictionary containing pool statistics
+      :returns: Pool statistics including total_proxies, healthy_proxies,
+                unhealthy_proxies, dead_proxies, total_requests, total_successes,
+                total_failures, and average_success_rate.
+      :rtype: dict[str, Any]
 
 
 
@@ -99,11 +93,9 @@ Module Contents
 
       Get comprehensive statistics including source breakdown (FR-050).
 
-      :returns:
-
-                - All stats from get_pool_stats()
-                - source_breakdown: Count of proxies by source (USER, FETCHED, etc.)
-      :rtype: Dictionary containing
+      :returns: All stats from get_pool_stats() plus source_breakdown
+                mapping source names to proxy counts.
+      :rtype: dict[str, Any]
 
 
 

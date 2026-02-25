@@ -30,26 +30,24 @@ Module Contents
    Provides HTTP methods (GET, POST, PUT, DELETE, PATCH) that automatically
    rotate through a pool of proxies, with intelligent failover on connection errors.
 
-   .. rubric:: Example
+   Example::
 
-   ```python
-   from proxywhirl import ProxyWhirl, Proxy
+       from proxywhirl import ProxyWhirl, Proxy
 
-   rotator = ProxyWhirl()
-   rotator.add_proxy("http://proxy1.example.com:8080")
-   rotator.add_proxy("http://proxy2.example.com:8080")
+       rotator = ProxyWhirl()
+       rotator.add_proxy("http://proxy1.example.com:8080")
+       rotator.add_proxy("http://proxy2.example.com:8080")
 
-   response = rotator.get("https://httpbin.org/ip")
-   print(response.json())
-   ```
+       response = rotator.get("https://httpbin.org/ip")
+       print(response.json())
 
    Initialize ProxyWhirl.
 
    :param proxies: Initial list of proxies (optional)
-   :param strategy: Rotation strategy instance or strategy name string
-                    ("round-robin", "random", "weighted", "least-used",
-                     "performance-based", "session", "geo-targeted")
-                    Default: RoundRobinStrategy
+   :param strategy: Rotation strategy instance or name string. Supported
+                    names: ``round-robin``, ``random``, ``weighted``,
+                    ``least-used``, ``performance-based``, ``session``,
+                    ``geo-targeted``. Defaults to RoundRobinStrategy.
    :param config: Configuration settings (default: ProxyConfiguration())
    :param retry_policy: Retry policy configuration (default: RetryPolicy())
    :param rate_limiter: Synchronous rate limiter for controlling request rates (optional)
@@ -136,7 +134,8 @@ Module Contents
 
       Get circuit breaker states for all proxies.
 
-      :returns: Dictionary mapping proxy IDs to their circuit breaker instances
+      :returns: Mapping of proxy IDs to their circuit breaker instances.
+      :rtype: dict[str, CircuitBreaker]
 
 
 
@@ -144,17 +143,10 @@ Module Contents
 
       Get statistics about the proxy pool.
 
-      :returns:
-
-                - total_proxies: Total number of proxies
-                - healthy_proxies: Number of healthy/unknown proxies
-                - unhealthy_proxies: Number of unhealthy proxies
-                - dead_proxies: Number of dead proxies
-                - total_requests: Total requests across all proxies
-                - total_successes: Total successful requests
-                - total_failures: Total failed requests
-                - average_success_rate: Average success rate across all proxies
-      :rtype: Dictionary containing pool statistics
+      :returns: Pool statistics including total_proxies, healthy_proxies,
+                unhealthy_proxies, dead_proxies, total_requests, total_successes,
+                total_failures, and average_success_rate.
+      :rtype: dict[str, Any]
 
 
 
@@ -162,14 +154,9 @@ Module Contents
 
       Get statistics about the request queue.
 
-      :returns:
-
-                - enabled: Whether queuing is enabled
-                - size: Current number of queued requests
-                - max_size: Maximum queue capacity
-                - is_full: Whether queue is at capacity
-                - is_empty: Whether queue is empty
-      :rtype: Dictionary containing queue statistics
+      :returns: Queue statistics including enabled, size, max_size,
+                is_full, and is_empty.
+      :rtype: dict[str, Any]
 
 
 
@@ -185,11 +172,9 @@ Module Contents
 
       Get comprehensive statistics including source breakdown (FR-050).
 
-      :returns:
-
-                - All stats from get_pool_stats()
-                - source_breakdown: Count of proxies by source (USER, FETCHED, etc.)
-      :rtype: Dictionary containing
+      :returns: All stats from get_pool_stats() plus source_breakdown
+                mapping source names to proxy counts.
+      :rtype: dict[str, Any]
 
 
 
@@ -261,9 +246,10 @@ Module Contents
       - No requests are dropped during the swap
       - Swap completes in <100ms (SC-009)
 
-      :param strategy: New strategy instance or strategy name string
-                       ("round-robin", "random", "weighted", "least-used",
-                        "performance-based", "session", "geo-targeted")
+      :param strategy: New strategy instance or name string. Supported
+                       names: ``round-robin``, ``random``, ``weighted``,
+                       ``least-used``, ``performance-based``, ``session``,
+                       ``geo-targeted``.
       :param atomic: If True (default), ensures atomic swap. If False, allows
                      immediate replacement (faster but may affect in-flight requests)
 

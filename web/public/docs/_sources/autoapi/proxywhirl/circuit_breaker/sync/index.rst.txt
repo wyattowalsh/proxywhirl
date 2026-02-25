@@ -39,7 +39,6 @@ Classes
 .. autoapisummary::
 
    proxywhirl.circuit_breaker.sync.CircuitBreaker
-   proxywhirl.circuit_breaker.sync.CircuitBreakerState
 
 
 Module Contents
@@ -141,15 +140,5 @@ Module Contents
 
       :returns: True if proxy should be attempted, False if circuit is open.
 
-
-
-.. py:class:: CircuitBreakerState
-
-   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
-
-
-   Circuit breaker states.
-
-   Initialize self.  See help(type(self)) for accurate signature.
 
 

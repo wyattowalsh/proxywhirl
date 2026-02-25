@@ -52,19 +52,17 @@ Module Contents
    This server exposes proxy management functionality to AI assistants
    via the Model Context Protocol using FastMCP's decorator-based API.
 
-   .. rubric:: Example
+   Example::
 
-   ```python
-   # Basic usage
-   server = ProxyWhirlMCPServer()
-   server.run()
+       # Basic usage
+       server = ProxyWhirlMCPServer()
+       server.run()
 
-   # With custom rotator
-   rotator = AsyncProxyWhirl()
-   server = ProxyWhirlMCPServer(proxy_manager=rotator)
-   await server.initialize()  # Must call for async setup
-   server.run()
-   ```
+       # With custom rotator
+       rotator = AsyncProxyWhirl()
+       server = ProxyWhirlMCPServer(proxy_manager=rotator)
+       await server.initialize()  # Must call for async setup
+       server.run()
 
    Initialize ProxyWhirl MCP server.
 
@@ -135,7 +133,8 @@ Module Contents
    :param proxy_id: UUID of the proxy to check
    :param api_key: Optional API key for authentication
 
-   :returns: Dictionary containing rate limit information
+   :returns: Rate limit information.
+   :rtype: dict[str, Any]
 
 
 .. py:function:: get_rotator()
@@ -159,7 +158,8 @@ Module Contents
 
    :param api_key: Optional API key for authentication
 
-   :returns: Dictionary containing proxy list and statistics
+   :returns: Proxy list and pool statistics.
+   :rtype: dict[str, Any]
 
 
 .. py:function:: main()
@@ -202,7 +202,8 @@ Module Contents
    :param proxy_id: UUID of the proxy to check
    :param api_key: Optional API key for authentication
 
-   :returns: Dictionary containing proxy status and metrics
+   :returns: Proxy status and metrics.
+   :rtype: dict[str, Any]
 
 
 .. py:function:: recommend_proxy(region = None, performance = 'medium', api_key = None)
@@ -215,7 +216,8 @@ Module Contents
    :param performance: Performance tier (high, medium, low)
    :param api_key: Optional API key for authentication
 
-   :returns: Dictionary containing recommendation and alternatives
+   :returns: Recommendation and alternatives.
+   :rtype: dict[str, Any]
 
 
 .. py:function:: rotate_proxy(api_key = None)
@@ -226,7 +228,8 @@ Module Contents
 
    :param api_key: Optional API key for authentication
 
-   :returns: Dictionary containing selected proxy information
+   :returns: Selected proxy information.
+   :rtype: dict[str, Any]
 
 
 .. py:function:: set_auth(auth)

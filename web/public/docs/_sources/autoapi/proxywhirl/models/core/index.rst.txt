@@ -150,14 +150,10 @@ Module Contents
 
       Get current monitoring status.
 
-      :returns:     - is_running: Whether monitor is active
-                    - check_interval: Seconds between checks
-                    - failure_threshold: Failures before eviction
-                    - total_proxies: Count of proxies in pool
-                    - healthy_proxies: Count of healthy proxies
-                    - failure_counts: Dict of proxy URL -> failure count
-                    - uptime_seconds: Monitor runtime (if running)
-      :rtype: Dict containing
+      :returns: Monitoring status including is_running, check_interval,
+                failure_threshold, total_proxies, healthy_proxies, failure_counts,
+                and uptime_seconds (if running).
+      :rtype: dict[str, Any]
 
 
 

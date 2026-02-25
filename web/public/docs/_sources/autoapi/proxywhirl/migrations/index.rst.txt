@@ -24,18 +24,16 @@ proxywhirl.migrations
    - Use check_pending_migrations() in CI/CD
    - Call run_migrations() on application startup
 
-   .. rubric:: Example
+   Example::
 
-   ```python
-   from proxywhirl.migrations import run_migrations, get_current_revision
+       from proxywhirl.migrations import run_migrations, get_current_revision
 
-   # Run all pending migrations
-   await run_migrations("sqlite+aiosqlite:///./mydb.db")
+       # Run all pending migrations
+       await run_migrations("sqlite+aiosqlite:///./mydb.db")
 
-   # Check current version
-   revision = await get_current_revision("sqlite+aiosqlite:///./mydb.db")
-   print(f"Database at revision: {revision}")
-   ```
+       # Check current version
+       revision = await get_current_revision("sqlite+aiosqlite:///./mydb.db")
+       print(f"Database at revision: {revision}")
 
 
 
@@ -69,13 +67,11 @@ Module Contents
 
    :returns: True if pending migrations exist, False otherwise
 
-   .. rubric:: Example
+   Example::
 
-   ```python
-   if await check_pending_migrations("sqlite+aiosqlite:///./db.sqlite"):
-       print("WARNING: Pending migrations detected!")
-       await run_migrations()
-   ```
+       if await check_pending_migrations("sqlite+aiosqlite:///./db.sqlite"):
+           print("WARNING: Pending migrations detected!")
+           await run_migrations()
 
 
 .. py:function:: downgrade_migrations(database_url = None, target_revision = '-1')
@@ -95,18 +91,16 @@ Module Contents
    :raises ValueError: If target revision is invalid
    :raises Exception: If downgrade fails
 
-   .. rubric:: Example
+   Example::
 
-   ```python
-   # Downgrade one revision
-   await downgrade_migrations("sqlite+aiosqlite:///./db.sqlite")
+       # Downgrade one revision
+       await downgrade_migrations("sqlite+aiosqlite:///./db.sqlite")
 
-   # Downgrade to specific revision
-   await downgrade_migrations("sqlite+aiosqlite:///./db.sqlite", "58c0fadfa0ca")
+       # Downgrade to specific revision
+       await downgrade_migrations("sqlite+aiosqlite:///./db.sqlite", "58c0fadfa0ca")
 
-   # Rollback all migrations
-   await downgrade_migrations("sqlite+aiosqlite:///./db.sqlite", "base")
-   ```
+       # Rollback all migrations
+       await downgrade_migrations("sqlite+aiosqlite:///./db.sqlite", "base")
 
 
 .. py:function:: get_current_revision(database_url = None)
@@ -119,15 +113,13 @@ Module Contents
 
    :returns: Current revision ID, or None if database is uninitialized
 
-   .. rubric:: Example
+   Example::
 
-   ```python
-   revision = await get_current_revision("sqlite+aiosqlite:///./db.sqlite")
-   if revision:
-       print(f"Database at revision: {revision}")
-   else:
-       print("Database not initialized")
-   ```
+       revision = await get_current_revision("sqlite+aiosqlite:///./db.sqlite")
+       if revision:
+           print(f"Database at revision: {revision}")
+       else:
+           print("Database not initialized")
 
 
 .. py:function:: get_head_revision(database_url = None)
@@ -140,14 +132,12 @@ Module Contents
 
    :returns: Head revision ID
 
-   .. rubric:: Example
+   Example::
 
-   ```python
-   head = await get_head_revision()
-   current = await get_current_revision()
-   if head != current:
-       print(f"Migrations pending: {current} -> {head}")
-   ```
+       head = await get_head_revision()
+       current = await get_current_revision()
+       if head != current:
+           print(f"Migrations pending: {current} -> {head}")
 
 
 .. py:function:: get_migration_history(database_url = None)
@@ -158,16 +148,14 @@ Module Contents
 
    :param database_url: SQLAlchemy async database URL
 
-   :returns: revision, down_revision, description
-   :rtype: List of migration info dicts with keys
+   :returns: Migration records with keys revision, down_revision, description.
+   :rtype: list[dict[str, str | None]]
 
-   .. rubric:: Example
+   Example::
 
-   ```python
-   history = await get_migration_history()
-   for migration in history:
-       print(f"{migration['revision']}: {migration['description']}")
-   ```
+       history = await get_migration_history()
+       for migration in history:
+           print(f"{migration['revision']}: {migration['description']}")
 
 
 .. py:function:: initialize_database(database_url = None)
@@ -184,12 +172,10 @@ Module Contents
 
    :raises Exception: If database already has schema or initialization fails
 
-   .. rubric:: Example
+   Example::
 
-   ```python
-   # Initialize new database
-   await initialize_database("sqlite+aiosqlite:///./newdb.sqlite")
-   ```
+       # Initialize new database
+       await initialize_database("sqlite+aiosqlite:///./newdb.sqlite")
 
 
 .. py:function:: run_migrations(database_url = None, target_revision = 'head')
@@ -212,18 +198,16 @@ Module Contents
    :raises ValueError: If target revision is invalid
    :raises Exception: If migration fails
 
-   .. rubric:: Example
+   Example::
 
-   ```python
-   # Migrate to latest
-   await run_migrations("sqlite+aiosqlite:///./proxywhirl.db")
+       # Migrate to latest
+       await run_migrations("sqlite+aiosqlite:///./proxywhirl.db")
 
-   # Migrate to specific revision
-   await run_migrations("sqlite+aiosqlite:///./db.sqlite", "58c0fadfa0ca")
+       # Migrate to specific revision
+       await run_migrations("sqlite+aiosqlite:///./db.sqlite", "58c0fadfa0ca")
 
-   # Rollback one revision
-   await run_migrations("sqlite+aiosqlite:///./db.sqlite", "-1")
-   ```
+       # Rollback one revision
+       await run_migrations("sqlite+aiosqlite:///./db.sqlite", "-1")
 
 
 .. py:function:: stamp_revision(database_url = None, revision = 'head')
@@ -240,11 +224,9 @@ Module Contents
    :param database_url: SQLAlchemy async database URL
    :param revision: Revision to stamp database with
 
-   .. rubric:: Example
+   Example::
 
-   ```python
-   # Stamp database as being at head revision
-   await stamp_revision("sqlite+aiosqlite:///./db.sqlite", "head")
-   ```
+       # Stamp database as being at head revision
+       await stamp_revision("sqlite+aiosqlite:///./db.sqlite", "head")
 
 

@@ -41,7 +41,8 @@ Module Contents
    :param max_age_hours: Only include proxies validated within this time window.
                          Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.
 
-   :returns: Dictionary mapping output type to file path
+   :returns: Mapping of output type to file path.
+   :rtype: dict[str, Path]
 
 
 .. py:function:: generate_proxy_lists(storage, output_dir, max_age_hours = 72)
@@ -61,7 +62,8 @@ Module Contents
    :param max_age_hours: Only include proxies validated within this time window.
                          Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.
 
-   :returns: Dictionary mapping protocol to proxy count
+   :returns: Mapping of protocol name to proxy count.
+   :rtype: dict[str, int]
 
 
 .. py:function:: generate_rich_proxies(storage, include_geo = True, geo_sample_size = 5000, max_age_hours = 72)
@@ -76,7 +78,8 @@ Module Contents
    :param max_age_hours: Only include proxies validated within this time window.
                          Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.
 
-   :returns: Dictionary containing proxies with metadata and aggregations
+   :returns: Proxies with metadata and aggregations.
+   :rtype: dict[str, Any]
 
 
 .. py:function:: generate_stats_from_files(proxy_dir)
@@ -85,8 +88,9 @@ Module Contents
 
    :param proxy_dir: Path to directory containing proxy list files
 
-   :returns: Dictionary containing all dashboard statistics including health,
-             performance, validation, geographic, and source ranking data
+   :returns: Dashboard statistics including health, performance,
+             validation, geographic, and source ranking data.
+   :rtype: dict[str, Any]
 
 
 .. py:function:: parse_proxy_url(url)

@@ -161,7 +161,8 @@ Module Contents
 
    :param secret: SecretStr instance or string to mask
 
-   :returns: Masked string showing "***"
+   :returns: Masked value (always ``"***"``).
+   :rtype: str
 
 
 .. py:function:: parse_proxy_url(url)
@@ -170,7 +171,8 @@ Module Contents
 
    :param url: Proxy URL to parse
 
-   :returns: Dictionary with protocol, host, port, username, password
+   :returns: Parsed URL components with protocol, host, port, username, password.
+   :rtype: dict[str, Any]
 
    :raises ValueError: If URL is invalid
 
