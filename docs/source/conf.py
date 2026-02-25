@@ -202,6 +202,9 @@ linkcheck_ignore = [
     r"https?://api\.example\.com.*",  # Example API URLs
     r"https?://example\.com.*",  # Example domains
     r"https?://httpbin\.org.*",  # External test service (may be flaky in CI)
+    r"http://host:port",  # False positive: placeholder in docstrings
+    r"http://ip:port",  # False positive: placeholder in docstrings
+    r"http://env\.py",  # False positive: env.py heading parsed as URL
 ]
 linkcheck_anchors = False  # Don't check anchors (can be slow/flaky)
 
