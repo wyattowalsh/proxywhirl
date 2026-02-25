@@ -1,0 +1,179 @@
+proxywhirl.metrics_collector
+============================
+
+.. py:module:: proxywhirl.metrics_collector
+
+.. autoapi-nested-parse::
+
+   Prometheus metrics collector for ProxyWhirl.
+
+   This module provides centralized Prometheus metrics collection for monitoring
+   proxy pool health, request performance, and circuit breaker states.
+
+   Metrics exposed:
+   - proxywhirl_requests_total: Counter for total requests
+   - proxywhirl_request_duration_seconds: Histogram for request latency
+   - proxywhirl_proxy_health_status: Gauge for proxy health (1=healthy, 0=unhealthy)
+   - proxywhirl_active_proxies: Gauge for number of active proxies
+   - proxywhirl_circuit_breaker_state: Gauge for circuit breaker states
+
+   Usage:
+       from proxywhirl.metrics_collector import MetricsCollector
+
+       collector = MetricsCollector()
+       collector.record_request("success", duration=1.5, proxy_id="proxy-1")
+       collector.update_proxy_health("proxy-1", is_healthy=True)
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.metrics_collector.MetricsCollector
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.metrics_collector.clear_proxy_metrics
+   proxywhirl.metrics_collector.get_metrics_collector
+   proxywhirl.metrics_collector.record_request
+   proxywhirl.metrics_collector.reset_metrics_collector
+   proxywhirl.metrics_collector.update_active_proxies
+   proxywhirl.metrics_collector.update_circuit_breaker_state
+   proxywhirl.metrics_collector.update_proxy_health
+
+
+Module Contents
+---------------
+
+.. py:class:: MetricsCollector(registry = None)
+
+   Centralized Prometheus metrics collector for ProxyWhirl.
+
+   This class provides a clean API for recording metrics throughout the application.
+   All metrics follow Prometheus naming conventions and best practices.
+
+   Initialize Prometheus metrics collectors.
+
+   :param registry: Optional custom registry. If None, uses the default REGISTRY.
+                    This allows for isolated testing without metric collisions.
+
+
+   .. py:method:: clear_proxy_metrics(proxy_id)
+
+      Clear all metrics for a specific proxy.
+
+      This should be called when a proxy is removed from the pool to prevent
+      stale metrics from persisting.
+
+      :param proxy_id: Identifier of the proxy to clear
+
+
+
+   .. py:method:: record_request(status, duration, proxy_id)
+
+      Record a request made through a proxy.
+
+      :param status: Request status (success, error, timeout)
+      :param duration: Request duration in seconds
+      :param proxy_id: Identifier of the proxy used
+
+
+
+   .. py:method:: update_active_proxies(count)
+
+      Update the count of active proxies in the pool.
+
+      :param count: Number of active proxies
+
+
+
+   .. py:method:: update_circuit_breaker_state(proxy_id, state)
+
+      Update circuit breaker state for a specific proxy.
+
+      :param proxy_id: Identifier of the proxy
+      :param state: Circuit breaker state (closed=0, open=1, half-open=2)
+
+
+
+   .. py:method:: update_proxy_health(proxy_id, is_healthy)
+
+      Update health status for a specific proxy.
+
+      :param proxy_id: Identifier of the proxy
+      :param is_healthy: True if proxy is healthy, False otherwise
+
+
+
+.. py:function:: clear_proxy_metrics(proxy_id)
+
+   Clear all metrics for a specific proxy.
+
+   Convenience function that uses the global collector.
+
+   :param proxy_id: Identifier of the proxy to clear
+
+
+.. py:function:: get_metrics_collector()
+
+   Get the global MetricsCollector singleton.
+
+   :returns: The global metrics collector instance
+   :rtype: MetricsCollector
+
+
+.. py:function:: record_request(status, duration, proxy_id)
+
+   Record a request made through a proxy.
+
+   Convenience function that uses the global collector.
+
+   :param status: Request status (success, error, timeout)
+   :param duration: Request duration in seconds
+   :param proxy_id: Identifier of the proxy used
+
+
+.. py:function:: reset_metrics_collector()
+
+   Reset the global MetricsCollector singleton.
+
+   This is primarily used for testing to ensure test isolation.
+   Calling this function clears the global collector reference,
+   allowing a new instance to be created on next access.
+
+
+.. py:function:: update_active_proxies(count)
+
+   Update the count of active proxies in the pool.
+
+   Convenience function that uses the global collector.
+
+   :param count: Number of active proxies
+
+
+.. py:function:: update_circuit_breaker_state(proxy_id, state)
+
+   Update circuit breaker state for a specific proxy.
+
+   Convenience function that uses the global collector.
+
+   :param proxy_id: Identifier of the proxy
+   :param state: Circuit breaker state (closed=0, open=1, half-open=2)
+
+
+.. py:function:: update_proxy_health(proxy_id, is_healthy)
+
+   Update health status for a specific proxy.
+
+   Convenience function that uses the global collector.
+
+   :param proxy_id: Identifier of the proxy
+   :param is_healthy: True if proxy is healthy, False otherwise
+
+

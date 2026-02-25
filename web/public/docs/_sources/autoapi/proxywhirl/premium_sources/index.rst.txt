@@ -1,0 +1,135 @@
+proxywhirl.premium_sources
+==========================
+
+.. py:module:: proxywhirl.premium_sources
+
+.. autoapi-nested-parse::
+
+   ProxyWhirl data sources with comprehensive validation.
+
+   This module extends the existing built-in sources with additional premium
+   providers and validation using Pydantic.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.premium_sources.PremiumProxyConfig
+   proxywhirl.premium_sources.ProxySourceList
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.premium_sources.create_premium_proxy_source
+   proxywhirl.premium_sources.list_premium_providers
+
+
+Module Contents
+---------------
+
+.. py:class:: PremiumProxyConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Validated proxy source configuration for premium providers.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: validate_protocol(v)
+      :classmethod:
+
+
+      Validate protocol type.
+
+
+
+   .. py:method:: validate_region(v)
+      :classmethod:
+
+
+      Validate region is a known region code.
+
+
+
+.. py:class:: ProxySourceList(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Collection of validated proxy sources.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: add_source(url, **kwargs)
+
+      Add a validated proxy source.
+
+
+
+   .. py:method:: get_by_protocol(protocol)
+
+      Get proxies by protocol type.
+
+
+
+   .. py:method:: get_by_provider(provider)
+
+      Get proxies from a specific provider.
+
+
+
+   .. py:method:: get_by_region(region)
+
+      Get proxies for a specific region.
+
+
+
+.. py:function:: create_premium_proxy_source(provider, username, password, region = None)
+
+   Create a validated proxy source from a premium provider.
+
+   :param provider: Provider name (e.g., 'brightdata', 'oxylabs', 'smartproxy')
+   :param username: Provider username
+   :param password: Provider password
+   :param region: Optional geographic region
+
+   :returns: Validated PremiumProxyConfig
+
+   :raises ValueError: If provider is unknown
+
+   .. rubric:: Examples
+
+   >>> source = create_premium_proxy_source(
+   ...     'brightdata',
+   ...     'myuser',
+   ...     'mypass',
+   ...     region='US-EAST'
+   ... )
+
+
+.. py:function:: list_premium_providers()
+
+   List all available premium proxy providers.
+
+   :returns: Dictionary of provider information
+
+

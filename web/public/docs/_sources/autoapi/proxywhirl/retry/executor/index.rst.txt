@@ -1,0 +1,132 @@
+proxywhirl.retry.executor
+=========================
+
+.. py:module:: proxywhirl.retry.executor
+
+.. autoapi-nested-parse::
+
+   Retry execution orchestration with intelligent proxy selection.
+
+   Provides both synchronous and asynchronous retry execution:
+   - execute_with_retry: Synchronous execution with time.sleep
+   - execute_with_retry_async: Asynchronous execution with asyncio.sleep
+
+   The async variant avoids blocking the event loop during backoff delays.
+
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   proxywhirl.retry.executor.NonRetryableError
+   proxywhirl.retry.executor.RetryableError
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.retry.executor.RetryExecutor
+
+
+Module Contents
+---------------
+
+.. py:exception:: NonRetryableError
+
+   Bases: :py:obj:`Exception`
+
+
+   Exception that does not trigger a retry.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:exception:: RetryableError
+
+   Bases: :py:obj:`Exception`
+
+
+   Exception that triggers a retry.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: RetryExecutor(retry_policy, circuit_breakers, retry_metrics)
+
+   Orchestrates retry logic with exponential backoff and circuit breaker integration.
+
+   Provides both synchronous and asynchronous execution methods:
+   - execute_with_retry: Synchronous with time.sleep (for sync contexts)
+   - execute_with_retry_async: Asynchronous with asyncio.sleep (for async contexts)
+
+   The async variant avoids blocking the event loop during backoff delays.
+
+   Initialize retry executor.
+
+   :param retry_policy: Retry configuration
+   :param circuit_breakers: Circuit breakers by proxy ID
+   :param retry_metrics: Metrics collection instance
+
+
+   .. py:method:: execute_with_retry(request_fn, proxy, method, url, request_id = None)
+
+      Execute a request with retry logic (SYNCHRONOUS).
+
+      This method uses time.sleep for backoff delays and should only be called
+      from synchronous contexts. For async execution, use
+      AsyncProxyClient._execute_async_with_retry instead.
+
+      :param request_fn: Function that executes the request
+      :param proxy: Initial proxy to use
+      :param method: HTTP method
+      :param url: Request URL
+      :param request_id: Optional request ID for tracking
+
+      :returns: HTTP response
+
+      :raises ProxyConnectionError: If all retries exhausted
+      :raises NonRetryableError: If error is not retryable
+
+
+
+   .. py:method:: execute_with_retry_async(request_fn, proxy, method, url, request_id = None)
+      :async:
+
+
+      Execute a request with retry logic (ASYNCHRONOUS).
+
+      This is the async variant of execute_with_retry that uses asyncio.sleep
+      for non-blocking backoff delays instead of time.sleep.
+
+      :param request_fn: Async function that executes the request
+      :param proxy: Initial proxy to use
+      :param method: HTTP method
+      :param url: Request URL
+      :param request_id: Optional request ID for tracking
+
+      :returns: HTTP response
+
+      :raises ProxyConnectionError: If all retries exhausted
+      :raises NonRetryableError: If error is not retryable
+
+
+
+   .. py:method:: select_retry_proxy(available_proxies, failed_proxy, target_region = None)
+
+      Select best proxy for retry based on performance metrics.
+
+      Uses a weighted scoring formula:
+      score = (0.7 ? success_rate) + (0.3 ? (1 - normalized_latency))
+
+      :param available_proxies: List of available proxies
+      :param failed_proxy: The proxy that just failed
+      :param target_region: Optional target region for geo-targeted selection
+
+      :returns: Best proxy for retry, or None if no suitable proxy found
+
+
+

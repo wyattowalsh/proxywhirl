@@ -1,0 +1,221 @@
+proxywhirl.cache.manager
+========================
+
+.. py:module:: proxywhirl.cache.manager
+
+.. autoapi-nested-parse::
+
+   Cache management for proxy storage with multi-tier support.
+
+   This module provides the CacheManager class for managing cached proxies
+   across three storage tiers: L1 (memory), L2 (JSONL files), and L3 (SQLite).
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.cache.manager.CacheManager
+   proxywhirl.cache.manager.TTLManager
+
+
+Module Contents
+---------------
+
+.. py:class:: CacheManager(config)
+
+   Manages multi-tier caching of proxies with automatic promotion/demotion.
+
+   Orchestrates caching across three tiers:
+   - L1 (Memory): Fast in-memory cache using OrderedDict (LRU)
+   - L2 (Disk): Persistent cache with configurable backend:
+       - JSONL: File-based, human-readable, portable (default, best for <10K entries)
+       - SQLite: Database-based, faster for >10K entries with O(log n) lookups
+   - L3 (SQLite): Database cache for cold storage with full queryability
+
+   Supports TTL-based expiration, health-based invalidation, and graceful
+   degradation when tiers fail.
+
+   .. rubric:: Example
+
+   >>> # Default JSONL backend
+   >>> config = CacheConfig()
+   >>> manager = CacheManager(config)
+
+   >>> # SQLite backend for large caches
+   >>> from proxywhirl.cache.models import L2BackendType
+   >>> config = CacheConfig(l2_backend=L2BackendType.SQLITE)
+   >>> manager = CacheManager(config)
+
+   Initialize cache manager with configuration.
+
+   :param config: Cache configuration with tier settings
+
+
+   .. py:method:: clear()
+
+      Clear all entries from all tiers.
+
+      Thread-safe: Uses lock to ensure atomic clearing across all tiers.
+
+      :returns: Total number of entries cleared
+
+
+
+   .. py:method:: delete(key)
+
+      Delete entry from all tiers.
+
+      Thread-safe: Uses lock to ensure atomic deletion across all tiers.
+
+      :param key: Cache key to delete
+
+      :returns: True if deleted from at least one tier, False if not found
+
+
+
+   .. py:method:: export_to_file(filepath)
+
+      Export all cache entries to a JSONL file.
+
+      :param filepath: Path to export file
+
+      :returns: Dict with 'exported' and 'failed' counts
+
+
+
+   .. py:method:: generate_cache_key(proxy_url)
+      :staticmethod:
+
+
+      Generate cache key from proxy URL.
+
+      Uses SHA256 hash for consistent, URL-safe keys.
+
+      :param proxy_url: Proxy URL to hash
+
+      :returns: Hex-encoded SHA256 hash (first 16 chars)
+
+
+
+   .. py:method:: get(key)
+
+      Retrieve entry from cache with tier promotion.
+
+      Checks L1 → L2 → L3 in order. Promotes entries to higher tiers on hit.
+      Updates access_count and last_accessed on successful retrieval.
+
+      Thread-safe: Uses lock to prevent race conditions during promotion and expiration.
+
+      :param key: Cache key to retrieve
+
+      :returns: CacheEntry if found and not expired, None otherwise
+
+
+
+   .. py:method:: get_statistics()
+
+      Get current cache statistics.
+
+      :returns: CacheStatistics with hit rates, sizes, and tier status
+
+
+
+   .. py:method:: invalidate_by_health(key)
+
+      Mark proxy as unhealthy and evict if failure threshold reached.
+
+      Increments the failure_count for the proxy and sets health_status to UNHEALTHY.
+      If failure_count reaches the configured failure_threshold, the proxy is removed
+      from all cache tiers.
+
+      Thread-safe: Uses lock throughout entire operation to prevent TOCTOU race conditions.
+
+      :param key: Cache key to invalidate
+
+      .. note::
+
+         - If health_check_invalidation is disabled, still tracks failures but doesn't evict
+         - Logs at DEBUG level for failures, INFO level for evictions
+         - Updates statistics for health-based evictions
+         - RACE-001 fix: Holds lock throughout entire operation to prevent race between
+           get and update/delete operations
+
+
+
+   .. py:method:: put(key, entry)
+
+      Store entry in all enabled tiers.
+
+      Writes to all tiers for redundancy. Credentials are automatically
+      redacted in logs.
+
+      Thread-safe: Uses lock to ensure atomic writes across all tiers.
+
+      :param key: Cache key
+      :param entry: CacheEntry to store
+
+      :returns: True if stored in at least one tier, False otherwise
+
+
+
+   .. py:method:: warm_from_file(file_path, ttl_override = None)
+
+      Load proxies from a file to pre-populate the cache.
+
+      Supports JSON (array), JSONL (newline-delimited), and CSV formats.
+      Invalid entries are skipped with warnings logged.
+
+      :param file_path: Path to file containing proxy data
+      :param ttl_override: Optional TTL in seconds (overrides default_ttl_seconds)
+
+      :returns: Dict with counts for loaded, skipped, and failed entries
+
+      :raises No exceptions - errors are logged and failure count is incremented:
+
+
+
+.. py:class:: TTLManager(cache_manager, cleanup_interval = 60)
+
+   Manages TTL-based expiration with hybrid lazy + background cleanup.
+
+   Combines two cleanup strategies:
+   - Lazy expiration: Check TTL on every get() operation
+   - Background cleanup: Periodic scan of all tiers to remove expired entries
+
+   .. attribute:: cache_manager
+
+      Reference to parent CacheManager
+
+   .. attribute:: cleanup_interval
+
+      Seconds between background cleanup runs
+
+   .. attribute:: enabled
+
+      Whether background cleanup is running
+
+   .. attribute:: cleanup_thread
+
+      Background thread for cleanup
+
+   Initialize TTL manager.
+
+   :param cache_manager: Parent CacheManager instance
+   :param cleanup_interval: Seconds between cleanup runs
+
+
+   .. py:method:: start()
+
+      Start background cleanup thread.
+
+
+
+   .. py:method:: stop()
+
+      Stop background cleanup thread.
+
+
+

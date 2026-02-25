@@ -1,0 +1,262 @@
+proxywhirl.cache.models
+=======================
+
+.. py:module:: proxywhirl.cache.models
+
+.. autoapi-nested-parse::
+
+   Pydantic models for cache data structures.
+
+   Defines data models for cache entries, configurations, and statistics
+   used across the three-tier caching system (L1/L2/L3).
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.cache.models.CacheConfig
+   proxywhirl.cache.models.CacheEntry
+   proxywhirl.cache.models.CacheStatistics
+   proxywhirl.cache.models.CacheTierConfig
+   proxywhirl.cache.models.CacheTierType
+   proxywhirl.cache.models.HealthStatus
+   proxywhirl.cache.models.L2BackendType
+   proxywhirl.cache.models.TierStatistics
+
+
+Module Contents
+---------------
+
+.. py:class:: CacheConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for cache behavior and tier settings.
+
+   Aggregates configuration for all three tiers plus global settings
+   like TTL, cleanup intervals, and storage paths.
+
+   .. rubric:: Example
+
+   >>> config = CacheConfig(
+   ...     default_ttl_seconds=3600,
+   ...     l1_config=CacheTierConfig(max_entries=1000),
+   ... )
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:class:: Config
+
+      Pydantic config.
+
+
+
+.. py:class:: CacheEntry(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Container for a single cached proxy with metadata.
+
+   Stores proxy information with TTL, health status, and access tracking.
+   Credentials are SecretStr in memory, encrypted at rest in L2/L3.
+
+   .. rubric:: Example
+
+   >>> entry = CacheEntry(
+   ...     key="abc123",
+   ...     proxy_url="http://proxy.com:8080",
+   ...     source="fetched",
+   ...     fetch_time=datetime.now(timezone.utc),
+   ...     ttl_seconds=3600,
+   ... )
+   >>> entry.is_expired
+   False
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:class:: Config
+
+      Pydantic config.
+
+
+
+   .. py:property:: is_expired
+      :type: bool
+
+
+      Check if entry has expired based on TTL.
+
+
+   .. py:property:: is_healthy
+      :type: bool
+
+
+      Check if proxy is healthy enough to use.
+
+
+.. py:class:: CacheStatistics(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Aggregate cache statistics across all tiers.
+
+   Combines tier-level statistics and tracks cross-tier operations
+   like promotions and demotions.
+
+   .. rubric:: Example
+
+   >>> stats = CacheStatistics()
+   >>> stats.l1_stats.hits = 100
+   >>> stats.overall_hit_rate
+   1.0
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: to_metrics_dict()
+
+      Convert to flat metrics dict for monitoring systems.
+
+
+
+   .. py:property:: overall_hit_rate
+      :type: float
+
+
+      Overall hit rate across all tiers.
+
+
+   .. py:property:: total_size
+      :type: int
+
+
+      Total cached entries across all tiers.
+
+
+.. py:class:: CacheTierConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for a single cache tier.
+
+   Defines capacity, eviction policy, and enable/disable state for
+   one tier (L1, L2, or L3).
+
+   .. rubric:: Example
+
+   >>> config = CacheTierConfig(max_entries=1000, eviction_policy="lru")
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: validate_policy(v)
+      :classmethod:
+
+
+      Validate eviction policy is supported.
+
+
+
+.. py:class:: CacheTierType
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Type of cache tier.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: HealthStatus
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Proxy health status states.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: L2BackendType
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   L2 cache backend type.
+
+   Determines which storage backend is used for the L2 disk cache tier.
+
+   - JSONL: File-based using JSON Lines format. Human-readable, portable,
+     best for <10K entries. Uses sharded files with file locking.
+   - SQLITE: Database-based using SQLite. Faster for >10K entries with
+     O(log n) indexed lookups. Better concurrency and atomic operations.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: TierStatistics(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Statistics for a single cache tier.
+
+   Tracks hits, misses, evictions by reason, and computes hit rate.
+
+   .. rubric:: Example
+
+   >>> stats = TierStatistics(hits=100, misses=20)
+   >>> stats.hit_rate
+   0.8333...
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:property:: hit_rate
+      :type: float
+
+
+      Cache hit rate (0.0 to 1.0).
+
+
+   .. py:property:: total_evictions
+      :type: int
+
+
+      Total evictions across all reasons.
+
+

@@ -1,0 +1,156 @@
+proxywhirl.browser
+==================
+
+.. py:module:: proxywhirl.browser
+
+.. autoapi-nested-parse::
+
+   Browser-based rendering for JavaScript-heavy proxy sources using Playwright.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.browser.BrowserRenderer
+
+
+Module Contents
+---------------
+
+.. py:class:: BrowserRenderer(headless = True, browser_type = 'chromium', timeout = 30000, wait_until = 'load', user_agent = None, viewport = None, max_contexts = 3)
+
+   Browser-based page renderer using Playwright for JavaScript execution.
+
+   Renders pages that require full browser JavaScript execution, useful for
+   proxy sources that use client-side rendering or dynamic content loading.
+
+   Supports context pooling for improved performance when rendering multiple
+   pages concurrently. Pooled contexts are reused instead of being created
+   fresh for each render operation.
+
+   .. rubric:: Example
+
+   >>> renderer = BrowserRenderer(headless=True)
+   >>> await renderer.start()
+   >>> html = await renderer.render("https://example.com/proxies")
+   >>> await renderer.close()
+
+   Or use as context manager:
+   >>> async with BrowserRenderer() as renderer:
+   ...     html = await renderer.render("https://example.com/proxies")
+
+   Pooled mode for concurrent rendering:
+   >>> async with BrowserRenderer(max_contexts=5) as renderer:
+   ...     results = await asyncio.gather(
+   ...         renderer.render("https://site1.com"),
+   ...         renderer.render("https://site2.com"),
+   ...         renderer.render("https://site3.com"),
+   ...     )
+
+   Initialize browser renderer.
+
+   :param headless: Run browser in headless mode (default: True)
+   :param browser_type: Browser engine to use (default: chromium)
+   :param timeout: Page load timeout in milliseconds (default: 30000)
+   :param wait_until: When to consider navigation complete (default: load)
+   :param user_agent: Custom user agent string (optional)
+   :param viewport: Custom viewport size, e.g. {"width": 1280, "height": 720}
+   :param max_contexts: Maximum number of pooled browser contexts (default: 3).
+                        Higher values allow more concurrent rendering but use more memory.
+
+
+   .. py:method:: acquire_context(timeout = None)
+      :async:
+
+
+      Acquire a browser context from the pool.
+
+      Blocks until a context is available. For concurrent rendering, use this
+      with release_context() to manage context lifecycle manually.
+
+      :param timeout: Maximum time to wait for a context (seconds). None means wait forever.
+
+      :returns: A browser context from the pool
+
+      :raises RuntimeError: If browser is not started
+      :raises asyncio.TimeoutError: If timeout expires before a context is available
+
+
+
+   .. py:method:: close()
+      :async:
+
+
+      Close the browser instance and all pooled contexts.
+
+      Closes all browser contexts in the pool and the browser itself.
+      Safe to call multiple times.
+
+
+
+   .. py:method:: release_context(context)
+      :async:
+
+
+      Release a browser context back to the pool.
+
+      Returns a previously acquired context to the pool for reuse.
+
+      :param context: The browser context to release
+
+      :raises RuntimeError: If browser is not started
+      :raises ValueError: If context is not from this pool
+
+
+
+   .. py:method:: render(url, wait_for_selector = None, wait_for_timeout = None)
+      :async:
+
+
+      Render a page and return its HTML content.
+
+      Uses the context pool for concurrent-safe rendering. Acquires a context
+      from the pool, renders the page, and releases the context back.
+
+      :param url: URL to render
+      :param wait_for_selector: Optional CSS selector to wait for before returning
+      :param wait_for_timeout: Optional additional wait time in milliseconds
+
+      :returns: Rendered HTML content as string
+
+      :raises RuntimeError: If browser is not started
+      :raises TimeoutError: If page load times out
+
+
+
+   .. py:method:: start()
+      :async:
+
+
+      Start the browser instance and initialize the context pool.
+
+      Initializes Playwright, launches the browser, and pre-creates browser
+      contexts for the pool. Idempotent - safe to call multiple times.
+
+      :raises ImportError: If playwright is not installed
+      :raises RuntimeError: If browser fails to start
+
+
+
+   .. py:property:: pool_capacity
+      :type: int
+
+
+      Total capacity of the context pool.
+
+
+   .. py:property:: pool_size
+      :type: int
+
+
+      Number of contexts currently available in the pool.
+
+

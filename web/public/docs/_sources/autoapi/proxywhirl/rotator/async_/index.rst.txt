@@ -1,0 +1,302 @@
+proxywhirl.rotator.async_
+=========================
+
+.. py:module:: proxywhirl.rotator.async_
+
+.. autoapi-nested-parse::
+
+   Async proxy rotation implementation using httpx.AsyncClient.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.rotator.async_.AsyncProxyWhirl
+   proxywhirl.rotator.async_.LRUAsyncClientPool
+
+
+Module Contents
+---------------
+
+.. py:class:: AsyncProxyWhirl(proxies = None, strategy = None, config = None, retry_policy = None, bootstrap = None)
+
+   Bases: :py:obj:`proxywhirl.rotator.base.ProxyRotatorBase`
+
+
+   Async proxy rotator with automatic failover and intelligent rotation.
+
+   Provides async HTTP methods (GET, POST, PUT, DELETE, PATCH) that automatically
+   rotate through a pool of proxies, with intelligent failover on connection errors.
+
+   .. rubric:: Example
+
+   ```python
+   from proxywhirl import AsyncProxyWhirl, Proxy
+
+   async with AsyncProxyWhirl() as rotator:
+       await rotator.add_proxy("http://proxy1.example.com:8080")
+       await rotator.add_proxy("http://proxy2.example.com:8080")
+
+       response = await rotator.get("https://httpbin.org/ip")
+       print(response.json())
+   ```
+
+   Initialize AsyncProxyWhirl.
+
+   :param proxies: Initial list of proxies (optional)
+   :param strategy: Rotation strategy instance or strategy name string
+                    ("round-robin", "random", "weighted", "least-used",
+                     "performance-based", "session", "geo-targeted")
+                    Default: RoundRobinStrategy
+   :param config: Configuration settings (default: ProxyConfiguration())
+   :param retry_policy: Retry policy configuration (default: RetryPolicy())
+   :param bootstrap: Bootstrap configuration for lazy proxy fetching.
+                     False disables auto-bootstrap (for manual proxy management).
+                     True or None uses default BootstrapConfig.
+
+
+   .. py:method:: add_proxy(proxy)
+      :async:
+
+
+      Add a proxy to the pool.
+
+      :param proxy: Proxy instance or URL string
+
+
+
+   .. py:method:: clear_unhealthy_proxies()
+      :async:
+
+
+      Remove all unhealthy and dead proxies from the pool.
+
+      :returns: Number of proxies removed
+
+
+
+   .. py:method:: delete(url, **kwargs)
+      :async:
+
+
+      Make async DELETE request.
+
+
+
+   .. py:method:: get(url, **kwargs)
+      :async:
+
+
+      Make async GET request.
+
+
+
+   .. py:method:: get_circuit_breaker_states()
+
+      Get circuit breaker states for all proxies.
+
+      :returns: Dictionary mapping proxy IDs to their circuit breaker instances
+
+
+
+   .. py:method:: get_pool_stats()
+
+      Get statistics about the proxy pool.
+
+      :returns:
+
+                - total_proxies: Total number of proxies
+                - healthy_proxies: Number of healthy/unknown proxies
+                - unhealthy_proxies: Number of unhealthy proxies
+                - dead_proxies: Number of dead proxies
+                - total_requests: Total requests across all proxies
+                - total_successes: Total successful requests
+                - total_failures: Total failed requests
+                - average_success_rate: Average success rate across all proxies
+      :rtype: Dictionary containing pool statistics
+
+
+
+   .. py:method:: get_proxy()
+      :async:
+
+
+      Get the next proxy from the pool using the rotation strategy.
+
+      :returns: Next proxy to use
+
+      :raises ProxyPoolEmptyError: If no healthy proxies available
+
+
+
+   .. py:method:: get_retry_metrics()
+
+      Get retry metrics.
+
+      :returns: RetryMetrics instance with current metrics
+
+
+
+   .. py:method:: get_statistics()
+
+      Get comprehensive statistics including source breakdown (FR-050).
+
+      :returns:
+
+                - All stats from get_pool_stats()
+                - source_breakdown: Count of proxies by source (USER, FETCHED, etc.)
+      :rtype: Dictionary containing
+
+
+
+   .. py:method:: head(url, **kwargs)
+      :async:
+
+
+      Make async HEAD request.
+
+
+
+   .. py:method:: options(url, **kwargs)
+      :async:
+
+
+      Make async OPTIONS request.
+
+
+
+   .. py:method:: patch(url, **kwargs)
+      :async:
+
+
+      Make async PATCH request.
+
+
+
+   .. py:method:: post(url, **kwargs)
+      :async:
+
+
+      Make async POST request.
+
+
+
+   .. py:method:: put(url, **kwargs)
+      :async:
+
+
+      Make async PUT request.
+
+
+
+   .. py:method:: remove_proxy(proxy_id)
+      :async:
+
+
+      Remove a proxy from the pool.
+
+      :param proxy_id: UUID of proxy to remove
+
+
+
+   .. py:method:: reset_circuit_breaker(proxy_id)
+
+      Manually reset a circuit breaker to CLOSED state.
+
+      :param proxy_id: ID of the proxy whose circuit breaker to reset
+
+      :raises KeyError: If proxy_id not found
+
+
+
+   .. py:method:: set_strategy(strategy, *, atomic = True)
+
+      Hot-swap the rotation strategy without restarting.
+
+      This method implements atomic strategy swapping to ensure:
+      - New requests immediately use the new strategy
+      - In-flight requests complete with their original strategy
+      - No requests are dropped during the swap
+      - Swap completes in <100ms (SC-009)
+
+      :param strategy: New strategy instance or strategy name string
+                       ("round-robin", "random", "weighted", "least-used",
+                        "performance-based", "session", "geo-targeted")
+      :param atomic: If True (default), ensures atomic swap. If False, allows
+                     immediate replacement (faster but may affect in-flight requests)
+
+      .. rubric:: Example
+
+      >>> async with AsyncProxyWhirl(strategy="round-robin") as rotator:
+      ...     # ... after some requests ...
+      ...     rotator.set_strategy("performance-based")  # Hot-swap
+      ...     # New requests now use performance-based strategy
+
+      Thread Safety:
+          Thread-safe via atomic reference swap. Multiple threads can
+          call this method safely without race conditions.
+
+      Performance:
+          Target: <100ms for hot-swap completion (SC-009)
+          Typical: <10ms for strategy instance creation and assignment
+
+
+
+.. py:class:: LRUAsyncClientPool(maxsize = 100)
+
+   LRU cache for httpx.AsyncClient instances with automatic eviction.
+
+   When the pool reaches maxsize, the least recently used client is
+   closed and removed to prevent unbounded memory growth.
+
+   Supports dictionary-like access for backward compatibility with tests.
+
+   Initialize LRU async client pool.
+
+   :param maxsize: Maximum number of clients to cache (default: 100)
+
+
+   .. py:method:: clear()
+      :async:
+
+
+      Close all clients and clear the pool.
+
+
+
+   .. py:method:: get(proxy_id)
+      :async:
+
+
+      Get a client from the pool, marking it as recently used.
+
+      :param proxy_id: Proxy ID to look up
+
+      :returns: Client if found, None otherwise
+
+
+
+   .. py:method:: put(proxy_id, client)
+      :async:
+
+
+      Add a client to the pool, evicting LRU client if at capacity.
+
+      :param proxy_id: Proxy ID to store under
+      :param client: Client instance to store
+
+
+
+   .. py:method:: remove(proxy_id)
+      :async:
+
+
+      Remove and close a client from the pool.
+
+      :param proxy_id: Proxy ID to remove
+
+
+

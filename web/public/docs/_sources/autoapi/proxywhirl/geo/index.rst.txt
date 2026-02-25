@@ -1,0 +1,79 @@
+proxywhirl.geo
+==============
+
+.. py:module:: proxywhirl.geo
+
+.. autoapi-nested-parse::
+
+   IP Geolocation utilities for proxy country lookup.
+
+   Uses MaxMind GeoLite2-Country database for fast, offline lookups.
+   Falls back to ip-api.com batch API if database not available.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.geo.batch_geolocate
+   proxywhirl.geo.enrich_proxies_with_geo
+   proxywhirl.geo.geolocate_with_api
+   proxywhirl.geo.geolocate_with_database
+
+
+Module Contents
+---------------
+
+.. py:function:: batch_geolocate(ips, batch_size = 100, max_batches = 50, db_path = None)
+   :async:
+
+
+   Geolocate IPs using best available method.
+
+   Tries in order:
+   1. Local GeoLite2 database (fast, no rate limits)
+   2. ip-api.com batch API (fallback, rate limited)
+
+   :param ips: List of IP addresses to lookup
+   :param batch_size: Number of IPs per API batch
+   :param max_batches: Maximum API batches to process
+   :param db_path: Optional explicit path to GeoLite2 database
+
+   :returns: Dictionary mapping IP to geo info {country, countryCode}
+
+
+.. py:function:: enrich_proxies_with_geo(proxies, geo_data)
+
+   Add country info to proxy dictionaries.
+
+   :param proxies: List of proxy dictionaries with 'ip' field
+   :param geo_data: Geo lookup results from batch_geolocate
+
+   :returns: Proxies with country and country_code fields added
+
+
+.. py:function:: geolocate_with_api(ips, batch_size = 100, max_batches = 50)
+   :async:
+
+
+   Batch geolocate IPs using ip-api.com (fallback).
+
+   :param ips: List of IP addresses to lookup
+   :param batch_size: Number of IPs per batch (max 100 for ip-api.com)
+   :param max_batches: Maximum number of batches to process
+
+   :returns: Dictionary mapping IP to geo info {country, countryCode}
+
+
+.. py:function:: geolocate_with_database(ips, db_path)
+
+   Geolocate IPs using local GeoLite2 database.
+
+   :param ips: List of IP addresses to lookup
+   :param db_path: Path to GeoLite2-Country.mmdb file
+
+   :returns: Dictionary mapping IP to geo info {country, countryCode}
+
+

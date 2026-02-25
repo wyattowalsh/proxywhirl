@@ -1,0 +1,72 @@
+proxywhirl.rotator.client_pool
+==============================
+
+.. py:module:: proxywhirl.rotator.client_pool
+
+.. autoapi-nested-parse::
+
+   LRU cache for httpx.Client instances with automatic eviction.
+
+   This module provides a thread-safe pool for reusing HTTP client connections,
+   improving performance by avoiding repeated connection setup.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.rotator.client_pool.LRUClientPool
+
+
+Module Contents
+---------------
+
+.. py:class:: LRUClientPool(maxsize = 100)
+
+   LRU cache for httpx.Client instances with automatic eviction.
+
+   When the pool reaches maxsize, the least recently used client is
+   closed and removed to prevent unbounded memory growth.
+
+   Supports dictionary-like access for backward compatibility with tests.
+
+   Initialize LRU client pool.
+
+   :param maxsize: Maximum number of clients to cache (default: 100)
+
+
+   .. py:method:: clear()
+
+      Close all clients and clear the pool.
+
+
+
+   .. py:method:: get(proxy_id)
+
+      Get a client from the pool, marking it as recently used.
+
+      :param proxy_id: Proxy ID to look up
+
+      :returns: Client if found, None otherwise
+
+
+
+   .. py:method:: put(proxy_id, client)
+
+      Add a client to the pool, evicting LRU client if at capacity.
+
+      :param proxy_id: Proxy ID to store under
+      :param client: Client instance to store
+
+
+
+   .. py:method:: remove(proxy_id)
+
+      Remove and close a client from the pool.
+
+      :param proxy_id: Proxy ID to remove
+
+
+

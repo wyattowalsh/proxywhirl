@@ -1,0 +1,834 @@
+proxywhirl.api.models
+=====================
+
+.. py:module:: proxywhirl.api.models
+
+.. autoapi-nested-parse::
+
+   API-specific Pydantic models for REST API request/response validation.
+
+   This module contains models specific to the HTTP API layer, separate from
+   core domain models in models.py. These models define the API contract including:
+   - Generic response envelope (APIResponse[T])
+   - Error details and codes
+   - Request/response metadata
+   - API-specific entities (ProxyResource, etc.)
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.api.models.APIResponse
+   proxywhirl.api.models.CircuitBreakerEventResponse
+   proxywhirl.api.models.CircuitBreakerResponse
+   proxywhirl.api.models.ConfigurationSettings
+   proxywhirl.api.models.CreateProxyRequest
+   proxywhirl.api.models.ErrorCode
+   proxywhirl.api.models.ErrorDetail
+   proxywhirl.api.models.ExportHistoryResponse
+   proxywhirl.api.models.ExportRequest
+   proxywhirl.api.models.ExportStatusResponse
+   proxywhirl.api.models.HealthCheckRequest
+   proxywhirl.api.models.HealthCheckResult
+   proxywhirl.api.models.HealthResponse
+   proxywhirl.api.models.MetaInfo
+   proxywhirl.api.models.MetricsResponse
+   proxywhirl.api.models.PaginatedResponse
+   proxywhirl.api.models.ProxiedRequest
+   proxywhirl.api.models.ProxiedResponse
+   proxywhirl.api.models.ProxyMetrics
+   proxywhirl.api.models.ProxyPoolStats
+   proxywhirl.api.models.ProxyResource
+   proxywhirl.api.models.ProxyRetryStats
+   proxywhirl.api.models.ProxyRetryStatsResponse
+   proxywhirl.api.models.ProxyStats
+   proxywhirl.api.models.RateLimitConfig
+   proxywhirl.api.models.ReadinessResponse
+   proxywhirl.api.models.RetryMetricsResponse
+   proxywhirl.api.models.RetryPolicyRequest
+   proxywhirl.api.models.RetryPolicyResponse
+   proxywhirl.api.models.StatusResponse
+   proxywhirl.api.models.TimeSeriesDataPoint
+   proxywhirl.api.models.TimeSeriesResponse
+   proxywhirl.api.models.UpdateConfigRequest
+
+
+Module Contents
+---------------
+
+.. py:class:: APIResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`, :py:obj:`Generic`\ [\ :py:obj:`T`\ ]
+
+
+   Generic envelope for all API responses.
+
+   Provides consistent structure:
+   - status: HTTP-like status indicator
+   - data: Successful response payload (type T)
+   - error: Error details if request failed
+   - meta: Request metadata (ID, timestamp, version)
+
+   Example successful response:
+       {
+           "status": "success",
+           "data": {"id": "123", "url": "http://proxy:8080"},
+           "error": null,
+           "meta": {"request_id": "...", "timestamp": "...", "version": "1.0.0"}
+       }
+
+   Example error response:
+       {
+           "status": "error",
+           "data": null,
+           "error": {"code": "PROXY_NOT_FOUND", "message": "...", ...},
+           "meta": {"request_id": "...", "timestamp": "...", "version": "1.0.0"}
+       }
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: error_response(code, message, details = None, **kwargs)
+      :classmethod:
+
+
+      Create an error response with error details.
+
+      :param code: Machine-readable error code
+      :param message: Human-readable error message
+      :param details: Additional error context
+      :param \*\*kwargs: Additional fields to override (e.g., meta)
+
+      :returns: APIResponse with status='error' and error populated
+
+
+
+   .. py:method:: success(data, **kwargs)
+      :classmethod:
+
+
+      Create a successful response with data payload.
+
+      :param data: Response payload
+      :param \*\*kwargs: Additional fields to override (e.g., meta)
+
+      :returns: APIResponse with status='success' and data populated
+
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: CircuitBreakerEventResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Response model for circuit breaker state change event.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: CircuitBreakerResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Response model for circuit breaker state.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ConfigurationSettings(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   API configuration settings.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: CreateProxyRequest(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Request to add a new proxy to the pool.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: validate_proxy_url(v)
+      :classmethod:
+
+
+      Validate proxy URL scheme, port, and length.
+
+      :param v: Proxy URL to validate
+
+      :returns: Validated URL
+
+      :raises ValueError: If URL is invalid
+
+
+
+   .. py:method:: validate_username(v)
+      :classmethod:
+
+
+      Validate username length.
+
+      :param v: Username to validate
+
+      :returns: Validated username
+
+      :raises ValueError: If username exceeds length limit
+
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ErrorCode
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Standard error codes for API responses.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: ErrorDetail(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Structured error information for API responses.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ExportHistoryResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Response model for export history query.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ExportRequest(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Request model for creating an export.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ExportStatusResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Response model for export status query.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: HealthCheckRequest(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Request to health check specific proxies.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: HealthCheckResult(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Result of a proxy health check.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: HealthResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   API health status response.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: MetaInfo(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Metadata included in all API responses.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: MetricsResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   API performance metrics response.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: PaginatedResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`, :py:obj:`Generic`\ [\ :py:obj:`T`\ ]
+
+
+   Paginated list response.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ProxiedRequest(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Request to make an HTTP request through a proxy.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: validate_body(v)
+      :classmethod:
+
+
+      Validate body length.
+
+      :param v: Body string to validate
+
+      :returns: Validated body
+
+      :raises ValueError: If body exceeds length limit
+
+
+
+   .. py:method:: validate_headers(v)
+      :classmethod:
+
+
+      Validate header names and values length.
+
+      :param v: Headers dict to validate
+
+      :returns: Validated headers
+
+      :raises ValueError: If header name or value exceeds length limit
+
+
+
+   .. py:method:: validate_url_scheme(v)
+      :classmethod:
+
+
+      Validate that URL uses http or https scheme only.
+
+      :param v: URL to validate
+
+      :returns: Validated URL
+
+      :raises ValueError: If URL scheme is not http or https
+
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ProxiedResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Response from a proxied HTTP request.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ProxyMetrics(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Per-proxy performance metrics.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: ProxyPoolStats(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Statistics about the proxy pool.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: ProxyResource(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   RESTful representation of a proxy in the pool.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ProxyRetryStats(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Per-proxy retry statistics.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ProxyRetryStatsResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Response model for per-proxy retry statistics.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ProxyStats(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Per-proxy statistics for metrics endpoints.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: RateLimitConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Rate limiting configuration.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: ReadinessResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   API readiness status response.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: RetryMetricsResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Response model for retry metrics summary.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: RetryPolicyRequest(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Request model for updating retry policy.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: RetryPolicyResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Response model for retry policy.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: StatusResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   API and pool status response.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: TimeSeriesDataPoint(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Single data point in time-series metrics.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: TimeSeriesResponse(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Response model for time-series retry data.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: UpdateConfigRequest(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Request to update API configuration (partial updates allowed).
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: validate_cors_origins(v)
+      :classmethod:
+
+
+      Validate CORS origins length.
+
+      :param v: CORS origins to validate
+
+      :returns: Validated CORS origins
+
+      :raises ValueError: If any origin exceeds length limit
+
+
+
+   .. py:method:: validate_rotation_strategy(v)
+      :classmethod:
+
+
+      Validate rotation strategy is from allowed set.
+
+      :param v: Rotation strategy to validate
+
+      :returns: Validated rotation strategy
+
+      :raises ValueError: If rotation strategy is invalid
+
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+

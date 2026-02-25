@@ -1,0 +1,250 @@
+proxywhirl.migrations
+=====================
+
+.. py:module:: proxywhirl.migrations
+
+.. autoapi-nested-parse::
+
+   Database migration utilities for ProxyWhirl.
+
+   This module provides a programmatic API for running Alembic migrations,
+   following ProxyWhirl's library-first architecture. It allows applications
+   to manage database schema versions without requiring command-line tools.
+
+   Key Features:
+   - Programmatic migration execution
+   - Current revision checking
+   - Pending migrations detection
+   - Database initialization
+   - Async SQLite support
+
+   Best Practices:
+   - Always backup databases before migrations
+   - Test migrations in development first
+   - Use check_pending_migrations() in CI/CD
+   - Call run_migrations() on application startup
+
+   .. rubric:: Example
+
+   ```python
+   from proxywhirl.migrations import run_migrations, get_current_revision
+
+   # Run all pending migrations
+   await run_migrations("sqlite+aiosqlite:///./mydb.db")
+
+   # Check current version
+   revision = await get_current_revision("sqlite+aiosqlite:///./mydb.db")
+   print(f"Database at revision: {revision}")
+   ```
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.migrations.check_pending_migrations
+   proxywhirl.migrations.downgrade_migrations
+   proxywhirl.migrations.get_current_revision
+   proxywhirl.migrations.get_head_revision
+   proxywhirl.migrations.get_migration_history
+   proxywhirl.migrations.initialize_database
+   proxywhirl.migrations.run_migrations
+   proxywhirl.migrations.stamp_revision
+
+
+Module Contents
+---------------
+
+.. py:function:: check_pending_migrations(database_url = None)
+   :async:
+
+
+   Check if there are pending migrations that need to be applied.
+
+   This is useful for CI/CD pipelines and application health checks.
+
+   :param database_url: SQLAlchemy async database URL
+
+   :returns: True if pending migrations exist, False otherwise
+
+   .. rubric:: Example
+
+   ```python
+   if await check_pending_migrations("sqlite+aiosqlite:///./db.sqlite"):
+       print("WARNING: Pending migrations detected!")
+       await run_migrations()
+   ```
+
+
+.. py:function:: downgrade_migrations(database_url = None, target_revision = '-1')
+   :async:
+
+
+   Downgrade database to a previous revision.
+
+   Use with caution in production. Always backup data before downgrading.
+
+   :param database_url: SQLAlchemy async database URL
+   :param target_revision: Target revision to downgrade to. Defaults to "-1" (previous).
+                           Can be specific revision ID, relative revision, or "base" for complete
+                           rollback.
+
+   :raises FileNotFoundError: If alembic.ini or migration scripts not found
+   :raises ValueError: If target revision is invalid
+   :raises Exception: If downgrade fails
+
+   .. rubric:: Example
+
+   ```python
+   # Downgrade one revision
+   await downgrade_migrations("sqlite+aiosqlite:///./db.sqlite")
+
+   # Downgrade to specific revision
+   await downgrade_migrations("sqlite+aiosqlite:///./db.sqlite", "58c0fadfa0ca")
+
+   # Rollback all migrations
+   await downgrade_migrations("sqlite+aiosqlite:///./db.sqlite", "base")
+   ```
+
+
+.. py:function:: get_current_revision(database_url = None)
+   :async:
+
+
+   Get the current migration revision of the database.
+
+   :param database_url: SQLAlchemy async database URL
+
+   :returns: Current revision ID, or None if database is uninitialized
+
+   .. rubric:: Example
+
+   ```python
+   revision = await get_current_revision("sqlite+aiosqlite:///./db.sqlite")
+   if revision:
+       print(f"Database at revision: {revision}")
+   else:
+       print("Database not initialized")
+   ```
+
+
+.. py:function:: get_head_revision(database_url = None)
+   :async:
+
+
+   Get the latest (head) migration revision available.
+
+   :param database_url: SQLAlchemy async database URL (used to get config)
+
+   :returns: Head revision ID
+
+   .. rubric:: Example
+
+   ```python
+   head = await get_head_revision()
+   current = await get_current_revision()
+   if head != current:
+       print(f"Migrations pending: {current} -> {head}")
+   ```
+
+
+.. py:function:: get_migration_history(database_url = None)
+   :async:
+
+
+   Get the migration history showing all applied migrations.
+
+   :param database_url: SQLAlchemy async database URL
+
+   :returns: revision, down_revision, description
+   :rtype: List of migration info dicts with keys
+
+   .. rubric:: Example
+
+   ```python
+   history = await get_migration_history()
+   for migration in history:
+       print(f"{migration['revision']}: {migration['description']}")
+   ```
+
+
+.. py:function:: initialize_database(database_url = None)
+   :async:
+
+
+   Initialize a new database with the latest schema.
+
+   This is a convenience function that creates all tables at the current
+   head revision without running individual migrations. Equivalent to
+   running all migrations from scratch.
+
+   :param database_url: SQLAlchemy async database URL
+
+   :raises Exception: If database already has schema or initialization fails
+
+   .. rubric:: Example
+
+   ```python
+   # Initialize new database
+   await initialize_database("sqlite+aiosqlite:///./newdb.sqlite")
+   ```
+
+
+.. py:function:: run_migrations(database_url = None, target_revision = 'head')
+   :async:
+
+
+   Run all pending migrations up to target revision.
+
+   This function executes Alembic migrations programmatically, allowing
+   applications to manage schema versions without CLI tools. It uses
+   async SQLite support for non-blocking execution.
+
+   :param database_url: SQLAlchemy async database URL (e.g., "sqlite+aiosqlite:///./db.sqlite").
+                        If None, uses default from alembic.ini
+   :param target_revision: Target revision to migrate to. Defaults to "head" (latest).
+                           Can be specific revision ID, relative revision (e.g., "+1", "-2"),
+                           or branch label.
+
+   :raises FileNotFoundError: If alembic.ini or migration scripts not found
+   :raises ValueError: If target revision is invalid
+   :raises Exception: If migration fails
+
+   .. rubric:: Example
+
+   ```python
+   # Migrate to latest
+   await run_migrations("sqlite+aiosqlite:///./proxywhirl.db")
+
+   # Migrate to specific revision
+   await run_migrations("sqlite+aiosqlite:///./db.sqlite", "58c0fadfa0ca")
+
+   # Rollback one revision
+   await run_migrations("sqlite+aiosqlite:///./db.sqlite", "-1")
+   ```
+
+
+.. py:function:: stamp_revision(database_url = None, revision = 'head')
+   :async:
+
+
+   Stamp the database with a specific revision without running migrations.
+
+   This is useful when importing an existing database that matches a specific
+   schema version, or for recovering from migration issues.
+
+   **Use with extreme caution!** This bypasses actual schema changes.
+
+   :param database_url: SQLAlchemy async database URL
+   :param revision: Revision to stamp database with
+
+   .. rubric:: Example
+
+   ```python
+   # Stamp database as being at head revision
+   await stamp_revision("sqlite+aiosqlite:///./db.sqlite", "head")
+   ```
+
+

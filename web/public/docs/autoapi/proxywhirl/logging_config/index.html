@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="en" data-accent-color="violet" data-content_root="../../../">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"><title>proxywhirl.logging_config - ProxyWhirl Documentation</title><link rel="shortcut icon" href="../../../_static/favicon.svg"/><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" /><link rel="next" title="proxywhirl.mcp" href="../mcp/index.html" /><link rel="prev" title="proxywhirl.geo" href="../geo/index.html" />
+      <link rel="canonical" href="https://www.proxywhirl.com/docs/autoapi/proxywhirl/logging_config/" /><script>
+    function setColorMode(t){let e=document.documentElement;e.setAttribute("data-color-mode",t);let a=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches,s=t;"auto"===t&&(s=a?"dark":"light"),"light"===s?(e.classList.remove("dark"),e.classList.add("light")):(e.classList.remove("light"),e.classList.add("dark"))}
+    setColorMode(localStorage._theme||"auto");
+  </script><link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=e1a1ceaf" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/shibuya.css?v=44020203" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link media="print" rel="stylesheet" type="text/css" href="../../../_static/print.css?v=20ff2c19" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=b31b09b0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --sy-f-text: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+  --sy-f-heading: "Inter", var(--sy-f-sys), var(--sy-f-cjk), sans-serif;
+}
+</style>
+    <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://www.proxywhirl.com/docs/autoapi/proxywhirl/logging_config/"/>
+  <meta property="og:title" content="proxywhirl.logging_config"/>
+  <meta property="og:image" content="https://www.proxywhirl.com/docs/_static/og-image.png"/>
+    <meta name="twitter:card" content="summary"/>
+<meta name="twitter:creator" content="@wyaborern"/>
+<meta name="twitter:site" content="@wyaborern"/>
+  </head>
+<body>
+<a class="skip-link" href="#main-content">Skip to content</a>
+<header class="pw-navbar">
+  <div class="pw-navbar-inner">
+    
+    <button class="pw-navbar-sidebar-toggle js-menu" aria-controls="lside" aria-expanded="false" aria-label="Toggle navigation" type="button">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+    </button>
+
+    
+    <a href="../../../index.html" class="pw-navbar-brand">
+      <svg class="pw-navbar-logo" viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          <linearGradient id="pw-logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#06b6d4"/>
+            <stop offset="50%" stop-color="#3b82f6"/>
+            <stop offset="100%" stop-color="#8b5cf6"/>
+          </linearGradient>
+        </defs>
+        <circle cx="50" cy="50" r="44" fill="none" stroke="url(#pw-logo-grad)" stroke-width="6" stroke-linecap="round" stroke-dasharray="60 30"/>
+        <g fill="url(#pw-logo-grad)">
+          <path d="M50 18 L58 30 L52 30 L52 42 L48 42 L48 30 L42 30 Z"/>
+          <path d="M82 50 L70 58 L70 52 L58 52 L58 48 L70 48 L70 42 Z"/>
+          <path d="M50 82 L42 70 L48 70 L48 58 L52 58 L52 70 L58 70 Z"/>
+          <path d="M18 50 L30 42 L30 48 L42 48 L42 52 L30 52 L30 58 Z"/>
+        </g>
+        <circle cx="50" cy="50" r="8" fill="url(#pw-logo-grad)"/>
+      </svg>
+      <strong>ProxyWhirl</strong>
+    </a>
+
+    
+    <nav class="pw-navbar-links" aria-label="Main navigation">
+      <a href="../../../getting-started/index.html" class="pw-navbar-link" data-section="getting-started">
+        Getting Started
+      </a>
+      <a href="../../../guides/index.html" class="pw-navbar-link" data-section="guides">
+        Guides
+      </a>
+      <a href="../../../reference/index.html" class="pw-navbar-link" data-section="reference">
+        Reference
+      </a>
+      <a href="../../../project/index.html" class="pw-navbar-link" data-section="project">
+        Project
+      </a>
+    </nav>
+
+    
+    <div class="pw-navbar-actions">
+      
+      <button class="pw-navbar-btn" id="pw-theme-toggle" type="button" aria-label="Toggle theme" aria-pressed="false">
+        <svg class="pw-icon-sun" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        <svg class="pw-icon-moon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+      </button>
+
+      
+      <a href="https://github.com/wyattowalsh/proxywhirl" class="pw-navbar-btn pw-navbar-github" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></svg>
+      </a>
+    </div>
+  </div>
+</header>
+<div id="main-content"></div>
+
+<script>
+(function() {
+  /* Theme toggle */
+  var toggle = document.getElementById('pw-theme-toggle');
+  if (toggle) {
+    /* Set initial aria-pressed based on current theme */
+    var currentlyDark = document.documentElement.classList.contains('dark');
+    toggle.setAttribute('aria-pressed', currentlyDark ? 'true' : 'false');
+
+    toggle.addEventListener('click', function() {
+      var isDark = document.documentElement.classList.contains('dark');
+      var next = isDark ? 'light' : 'dark';
+      localStorage._theme = next;
+      if (typeof setColorMode === 'function') {
+        setColorMode(next);
+      } else {
+        var html = document.documentElement;
+        html.classList.remove('dark', 'light');
+        html.classList.add(next);
+        html.setAttribute('data-color-mode', next);
+      }
+      toggle.setAttribute('aria-pressed', next === 'dark' ? 'true' : 'false');
+    });
+  }
+
+  /* Active nav link detection — highlight current section */
+  var path = window.location.pathname;
+  var links = document.querySelectorAll('.pw-navbar-link[data-section]');
+  links.forEach(function(link) {
+    var section = link.getAttribute('data-section');
+    if (path.indexOf('/' + section) !== -1) {
+      link.classList.add('active');
+    }
+  });
+  /* Mark home page — none active, or all inactive is fine */
+})();
+</script>
+<div class="sy-page sy-container flex mx-auto">
+  <aside id="lside" class="sy-lside md:w-72 md:shrink-0 print:hidden">
+    <div class="sy-lside-inner md:sticky">
+      <div class="sy-scrollbar p-6">
+        <div class="globaltoc" data-expand-depth="2"><ul class="current">
+<li class="toctree-l1 _expand"><a class="reference internal" href="../../../getting-started/index.html">Getting Started</a><ul>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../getting-started/index.html#what-youll-build">What You&#8217;ll Build</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../getting-started/index.html#installation">Installation</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../getting-started/index.html#quick-start">Quick Start</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting-started/index.html#basic-usage-sync">Basic Usage (sync)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting-started/index.html#async-usage">Async Usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting-started/index.html#context-manager-pattern">Context Manager Pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting-started/index.html#authenticated-proxies">Authenticated Proxies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting-started/index.html#using-free-proxy-lists">Using Free Proxy Lists</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting-started/index.html#fetching-proxies-programmatically">Fetching Proxies Programmatically</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../getting-started/index.html#choosing-a-rotation-strategy">Choosing a Rotation Strategy</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../getting-started/index.html#configuring-retry-and-circuit-breakers">Configuring Retry and Circuit Breakers</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../getting-started/index.html#monitoring-your-pool">Monitoring Your Pool</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../getting-started/index.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../getting-started/index.html#next-steps">Next Steps</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../getting-started/index.html#for-contributors">For Contributors</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../getting-started/rotation-strategies.html">Rotation Strategies</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../getting-started/rotation-strategies.html#bootstrap-a-rotator">Bootstrap a Rotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../getting-started/rotation-strategies.html#decision-matrix">Decision Matrix</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../getting-started/rotation-strategies.html#quick-pick-guide">Quick-Pick Guide</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../getting-started/rotation-strategies.html#strategy-reference">Strategy Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../getting-started/rotation-strategies.html#comparison-at-a-glance">Comparison At a Glance</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../getting-started/rotation-strategies.html#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../getting-started/rotation-strategies.html#observe-the-pool">Observe the Pool</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../getting-started/rotation-strategies.html#building-a-custom-strategy">Building a Custom Strategy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../getting-started/rotation-strategies.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 _expand"><a class="reference internal" href="../../../guides/index.html">Guides</a><ul>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../guides/index.html#choosing-a-guide">Choosing a Guide</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../guides/index.html#client-concurrency">Client &amp; Concurrency</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../guides/index.html#resilience-caching">Resilience &amp; Caching</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../guides/index.html#operations-deployment">Operations &amp; Deployment</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../guides/index.html#automation-ai">Automation &amp; AI</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../guides/index.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/async-client.html">Async Client Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/async-client.html#when-to-use-async-vs-sync">When to Use Async vs Sync</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/async-client.html#initialization">Initialization</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/async-client.html#context-manager-usage">Context Manager Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/async-client.html#http-request-methods">HTTP Request Methods</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/async-client.html#proxy-management">Proxy Management</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/async-client.html#hot-swapping-strategies">Hot-Swapping Strategies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/async-client.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/async-client.html#concurrent-requests-with-asyncio-gather">Concurrent Requests with asyncio.gather</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/async-client.html#performance-considerations">Performance Considerations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/async-client.html#asyncio-integration-patterns">Asyncio Integration Patterns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/async-client.html#comparison-async-vs-sync">Comparison: Async vs Sync</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/async-client.html#best-practices-and-common-patterns">Best Practices and Common Patterns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/async-client.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/advanced-strategies.html">Advanced Rotation Strategies</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#performance-based-strategy">Performance-Based Strategy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#session-persistence-strategy">Session Persistence Strategy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#geo-targeted-strategy">Geo-Targeted Strategy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#cost-aware-strategy">Cost-Aware Strategy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#composite-strategy">Composite Strategy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#strategy-registry">Strategy Registry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#selectioncontext">SelectionContext</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#strategyconfig">StrategyConfig</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#custom-strategy-implementation">Custom Strategy Implementation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#strategyregistry-usage">StrategyRegistry Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#id16">Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#testing-strategies">Testing Strategies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#performance-benchmarks">Performance Benchmarks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/advanced-strategies.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/caching.html">Caching Subsystem Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/caching.html#architecture-overview">Architecture Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/caching.html#core-components">Core Components</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/caching.html#credential-encryption">Credential Encryption</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/caching.html#ttl-and-expiration">TTL and Expiration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/caching.html#health-invalidation">Health Invalidation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/caching.html#migration-from-jsonl-l2-cache">Migration from JSONL L2 Cache</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/caching.html#cache-warming">Cache Warming</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/caching.html#performance-tuning">Performance Tuning</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/caching.html#cli-integration">CLI Integration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/caching.html#best-practices">Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/caching.html#example-complete-cache-setup">Example: Complete Cache Setup</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/caching.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/caching.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/retry-failover.html">Retry &amp; Failover Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/retry-failover.html#architecture-overview">Architecture Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/retry-failover.html#when-to-use-retry-vs-failover">When to Use Retry vs Failover</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/retry-failover.html#retrypolicy-configuration">RetryPolicy Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/retry-failover.html#circuit-breaker-configuration">Circuit Breaker Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/retry-failover.html#intelligent-proxy-selection">Intelligent Proxy Selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/retry-failover.html#retrymetrics-and-observability">RetryMetrics and Observability</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/retry-failover.html#retryexecutor-deep-dive">RetryExecutor Deep Dive</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/retry-failover.html#integration-with-proxywhirl">Integration with ProxyWhirl</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/retry-failover.html#advanced-patterns">Advanced Patterns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/retry-failover.html#best-practices">Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/retry-failover.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/retry-failover.html#performance-impact">Performance Impact</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/retry-failover.html#see-also">See Also</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/retry-failover.html#summary">Summary</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/deployment-security.html">Deployment Security &amp; Reverse Proxy Configuration</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/deployment-security.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/deployment-security.html#x-forwarded-for-security">X-Forwarded-For Security</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/deployment-security.html#reverse-proxy-configurations">Reverse Proxy Configurations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/deployment-security.html#proxywhirl-configuration">ProxyWhirl Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/deployment-security.html#security-checklist">Security Checklist</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/deployment-security.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/deployment-security.html#references">References</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/cli-reference.html">CLI Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/cli-reference.html#installation">Installation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/cli-reference.html#global-options">Global Options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/cli-reference.html#commands">Commands</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/cli-reference.html#output-formats">Output Formats</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/cli-reference.html#configuration-file">Configuration File</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/cli-reference.html#advanced-usage">Advanced Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/cli-reference.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/cli-reference.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/cli-reference.html#exit-codes">Exit Codes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/cli-reference.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/automation.html">Automation &amp; CI/CD Runbook</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/automation.html#pre-flight-checks">Pre-flight Checks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/automation.html#github-actions-ci-pipeline">GitHub Actions CI Pipeline</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/automation.html#cron-based-proxy-fetching">Cron-Based Proxy Fetching</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/automation.html#docker-deployment">Docker Deployment</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/automation.html#integration-testing-patterns">Integration Testing Patterns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/automation.html#smoke-tests-for-docs-examples">Smoke Tests for Docs Examples</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/automation.html#automating-releases">Automating Releases</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/automation.html#docsearch-credentials">DocSearch Credentials</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/automation.html#ci-stage-summary">CI Stage Summary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/automation.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/mcp-server.html">MCP Server Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#quick-start">Quick Start</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#the-proxywhirl-tool">The <code class="docutils literal notranslate"><span class="pre">proxywhirl</span></code> Tool</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#resources">Resources</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#prompts">Prompts</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#progress-reporting">Progress Reporting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#transport-options">Transport Options</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#integration-with-claude-desktop">Integration with Claude Desktop</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#programmatic-usage">Programmatic Usage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#lifecycle-management">Lifecycle Management</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#best-practices">Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/mcp-server.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../guides/troubleshooting.html">Troubleshooting Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/troubleshooting.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/troubleshooting.html#error-codes-reference">Error Codes Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/troubleshooting.html#common-issues">Common Issues</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/troubleshooting.html#debugging-tips">Debugging Tips</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/troubleshooting.html#faq">FAQ</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/troubleshooting.html#getting-help">Getting Help</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/troubleshooting.html#environment">Environment</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/troubleshooting.html#logs">Logs</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/troubleshooting.html#expected-behavior">Expected Behavior</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../guides/troubleshooting.html#actual-behavior">Actual Behavior</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 _expand"><a class="reference internal" href="../../../concepts/index.html">Concepts</a><ul>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../concepts/rotation-strategies.html">Rotation Strategies</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/rotation-strategies.html#why-a-protocol-not-an-abstract-base-class">Why a Protocol, Not an Abstract Base Class?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/rotation-strategies.html#the-registry-pattern">The Registry Pattern</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/rotation-strategies.html#the-9-built-in-strategies">The 9 Built-In Strategies</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../concepts/rotation-strategies.html#simple-selection-stateless">Simple Selection (Stateless)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../concepts/rotation-strategies.html#adaptive-selection-stateful">Adaptive Selection (Stateful)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../concepts/rotation-strategies.html#context-aware-selection">Context-Aware Selection</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../concepts/rotation-strategies.html#composition">Composition</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/rotation-strategies.html#why-record-result">Why <code class="docutils literal notranslate"><span class="pre">record_result()</span></code>?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/rotation-strategies.html#thread-safety">Thread Safety</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/rotation-strategies.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../concepts/cache-architecture.html">Cache Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/cache-architecture.html#why-three-tiers">Why Three Tiers?</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../concepts/cache-architecture.html#alternatives-considered">Alternatives Considered</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/cache-architecture.html#promotion-and-demotion">Promotion and Demotion</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/cache-architecture.html#credential-security-across-tiers">Credential Security Across Tiers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/cache-architecture.html#graceful-degradation">Graceful Degradation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/cache-architecture.html#ttl-management">TTL Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/cache-architecture.html#thread-safety">Thread Safety</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/cache-architecture.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../concepts/circuit-breakers.html">Circuit Breakers</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/circuit-breakers.html#the-problem">The Problem</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/circuit-breakers.html#three-state-machine">Three-State Machine</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/circuit-breakers.html#why-not-just-blacklist">Why Not Just Blacklist?</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/circuit-breakers.html#rolling-time-window">Rolling Time Window</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/circuit-breakers.html#half-open-gating">Half-Open Gating</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/circuit-breakers.html#state-persistence">State Persistence</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/circuit-breakers.html#configuration-tuning">Configuration Tuning</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/circuit-breakers.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../concepts/proxy-lifecycle.html">Proxy Lifecycle</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/proxy-lifecycle.html#the-six-stages">The Six Stages</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../concepts/proxy-lifecycle.html#fetch">1. Fetch</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../concepts/proxy-lifecycle.html#validate">2. Validate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../concepts/proxy-lifecycle.html#enrich">3. Enrich</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../concepts/proxy-lifecycle.html#rotate">4. Rotate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../concepts/proxy-lifecycle.html#monitor">5. Monitor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../concepts/proxy-lifecycle.html#eject-and-recover">6. Eject (and Recover)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/proxy-lifecycle.html#persistence-across-restarts">Persistence Across Restarts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/proxy-lifecycle.html#data-flow-summary">Data Flow Summary</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/proxy-lifecycle.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../concepts/security-model.html">Security Model</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/security-model.html#credential-handling">Credential Handling</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../concepts/security-model.html#in-memory-runtime">In Memory (Runtime)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../concepts/security-model.html#at-rest-l2-l3-cache">At Rest (L2/L3 Cache)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../concepts/security-model.html#in-transit-logs-and-errors">In Transit (Logs and Errors)</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/security-model.html#ssrf-protection">SSRF Protection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/security-model.html#encryption-architecture">Encryption Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/security-model.html#redos-protection">ReDoS Protection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/security-model.html#api-authentication">API Authentication</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/security-model.html#summary-of-defenses">Summary of Defenses</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../concepts/security-model.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 _expand"><a class="reference internal" href="../../../reference/index.html">Reference</a><ul>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../reference/index.html#quick-lookup">Quick Lookup</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../reference/index.html#api-surfaces">API Surfaces</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../reference/index.html#configuration-error-handling">Configuration &amp; Error Handling</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../reference/index.html#subsystem-apis">Subsystem APIs</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../reference/index.html#database-migrations">Database &amp; Migrations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/rest-api.html">ProxyWhirl REST API Usage Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#getting-started">Getting Started</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#authentication">Authentication</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#middleware">Middleware</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#endpoint-reference">Endpoint Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#rate-limiting">Rate Limiting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#performance-tips">Performance Tips</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#security-best-practices">Security Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#deployment-examples">Deployment Examples</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#x-forwarded-for-security-checklist">X-Forwarded-For Security Checklist</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#security-references">Security References</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#see-also">See Also</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rest-api.html#support">Support</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/python-api.html">Python API</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/python-api.html#rotators">Rotators</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/python-api.html#rotation-strategies">Rotation Strategies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/python-api.html#models">Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/python-api.html#fetchers-and-validators">Fetchers and Validators</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/python-api.html#cache">Cache</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/python-api.html#circuit-breaker-and-retry">Circuit Breaker and Retry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/python-api.html#browser-renderer">Browser Renderer</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/python-api.html#utilities">Utilities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/python-api.html#exceptions">Exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/python-api.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/configuration.html">Configuration Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/configuration.html#configuration-discovery">Configuration Discovery</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/configuration.html#toml-configuration-format">TOML Configuration Format</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/configuration.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/configuration.html#configuration-classes">Configuration Classes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/configuration.html#programmatic-configuration">Programmatic Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/configuration.html#validation-rules">Validation Rules</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/configuration.html#security-best-practices">Security Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/configuration.html#configuration-examples">Configuration Examples</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/configuration.html#migration-from-legacy-config">Migration from Legacy Config</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/configuration.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/configuration.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/exceptions.html">Exceptions Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/exceptions.html#table-of-contents">Table of Contents</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/exceptions.html#exception-hierarchy">Exception Hierarchy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/exceptions.html#proxyerrorcode-enum">ProxyErrorCode Enum</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/exceptions.html#utility-functions">Utility Functions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/exceptions.html#error-codes">Error Codes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/exceptions.html#exception-reference">Exception Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/exceptions.html#error-handling-patterns">Error Handling Patterns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/exceptions.html#best-practices">Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/exceptions.html#summary">Summary</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/exceptions.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/cache-api.html">Cache API Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/cache-api.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/cache-api.html#data-models">Data Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/cache-api.html#tier-implementations">Tier Implementations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/cache-api.html#utilities">Utilities</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/cache-api.html#usage-examples">Usage Examples</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/cache-api.html#performance-considerations">Performance Considerations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/cache-api.html#thread-safety">Thread Safety</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/cache-api.html#error-handling">Error Handling</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/cache-api.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/rate-limiting-api.html">Rate Limiting API Reference</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rate-limiting-api.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rate-limiting-api.html#core-classes">Core Classes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rate-limiting-api.html#data-models">Data Models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rate-limiting-api.html#usage-examples">Usage Examples</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rate-limiting-api.html#thread-safety">Thread Safety</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rate-limiting-api.html#performance-considerations">Performance Considerations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rate-limiting-api.html#integration-with-monitoring">Integration with Monitoring</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rate-limiting-api.html#sphinx-integration">Sphinx Integration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rate-limiting-api.html#common-patterns">Common Patterns</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rate-limiting-api.html#faq">FAQ</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/rate-limiting-api.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/migrations.html">Database Migrations Guide</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/migrations.html#overview">Overview</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/migrations.html#quick-start">Quick Start</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/migrations.html#migration-api-reference">Migration API Reference</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/migrations.html#creating-new-migrations">Creating New Migrations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/migrations.html#best-practices">Best Practices</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/migrations.html#application-integration">Application Integration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/migrations.html#troubleshooting">Troubleshooting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/migrations.html#directory-structure">Directory Structure</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/migrations.html#configuration">Configuration</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../reference/migrations.html#see-also">See Also</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 _expand"><a class="reference internal" href="../../../project/index.html">Project</a><ul>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../project/index.html#development-setup">Development Setup</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#clone-install">Clone &amp; Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#verify-installation">Verify Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#make-commands">Make Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../project/index.html#contributing">Contributing</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#workflow">Workflow</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#branch-naming">Branch Naming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#commit-convention">Commit Convention</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#code-style">Code Style</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#pre-commit-hooks">Pre-commit Hooks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#testing-guidelines">Testing Guidelines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#extending-with-custom-strategies">Extending with Custom Strategies</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../project/index.html#ci-cd-pipelines">CI/CD Pipelines</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#quality-gate-pipeline">Quality Gate Pipeline</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../project/index.html#architecture">Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#module-map">Module Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#key-exports">Key Exports</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../project/index.html#environment-variables">Environment Variables</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../project/index.html#current-health">Current Health</a></li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../project/index.html#changelog-highlights">Changelog Highlights</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#recent">Recent</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/index.html#phase-completion-status">Phase Completion Status</a></li>
+</ul>
+</li>
+<li class="toctree-l2 _expand"><a class="reference internal" href="../../../project/index.html#license">License</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../project/changelog.html">Changelog</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../../../project/changelog.html#unreleased">Unreleased</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../project/changelog.html#id1">0.3.0 (2026-02-16)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../project/changelog.html#id4">0.1.2 (2026-02-14)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../project/changelog.html#id7">0.1.1 (2026-01-14)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../../project/changelog.html#id10">0.1.0 (2026-01-10)</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">proxywhirl</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="../api/index.html">proxywhirl.api</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../browser/index.html">proxywhirl.browser</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../cache/index.html">proxywhirl.cache</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../circuit_breaker/index.html">proxywhirl.circuit_breaker</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../cli/index.html">proxywhirl.cli</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../config/index.html">proxywhirl.config</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../enrichment/index.html">proxywhirl.enrichment</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../exceptions/index.html">proxywhirl.exceptions</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../exports/index.html">proxywhirl.exports</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fetchers/index.html">proxywhirl.fetchers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../geo/index.html">proxywhirl.geo</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">proxywhirl.logging_config</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../mcp/index.html">proxywhirl.mcp</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../metrics_collector/index.html">proxywhirl.metrics_collector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../migrations/index.html">proxywhirl.migrations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../models/index.html">proxywhirl.models</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../premium_sources/index.html">proxywhirl.premium_sources</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../rate_limiting/index.html">proxywhirl.rate_limiting</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../retry/index.html">proxywhirl.retry</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../rotator/index.html">proxywhirl.rotator</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../rwlock/index.html">proxywhirl.rwlock</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../safe_regex/index.html">proxywhirl.safe_regex</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../sources/index.html">proxywhirl.sources</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../storage/index.html">proxywhirl.storage</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../strategies/index.html">proxywhirl.strategies</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tui/index.html">proxywhirl.tui</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../utils/index.html">proxywhirl.utils</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#exceptions">Exceptions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#classes">Classes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#functions">Functions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../index.html#package-contents">Package Contents</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CacheCorruptionError"><code class="docutils literal notranslate"><span class="pre">CacheCorruptionError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CacheStorageError"><code class="docutils literal notranslate"><span class="pre">CacheStorageError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CacheValidationError"><code class="docutils literal notranslate"><span class="pre">CacheValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.NonRetryableError"><code class="docutils literal notranslate"><span class="pre">NonRetryableError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyAuthenticationError"><code class="docutils literal notranslate"><span class="pre">ProxyAuthenticationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyConnectionError"><code class="docutils literal notranslate"><span class="pre">ProxyConnectionError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyFetchError"><code class="docutils literal notranslate"><span class="pre">ProxyFetchError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyPoolEmptyError"><code class="docutils literal notranslate"><span class="pre">ProxyPoolEmptyError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyStorageError"><code class="docutils literal notranslate"><span class="pre">ProxyStorageError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyValidationError"><code class="docutils literal notranslate"><span class="pre">ProxyValidationError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyWhirlError"><code class="docutils literal notranslate"><span class="pre">ProxyWhirlError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.RegexComplexityError"><code class="docutils literal notranslate"><span class="pre">RegexComplexityError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.RegexTimeoutError"><code class="docutils literal notranslate"><span class="pre">RegexTimeoutError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.RequestQueueFullError"><code class="docutils literal notranslate"><span class="pre">RequestQueueFullError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.RetryableError"><code class="docutils literal notranslate"><span class="pre">RetryableError</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.AsyncCircuitBreaker"><code class="docutils literal notranslate"><span class="pre">AsyncCircuitBreaker</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.AsyncProxyWhirl"><code class="docutils literal notranslate"><span class="pre">AsyncProxyWhirl</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.BackoffStrategy"><code class="docutils literal notranslate"><span class="pre">BackoffStrategy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.BootstrapConfig"><code class="docutils literal notranslate"><span class="pre">BootstrapConfig</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.BrowserRenderer"><code class="docutils literal notranslate"><span class="pre">BrowserRenderer</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CSVParser"><code class="docutils literal notranslate"><span class="pre">CSVParser</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CacheConfig"><code class="docutils literal notranslate"><span class="pre">CacheConfig</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CacheEntry"><code class="docutils literal notranslate"><span class="pre">CacheEntry</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CacheHealthStatus"><code class="docutils literal notranslate"><span class="pre">CacheHealthStatus</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CacheManager"><code class="docutils literal notranslate"><span class="pre">CacheManager</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CacheStatistics"><code class="docutils literal notranslate"><span class="pre">CacheStatistics</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CacheTierConfig"><code class="docutils literal notranslate"><span class="pre">CacheTierConfig</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CircuitBreaker"><code class="docutils literal notranslate"><span class="pre">CircuitBreaker</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CircuitBreakerConfig"><code class="docutils literal notranslate"><span class="pre">CircuitBreakerConfig</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CircuitBreakerEvent"><code class="docutils literal notranslate"><span class="pre">CircuitBreakerEvent</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CircuitBreakerState"><code class="docutils literal notranslate"><span class="pre">CircuitBreakerState</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CompositeStrategy"><code class="docutils literal notranslate"><span class="pre">CompositeStrategy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.CostAwareStrategy"><code class="docutils literal notranslate"><span class="pre">CostAwareStrategy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.DataStorageConfig"><code class="docutils literal notranslate"><span class="pre">DataStorageConfig</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.GeoTargetedStrategy"><code class="docutils literal notranslate"><span class="pre">GeoTargetedStrategy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.HTMLTableParser"><code class="docutils literal notranslate"><span class="pre">HTMLTableParser</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.HealthMonitor"><code class="docutils literal notranslate"><span class="pre">HealthMonitor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.HealthStatus"><code class="docutils literal notranslate"><span class="pre">HealthStatus</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.HourlyAggregate"><code class="docutils literal notranslate"><span class="pre">HourlyAggregate</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.JSONParser"><code class="docutils literal notranslate"><span class="pre">JSONParser</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.LeastUsedStrategy"><code class="docutils literal notranslate"><span class="pre">LeastUsedStrategy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.PerformanceBasedStrategy"><code class="docutils literal notranslate"><span class="pre">PerformanceBasedStrategy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.PlainTextParser"><code class="docutils literal notranslate"><span class="pre">PlainTextParser</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.Proxy"><code class="docutils literal notranslate"><span class="pre">Proxy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyChain"><code class="docutils literal notranslate"><span class="pre">ProxyChain</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyConfiguration"><code class="docutils literal notranslate"><span class="pre">ProxyConfiguration</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyCredentials"><code class="docutils literal notranslate"><span class="pre">ProxyCredentials</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyFetcher"><code class="docutils literal notranslate"><span class="pre">ProxyFetcher</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyFormat"><code class="docutils literal notranslate"><span class="pre">ProxyFormat</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyMetrics"><code class="docutils literal notranslate"><span class="pre">ProxyMetrics</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyPool"><code class="docutils literal notranslate"><span class="pre">ProxyPool</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxySource"><code class="docutils literal notranslate"><span class="pre">ProxySource</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxySourceConfig"><code class="docutils literal notranslate"><span class="pre">ProxySourceConfig</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyValidator"><code class="docutils literal notranslate"><span class="pre">ProxyValidator</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ProxyWhirl"><code class="docutils literal notranslate"><span class="pre">ProxyWhirl</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.RandomStrategy"><code class="docutils literal notranslate"><span class="pre">RandomStrategy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.RenderMode"><code class="docutils literal notranslate"><span class="pre">RenderMode</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.RetryAttempt"><code class="docutils literal notranslate"><span class="pre">RetryAttempt</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.RetryExecutor"><code class="docutils literal notranslate"><span class="pre">RetryExecutor</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.RetryMetrics"><code class="docutils literal notranslate"><span class="pre">RetryMetrics</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.RetryOutcome"><code class="docutils literal notranslate"><span class="pre">RetryOutcome</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.RetryPolicy"><code class="docutils literal notranslate"><span class="pre">RetryPolicy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.RotationStrategy"><code class="docutils literal notranslate"><span class="pre">RotationStrategy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.RoundRobinStrategy"><code class="docutils literal notranslate"><span class="pre">RoundRobinStrategy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.SelectionContext"><code class="docutils literal notranslate"><span class="pre">SelectionContext</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.Session"><code class="docutils literal notranslate"><span class="pre">Session</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.SessionPersistenceStrategy"><code class="docutils literal notranslate"><span class="pre">SessionPersistenceStrategy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.SourceStats"><code class="docutils literal notranslate"><span class="pre">SourceStats</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.StrategyConfig"><code class="docutils literal notranslate"><span class="pre">StrategyConfig</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.StrategyRegistry"><code class="docutils literal notranslate"><span class="pre">StrategyRegistry</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.StrategyState"><code class="docutils literal notranslate"><span class="pre">StrategyState</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.TierStatistics"><code class="docutils literal notranslate"><span class="pre">TierStatistics</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.ValidationLevel"><code class="docutils literal notranslate"><span class="pre">ValidationLevel</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.WeightedStrategy"><code class="docutils literal notranslate"><span class="pre">WeightedStrategy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.configure_logging"><code class="docutils literal notranslate"><span class="pre">configure_logging()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.create_proxy_from_url"><code class="docutils literal notranslate"><span class="pre">create_proxy_from_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.decrypt_credentials"><code class="docutils literal notranslate"><span class="pre">decrypt_credentials()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.deduplicate_proxies"><code class="docutils literal notranslate"><span class="pre">deduplicate_proxies()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.encrypt_credentials"><code class="docutils literal notranslate"><span class="pre">encrypt_credentials()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.generate_encryption_key"><code class="docutils literal notranslate"><span class="pre">generate_encryption_key()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.is_valid_proxy_url"><code class="docutils literal notranslate"><span class="pre">is_valid_proxy_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.parse_proxy_url"><code class="docutils literal notranslate"><span class="pre">parse_proxy_url()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.proxy_to_dict"><code class="docutils literal notranslate"><span class="pre">proxy_to_dict()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../index.html#proxywhirl.validate_proxy_model"><code class="docutils literal notranslate"><span class="pre">validate_proxy_model()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+        </div>
+      </div>
+    </div>
+  </aside>
+  <div class="lside-overlay js-menu" role="button" aria-label="Close left sidebar" aria-controls="lside" aria-expanded="false"></div>
+  <aside id="rside" class="sy-rside pb-3 w-64 shrink-0 order-last">
+    <button class="rside-close js-menu xl:hidden" aria-label="Close Table of Contents" type="button" aria-controls="rside" aria-expanded="false">
+      <i class="i-lucide close"></i>
+    </button>
+    <div class="sy-scrollbar sy-rside-inner px-6 xl:top-16 xl:sticky xl:pl-0 pt-6 pb-4"><div class="localtoc"><h3>On this page</h3><ul>
+<li><a class="reference internal" href="#classes">Classes</a></li>
+<li><a class="reference internal" href="#functions">Functions</a></li>
+<li><a class="reference internal" href="#module-contents">Module Contents</a><ul>
+<li><a class="reference internal" href="#proxywhirl.logging_config.LogContext"><code class="docutils literal notranslate"><span class="pre">LogContext</span></code></a></li>
+<li><a class="reference internal" href="#proxywhirl.logging_config.LogRotationConfig"><code class="docutils literal notranslate"><span class="pre">LogRotationConfig</span></code></a><ul>
+<li><a class="reference internal" href="#proxywhirl.logging_config.LogRotationConfig.size"><code class="docutils literal notranslate">size</span></code></a></li>
+<li><a class="reference internal" href="#proxywhirl.logging_config.LogRotationConfig.time"><code class="docutils literal notranslate">time</span></code></a></li>
+<li><a class="reference internal" href="#proxywhirl.logging_config.LogRotationConfig.retention"><code class="docutils literal notranslate">retention</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#proxywhirl.logging_config.LoggingConfig"><code class="docutils literal notranslate"><span class="pre">LoggingConfig</span></code></a><ul>
+<li><a class="reference internal" href="#proxywhirl.logging_config.LoggingConfig.format"><code class="docutils literal notranslate">format</span></code></a></li>
+<li><a class="reference internal" href="#proxywhirl.logging_config.LoggingConfig.level"><code class="docutils literal notranslate">level</span></code></a></li>
+<li><a class="reference internal" href="#proxywhirl.logging_config.LoggingConfig.rotation"><code class="docutils literal notranslate">rotation</span></code></a></li>
+<li><a class="reference internal" href="#proxywhirl.logging_config.LoggingConfig.retention"><code class="docutils literal notranslate">retention</span></code></a></li>
+<li><a class="reference internal" href="#proxywhirl.logging_config.LoggingConfig.colorize"><code class="docutils literal notranslate">colorize</span></code></a></li>
+<li><a class="reference internal" href="#proxywhirl.logging_config.LoggingConfig.diagnose"><code class="docutils literal notranslate">diagnose</span></code></a></li>
+<li><a class="reference internal" href="#proxywhirl.logging_config.LoggingConfig.backtrace"><code class="docutils literal notranslate">backtrace</span></code></a></li>
+<li><a class="reference internal" href="#proxywhirl.logging_config.LoggingConfig.enqueue"><code class="docutils literal notranslate">enqueue</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#proxywhirl.logging_config.bind_context"><code class="docutils literal notranslate"><span class="pre">bind_context()</span></code></a></li>
+<li><a class="reference internal" href="#proxywhirl.logging_config.configure_logging"><code class="docutils literal notranslate"><span class="pre">configure_logging()</span></code></a></li>
+<li><a class="reference internal" href="#proxywhirl.logging_config.get_logger"><code class="docutils literal notranslate"><span class="pre">get_logger()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</div><div id="ethical-ad-placement" data-ea-publisher="readthedocs"></div></div>
+  </aside>
+  <div class="rside-overlay js-menu" role="button" aria-label="Close Table of Contents" aria-controls="rside" aria-expanded="false"></div>
+  <main class="sy-main w-full max-sm:max-w-full print:pt-6">
+<div class="sy-breadcrumbs" role="navigation">
+  <div class="sy-breadcrumbs-inner flex items-center">
+    <div class="md:hidden mr-3">
+      <button class="js-menu" aria-label="Menu" type="button" aria-controls="lside" aria-expanded="false">
+        <i class="i-lucide menu"></i>
+      </button>
+    </div>
+    <ol class="flex-1" itemscope itemtype="https://schema.org/BreadcrumbList"><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../../index.html"><span itemprop="name">ProxyWhirl</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="1" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../../index.html"><span itemprop="name">API Reference</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="2" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <a itemprop="item" href="../index.html"><span itemprop="name">proxywhirl</span></a>
+        <span>/</span>
+        <meta itemprop="position" content="3" />
+      </li><li itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem">
+        <strong itemprop="name">proxywhirl.logging_config</strong>
+        <meta itemprop="position" content="4" />
+      </li></ol>
+    <div class="xl:hidden ml-1">
+      <button class="js-menu" aria-label="Show table of contents" type="button" aria-controls="rside"
+        aria-expanded="false">
+        <i class="i-lucide outdent"></i>
+      </button>
+    </div>
+  </div>
+</div><div class="flex flex-col break-words justify-between">
+      <div class="relative min-w-0 max-w-6xl px-6 pb-6 pt-8 xl:px-12">
+  <div class="copy-page-wrapper relative pb-4 lg:absolute lg:top-8 lg:right-6 xl:right-12">
+  <div id="copy-page-trigger">
+    <button
+      type="button"
+      class="js-copy px-3 py-1 inline-flex items-center gap-1"
+      data-url="https://www.proxywhirl.com/docs/_sources/autoapi/proxywhirl/logging_config/index.rst.txt"
+    >
+      <i class="i-lucide" data-icon="copy"></i>
+      <span>Copy page</span>
+    </button>
+    <button class="js-menu px-2 py-1" type="button" aria-label="More actions"
+      aria-haspopup="menu" aria-expanded="false" aria-controls="copy-page-content">
+      <i class="i-lucide chevron-down"></i>
+    </button>
+  </div>
+  <div id="copy-page-content" role="menu" aria-orientation="vertical" aria-hidden="true">
+    <div role="presentation">
+      <div class="flex flex-col" role="group">
+        <button class="js-copy" type="button" role="menuitem"
+          data-url="https://www.proxywhirl.com/docs/_sources/autoapi/proxywhirl/logging_config/index.rst.txt">
+          <span class="iconify-icon">
+            <i class="i-lucide" data-icon="copy"></i>
+          </span>
+          <span>Copy page</span>
+        </button>
+        <a role="menuitem" href="https://www.proxywhirl.com/docs/_sources/autoapi/proxywhirl/logging_config/index.rst.txt" target="_blank" rel="nofollow"><iconify-icon icon="bi:code-slash"></iconify-icon>
+            <span>View Source</span></a><a role="menuitem" href="https://chatgpt.com/?hints=search&q=Read%20https%3A//www.proxywhirl.com/docs/_sources/autoapi/proxywhirl/logging_config/index.rst.txt%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:openai"></iconify-icon>
+          <span>Open in ChatGPT</span>
+        </a><a role="menuitem" href="https://claude.ai/new?q=Read%20https%3A//www.proxywhirl.com/docs/_sources/autoapi/proxywhirl/logging_config/index.rst.txt%20so%20I%20can%20ask%20questions%20about%20it." target="_blank" rel="nofollow">
+          <iconify-icon icon="bi:claude"></iconify-icon>
+          <span>Open in Claude</span>
+        </a></div>
+    </div>
+  </div>
+</div><article class="yue dark-code" role="main">
+          <section id="module-proxywhirl.logging_config">
+<span id="proxywhirl-logging-config"></span><h1>proxywhirl.logging_config<a class="headerlink" href="#module-proxywhirl.logging_config" title="Link to this heading">¶</a></h1>
+<p>Structured logging configuration for ProxyWhirl.</p>
+<p>This module provides MVP Phase 1 functionality for structured logging:
+- JSON and logfmt output formats
+- Log rotation configuration
+- Contextual metadata support
+- Integration with existing loguru usage</p>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span><span class="w"> </span><span class="nn">proxywhirl.logging_config</span><span class="w"> </span><span class="kn">import</span> <span class="n">configure_logging</span><span class="p">,</span> <span class="n">get_logger</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="n">configure_logging</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="s2">&quot;10 MB&quot;</span><span class="p">)</span>
+</span><span data-line="3"><span class="gp">&gt;&gt;&gt; </span><span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+</span><span data-line="4"><span class="gp">&gt;&gt;&gt; </span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Started proxy rotation&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#proxywhirl.logging_config.LogContext" title="proxywhirl.logging_config.LogContext"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LogContext</span></code></a></p></td>
+<td><p>Context manager for adding contextual metadata to log entries.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#proxywhirl.logging_config.LogRotationConfig" title="proxywhirl.logging_config.LogRotationConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LogRotationConfig</span></code></a></p></td>
+<td><p>Configuration for log file rotation.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#proxywhirl.logging_config.LoggingConfig" title="proxywhirl.logging_config.LoggingConfig"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LoggingConfig</span></code></a></p></td>
+<td><p>Main logging configuration model.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h2>
+<div class="table-wrapper autosummary longtable docutils container">
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#proxywhirl.logging_config.bind_context" title="proxywhirl.logging_config.bind_context"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bind_context</span></code></a>(**context)</p></td>
+<td><p>Bind contextual metadata to the logger.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#proxywhirl.logging_config.configure_logging" title="proxywhirl.logging_config.configure_logging"><code class="xref py py-obj docutils literal notranslate"><span class="pre">configure_logging</span></code></a>([format, level, rotation, ...])</p></td>
+<td><p>Configure structured logging for ProxyWhirl.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#proxywhirl.logging_config.get_logger" title="proxywhirl.logging_config.get_logger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_logger</span></code></a>()</p></td>
+<td><p>Get the configured loguru logger instance.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.LogContext">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">proxywhirl.logging_config.</span></span><span class="sig-name descname"><span class="pre">LogContext</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">context</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#LogContext"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.LogContext" title="Link to this definition">¶</a></dt>
+<dd><p>Context manager for adding contextual metadata to log entries.</p>
+<p>This class provides a convenient way to bind context variables to the logger
+for a specific block of code. Context is automatically removed when exiting
+the context manager.</p>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="k">with</span> <span class="n">LogContext</span><span class="p">(</span><span class="n">request_id</span><span class="o">=</span><span class="s2">&quot;req-123&quot;</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="s2">&quot;proxy_fetch&quot;</span><span class="p">):</span>
+</span><span data-line="2"><span class="gp">... </span>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Processing request&quot;</span><span class="p">)</span>
+</span><span data-line="3"><span class="go"># Log entry will include request_id and operation in context</span>
+</span></pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>**context</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em> | </em><em>None</em>) – Arbitrary keyword arguments to bind as context metadata</p>
+</dd>
+</dl>
+<p>Initialize context with metadata key-value pairs.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.LogRotationConfig">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">proxywhirl.logging_config.</span></span><span class="sig-name descname"><span class="pre">LogRotationConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">/</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">**data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#LogRotationConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.LogRotationConfig" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pydantic.dev/latest/api/base_model/#pydantic.BaseModel" title="(in Pydantic Validation v0.0.0)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pydantic.BaseModel</span></code></a></p>
+<p>Configuration for log file rotation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> (<em>Any</em>)</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.LogRotationConfig.size">
+<span class="sig-name descname"><span class="pre">size</span></span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#LogRotationConfig.size"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.LogRotationConfig.size" title="Link to this definition">¶</a></dt>
+<dd><p>Size threshold for rotation (e.g., “10 MB”, “1 GB”)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.LogRotationConfig.time">
+<span class="sig-name descname"><span class="pre">time</span></span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#LogRotationConfig.time"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.LogRotationConfig.time" title="Link to this definition">¶</a></dt>
+<dd><p>Time threshold for rotation (e.g., “1 day”, “1 week”)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.LogRotationConfig.retention">
+<span class="sig-name descname"><span class="pre">retention</span></span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#LogRotationConfig.retention"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.LogRotationConfig.retention" title="Link to this definition">¶</a></dt>
+<dd><p>Number of rotated files to keep (e.g., “5 files”, “1 week”)</p>
+</dd></dl>
+
+<p>Create a new model by parsing and validating input data from keyword arguments.</p>
+<p>Raises [<cite>ValidationError</cite>][pydantic_core.ValidationError] if the input data cannot be
+validated to form a valid model.</p>
+<p><cite>self</cite> is explicitly positional-only to allow <cite>self</cite> as a field name.</p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.LoggingConfig">
+<span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">proxywhirl.logging_config.</span></span><span class="sig-name descname"><span class="pre">LoggingConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">/</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">**data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#LoggingConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.LoggingConfig" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.pydantic.dev/latest/api/base_model/#pydantic.BaseModel" title="(in Pydantic Validation v0.0.0)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pydantic.BaseModel</span></code></a></p>
+<p>Main logging configuration model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> (<em>Any</em>)</p>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.LoggingConfig.format">
+<span class="sig-name descname"><span class="pre">format</span></span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#LoggingConfig.format"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.LoggingConfig.format" title="Link to this definition">¶</a></dt>
+<dd><p>Output format - ‘default’, ‘json’, or ‘logfmt’</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.LoggingConfig.level">
+<span class="sig-name descname"><span class="pre">level</span></span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#LoggingConfig.level"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.LoggingConfig.level" title="Link to this definition">¶</a></dt>
+<dd><p>Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.LoggingConfig.rotation">
+<span class="sig-name descname"><span class="pre">rotation</span></span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#LoggingConfig.rotation"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.LoggingConfig.rotation" title="Link to this definition">¶</a></dt>
+<dd><p>Log rotation configuration (size/time-based)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.LoggingConfig.retention">
+<span class="sig-name descname"><span class="pre">retention</span></span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#LoggingConfig.retention"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.LoggingConfig.retention" title="Link to this definition">¶</a></dt>
+<dd><p>Retention policy for rotated logs</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.LoggingConfig.colorize">
+<span class="sig-name descname"><span class="pre">colorize</span></span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#LoggingConfig.colorize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.LoggingConfig.colorize" title="Link to this definition">¶</a></dt>
+<dd><p>Enable colored output (only for ‘default’ format)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.LoggingConfig.diagnose">
+<span class="sig-name descname"><span class="pre">diagnose</span></span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#LoggingConfig.diagnose"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.LoggingConfig.diagnose" title="Link to this definition">¶</a></dt>
+<dd><p>Enable diagnostic mode (adds extra debug info)</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.LoggingConfig.backtrace">
+<span class="sig-name descname"><span class="pre">backtrace</span></span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#LoggingConfig.backtrace"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.LoggingConfig.backtrace" title="Link to this definition">¶</a></dt>
+<dd><p>Enable backtrace on exceptions</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.LoggingConfig.enqueue">
+<span class="sig-name descname"><span class="pre">enqueue</span></span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#LoggingConfig.enqueue"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.LoggingConfig.enqueue" title="Link to this definition">¶</a></dt>
+<dd><p>Enable async logging with queue</p>
+</dd></dl>
+
+<p>Create a new model by parsing and validating input data from keyword arguments.</p>
+<p>Raises [<cite>ValidationError</cite>][pydantic_core.ValidationError] if the input data cannot be
+validated to form a valid model.</p>
+<p><cite>self</cite> is explicitly positional-only to allow <cite>self</cite> as a field name.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.bind_context">
+<span class="sig-prename descclassname"><span class="pre">proxywhirl.logging_config.</span></span><span class="sig-name descname"><span class="pre">bind_context</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">context</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#bind_context"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.bind_context" title="Link to this definition">¶</a></dt>
+<dd><p>Bind contextual metadata to the logger.</p>
+<p>This is a convenience wrapper around logger.bind() for adding metadata
+to log entries. The bound context persists for the lifetime of the
+returned logger instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>**context</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.14)"><em>float</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em> | </em><em>None</em>) – Arbitrary keyword arguments to bind as context metadata</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Logger instance with bound context</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="n">request_logger</span> <span class="o">=</span> <span class="n">bind_context</span><span class="p">(</span><span class="n">request_id</span><span class="o">=</span><span class="s2">&quot;req-123&quot;</span><span class="p">,</span> <span class="n">operation</span><span class="o">=</span><span class="s2">&quot;fetch&quot;</span><span class="p">)</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="n">request_logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Started operation&quot;</span><span class="p">)</span>
+</span><span data-line="3"><span class="go"># Log will include request_id and operation in context</span>
+</span></pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.configure_logging">
+<span class="sig-prename descclassname"><span class="pre">proxywhirl.logging_config.</span></span><span class="sig-name descname"><span class="pre">configure_logging</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">format</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'default'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">level</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'INFO'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rotation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">retention</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sink</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">sys.stderr</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">colorize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">diagnose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">backtrace</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enqueue</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#configure_logging"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.configure_logging" title="Link to this definition">¶</a></dt>
+<dd><p>Configure structured logging for ProxyWhirl.</p>
+<p>This function sets up loguru with the specified format, level, and rotation
+settings. It removes existing handlers and adds a new one with the
+configured settings.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>format</strong> (<em>Literal</em><em>[</em><em>'default'</em><em>, </em><em>'json'</em><em>, </em><em>'logfmt'</em><em>]</em>) – Output format - ‘default’ (colored text), ‘json’, or ‘logfmt’</p></li>
+<li><p><strong>level</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a>) – Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)</p></li>
+<li><p><strong>rotation</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Rotation threshold (e.g., ‘10 MB’, ‘1 day’, ‘00:00’)</p></li>
+<li><p><strong>retention</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em> | </em><em>None</em>) – Retention policy (e.g., ‘5 files’, ‘1 week’, ‘7 days’)</p></li>
+<li><p><strong>sink</strong> – Output destination (file path, sys.stderr, sys.stdout, etc.)</p></li>
+<li><p><strong>colorize</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a><em> | </em><em>None</em>) – Enable colored output (auto-detected if None)</p></li>
+<li><p><strong>diagnose</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Enable diagnostic mode (adds code context to logs)</p></li>
+<li><p><strong>backtrace</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Enable backtrace on exceptions</p></li>
+<li><p><strong>enqueue</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.14)"><em>bool</em></a>) – Enable async logging with queue</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># JSON logging to file with rotation</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="n">configure_logging</span><span class="p">(</span>
+</span><span data-line="3"><span class="gp">... </span>    <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;json&quot;</span><span class="p">,</span>
+</span><span data-line="4"><span class="gp">... </span>    <span class="n">level</span><span class="o">=</span><span class="s2">&quot;INFO&quot;</span><span class="p">,</span>
+</span><span data-line="5"><span class="gp">... </span>    <span class="n">rotation</span><span class="o">=</span><span class="s2">&quot;10 MB&quot;</span><span class="p">,</span>
+</span><span data-line="6"><span class="gp">... </span>    <span class="n">retention</span><span class="o">=</span><span class="s2">&quot;5 files&quot;</span><span class="p">,</span>
+</span><span data-line="7"><span class="gp">... </span>    <span class="n">sink</span><span class="o">=</span><span class="s2">&quot;logs/proxywhirl.log&quot;</span>
+</span><span data-line="8"><span class="gp">... </span><span class="p">)</span>
+</span></pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Console logging with colors</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="n">configure_logging</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s2">&quot;default&quot;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s2">&quot;DEBUG&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Logfmt to stderr</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="n">configure_logging</span><span class="p">(</span><span class="nb">format</span><span class="o">=</span><span class="s2">&quot;logfmt&quot;</span><span class="p">,</span> <span class="n">level</span><span class="o">=</span><span class="s2">&quot;WARNING&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="proxywhirl.logging_config.get_logger">
+<span class="sig-prename descclassname"><span class="pre">proxywhirl.logging_config.</span></span><span class="sig-name descname"><span class="pre">get_logger</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/proxywhirl/logging_config.html#get_logger"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.logging_config.get_logger" title="Link to this definition">¶</a></dt>
+<dd><p>Get the configured loguru logger instance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The global loguru logger instance, configured via configure_logging()</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span data-line="1"><span class="gp">&gt;&gt;&gt; </span><span class="n">logger</span> <span class="o">=</span> <span class="n">get_logger</span><span class="p">()</span>
+</span><span data-line="2"><span class="gp">&gt;&gt;&gt; </span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Processing started&quot;</span><span class="p">)</span>
+</span><span data-line="3"><span class="gp">&gt;&gt;&gt; </span><span class="n">logger</span><span class="o">.</span><span class="n">bind</span><span class="p">(</span><span class="n">request_id</span><span class="o">=</span><span class="s2">&quot;req-123&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Request received&quot;</span><span class="p">)</span>
+</span></pre></div>
+</div>
+</dd></dl>
+
+</section>
+</section>
+
+        </article><button class="back-to-top" type="button">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+  </svg>
+  <span>Back to top</span>
+</button><div class="navigation flex print:hidden"><div class="navigation-prev">
+    <a href="../geo/index.html">
+      <i class="i-lucide chevron-left"></i>
+      <div class="page-info">
+        <span>Previous</span><div class="title">proxywhirl.geo</div></div>
+    </a>
+  </div><div class="navigation-next">
+    <a href="../mcp/index.html">
+      <div class="page-info">
+        <span>Next</span>
+        <div class="title">proxywhirl.mcp</div>
+      </div>
+      <i class="i-lucide chevron-right"></i>
+    </a>
+  </div></div></div>
+    </div>
+  </main>
+</div>
+<footer class="sy-foot">
+  <div class="sy-foot-inner sy-container mx-auto">
+    <div class="sy-foot-reserved md:flex justify-between items-center">
+      <div class="sy-foot-copyright"><p>2026, Wyatt Walsh</p>
+  
+  <p>
+    Made with
+    
+    <a href="https://shibuya.lepture.com">Shibuya theme</a>.
+  </p>
+</div>
+      <div class="sy-foot-socials">
+<a href="https://github.com/wyattowalsh/proxywhirl" aria-label="GitHub">
+  <iconify-icon icon="simple-icons:github"></iconify-icon>
+</a></div>
+    </div>
+  </div>
+</footer>
+      <script src="../../../_static/documentation_options.js?v=71d9d8e6"></script>
+      <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+      <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+      <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../../../_static/copybutton.js?v=f281be69"></script>
+      <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+      <script src="../../../_static/shibuya.js?v=cac61aee"></script></body>
+</html>

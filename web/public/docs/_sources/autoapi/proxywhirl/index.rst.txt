@@ -1,0 +1,3965 @@
+proxywhirl
+==========
+
+.. py:module:: proxywhirl
+
+.. autoapi-nested-parse::
+
+   ProxyWhirl: Advanced Python Proxy Rotation Library
+
+   A production-ready library for intelligent proxy rotation with auto-fetching,
+   validation, and persistence capabilities.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/proxywhirl/api/index
+   /autoapi/proxywhirl/browser/index
+   /autoapi/proxywhirl/cache/index
+   /autoapi/proxywhirl/circuit_breaker/index
+   /autoapi/proxywhirl/cli/index
+   /autoapi/proxywhirl/config/index
+   /autoapi/proxywhirl/enrichment/index
+   /autoapi/proxywhirl/exceptions/index
+   /autoapi/proxywhirl/exports/index
+   /autoapi/proxywhirl/fetchers/index
+   /autoapi/proxywhirl/geo/index
+   /autoapi/proxywhirl/logging_config/index
+   /autoapi/proxywhirl/mcp/index
+   /autoapi/proxywhirl/metrics_collector/index
+   /autoapi/proxywhirl/migrations/index
+   /autoapi/proxywhirl/models/index
+   /autoapi/proxywhirl/premium_sources/index
+   /autoapi/proxywhirl/rate_limiting/index
+   /autoapi/proxywhirl/retry/index
+   /autoapi/proxywhirl/rotator/index
+   /autoapi/proxywhirl/rwlock/index
+   /autoapi/proxywhirl/safe_regex/index
+   /autoapi/proxywhirl/sources/index
+   /autoapi/proxywhirl/storage/index
+   /autoapi/proxywhirl/strategies/index
+   /autoapi/proxywhirl/tui/index
+   /autoapi/proxywhirl/utils/index
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   proxywhirl.CacheCorruptionError
+   proxywhirl.CacheStorageError
+   proxywhirl.CacheValidationError
+   proxywhirl.NonRetryableError
+   proxywhirl.ProxyAuthenticationError
+   proxywhirl.ProxyConnectionError
+   proxywhirl.ProxyFetchError
+   proxywhirl.ProxyPoolEmptyError
+   proxywhirl.ProxyStorageError
+   proxywhirl.ProxyValidationError
+   proxywhirl.ProxyWhirlError
+   proxywhirl.RegexComplexityError
+   proxywhirl.RegexTimeoutError
+   proxywhirl.RequestQueueFullError
+   proxywhirl.RetryableError
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.AsyncCircuitBreaker
+   proxywhirl.AsyncProxyWhirl
+   proxywhirl.BackoffStrategy
+   proxywhirl.BootstrapConfig
+   proxywhirl.BrowserRenderer
+   proxywhirl.CSVParser
+   proxywhirl.CacheConfig
+   proxywhirl.CacheEntry
+   proxywhirl.CacheHealthStatus
+   proxywhirl.CacheManager
+   proxywhirl.CacheStatistics
+   proxywhirl.CacheTierConfig
+   proxywhirl.CircuitBreaker
+   proxywhirl.CircuitBreakerConfig
+   proxywhirl.CircuitBreakerEvent
+   proxywhirl.CircuitBreakerState
+   proxywhirl.CompositeStrategy
+   proxywhirl.CostAwareStrategy
+   proxywhirl.DataStorageConfig
+   proxywhirl.GeoTargetedStrategy
+   proxywhirl.HTMLTableParser
+   proxywhirl.HealthMonitor
+   proxywhirl.HealthStatus
+   proxywhirl.HourlyAggregate
+   proxywhirl.JSONParser
+   proxywhirl.LeastUsedStrategy
+   proxywhirl.PerformanceBasedStrategy
+   proxywhirl.PlainTextParser
+   proxywhirl.Proxy
+   proxywhirl.ProxyChain
+   proxywhirl.ProxyConfiguration
+   proxywhirl.ProxyCredentials
+   proxywhirl.ProxyFetcher
+   proxywhirl.ProxyFormat
+   proxywhirl.ProxyMetrics
+   proxywhirl.ProxyPool
+   proxywhirl.ProxySource
+   proxywhirl.ProxySourceConfig
+   proxywhirl.ProxyValidator
+   proxywhirl.ProxyWhirl
+   proxywhirl.RandomStrategy
+   proxywhirl.RenderMode
+   proxywhirl.RetryAttempt
+   proxywhirl.RetryExecutor
+   proxywhirl.RetryMetrics
+   proxywhirl.RetryOutcome
+   proxywhirl.RetryPolicy
+   proxywhirl.RotationStrategy
+   proxywhirl.RoundRobinStrategy
+   proxywhirl.SelectionContext
+   proxywhirl.Session
+   proxywhirl.SessionPersistenceStrategy
+   proxywhirl.SourceStats
+   proxywhirl.StrategyConfig
+   proxywhirl.StrategyRegistry
+   proxywhirl.StrategyState
+   proxywhirl.TierStatistics
+   proxywhirl.ValidationLevel
+   proxywhirl.WeightedStrategy
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.configure_logging
+   proxywhirl.create_proxy_from_url
+   proxywhirl.decrypt_credentials
+   proxywhirl.deduplicate_proxies
+   proxywhirl.encrypt_credentials
+   proxywhirl.generate_encryption_key
+   proxywhirl.is_valid_proxy_url
+   proxywhirl.parse_proxy_url
+   proxywhirl.proxy_to_dict
+   proxywhirl.validate_proxy_model
+
+
+Package Contents
+----------------
+
+.. py:exception:: CacheCorruptionError(message = 'Cache data is corrupted', **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when cache data is corrupted and cannot be recovered.
+
+   Actionable guidance:
+   - Clear the cache and reinitialize
+   - Check for disk errors or corruption
+   - Verify cache format version compatibility
+
+   Initialize with cache corruption-specific defaults.
+
+
+.. py:exception:: CacheStorageError(message = 'Cache storage backend unavailable', **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when cache storage backend is unavailable.
+
+   Actionable guidance:
+   - Verify cache backend (Redis, Memcached) is running
+   - Check network connectivity to cache server
+   - Ensure cache credentials are valid
+   - Review cache server logs for errors
+
+   Initialize with cache storage-specific defaults.
+
+
+.. py:exception:: CacheValidationError(message, **kwargs)
+
+   Bases: :py:obj:`ValueError`, :py:obj:`ProxyWhirlError`
+
+
+   Raised when cache entry fails validation.
+
+   Actionable guidance:
+   - Check cache entry format
+   - Verify data types match schema
+   - Ensure required fields are present
+
+   Initialize with cache validation-specific defaults.
+
+
+.. py:exception:: NonRetryableError
+
+   Bases: :py:obj:`Exception`
+
+
+   Exception that does not trigger a retry.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:exception:: ProxyAuthenticationError(message = 'Proxy authentication failed', **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when proxy authentication fails.
+
+   Actionable guidance:
+   - Verify username and password are correct
+   - Check if proxy requires specific auth method
+   - Ensure credentials are not expired
+   - Contact proxy provider if credentials should be valid
+
+   Initialize with auth-specific defaults.
+
+
+.. py:exception:: ProxyConnectionError(message, **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when unable to connect through a proxy.
+
+   Actionable guidance:
+   - Verify proxy is reachable and not blocked
+   - Check network connectivity
+   - Ensure proxy supports the target protocol
+   - Try increasing timeout value
+
+   Initialize with connection-specific defaults.
+
+
+.. py:exception:: ProxyFetchError(message, **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when fetching proxies from external sources fails.
+
+   Actionable guidance:
+   - Verify the source URL is accessible
+   - Check API credentials if required
+   - Ensure the response format matches expectations
+   - Review rate limits with the provider
+
+   Initialize with fetch-specific defaults.
+
+
+.. py:exception:: ProxyPoolEmptyError(message = 'No proxies available in the pool', **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when attempting to select from an empty proxy pool.
+
+   Actionable guidance:
+   - Add proxies to the pool using add_proxy() or auto-fetch
+   - Check if proxies were filtered out by health checks
+   - Verify proxy sources are reachable
+
+   Initialize with pool-empty-specific defaults.
+
+
+.. py:exception:: ProxyStorageError(message, **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when proxy storage operations fail.
+
+   Actionable guidance:
+   - Check file system permissions
+   - Verify disk space is available
+   - Ensure storage path is writable
+   - Check database connection if using external storage
+
+   Initialize with storage-specific defaults.
+
+
+.. py:exception:: ProxyValidationError(message, **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when proxy URL or configuration is invalid.
+
+   Actionable guidance:
+   - Verify the proxy URL format (e.g., http://host:port)
+   - Check that the protocol is supported (http, https, socks5)
+   - Ensure credentials are properly encoded
+
+   Initialize with validation-specific defaults.
+
+
+.. py:exception:: ProxyWhirlError(message, *, proxy_url = None, error_type = None, error_code = None, retry_recommended = False, attempt_count = None, **metadata)
+
+   Bases: :py:obj:`Exception`
+
+
+   Base exception for all ProxyWhirl errors.
+
+   Initialize exception with optional metadata.
+
+   :param message: Human-readable error message
+   :param proxy_url: URL of the proxy that caused the error (will be redacted)
+   :param error_type: Type of error (e.g., "timeout", "invalid_credentials")
+   :param error_code: Programmatic error code for handling
+   :param retry_recommended: Whether retrying the operation is recommended
+   :param attempt_count: Number of attempts made before this error
+   :param \*\*metadata: Additional error-specific metadata
+
+
+   .. py:method:: to_dict()
+
+      Convert exception to dictionary for logging/serialization.
+
+      :returns: Dictionary representation of the error
+
+
+
+.. py:exception:: RegexComplexityError
+
+   Bases: :py:obj:`Exception`
+
+
+   Raised when regex pattern is too complex or dangerous.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:exception:: RegexTimeoutError
+
+   Bases: :py:obj:`Exception`
+
+
+   Raised when regex compilation or matching exceeds timeout.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:exception:: RequestQueueFullError(message = 'Request queue is full', queue_size = None, **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when the request queue is full and cannot accept more requests.
+
+   Actionable guidance:
+   - Wait for pending requests to complete
+   - Increase queue_size in configuration
+   - Reduce request rate to avoid overloading the queue
+   - Consider implementing request batching or throttling
+
+   Initialize with queue-specific defaults.
+
+
+.. py:exception:: RetryableError
+
+   Bases: :py:obj:`Exception`
+
+
+   Exception that triggers a retry.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: AsyncCircuitBreaker(/, **data)
+
+   Bases: :py:obj:`proxywhirl.circuit_breaker.base.CircuitBreakerBase`
+
+
+   Async circuit breaker for a single proxy with RWLock for high concurrency.
+
+   This is the ASYNCHRONOUS implementation designed for async/await contexts.
+   Uses AsyncRWLock for event-loop-safe operations with reduced lock contention.
+
+   Key Features:
+       - Event-loop safe: All methods are async and use asyncio-compatible locks
+       - High concurrency: RWLock allows multiple readers or single writer
+       - Zero blocking: Never blocks the event loop with synchronous operations
+
+   For synchronous contexts, use CircuitBreaker from circuit_breaker module instead.
+
+   .. attribute:: proxy_id
+
+      Unique identifier for the proxy
+
+   .. attribute:: state
+
+      Current circuit breaker state (CLOSED, OPEN, HALF_OPEN)
+
+   .. attribute:: failure_count
+
+      Number of failures in current window
+
+   .. attribute:: failure_threshold
+
+      Number of failures before opening circuit
+
+   .. attribute:: window_duration
+
+      Rolling window duration in seconds
+
+   .. attribute:: timeout_duration
+
+      How long circuit stays open before testing recovery
+
+   .. rubric:: Example
+
+   >>> from proxywhirl.circuit_breaker_async import AsyncCircuitBreaker
+   >>> cb = AsyncCircuitBreaker(proxy_id="proxy-1")
+   >>> await cb.record_failure()  # Event-loop safe
+   >>> if await cb.should_attempt_request():
+   ...     # make async request
+   ...     await cb.record_success()
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: create(proxy_id, config = None, **kwargs)
+      :classmethod:
+
+
+      Factory method to create a circuit breaker with optional config.
+
+      :param proxy_id: Unique identifier for the proxy
+      :param config: CircuitBreakerConfig with settings
+      :param \*\*kwargs: Additional AsyncCircuitBreaker field overrides
+
+      :returns: AsyncCircuitBreaker instance
+
+
+
+   .. py:method:: from_config(proxy_id, config = None, **kwargs)
+      :classmethod:
+
+
+      Backward-compatible alias for create().
+
+
+
+   .. py:method:: record_failure()
+      :async:
+
+
+      Record a failure and update state if threshold reached.
+
+
+
+   .. py:method:: record_success()
+      :async:
+
+
+      Record a success and potentially close circuit.
+
+
+
+   .. py:method:: reset()
+      :async:
+
+
+      Manually reset circuit breaker to CLOSED state.
+
+
+
+   .. py:method:: should_attempt_request()
+      :async:
+
+
+      Check if proxy is available for requests.
+
+      Uses write lock to prevent TOCTOU race conditions.
+
+      :returns: True if proxy should be attempted, False if circuit is open.
+
+
+
+.. py:class:: AsyncProxyWhirl(proxies = None, strategy = None, config = None, retry_policy = None, bootstrap = None)
+
+   Bases: :py:obj:`proxywhirl.rotator.base.ProxyRotatorBase`
+
+
+   Async proxy rotator with automatic failover and intelligent rotation.
+
+   Provides async HTTP methods (GET, POST, PUT, DELETE, PATCH) that automatically
+   rotate through a pool of proxies, with intelligent failover on connection errors.
+
+   .. rubric:: Example
+
+   ```python
+   from proxywhirl import AsyncProxyWhirl, Proxy
+
+   async with AsyncProxyWhirl() as rotator:
+       await rotator.add_proxy("http://proxy1.example.com:8080")
+       await rotator.add_proxy("http://proxy2.example.com:8080")
+
+       response = await rotator.get("https://httpbin.org/ip")
+       print(response.json())
+   ```
+
+   Initialize AsyncProxyWhirl.
+
+   :param proxies: Initial list of proxies (optional)
+   :param strategy: Rotation strategy instance or strategy name string
+                    ("round-robin", "random", "weighted", "least-used",
+                     "performance-based", "session", "geo-targeted")
+                    Default: RoundRobinStrategy
+   :param config: Configuration settings (default: ProxyConfiguration())
+   :param retry_policy: Retry policy configuration (default: RetryPolicy())
+   :param bootstrap: Bootstrap configuration for lazy proxy fetching.
+                     False disables auto-bootstrap (for manual proxy management).
+                     True or None uses default BootstrapConfig.
+
+
+   .. py:method:: add_proxy(proxy)
+      :async:
+
+
+      Add a proxy to the pool.
+
+      :param proxy: Proxy instance or URL string
+
+
+
+   .. py:method:: clear_unhealthy_proxies()
+      :async:
+
+
+      Remove all unhealthy and dead proxies from the pool.
+
+      :returns: Number of proxies removed
+
+
+
+   .. py:method:: delete(url, **kwargs)
+      :async:
+
+
+      Make async DELETE request.
+
+
+
+   .. py:method:: get(url, **kwargs)
+      :async:
+
+
+      Make async GET request.
+
+
+
+   .. py:method:: get_circuit_breaker_states()
+
+      Get circuit breaker states for all proxies.
+
+      :returns: Dictionary mapping proxy IDs to their circuit breaker instances
+
+
+
+   .. py:method:: get_pool_stats()
+
+      Get statistics about the proxy pool.
+
+      :returns:
+
+                - total_proxies: Total number of proxies
+                - healthy_proxies: Number of healthy/unknown proxies
+                - unhealthy_proxies: Number of unhealthy proxies
+                - dead_proxies: Number of dead proxies
+                - total_requests: Total requests across all proxies
+                - total_successes: Total successful requests
+                - total_failures: Total failed requests
+                - average_success_rate: Average success rate across all proxies
+      :rtype: Dictionary containing pool statistics
+
+
+
+   .. py:method:: get_proxy()
+      :async:
+
+
+      Get the next proxy from the pool using the rotation strategy.
+
+      :returns: Next proxy to use
+
+      :raises ProxyPoolEmptyError: If no healthy proxies available
+
+
+
+   .. py:method:: get_retry_metrics()
+
+      Get retry metrics.
+
+      :returns: RetryMetrics instance with current metrics
+
+
+
+   .. py:method:: get_statistics()
+
+      Get comprehensive statistics including source breakdown (FR-050).
+
+      :returns:
+
+                - All stats from get_pool_stats()
+                - source_breakdown: Count of proxies by source (USER, FETCHED, etc.)
+      :rtype: Dictionary containing
+
+
+
+   .. py:method:: head(url, **kwargs)
+      :async:
+
+
+      Make async HEAD request.
+
+
+
+   .. py:method:: options(url, **kwargs)
+      :async:
+
+
+      Make async OPTIONS request.
+
+
+
+   .. py:method:: patch(url, **kwargs)
+      :async:
+
+
+      Make async PATCH request.
+
+
+
+   .. py:method:: post(url, **kwargs)
+      :async:
+
+
+      Make async POST request.
+
+
+
+   .. py:method:: put(url, **kwargs)
+      :async:
+
+
+      Make async PUT request.
+
+
+
+   .. py:method:: remove_proxy(proxy_id)
+      :async:
+
+
+      Remove a proxy from the pool.
+
+      :param proxy_id: UUID of proxy to remove
+
+
+
+   .. py:method:: reset_circuit_breaker(proxy_id)
+
+      Manually reset a circuit breaker to CLOSED state.
+
+      :param proxy_id: ID of the proxy whose circuit breaker to reset
+
+      :raises KeyError: If proxy_id not found
+
+
+
+   .. py:method:: set_strategy(strategy, *, atomic = True)
+
+      Hot-swap the rotation strategy without restarting.
+
+      This method implements atomic strategy swapping to ensure:
+      - New requests immediately use the new strategy
+      - In-flight requests complete with their original strategy
+      - No requests are dropped during the swap
+      - Swap completes in <100ms (SC-009)
+
+      :param strategy: New strategy instance or strategy name string
+                       ("round-robin", "random", "weighted", "least-used",
+                        "performance-based", "session", "geo-targeted")
+      :param atomic: If True (default), ensures atomic swap. If False, allows
+                     immediate replacement (faster but may affect in-flight requests)
+
+      .. rubric:: Example
+
+      >>> async with AsyncProxyWhirl(strategy="round-robin") as rotator:
+      ...     # ... after some requests ...
+      ...     rotator.set_strategy("performance-based")  # Hot-swap
+      ...     # New requests now use performance-based strategy
+
+      Thread Safety:
+          Thread-safe via atomic reference swap. Multiple threads can
+          call this method safely without race conditions.
+
+      Performance:
+          Target: <100ms for hot-swap completion (SC-009)
+          Typical: <10ms for strategy instance creation and assignment
+
+
+
+.. py:class:: BackoffStrategy
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Retry backoff timing strategy.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: BootstrapConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for the lazy bootstrap that runs on first request when the pool is empty.
+
+   .. attribute:: enabled
+
+      Whether automatic bootstrap is enabled (set False to supply proxies manually)
+
+   .. attribute:: sources
+
+      Explicit list of sources to fetch from. None = random sample from ALL_SOURCES.
+
+   .. attribute:: sample_size
+
+      How many sources to randomly pick when sources is None
+
+   .. attribute:: validate_proxies
+
+      Whether to validate fetched proxies
+
+   .. attribute:: timeout
+
+      Validation timeout in seconds
+
+   .. attribute:: max_concurrent
+
+      Maximum concurrent validation requests
+
+   .. attribute:: show_progress
+
+      Show Rich progress bars. None = auto-detect TTY on stderr.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: BrowserRenderer(headless = True, browser_type = 'chromium', timeout = 30000, wait_until = 'load', user_agent = None, viewport = None, max_contexts = 3)
+
+   Browser-based page renderer using Playwright for JavaScript execution.
+
+   Renders pages that require full browser JavaScript execution, useful for
+   proxy sources that use client-side rendering or dynamic content loading.
+
+   Supports context pooling for improved performance when rendering multiple
+   pages concurrently. Pooled contexts are reused instead of being created
+   fresh for each render operation.
+
+   .. rubric:: Example
+
+   >>> renderer = BrowserRenderer(headless=True)
+   >>> await renderer.start()
+   >>> html = await renderer.render("https://example.com/proxies")
+   >>> await renderer.close()
+
+   Or use as context manager:
+   >>> async with BrowserRenderer() as renderer:
+   ...     html = await renderer.render("https://example.com/proxies")
+
+   Pooled mode for concurrent rendering:
+   >>> async with BrowserRenderer(max_contexts=5) as renderer:
+   ...     results = await asyncio.gather(
+   ...         renderer.render("https://site1.com"),
+   ...         renderer.render("https://site2.com"),
+   ...         renderer.render("https://site3.com"),
+   ...     )
+
+   Initialize browser renderer.
+
+   :param headless: Run browser in headless mode (default: True)
+   :param browser_type: Browser engine to use (default: chromium)
+   :param timeout: Page load timeout in milliseconds (default: 30000)
+   :param wait_until: When to consider navigation complete (default: load)
+   :param user_agent: Custom user agent string (optional)
+   :param viewport: Custom viewport size, e.g. {"width": 1280, "height": 720}
+   :param max_contexts: Maximum number of pooled browser contexts (default: 3).
+                        Higher values allow more concurrent rendering but use more memory.
+
+
+   .. py:method:: acquire_context(timeout = None)
+      :async:
+
+
+      Acquire a browser context from the pool.
+
+      Blocks until a context is available. For concurrent rendering, use this
+      with release_context() to manage context lifecycle manually.
+
+      :param timeout: Maximum time to wait for a context (seconds). None means wait forever.
+
+      :returns: A browser context from the pool
+
+      :raises RuntimeError: If browser is not started
+      :raises asyncio.TimeoutError: If timeout expires before a context is available
+
+
+
+   .. py:method:: close()
+      :async:
+
+
+      Close the browser instance and all pooled contexts.
+
+      Closes all browser contexts in the pool and the browser itself.
+      Safe to call multiple times.
+
+
+
+   .. py:method:: release_context(context)
+      :async:
+
+
+      Release a browser context back to the pool.
+
+      Returns a previously acquired context to the pool for reuse.
+
+      :param context: The browser context to release
+
+      :raises RuntimeError: If browser is not started
+      :raises ValueError: If context is not from this pool
+
+
+
+   .. py:method:: render(url, wait_for_selector = None, wait_for_timeout = None)
+      :async:
+
+
+      Render a page and return its HTML content.
+
+      Uses the context pool for concurrent-safe rendering. Acquires a context
+      from the pool, renders the page, and releases the context back.
+
+      :param url: URL to render
+      :param wait_for_selector: Optional CSS selector to wait for before returning
+      :param wait_for_timeout: Optional additional wait time in milliseconds
+
+      :returns: Rendered HTML content as string
+
+      :raises RuntimeError: If browser is not started
+      :raises TimeoutError: If page load times out
+
+
+
+   .. py:method:: start()
+      :async:
+
+
+      Start the browser instance and initialize the context pool.
+
+      Initializes Playwright, launches the browser, and pre-creates browser
+      contexts for the pool. Idempotent - safe to call multiple times.
+
+      :raises ImportError: If playwright is not installed
+      :raises RuntimeError: If browser fails to start
+
+
+
+   .. py:property:: pool_capacity
+      :type: int
+
+
+      Total capacity of the context pool.
+
+
+   .. py:property:: pool_size
+      :type: int
+
+
+      Number of contexts currently available in the pool.
+
+
+.. py:class:: CSVParser(has_header = True, columns = None, skip_invalid = False)
+
+   Parse CSV-formatted proxy lists.
+
+   Initialize CSV parser.
+
+   :param has_header: Whether CSV has header row
+   :param columns: Column names if no header
+   :param skip_invalid: Skip malformed rows instead of raising error
+
+
+   .. py:method:: parse(data)
+
+      Parse CSV proxy data.
+
+      :param data: CSV string to parse
+
+      :returns: List of proxy dictionaries
+
+      :raises ProxyFetchError: If CSV is malformed and skip_invalid is False
+
+
+
+.. py:class:: CacheConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for cache behavior and tier settings.
+
+   Aggregates configuration for all three tiers plus global settings
+   like TTL, cleanup intervals, and storage paths.
+
+   .. rubric:: Example
+
+   >>> config = CacheConfig(
+   ...     default_ttl_seconds=3600,
+   ...     l1_config=CacheTierConfig(max_entries=1000),
+   ... )
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:class:: Config
+
+      Pydantic config.
+
+
+
+.. py:class:: CacheEntry(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Container for a single cached proxy with metadata.
+
+   Stores proxy information with TTL, health status, and access tracking.
+   Credentials are SecretStr in memory, encrypted at rest in L2/L3.
+
+   .. rubric:: Example
+
+   >>> entry = CacheEntry(
+   ...     key="abc123",
+   ...     proxy_url="http://proxy.com:8080",
+   ...     source="fetched",
+   ...     fetch_time=datetime.now(timezone.utc),
+   ...     ttl_seconds=3600,
+   ... )
+   >>> entry.is_expired
+   False
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:class:: Config
+
+      Pydantic config.
+
+
+
+   .. py:property:: is_expired
+      :type: bool
+
+
+      Check if entry has expired based on TTL.
+
+
+   .. py:property:: is_healthy
+      :type: bool
+
+
+      Check if proxy is healthy enough to use.
+
+
+.. py:class:: CacheHealthStatus
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Proxy health status states.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: CacheManager(config)
+
+   Manages multi-tier caching of proxies with automatic promotion/demotion.
+
+   Orchestrates caching across three tiers:
+   - L1 (Memory): Fast in-memory cache using OrderedDict (LRU)
+   - L2 (Disk): Persistent cache with configurable backend:
+       - JSONL: File-based, human-readable, portable (default, best for <10K entries)
+       - SQLite: Database-based, faster for >10K entries with O(log n) lookups
+   - L3 (SQLite): Database cache for cold storage with full queryability
+
+   Supports TTL-based expiration, health-based invalidation, and graceful
+   degradation when tiers fail.
+
+   .. rubric:: Example
+
+   >>> # Default JSONL backend
+   >>> config = CacheConfig()
+   >>> manager = CacheManager(config)
+
+   >>> # SQLite backend for large caches
+   >>> from proxywhirl.cache.models import L2BackendType
+   >>> config = CacheConfig(l2_backend=L2BackendType.SQLITE)
+   >>> manager = CacheManager(config)
+
+   Initialize cache manager with configuration.
+
+   :param config: Cache configuration with tier settings
+
+
+   .. py:method:: clear()
+
+      Clear all entries from all tiers.
+
+      Thread-safe: Uses lock to ensure atomic clearing across all tiers.
+
+      :returns: Total number of entries cleared
+
+
+
+   .. py:method:: delete(key)
+
+      Delete entry from all tiers.
+
+      Thread-safe: Uses lock to ensure atomic deletion across all tiers.
+
+      :param key: Cache key to delete
+
+      :returns: True if deleted from at least one tier, False if not found
+
+
+
+   .. py:method:: export_to_file(filepath)
+
+      Export all cache entries to a JSONL file.
+
+      :param filepath: Path to export file
+
+      :returns: Dict with 'exported' and 'failed' counts
+
+
+
+   .. py:method:: generate_cache_key(proxy_url)
+      :staticmethod:
+
+
+      Generate cache key from proxy URL.
+
+      Uses SHA256 hash for consistent, URL-safe keys.
+
+      :param proxy_url: Proxy URL to hash
+
+      :returns: Hex-encoded SHA256 hash (first 16 chars)
+
+
+
+   .. py:method:: get(key)
+
+      Retrieve entry from cache with tier promotion.
+
+      Checks L1 → L2 → L3 in order. Promotes entries to higher tiers on hit.
+      Updates access_count and last_accessed on successful retrieval.
+
+      Thread-safe: Uses lock to prevent race conditions during promotion and expiration.
+
+      :param key: Cache key to retrieve
+
+      :returns: CacheEntry if found and not expired, None otherwise
+
+
+
+   .. py:method:: get_statistics()
+
+      Get current cache statistics.
+
+      :returns: CacheStatistics with hit rates, sizes, and tier status
+
+
+
+   .. py:method:: invalidate_by_health(key)
+
+      Mark proxy as unhealthy and evict if failure threshold reached.
+
+      Increments the failure_count for the proxy and sets health_status to UNHEALTHY.
+      If failure_count reaches the configured failure_threshold, the proxy is removed
+      from all cache tiers.
+
+      Thread-safe: Uses lock throughout entire operation to prevent TOCTOU race conditions.
+
+      :param key: Cache key to invalidate
+
+      .. note::
+
+         - If health_check_invalidation is disabled, still tracks failures but doesn't evict
+         - Logs at DEBUG level for failures, INFO level for evictions
+         - Updates statistics for health-based evictions
+         - RACE-001 fix: Holds lock throughout entire operation to prevent race between
+           get and update/delete operations
+
+
+
+   .. py:method:: put(key, entry)
+
+      Store entry in all enabled tiers.
+
+      Writes to all tiers for redundancy. Credentials are automatically
+      redacted in logs.
+
+      Thread-safe: Uses lock to ensure atomic writes across all tiers.
+
+      :param key: Cache key
+      :param entry: CacheEntry to store
+
+      :returns: True if stored in at least one tier, False otherwise
+
+
+
+   .. py:method:: warm_from_file(file_path, ttl_override = None)
+
+      Load proxies from a file to pre-populate the cache.
+
+      Supports JSON (array), JSONL (newline-delimited), and CSV formats.
+      Invalid entries are skipped with warnings logged.
+
+      :param file_path: Path to file containing proxy data
+      :param ttl_override: Optional TTL in seconds (overrides default_ttl_seconds)
+
+      :returns: Dict with counts for loaded, skipped, and failed entries
+
+      :raises No exceptions - errors are logged and failure count is incremented:
+
+
+
+.. py:class:: CacheStatistics(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Aggregate cache statistics across all tiers.
+
+   Combines tier-level statistics and tracks cross-tier operations
+   like promotions and demotions.
+
+   .. rubric:: Example
+
+   >>> stats = CacheStatistics()
+   >>> stats.l1_stats.hits = 100
+   >>> stats.overall_hit_rate
+   1.0
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: to_metrics_dict()
+
+      Convert to flat metrics dict for monitoring systems.
+
+
+
+   .. py:property:: overall_hit_rate
+      :type: float
+
+
+      Overall hit rate across all tiers.
+
+
+   .. py:property:: total_size
+      :type: int
+
+
+      Total cached entries across all tiers.
+
+
+.. py:class:: CacheTierConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for a single cache tier.
+
+   Defines capacity, eviction policy, and enable/disable state for
+   one tier (L1, L2, or L3).
+
+   .. rubric:: Example
+
+   >>> config = CacheTierConfig(max_entries=1000, eviction_policy="lru")
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: validate_policy(v)
+      :classmethod:
+
+
+      Validate eviction policy is supported.
+
+
+
+.. py:class:: CircuitBreaker(/, **data)
+
+   Bases: :py:obj:`proxywhirl.circuit_breaker.base.CircuitBreakerBase`
+
+
+   Circuit breaker for a single proxy (SYNCHRONOUS implementation).
+
+   WARNING: This class uses threading.Lock and is designed for SYNCHRONOUS contexts only.
+   For async applications, use AsyncCircuitBreaker from circuit_breaker_async module.
+
+   .. attribute:: proxy_id
+
+      Unique identifier for the proxy
+
+   .. attribute:: state
+
+      Current circuit breaker state (CLOSED, OPEN, HALF_OPEN)
+
+   .. attribute:: failure_count
+
+      Number of failures in current window
+
+   .. attribute:: failure_threshold
+
+      Number of failures before opening circuit
+
+   .. attribute:: window_duration
+
+      Rolling window duration in seconds
+
+   .. attribute:: timeout_duration
+
+      How long circuit stays open before testing recovery
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: create(proxy_id, config = None, **kwargs)
+      :classmethod:
+
+
+      Factory method to create a circuit breaker with optional config.
+
+      :param proxy_id: Unique identifier for the proxy
+      :param config: CircuitBreakerConfig with settings
+      :param \*\*kwargs: Additional CircuitBreaker field overrides
+
+      :returns: CircuitBreaker instance
+
+
+
+   .. py:method:: from_config(proxy_id, config = None, **kwargs)
+      :classmethod:
+
+
+      Backward-compatible alias for create().
+
+
+
+   .. py:method:: record_failure()
+
+      Record a failure and update state if threshold reached.
+
+      Thread-safe - acquires threading.Lock for the entire operation.
+
+
+
+   .. py:method:: record_success()
+
+      Record a success and potentially close circuit.
+
+      Thread-safe - acquires threading.Lock for the entire operation.
+
+
+
+   .. py:method:: reset()
+
+      Manually reset circuit breaker to CLOSED state.
+
+      Thread-safe - acquires threading.Lock before resetting state.
+
+
+
+   .. py:method:: should_attempt_request()
+
+      Check if proxy is available for requests.
+
+      Thread-safe - acquires threading.Lock for the entire operation.
+
+      :returns: True if proxy should be attempted, False if circuit is open.
+
+
+
+.. py:class:: CircuitBreakerConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for circuit breaker behavior.
+
+   .. attribute:: failure_threshold
+
+      Number of failures before opening circuit
+
+   .. attribute:: window_duration
+
+      Rolling window duration in seconds
+
+   .. attribute:: timeout_duration
+
+      How long circuit stays open before testing recovery
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: CircuitBreakerEvent(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Circuit breaker state change event.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: CircuitBreakerState
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Circuit breaker states.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: CompositeStrategy(filters = None, selector = None)
+
+   Composite strategy that applies filtering and selection strategies in sequence.
+
+   This strategy implements the filter + select pattern:
+   1. Filter strategies narrow down the proxy pool based on criteria (e.g., geography)
+   2. Selector strategy chooses the best proxy from the filtered set
+
+   .. rubric:: Example
+
+   >>> # Filter by geography, then select by performance
+   >>> from proxywhirl.strategies import CompositeStrategy, GeoTargetedStrategy, PerformanceBasedStrategy
+   >>> strategy = CompositeStrategy(
+   ...     filters=[GeoTargetedStrategy()],
+   ...     selector=PerformanceBasedStrategy()
+   ... )
+   >>> proxy = strategy.select(pool, SelectionContext(target_country="US"))
+
+   Thread Safety:
+       Thread-safe if all component strategies are thread-safe.
+
+   Performance:
+       Selection time is sum of filter and selector times.
+       Target: <5ms total (SC-007).
+
+   Initialize composite strategy.
+
+   :param filters: List of filtering strategies to apply sequentially
+   :param selector: Final selection strategy to choose from filtered pool
+
+   :raises ValueError: If both filters and selector are None
+
+
+   .. py:method:: configure(config)
+
+      Configure all component strategies.
+
+      :param config: Strategy configuration to apply
+
+
+
+   .. py:method:: from_config(config)
+      :classmethod:
+
+
+      Create CompositeStrategy from configuration dictionary.
+
+      :param config: Configuration dict with keys:
+                     - filters: List of filter strategy names or instances
+                     - selector: Selector strategy name or instance
+
+      :returns: Configured CompositeStrategy instance
+
+      .. rubric:: Example
+
+      >>> config = {
+      ...     "filters": ["geo-targeted"],
+      ...     "selector": "performance-based"
+      ... }
+      >>> strategy = CompositeStrategy.from_config(config)
+
+      :raises ValueError: If config is invalid
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record result by delegating to selector strategy.
+
+      :param proxy: The proxy that handled the request
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a proxy by applying filters then selector.
+
+      Process:
+      1. Start with full pool of healthy proxies
+      2. Apply each filter strategy sequentially
+      3. Apply selector strategy to filtered set
+      4. Return selected proxy
+
+      :param pool: The proxy pool to select from
+      :param context: Request context with filtering criteria
+
+      :returns: Selected proxy from filtered pool
+
+      :raises ProxyPoolEmptyError: If filters eliminate all proxies
+
+      Performance:
+          Target: <5ms total including all filters and selector (SC-007)
+
+
+
+.. py:class:: CostAwareStrategy(max_cost_per_request = None)
+
+   Cost-aware proxy selection strategy.
+
+   Prioritizes free proxies over paid ones, with configurable cost thresholds.
+   Uses weighted random selection based on inverse cost - lower cost proxies
+   are more likely to be selected.
+
+   Features:
+   - Free proxies (cost_per_request = 0.0) are heavily favored
+   - Paid proxies are selected based on inverse cost weighting
+   - Configurable cost threshold to filter out expensive proxies
+   - Supports fallback to any proxy when no low-cost options available
+
+   Thread Safety:
+       Uses Python's random.choices() which is thread-safe via GIL.
+
+   .. rubric:: Example
+
+   >>> from proxywhirl.strategies import CostAwareStrategy
+   >>> strategy = CostAwareStrategy()
+   >>> config = StrategyConfig(metadata={"max_cost_per_request": 0.5})
+   >>> strategy.configure(config)
+   >>> proxy = strategy.select(pool)  # Selects cheapest available proxy
+
+   Initialize cost-aware strategy.
+
+   :param max_cost_per_request: Maximum acceptable cost per request.
+                                Proxies exceeding this cost will be filtered out.
+                                None means no cost limit (default).
+
+
+   .. py:method:: configure(config)
+
+      Configure cost-aware parameters.
+
+      :param config: Strategy configuration with optional metadata:
+                     - max_cost_per_request: Maximum cost threshold
+                     - free_proxy_boost: Weight multiplier for free proxies (default: 10.0)
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of using a proxy.
+
+      :param proxy: The proxy that was used
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a proxy based on cost optimization.
+
+      Selection logic:
+      1. Get healthy proxies
+      2. Filter by context.failed_proxy_ids if present
+      3. Filter by max_cost_per_request threshold if configured
+      4. Apply inverse cost weighting (lower cost = higher weight)
+      5. Free proxies get boost multiplier (default 10x weight)
+      6. Use weighted random selection
+
+      :param pool: The proxy pool to select from
+      :param context: Optional selection context for filtering
+
+      :returns: Cost-optimized proxy selection
+
+      :raises ProxyPoolEmptyError: If no proxies meet criteria
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Validate that pool has cost metadata.
+
+      Cost field is optional, so always returns True.
+      Proxies without cost data are treated as free (cost = 0.0).
+
+      :param pool: The proxy pool to validate
+
+      :returns: Always True - cost data is optional
+
+
+
+.. py:class:: DataStorageConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for what data to persist to the database.
+
+   All fields are configurable to allow users to:
+   - Reduce storage by disabling less-critical fields
+   - Improve privacy by opting out of geo/IP data
+   - Balance performance vs analytics granularity
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:class:: Config
+
+      Pydantic config.
+
+
+
+.. py:class:: GeoTargetedStrategy
+
+   Geo-targeted proxy selection strategy.
+
+   Filters proxies based on geographical location (country or region) specified
+   in the SelectionContext. Supports fallback to any proxy when no matches found.
+
+   Features:
+   - Country-based filtering (ISO 3166-1 alpha-2 codes)
+   - Region-based filtering (custom region names)
+   - Country takes precedence over region when both specified
+   - Configurable fallback behavior
+   - Secondary strategy for selection from filtered proxies
+
+   Thread Safety:
+       Stateless per-request operations, thread-safe.
+
+   Success Criteria:
+       SC-006: 100% correct region selection when available
+
+   Performance:
+       O(n) filtering + O(1) or O(n) secondary selection
+
+   Initialize geo-targeted strategy.
+
+
+   .. py:method:: configure(config)
+
+      Configure geo-targeting parameters.
+
+      :param config: Strategy configuration with geo settings
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of a request through a proxy.
+
+      Updates proxy completion statistics via Proxy.complete_request().
+
+      :param proxy: The proxy that handled the request
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a proxy based on geographical targeting.
+
+      Selection logic:
+      1. If context has target_country: filter by country (exact match)
+      2. Else if context has target_region: filter by region (exact match)
+      3. If no target specified: use all healthy proxies
+      4. Apply context.failed_proxy_ids filtering
+      5. If filtered list empty and fallback enabled: use all healthy proxies
+      6. If filtered list empty and fallback disabled: raise error
+      7. Apply secondary strategy to filtered proxies
+
+      :param pool: The proxy pool to select from
+      :param context: Selection context with target_country or target_region
+
+      :returns: Proxy matching geo criteria (or any proxy if fallback enabled)
+
+      :raises ProxyPoolEmptyError: If no proxies match criteria and fallback disabled
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Validate that pool has geo metadata.
+
+      Geo-targeting is optional, so always returns True.
+      Proxies without geo data will simply not match geo filters.
+
+      :param pool: The proxy pool to validate
+
+      :returns: Always True - geo data is optional
+
+
+
+.. py:class:: HTMLTableParser(table_selector = 'table', column_map = None, column_indices = None)
+
+   Parse HTML table-formatted proxy lists.
+
+   Initialize HTML table parser.
+
+   :param table_selector: CSS selector for table element
+   :param column_map: Map header names to proxy fields
+   :param column_indices: Map field names to column indices
+
+
+   .. py:method:: parse(data)
+
+      Parse HTML table proxy data.
+
+      :param data: HTML string containing table
+
+      :returns: List of proxy dictionaries
+
+
+
+.. py:class:: HealthMonitor(pool, check_interval = 60, failure_threshold = 3)
+
+   Continuous health monitoring for proxy pools with auto-eviction.
+
+   Runs background health checks at configurable intervals and automatically
+   evicts proxies that fail consecutive checks beyond a threshold.
+
+   .. rubric:: Example
+
+   >>> pool = ProxyPool(name="my_pool")
+   >>> pool.add_proxy(Proxy(url="http://proxy.com:8080"))
+   >>> monitor = HealthMonitor(pool=pool, check_interval=60, failure_threshold=3)
+   >>> await monitor.start()  # Start background checks
+   >>> # ... proxies are monitored continuously ...
+   >>> await monitor.stop()  # Stop monitoring
+
+   Initialize health monitor.
+
+   :param pool: ProxyPool to monitor
+   :param check_interval: Seconds between health checks (default: 60)
+   :param failure_threshold: Consecutive failures before eviction (default: 3)
+
+   :raises ValueError: If check_interval or failure_threshold <= 0
+
+
+   .. py:method:: get_status()
+
+      Get current monitoring status.
+
+      :returns:     - is_running: Whether monitor is active
+                    - check_interval: Seconds between checks
+                    - failure_threshold: Failures before eviction
+                    - total_proxies: Count of proxies in pool
+                    - healthy_proxies: Count of healthy proxies
+                    - failure_counts: Dict of proxy URL -> failure count
+                    - uptime_seconds: Monitor runtime (if running)
+      :rtype: Dict containing
+
+
+
+   .. py:method:: start()
+      :async:
+
+
+      Start background health monitoring.
+
+      Creates an asyncio task that runs health checks periodically.
+      Idempotent - calling multiple times won't create duplicate tasks.
+
+
+
+   .. py:method:: stop()
+      :async:
+
+
+      Stop background health monitoring.
+
+      Cancels the background task and waits for graceful shutdown.
+      Idempotent - safe to call when not running.
+
+
+
+.. py:class:: HealthStatus
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Proxy health status states.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: HourlyAggregate(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Hourly aggregated metrics.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: JSONParser(key = None, required_fields = None)
+
+   Parse JSON-formatted proxy lists.
+
+   Initialize JSON parser.
+
+   :param key: Optional key to extract from JSON object
+   :param required_fields: Fields that must be present in each proxy
+
+
+   .. py:method:: parse(data)
+
+      Parse JSON proxy data.
+
+      :param data: JSON string to parse
+
+      :returns: List of proxy dictionaries
+
+      :raises ProxyFetchError: If JSON is invalid
+      :raises ProxyValidationError: If required fields are missing
+
+
+
+.. py:class:: LeastUsedStrategy
+
+   Least-used proxy selection strategy with SelectionContext support.
+
+   Selects the proxy with the fewest started requests, helping to
+   balance load across all available proxies. Uses min-heap for
+   efficient O(log n) selection.
+
+   Performance:
+       - O(log n) selection using min-heap
+       - O(n) heap rebuild when pool composition changes
+       - Lazy heap invalidation for optimal performance
+
+   Thread Safety:
+       Uses threading.Lock to ensure atomic select-and-mark operations,
+       preventing TOCTOU race conditions where multiple threads could
+       select the same "least used" proxy simultaneously.
+
+   Implementation:
+       Uses a min-heap with lazy invalidation. The heap is rebuilt when:
+       1. Pool composition changes (detected via proxy ID set)
+       2. Heap becomes empty after filtering
+       The heap stores tuples of (requests_started, proxy_id, proxy) for
+       efficient comparison and retrieval.
+
+   Initialize least-used strategy.
+
+
+   .. py:method:: configure(config)
+
+      Configure the strategy with custom settings.
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of using a proxy.
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select the least-used healthy proxy using min-heap.
+
+      Uses min-heap for O(log n) selection. The heap is lazily rebuilt when
+      pool composition changes, providing optimal performance for stable pools.
+
+      The selection and usage marking are performed atomically under a lock
+      to prevent TOCTOU race conditions where multiple threads could select
+      the same "least used" proxy simultaneously.
+
+      :param pool: The proxy pool to select from
+      :param context: Optional selection context for filtering
+
+      :returns: Healthy proxy with fewest started requests
+
+      :raises ProxyPoolEmptyError: If no healthy proxies are available
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Validate that proxies have request tracking metadata.
+
+      :param pool: The proxy pool to validate
+
+      :returns: True if all proxies have requests_started field
+
+
+
+.. py:class:: PerformanceBasedStrategy(exploration_count = 5)
+
+   Performance-based proxy selection using EMA response times.
+
+   Selects proxies using weighted random selection based on inverse EMA
+   response times - faster proxies (lower EMA) get higher weights.
+   This adaptively favors better-performing proxies while still giving
+   all proxies a chance to be selected.
+
+   Cold Start Handling:
+   New proxies without performance data are given exploration trials
+   (default: 3-5 trials) before being deprioritized. This ensures new
+   proxies can build up performance data and prevents proxy starvation.
+
+   Thread Safety: Uses Python's random.choices() which is thread-safe
+   via GIL-protected random number generation. No additional locking required.
+
+   Initialize performance-based strategy.
+
+   :param exploration_count: Minimum trials for new proxies before performance-based
+                             selection applies. Default is 5 trials. Set to 0 to disable exploration.
+
+
+   .. py:method:: configure(config)
+
+      Configure the strategy with custom settings.
+
+      :param config: Strategy configuration with optional exploration_count
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of using a proxy.
+
+      The EMA is updated using the strategy's configured alpha value,
+      ensuring consistent metric calculations regardless of proxy state.
+
+      :param proxy: The proxy that was used
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a proxy weighted by inverse EMA response time.
+
+      Faster proxies (lower EMA) receive higher weights for selection.
+      New proxies with insufficient trials (< exploration_count) are given
+      priority to ensure they can build performance data.
+
+      :param pool: The proxy pool to select from
+      :param context: Optional selection context for filtering
+
+      :returns: Performance-weighted selected healthy proxy with EMA data
+
+      :raises ProxyPoolEmptyError: If no healthy proxies are available
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Validate that pool is usable for performance-based selection.
+
+      With exploration support, we only need at least one healthy proxy.
+      Returns True if pool has healthy proxies (exploration will handle cold start).
+
+      :returns: True if pool has at least one healthy proxy
+
+
+
+.. py:class:: PlainTextParser(skip_invalid = True)
+
+   Parse plain text proxy lists (one per line).
+
+   Initialize plain text parser.
+
+   :param skip_invalid: Skip invalid URLs instead of raising error
+
+
+   .. py:method:: parse(data)
+
+      Parse plain text proxy data.
+
+      :param data: Plain text string with one proxy per line
+                   Supports formats: IP:PORT, http://IP:PORT, socks5://IP:PORT
+
+      :returns: List of proxy dictionaries with 'url' key
+
+      :raises ProxyFetchError: If invalid proxy format is encountered and skip_invalid=False
+
+
+
+.. py:class:: Proxy(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Represents a single proxy server with connection details and metadata.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: complete_request(success, response_time_ms, alpha = None)
+
+      Mark a request as complete and update metrics.
+
+      :param success: Whether the request was successful
+      :param response_time_ms: Response time in milliseconds
+      :param alpha: Optional EMA smoothing factor. Strategies can pass their
+                    configured alpha to ensure consistent metric calculations
+                    without mutating proxy state.
+
+      This method decrements requests_active, increments requests_completed,
+      updates EMA response time, and delegates to record_success/record_failure.
+
+      Thread-safe: Uses internal lock to prevent race conditions.
+
+
+
+   .. py:method:: extract_protocol_from_url()
+
+      Extract protocol from URL if not explicitly provided.
+
+
+
+   .. py:method:: is_window_expired()
+
+      Check if the current sliding window has expired.
+
+      :returns: True if window duration has elapsed since window_start
+
+      Thread-safe: Uses internal lock to prevent race conditions.
+
+
+
+   .. py:method:: record_failure(error = None)
+
+      Record a failed request.
+
+
+
+   .. py:method:: record_success(response_time_ms, alpha = None)
+
+      Record a successful request.
+
+      :param response_time_ms: Response time in milliseconds
+      :param alpha: Optional EMA smoothing factor for metrics update
+
+
+
+   .. py:method:: reset_if_expired()
+
+      Atomically check if window is expired and reset if needed.
+
+      This method prevents Time-of-Check to Time-of-Use (TOCTOU) race conditions
+      by performing the expiration check and reset within a single lock acquisition.
+
+      :returns: True if window was expired and has been reset, False otherwise
+
+      Thread-safe: Uses internal lock to ensure atomic check-and-reset.
+
+
+
+   .. py:method:: reset_window()
+
+      Reset the sliding window counters.
+
+      This is called when the window duration has elapsed, preventing
+      counter staleness and unbounded memory growth.
+
+      Thread-safe: Uses internal lock to prevent race conditions.
+
+
+
+   .. py:method:: set_expiration_from_ttl()
+
+      Set expires_at timestamp if ttl is provided.
+
+
+
+   .. py:method:: start_request()
+
+      Mark a request as started (for tracking in-flight requests).
+
+      This should be called when a request is about to be made through this proxy.
+      Increments both requests_started and requests_active counters.
+
+      Thread-safe: Uses internal lock to prevent race conditions.
+
+
+
+   .. py:method:: update_metrics(response_time_ms, alpha = None)
+
+      Update EMA and average response time metrics.
+
+      This method centralizes all response time metric updates to ensure
+      consistency across the codebase. Both average_response_time_ms and
+      ema_response_time_ms use the same alpha value.
+
+      :param response_time_ms: Response time in milliseconds
+      :param alpha: EMA smoothing factor (0-1). Higher values weight recent
+                    observations more heavily. If not provided, falls back to
+                    self.ema_alpha for backward compatibility. Strategies should
+                    pass their configured StrategyConfig.ema_alpha for consistent
+                    behavior, or use StrategyState for independent per-proxy metrics.
+
+
+
+   .. py:method:: validate_counters_non_negative(v)
+      :classmethod:
+
+
+      Validate counter fields are non-negative.
+
+
+
+   .. py:method:: validate_credentials()
+
+      Ensure username and password are both present or both absent.
+
+
+
+   .. py:method:: validate_latency_non_negative(v)
+      :classmethod:
+
+
+      Validate latency_ms is non-negative.
+
+
+
+   .. py:method:: validate_local_addresses()
+
+      Reject localhost/internal IPs unless allow_local=True.
+
+
+
+   .. py:method:: validate_port_range(v)
+      :classmethod:
+
+
+      Validate port number is in valid range (1-65535).
+
+
+
+   .. py:method:: validate_response_time_non_negative(v)
+      :classmethod:
+
+
+      Validate response time fields are non-negative.
+
+
+
+   .. py:method:: validate_url_scheme(v)
+      :classmethod:
+
+
+      Validate URL has a valid proxy scheme.
+
+
+
+   .. py:property:: credentials
+      :type: ProxyCredentials | None
+
+
+      Get credentials if present.
+
+
+   .. py:property:: is_expired
+      :type: bool
+
+
+      Check if proxy has expired based on TTL or explicit expiration time.
+
+      :returns: True if proxy has expired, False otherwise. Always False if no TTL/expires_at set.
+
+
+   .. py:property:: is_healthy
+      :type: bool
+
+
+      Check if proxy is healthy.
+
+
+   .. py:property:: success_rate
+      :type: float
+
+
+      Calculate success rate, clamped to [0.0, 1.0].
+
+
+.. py:class:: ProxyChain(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Represents a chain of proxies for tunneling requests.
+
+   A proxy chain allows requests to be routed through multiple proxies in sequence,
+   where each proxy connects to the next one in the chain. This is useful for:
+   - Enhanced anonymity through multi-hop routing
+   - Geographic routing through specific locations
+   - Bypassing network restrictions
+
+   Note: Full CONNECT tunneling implementation requires additional infrastructure.
+   This model provides the data structure and basic support for chaining.
+
+   .. rubric:: Example
+
+   >>> chain = ProxyChain(
+   ...     proxies=[
+   ...         Proxy(url="http://proxy1.com:8080"),
+   ...         Proxy(url="http://proxy2.com:8080"),
+   ...     ],
+   ...     name="geo_chain",
+   ...     description="Route through US then UK"
+   ... )
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: get_chain_urls()
+
+      Get list of proxy URLs in chain order.
+
+      :returns: List of proxy URLs from entry to exit
+
+
+
+   .. py:method:: validate_chain_length()
+
+      Ensure chain has at least 2 proxies.
+
+
+
+   .. py:property:: chain_length
+      :type: int
+
+
+      Get the number of proxies in the chain.
+
+
+   .. py:property:: entry_proxy
+      :type: Proxy
+
+
+      Get the first proxy in the chain (entry point).
+
+
+   .. py:property:: exit_proxy
+      :type: Proxy
+
+
+      Get the last proxy in the chain (exit point).
+
+
+.. py:class:: ProxyConfiguration(_case_sensitive = None, _nested_model_default_partial_update = None, _env_prefix = None, _env_file = ENV_FILE_SENTINEL, _env_file_encoding = None, _env_ignore_empty = None, _env_nested_delimiter = None, _env_nested_max_split = None, _env_parse_none_str = None, _env_parse_enums = None, _cli_prog_name = None, _cli_parse_args = None, _cli_settings_source = None, _cli_parse_none_str = None, _cli_hide_none_type = None, _cli_avoid_json = None, _cli_enforce_required = None, _cli_use_class_docs_for_groups = None, _cli_exit_on_error = None, _cli_prefix = None, _cli_flag_prefix_char = None, _cli_implicit_flags = None, _cli_ignore_unknown_args = None, _cli_kebab_case = None, _cli_shortcuts = None, _secrets_dir = None, **values)
+
+   Bases: :py:obj:`pydantic_settings.BaseSettings`
+
+
+   Global configuration settings for the proxy system.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: validate_positive(v)
+      :classmethod:
+
+
+      Ensure value is positive.
+
+
+
+   .. py:method:: validate_storage()
+
+      Validate storage configuration.
+
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ProxyCredentials(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Secure credential storage for proxy authentication.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: to_dict(reveal = False)
+
+      Serialize credentials, optionally revealing secrets.
+
+
+
+   .. py:method:: to_httpx_auth()
+
+      Convert to httpx BasicAuth object.
+
+
+
+.. py:class:: ProxyFetcher(sources = None, validator = None)
+
+   Fetch proxies from various sources.
+
+   Initialize proxy fetcher.
+
+   :param sources: List of proxy source configurations
+   :param validator: ProxyValidator instance for validating fetched proxies
+
+
+   .. py:method:: add_source(source)
+
+      Add a proxy source.
+
+      :param source: Proxy source configuration to add
+
+
+
+   .. py:method:: close()
+      :async:
+
+
+      Close client connection and cleanup resources.
+
+
+
+   .. py:method:: fetch_all(validate = True, deduplicate = True, fetch_progress_callback = None, validate_progress_callback = None)
+      :async:
+
+
+      Fetch proxies from all configured sources.
+
+      :param validate: Whether to validate proxies before returning
+      :param deduplicate: Whether to deduplicate proxies
+      :param fetch_progress_callback: Optional callback(completed, total, proxies_found) for fetch progress
+      :param validate_progress_callback: Optional callback(completed, total, valid_count) for validation progress
+
+      :returns: List of proxy dictionaries
+
+
+
+   .. py:method:: fetch_from_source(source)
+      :async:
+
+
+      Fetch proxies from a single source.
+
+      Includes automatic retry with exponential backoff for:
+      - HTTP 429 (Too Many Requests) - respects Retry-After header
+      - HTTP 503 (Service Unavailable)
+      - HTTP 502 (Bad Gateway)
+      - HTTP 504 (Gateway Timeout)
+      - Network timeouts
+
+      :param source: Proxy source configuration
+
+      :returns: List of proxy dictionaries
+
+      :raises ProxyFetchError: If fetching fails after retries
+
+
+
+   .. py:method:: remove_source(url)
+
+      Remove a proxy source by URL.
+
+      :param url: URL of source to remove
+
+
+
+   .. py:method:: start_periodic_refresh(callback = None, interval = None)
+      :async:
+
+
+      Start periodic proxy refresh.
+
+      :param callback: Optional callback to invoke with new proxies
+      :param interval: Override default refresh interval (seconds)
+
+
+
+.. py:class:: ProxyFormat
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Supported proxy list formats.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: ProxyMetrics
+
+   Per-proxy mutable metrics maintained by a strategy.
+
+   This class encapsulates performance metrics that a strategy tracks
+   for each proxy. By storing these separately from the Proxy model,
+   strategies can maintain independent metric state with their own
+   configuration (e.g., EMA alpha values).
+
+   .. attribute:: ema_response_time_ms
+
+      Exponential moving average of response times
+
+   .. attribute:: total_requests
+
+      Count of requests made through this proxy
+
+   .. attribute:: total_successes
+
+      Count of successful requests
+
+   .. attribute:: total_failures
+
+      Count of failed requests
+
+   .. attribute:: last_response_time_ms
+
+      Most recent response time
+
+   .. attribute:: window_start
+
+      Start time of the current sliding window
+
+
+   .. py:method:: update_ema(response_time_ms, alpha)
+
+      Update EMA with new response time.
+
+      :param response_time_ms: Response time in milliseconds
+      :param alpha: EMA smoothing factor (0-1)
+
+
+
+   .. py:property:: success_rate
+      :type: float
+
+
+      Calculate success rate for this proxy in this strategy's state.
+
+
+.. py:class:: ProxyPool(**data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Collection of proxies with management capabilities.
+
+   Thread-safe proxy pool with RLock protection for concurrent access.
+   All mutating operations are automatically protected by a reentrant lock.
+
+   Initialize ProxyPool with thread lock and ID index.
+
+
+   .. py:method:: add_proxy(proxy)
+
+      Add proxy to pool (thread-safe).
+
+
+
+   .. py:method:: clear_expired()
+
+      Remove all expired proxies, return count removed (thread-safe).
+
+      :returns: Number of expired proxies removed from the pool
+
+
+
+   .. py:method:: clear_unhealthy()
+
+      Remove all unhealthy proxies, return count removed (thread-safe).
+
+
+
+   .. py:method:: filter_by_source(source)
+
+      Get proxies from specific source (thread-safe).
+
+
+
+   .. py:method:: filter_by_tags(tags)
+
+      Get proxies matching all tags (thread-safe).
+
+
+
+   .. py:method:: get_all_proxies()
+
+      Get all proxies in the pool (thread-safe).
+
+
+
+   .. py:method:: get_healthy_proxies()
+
+      Get all healthy or unknown (not yet tested) proxies, excluding expired ones (thread-safe).
+
+      Returns only proxies that are:
+      - Healthy, degraded, or unknown status
+      - Not expired (if TTL is set)
+
+
+
+   .. py:method:: get_proxy_by_id(proxy_id)
+
+      Find proxy by ID using O(1) index lookup (thread-safe).
+
+
+
+   .. py:method:: get_source_breakdown()
+
+      Get count of proxies by source (thread-safe).
+
+
+
+   .. py:method:: remove_proxy(proxy_id)
+
+      Remove proxy from pool (thread-safe).
+
+
+
+   .. py:property:: healthy_count
+      :type: int
+
+
+      Count healthy proxies (thread-safe).
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+   .. py:property:: overall_success_rate
+      :type: float
+
+
+      Weighted average success rate (thread-safe).
+
+
+   .. py:property:: size
+      :type: int
+
+
+      Get pool size (thread-safe).
+
+
+   .. py:property:: total_requests
+      :type: int
+
+
+      Sum of all proxy requests (thread-safe).
+
+
+   .. py:property:: unhealthy_count
+      :type: int
+
+
+      Count unhealthy proxies (thread-safe).
+
+
+.. py:class:: ProxySource
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Origin type of proxy.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: ProxySourceConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for a proxy list source.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ProxyValidator(timeout = 5.0, test_url = None, level = None, concurrency = 50)
+
+   Validate proxy connectivity with metrics collection.
+
+   Initialize proxy validator.
+
+   :param timeout: Connection timeout in seconds
+   :param test_url: URL to use for connectivity testing. If None, rotates between
+                    multiple fast endpoints (Google, Cloudflare, etc.)
+   :param level: Validation level (BASIC, STANDARD, FULL). Defaults to STANDARD.
+   :param concurrency: Maximum number of concurrent validations
+
+
+   .. py:method:: check_anonymity(proxy_url = None)
+      :async:
+
+
+      Check proxy anonymity level by detecting IP leakage using shared client.
+
+      Tests if the proxy reveals the real IP address or proxy usage through
+      HTTP headers like X-Forwarded-For, Via, X-Real-IP, etc.
+
+      :param proxy_url: Full proxy URL (e.g., "http://proxy.example.com:8080")
+                        If None, makes request without proxy (for testing)
+
+      :returns: Proxy leaks real IP address
+                - "anonymous": Proxy hides IP but reveals proxy usage via headers
+                - "elite": Proxy completely hides both IP and proxy usage
+                - "unknown" or None: Could not determine (error occurred)
+      :rtype: - "transparent"
+
+
+
+   .. py:method:: close()
+      :async:
+
+
+      Close all client connections and cleanup resources.
+
+
+
+   .. py:method:: validate(proxy)
+      :async:
+
+
+      Validate proxy connectivity with fast TCP pre-check and timing metrics.
+
+      :param proxy: Proxy dictionary with 'url' key (e.g., "http://1.2.3.4:8080")
+
+      :returns: ValidationResult with is_valid flag and response_time_ms (if successful)
+
+
+
+   .. py:method:: validate_batch(proxies, progress_callback = None)
+      :async:
+
+
+      Validate multiple proxies in parallel with concurrency control and metrics.
+
+      Uses asyncio.Semaphore to limit concurrent validations based on
+      the configured concurrency limit. Records response time for valid proxies.
+
+      :param proxies: List of proxy dictionaries
+      :param progress_callback: Optional callback(completed, total, valid_count) for progress
+
+      :returns: List of working proxies with response_time_ms added to each
+
+
+
+   .. py:property:: test_url
+      :type: str
+
+
+      Get current test URL, rotating through multiple endpoints.
+
+
+.. py:class:: ProxyWhirl(proxies = None, strategy = None, config = None, retry_policy = None, rate_limiter = None, bootstrap = None)
+
+   Bases: :py:obj:`proxywhirl.rotator.base.ProxyRotatorBase`
+
+
+   Main class for proxy rotation with automatic failover.
+
+   Provides HTTP methods (GET, POST, PUT, DELETE, PATCH) that automatically
+   rotate through a pool of proxies, with intelligent failover on connection errors.
+
+   .. rubric:: Example
+
+   ```python
+   from proxywhirl import ProxyWhirl, Proxy
+
+   rotator = ProxyWhirl()
+   rotator.add_proxy("http://proxy1.example.com:8080")
+   rotator.add_proxy("http://proxy2.example.com:8080")
+
+   response = rotator.get("https://httpbin.org/ip")
+   print(response.json())
+   ```
+
+   Initialize ProxyWhirl.
+
+   :param proxies: Initial list of proxies (optional)
+   :param strategy: Rotation strategy instance or strategy name string
+                    ("round-robin", "random", "weighted", "least-used",
+                     "performance-based", "session", "geo-targeted")
+                    Default: RoundRobinStrategy
+   :param config: Configuration settings (default: ProxyConfiguration())
+   :param retry_policy: Retry policy configuration (default: RetryPolicy())
+   :param rate_limiter: Synchronous rate limiter for controlling request rates (optional)
+   :param bootstrap: Bootstrap configuration for lazy proxy fetching.
+                     False disables auto-bootstrap (for manual proxy management).
+                     True or None uses default BootstrapConfig.
+
+
+   .. py:method:: add_chain(chain)
+
+      Add a proxy chain to the rotator.
+
+      This method registers a proxy chain for potential use in routing.
+      The entry proxy (first proxy in the chain) is added to the pool
+      for selection by rotation strategies.
+
+      Note: Full CONNECT tunneling implementation is not yet supported.
+      Currently, only the entry proxy is used for routing, with chain
+      metadata stored for future multi-hop implementation.
+
+      :param chain: ProxyChain instance to register
+
+      .. rubric:: Example
+
+      >>> rotator = ProxyWhirl()
+      >>> chain = ProxyChain(
+      ...     proxies=[
+      ...         Proxy(url="http://proxy1.com:8080"),
+      ...         Proxy(url="http://proxy2.com:8080"),
+      ...     ],
+      ...     name="my_chain"
+      ... )
+      >>> rotator.add_chain(chain)
+
+
+
+   .. py:method:: add_proxy(proxy)
+
+      Add a proxy to the pool.
+
+      :param proxy: Proxy instance or URL string
+
+
+
+   .. py:method:: clear_queue()
+
+      Clear all pending requests from the queue.
+
+      :returns: Number of requests cleared
+
+      :raises RuntimeError: If queue is not enabled
+
+
+
+   .. py:method:: clear_unhealthy_proxies()
+
+      Remove all unhealthy and dead proxies from the pool.
+
+      :returns: Number of proxies removed
+
+
+
+   .. py:method:: delete(url, **kwargs)
+
+      Make DELETE request.
+
+
+
+   .. py:method:: get(url, **kwargs)
+
+      Make GET request.
+
+
+
+   .. py:method:: get_chains()
+
+      Get all registered proxy chains.
+
+      :returns: List of ProxyChain instances
+
+
+
+   .. py:method:: get_circuit_breaker_states()
+
+      Get circuit breaker states for all proxies.
+
+      :returns: Dictionary mapping proxy IDs to their circuit breaker instances
+
+
+
+   .. py:method:: get_pool_stats()
+
+      Get statistics about the proxy pool.
+
+      :returns:
+
+                - total_proxies: Total number of proxies
+                - healthy_proxies: Number of healthy/unknown proxies
+                - unhealthy_proxies: Number of unhealthy proxies
+                - dead_proxies: Number of dead proxies
+                - total_requests: Total requests across all proxies
+                - total_successes: Total successful requests
+                - total_failures: Total failed requests
+                - average_success_rate: Average success rate across all proxies
+      :rtype: Dictionary containing pool statistics
+
+
+
+   .. py:method:: get_queue_stats()
+
+      Get statistics about the request queue.
+
+      :returns:
+
+                - enabled: Whether queuing is enabled
+                - size: Current number of queued requests
+                - max_size: Maximum queue capacity
+                - is_full: Whether queue is at capacity
+                - is_empty: Whether queue is empty
+      :rtype: Dictionary containing queue statistics
+
+
+
+   .. py:method:: get_retry_metrics()
+
+      Get retry metrics.
+
+      :returns: RetryMetrics instance with current metrics
+
+
+
+   .. py:method:: get_statistics()
+
+      Get comprehensive statistics including source breakdown (FR-050).
+
+      :returns:
+
+                - All stats from get_pool_stats()
+                - source_breakdown: Count of proxies by source (USER, FETCHED, etc.)
+      :rtype: Dictionary containing
+
+
+
+   .. py:method:: head(url, **kwargs)
+
+      Make HEAD request.
+
+
+
+   .. py:method:: options(url, **kwargs)
+
+      Make OPTIONS request.
+
+
+
+   .. py:method:: patch(url, **kwargs)
+
+      Make PATCH request.
+
+
+
+   .. py:method:: post(url, **kwargs)
+
+      Make POST request.
+
+
+
+   .. py:method:: put(url, **kwargs)
+
+      Make PUT request.
+
+
+
+   .. py:method:: remove_chain(chain_name)
+
+      Remove a proxy chain by name.
+
+      :param chain_name: Name of the chain to remove
+
+      :returns: True if chain was found and removed, False otherwise
+
+
+
+   .. py:method:: remove_proxy(proxy_id)
+
+      Remove a proxy from the pool.
+
+      :param proxy_id: UUID of proxy to remove
+
+
+
+   .. py:method:: reset_circuit_breaker(proxy_id)
+
+      Manually reset a circuit breaker to CLOSED state.
+
+      :param proxy_id: ID of the proxy whose circuit breaker to reset
+
+      :raises KeyError: If proxy_id not found
+
+
+
+   .. py:method:: set_strategy(strategy, *, atomic = True)
+
+      Hot-swap the rotation strategy without restarting.
+
+      This method implements atomic strategy swapping to ensure:
+      - New requests immediately use the new strategy
+      - In-flight requests complete with their original strategy
+      - No requests are dropped during the swap
+      - Swap completes in <100ms (SC-009)
+
+      :param strategy: New strategy instance or strategy name string
+                       ("round-robin", "random", "weighted", "least-used",
+                        "performance-based", "session", "geo-targeted")
+      :param atomic: If True (default), ensures atomic swap. If False, allows
+                     immediate replacement (faster but may affect in-flight requests)
+
+      .. rubric:: Example
+
+      >>> rotator = ProxyWhirl(strategy="round-robin")
+      >>> # ... after some requests ...
+      >>> rotator.set_strategy("performance-based")  # Hot-swap
+      >>> # New requests now use performance-based strategy
+
+      Thread Safety:
+          Thread-safe via atomic reference swap. Multiple threads can
+          call this method safely without race conditions.
+
+      Performance:
+          Target: <100ms for hot-swap completion (SC-009)
+          Typical: <10ms for strategy instance creation and assignment
+
+
+
+.. py:class:: RandomStrategy
+
+   Random proxy selection strategy with SelectionContext support.
+
+   Randomly selects a proxy from the pool of healthy proxies.
+   Provides unpredictable rotation for scenarios where sequential
+   patterns should be avoided.
+
+   Thread Safety: Uses Python's random module which is thread-safe
+   via GIL-protected random number generation. No additional locking required.
+
+   Initialize random strategy.
+
+
+   .. py:method:: configure(config)
+
+      Configure the strategy with custom settings.
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of using a proxy.
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a random healthy proxy.
+
+      :param pool: The proxy pool to select from
+      :param context: Optional selection context for filtering
+
+      :returns: Randomly selected healthy proxy
+
+      :raises ProxyPoolEmptyError: If no healthy proxies are available
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Random selection doesn't require metadata validation.
+
+
+
+.. py:class:: RenderMode
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Page rendering modes for fetching proxy lists.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: RetryAttempt(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Record of a single retry attempt.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: RetryExecutor(retry_policy, circuit_breakers, retry_metrics)
+
+   Orchestrates retry logic with exponential backoff and circuit breaker integration.
+
+   Provides both synchronous and asynchronous execution methods:
+   - execute_with_retry: Synchronous with time.sleep (for sync contexts)
+   - execute_with_retry_async: Asynchronous with asyncio.sleep (for async contexts)
+
+   The async variant avoids blocking the event loop during backoff delays.
+
+   Initialize retry executor.
+
+   :param retry_policy: Retry configuration
+   :param circuit_breakers: Circuit breakers by proxy ID
+   :param retry_metrics: Metrics collection instance
+
+
+   .. py:method:: execute_with_retry(request_fn, proxy, method, url, request_id = None)
+
+      Execute a request with retry logic (SYNCHRONOUS).
+
+      This method uses time.sleep for backoff delays and should only be called
+      from synchronous contexts. For async execution, use
+      AsyncProxyClient._execute_async_with_retry instead.
+
+      :param request_fn: Function that executes the request
+      :param proxy: Initial proxy to use
+      :param method: HTTP method
+      :param url: Request URL
+      :param request_id: Optional request ID for tracking
+
+      :returns: HTTP response
+
+      :raises ProxyConnectionError: If all retries exhausted
+      :raises NonRetryableError: If error is not retryable
+
+
+
+   .. py:method:: execute_with_retry_async(request_fn, proxy, method, url, request_id = None)
+      :async:
+
+
+      Execute a request with retry logic (ASYNCHRONOUS).
+
+      This is the async variant of execute_with_retry that uses asyncio.sleep
+      for non-blocking backoff delays instead of time.sleep.
+
+      :param request_fn: Async function that executes the request
+      :param proxy: Initial proxy to use
+      :param method: HTTP method
+      :param url: Request URL
+      :param request_id: Optional request ID for tracking
+
+      :returns: HTTP response
+
+      :raises ProxyConnectionError: If all retries exhausted
+      :raises NonRetryableError: If error is not retryable
+
+
+
+   .. py:method:: select_retry_proxy(available_proxies, failed_proxy, target_region = None)
+
+      Select best proxy for retry based on performance metrics.
+
+      Uses a weighted scoring formula:
+      score = (0.7 ? success_rate) + (0.3 ? (1 - normalized_latency))
+
+      :param available_proxies: List of available proxies
+      :param failed_proxy: The proxy that just failed
+      :param target_region: Optional target region for geo-targeted selection
+
+      :returns: Best proxy for retry, or None if no suitable proxy found
+
+
+
+.. py:class:: RetryMetrics(**data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Aggregated retry metrics collection.
+
+   Initialize with maxlen-bounded deque.
+
+
+   .. py:method:: aggregate_hourly()
+
+      Aggregate current_attempts into hourly summaries.
+
+
+
+   .. py:method:: get_by_proxy(hours = 24)
+
+      Get per-proxy retry statistics.
+
+
+
+   .. py:method:: get_summary()
+
+      Get metrics summary for API response.
+
+
+
+   .. py:method:: get_timeseries(hours = 24)
+
+      Get time-series data for the specified hours.
+
+
+
+   .. py:method:: record_attempt(attempt)
+
+      Record a retry attempt.
+
+
+
+   .. py:method:: record_circuit_breaker_event(event)
+
+      Record circuit breaker state change.
+
+
+
+.. py:class:: RetryOutcome
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Outcome of a retry attempt.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: RetryPolicy(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for retry behavior.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: calculate_delay(attempt, previous_delay = None)
+
+      Calculate delay for given attempt number (0-indexed).
+
+      Uses AWS decorrelated jitter algorithm when jitter is enabled to prevent
+      the thundering herd problem. The decorrelated jitter ensures that retry
+      delays depend on previous delay values, spreading retries across time.
+
+      AWS decorrelated jitter formula:
+          delay = min(cap, random(base, previous_delay * 3))
+
+      Reference: https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
+
+      :param attempt: The attempt number (0 for first retry, 1 for second, etc.)
+      :param previous_delay: The delay from the previous attempt (for decorrelated jitter).
+                             If None and jitter is enabled, uses base_delay as seed.
+
+      :returns: Delay in seconds before the next retry attempt
+
+
+
+   .. py:method:: validate_status_codes(v)
+      :classmethod:
+
+
+      Validate that status codes are 5xx errors.
+
+
+
+.. py:class:: RotationStrategy
+
+   Bases: :py:obj:`Protocol`
+
+
+   Protocol defining interface for proxy rotation strategies.
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of using a proxy.
+
+      :param proxy: The proxy that was used
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a proxy from the pool based on strategy logic.
+
+      :param pool: The proxy pool to select from
+      :param context: Optional selection context for filtering
+
+      :returns: Selected proxy
+
+      :raises ProxyPoolEmptyError: If no suitable proxy is available
+
+
+
+.. py:class:: RoundRobinStrategy
+
+   Round-robin proxy selection strategy with SelectionContext support.
+
+   Selects proxies in sequential order, wrapping around to the first
+   proxy after reaching the end of the list. Only selects healthy proxies.
+   Supports filtering based on SelectionContext (e.g., failed_proxy_ids).
+
+   Thread Safety:
+       Uses threading.Lock to protect _current_index access, ensuring atomic
+       index increment and preventing proxy skipping or duplicate selection
+       in multi-threaded environments.
+
+   Initialize round-robin strategy.
+
+
+   .. py:method:: configure(config)
+
+      Configure the strategy with custom settings.
+
+      :param config: Strategy configuration object
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of using a proxy.
+
+      Updates proxy statistics based on request outcome and completes the request tracking.
+
+      :param proxy: The proxy that was used
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select next proxy in round-robin order.
+
+      :param pool: The proxy pool to select from
+      :param context: Optional selection context for filtering
+
+      :returns: Next healthy proxy in rotation
+
+      :raises ProxyPoolEmptyError: If no healthy proxies are available
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Validate that pool has required metadata for this strategy.
+
+      Round-robin doesn't require any special metadata, so always returns True.
+
+      :param pool: The proxy pool to validate
+
+      :returns: Always True for round-robin
+
+
+
+.. py:class:: SelectionContext(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Context information for proxy selection decisions.
+
+   This model captures all the contextual information that might be relevant
+   for intelligent proxy selection, including session tracking, target URL
+   characteristics, and previous attempt history.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: Session(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Session tracking for sticky proxy assignments.
+
+   This model maintains the relationship between a session and its assigned
+   proxy, with TTL support and usage tracking.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: is_expired()
+
+      Check if the session has expired.
+
+      :returns: True if current time >= expires_at
+
+
+
+   .. py:method:: touch()
+
+      Update last_used_at timestamp and increment request_count.
+
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: SessionPersistenceStrategy(max_sessions = 10000, auto_cleanup_threshold = 100)
+
+   Session persistence strategy (sticky sessions).
+
+   Maintains consistent proxy assignment for a given session ID across multiple
+   requests. Ensures that all requests within a session use the same proxy unless
+   the proxy becomes unavailable.
+
+   Features:
+   - Session-to-proxy binding with configurable TTL
+   - Automatic failover when assigned proxy becomes unhealthy
+   - Thread-safe session management
+   - Session expiration and cleanup
+
+   Thread Safety:
+       Uses SessionManager which has internal locking for thread-safe operations.
+
+   Success Criteria:
+       SC-005: 99.9% same-proxy guarantee for session requests
+
+   Performance:
+       O(1) session lookup, <1ms overhead for session management
+
+   Initialize session persistence strategy.
+
+   :param max_sessions: Maximum number of active sessions before LRU eviction (default: 10000)
+   :param auto_cleanup_threshold: Number of operations between auto-cleanups (default: 100)
+
+
+   .. py:method:: cleanup_expired_sessions()
+
+      Remove expired sessions.
+
+      :returns: Number of sessions removed
+
+
+
+   .. py:method:: close_session(session_id)
+
+      Explicitly close a session.
+
+      :param session_id: The session ID to close
+
+
+
+   .. py:method:: configure(config)
+
+      Configure session persistence parameters.
+
+      :param config: Strategy configuration with session_stickiness_duration_seconds
+
+
+
+   .. py:method:: get_session_stats()
+
+      Get session statistics.
+
+      :returns:
+
+                - total_sessions: Total number of active sessions
+                - max_sessions: Maximum session limit
+                - auto_cleanup_threshold: Operations between auto-cleanups
+      :rtype: Dictionary with session statistics
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of a request through a proxy.
+
+      Updates proxy completion statistics via Proxy.complete_request().
+
+      :param proxy: The proxy that handled the request
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a proxy with session persistence.
+
+      If session_id exists and proxy is healthy, returns same proxy.
+      If session_id is new or assigned proxy is unhealthy, assigns new proxy.
+
+      :param pool: The proxy pool to select from
+      :param context: Selection context with session_id (required)
+
+      :returns: Healthy proxy assigned to the session
+
+      :raises ValueError: If context is None or session_id is missing
+      :raises ProxyPoolEmptyError: If no healthy proxies available
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Validate that pool has necessary metadata for strategy.
+
+      Session persistence doesn't require specific proxy metadata.
+
+      :param pool: The proxy pool to validate
+
+      :returns: Always True - session persistence works with any pool
+
+
+
+.. py:class:: SourceStats(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Statistics for a proxy source.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: StrategyConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for rotation strategies.
+
+   This model provides flexible configuration options for all rotation
+   strategies, allowing customization of weights, EMA parameters, session
+   settings, and geo-targeting constraints.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: StrategyRegistry
+
+   Singleton registry for custom rotation strategies.
+
+   Allows registration and retrieval of custom strategy implementations,
+   enabling plugin architecture for ProxyWhirl.
+
+   .. rubric:: Example
+
+   >>> from proxywhirl.strategies import StrategyRegistry
+   >>>
+   >>> # Create custom strategy
+   >>> class MyStrategy:
+   ...     def select(self, pool):
+   ...         return pool.get_all_proxies()[0]
+   ...     def record_result(self, proxy, success, response_time_ms):
+   ...         pass
+   >>>
+   >>> # Register it
+   >>> registry = StrategyRegistry()
+   >>> registry.register_strategy("my-strategy", MyStrategy)
+   >>>
+   >>> # Retrieve and use
+   >>> strategy_class = registry.get_strategy("my-strategy")
+   >>> strategy = strategy_class()
+
+   Thread Safety:
+       Thread-safe singleton implementation using double-checked locking.
+
+   Performance:
+       Registration: O(1)
+       Retrieval: O(1)
+       Validation: <1ms per strategy (SC-010)
+
+   Initialize the registry (called once by __new__).
+
+
+   .. py:method:: get_strategy(name)
+
+      Retrieve a registered strategy class.
+
+      :param name: Strategy name used during registration
+
+      :returns: Strategy class (not instance - caller must instantiate)
+
+      :raises KeyError: If strategy name not found in registry
+
+      .. rubric:: Example
+
+      >>> registry = StrategyRegistry()
+      >>> strategy_class = registry.get_strategy("my-strategy")
+      >>> strategy = strategy_class()  # Instantiate
+
+
+
+   .. py:method:: list_strategies()
+
+      List all registered strategy names.
+
+      :returns: List of registered strategy names
+
+
+
+   .. py:method:: register_strategy(name, strategy_class, *, validate = True)
+
+      Register a custom strategy.
+
+      :param name: Unique name for the strategy (e.g., "my-custom-strategy")
+      :param strategy_class: Strategy class implementing RotationStrategy protocol
+      :param validate: If True (default), validates strategy implements required methods
+
+      :raises ValueError: If strategy name already registered (unless re-registering)
+      :raises TypeError: If strategy doesn't implement required protocol methods
+
+      .. rubric:: Example
+
+      >>> class FastStrategy:
+      ...     def select(self, pool):
+      ...         return pool.get_all_proxies()[0]
+      ...     def record_result(self, proxy, success, response_time_ms):
+      ...         pass
+      >>>
+      >>> registry = StrategyRegistry()
+      >>> registry.register_strategy("fast", FastStrategy)
+
+
+
+   .. py:method:: reset()
+      :classmethod:
+
+
+      Reset the singleton instance (useful for testing).
+
+      .. warning::
+
+         This should only be used in tests. Calling this in production
+         will clear all registered strategies.
+
+
+
+   .. py:method:: unregister_strategy(name)
+
+      Remove a strategy from the registry.
+
+      :param name: Strategy name to unregister
+
+      :raises KeyError: If strategy name not found
+
+
+
+.. py:class:: StrategyState
+
+   Per-strategy mutable state for managing proxy metrics.
+
+   This class separates mutable strategy state from immutable proxy identity.
+   Each strategy instance maintains its own StrategyState, which tracks
+   per-proxy metrics independently. This allows different strategies to:
+
+   1. Use different EMA alpha values without conflicts
+   2. Track proxy performance independently
+   3. Maintain consistent metrics across strategy reconfiguration
+
+   The state is keyed by proxy UUID to ensure stable identity even if
+   proxy objects are recreated.
+
+   .. rubric:: Example
+
+   >>> state = StrategyState(ema_alpha=0.3)
+   >>> state.record_success(proxy.id, response_time_ms=150.0)
+   >>> metrics = state.get_metrics(proxy.id)
+   >>> print(metrics.ema_response_time_ms)  # 150.0
+
+   Thread Safety:
+       Uses threading.Lock to protect all state mutations.
+
+   .. attribute:: ema_alpha
+
+      EMA smoothing factor for this strategy's metrics
+
+   .. attribute:: window_duration_seconds
+
+      Duration of sliding window for counter resets
+
+
+   .. py:method:: clear_all()
+
+      Clear all tracked metrics.
+
+
+
+   .. py:method:: get_ema_response_time(proxy_id)
+
+      Get EMA response time for a proxy.
+
+      :param proxy_id: UUID of the proxy
+
+      :returns: EMA response time in ms, or None if no data
+
+
+
+   .. py:method:: get_metrics(proxy_id)
+
+      Get or create metrics for a proxy.
+
+      :param proxy_id: UUID of the proxy
+
+      :returns: ProxyMetrics instance for this proxy
+
+
+
+   .. py:method:: get_request_count(proxy_id)
+
+      Get total request count for a proxy.
+
+      :param proxy_id: UUID of the proxy
+
+      :returns: Total number of requests, or 0 if no data
+
+
+
+   .. py:method:: get_success_rate(proxy_id)
+
+      Get success rate for a proxy.
+
+      :param proxy_id: UUID of the proxy
+
+      :returns: Success rate (0.0-1.0), or 0.0 if no data
+
+
+
+   .. py:method:: record_failure(proxy_id)
+
+      Record a failed request.
+
+      :param proxy_id: UUID of the proxy
+
+
+
+   .. py:method:: record_success(proxy_id, response_time_ms)
+
+      Record a successful request.
+
+      :param proxy_id: UUID of the proxy
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: reset_metrics(proxy_id)
+
+      Reset metrics for a proxy.
+
+      :param proxy_id: UUID of the proxy
+
+
+
+.. py:class:: TierStatistics(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Statistics for a single cache tier.
+
+   Tracks hits, misses, evictions by reason, and computes hit rate.
+
+   .. rubric:: Example
+
+   >>> stats = TierStatistics(hits=100, misses=20)
+   >>> stats.hit_rate
+   0.8333...
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:property:: hit_rate
+      :type: float
+
+
+      Cache hit rate (0.0 to 1.0).
+
+
+   .. py:property:: total_evictions
+      :type: int
+
+
+      Total evictions across all reasons.
+
+
+.. py:class:: ValidationLevel
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Proxy validation strictness levels.
+
+   BASIC: Format + TCP connectivity validation (fast, ~100ms)
+   STANDARD: BASIC + HTTP request test (medium, ~500ms)
+   FULL: STANDARD + Anonymity check (comprehensive, ~2s)
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: WeightedStrategy
+
+   Weighted proxy selection strategy with SelectionContext support.
+
+   Selects proxies based on custom weights or success rates. When custom weights
+   are provided via StrategyConfig, they take precedence. Otherwise, weights are
+   derived from success_rate. Uses weighted random selection to favor
+   higher-performing proxies while still giving all proxies a chance.
+
+   Supports:
+   - Custom weights via StrategyConfig.weights (proxy URL -> weight mapping)
+   - Fallback to success_rate-based weights
+   - Minimum weight (0.1) to ensure all proxies have selection chance
+   - SelectionContext for filtering (e.g., failed_proxy_ids)
+   - Weight caching to avoid O(n) recalculation on every selection
+
+   Thread Safety:
+       Uses threading.Lock to protect weight cache access, ensuring atomic
+       cache validation and update operations. Prevents race conditions where
+       multiple threads could trigger duplicate weight recalculations or
+       inconsistent cache states.
+
+   Initialize weighted strategy.
+
+
+   .. py:method:: configure(config)
+
+      Configure the strategy with custom settings.
+
+      Invalidates the weight cache since configuration changes may affect weights.
+
+      :param config: Strategy configuration object with optional custom weights
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of using a proxy.
+
+      Updates proxy statistics based on request outcome and invalidates the
+      weight cache since success rates may have changed.
+
+      Thread-safe: Uses double-checked locking pattern to ensure atomic
+      invalidation and update. This prevents race conditions where another
+      thread could select using stale weights while proxy stats are being updated.
+
+      The lock ensures:
+      1. No thread can read cached weights between invalidation and stat update
+      2. Proxy stat updates are atomic with cache invalidation
+      3. Multiple concurrent record_result() calls don't interfere
+
+      :param proxy: The proxy that was used
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a proxy weighted by custom weights or success rate.
+
+      Uses cached weights when possible to avoid O(n) recalculation on every call.
+      Cache is invalidated when the proxy set changes (different IDs).
+
+      :param pool: The proxy pool to select from
+      :param context: Optional selection context for filtering
+
+      :returns: Weighted-random selected healthy proxy
+
+      :raises ProxyPoolEmptyError: If no healthy proxies are available
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Validate that pool has required metadata for weighted selection.
+
+      Weighted strategy can work with success_rate (always available) or custom weights.
+
+      :param pool: The proxy pool to validate
+
+      :returns: Always True as success_rate is always available
+
+
+
+.. py:function:: configure_logging(level = 'INFO', format_type = 'json', redact_credentials = True)
+
+   Configure loguru logging with optional JSON formatting and credential redaction.
+
+   :param level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+   :param format_type: "auto", "json", or "text". "auto" detects TTY on stderr.
+   :param redact_credentials: Whether to redact sensitive data
+
+
+.. py:function:: create_proxy_from_url(url, source = ProxySource.USER, tags = None)
+
+   Create a Proxy instance from a URL string.
+
+   :param url: Proxy URL
+   :param source: Origin of proxy
+   :param tags: Optional tags
+
+   :returns: Proxy instance
+
+   :raises ValueError: If URL is invalid
+
+
+.. py:function:: decrypt_credentials(ciphertext, key)
+
+   Decrypt credentials using Fernet symmetric encryption.
+
+   :param ciphertext: Encrypted text (base64-encoded)
+   :param key: Encryption key (base64-encoded)
+
+   :returns: Decrypted plaintext
+
+   :raises ImportError: If cryptography package not installed
+   :raises InvalidToken: If key is incorrect or ciphertext is invalid
+
+
+.. py:function:: deduplicate_proxies(proxies)
+
+   Deduplicate proxies by URL+Port combination.
+
+   Hostnames are normalized to lowercase since DNS names are case-insensitive
+   (RFC 4343). This ensures that "PROXY.EXAMPLE.COM:8080" and
+   "proxy.example.com:8080" are correctly identified as duplicates.
+
+   Handles edge cases including:
+   - IPv6 addresses: [2001:db8::1]:8080 (preserved as-is, already case-insensitive)
+   - IDN hostnames: Прокси.рф:8080 (lowercased correctly)
+   - Mixed-case DNS names: Proxy.EXAMPLE.com:8080 (lowercased for comparison)
+
+   :param proxies: List of proxy dictionaries
+
+   :returns: Deduplicated list (keeps first occurrence)
+
+
+.. py:function:: encrypt_credentials(plaintext, key = None)
+
+   Encrypt credentials using Fernet symmetric encryption.
+
+   :param plaintext: Plaintext to encrypt
+   :param key: Optional encryption key (base64-encoded). If None, generates new key.
+
+   :returns: Encrypted text (base64-encoded)
+
+   :raises ImportError: If cryptography package not installed
+
+
+.. py:function:: generate_encryption_key()
+
+   Generate a new Fernet encryption key.
+
+   :returns: Base64-encoded encryption key
+
+   :raises ImportError: If cryptography package not installed
+
+
+.. py:function:: is_valid_proxy_url(url)
+
+   Validate proxy URL format.
+
+   :param url: URL to validate
+
+   :returns: True if valid proxy URL
+
+
+.. py:function:: parse_proxy_url(url)
+
+   Parse proxy URL into components.
+
+   :param url: Proxy URL to parse
+
+   :returns: Dictionary with protocol, host, port, username, password
+
+   :raises ValueError: If URL is invalid
+
+
+.. py:function:: proxy_to_dict(proxy, include_stats = True)
+
+   Convert a Proxy instance to a dictionary.
+
+   :param proxy: Proxy to convert
+   :param include_stats: Include statistics
+
+   :returns: Dictionary representation
+
+
+.. py:function:: validate_proxy_model(proxy)
+
+   Validate a Proxy model instance.
+
+   :param proxy: Proxy to validate
+
+   :returns: List of validation error messages (empty if valid)
+
+

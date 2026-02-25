@@ -1,0 +1,100 @@
+proxywhirl.exports
+==================
+
+.. py:module:: proxywhirl.exports
+
+.. autoapi-nested-parse::
+
+   Export functionality for generating web dashboard data.
+
+   This module provides functions to export proxy data and statistics
+   for consumption by the web dashboard.
+
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.exports.export_for_web
+   proxywhirl.exports.generate_proxy_lists
+   proxywhirl.exports.generate_rich_proxies
+   proxywhirl.exports.generate_stats_from_files
+   proxywhirl.exports.parse_proxy_url
+
+
+Module Contents
+---------------
+
+.. py:function:: export_for_web(db_path, output_dir, include_stats = True, include_rich_proxies = True, include_proxy_lists = True, max_age_hours = 72)
+   :async:
+
+
+   Export data for the web dashboard.
+
+   :param db_path: Path to SQLite database
+   :param output_dir: Directory to write output files
+   :param include_stats: Whether to generate stats.json
+   :param include_rich_proxies: Whether to generate proxies-rich.json
+   :param include_proxy_lists: Whether to generate text files and metadata.json
+   :param max_age_hours: Only include proxies validated within this time window.
+                         Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.
+
+   :returns: Dictionary mapping output type to file path
+
+
+.. py:function:: generate_proxy_lists(storage, output_dir, max_age_hours = 72)
+   :async:
+
+
+   Generate proxy list text files and metadata.json from database.
+
+   Creates:
+       - http.txt, https.txt, socks4.txt, socks5.txt (one proxy per line)
+       - all.txt (combined with headers)
+       - proxies.json (structured JSON with metadata)
+       - metadata.json (counts and timestamp)
+
+   :param storage: SQLiteStorage instance to query
+   :param output_dir: Directory to write output files
+   :param max_age_hours: Only include proxies validated within this time window.
+                         Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.
+
+   :returns: Dictionary mapping protocol to proxy count
+
+
+.. py:function:: generate_rich_proxies(storage, include_geo = True, geo_sample_size = 5000, max_age_hours = 72)
+   :async:
+
+
+   Generate rich proxy data from database.
+
+   :param storage: SQLiteStorage instance to query
+   :param include_geo: Whether to include country data (slower)
+   :param geo_sample_size: Max IPs to geolocate (rate limited)
+   :param max_age_hours: Only include proxies validated within this time window.
+                         Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.
+
+   :returns: Dictionary containing proxies with metadata and aggregations
+
+
+.. py:function:: generate_stats_from_files(proxy_dir)
+
+   Generate statistics from proxy list files and rich proxy data.
+
+   :param proxy_dir: Path to directory containing proxy list files
+
+   :returns: Dictionary containing all dashboard statistics including health,
+             performance, validation, geographic, and source ranking data
+
+
+.. py:function:: parse_proxy_url(url)
+
+   Parse proxy URL to extract IP and port.
+
+   :param url: Full proxy URL (e.g., "http://1.2.3.4:8080")
+
+   :returns: Tuple of (ip, port)
+
+

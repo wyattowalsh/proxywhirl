@@ -1,0 +1,155 @@
+proxywhirl.circuit_breaker.sync
+===============================
+
+.. py:module:: proxywhirl.circuit_breaker.sync
+
+.. autoapi-nested-parse::
+
+   Circuit breaker pattern implementation for proxy failure management.
+
+   IMPORTANT: This module provides SYNCHRONOUS circuit breaker implementation.
+
+   Usage Guidelines:
+   -----------------
+   - CircuitBreaker: Use in synchronous contexts only (threading.Lock)
+   - AsyncCircuitBreaker: Use in async contexts (from circuit_breaker_async module)
+
+   .. rubric:: Example
+
+   Synchronous usage:
+       >>> cb = CircuitBreaker(proxy_id="proxy-1")
+       >>> cb.record_failure()  # Thread-safe
+       >>> if cb.should_attempt_request():
+       ...     # make request
+       ...     cb.record_success()
+
+   Async usage (use AsyncCircuitBreaker instead):
+       >>> from proxywhirl.circuit_breaker_async import AsyncCircuitBreaker
+       >>> cb = AsyncCircuitBreaker(proxy_id="proxy-1")
+       >>> await cb.record_failure()  # Event loop safe
+       >>> if await cb.should_attempt_request():
+       ...     # make async request
+       ...     await cb.record_success()
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.circuit_breaker.sync.CircuitBreaker
+   proxywhirl.circuit_breaker.sync.CircuitBreakerState
+
+
+Module Contents
+---------------
+
+.. py:class:: CircuitBreaker(/, **data)
+
+   Bases: :py:obj:`proxywhirl.circuit_breaker.base.CircuitBreakerBase`
+
+
+   Circuit breaker for a single proxy (SYNCHRONOUS implementation).
+
+   WARNING: This class uses threading.Lock and is designed for SYNCHRONOUS contexts only.
+   For async applications, use AsyncCircuitBreaker from circuit_breaker_async module.
+
+   .. attribute:: proxy_id
+
+      Unique identifier for the proxy
+
+   .. attribute:: state
+
+      Current circuit breaker state (CLOSED, OPEN, HALF_OPEN)
+
+   .. attribute:: failure_count
+
+      Number of failures in current window
+
+   .. attribute:: failure_threshold
+
+      Number of failures before opening circuit
+
+   .. attribute:: window_duration
+
+      Rolling window duration in seconds
+
+   .. attribute:: timeout_duration
+
+      How long circuit stays open before testing recovery
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: create(proxy_id, config = None, **kwargs)
+      :classmethod:
+
+
+      Factory method to create a circuit breaker with optional config.
+
+      :param proxy_id: Unique identifier for the proxy
+      :param config: CircuitBreakerConfig with settings
+      :param \*\*kwargs: Additional CircuitBreaker field overrides
+
+      :returns: CircuitBreaker instance
+
+
+
+   .. py:method:: from_config(proxy_id, config = None, **kwargs)
+      :classmethod:
+
+
+      Backward-compatible alias for create().
+
+
+
+   .. py:method:: record_failure()
+
+      Record a failure and update state if threshold reached.
+
+      Thread-safe - acquires threading.Lock for the entire operation.
+
+
+
+   .. py:method:: record_success()
+
+      Record a success and potentially close circuit.
+
+      Thread-safe - acquires threading.Lock for the entire operation.
+
+
+
+   .. py:method:: reset()
+
+      Manually reset circuit breaker to CLOSED state.
+
+      Thread-safe - acquires threading.Lock before resetting state.
+
+
+
+   .. py:method:: should_attempt_request()
+
+      Check if proxy is available for requests.
+
+      Thread-safe - acquires threading.Lock for the entire operation.
+
+      :returns: True if proxy should be attempted, False if circuit is open.
+
+
+
+.. py:class:: CircuitBreakerState
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Circuit breaker states.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+

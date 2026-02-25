@@ -1,0 +1,87 @@
+proxywhirl.enrichment
+=====================
+
+.. py:module:: proxywhirl.enrichment
+
+.. autoapi-nested-parse::
+
+   Offline proxy metadata enrichment using local databases.
+
+   This module provides 100% offline enrichment of proxy data using:
+   1. MaxMind GeoLite2 local database (optional, requires download)
+   2. Python stdlib ipaddress for IP property analysis
+   3. Port signature analysis
+
+   No external API calls - all lookups are local.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.enrichment.OfflineEnricher
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.enrichment.get_default_geoip_path
+   proxywhirl.enrichment.is_geoip_available
+
+
+Module Contents
+---------------
+
+.. py:class:: OfflineEnricher(geoip_path = None)
+
+   Enrich proxies using local databases only - no API calls.
+
+   Initialize the enricher.
+
+   :param geoip_path: Path to MaxMind GeoLite2-City.mmdb file.
+                      If None, looks in default locations.
+
+
+   .. py:method:: close()
+
+      Close the GeoIP reader if open.
+
+
+
+   .. py:method:: enrich(ip, port)
+
+      Enrich a proxy with metadata.
+
+      :param ip: IP address string
+      :param port: Port number
+
+      :returns: Dictionary of enrichment fields (all may be None if lookup fails)
+
+
+
+   .. py:method:: enrich_batch(proxies, ip_field = 'ip', port_field = 'port')
+
+      Enrich a batch of proxies in place.
+
+      :param proxies: List of proxy dictionaries to enrich
+      :param ip_field: Field name containing IP address
+      :param port_field: Field name containing port
+
+      :returns: The same list with enrichment fields added
+
+
+
+.. py:function:: get_default_geoip_path()
+
+   Get the default path for GeoIP database.
+
+
+.. py:function:: is_geoip_available()
+
+   Check if GeoIP database is available.
+
+

@@ -1,0 +1,152 @@
+proxywhirl.circuit_breaker.async_
+=================================
+
+.. py:module:: proxywhirl.circuit_breaker.async_
+
+.. autoapi-nested-parse::
+
+   Async circuit breaker implementation with RWLock for reduced contention.
+
+   This is the async-first implementation that uses AsyncRWLock for
+   better performance in high-concurrency scenarios.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.circuit_breaker.async_.AsyncCircuitBreaker
+   proxywhirl.circuit_breaker.async_.CircuitBreakerState
+
+
+Module Contents
+---------------
+
+.. py:class:: AsyncCircuitBreaker(/, **data)
+
+   Bases: :py:obj:`proxywhirl.circuit_breaker.base.CircuitBreakerBase`
+
+
+   Async circuit breaker for a single proxy with RWLock for high concurrency.
+
+   This is the ASYNCHRONOUS implementation designed for async/await contexts.
+   Uses AsyncRWLock for event-loop-safe operations with reduced lock contention.
+
+   Key Features:
+       - Event-loop safe: All methods are async and use asyncio-compatible locks
+       - High concurrency: RWLock allows multiple readers or single writer
+       - Zero blocking: Never blocks the event loop with synchronous operations
+
+   For synchronous contexts, use CircuitBreaker from circuit_breaker module instead.
+
+   .. attribute:: proxy_id
+
+      Unique identifier for the proxy
+
+   .. attribute:: state
+
+      Current circuit breaker state (CLOSED, OPEN, HALF_OPEN)
+
+   .. attribute:: failure_count
+
+      Number of failures in current window
+
+   .. attribute:: failure_threshold
+
+      Number of failures before opening circuit
+
+   .. attribute:: window_duration
+
+      Rolling window duration in seconds
+
+   .. attribute:: timeout_duration
+
+      How long circuit stays open before testing recovery
+
+   .. rubric:: Example
+
+   >>> from proxywhirl.circuit_breaker_async import AsyncCircuitBreaker
+   >>> cb = AsyncCircuitBreaker(proxy_id="proxy-1")
+   >>> await cb.record_failure()  # Event-loop safe
+   >>> if await cb.should_attempt_request():
+   ...     # make async request
+   ...     await cb.record_success()
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: create(proxy_id, config = None, **kwargs)
+      :classmethod:
+
+
+      Factory method to create a circuit breaker with optional config.
+
+      :param proxy_id: Unique identifier for the proxy
+      :param config: CircuitBreakerConfig with settings
+      :param \*\*kwargs: Additional AsyncCircuitBreaker field overrides
+
+      :returns: AsyncCircuitBreaker instance
+
+
+
+   .. py:method:: from_config(proxy_id, config = None, **kwargs)
+      :classmethod:
+
+
+      Backward-compatible alias for create().
+
+
+
+   .. py:method:: record_failure()
+      :async:
+
+
+      Record a failure and update state if threshold reached.
+
+
+
+   .. py:method:: record_success()
+      :async:
+
+
+      Record a success and potentially close circuit.
+
+
+
+   .. py:method:: reset()
+      :async:
+
+
+      Manually reset circuit breaker to CLOSED state.
+
+
+
+   .. py:method:: should_attempt_request()
+      :async:
+
+
+      Check if proxy is available for requests.
+
+      Uses write lock to prevent TOCTOU race conditions.
+
+      :returns: True if proxy should be attempted, False if circuit is open.
+
+
+
+.. py:class:: CircuitBreakerState
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Circuit breaker states.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+

@@ -1,0 +1,234 @@
+proxywhirl.utils
+================
+
+.. py:module:: proxywhirl.utils
+
+.. autoapi-nested-parse::
+
+   Utility functions for logging, validation, and encryption.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.utils.CLILock
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.utils.atomic_write
+   proxywhirl.utils.atomic_write_json
+   proxywhirl.utils.configure_logging
+   proxywhirl.utils.create_proxy_from_url
+   proxywhirl.utils.decrypt_credentials
+   proxywhirl.utils.encrypt_credentials
+   proxywhirl.utils.generate_encryption_key
+   proxywhirl.utils.is_valid_proxy_url
+   proxywhirl.utils.mask_proxy_url
+   proxywhirl.utils.mask_secret_str
+   proxywhirl.utils.parse_proxy_url
+   proxywhirl.utils.proxy_to_dict
+   proxywhirl.utils.scrub_credentials_from_dict
+   proxywhirl.utils.validate_proxy_model
+   proxywhirl.utils.validate_target_url_safe
+
+
+Module Contents
+---------------
+
+.. py:class:: CLILock(config_dir)
+
+   Context manager for CLI concurrency locking with Typer-aware error handling.
+
+   Initialize lock file manager.
+
+   :param config_dir: Directory where lock file will be created
+
+
+.. py:function:: atomic_write(path, content, encoding = 'utf-8')
+
+   Write content atomically using temp file + rename.
+
+   This prevents partial writes and corruption if the process is
+   interrupted during the write operation.
+
+   :param path: Target file path
+   :param content: Content to write
+   :param encoding: File encoding (default: utf-8)
+
+   :raises OSError: If write or rename fails
+
+
+.. py:function:: atomic_write_json(path, data, **json_kwargs)
+
+   Write JSON data atomically.
+
+   :param path: Target file path
+   :param data: Data to serialize as JSON
+   :param \*\*json_kwargs: Arguments to pass to json.dumps()
+
+
+.. py:function:: configure_logging(level = 'INFO', format_type = 'json', redact_credentials = True)
+
+   Configure loguru logging with optional JSON formatting and credential redaction.
+
+   :param level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+   :param format_type: "auto", "json", or "text". "auto" detects TTY on stderr.
+   :param redact_credentials: Whether to redact sensitive data
+
+
+.. py:function:: create_proxy_from_url(url, source = ProxySource.USER, tags = None)
+
+   Create a Proxy instance from a URL string.
+
+   :param url: Proxy URL
+   :param source: Origin of proxy
+   :param tags: Optional tags
+
+   :returns: Proxy instance
+
+   :raises ValueError: If URL is invalid
+
+
+.. py:function:: decrypt_credentials(ciphertext, key)
+
+   Decrypt credentials using Fernet symmetric encryption.
+
+   :param ciphertext: Encrypted text (base64-encoded)
+   :param key: Encryption key (base64-encoded)
+
+   :returns: Decrypted plaintext
+
+   :raises ImportError: If cryptography package not installed
+   :raises InvalidToken: If key is incorrect or ciphertext is invalid
+
+
+.. py:function:: encrypt_credentials(plaintext, key = None)
+
+   Encrypt credentials using Fernet symmetric encryption.
+
+   :param plaintext: Plaintext to encrypt
+   :param key: Optional encryption key (base64-encoded). If None, generates new key.
+
+   :returns: Encrypted text (base64-encoded)
+
+   :raises ImportError: If cryptography package not installed
+
+
+.. py:function:: generate_encryption_key()
+
+   Generate a new Fernet encryption key.
+
+   :returns: Base64-encoded encryption key
+
+   :raises ImportError: If cryptography package not installed
+
+
+.. py:function:: is_valid_proxy_url(url)
+
+   Validate proxy URL format.
+
+   :param url: URL to validate
+
+   :returns: True if valid proxy URL
+
+
+.. py:function:: mask_proxy_url(url)
+
+   Mask credentials in a proxy URL for safe display in verbose/debug output.
+
+   Replaces username:password with ***:*** to prevent credential exposure.
+
+   :param url: Proxy URL that may contain credentials
+
+   :returns: URL with credentials masked
+
+   .. rubric:: Example
+
+   >>> mask_proxy_url("http://user:pass@proxy.com:8080")
+   "http://***:***@proxy.com:8080"
+
+
+.. py:function:: mask_secret_str(secret)
+
+   Mask a SecretStr or string value for safe display.
+
+   :param secret: SecretStr instance or string to mask
+
+   :returns: Masked string showing "***"
+
+
+.. py:function:: parse_proxy_url(url)
+
+   Parse proxy URL into components.
+
+   :param url: Proxy URL to parse
+
+   :returns: Dictionary with protocol, host, port, username, password
+
+   :raises ValueError: If URL is invalid
+
+
+.. py:function:: proxy_to_dict(proxy, include_stats = True)
+
+   Convert a Proxy instance to a dictionary.
+
+   :param proxy: Proxy to convert
+   :param include_stats: Include statistics
+
+   :returns: Dictionary representation
+
+
+.. py:function:: scrub_credentials_from_dict(data)
+
+   Recursively scrub credentials from a dictionary for safe output.
+
+   Masks:
+   - Proxy URLs with credentials
+   - SecretStr values
+   - Dict keys containing sensitive terms (password, secret, token, etc.)
+
+   :param data: Dictionary that may contain sensitive data
+
+   :returns: New dictionary with credentials masked
+
+
+.. py:function:: validate_proxy_model(proxy)
+
+   Validate a Proxy model instance.
+
+   :param proxy: Proxy to validate
+
+   :returns: List of validation error messages (empty if valid)
+
+
+.. py:function:: validate_target_url_safe(url, allow_private = False)
+
+   Validate a target URL to prevent SSRF attacks (API-safe version).
+
+   This function validates URLs to prevent Server-Side Request Forgery (SSRF) attacks
+   by blocking access to:
+   - Localhost and loopback addresses (127.0.0.0/8, ::1)
+   - Private IP ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+   - Link-local addresses (169.254.0.0/16)
+   - Internal domain names (.local, .internal, .lan, .corp)
+
+   :param url: The URL to validate
+   :param allow_private: If True, allow private/internal IP addresses (default: False)
+
+   :raises ValueError: If the URL is invalid or potentially dangerous
+
+   .. rubric:: Example
+
+   >>> validate_target_url_safe("https://example.com")  # OK
+   >>> validate_target_url_safe("http://localhost:8080")  # Raises ValueError
+   >>> validate_target_url_safe("http://192.168.1.1")  # Raises ValueError
+   >>> validate_target_url_safe("http://192.168.1.1", allow_private=True)  # OK
+
+

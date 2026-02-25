@@ -1,0 +1,350 @@
+proxywhirl.cli
+==============
+
+.. py:module:: proxywhirl.cli
+
+.. autoapi-nested-parse::
+
+   Command-line interface for ProxyWhirl.
+
+   This module provides a Typer-based CLI for proxy rotation operations.
+   Supports multiple output formats (text, JSON, CSV) with TTY-aware rendering.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.cli.CommandContext
+   proxywhirl.cli.OutputFormat
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.cli.audit
+   proxywhirl.cli.cleanup
+   proxywhirl.cli.config
+   proxywhirl.cli.db_stats
+   proxywhirl.cli.export
+   proxywhirl.cli.fetch
+   proxywhirl.cli.get_context
+   proxywhirl.cli.health
+   proxywhirl.cli.main
+   proxywhirl.cli.pool
+   proxywhirl.cli.render_csv
+   proxywhirl.cli.render_json
+   proxywhirl.cli.render_output
+   proxywhirl.cli.render_text
+   proxywhirl.cli.request
+   proxywhirl.cli.setup_geoip
+   proxywhirl.cli.sources_callback
+   proxywhirl.cli.stats
+   proxywhirl.cli.tui
+   proxywhirl.cli.validate_target_url
+
+
+Module Contents
+---------------
+
+.. py:class:: CommandContext
+
+   Shared context for all CLI commands.
+
+   .. attribute:: config
+
+      CLI configuration loaded from discovered config file
+
+   .. attribute:: config_path
+
+      Path to the active configuration file (may be fallback if none found)
+
+   .. attribute:: format
+
+      Output format (text, json, csv)
+
+   .. attribute:: verbose
+
+      Enable verbose logging
+
+   .. attribute:: console
+
+      Rich console for formatted output
+
+   .. attribute:: lock
+
+      File lock for concurrent operation safety
+
+
+.. py:class:: OutputFormat
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Supported output formats for CLI commands.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:function:: audit(timeout = typer.Option(15.0, '--timeout', '-t', help='Timeout per source in seconds'), concurrency = typer.Option(20, '--concurrency', '-j', help='Maximum concurrent requests'), retries = typer.Option(3, '--retries', '-r', help='Number of retries for each source before marking as broken'), fix = typer.Option(False, '--fix', help='Remove broken sources from sources.py (creates backup)'), dry_run = typer.Option(False, '--dry-run', '-n', help='Show what would be removed without making changes (implies --fix)'), min_proxies = typer.Option(1, '--min-proxies', help='Minimum proxies required for a source to be considered healthy'), protocol = typer.Option(None, '--protocol', '-p', help='Only audit sources of specific protocol (http, socks4, socks5)'))
+
+   Audit proxy sources for broken or stale entries.
+
+   Tests each source by fetching from it and checking if it returns valid proxies.
+   A source is considered "broken" if:
+     - It returns a non-200 status code
+     - It times out after retries
+     - It returns 0 proxies (or less than --min-proxies)
+     - It returns malformed/unparseable content
+
+   Use --fix to automatically remove broken sources from sources.py.
+   A backup file will be created before any modifications.
+
+   .. rubric:: Examples
+
+   proxywhirl sources audit                    # Audit all sources
+   proxywhirl sources audit --protocol http    # Only HTTP sources
+   proxywhirl sources audit --fix              # Remove broken sources
+   proxywhirl sources audit --dry-run          # Preview what would be removed
+   proxywhirl sources audit --retries 5        # More retries before marking broken
+   proxywhirl sources audit -j 50 -t 30        # Higher concurrency, longer timeout
+
+
+.. py:function:: cleanup(db = typer.Option(Path('proxywhirl.db'), '--db', help='Path to SQLite database'), stale_days = typer.Option(7, '--stale-days', help='Remove proxies not validated in N days'), execute = typer.Option(False, '--execute', help='Actually perform cleanup (dry run by default)'))
+
+   Clean up stale and dead proxies from the database.
+
+   By default, performs a dry run showing what would be removed.
+   Use --execute to actually perform the cleanup.
+
+   .. rubric:: Examples
+
+   proxywhirl cleanup                        # Dry run
+   proxywhirl cleanup --execute              # Actually remove
+   proxywhirl cleanup --stale-days 14        # Remove if not validated in 14 days
+
+
+.. py:function:: config(action = typer.Argument(..., help='Action: show, set, get, init'), key = typer.Argument(None, help='Config key (for get/set)'), value = typer.Argument(None, help='Config value (for set)'))
+
+   Manage CLI configuration (show/get/set/init).
+
+   .. rubric:: Examples
+
+   proxywhirl config show
+   proxywhirl config get rotation_strategy
+   proxywhirl config set rotation_strategy random
+   proxywhirl config init
+
+
+.. py:function:: db_stats(db = typer.Option(Path('proxywhirl.db'), '--db', help='Path to SQLite database'))
+
+   Show database statistics.
+
+   Displays comprehensive statistics about the proxy database including
+   counts by health status, protocol, and validation metrics.
+
+   .. rubric:: Examples
+
+   proxywhirl db-stats
+   proxywhirl db-stats --db custom.db
+
+
+.. py:function:: export(output = typer.Option(Path('docs/proxy-lists'), '--output', '-o', help='Output directory for exported files'), db = typer.Option(Path('proxywhirl.db'), '--db', help='Path to SQLite database'), stats_only = typer.Option(False, '--stats-only', help='Only export statistics'), proxies_only = typer.Option(False, '--proxies-only', help='Only export proxy list'))
+
+   Export proxy data and statistics for web dashboard.
+
+   .. rubric:: Examples
+
+   proxywhirl export
+   proxywhirl export --output ./exports
+   proxywhirl export --stats-only
+   proxywhirl export --proxies-only --db custom.db
+
+
+.. py:function:: fetch(no_validate = typer.Option(False, '--no-validate', help='Skip proxy validation'), no_save_db = typer.Option(False, '--no-save-db', help="Don't save to database"), no_export = typer.Option(False, '--no-export', help="Don't export to files"), timeout = typer.Option(10, '--timeout', help='Validation timeout in seconds'), concurrency = typer.Option(100, '--concurrency', help='Concurrent validation requests'), revalidate = typer.Option(False, '--revalidate', '-R', help='Re-validate existing proxies in database instead of fetching new ones'), prune_failed = typer.Option(False, '--prune-failed', help='Delete failed proxies instead of marking them as DEAD (use with --revalidate)'))
+
+   Fetch proxies from configured sources.
+
+   .. rubric:: Examples
+
+   proxywhirl fetch
+   proxywhirl fetch --no-validate
+   proxywhirl fetch --timeout 5 --concurrency 50
+   proxywhirl fetch --revalidate --timeout 5 --concurrency 2000
+   proxywhirl fetch --revalidate --prune-failed
+
+
+.. py:function:: get_context()
+
+   Get the current command context.
+
+   :returns: The active command context
+   :rtype: CommandContext
+
+   :raises typer.Exit: If context is not initialized
+
+
+.. py:function:: health(continuous = typer.Option(False, '--continuous', '-C', help='Run continuously'), interval = typer.Option(None, '--interval', '-i', help='Check interval in seconds'), target_url = typer.Option(None, '--target-url', '-t', help='URL to test proxy connectivity against (http/https only)'), allow_private = typer.Option(False, '--allow-private', help='Allow testing against localhost/private IPs (use with caution)'))
+
+   Check health of all proxies in the pool.
+
+   .. rubric:: Examples
+
+   proxywhirl health
+   proxywhirl health --continuous --interval 60
+   proxywhirl health -C -i 60
+   proxywhirl health --target-url https://api.example.com
+   proxywhirl health --target-url http://localhost:8080 --allow-private
+
+
+.. py:function:: main(ctx, config_file = typer.Option(None, '--config', '-c', help='Path to configuration file (TOML). Auto-discovered if not provided.', exists=True, dir_okay=False, resolve_path=True), format = typer.Option(OutputFormat.TEXT, '--format', '-f', help='Output format (text/json/csv)', case_sensitive=False), verbose = typer.Option(False, '--verbose', '-v', help='Enable verbose logging'), no_lock = typer.Option(False, '--no-lock', help='Disable file locking (use with caution)'))
+
+   ProxyWhirl CLI - Advanced proxy rotation library.
+
+   Global options apply to all subcommands.
+   Configuration is auto-discovered from:
+     1. Project directory: ./.proxywhirl.toml
+     2. User directory: ~/.config/proxywhirl/config.toml (Linux/Mac)
+     3. Defaults: In-memory configuration
+
+
+.. py:function:: pool(action = typer.Argument(..., help='Action: list, add, remove, test'), proxy = typer.Argument(None, help='Proxy URL (for add/remove/test actions)'), username = typer.Option(None, '--username', '-u', help='Proxy username'), password = typer.Option(None, '--password', '-p', help='Proxy password'), target_url = typer.Option('https://httpbin.org/ip', '--target-url', help='Target URL for proxy testing (http/https only)'), allow_private = typer.Option(False, '--allow-private', help='Allow testing against localhost/private IPs (use with caution)'))
+
+   Manage the proxy pool (list/add/remove/test).
+
+   .. rubric:: Examples
+
+   proxywhirl pool list
+   proxywhirl pool add http://proxy1.com:8080
+   proxywhirl pool remove http://proxy1.com:8080
+   proxywhirl pool test http://proxy1.com:8080
+   proxywhirl pool test http://proxy1.com:8080 --target-url https://api.example.com
+
+
+.. py:function:: render_csv(data)
+
+   Render data as CSV to stdout.
+
+   :param data: Data to render (must have 'table' structure with headers/rows)
+
+
+.. py:function:: render_json(data)
+
+   Render data as JSON to stdout.
+
+   :param data: Data to render as JSON
+
+
+.. py:function:: render_output(context, data)
+
+   Render output in the configured format.
+
+   :param context: Command context with format settings
+   :param data: Data to render
+
+
+.. py:function:: render_text(console, data)
+
+   Render data as formatted text using Rich.
+
+   :param console: Rich console instance
+   :param data: Data to render (must have 'message' or table structure)
+
+
+.. py:function:: request(url = typer.Argument(..., help='Target URL to request'), method = typer.Option('GET', '--method', '-X', help='HTTP method (GET/POST/etc)'), headers = typer.Option(None, '--header', '-H', help="Custom headers (format: 'Key: Value')"), data = typer.Option(None, '--data', '-d', help='Request body data'), proxy = typer.Option(None, '--proxy', '-p', help='Specific proxy URL (overrides rotation)'), max_retries = typer.Option(None, '--retries', help='Max retry attempts (overrides config)'), allow_private = typer.Option(False, '--allow-private', help='Allow requests to localhost/private IPs (use with caution)'))
+
+   Make an HTTP request through a rotating proxy.
+
+   .. rubric:: Examples
+
+   proxywhirl request https://api.example.com
+   proxywhirl request -X POST -d '{"key":"value"}' https://api.example.com
+   proxywhirl request -H "Authorization: Bearer token" https://api.example.com
+   proxywhirl request http://localhost:8080 --allow-private
+
+
+.. py:function:: setup_geoip(check = typer.Option(False, '--check', help='Check if GeoIP database is available'))
+
+   Setup GeoIP database for proxy geolocation.
+
+   .. rubric:: Examples
+
+   proxywhirl setup-geoip
+   proxywhirl setup-geoip --check
+
+
+.. py:function:: sources_callback(ctx, validate = typer.Option(False, '--validate', '-v', help='Validate all sources and check for stale/broken ones'), timeout = typer.Option(15.0, '--timeout', '-t', help='Timeout per source in seconds'), concurrency = typer.Option(20, '--concurrency', '-j', help='Maximum concurrent requests'), fail_on_unhealthy = typer.Option(False, '--fail-on-unhealthy', '-f', help='Exit with error code if any sources are unhealthy (for CI)'))
+
+   List and validate proxy sources.
+
+   By default, lists all configured proxy sources with their URLs.
+   Use --validate to check which sources are working and which are stale.
+
+   .. rubric:: Examples
+
+   proxywhirl sources              # List all sources
+   proxywhirl sources --validate   # Validate all sources
+   proxywhirl sources -v -f        # Validate and fail if any unhealthy (CI mode)
+   proxywhirl sources audit        # Full audit with detailed results
+   proxywhirl sources audit --fix  # Audit and remove broken sources
+
+
+.. py:function:: stats(retry = typer.Option(False, '--retry', help='Show retry metrics'), circuit_breaker = typer.Option(False, '--circuit-breaker', help='Show circuit breaker events'), hours = typer.Option(24, '--hours', '-r', help='Time window in hours'))
+
+   Show proxy pool statistics.
+
+   .. rubric:: Examples
+
+   proxywhirl stats
+   proxywhirl stats --retry
+   proxywhirl stats --circuit-breaker
+   proxywhirl stats --hours 12
+
+
+.. py:function:: tui()
+
+   Launch the interactive Terminal User Interface (TUI).
+
+   The TUI provides a full-featured dashboard for managing proxies with:
+     - Real-time metrics and sparkline visualizations
+     - Proxy table with filtering, sorting, and health status
+     - Manual proxy management (add/remove)
+     - Health checks with progress bars
+     - Circuit breaker monitoring
+     - Request testing with multiple HTTP methods
+     - Export functionality with format preview
+
+   Keyboard shortcuts:
+     j/k     - Navigate up/down
+     g/G     - Jump to first/last
+     Enter   - View proxy details
+     c       - Copy proxy URL
+     t       - Quick test proxy
+     /       - Focus search
+     ?       - Show help modal
+     Ctrl+A  - Toggle auto-refresh
+     Ctrl+R  - Refresh all data
+     Ctrl+F  - Fetch tab
+     Ctrl+E  - Export tab
+     Ctrl+T  - Test tab
+     Ctrl+H  - Health tab
+
+   .. rubric:: Examples
+
+   proxywhirl tui
+
+
+.. py:function:: validate_target_url(url, allow_private = False)
+
+   Validate a target URL to prevent SSRF attacks.
+
+   :param url: The URL to validate
+   :param allow_private: If True, allow private/internal IP addresses (default: False)
+
+   :raises typer.Exit: If the URL is invalid or potentially dangerous
+
+

@@ -1,0 +1,253 @@
+proxywhirl.exceptions
+=====================
+
+.. py:module:: proxywhirl.exceptions
+
+.. autoapi-nested-parse::
+
+   Custom exceptions for ProxyWhirl.
+
+   All exceptions support additional metadata for debugging and retry logic.
+
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   proxywhirl.exceptions.CacheCorruptionError
+   proxywhirl.exceptions.CacheStorageError
+   proxywhirl.exceptions.CacheValidationError
+   proxywhirl.exceptions.ProxyAuthenticationError
+   proxywhirl.exceptions.ProxyConnectionError
+   proxywhirl.exceptions.ProxyFetchError
+   proxywhirl.exceptions.ProxyPoolEmptyError
+   proxywhirl.exceptions.ProxyStorageError
+   proxywhirl.exceptions.ProxyValidationError
+   proxywhirl.exceptions.ProxyWhirlError
+   proxywhirl.exceptions.RequestQueueFullError
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.exceptions.ProxyErrorCode
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.exceptions.redact_url
+
+
+Module Contents
+---------------
+
+.. py:exception:: CacheCorruptionError(message = 'Cache data is corrupted', **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when cache data is corrupted and cannot be recovered.
+
+   Actionable guidance:
+   - Clear the cache and reinitialize
+   - Check for disk errors or corruption
+   - Verify cache format version compatibility
+
+   Initialize with cache corruption-specific defaults.
+
+
+.. py:exception:: CacheStorageError(message = 'Cache storage backend unavailable', **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when cache storage backend is unavailable.
+
+   Actionable guidance:
+   - Verify cache backend (Redis, Memcached) is running
+   - Check network connectivity to cache server
+   - Ensure cache credentials are valid
+   - Review cache server logs for errors
+
+   Initialize with cache storage-specific defaults.
+
+
+.. py:exception:: CacheValidationError(message, **kwargs)
+
+   Bases: :py:obj:`ValueError`, :py:obj:`ProxyWhirlError`
+
+
+   Raised when cache entry fails validation.
+
+   Actionable guidance:
+   - Check cache entry format
+   - Verify data types match schema
+   - Ensure required fields are present
+
+   Initialize with cache validation-specific defaults.
+
+
+.. py:exception:: ProxyAuthenticationError(message = 'Proxy authentication failed', **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when proxy authentication fails.
+
+   Actionable guidance:
+   - Verify username and password are correct
+   - Check if proxy requires specific auth method
+   - Ensure credentials are not expired
+   - Contact proxy provider if credentials should be valid
+
+   Initialize with auth-specific defaults.
+
+
+.. py:exception:: ProxyConnectionError(message, **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when unable to connect through a proxy.
+
+   Actionable guidance:
+   - Verify proxy is reachable and not blocked
+   - Check network connectivity
+   - Ensure proxy supports the target protocol
+   - Try increasing timeout value
+
+   Initialize with connection-specific defaults.
+
+
+.. py:exception:: ProxyFetchError(message, **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when fetching proxies from external sources fails.
+
+   Actionable guidance:
+   - Verify the source URL is accessible
+   - Check API credentials if required
+   - Ensure the response format matches expectations
+   - Review rate limits with the provider
+
+   Initialize with fetch-specific defaults.
+
+
+.. py:exception:: ProxyPoolEmptyError(message = 'No proxies available in the pool', **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when attempting to select from an empty proxy pool.
+
+   Actionable guidance:
+   - Add proxies to the pool using add_proxy() or auto-fetch
+   - Check if proxies were filtered out by health checks
+   - Verify proxy sources are reachable
+
+   Initialize with pool-empty-specific defaults.
+
+
+.. py:exception:: ProxyStorageError(message, **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when proxy storage operations fail.
+
+   Actionable guidance:
+   - Check file system permissions
+   - Verify disk space is available
+   - Ensure storage path is writable
+   - Check database connection if using external storage
+
+   Initialize with storage-specific defaults.
+
+
+.. py:exception:: ProxyValidationError(message, **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when proxy URL or configuration is invalid.
+
+   Actionable guidance:
+   - Verify the proxy URL format (e.g., http://host:port)
+   - Check that the protocol is supported (http, https, socks5)
+   - Ensure credentials are properly encoded
+
+   Initialize with validation-specific defaults.
+
+
+.. py:exception:: ProxyWhirlError(message, *, proxy_url = None, error_type = None, error_code = None, retry_recommended = False, attempt_count = None, **metadata)
+
+   Bases: :py:obj:`Exception`
+
+
+   Base exception for all ProxyWhirl errors.
+
+   Initialize exception with optional metadata.
+
+   :param message: Human-readable error message
+   :param proxy_url: URL of the proxy that caused the error (will be redacted)
+   :param error_type: Type of error (e.g., "timeout", "invalid_credentials")
+   :param error_code: Programmatic error code for handling
+   :param retry_recommended: Whether retrying the operation is recommended
+   :param attempt_count: Number of attempts made before this error
+   :param \*\*metadata: Additional error-specific metadata
+
+
+   .. py:method:: to_dict()
+
+      Convert exception to dictionary for logging/serialization.
+
+      :returns: Dictionary representation of the error
+
+
+
+.. py:exception:: RequestQueueFullError(message = 'Request queue is full', queue_size = None, **kwargs)
+
+   Bases: :py:obj:`ProxyWhirlError`
+
+
+   Raised when the request queue is full and cannot accept more requests.
+
+   Actionable guidance:
+   - Wait for pending requests to complete
+   - Increase queue_size in configuration
+   - Reduce request rate to avoid overloading the queue
+   - Consider implementing request batching or throttling
+
+   Initialize with queue-specific defaults.
+
+
+.. py:class:: ProxyErrorCode
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Error codes for programmatic error handling.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:function:: redact_url(url)
+
+   Redact sensitive information from a URL.
+
+   Removes username and password while preserving scheme, host, port, and path.
+
+   :param url: URL to redact
+
+   :returns: Redacted URL string
+
+

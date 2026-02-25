@@ -1,0 +1,91 @@
+proxywhirl.api
+==============
+
+.. py:module:: proxywhirl.api
+
+.. autoapi-nested-parse::
+
+   ProxyWhirl REST API package.
+
+   This package provides the FastAPI-based REST API for ProxyWhirl, including:
+   - Proxy management endpoints (CRUD operations)
+   - Proxied request handling
+   - Health and readiness checks
+   - Configuration management
+   - Metrics and statistics
+
+   Usage:
+       from proxywhirl.api import app
+
+       # Run with uvicorn
+       uvicorn.run(app, host="0.0.0.0", port=8000)
+
+   Environment Variables:
+       PROXYWHIRL_STORAGE_PATH: Path to SQLite database
+       PROXYWHIRL_STRATEGY: Rotation strategy (default: round-robin)
+       PROXYWHIRL_TIMEOUT: Request timeout in seconds (default: 30)
+       PROXYWHIRL_MAX_RETRIES: Max retry attempts (default: 3)
+       PROXYWHIRL_REQUIRE_AUTH: Require API key auth (default: false)
+       PROXYWHIRL_CORS_ORIGINS: Comma-separated CORS origins
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/proxywhirl/api/core/index
+   /autoapi/proxywhirl/api/models/index
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.api.get_config
+   proxywhirl.api.get_rotator
+   proxywhirl.api.get_storage
+   proxywhirl.api.lifespan
+
+
+Package Contents
+----------------
+
+.. py:function:: get_config()
+
+   Get current API configuration.
+
+   :returns: Configuration dictionary
+
+
+.. py:function:: get_rotator()
+
+   Get the singleton ProxyWhirl instance.
+
+   :returns: ProxyWhirl instance
+
+   :raises HTTPException: If rotator not initialized
+
+
+.. py:function:: get_storage()
+
+   Get the optional SQLiteStorage instance.
+
+   :returns: SQLiteStorage instance or None if not configured
+
+
+.. py:function:: lifespan(app)
+   :async:
+
+
+   Application lifespan manager for startup and shutdown.
+
+   Handles:
+   - ProxyWhirl initialization on startup
+   - Optional SQLiteStorage initialization
+   - Graceful cleanup on shutdown
+
+

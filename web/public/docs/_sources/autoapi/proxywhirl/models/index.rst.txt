@@ -1,0 +1,921 @@
+proxywhirl.models
+=================
+
+.. py:module:: proxywhirl.models
+
+.. autoapi-nested-parse::
+
+   Data models for ProxyWhirl using Pydantic v2.
+
+   This package provides all the core data models for proxy management,
+   including proxies, pools, sessions, and health monitoring.
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/proxywhirl/models/core/index
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.models.BootstrapConfig
+   proxywhirl.models.CircuitBreakerConfig
+   proxywhirl.models.HealthMonitor
+   proxywhirl.models.HealthStatus
+   proxywhirl.models.PoolSummary
+   proxywhirl.models.Proxy
+   proxywhirl.models.ProxyChain
+   proxywhirl.models.ProxyConfiguration
+   proxywhirl.models.ProxyCredentials
+   proxywhirl.models.ProxyFormat
+   proxywhirl.models.ProxyPool
+   proxywhirl.models.ProxySource
+   proxywhirl.models.ProxySourceConfig
+   proxywhirl.models.ProxyStatus
+   proxywhirl.models.RenderMode
+   proxywhirl.models.RequestResult
+   proxywhirl.models.SelectionContext
+   proxywhirl.models.Session
+   proxywhirl.models.SourceStats
+   proxywhirl.models.StorageBackend
+   proxywhirl.models.StrategyConfig
+   proxywhirl.models.ValidationLevel
+
+
+Package Contents
+----------------
+
+.. py:class:: BootstrapConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for the lazy bootstrap that runs on first request when the pool is empty.
+
+   .. attribute:: enabled
+
+      Whether automatic bootstrap is enabled (set False to supply proxies manually)
+
+   .. attribute:: sources
+
+      Explicit list of sources to fetch from. None = random sample from ALL_SOURCES.
+
+   .. attribute:: sample_size
+
+      How many sources to randomly pick when sources is None
+
+   .. attribute:: validate_proxies
+
+      Whether to validate fetched proxies
+
+   .. attribute:: timeout
+
+      Validation timeout in seconds
+
+   .. attribute:: max_concurrent
+
+      Maximum concurrent validation requests
+
+   .. attribute:: show_progress
+
+      Show Rich progress bars. None = auto-detect TTY on stderr.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: CircuitBreakerConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for circuit breaker behavior.
+
+   .. attribute:: failure_threshold
+
+      Number of failures before opening circuit
+
+   .. attribute:: window_duration
+
+      Rolling window duration in seconds
+
+   .. attribute:: timeout_duration
+
+      How long circuit stays open before testing recovery
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: HealthMonitor(pool, check_interval = 60, failure_threshold = 3)
+
+   Continuous health monitoring for proxy pools with auto-eviction.
+
+   Runs background health checks at configurable intervals and automatically
+   evicts proxies that fail consecutive checks beyond a threshold.
+
+   .. rubric:: Example
+
+   >>> pool = ProxyPool(name="my_pool")
+   >>> pool.add_proxy(Proxy(url="http://proxy.com:8080"))
+   >>> monitor = HealthMonitor(pool=pool, check_interval=60, failure_threshold=3)
+   >>> await monitor.start()  # Start background checks
+   >>> # ... proxies are monitored continuously ...
+   >>> await monitor.stop()  # Stop monitoring
+
+   Initialize health monitor.
+
+   :param pool: ProxyPool to monitor
+   :param check_interval: Seconds between health checks (default: 60)
+   :param failure_threshold: Consecutive failures before eviction (default: 3)
+
+   :raises ValueError: If check_interval or failure_threshold <= 0
+
+
+   .. py:method:: get_status()
+
+      Get current monitoring status.
+
+      :returns:     - is_running: Whether monitor is active
+                    - check_interval: Seconds between checks
+                    - failure_threshold: Failures before eviction
+                    - total_proxies: Count of proxies in pool
+                    - healthy_proxies: Count of healthy proxies
+                    - failure_counts: Dict of proxy URL -> failure count
+                    - uptime_seconds: Monitor runtime (if running)
+      :rtype: Dict containing
+
+
+
+   .. py:method:: start()
+      :async:
+
+
+      Start background health monitoring.
+
+      Creates an asyncio task that runs health checks periodically.
+      Idempotent - calling multiple times won't create duplicate tasks.
+
+
+
+   .. py:method:: stop()
+      :async:
+
+
+      Stop background health monitoring.
+
+      Cancels the background task and waits for graceful shutdown.
+      Idempotent - safe to call when not running.
+
+
+
+.. py:class:: HealthStatus
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Proxy health status states.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: PoolSummary(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Summary of entire proxy pool.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: Proxy(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Represents a single proxy server with connection details and metadata.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: complete_request(success, response_time_ms, alpha = None)
+
+      Mark a request as complete and update metrics.
+
+      :param success: Whether the request was successful
+      :param response_time_ms: Response time in milliseconds
+      :param alpha: Optional EMA smoothing factor. Strategies can pass their
+                    configured alpha to ensure consistent metric calculations
+                    without mutating proxy state.
+
+      This method decrements requests_active, increments requests_completed,
+      updates EMA response time, and delegates to record_success/record_failure.
+
+      Thread-safe: Uses internal lock to prevent race conditions.
+
+
+
+   .. py:method:: extract_protocol_from_url()
+
+      Extract protocol from URL if not explicitly provided.
+
+
+
+   .. py:method:: is_window_expired()
+
+      Check if the current sliding window has expired.
+
+      :returns: True if window duration has elapsed since window_start
+
+      Thread-safe: Uses internal lock to prevent race conditions.
+
+
+
+   .. py:method:: record_failure(error = None)
+
+      Record a failed request.
+
+
+
+   .. py:method:: record_success(response_time_ms, alpha = None)
+
+      Record a successful request.
+
+      :param response_time_ms: Response time in milliseconds
+      :param alpha: Optional EMA smoothing factor for metrics update
+
+
+
+   .. py:method:: reset_if_expired()
+
+      Atomically check if window is expired and reset if needed.
+
+      This method prevents Time-of-Check to Time-of-Use (TOCTOU) race conditions
+      by performing the expiration check and reset within a single lock acquisition.
+
+      :returns: True if window was expired and has been reset, False otherwise
+
+      Thread-safe: Uses internal lock to ensure atomic check-and-reset.
+
+
+
+   .. py:method:: reset_window()
+
+      Reset the sliding window counters.
+
+      This is called when the window duration has elapsed, preventing
+      counter staleness and unbounded memory growth.
+
+      Thread-safe: Uses internal lock to prevent race conditions.
+
+
+
+   .. py:method:: set_expiration_from_ttl()
+
+      Set expires_at timestamp if ttl is provided.
+
+
+
+   .. py:method:: start_request()
+
+      Mark a request as started (for tracking in-flight requests).
+
+      This should be called when a request is about to be made through this proxy.
+      Increments both requests_started and requests_active counters.
+
+      Thread-safe: Uses internal lock to prevent race conditions.
+
+
+
+   .. py:method:: update_metrics(response_time_ms, alpha = None)
+
+      Update EMA and average response time metrics.
+
+      This method centralizes all response time metric updates to ensure
+      consistency across the codebase. Both average_response_time_ms and
+      ema_response_time_ms use the same alpha value.
+
+      :param response_time_ms: Response time in milliseconds
+      :param alpha: EMA smoothing factor (0-1). Higher values weight recent
+                    observations more heavily. If not provided, falls back to
+                    self.ema_alpha for backward compatibility. Strategies should
+                    pass their configured StrategyConfig.ema_alpha for consistent
+                    behavior, or use StrategyState for independent per-proxy metrics.
+
+
+
+   .. py:method:: validate_counters_non_negative(v)
+      :classmethod:
+
+
+      Validate counter fields are non-negative.
+
+
+
+   .. py:method:: validate_credentials()
+
+      Ensure username and password are both present or both absent.
+
+
+
+   .. py:method:: validate_latency_non_negative(v)
+      :classmethod:
+
+
+      Validate latency_ms is non-negative.
+
+
+
+   .. py:method:: validate_local_addresses()
+
+      Reject localhost/internal IPs unless allow_local=True.
+
+
+
+   .. py:method:: validate_port_range(v)
+      :classmethod:
+
+
+      Validate port number is in valid range (1-65535).
+
+
+
+   .. py:method:: validate_response_time_non_negative(v)
+      :classmethod:
+
+
+      Validate response time fields are non-negative.
+
+
+
+   .. py:method:: validate_url_scheme(v)
+      :classmethod:
+
+
+      Validate URL has a valid proxy scheme.
+
+
+
+   .. py:property:: credentials
+      :type: ProxyCredentials | None
+
+
+      Get credentials if present.
+
+
+   .. py:property:: is_expired
+      :type: bool
+
+
+      Check if proxy has expired based on TTL or explicit expiration time.
+
+      :returns: True if proxy has expired, False otherwise. Always False if no TTL/expires_at set.
+
+
+   .. py:property:: is_healthy
+      :type: bool
+
+
+      Check if proxy is healthy.
+
+
+   .. py:property:: success_rate
+      :type: float
+
+
+      Calculate success rate, clamped to [0.0, 1.0].
+
+
+.. py:class:: ProxyChain(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Represents a chain of proxies for tunneling requests.
+
+   A proxy chain allows requests to be routed through multiple proxies in sequence,
+   where each proxy connects to the next one in the chain. This is useful for:
+   - Enhanced anonymity through multi-hop routing
+   - Geographic routing through specific locations
+   - Bypassing network restrictions
+
+   Note: Full CONNECT tunneling implementation requires additional infrastructure.
+   This model provides the data structure and basic support for chaining.
+
+   .. rubric:: Example
+
+   >>> chain = ProxyChain(
+   ...     proxies=[
+   ...         Proxy(url="http://proxy1.com:8080"),
+   ...         Proxy(url="http://proxy2.com:8080"),
+   ...     ],
+   ...     name="geo_chain",
+   ...     description="Route through US then UK"
+   ... )
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: get_chain_urls()
+
+      Get list of proxy URLs in chain order.
+
+      :returns: List of proxy URLs from entry to exit
+
+
+
+   .. py:method:: validate_chain_length()
+
+      Ensure chain has at least 2 proxies.
+
+
+
+   .. py:property:: chain_length
+      :type: int
+
+
+      Get the number of proxies in the chain.
+
+
+   .. py:property:: entry_proxy
+      :type: Proxy
+
+
+      Get the first proxy in the chain (entry point).
+
+
+   .. py:property:: exit_proxy
+      :type: Proxy
+
+
+      Get the last proxy in the chain (exit point).
+
+
+.. py:class:: ProxyConfiguration(_case_sensitive = None, _nested_model_default_partial_update = None, _env_prefix = None, _env_file = ENV_FILE_SENTINEL, _env_file_encoding = None, _env_ignore_empty = None, _env_nested_delimiter = None, _env_nested_max_split = None, _env_parse_none_str = None, _env_parse_enums = None, _cli_prog_name = None, _cli_parse_args = None, _cli_settings_source = None, _cli_parse_none_str = None, _cli_hide_none_type = None, _cli_avoid_json = None, _cli_enforce_required = None, _cli_use_class_docs_for_groups = None, _cli_exit_on_error = None, _cli_prefix = None, _cli_flag_prefix_char = None, _cli_implicit_flags = None, _cli_ignore_unknown_args = None, _cli_kebab_case = None, _cli_shortcuts = None, _secrets_dir = None, **values)
+
+   Bases: :py:obj:`pydantic_settings.BaseSettings`
+
+
+   Global configuration settings for the proxy system.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: validate_positive(v)
+      :classmethod:
+
+
+      Ensure value is positive.
+
+
+
+   .. py:method:: validate_storage()
+
+      Validate storage configuration.
+
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ProxyCredentials(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Secure credential storage for proxy authentication.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: to_dict(reveal = False)
+
+      Serialize credentials, optionally revealing secrets.
+
+
+
+   .. py:method:: to_httpx_auth()
+
+      Convert to httpx BasicAuth object.
+
+
+
+.. py:class:: ProxyFormat
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Supported proxy list formats.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: ProxyPool(**data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Collection of proxies with management capabilities.
+
+   Thread-safe proxy pool with RLock protection for concurrent access.
+   All mutating operations are automatically protected by a reentrant lock.
+
+   Initialize ProxyPool with thread lock and ID index.
+
+
+   .. py:method:: add_proxy(proxy)
+
+      Add proxy to pool (thread-safe).
+
+
+
+   .. py:method:: clear_expired()
+
+      Remove all expired proxies, return count removed (thread-safe).
+
+      :returns: Number of expired proxies removed from the pool
+
+
+
+   .. py:method:: clear_unhealthy()
+
+      Remove all unhealthy proxies, return count removed (thread-safe).
+
+
+
+   .. py:method:: filter_by_source(source)
+
+      Get proxies from specific source (thread-safe).
+
+
+
+   .. py:method:: filter_by_tags(tags)
+
+      Get proxies matching all tags (thread-safe).
+
+
+
+   .. py:method:: get_all_proxies()
+
+      Get all proxies in the pool (thread-safe).
+
+
+
+   .. py:method:: get_healthy_proxies()
+
+      Get all healthy or unknown (not yet tested) proxies, excluding expired ones (thread-safe).
+
+      Returns only proxies that are:
+      - Healthy, degraded, or unknown status
+      - Not expired (if TTL is set)
+
+
+
+   .. py:method:: get_proxy_by_id(proxy_id)
+
+      Find proxy by ID using O(1) index lookup (thread-safe).
+
+
+
+   .. py:method:: get_source_breakdown()
+
+      Get count of proxies by source (thread-safe).
+
+
+
+   .. py:method:: remove_proxy(proxy_id)
+
+      Remove proxy from pool (thread-safe).
+
+
+
+   .. py:property:: healthy_count
+      :type: int
+
+
+      Count healthy proxies (thread-safe).
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+   .. py:property:: overall_success_rate
+      :type: float
+
+
+      Weighted average success rate (thread-safe).
+
+
+   .. py:property:: size
+      :type: int
+
+
+      Get pool size (thread-safe).
+
+
+   .. py:property:: total_requests
+      :type: int
+
+
+      Sum of all proxy requests (thread-safe).
+
+
+   .. py:property:: unhealthy_count
+      :type: int
+
+
+      Count unhealthy proxies (thread-safe).
+
+
+.. py:class:: ProxySource
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Origin type of proxy.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: ProxySourceConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for a proxy list source.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ProxyStatus(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Status of a single proxy in the pool.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: RenderMode
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Page rendering modes for fetching proxy lists.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: RequestResult(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Result of HTTP request made through proxy.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: is_success()
+
+      Check if request was successful.
+
+
+
+.. py:class:: SelectionContext(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Context information for proxy selection decisions.
+
+   This model captures all the contextual information that might be relevant
+   for intelligent proxy selection, including session tracking, target URL
+   characteristics, and previous attempt history.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: Session(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Session tracking for sticky proxy assignments.
+
+   This model maintains the relationship between a session and its assigned
+   proxy, with TTL support and usage tracking.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: is_expired()
+
+      Check if the session has expired.
+
+      :returns: True if current time >= expires_at
+
+
+
+   .. py:method:: touch()
+
+      Update last_used_at timestamp and increment request_count.
+
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: SourceStats(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Statistics for a proxy source.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: StorageBackend
+
+   Bases: :py:obj:`Protocol`
+
+
+   Protocol for proxy storage backends.
+
+   This defines the interface that all storage backends must implement,
+   allowing for file-based, database, or other storage mechanisms.
+
+
+   .. py:method:: clear()
+      :async:
+
+
+      Clear all proxies from storage.
+
+      :raises IOError: If clear operation fails
+
+
+
+   .. py:method:: load()
+      :async:
+
+
+      Load proxies from storage.
+
+      :returns: List of proxies loaded from storage
+
+      :raises FileNotFoundError: If storage doesn't exist
+      :raises ValueError: If data is corrupted or invalid
+
+
+
+   .. py:method:: save(proxies)
+      :async:
+
+
+      Save proxies to storage.
+
+      :param proxies: List of proxies to save
+
+      :raises IOError: If save operation fails
+
+
+
+.. py:class:: StrategyConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for rotation strategies.
+
+   This model provides flexible configuration options for all rotation
+   strategies, allowing customization of weights, EMA parameters, session
+   settings, and geo-targeting constraints.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:attribute:: model_config
+
+      Configuration for the model, should be a dictionary conforming to [`ConfigDict`][pydantic.config.ConfigDict].
+
+
+.. py:class:: ValidationLevel
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Proxy validation strictness levels.
+
+   BASIC: Format + TCP connectivity validation (fast, ~100ms)
+   STANDARD: BASIC + HTTP request test (medium, ~500ms)
+   FULL: STANDARD + Anonymity check (comprehensive, ~2s)
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+

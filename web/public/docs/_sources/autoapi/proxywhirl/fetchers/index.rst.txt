@@ -1,0 +1,330 @@
+proxywhirl.fetchers
+===================
+
+.. py:module:: proxywhirl.fetchers
+
+.. autoapi-nested-parse::
+
+   Proxy fetching and parsing functionality.
+
+   This module provides tools for fetching proxies from various sources and
+   parsing different formats (JSON, CSV, plain text, HTML tables).
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.fetchers.CSVParser
+   proxywhirl.fetchers.GeonodeParser
+   proxywhirl.fetchers.HTMLTableParser
+   proxywhirl.fetchers.JSONParser
+   proxywhirl.fetchers.PlainTextParser
+   proxywhirl.fetchers.ProxyFetcher
+   proxywhirl.fetchers.ProxyValidator
+   proxywhirl.fetchers.ValidationResult
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.fetchers.deduplicate_proxies
+
+
+Module Contents
+---------------
+
+.. py:class:: CSVParser(has_header = True, columns = None, skip_invalid = False)
+
+   Parse CSV-formatted proxy lists.
+
+   Initialize CSV parser.
+
+   :param has_header: Whether CSV has header row
+   :param columns: Column names if no header
+   :param skip_invalid: Skip malformed rows instead of raising error
+
+
+   .. py:method:: parse(data)
+
+      Parse CSV proxy data.
+
+      :param data: CSV string to parse
+
+      :returns: List of proxy dictionaries
+
+      :raises ProxyFetchError: If CSV is malformed and skip_invalid is False
+
+
+
+.. py:class:: GeonodeParser
+
+   Parse GeoNode API JSON response format.
+
+   GeoNode API returns: {"data": [{"ip": "...", "port": "...", "protocols": ["http"]}, ...]}
+   This parser extracts and transforms to standard format: {"url": "http://ip:port", "protocol": "http"}
+
+
+   .. py:method:: parse(data)
+
+      Parse GeoNode API response.
+
+      :param data: JSON string from GeoNode API
+
+      :returns: List of proxy dictionaries in standard format
+
+
+
+.. py:class:: HTMLTableParser(table_selector = 'table', column_map = None, column_indices = None)
+
+   Parse HTML table-formatted proxy lists.
+
+   Initialize HTML table parser.
+
+   :param table_selector: CSS selector for table element
+   :param column_map: Map header names to proxy fields
+   :param column_indices: Map field names to column indices
+
+
+   .. py:method:: parse(data)
+
+      Parse HTML table proxy data.
+
+      :param data: HTML string containing table
+
+      :returns: List of proxy dictionaries
+
+
+
+.. py:class:: JSONParser(key = None, required_fields = None)
+
+   Parse JSON-formatted proxy lists.
+
+   Initialize JSON parser.
+
+   :param key: Optional key to extract from JSON object
+   :param required_fields: Fields that must be present in each proxy
+
+
+   .. py:method:: parse(data)
+
+      Parse JSON proxy data.
+
+      :param data: JSON string to parse
+
+      :returns: List of proxy dictionaries
+
+      :raises ProxyFetchError: If JSON is invalid
+      :raises ProxyValidationError: If required fields are missing
+
+
+
+.. py:class:: PlainTextParser(skip_invalid = True)
+
+   Parse plain text proxy lists (one per line).
+
+   Initialize plain text parser.
+
+   :param skip_invalid: Skip invalid URLs instead of raising error
+
+
+   .. py:method:: parse(data)
+
+      Parse plain text proxy data.
+
+      :param data: Plain text string with one proxy per line
+                   Supports formats: IP:PORT, http://IP:PORT, socks5://IP:PORT
+
+      :returns: List of proxy dictionaries with 'url' key
+
+      :raises ProxyFetchError: If invalid proxy format is encountered and skip_invalid=False
+
+
+
+.. py:class:: ProxyFetcher(sources = None, validator = None)
+
+   Fetch proxies from various sources.
+
+   Initialize proxy fetcher.
+
+   :param sources: List of proxy source configurations
+   :param validator: ProxyValidator instance for validating fetched proxies
+
+
+   .. py:method:: add_source(source)
+
+      Add a proxy source.
+
+      :param source: Proxy source configuration to add
+
+
+
+   .. py:method:: close()
+      :async:
+
+
+      Close client connection and cleanup resources.
+
+
+
+   .. py:method:: fetch_all(validate = True, deduplicate = True, fetch_progress_callback = None, validate_progress_callback = None)
+      :async:
+
+
+      Fetch proxies from all configured sources.
+
+      :param validate: Whether to validate proxies before returning
+      :param deduplicate: Whether to deduplicate proxies
+      :param fetch_progress_callback: Optional callback(completed, total, proxies_found) for fetch progress
+      :param validate_progress_callback: Optional callback(completed, total, valid_count) for validation progress
+
+      :returns: List of proxy dictionaries
+
+
+
+   .. py:method:: fetch_from_source(source)
+      :async:
+
+
+      Fetch proxies from a single source.
+
+      Includes automatic retry with exponential backoff for:
+      - HTTP 429 (Too Many Requests) - respects Retry-After header
+      - HTTP 503 (Service Unavailable)
+      - HTTP 502 (Bad Gateway)
+      - HTTP 504 (Gateway Timeout)
+      - Network timeouts
+
+      :param source: Proxy source configuration
+
+      :returns: List of proxy dictionaries
+
+      :raises ProxyFetchError: If fetching fails after retries
+
+
+
+   .. py:method:: remove_source(url)
+
+      Remove a proxy source by URL.
+
+      :param url: URL of source to remove
+
+
+
+   .. py:method:: start_periodic_refresh(callback = None, interval = None)
+      :async:
+
+
+      Start periodic proxy refresh.
+
+      :param callback: Optional callback to invoke with new proxies
+      :param interval: Override default refresh interval (seconds)
+
+
+
+.. py:class:: ProxyValidator(timeout = 5.0, test_url = None, level = None, concurrency = 50)
+
+   Validate proxy connectivity with metrics collection.
+
+   Initialize proxy validator.
+
+   :param timeout: Connection timeout in seconds
+   :param test_url: URL to use for connectivity testing. If None, rotates between
+                    multiple fast endpoints (Google, Cloudflare, etc.)
+   :param level: Validation level (BASIC, STANDARD, FULL). Defaults to STANDARD.
+   :param concurrency: Maximum number of concurrent validations
+
+
+   .. py:method:: check_anonymity(proxy_url = None)
+      :async:
+
+
+      Check proxy anonymity level by detecting IP leakage using shared client.
+
+      Tests if the proxy reveals the real IP address or proxy usage through
+      HTTP headers like X-Forwarded-For, Via, X-Real-IP, etc.
+
+      :param proxy_url: Full proxy URL (e.g., "http://proxy.example.com:8080")
+                        If None, makes request without proxy (for testing)
+
+      :returns: Proxy leaks real IP address
+                - "anonymous": Proxy hides IP but reveals proxy usage via headers
+                - "elite": Proxy completely hides both IP and proxy usage
+                - "unknown" or None: Could not determine (error occurred)
+      :rtype: - "transparent"
+
+
+
+   .. py:method:: close()
+      :async:
+
+
+      Close all client connections and cleanup resources.
+
+
+
+   .. py:method:: validate(proxy)
+      :async:
+
+
+      Validate proxy connectivity with fast TCP pre-check and timing metrics.
+
+      :param proxy: Proxy dictionary with 'url' key (e.g., "http://1.2.3.4:8080")
+
+      :returns: ValidationResult with is_valid flag and response_time_ms (if successful)
+
+
+
+   .. py:method:: validate_batch(proxies, progress_callback = None)
+      :async:
+
+
+      Validate multiple proxies in parallel with concurrency control and metrics.
+
+      Uses asyncio.Semaphore to limit concurrent validations based on
+      the configured concurrency limit. Records response time for valid proxies.
+
+      :param proxies: List of proxy dictionaries
+      :param progress_callback: Optional callback(completed, total, valid_count) for progress
+
+      :returns: List of working proxies with response_time_ms added to each
+
+
+
+   .. py:property:: test_url
+      :type: str
+
+
+      Get current test URL, rotating through multiple endpoints.
+
+
+.. py:class:: ValidationResult
+
+   Bases: :py:obj:`NamedTuple`
+
+
+   Result of proxy validation with timing metrics.
+
+
+.. py:function:: deduplicate_proxies(proxies)
+
+   Deduplicate proxies by URL+Port combination.
+
+   Hostnames are normalized to lowercase since DNS names are case-insensitive
+   (RFC 4343). This ensures that "PROXY.EXAMPLE.COM:8080" and
+   "proxy.example.com:8080" are correctly identified as duplicates.
+
+   Handles edge cases including:
+   - IPv6 addresses: [2001:db8::1]:8080 (preserved as-is, already case-insensitive)
+   - IDN hostnames: Прокси.рф:8080 (lowercased correctly)
+   - Mixed-case DNS names: Proxy.EXAMPLE.com:8080 (lowercased for comparison)
+
+   :param proxies: List of proxy dictionaries
+
+   :returns: Deduplicated list (keeps first occurrence)
+
+

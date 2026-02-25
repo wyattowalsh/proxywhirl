@@ -1,0 +1,1144 @@
+proxywhirl.strategies
+=====================
+
+.. py:module:: proxywhirl.strategies
+
+.. autoapi-nested-parse::
+
+   Rotation strategies package for proxy selection.
+
+   This package provides various strategies for selecting proxies from a pool:
+
+   - RoundRobinStrategy: Sequential rotation through proxies
+   - RandomStrategy: Random proxy selection
+   - WeightedStrategy: Selection weighted by success rate or custom weights
+   - LeastUsedStrategy: Selects least-used proxy (min-heap based)
+   - PerformanceBasedStrategy: Selection based on EMA response times
+   - SessionPersistenceStrategy: Maintains session affinity
+   - GeoTargetedStrategy: Location-based selection
+   - CostAwareStrategy: Selection considering proxy costs
+   - CompositeStrategy: Combines multiple strategies
+
+   Usage:
+       from proxywhirl.strategies import RoundRobinStrategy, StrategyRegistry
+
+       strategy = RoundRobinStrategy()
+       proxy = strategy.select(pool)
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/proxywhirl/strategies/core/index
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.strategies.CompositeStrategy
+   proxywhirl.strategies.CostAwareStrategy
+   proxywhirl.strategies.GeoTargetedStrategy
+   proxywhirl.strategies.LeastUsedStrategy
+   proxywhirl.strategies.PerformanceBasedStrategy
+   proxywhirl.strategies.ProxyMetrics
+   proxywhirl.strategies.RandomStrategy
+   proxywhirl.strategies.RotationStrategy
+   proxywhirl.strategies.RoundRobinStrategy
+   proxywhirl.strategies.SessionManager
+   proxywhirl.strategies.SessionPersistenceStrategy
+   proxywhirl.strategies.StrategyRegistry
+   proxywhirl.strategies.StrategyState
+   proxywhirl.strategies.WeightedStrategy
+
+
+Package Contents
+----------------
+
+.. py:class:: CompositeStrategy(filters = None, selector = None)
+
+   Composite strategy that applies filtering and selection strategies in sequence.
+
+   This strategy implements the filter + select pattern:
+   1. Filter strategies narrow down the proxy pool based on criteria (e.g., geography)
+   2. Selector strategy chooses the best proxy from the filtered set
+
+   .. rubric:: Example
+
+   >>> # Filter by geography, then select by performance
+   >>> from proxywhirl.strategies import CompositeStrategy, GeoTargetedStrategy, PerformanceBasedStrategy
+   >>> strategy = CompositeStrategy(
+   ...     filters=[GeoTargetedStrategy()],
+   ...     selector=PerformanceBasedStrategy()
+   ... )
+   >>> proxy = strategy.select(pool, SelectionContext(target_country="US"))
+
+   Thread Safety:
+       Thread-safe if all component strategies are thread-safe.
+
+   Performance:
+       Selection time is sum of filter and selector times.
+       Target: <5ms total (SC-007).
+
+   Initialize composite strategy.
+
+   :param filters: List of filtering strategies to apply sequentially
+   :param selector: Final selection strategy to choose from filtered pool
+
+   :raises ValueError: If both filters and selector are None
+
+
+   .. py:method:: configure(config)
+
+      Configure all component strategies.
+
+      :param config: Strategy configuration to apply
+
+
+
+   .. py:method:: from_config(config)
+      :classmethod:
+
+
+      Create CompositeStrategy from configuration dictionary.
+
+      :param config: Configuration dict with keys:
+                     - filters: List of filter strategy names or instances
+                     - selector: Selector strategy name or instance
+
+      :returns: Configured CompositeStrategy instance
+
+      .. rubric:: Example
+
+      >>> config = {
+      ...     "filters": ["geo-targeted"],
+      ...     "selector": "performance-based"
+      ... }
+      >>> strategy = CompositeStrategy.from_config(config)
+
+      :raises ValueError: If config is invalid
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record result by delegating to selector strategy.
+
+      :param proxy: The proxy that handled the request
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a proxy by applying filters then selector.
+
+      Process:
+      1. Start with full pool of healthy proxies
+      2. Apply each filter strategy sequentially
+      3. Apply selector strategy to filtered set
+      4. Return selected proxy
+
+      :param pool: The proxy pool to select from
+      :param context: Request context with filtering criteria
+
+      :returns: Selected proxy from filtered pool
+
+      :raises ProxyPoolEmptyError: If filters eliminate all proxies
+
+      Performance:
+          Target: <5ms total including all filters and selector (SC-007)
+
+
+
+.. py:class:: CostAwareStrategy(max_cost_per_request = None)
+
+   Cost-aware proxy selection strategy.
+
+   Prioritizes free proxies over paid ones, with configurable cost thresholds.
+   Uses weighted random selection based on inverse cost - lower cost proxies
+   are more likely to be selected.
+
+   Features:
+   - Free proxies (cost_per_request = 0.0) are heavily favored
+   - Paid proxies are selected based on inverse cost weighting
+   - Configurable cost threshold to filter out expensive proxies
+   - Supports fallback to any proxy when no low-cost options available
+
+   Thread Safety:
+       Uses Python's random.choices() which is thread-safe via GIL.
+
+   .. rubric:: Example
+
+   >>> from proxywhirl.strategies import CostAwareStrategy
+   >>> strategy = CostAwareStrategy()
+   >>> config = StrategyConfig(metadata={"max_cost_per_request": 0.5})
+   >>> strategy.configure(config)
+   >>> proxy = strategy.select(pool)  # Selects cheapest available proxy
+
+   Initialize cost-aware strategy.
+
+   :param max_cost_per_request: Maximum acceptable cost per request.
+                                Proxies exceeding this cost will be filtered out.
+                                None means no cost limit (default).
+
+
+   .. py:method:: configure(config)
+
+      Configure cost-aware parameters.
+
+      :param config: Strategy configuration with optional metadata:
+                     - max_cost_per_request: Maximum cost threshold
+                     - free_proxy_boost: Weight multiplier for free proxies (default: 10.0)
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of using a proxy.
+
+      :param proxy: The proxy that was used
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a proxy based on cost optimization.
+
+      Selection logic:
+      1. Get healthy proxies
+      2. Filter by context.failed_proxy_ids if present
+      3. Filter by max_cost_per_request threshold if configured
+      4. Apply inverse cost weighting (lower cost = higher weight)
+      5. Free proxies get boost multiplier (default 10x weight)
+      6. Use weighted random selection
+
+      :param pool: The proxy pool to select from
+      :param context: Optional selection context for filtering
+
+      :returns: Cost-optimized proxy selection
+
+      :raises ProxyPoolEmptyError: If no proxies meet criteria
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Validate that pool has cost metadata.
+
+      Cost field is optional, so always returns True.
+      Proxies without cost data are treated as free (cost = 0.0).
+
+      :param pool: The proxy pool to validate
+
+      :returns: Always True - cost data is optional
+
+
+
+.. py:class:: GeoTargetedStrategy
+
+   Geo-targeted proxy selection strategy.
+
+   Filters proxies based on geographical location (country or region) specified
+   in the SelectionContext. Supports fallback to any proxy when no matches found.
+
+   Features:
+   - Country-based filtering (ISO 3166-1 alpha-2 codes)
+   - Region-based filtering (custom region names)
+   - Country takes precedence over region when both specified
+   - Configurable fallback behavior
+   - Secondary strategy for selection from filtered proxies
+
+   Thread Safety:
+       Stateless per-request operations, thread-safe.
+
+   Success Criteria:
+       SC-006: 100% correct region selection when available
+
+   Performance:
+       O(n) filtering + O(1) or O(n) secondary selection
+
+   Initialize geo-targeted strategy.
+
+
+   .. py:method:: configure(config)
+
+      Configure geo-targeting parameters.
+
+      :param config: Strategy configuration with geo settings
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of a request through a proxy.
+
+      Updates proxy completion statistics via Proxy.complete_request().
+
+      :param proxy: The proxy that handled the request
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a proxy based on geographical targeting.
+
+      Selection logic:
+      1. If context has target_country: filter by country (exact match)
+      2. Else if context has target_region: filter by region (exact match)
+      3. If no target specified: use all healthy proxies
+      4. Apply context.failed_proxy_ids filtering
+      5. If filtered list empty and fallback enabled: use all healthy proxies
+      6. If filtered list empty and fallback disabled: raise error
+      7. Apply secondary strategy to filtered proxies
+
+      :param pool: The proxy pool to select from
+      :param context: Selection context with target_country or target_region
+
+      :returns: Proxy matching geo criteria (or any proxy if fallback enabled)
+
+      :raises ProxyPoolEmptyError: If no proxies match criteria and fallback disabled
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Validate that pool has geo metadata.
+
+      Geo-targeting is optional, so always returns True.
+      Proxies without geo data will simply not match geo filters.
+
+      :param pool: The proxy pool to validate
+
+      :returns: Always True - geo data is optional
+
+
+
+.. py:class:: LeastUsedStrategy
+
+   Least-used proxy selection strategy with SelectionContext support.
+
+   Selects the proxy with the fewest started requests, helping to
+   balance load across all available proxies. Uses min-heap for
+   efficient O(log n) selection.
+
+   Performance:
+       - O(log n) selection using min-heap
+       - O(n) heap rebuild when pool composition changes
+       - Lazy heap invalidation for optimal performance
+
+   Thread Safety:
+       Uses threading.Lock to ensure atomic select-and-mark operations,
+       preventing TOCTOU race conditions where multiple threads could
+       select the same "least used" proxy simultaneously.
+
+   Implementation:
+       Uses a min-heap with lazy invalidation. The heap is rebuilt when:
+       1. Pool composition changes (detected via proxy ID set)
+       2. Heap becomes empty after filtering
+       The heap stores tuples of (requests_started, proxy_id, proxy) for
+       efficient comparison and retrieval.
+
+   Initialize least-used strategy.
+
+
+   .. py:method:: configure(config)
+
+      Configure the strategy with custom settings.
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of using a proxy.
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select the least-used healthy proxy using min-heap.
+
+      Uses min-heap for O(log n) selection. The heap is lazily rebuilt when
+      pool composition changes, providing optimal performance for stable pools.
+
+      The selection and usage marking are performed atomically under a lock
+      to prevent TOCTOU race conditions where multiple threads could select
+      the same "least used" proxy simultaneously.
+
+      :param pool: The proxy pool to select from
+      :param context: Optional selection context for filtering
+
+      :returns: Healthy proxy with fewest started requests
+
+      :raises ProxyPoolEmptyError: If no healthy proxies are available
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Validate that proxies have request tracking metadata.
+
+      :param pool: The proxy pool to validate
+
+      :returns: True if all proxies have requests_started field
+
+
+
+.. py:class:: PerformanceBasedStrategy(exploration_count = 5)
+
+   Performance-based proxy selection using EMA response times.
+
+   Selects proxies using weighted random selection based on inverse EMA
+   response times - faster proxies (lower EMA) get higher weights.
+   This adaptively favors better-performing proxies while still giving
+   all proxies a chance to be selected.
+
+   Cold Start Handling:
+   New proxies without performance data are given exploration trials
+   (default: 3-5 trials) before being deprioritized. This ensures new
+   proxies can build up performance data and prevents proxy starvation.
+
+   Thread Safety: Uses Python's random.choices() which is thread-safe
+   via GIL-protected random number generation. No additional locking required.
+
+   Initialize performance-based strategy.
+
+   :param exploration_count: Minimum trials for new proxies before performance-based
+                             selection applies. Default is 5 trials. Set to 0 to disable exploration.
+
+
+   .. py:method:: configure(config)
+
+      Configure the strategy with custom settings.
+
+      :param config: Strategy configuration with optional exploration_count
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of using a proxy.
+
+      The EMA is updated using the strategy's configured alpha value,
+      ensuring consistent metric calculations regardless of proxy state.
+
+      :param proxy: The proxy that was used
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a proxy weighted by inverse EMA response time.
+
+      Faster proxies (lower EMA) receive higher weights for selection.
+      New proxies with insufficient trials (< exploration_count) are given
+      priority to ensure they can build performance data.
+
+      :param pool: The proxy pool to select from
+      :param context: Optional selection context for filtering
+
+      :returns: Performance-weighted selected healthy proxy with EMA data
+
+      :raises ProxyPoolEmptyError: If no healthy proxies are available
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Validate that pool is usable for performance-based selection.
+
+      With exploration support, we only need at least one healthy proxy.
+      Returns True if pool has healthy proxies (exploration will handle cold start).
+
+      :returns: True if pool has at least one healthy proxy
+
+
+
+.. py:class:: ProxyMetrics
+
+   Per-proxy mutable metrics maintained by a strategy.
+
+   This class encapsulates performance metrics that a strategy tracks
+   for each proxy. By storing these separately from the Proxy model,
+   strategies can maintain independent metric state with their own
+   configuration (e.g., EMA alpha values).
+
+   .. attribute:: ema_response_time_ms
+
+      Exponential moving average of response times
+
+   .. attribute:: total_requests
+
+      Count of requests made through this proxy
+
+   .. attribute:: total_successes
+
+      Count of successful requests
+
+   .. attribute:: total_failures
+
+      Count of failed requests
+
+   .. attribute:: last_response_time_ms
+
+      Most recent response time
+
+   .. attribute:: window_start
+
+      Start time of the current sliding window
+
+
+   .. py:method:: update_ema(response_time_ms, alpha)
+
+      Update EMA with new response time.
+
+      :param response_time_ms: Response time in milliseconds
+      :param alpha: EMA smoothing factor (0-1)
+
+
+
+   .. py:property:: success_rate
+      :type: float
+
+
+      Calculate success rate for this proxy in this strategy's state.
+
+
+.. py:class:: RandomStrategy
+
+   Random proxy selection strategy with SelectionContext support.
+
+   Randomly selects a proxy from the pool of healthy proxies.
+   Provides unpredictable rotation for scenarios where sequential
+   patterns should be avoided.
+
+   Thread Safety: Uses Python's random module which is thread-safe
+   via GIL-protected random number generation. No additional locking required.
+
+   Initialize random strategy.
+
+
+   .. py:method:: configure(config)
+
+      Configure the strategy with custom settings.
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of using a proxy.
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a random healthy proxy.
+
+      :param pool: The proxy pool to select from
+      :param context: Optional selection context for filtering
+
+      :returns: Randomly selected healthy proxy
+
+      :raises ProxyPoolEmptyError: If no healthy proxies are available
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Random selection doesn't require metadata validation.
+
+
+
+.. py:class:: RotationStrategy
+
+   Bases: :py:obj:`Protocol`
+
+
+   Protocol defining interface for proxy rotation strategies.
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of using a proxy.
+
+      :param proxy: The proxy that was used
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a proxy from the pool based on strategy logic.
+
+      :param pool: The proxy pool to select from
+      :param context: Optional selection context for filtering
+
+      :returns: Selected proxy
+
+      :raises ProxyPoolEmptyError: If no suitable proxy is available
+
+
+
+.. py:class:: RoundRobinStrategy
+
+   Round-robin proxy selection strategy with SelectionContext support.
+
+   Selects proxies in sequential order, wrapping around to the first
+   proxy after reaching the end of the list. Only selects healthy proxies.
+   Supports filtering based on SelectionContext (e.g., failed_proxy_ids).
+
+   Thread Safety:
+       Uses threading.Lock to protect _current_index access, ensuring atomic
+       index increment and preventing proxy skipping or duplicate selection
+       in multi-threaded environments.
+
+   Initialize round-robin strategy.
+
+
+   .. py:method:: configure(config)
+
+      Configure the strategy with custom settings.
+
+      :param config: Strategy configuration object
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of using a proxy.
+
+      Updates proxy statistics based on request outcome and completes the request tracking.
+
+      :param proxy: The proxy that was used
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select next proxy in round-robin order.
+
+      :param pool: The proxy pool to select from
+      :param context: Optional selection context for filtering
+
+      :returns: Next healthy proxy in rotation
+
+      :raises ProxyPoolEmptyError: If no healthy proxies are available
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Validate that pool has required metadata for this strategy.
+
+      Round-robin doesn't require any special metadata, so always returns True.
+
+      :param pool: The proxy pool to validate
+
+      :returns: Always True for round-robin
+
+
+
+.. py:class:: SessionManager(max_sessions = 10000, auto_cleanup_threshold = 100)
+
+   Thread-safe session manager for sticky proxy assignments.
+
+   Manages the mapping between session IDs and their assigned proxies,
+   with automatic expiration and cleanup. All operations are thread-safe.
+
+   Features:
+   - Automatic TTL-based expiration
+   - LRU eviction when max_sessions limit is reached
+   - Periodic cleanup of expired sessions
+
+   Initialize the session manager.
+
+   :param max_sessions: Maximum number of active sessions (default: 10000)
+   :param auto_cleanup_threshold: Trigger cleanup after this many operations (default: 100)
+
+
+   .. py:method:: cleanup_expired()
+
+      Remove all expired sessions.
+
+      :returns: Number of expired sessions removed
+
+
+
+   .. py:method:: clear_all()
+
+      Remove all sessions.
+
+
+
+   .. py:method:: create_session(session_id, proxy, timeout_seconds = 300)
+
+      Create or update a session assignment.
+
+      :param session_id: Unique identifier for the session
+      :param proxy: Proxy to assign to this session
+      :param timeout_seconds: Session TTL in seconds (default 5 minutes)
+
+      :returns: The created/updated Session object
+
+
+
+   .. py:method:: get_all_sessions()
+
+      Get all active (non-expired) sessions.
+
+      :returns: List of active Session objects
+
+
+
+   .. py:method:: get_session(session_id)
+
+      Get an active session by ID.
+
+      :param session_id: The session ID to look up
+
+      :returns: Session object if found and not expired, None otherwise
+
+
+
+   .. py:method:: remove_session(session_id)
+
+      Remove a session from the manager.
+
+      :param session_id: The session ID to remove
+
+      :returns: True if session was removed, False if not found
+
+
+
+   .. py:method:: touch_session(session_id)
+
+      Update session last_used_at and increment request_count.
+
+      :param session_id: The session ID to touch
+
+      :returns: True if session was touched, False if not found or expired
+
+
+
+.. py:class:: SessionPersistenceStrategy(max_sessions = 10000, auto_cleanup_threshold = 100)
+
+   Session persistence strategy (sticky sessions).
+
+   Maintains consistent proxy assignment for a given session ID across multiple
+   requests. Ensures that all requests within a session use the same proxy unless
+   the proxy becomes unavailable.
+
+   Features:
+   - Session-to-proxy binding with configurable TTL
+   - Automatic failover when assigned proxy becomes unhealthy
+   - Thread-safe session management
+   - Session expiration and cleanup
+
+   Thread Safety:
+       Uses SessionManager which has internal locking for thread-safe operations.
+
+   Success Criteria:
+       SC-005: 99.9% same-proxy guarantee for session requests
+
+   Performance:
+       O(1) session lookup, <1ms overhead for session management
+
+   Initialize session persistence strategy.
+
+   :param max_sessions: Maximum number of active sessions before LRU eviction (default: 10000)
+   :param auto_cleanup_threshold: Number of operations between auto-cleanups (default: 100)
+
+
+   .. py:method:: cleanup_expired_sessions()
+
+      Remove expired sessions.
+
+      :returns: Number of sessions removed
+
+
+
+   .. py:method:: close_session(session_id)
+
+      Explicitly close a session.
+
+      :param session_id: The session ID to close
+
+
+
+   .. py:method:: configure(config)
+
+      Configure session persistence parameters.
+
+      :param config: Strategy configuration with session_stickiness_duration_seconds
+
+
+
+   .. py:method:: get_session_stats()
+
+      Get session statistics.
+
+      :returns:
+
+                - total_sessions: Total number of active sessions
+                - max_sessions: Maximum session limit
+                - auto_cleanup_threshold: Operations between auto-cleanups
+      :rtype: Dictionary with session statistics
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of a request through a proxy.
+
+      Updates proxy completion statistics via Proxy.complete_request().
+
+      :param proxy: The proxy that handled the request
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a proxy with session persistence.
+
+      If session_id exists and proxy is healthy, returns same proxy.
+      If session_id is new or assigned proxy is unhealthy, assigns new proxy.
+
+      :param pool: The proxy pool to select from
+      :param context: Selection context with session_id (required)
+
+      :returns: Healthy proxy assigned to the session
+
+      :raises ValueError: If context is None or session_id is missing
+      :raises ProxyPoolEmptyError: If no healthy proxies available
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Validate that pool has necessary metadata for strategy.
+
+      Session persistence doesn't require specific proxy metadata.
+
+      :param pool: The proxy pool to validate
+
+      :returns: Always True - session persistence works with any pool
+
+
+
+.. py:class:: StrategyRegistry
+
+   Singleton registry for custom rotation strategies.
+
+   Allows registration and retrieval of custom strategy implementations,
+   enabling plugin architecture for ProxyWhirl.
+
+   .. rubric:: Example
+
+   >>> from proxywhirl.strategies import StrategyRegistry
+   >>>
+   >>> # Create custom strategy
+   >>> class MyStrategy:
+   ...     def select(self, pool):
+   ...         return pool.get_all_proxies()[0]
+   ...     def record_result(self, proxy, success, response_time_ms):
+   ...         pass
+   >>>
+   >>> # Register it
+   >>> registry = StrategyRegistry()
+   >>> registry.register_strategy("my-strategy", MyStrategy)
+   >>>
+   >>> # Retrieve and use
+   >>> strategy_class = registry.get_strategy("my-strategy")
+   >>> strategy = strategy_class()
+
+   Thread Safety:
+       Thread-safe singleton implementation using double-checked locking.
+
+   Performance:
+       Registration: O(1)
+       Retrieval: O(1)
+       Validation: <1ms per strategy (SC-010)
+
+   Initialize the registry (called once by __new__).
+
+
+   .. py:method:: get_strategy(name)
+
+      Retrieve a registered strategy class.
+
+      :param name: Strategy name used during registration
+
+      :returns: Strategy class (not instance - caller must instantiate)
+
+      :raises KeyError: If strategy name not found in registry
+
+      .. rubric:: Example
+
+      >>> registry = StrategyRegistry()
+      >>> strategy_class = registry.get_strategy("my-strategy")
+      >>> strategy = strategy_class()  # Instantiate
+
+
+
+   .. py:method:: list_strategies()
+
+      List all registered strategy names.
+
+      :returns: List of registered strategy names
+
+
+
+   .. py:method:: register_strategy(name, strategy_class, *, validate = True)
+
+      Register a custom strategy.
+
+      :param name: Unique name for the strategy (e.g., "my-custom-strategy")
+      :param strategy_class: Strategy class implementing RotationStrategy protocol
+      :param validate: If True (default), validates strategy implements required methods
+
+      :raises ValueError: If strategy name already registered (unless re-registering)
+      :raises TypeError: If strategy doesn't implement required protocol methods
+
+      .. rubric:: Example
+
+      >>> class FastStrategy:
+      ...     def select(self, pool):
+      ...         return pool.get_all_proxies()[0]
+      ...     def record_result(self, proxy, success, response_time_ms):
+      ...         pass
+      >>>
+      >>> registry = StrategyRegistry()
+      >>> registry.register_strategy("fast", FastStrategy)
+
+
+
+   .. py:method:: reset()
+      :classmethod:
+
+
+      Reset the singleton instance (useful for testing).
+
+      .. warning::
+
+         This should only be used in tests. Calling this in production
+         will clear all registered strategies.
+
+
+
+   .. py:method:: unregister_strategy(name)
+
+      Remove a strategy from the registry.
+
+      :param name: Strategy name to unregister
+
+      :raises KeyError: If strategy name not found
+
+
+
+.. py:class:: StrategyState
+
+   Per-strategy mutable state for managing proxy metrics.
+
+   This class separates mutable strategy state from immutable proxy identity.
+   Each strategy instance maintains its own StrategyState, which tracks
+   per-proxy metrics independently. This allows different strategies to:
+
+   1. Use different EMA alpha values without conflicts
+   2. Track proxy performance independently
+   3. Maintain consistent metrics across strategy reconfiguration
+
+   The state is keyed by proxy UUID to ensure stable identity even if
+   proxy objects are recreated.
+
+   .. rubric:: Example
+
+   >>> state = StrategyState(ema_alpha=0.3)
+   >>> state.record_success(proxy.id, response_time_ms=150.0)
+   >>> metrics = state.get_metrics(proxy.id)
+   >>> print(metrics.ema_response_time_ms)  # 150.0
+
+   Thread Safety:
+       Uses threading.Lock to protect all state mutations.
+
+   .. attribute:: ema_alpha
+
+      EMA smoothing factor for this strategy's metrics
+
+   .. attribute:: window_duration_seconds
+
+      Duration of sliding window for counter resets
+
+
+   .. py:method:: clear_all()
+
+      Clear all tracked metrics.
+
+
+
+   .. py:method:: get_ema_response_time(proxy_id)
+
+      Get EMA response time for a proxy.
+
+      :param proxy_id: UUID of the proxy
+
+      :returns: EMA response time in ms, or None if no data
+
+
+
+   .. py:method:: get_metrics(proxy_id)
+
+      Get or create metrics for a proxy.
+
+      :param proxy_id: UUID of the proxy
+
+      :returns: ProxyMetrics instance for this proxy
+
+
+
+   .. py:method:: get_request_count(proxy_id)
+
+      Get total request count for a proxy.
+
+      :param proxy_id: UUID of the proxy
+
+      :returns: Total number of requests, or 0 if no data
+
+
+
+   .. py:method:: get_success_rate(proxy_id)
+
+      Get success rate for a proxy.
+
+      :param proxy_id: UUID of the proxy
+
+      :returns: Success rate (0.0-1.0), or 0.0 if no data
+
+
+
+   .. py:method:: record_failure(proxy_id)
+
+      Record a failed request.
+
+      :param proxy_id: UUID of the proxy
+
+
+
+   .. py:method:: record_success(proxy_id, response_time_ms)
+
+      Record a successful request.
+
+      :param proxy_id: UUID of the proxy
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: reset_metrics(proxy_id)
+
+      Reset metrics for a proxy.
+
+      :param proxy_id: UUID of the proxy
+
+
+
+.. py:class:: WeightedStrategy
+
+   Weighted proxy selection strategy with SelectionContext support.
+
+   Selects proxies based on custom weights or success rates. When custom weights
+   are provided via StrategyConfig, they take precedence. Otherwise, weights are
+   derived from success_rate. Uses weighted random selection to favor
+   higher-performing proxies while still giving all proxies a chance.
+
+   Supports:
+   - Custom weights via StrategyConfig.weights (proxy URL -> weight mapping)
+   - Fallback to success_rate-based weights
+   - Minimum weight (0.1) to ensure all proxies have selection chance
+   - SelectionContext for filtering (e.g., failed_proxy_ids)
+   - Weight caching to avoid O(n) recalculation on every selection
+
+   Thread Safety:
+       Uses threading.Lock to protect weight cache access, ensuring atomic
+       cache validation and update operations. Prevents race conditions where
+       multiple threads could trigger duplicate weight recalculations or
+       inconsistent cache states.
+
+   Initialize weighted strategy.
+
+
+   .. py:method:: configure(config)
+
+      Configure the strategy with custom settings.
+
+      Invalidates the weight cache since configuration changes may affect weights.
+
+      :param config: Strategy configuration object with optional custom weights
+
+
+
+   .. py:method:: record_result(proxy, success, response_time_ms)
+
+      Record the result of using a proxy.
+
+      Updates proxy statistics based on request outcome and invalidates the
+      weight cache since success rates may have changed.
+
+      Thread-safe: Uses double-checked locking pattern to ensure atomic
+      invalidation and update. This prevents race conditions where another
+      thread could select using stale weights while proxy stats are being updated.
+
+      The lock ensures:
+      1. No thread can read cached weights between invalidation and stat update
+      2. Proxy stat updates are atomic with cache invalidation
+      3. Multiple concurrent record_result() calls don't interfere
+
+      :param proxy: The proxy that was used
+      :param success: Whether the request succeeded
+      :param response_time_ms: Response time in milliseconds
+
+
+
+   .. py:method:: select(pool, context = None)
+
+      Select a proxy weighted by custom weights or success rate.
+
+      Uses cached weights when possible to avoid O(n) recalculation on every call.
+      Cache is invalidated when the proxy set changes (different IDs).
+
+      :param pool: The proxy pool to select from
+      :param context: Optional selection context for filtering
+
+      :returns: Weighted-random selected healthy proxy
+
+      :raises ProxyPoolEmptyError: If no healthy proxies are available
+
+
+
+   .. py:method:: validate_metadata(pool)
+
+      Validate that pool has required metadata for weighted selection.
+
+      Weighted strategy can work with success_rate (always available) or custom weights.
+
+      :param pool: The proxy pool to validate
+
+      :returns: Always True as success_rate is always available
+
+
+

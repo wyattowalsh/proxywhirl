@@ -1,0 +1,1014 @@
+proxywhirl.tui
+==============
+
+.. py:module:: proxywhirl.tui
+
+.. autoapi-nested-parse::
+
+   Terminal User Interface (TUI) for ProxyWhirl.
+
+   Full-featured TUI with proxy sourcing, validation, analytics, health monitoring,
+   exports, and configuration management.
+
+   ## Features
+
+   - **Overview Tab**: Real-time metrics dashboard and proxy table with color-coded health status
+   - **Fetch & Validate**: Auto-fetch from all built-in proxy sources with batch validation
+   - **Export**: Save proxy lists in CSV, JSON, YAML, or plain text formats
+   - **Test**: Send HTTP requests (GET/POST/PUT/DELETE/HEAD/PATCH/OPTIONS) through proxies
+   - **Analytics**: Statistics by protocol, country, and source
+   - **Health Tab**: Circuit breaker status and health check controls
+
+   ## Usage
+
+   Launch via CLI:
+       $ proxywhirl tui
+
+   Or programmatically:
+       >>> from proxywhirl import ProxyWhirl, run_tui
+       >>> rotator = ProxyWhirl()
+       >>> run_tui(rotator=rotator)
+
+   ## Keyboard Shortcuts
+
+   - Ctrl+C: Quit
+   - Ctrl+R: Refresh all data
+   - Ctrl+F: Go to Fetch & Validate tab
+   - Ctrl+E: Go to Export tab
+   - Ctrl+T: Go to Test tab
+   - Delete: Delete selected proxy
+   - Enter: View proxy details
+   - F1: Show help
+
+   ## Architecture
+
+   The TUI uses Textual framework with the following components:
+   - MetricsPanel: Reactive metrics display
+   - RetryMetricsPanel: Retry statistics display
+   - ProxyTable: DataTable with health status indicators, filtering, and sorting
+   - FilterPanel: Search and filter controls
+   - SourceFetcherPanel: Multi-source proxy fetching
+   - ExportPanel: Multi-format export functionality
+   - StrategyPanel: Rotation strategy management
+   - RequestTesterPanel: HTTP request testing with custom headers/body
+   - AnalyticsPanel: Statistics and insights
+   - ProxyControlPanel: Manual proxy management
+   - HealthCheckPanel: Batch health checking with progress
+   - CircuitBreakerPanel: Circuit breaker status display
+   - ProxyDetailsScreen: Modal for detailed proxy information
+   - ConfirmDeleteScreen: Deletion confirmation dialog
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.tui.AnalyticsPanel
+   proxywhirl.tui.CircuitBreakerPanel
+   proxywhirl.tui.ConfirmDeleteScreen
+   proxywhirl.tui.ExportPanel
+   proxywhirl.tui.FilterPanel
+   proxywhirl.tui.HealthCheckPanel
+   proxywhirl.tui.HelpScreen
+   proxywhirl.tui.MetricsPanel
+   proxywhirl.tui.ProxyControlPanel
+   proxywhirl.tui.ProxyDetailsScreen
+   proxywhirl.tui.ProxyTable
+   proxywhirl.tui.ProxyWhirlTUI
+   proxywhirl.tui.RequestTesterPanel
+   proxywhirl.tui.RetryMetricsPanel
+   proxywhirl.tui.SourceFetcherPanel
+   proxywhirl.tui.StatusBar
+   proxywhirl.tui.StrategyPanel
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.tui.run_tui
+
+
+Module Contents
+---------------
+
+.. py:class:: AnalyticsPanel(content = '', *, expand = False, shrink = False, markup = True, name = None, id = None, classes = None, disabled = False)
+
+   Bases: :py:obj:`textual.widgets.Static`
+
+
+   Panel for analytics and statistics.
+
+   Initialize a Widget.
+
+   :param \*children: Child widgets.
+   :param name: The name of the widget.
+   :param id: The ID of the widget in the DOM.
+   :param classes: The CSS classes for the widget.
+   :param disabled: Whether the widget is disabled or not.
+   :param markup: Enable content markup?
+
+
+   .. py:method:: compose()
+
+      Create analytics UI.
+
+
+
+.. py:class:: CircuitBreakerPanel(content = '', *, expand = False, shrink = False, markup = True, name = None, id = None, classes = None, disabled = False)
+
+   Bases: :py:obj:`textual.widgets.Static`
+
+
+   Panel for displaying circuit breaker states.
+
+   Initialize a Widget.
+
+   :param \*children: Child widgets.
+   :param name: The name of the widget.
+   :param id: The ID of the widget in the DOM.
+   :param classes: The CSS classes for the widget.
+   :param disabled: Whether the widget is disabled or not.
+   :param markup: Enable content markup?
+
+
+   .. py:method:: compose()
+
+      Create circuit breaker UI.
+
+
+
+.. py:class:: ConfirmDeleteScreen(proxy_url, *args, **kwargs)
+
+   Bases: :py:obj:`textual.screen.ModalScreen`
+
+
+   Modal screen for confirming proxy deletion.
+
+   Initialize with proxy URL to delete.
+
+
+   .. py:method:: action_confirm()
+
+      Confirm deletion.
+
+
+
+   .. py:method:: action_dismiss(result = None)
+      :async:
+
+
+      Cancel and close modal.
+
+
+
+   .. py:method:: compose()
+
+      Create confirmation dialog.
+
+
+
+   .. py:attribute:: BINDINGS
+      :value: [('escape', 'dismiss', 'Cancel'), ('enter', 'confirm', 'Confirm')]
+
+
+      A list of key bindings.
+
+
+.. py:class:: ExportPanel(content = '', *, expand = False, shrink = False, markup = True, name = None, id = None, classes = None, disabled = False)
+
+   Bases: :py:obj:`textual.widgets.Static`
+
+
+   Panel for exporting proxy lists.
+
+   Initialize a Widget.
+
+   :param \*children: Child widgets.
+   :param name: The name of the widget.
+   :param id: The ID of the widget in the DOM.
+   :param classes: The CSS classes for the widget.
+   :param disabled: Whether the widget is disabled or not.
+   :param markup: Enable content markup?
+
+
+   .. py:method:: compose()
+
+      Create export UI.
+
+
+
+.. py:class:: FilterPanel(content = '', *, expand = False, shrink = False, markup = True, name = None, id = None, classes = None, disabled = False)
+
+   Bases: :py:obj:`textual.widgets.Static`
+
+
+   Panel for filtering the proxy table.
+
+   Initialize a Widget.
+
+   :param \*children: Child widgets.
+   :param name: The name of the widget.
+   :param id: The ID of the widget in the DOM.
+   :param classes: The CSS classes for the widget.
+   :param disabled: Whether the widget is disabled or not.
+   :param markup: Enable content markup?
+
+
+   .. py:method:: compose()
+
+      Create filter UI.
+
+
+
+.. py:class:: HealthCheckPanel(content = '', *, expand = False, shrink = False, markup = True, name = None, id = None, classes = None, disabled = False)
+
+   Bases: :py:obj:`textual.widgets.Static`
+
+
+   Panel for running health checks.
+
+   Initialize a Widget.
+
+   :param \*children: Child widgets.
+   :param name: The name of the widget.
+   :param id: The ID of the widget in the DOM.
+   :param classes: The CSS classes for the widget.
+   :param disabled: Whether the widget is disabled or not.
+   :param markup: Enable content markup?
+
+
+   .. py:method:: compose()
+
+      Create health check UI.
+
+
+
+.. py:class:: HelpScreen(name = None, id = None, classes = None)
+
+   Bases: :py:obj:`textual.screen.ModalScreen`
+
+
+   Modal screen showing comprehensive help information.
+
+   Initialize the screen.
+
+   :param name: The name of the screen.
+   :param id: The ID of the screen in the DOM.
+   :param classes: The CSS classes for the screen.
+
+
+   .. py:method:: action_dismiss(result = None)
+      :async:
+
+
+      Close the help modal.
+
+
+
+   .. py:method:: close_help()
+
+      Close help modal.
+
+
+
+   .. py:method:: compose()
+
+      Create help modal content.
+
+
+
+   .. py:attribute:: BINDINGS
+      :value: [('escape', 'dismiss', 'Close'), ('enter', 'dismiss', 'Close'), ('q', 'dismiss', 'Close')]
+
+
+      A list of key bindings.
+
+
+.. py:class:: MetricsPanel(content = '', *, expand = False, shrink = False, markup = True, name = None, id = None, classes = None, disabled = False)
+
+   Bases: :py:obj:`textual.widgets.Static`
+
+
+   Display real-time metrics with sparkline visualization.
+
+   Initialize a Widget.
+
+   :param \*children: Child widgets.
+   :param name: The name of the widget.
+   :param id: The ID of the widget in the DOM.
+   :param classes: The CSS classes for the widget.
+   :param disabled: Whether the widget is disabled or not.
+   :param markup: Enable content markup?
+
+
+   .. py:method:: render()
+
+      Render metrics display with sparklines and trends.
+
+
+
+   .. py:method:: update_history(latency, success_rate)
+
+      Update metric history for sparklines.
+
+
+
+.. py:class:: ProxyControlPanel(content = '', *, expand = False, shrink = False, markup = True, name = None, id = None, classes = None, disabled = False)
+
+   Bases: :py:obj:`textual.widgets.Static`
+
+
+   Panel for manually adding and removing proxies.
+
+   Initialize a Widget.
+
+   :param \*children: Child widgets.
+   :param name: The name of the widget.
+   :param id: The ID of the widget in the DOM.
+   :param classes: The CSS classes for the widget.
+   :param disabled: Whether the widget is disabled or not.
+   :param markup: Enable content markup?
+
+
+   .. py:method:: compose()
+
+      Create proxy control UI.
+
+
+
+.. py:class:: ProxyDetailsScreen(proxy, *args, **kwargs)
+
+   Bases: :py:obj:`textual.screen.ModalScreen`
+
+
+   Modal screen showing detailed proxy information.
+
+   Initialize with proxy data.
+
+
+   .. py:method:: action_dismiss(result = None)
+      :async:
+
+
+      Dismiss the modal.
+
+
+
+   .. py:method:: compose()
+
+      Create modal content.
+
+
+
+   .. py:method:: copy_url_to_clipboard()
+
+      Copy proxy URL to clipboard.
+
+
+
+   .. py:attribute:: BINDINGS
+      :value: [('escape', 'dismiss', 'Close')]
+
+
+      A list of key bindings.
+
+
+.. py:class:: ProxyTable(*args, **kwargs)
+
+   Bases: :py:obj:`textual.widgets.DataTable`
+
+
+   DataTable widget for displaying proxies with row selection and sorting.
+
+   Initialize with row cursor for selection.
+
+
+   .. py:method:: get_selected_proxy()
+
+      Get the currently selected proxy.
+
+
+
+   .. py:method:: on_mount()
+
+      Set up table columns.
+
+
+
+   .. py:method:: set_sort(column)
+
+      Set sort column, toggling direction if same column.
+
+
+
+   .. py:method:: toggle_favorite(proxy_url)
+
+      Toggle favorite status for a proxy. Returns new favorite state.
+
+
+
+   .. py:method:: update_proxies(proxies, filter_text = '', filter_protocol = 'all', filter_health = 'all', filter_country = 'all', filter_favorites_only = False)
+
+      Update table with proxy data, applying filters and sorting.
+
+
+
+.. py:class:: ProxyWhirlTUI(rotator = None)
+
+   Bases: :py:obj:`textual.app.App`
+
+
+   ProxyWhirl TUI Application.
+
+   Initialize TUI.
+
+
+   .. py:method:: action_analytics()
+
+      Focus analytics tab.
+
+
+
+   .. py:method:: action_copy_url()
+
+      Copy selected proxy URL to clipboard.
+
+
+
+   .. py:method:: action_cursor_bottom()
+
+      Move cursor to last row (vim G key).
+
+
+
+   .. py:method:: action_cursor_down()
+
+      Move cursor down in proxy table (vim j key).
+
+
+
+   .. py:method:: action_cursor_top()
+
+      Move cursor to first row (vim g key).
+
+
+
+   .. py:method:: action_cursor_up()
+
+      Move cursor up in proxy table (vim k key).
+
+
+
+   .. py:method:: action_delete_proxy()
+
+      Delete key action to remove selected proxy.
+
+
+
+   .. py:method:: action_delete_unhealthy()
+
+      Delete all unhealthy/dead proxies.
+
+
+
+   .. py:method:: action_export()
+
+      Focus export tab.
+
+
+
+   .. py:method:: action_fetch()
+
+      Focus fetch tab.
+
+
+
+   .. py:method:: action_focus_search()
+
+      Focus the search input box.
+
+
+
+   .. py:method:: action_health()
+
+      Focus health tab.
+
+
+
+   .. py:method:: action_help()
+
+      Show help message.
+
+
+
+   .. py:method:: action_import_proxies()
+
+      Import proxies from clipboard or show import dialog.
+
+
+
+   .. py:method:: action_quick_test()
+
+      Quick test selected proxy with httpbin.
+
+
+
+   .. py:method:: action_refresh()
+
+      Refresh all data.
+
+
+
+   .. py:method:: action_show_help_modal()
+
+      Show the comprehensive help modal.
+
+
+
+   .. py:method:: action_tab_1()
+
+      Switch to tab 1 (Overview).
+
+
+
+   .. py:method:: action_tab_2()
+
+      Switch to tab 2 (Fetch).
+
+
+
+   .. py:method:: action_tab_3()
+
+      Switch to tab 3 (Export).
+
+
+
+   .. py:method:: action_tab_4()
+
+      Switch to tab 4 (Test).
+
+
+
+   .. py:method:: action_tab_5()
+
+      Switch to tab 5 (Analytics).
+
+
+
+   .. py:method:: action_tab_6()
+
+      Switch to tab 6 (Health).
+
+
+
+   .. py:method:: action_test()
+
+      Focus test tab.
+
+
+
+   .. py:method:: action_toggle_auto_refresh()
+
+      Toggle auto-refresh on/off.
+
+
+
+   .. py:method:: action_toggle_favorite()
+
+      Toggle favorite status for selected proxy.
+
+
+
+   .. py:method:: action_view_details()
+
+      Enter key action to view proxy details.
+
+
+
+   .. py:method:: add_proxy()
+
+      Add a proxy manually. Supports multiple proxies separated by newlines.
+
+
+
+   .. py:method:: apply_strategy()
+
+      Apply selected rotation strategy.
+
+
+
+   .. py:method:: auto_refresh()
+
+      Auto-refresh data every 5 seconds (if enabled).
+
+
+
+   .. py:method:: cancel_delete()
+
+      Cancel proxy deletion.
+
+
+
+   .. py:method:: cancel_health_check()
+
+      Cancel ongoing health check.
+
+
+
+   .. py:method:: clear_all_proxies()
+
+      Clear all proxies from the pool.
+
+
+
+   .. py:method:: close_details()
+
+      Close details modal.
+
+
+
+   .. py:method:: compose()
+
+      Create TUI layout.
+
+
+
+   .. py:method:: confirm_delete()
+
+      Confirm proxy deletion.
+
+
+
+   .. py:method:: export_all_proxies()
+
+      Export all proxies.
+
+
+
+   .. py:method:: export_healthy_proxies()
+
+      Export only healthy proxies.
+
+
+
+   .. py:method:: export_proxies(healthy_only = False)
+
+      Export proxies to file.
+
+
+
+   .. py:method:: fetch_proxies()
+
+      Fetch proxies from selected sources.
+
+
+
+   .. py:method:: fetch_proxies_async()
+      :async:
+
+
+      Async worker to fetch proxies.
+
+
+
+   .. py:method:: filter_country_changed(event)
+
+      Handle country filter change.
+
+
+
+   .. py:method:: filter_favorites_changed(event)
+
+      Handle favorites filter change.
+
+
+
+   .. py:method:: filter_health_changed(event)
+
+      Handle health filter change.
+
+
+
+   .. py:method:: filter_protocol_changed(event)
+
+      Handle protocol filter change.
+
+
+
+   .. py:method:: filter_search_changed(event)
+
+      Handle search filter change.
+
+
+
+   .. py:method:: health_check_async()
+      :async:
+
+
+      Async worker to run health checks.
+
+
+
+   .. py:method:: on_mount()
+
+      Called when app is mounted.
+
+
+
+   .. py:method:: preview_export()
+
+      Show preview of export format.
+
+
+
+   .. py:method:: quick_test_proxy_async(proxy)
+      :async:
+
+
+      Async worker for quick proxy test.
+
+
+
+   .. py:method:: refresh_all_data()
+
+      Refresh all data displays.
+
+
+
+   .. py:method:: refresh_analytics()
+
+      Refresh analytics display with histogram.
+
+
+
+   .. py:method:: refresh_analytics_button()
+
+      Refresh analytics on button click.
+
+
+
+   .. py:method:: refresh_circuit_breakers()
+
+      Refresh circuit breaker status display.
+
+
+
+   .. py:method:: refresh_metrics()
+
+      Refresh metrics panel.
+
+
+
+   .. py:method:: refresh_retry_metrics()
+
+      Refresh retry metrics panel.
+
+
+
+   .. py:method:: refresh_status_bar()
+
+      Refresh the status bar.
+
+
+
+   .. py:method:: refresh_table()
+
+      Refresh the proxy table with current filters.
+
+
+
+   .. py:method:: remove_selected_proxy()
+
+      Remove the selected proxy from the pool.
+
+
+
+   .. py:method:: reset_all_circuit_breakers()
+
+      Reset all circuit breakers.
+
+
+
+   .. py:method:: run_health_check()
+
+      Run health check on all proxies.
+
+
+
+   .. py:method:: send_request()
+
+      Send test request through proxy.
+
+
+
+   .. py:method:: send_request_async()
+      :async:
+
+
+      Async worker to send test request.
+
+
+
+   .. py:method:: sort_column(event)
+
+      Handle column header click for sorting.
+
+
+
+   .. py:method:: test_all_proxies()
+
+      Test all healthy proxies.
+
+
+
+   .. py:method:: test_all_proxies_async()
+      :async:
+
+
+      Async worker to test all proxies.
+
+
+
+   .. py:method:: test_proxy_from_details()
+
+      Test proxy from details modal.
+
+
+
+   .. py:method:: validate_all_proxies()
+
+      Validate all proxies.
+
+
+
+   .. py:method:: validate_proxies_async()
+      :async:
+
+
+      Async worker to validate proxies.
+
+
+
+   .. py:attribute:: BINDINGS
+      :value: [('ctrl+c', 'quit', 'Quit'), ('ctrl+r', 'refresh', 'Refresh'), ('ctrl+f', 'fetch', 'Fetch...
+
+
+      The default key bindings.
+
+
+   .. py:attribute:: CSS_PATH
+      :value: 'tui.tcss'
+
+
+      File paths to load CSS from.
+
+
+   .. py:attribute:: SUB_TITLE
+      :value: 'Intelligent Proxy Rotation'
+
+
+      A class variable to set the default sub-title for the application.
+
+      To update the sub-title while the app is running, you can set the [sub_title][textual.app.App.sub_title] attribute.
+      See also [the `Screen.SUB_TITLE` attribute][textual.screen.Screen.SUB_TITLE].
+
+
+   .. py:attribute:: TITLE
+      :value: '🌀 ProxyWhirl'
+
+
+      A class variable to set the *default* title for the application.
+
+      To update the title while the app is running, you can set the [title][textual.app.App.title] attribute.
+      See also [the `Screen.TITLE` attribute][textual.screen.Screen.TITLE].
+
+
+.. py:class:: RequestTesterPanel(content = '', *, expand = False, shrink = False, markup = True, name = None, id = None, classes = None, disabled = False)
+
+   Bases: :py:obj:`textual.widgets.Static`
+
+
+   Panel for testing proxy requests.
+
+   Initialize a Widget.
+
+   :param \*children: Child widgets.
+   :param name: The name of the widget.
+   :param id: The ID of the widget in the DOM.
+   :param classes: The CSS classes for the widget.
+   :param disabled: Whether the widget is disabled or not.
+   :param markup: Enable content markup?
+
+
+   .. py:method:: compose()
+
+      Create request tester UI.
+
+
+
+.. py:class:: RetryMetricsPanel(content = '', *, expand = False, shrink = False, markup = True, name = None, id = None, classes = None, disabled = False)
+
+   Bases: :py:obj:`textual.widgets.Static`
+
+
+   Panel for displaying retry metrics.
+
+   Initialize a Widget.
+
+   :param \*children: Child widgets.
+   :param name: The name of the widget.
+   :param id: The ID of the widget in the DOM.
+   :param classes: The CSS classes for the widget.
+   :param disabled: Whether the widget is disabled or not.
+   :param markup: Enable content markup?
+
+
+   .. py:method:: render()
+
+      Render retry metrics display.
+
+
+
+.. py:class:: SourceFetcherPanel(content = '', *, expand = False, shrink = False, markup = True, name = None, id = None, classes = None, disabled = False)
+
+   Bases: :py:obj:`textual.widgets.Static`
+
+
+   Panel for fetching proxies from sources.
+
+   Initialize a Widget.
+
+   :param \*children: Child widgets.
+   :param name: The name of the widget.
+   :param id: The ID of the widget in the DOM.
+   :param classes: The CSS classes for the widget.
+   :param disabled: Whether the widget is disabled or not.
+   :param markup: Enable content markup?
+
+
+   .. py:method:: compose()
+
+      Create source fetcher UI.
+
+
+
+.. py:class:: StatusBar(content = '', *, expand = False, shrink = False, markup = True, name = None, id = None, classes = None, disabled = False)
+
+   Bases: :py:obj:`textual.widgets.Static`
+
+
+   Status bar showing current app state and quick stats.
+
+   Initialize a Widget.
+
+   :param \*children: Child widgets.
+   :param name: The name of the widget.
+   :param id: The ID of the widget in the DOM.
+   :param classes: The CSS classes for the widget.
+   :param disabled: Whether the widget is disabled or not.
+   :param markup: Enable content markup?
+
+
+   .. py:method:: render()
+
+      Render status bar.
+
+
+
+   .. py:attribute:: auto_refresh
+
+      Number of seconds between automatic refresh, or `None` for no automatic refresh.
+
+
+.. py:class:: StrategyPanel(content = '', *, expand = False, shrink = False, markup = True, name = None, id = None, classes = None, disabled = False)
+
+   Bases: :py:obj:`textual.widgets.Static`
+
+
+   Panel for managing rotation strategies.
+
+   Initialize a Widget.
+
+   :param \*children: Child widgets.
+   :param name: The name of the widget.
+   :param id: The ID of the widget in the DOM.
+   :param classes: The CSS classes for the widget.
+   :param disabled: Whether the widget is disabled or not.
+   :param markup: Enable content markup?
+
+
+   .. py:method:: compose()
+
+      Create strategy management UI.
+
+
+
+.. py:function:: run_tui(rotator = None)
+
+   Run the TUI application.
+
+

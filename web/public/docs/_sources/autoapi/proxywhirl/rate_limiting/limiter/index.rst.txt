@@ -1,0 +1,115 @@
+proxywhirl.rate_limiting.limiter
+================================
+
+.. py:module:: proxywhirl.rate_limiting.limiter
+
+.. autoapi-nested-parse::
+
+   Core rate limiter implementation using pyrate-limiter.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.rate_limiting.limiter.AsyncRateLimiter
+   proxywhirl.rate_limiting.limiter.RateLimiter
+   proxywhirl.rate_limiting.limiter.SyncRateLimiter
+
+
+Module Contents
+---------------
+
+.. py:class:: AsyncRateLimiter(global_limit = None)
+
+   Async rate limiter for use in async contexts.
+
+   This class provides an async-safe interface using asyncio.Lock.
+   Use this class when calling from async functions to avoid blocking the event loop.
+
+   Initialize async rate limiter.
+
+
+   .. py:method:: acquire(proxy_id)
+      :async:
+
+
+      Acquire permission to make a request.
+
+
+
+   .. py:method:: check_limit(proxy_id)
+      :async:
+
+
+      Check if request is allowed for proxy.
+
+
+
+   .. py:method:: set_proxy_limit(proxy_id, limit)
+      :async:
+
+
+      Set rate limit for a specific proxy.
+
+
+
+.. py:class:: RateLimiter(global_limit = None)
+
+   Rate limiter with per-proxy and global limits using pyrate-limiter.
+
+   DEPRECATED: Use AsyncRateLimiter for async contexts or SyncRateLimiter for sync contexts.
+   This class maintains backwards compatibility by using threading.RLock.
+
+   Initialize rate limiter.
+
+
+   .. py:method:: acquire(proxy_id)
+
+      Acquire permission to make a request.
+
+
+
+   .. py:method:: check_limit(proxy_id)
+
+      Check if request is allowed for proxy.
+
+
+
+   .. py:method:: set_proxy_limit(proxy_id, limit)
+
+      Set rate limit for a specific proxy.
+
+
+
+.. py:class:: SyncRateLimiter(global_limit = None)
+
+   Synchronous rate limiter for use in sync contexts.
+
+   This class provides a thread-safe, synchronous interface to rate limiting
+   without requiring asyncio.run() calls, which can fail when called from
+   an existing event loop or create performance overhead.
+
+   Initialize synchronous rate limiter.
+
+
+   .. py:method:: acquire(proxy_id)
+
+      Acquire permission to make a request.
+
+
+
+   .. py:method:: check_limit(proxy_id)
+
+      Check if request is allowed for proxy.
+
+
+
+   .. py:method:: set_proxy_limit(proxy_id, limit)
+
+      Set rate limit for a specific proxy.
+
+
+

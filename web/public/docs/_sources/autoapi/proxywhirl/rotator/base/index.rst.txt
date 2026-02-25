@@ -1,0 +1,119 @@
+proxywhirl.rotator.base
+=======================
+
+.. py:module:: proxywhirl.rotator.base
+
+.. autoapi-nested-parse::
+
+   Shared base class for ProxyWhirl and AsyncProxyWhirl.
+
+   This module provides common functionality between sync and async rotators,
+   reducing code duplication and ensuring consistent behavior.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.rotator.base.ProxyRotatorBase
+
+
+Module Contents
+---------------
+
+.. py:class:: ProxyRotatorBase
+
+   Shared logic for sync and async proxy rotators.
+
+   This base class provides common functionality for both ProxyWhirl
+   and AsyncProxyWhirl, including:
+   - Proxy dictionary conversion (credentials handling)
+   - Circuit breaker state checking
+   - Proxy selection with circuit breaker filtering
+   - Common attribute initialization
+
+   .. attribute:: pool
+
+      Proxy pool instance
+
+   .. attribute:: strategy
+
+      Rotation strategy instance
+
+   .. attribute:: config
+
+      Configuration settings
+
+   .. attribute:: circuit_breakers
+
+      Circuit breaker instances per proxy
+
+   .. attribute:: retry_policy
+
+      Retry policy configuration
+
+   .. attribute:: retry_metrics
+
+      Retry metrics tracking
+
+
+   .. py:method:: get_circuit_breaker_states()
+
+      Get circuit breaker states for all proxies.
+
+      :returns: Dictionary mapping proxy IDs to their circuit breaker instances
+
+      .. note:: Returns a copy to prevent external modification.
+
+
+
+   .. py:method:: get_pool_stats()
+
+      Get statistics about the proxy pool.
+
+      :returns:
+
+                - total_proxies: Total number of proxies
+                - healthy_proxies: Number of healthy/unknown proxies
+                - unhealthy_proxies: Number of unhealthy proxies
+                - dead_proxies: Number of dead proxies
+                - total_requests: Total requests across all proxies
+                - total_successes: Total successful requests
+                - total_failures: Total failed requests
+                - average_success_rate: Average success rate across all proxies
+      :rtype: Dictionary containing pool statistics
+
+
+
+   .. py:method:: get_retry_metrics()
+
+      Get retry metrics.
+
+      :returns: RetryMetrics instance with current metrics
+
+
+
+   .. py:method:: get_statistics()
+
+      Get comprehensive statistics including source breakdown (FR-050).
+
+      :returns:
+
+                - All stats from get_pool_stats()
+                - source_breakdown: Count of proxies by source (USER, FETCHED, etc.)
+      :rtype: Dictionary containing
+
+
+
+   .. py:method:: reset_circuit_breaker(proxy_id)
+
+      Manually reset a circuit breaker to CLOSED state.
+
+      :param proxy_id: ID of the proxy whose circuit breaker to reset
+
+      :raises KeyError: If proxy_id not found
+
+
+

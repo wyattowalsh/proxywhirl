@@ -1,0 +1,921 @@
+proxywhirl.cache
+================
+
+.. py:module:: proxywhirl.cache
+
+.. autoapi-nested-parse::
+
+   Multi-tier caching functionality for ProxyWhirl.
+
+   This subpackage provides L1 (memory), L2 (disk), and L3 (SQLite) caching tiers
+   with credential encryption and comprehensive cache management.
+
+   Modules:
+       manager: Main CacheManager class for multi-tier caching
+       crypto: Credential encryption for secure caching
+       models: Pydantic models for cache entries and configuration
+       tiers: Cache tier implementations (Memory, Disk, SQLite)
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/proxywhirl/cache/crypto/index
+   /autoapi/proxywhirl/cache/manager/index
+   /autoapi/proxywhirl/cache/models/index
+   /autoapi/proxywhirl/cache/tiers/index
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.cache.CacheConfig
+   proxywhirl.cache.CacheEntry
+   proxywhirl.cache.CacheManager
+   proxywhirl.cache.CacheStatistics
+   proxywhirl.cache.CacheTierConfig
+   proxywhirl.cache.CacheTierType
+   proxywhirl.cache.CredentialEncryptor
+   proxywhirl.cache.DiskCacheTier
+   proxywhirl.cache.HealthStatus
+   proxywhirl.cache.MemoryCacheTier
+   proxywhirl.cache.SQLiteCacheTier
+
+
+Package Contents
+----------------
+
+.. py:class:: CacheConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for cache behavior and tier settings.
+
+   Aggregates configuration for all three tiers plus global settings
+   like TTL, cleanup intervals, and storage paths.
+
+   .. rubric:: Example
+
+   >>> config = CacheConfig(
+   ...     default_ttl_seconds=3600,
+   ...     l1_config=CacheTierConfig(max_entries=1000),
+   ... )
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:class:: Config
+
+      Pydantic config.
+
+
+
+.. py:class:: CacheEntry(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Container for a single cached proxy with metadata.
+
+   Stores proxy information with TTL, health status, and access tracking.
+   Credentials are SecretStr in memory, encrypted at rest in L2/L3.
+
+   .. rubric:: Example
+
+   >>> entry = CacheEntry(
+   ...     key="abc123",
+   ...     proxy_url="http://proxy.com:8080",
+   ...     source="fetched",
+   ...     fetch_time=datetime.now(timezone.utc),
+   ...     ttl_seconds=3600,
+   ... )
+   >>> entry.is_expired
+   False
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:class:: Config
+
+      Pydantic config.
+
+
+
+   .. py:property:: is_expired
+      :type: bool
+
+
+      Check if entry has expired based on TTL.
+
+
+   .. py:property:: is_healthy
+      :type: bool
+
+
+      Check if proxy is healthy enough to use.
+
+
+.. py:class:: CacheManager(config)
+
+   Manages multi-tier caching of proxies with automatic promotion/demotion.
+
+   Orchestrates caching across three tiers:
+   - L1 (Memory): Fast in-memory cache using OrderedDict (LRU)
+   - L2 (Disk): Persistent cache with configurable backend:
+       - JSONL: File-based, human-readable, portable (default, best for <10K entries)
+       - SQLite: Database-based, faster for >10K entries with O(log n) lookups
+   - L3 (SQLite): Database cache for cold storage with full queryability
+
+   Supports TTL-based expiration, health-based invalidation, and graceful
+   degradation when tiers fail.
+
+   .. rubric:: Example
+
+   >>> # Default JSONL backend
+   >>> config = CacheConfig()
+   >>> manager = CacheManager(config)
+
+   >>> # SQLite backend for large caches
+   >>> from proxywhirl.cache.models import L2BackendType
+   >>> config = CacheConfig(l2_backend=L2BackendType.SQLITE)
+   >>> manager = CacheManager(config)
+
+   Initialize cache manager with configuration.
+
+   :param config: Cache configuration with tier settings
+
+
+   .. py:method:: clear()
+
+      Clear all entries from all tiers.
+
+      Thread-safe: Uses lock to ensure atomic clearing across all tiers.
+
+      :returns: Total number of entries cleared
+
+
+
+   .. py:method:: delete(key)
+
+      Delete entry from all tiers.
+
+      Thread-safe: Uses lock to ensure atomic deletion across all tiers.
+
+      :param key: Cache key to delete
+
+      :returns: True if deleted from at least one tier, False if not found
+
+
+
+   .. py:method:: export_to_file(filepath)
+
+      Export all cache entries to a JSONL file.
+
+      :param filepath: Path to export file
+
+      :returns: Dict with 'exported' and 'failed' counts
+
+
+
+   .. py:method:: generate_cache_key(proxy_url)
+      :staticmethod:
+
+
+      Generate cache key from proxy URL.
+
+      Uses SHA256 hash for consistent, URL-safe keys.
+
+      :param proxy_url: Proxy URL to hash
+
+      :returns: Hex-encoded SHA256 hash (first 16 chars)
+
+
+
+   .. py:method:: get(key)
+
+      Retrieve entry from cache with tier promotion.
+
+      Checks L1 → L2 → L3 in order. Promotes entries to higher tiers on hit.
+      Updates access_count and last_accessed on successful retrieval.
+
+      Thread-safe: Uses lock to prevent race conditions during promotion and expiration.
+
+      :param key: Cache key to retrieve
+
+      :returns: CacheEntry if found and not expired, None otherwise
+
+
+
+   .. py:method:: get_statistics()
+
+      Get current cache statistics.
+
+      :returns: CacheStatistics with hit rates, sizes, and tier status
+
+
+
+   .. py:method:: invalidate_by_health(key)
+
+      Mark proxy as unhealthy and evict if failure threshold reached.
+
+      Increments the failure_count for the proxy and sets health_status to UNHEALTHY.
+      If failure_count reaches the configured failure_threshold, the proxy is removed
+      from all cache tiers.
+
+      Thread-safe: Uses lock throughout entire operation to prevent TOCTOU race conditions.
+
+      :param key: Cache key to invalidate
+
+      .. note::
+
+         - If health_check_invalidation is disabled, still tracks failures but doesn't evict
+         - Logs at DEBUG level for failures, INFO level for evictions
+         - Updates statistics for health-based evictions
+         - RACE-001 fix: Holds lock throughout entire operation to prevent race between
+           get and update/delete operations
+
+
+
+   .. py:method:: put(key, entry)
+
+      Store entry in all enabled tiers.
+
+      Writes to all tiers for redundancy. Credentials are automatically
+      redacted in logs.
+
+      Thread-safe: Uses lock to ensure atomic writes across all tiers.
+
+      :param key: Cache key
+      :param entry: CacheEntry to store
+
+      :returns: True if stored in at least one tier, False otherwise
+
+
+
+   .. py:method:: warm_from_file(file_path, ttl_override = None)
+
+      Load proxies from a file to pre-populate the cache.
+
+      Supports JSON (array), JSONL (newline-delimited), and CSV formats.
+      Invalid entries are skipped with warnings logged.
+
+      :param file_path: Path to file containing proxy data
+      :param ttl_override: Optional TTL in seconds (overrides default_ttl_seconds)
+
+      :returns: Dict with counts for loaded, skipped, and failed entries
+
+      :raises No exceptions - errors are logged and failure count is incremented:
+
+
+
+.. py:class:: CacheStatistics(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Aggregate cache statistics across all tiers.
+
+   Combines tier-level statistics and tracks cross-tier operations
+   like promotions and demotions.
+
+   .. rubric:: Example
+
+   >>> stats = CacheStatistics()
+   >>> stats.l1_stats.hits = 100
+   >>> stats.overall_hit_rate
+   1.0
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: to_metrics_dict()
+
+      Convert to flat metrics dict for monitoring systems.
+
+
+
+   .. py:property:: overall_hit_rate
+      :type: float
+
+
+      Overall hit rate across all tiers.
+
+
+   .. py:property:: total_size
+      :type: int
+
+
+      Total cached entries across all tiers.
+
+
+.. py:class:: CacheTierConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for a single cache tier.
+
+   Defines capacity, eviction policy, and enable/disable state for
+   one tier (L1, L2, or L3).
+
+   .. rubric:: Example
+
+   >>> config = CacheTierConfig(max_entries=1000, eviction_policy="lru")
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: validate_policy(v)
+      :classmethod:
+
+
+      Validate eviction policy is supported.
+
+
+
+.. py:class:: CacheTierType
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Type of cache tier.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: CredentialEncryptor(key = None)
+
+   Handles encryption/decryption of proxy credentials with key rotation support.
+
+   Uses Fernet symmetric encryption (AES-128-CBC + HMAC) to protect
+   credentials stored in L2 (JSONL files) and L3 (SQLite database).
+   Supports gradual key rotation via MultiFernet using both current
+   and previous keys.
+
+   .. rubric:: Example
+
+   >>> encryptor = CredentialEncryptor()
+   >>> encrypted = encryptor.encrypt(SecretStr("mypassword"))
+   >>> decrypted = encryptor.decrypt(encrypted)
+   >>> decrypted.get_secret_value()
+   'mypassword'
+
+   Initialize encryptor with Fernet key or MultiFernet.
+
+   :param key: Optional Fernet key (32 url-safe base64-encoded bytes).
+               If None, uses get_encryption_keys() to load current and
+               previous keys from environment variables. If no env vars set,
+               generates a new key (WARNING: regenerated keys cannot decrypt
+               existing cached data).
+
+   :raises ValueError: If provided key is invalid for Fernet
+
+
+   .. py:method:: decrypt(encrypted)
+
+      Decrypt encrypted bytes back to SecretStr.
+
+      :param encrypted: Encrypted bytes from storage
+
+      :returns: SecretStr containing decrypted plaintext (never logs value)
+
+      :raises ValueError: If decryption fails (wrong key, corrupted data)
+
+
+
+   .. py:method:: encrypt(secret)
+
+      Encrypt a SecretStr to bytes.
+
+      :param secret: SecretStr containing plaintext to encrypt
+
+      :returns: Encrypted bytes suitable for storage in BLOB fields
+
+      :raises ValueError: If encryption fails
+
+
+
+.. py:class:: DiskCacheTier(config, tier_type, cache_dir, encryptor = None)
+
+   Bases: :py:obj:`CacheTier`
+
+
+   L2 SQLite-based cache with encryption and indexed lookups.
+
+   Optimized for >10K entries using SQLite with B-tree indexes instead of JSONL.
+   Provides O(log n) lookups vs O(n) for JSONL, achieving <10ms reads for 10K+ entries.
+
+   Uses a lightweight SQLite database with:
+   - Primary key index on cache key for fast lookups
+   - Encrypted credentials stored as BLOB
+   - Efficient bulk operations (cleanup, size, keys)
+   - File-based persistence without complex sharding
+   - Persistent connection pooling for performance (RES-005)
+
+   Thread Safety:
+       Uses a threading.Lock to protect connection access. The connection is
+       created with check_same_thread=False to allow multi-threaded access.
+
+   Initialize SQLite-based L2 cache.
+
+   :param config: Tier configuration
+   :param tier_type: Type of tier (should be L2_FILE)
+   :param cache_dir: Directory for cache database
+   :param encryptor: Credential encryptor for username/password
+
+
+   .. py:method:: cleanup_expired()
+
+      Remove all expired entries from SQLite L2 database using indexed SQL DELETE.
+
+      Performs bulk deletion of expired entries in a single SQL operation.
+      Uses the expires_at index for efficient identification.
+
+      :returns: Number of expired entries that were removed, 0 on error.
+
+      Side Effects:
+          - Acquires persistent connection via thread-safe _get_connection().
+          - Calculates current timestamp in UTC.
+          - Executes DELETE with WHERE clause using expires_at index.
+          - Commits transaction before returning.
+          - Resets failure counter on success.
+
+      Thread Safety:
+          Thread-safe via connection lock in _get_connection().
+
+      Performance:
+          O(m log n) where m is number of expired entries and n is total entries.
+          The idx_l2_expires_at index makes this significantly faster than
+          full table scan.
+
+      :raises Exception: Caught and handled via handle_failure(), returns 0.
+
+      .. rubric:: Example
+
+      >>> tier = DiskCacheTier(config, TierType.L2_FILE, cache_dir)
+      >>> removed = tier.cleanup_expired()
+      >>> print(f"Removed {removed} expired entries")
+      Removed 42 expired entries
+
+
+
+   .. py:method:: clear()
+
+      Clear all entries from SQLite L2 cache database.
+
+      Performs bulk deletion of all cache entries. More efficient than
+      iterating through individual deletes.
+
+      :returns: Number of entries that were cleared, 0 on error.
+
+      Side Effects:
+          - Acquires persistent connection via thread-safe _get_connection().
+          - Counts total entries before deletion.
+          - Executes DELETE FROM without WHERE clause (removes all rows).
+          - Commits transaction before returning.
+          - Resets failure counter on success.
+
+      Thread Safety:
+          Thread-safe via connection lock in _get_connection().
+
+      Performance:
+          O(n) where n is the number of entries, but executes as a single
+          SQL operation with automatic index cleanup.
+
+      :raises Exception: Caught and handled via handle_failure(), returns 0.
+
+      .. rubric:: Example
+
+      >>> tier = DiskCacheTier(config, TierType.L2_FILE, cache_dir)
+      >>> tier.size()
+      1000
+      >>> cleared = tier.clear()
+      >>> print(f"Cleared {cleared} entries")
+      Cleared 1000 entries
+      >>> tier.size()
+      0
+
+
+
+   .. py:method:: close()
+
+      Close the persistent SQLite connection and release database resources.
+
+      Should be called when the cache tier is no longer needed to properly
+      release database resources and file locks. Safe to call multiple times.
+
+      Side Effects:
+          - Acquires connection lock to ensure thread safety.
+          - Closes active SQLite connection if present.
+          - Sets internal connection to None to prevent reuse.
+          - Suppresses any exceptions during close to ensure cleanup completes.
+
+      Thread Safety:
+          Thread-safe via internal lock. Multiple threads can safely call this
+          method concurrently.
+
+      .. rubric:: Example
+
+      >>> tier = DiskCacheTier(config, TierType.L2_FILE, cache_dir)
+      >>> # ... use tier ...
+      >>> tier.close()  # Clean up resources
+      >>> tier.close()  # Safe to call again
+
+
+
+   .. py:method:: delete(key)
+
+      Remove entry from SQLite database by cache key.
+
+      Uses SQL DELETE with primary key lookup for O(log n) performance.
+
+      :param key: Cache key to delete.
+
+      :returns: True if entry existed and was deleted, False if not found or on error.
+
+      Side Effects:
+          - Acquires persistent connection via thread-safe _get_connection().
+          - Executes DELETE query with parameterized key (SQL injection safe).
+          - Commits transaction before returning.
+          - Does NOT reset failure counter (only success paths do).
+
+      Thread Safety:
+          Thread-safe via connection lock in _get_connection().
+
+      :raises Exception: Caught and handled via handle_failure(), returns False.
+
+
+
+   .. py:method:: get(key)
+
+      Retrieve entry from SQLite database with O(log n) indexed lookup.
+
+      :param key: Cache key to lookup
+
+      :returns: CacheEntry if found and valid, None otherwise
+
+
+
+   .. py:method:: keys()
+
+      Return list of all cache keys from SQLite L2 database.
+
+      Retrieves all cache keys without loading full entry data. Useful for
+      cache inspection, debugging, and bulk operations.
+
+      :returns: List of all cache keys in database, empty list on error.
+
+      Side Effects:
+          - Acquires persistent connection via thread-safe _get_connection().
+          - Executes SELECT key query (fetches only key column, not full rows).
+          - Loads all keys into memory as a list.
+          - Resets failure counter on success.
+
+      Thread Safety:
+          Thread-safe via connection lock in _get_connection().
+
+      Performance:
+          O(n) where n is number of entries. For large caches (>10K entries),
+          consider using size() to check count before calling.
+
+      :raises Exception: Caught and handled via handle_failure(), returns [].
+
+      .. warning::
+
+         For very large caches (>100K entries), this may consume significant
+         memory. Consider pagination or streaming approaches if needed.
+
+
+
+   .. py:method:: migrate_from_jsonl(jsonl_dir = None)
+
+      Migrate existing JSONL shard files to SQLite L2 cache.
+
+      This method provides a migration path from the old JSONL-based L2 cache
+      to the new SQLite-based implementation. It reads all shard_*.jsonl files
+      from the specified directory and imports them into the SQLite database.
+
+      :param jsonl_dir: Directory containing shard_*.jsonl files.
+                        Defaults to self.cache_dir if not specified.
+
+      :returns: Number of entries successfully migrated
+
+      .. rubric:: Example
+
+      >>> tier = DiskCacheTier(config, TierType.L2_FILE, cache_dir)
+      >>> migrated = tier.migrate_from_jsonl()
+      >>> print(f"Migrated {migrated} entries from JSONL to SQLite")
+
+
+
+   .. py:method:: put(key, entry)
+
+      Store entry in SQLite database with INSERT OR REPLACE.
+
+      :param key: Cache key for entry
+      :param entry: CacheEntry to store
+
+      :returns: True if stored successfully, False otherwise
+
+
+
+   .. py:method:: size()
+
+      Return current number of entries in SQLite L2 cache database.
+
+      Uses SQL COUNT(*) for efficient O(1) size calculation via table metadata.
+
+      :returns: Number of cache entries currently stored, 0 on error.
+
+      Side Effects:
+          - Acquires persistent connection via thread-safe _get_connection().
+          - Executes SELECT COUNT(*) query (reads table metadata, not rows).
+          - Resets failure counter on success.
+
+      Thread Safety:
+          Thread-safe via connection lock in _get_connection().
+
+      Performance:
+          O(1) - SQLite maintains row count in table metadata.
+
+      :raises Exception: Caught and handled via handle_failure(), returns 0.
+
+
+
+.. py:class:: HealthStatus
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Proxy health status states.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: MemoryCacheTier(config, tier_type, on_evict = None)
+
+   Bases: :py:obj:`CacheTier`
+
+
+   L1 in-memory cache using OrderedDict for LRU tracking.
+
+   Provides O(1) lookups with automatic LRU eviction when max_entries exceeded.
+
+   Initialize memory cache with LRU tracking.
+
+   :param config: Tier configuration
+   :param tier_type: Type of tier (L1/L2/L3)
+   :param on_evict: Optional callback when entry is evicted (key, entry)
+
+
+   .. py:method:: cleanup_expired()
+
+      Remove all expired entries from memory cache in bulk.
+
+      :returns: Number of expired entries that were removed.
+
+      Side Effects:
+          Deletes all entries where is_expired property is True.
+
+
+
+
+   .. py:method:: clear()
+
+      Clear all entries from memory cache.
+
+      :returns: Number of entries that were removed.
+
+      Side Effects:
+          Empties the OrderedDict, releasing all cached entries.
+
+
+
+
+   .. py:method:: delete(key)
+
+      Remove entry from memory cache by key.
+
+      :param key: Cache key to delete.
+
+      :returns: True if entry existed and was deleted, False if not found.
+
+      Side Effects:
+          Removes entry from OrderedDict if present.
+
+
+
+
+   .. py:method:: get(key)
+
+      Retrieve entry from memory cache, updating LRU order.
+
+      :param key: Cache key to lookup.
+
+      :returns: CacheEntry if found, None otherwise. Updates LRU order on hit
+                by moving the accessed entry to the end of the OrderedDict.
+
+      Side Effects:
+          Moves accessed entry to end of LRU queue (most recently used position).
+
+
+
+
+   .. py:method:: keys()
+
+      Return list of all cache keys in memory tier.
+
+      :returns: List of cache keys in LRU order (oldest to newest).
+
+
+
+   .. py:method:: put(key, entry)
+
+      Store entry in memory cache with automatic LRU eviction.
+
+      :param key: Cache key for the entry.
+      :param entry: CacheEntry object to store.
+
+      :returns: True if stored successfully, False on error.
+
+      Side Effects:
+          - Removes existing entry if key already exists (update operation).
+          - Evicts least recently used entry if max_entries exceeded.
+          - Calls on_evict callback if provided when eviction occurs.
+          - Resets failure counter on success.
+
+      :raises Exception: Caught and handled via handle_failure(), returns False.
+
+
+
+   .. py:method:: size()
+
+      Return current number of entries in memory cache.
+
+      :returns: Count of entries currently stored in the OrderedDict.
+
+
+
+.. py:class:: SQLiteCacheTier(config, tier_type, db_path, encryptor = None)
+
+   Bases: :py:obj:`CacheTier`
+
+
+   L3 SQLite database cache with encrypted credentials.
+
+   Provides durable persistence with SQL indexing for fast lookups.
+
+   Initialize SQLite-based L3 cache with health monitoring.
+
+   :param config: Tier configuration settings.
+   :param tier_type: Type of tier (should be L3_SQLITE).
+   :param db_path: Path to SQLite database file.
+   :param encryptor: Optional credential encryptor for username/password.
+                     Creates default CredentialEncryptor if not provided.
+
+   Side Effects:
+       - Creates parent directories for database if they don't exist.
+       - Initializes database schema with cache_entries and health_history tables.
+       - Creates indexes for expires_at, source, health_status, and last_accessed.
+
+
+
+   .. py:method:: cleanup_expired()
+
+      Remove all expired entries in bulk using SQL DELETE.
+
+      This is significantly more efficient than iterating through all entries,
+      reducing cleanup from O(n) to O(1) for expired entries.
+
+      :returns: Number of entries removed
+
+
+
+   .. py:method:: clear()
+
+      Clear all entries from SQLite database.
+
+      :returns: Number of entries that were deleted.
+
+      Side Effects:
+          - Opens new SQLite connection for operation.
+          - Deletes all rows from cache_entries table.
+          - Cascades to delete all health_history records via FOREIGN KEY.
+          - Commits transaction before returning.
+          - Resets failure counter on success.
+
+      :raises Exception: Caught and handled via handle_failure(), returns 0.
+
+
+
+   .. py:method:: delete(key)
+
+      Remove entry from SQLite database by key.
+
+      :param key: Cache key to delete.
+
+      :returns: True if entry existed and was deleted, False if not found.
+
+      Side Effects:
+          - Opens new SQLite connection for deletion.
+          - Cascades to delete related health_history records via FOREIGN KEY.
+          - Commits transaction before returning.
+
+      :raises Exception: Caught and handled via handle_failure(), returns False.
+
+
+
+   .. py:method:: get(key)
+
+      Retrieve entry from SQLite database with decrypted credentials.
+
+      :param key: Cache key to lookup.
+
+      :returns: CacheEntry if found with decrypted username/password, None otherwise.
+
+      Side Effects:
+          - Opens new SQLite connection for query.
+          - Decrypts username_encrypted and password_encrypted BLOBs.
+          - Converts UNIX timestamps to datetime objects.
+          - Resets failure counter on success.
+
+      :raises Exception: Caught and handled via handle_failure(), returns None.
+
+
+
+   .. py:method:: keys()
+
+      Return all cache keys from SQLite database.
+
+      :returns: List of all cache keys, empty list on error.
+
+      Side Effects:
+          - Opens new SQLite connection for query.
+          - Resets failure counter on success.
+
+      :raises Exception: Caught and handled via handle_failure(), returns [].
+
+
+
+   .. py:method:: put(key, entry)
+
+      Store entry in SQLite database with encrypted credentials.
+
+      :param key: Cache key for the entry.
+      :param entry: CacheEntry object to store with all fields including health monitoring data.
+
+      :returns: True if stored successfully, False on error.
+
+      Side Effects:
+          - Opens new SQLite connection for write.
+          - Encrypts username and password fields as BLOBs.
+          - Uses INSERT OR REPLACE (upsert) to handle updates.
+          - Sets created_at and updated_at to current timestamp.
+          - Commits transaction before returning.
+          - Resets failure counter on success.
+
+      :raises Exception: Caught and handled via handle_failure(), returns False.
+
+
+
+   .. py:method:: size()
+
+      Return current number of entries in SQLite database.
+
+      :returns: Count of entries in cache_entries table, 0 on error.
+
+      Side Effects:
+          - Opens new SQLite connection for query.
+          - Resets failure counter on success.
+
+      :raises Exception: Caught and handled via handle_failure(), returns 0.
+
+
+

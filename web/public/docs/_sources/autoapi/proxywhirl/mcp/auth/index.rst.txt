@@ -1,0 +1,50 @@
+proxywhirl.mcp.auth
+===================
+
+.. py:module:: proxywhirl.mcp.auth
+
+.. autoapi-nested-parse::
+
+   Authentication for MCP server.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.mcp.auth.MCPAuth
+
+
+Module Contents
+---------------
+
+.. py:class:: MCPAuth(api_key = None)
+
+   Authentication handler for MCP connections.
+
+   Initialize auth handler.
+
+
+   .. py:method:: authenticate(credentials)
+
+      Authenticate an MCP connection.
+
+      :param credentials: Authentication credentials
+
+      :returns: True if authenticated, False otherwise
+
+
+
+   .. py:method:: create_session(session_id, credentials)
+
+      Create an authenticated session.
+
+      :param session_id: Unique session identifier
+      :param credentials: Authentication credentials
+
+      :returns: Session info if authenticated, None otherwise
+
+
+

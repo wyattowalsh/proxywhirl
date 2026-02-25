@@ -1,0 +1,53 @@
+proxywhirl.rate_limiting.models
+===============================
+
+.. py:module:: proxywhirl.rate_limiting.models
+
+.. autoapi-nested-parse::
+
+   Data models for rate limiting.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.rate_limiting.models.RateLimit
+   proxywhirl.rate_limiting.models.RateLimitEvent
+
+
+Module Contents
+---------------
+
+.. py:class:: RateLimit(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Rate limit configuration.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: RateLimitEvent(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Rate limit event for logging.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+

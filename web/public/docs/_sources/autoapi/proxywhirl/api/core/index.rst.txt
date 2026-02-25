@@ -1,0 +1,648 @@
+proxywhirl.api.core
+===================
+
+.. py:module:: proxywhirl.api.core
+
+.. autoapi-nested-parse::
+
+   FastAPI REST API for ProxyWhirl proxy rotation service.
+
+   This module provides HTTP endpoints for:
+   - Making proxied HTTP requests
+   - Managing proxy pool (CRUD operations)
+   - Monitoring health and status
+   - Configuring runtime settings
+
+   The API uses:
+   - FastAPI for async request handling and auto-generated OpenAPI docs
+   - slowapi for rate limiting
+   - Optional API key authentication
+   - Singleton ProxyWhirl for proxy management
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.api.core.AuditLoggingMiddleware
+   proxywhirl.api.core.RequestIDMiddleware
+   proxywhirl.api.core.RequestLoggingMiddleware
+   proxywhirl.api.core.SecurityHeadersMiddleware
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.api.core.add_proxy
+   proxywhirl.api.core.delete_proxy
+   proxywhirl.api.core.get_circuit_breaker
+   proxywhirl.api.core.get_circuit_breaker_metrics
+   proxywhirl.api.core.get_circuit_breaker_metrics_endpoint
+   proxywhirl.api.core.get_config
+   proxywhirl.api.core.get_configuration
+   proxywhirl.api.core.get_proxy
+   proxywhirl.api.core.get_rate_limit_key
+   proxywhirl.api.core.get_retry_metrics
+   proxywhirl.api.core.get_retry_metrics_endpoint
+   proxywhirl.api.core.get_retry_policy
+   proxywhirl.api.core.get_retry_stats_by_proxy
+   proxywhirl.api.core.get_retry_timeseries
+   proxywhirl.api.core.get_rotator
+   proxywhirl.api.core.get_stats
+   proxywhirl.api.core.get_status
+   proxywhirl.api.core.get_storage
+   proxywhirl.api.core.health_check
+   proxywhirl.api.core.health_check_proxies
+   proxywhirl.api.core.health_check_proxies_deprecated
+   proxywhirl.api.core.internal_error_handler
+   proxywhirl.api.core.lifespan
+   proxywhirl.api.core.list_circuit_breakers
+   proxywhirl.api.core.list_proxies
+   proxywhirl.api.core.make_proxied_request
+   proxywhirl.api.core.metrics
+   proxywhirl.api.core.not_found_handler
+   proxywhirl.api.core.proxy_error_handler
+   proxywhirl.api.core.readiness_check
+   proxywhirl.api.core.reset_circuit_breaker
+   proxywhirl.api.core.root
+   proxywhirl.api.core.update_configuration
+   proxywhirl.api.core.update_prometheus_metrics
+   proxywhirl.api.core.update_retry_policy
+   proxywhirl.api.core.validate_proxied_request_url
+   proxywhirl.api.core.validation_error_handler
+   proxywhirl.api.core.verify_api_key
+
+
+Module Contents
+---------------
+
+.. py:class:: AuditLoggingMiddleware(app, dispatch = None)
+
+   Bases: :py:obj:`starlette.middleware.base.BaseHTTPMiddleware`
+
+
+   Structured audit logging for API operations.
+
+   Provides security audit trail including:
+   - Authentication context (API key used, redacted)
+   - Operation classification (read, write, admin, auth)
+   - Resource identification for mutating operations
+   - Request body logging for writes (with sensitive data redaction)
+
+   All logs use structured JSON format for easy parsing by SIEM tools.
+
+
+   .. py:method:: dispatch(request, call_next)
+      :async:
+
+
+      Process request and emit audit log for sensitive operations.
+
+
+
+.. py:class:: RequestIDMiddleware(app, dispatch = None)
+
+   Bases: :py:obj:`starlette.middleware.base.BaseHTTPMiddleware`
+
+
+   Add request ID correlation for request tracing.
+
+   This middleware ensures every request has a unique identifier that can be
+   used for tracing requests through the retry/cache/circuit-breaker chain.
+
+   The request ID is:
+   - Taken from the X-Request-ID header if provided by the client
+   - Generated as a new UUID v4 if not provided
+   - Added to loguru context for all downstream logging
+   - Included in the response X-Request-ID header
+
+
+   .. py:method:: dispatch(request, call_next)
+      :async:
+
+
+      Process request and add request ID correlation.
+
+
+
+.. py:class:: RequestLoggingMiddleware(app, dispatch = None)
+
+   Bases: :py:obj:`starlette.middleware.base.BaseHTTPMiddleware`
+
+
+   Log all HTTP requests with structured JSON logging.
+
+   Logs:
+   - Request method, path, and query parameters (redacted)
+   - Client IP address
+   - Request duration in milliseconds
+   - Response status code
+   - Sensitive data redaction (passwords, tokens, API keys)
+
+
+   .. py:method:: dispatch(request, call_next)
+      :async:
+
+
+      Process request and log details.
+
+
+
+.. py:class:: SecurityHeadersMiddleware(app, dispatch = None)
+
+   Bases: :py:obj:`starlette.middleware.base.BaseHTTPMiddleware`
+
+
+   Add security headers to all responses.
+
+
+.. py:function:: add_proxy(request, proxy_data, rotator = Depends(get_rotator), api_key = Depends(verify_api_key))
+   :async:
+
+
+   Add a new proxy to the pool.
+
+   :param proxy_data: Proxy URL and optional credentials
+   :param rotator: ProxyWhirl dependency
+   :param api_key: API key verification
+
+   :returns: Created proxy resource
+
+
+.. py:function:: delete_proxy(proxy_id, rotator = Depends(get_rotator), storage = Depends(get_storage), api_key = Depends(verify_api_key))
+   :async:
+
+
+   Remove a proxy from the pool.
+
+   :param proxy_id: Proxy identifier
+   :param rotator: ProxyWhirl dependency
+   :param storage: Optional storage dependency
+   :param api_key: API key verification
+
+
+.. py:function:: get_circuit_breaker(proxy_id, api_key = Depends(verify_api_key))
+   :async:
+
+
+   Get circuit breaker state for a specific proxy.
+
+   :param proxy_id: Proxy ID to get circuit breaker for
+
+   :returns: Circuit breaker state
+
+
+.. py:function:: get_circuit_breaker_metrics(hours = 24, api_key = Depends(verify_api_key))
+   :async:
+
+
+   Get circuit breaker state change events.
+
+   :param hours: Number of hours to retrieve (default: 24)
+
+   :returns: List of circuit breaker events
+
+
+.. py:function:: get_circuit_breaker_metrics_endpoint(format = None, hours = 24, api_key = Depends(verify_api_key))
+   :async:
+
+
+   Get circuit breaker states and events in JSON or Prometheus format.
+
+   This endpoint provides circuit breaker information including:
+   - Current state of all circuit breakers
+   - State change events (history)
+   - Failure counts and thresholds
+
+   :param format: Output format ('prometheus' for Prometheus text format, default: JSON)
+   :param hours: Number of hours of event history to include (default: 24)
+   :param api_key: API key verification
+
+   :returns: Circuit breaker metrics in requested format
+
+   Example Prometheus format:
+       # HELP proxywhirl_circuit_breaker_state Circuit breaker state (0=closed, 1=open, 2=half_open)
+       # TYPE proxywhirl_circuit_breaker_state gauge
+       proxywhirl_circuit_breaker_state{proxy_id="proxy1:8080"} 0
+
+       # HELP proxywhirl_circuit_breaker_failure_count Current failure count
+       # TYPE proxywhirl_circuit_breaker_failure_count gauge
+       proxywhirl_circuit_breaker_failure_count{proxy_id="proxy1:8080"} 2
+
+
+.. py:function:: get_config()
+
+   Get current API configuration.
+
+   :returns: Configuration dictionary
+
+
+.. py:function:: get_configuration(config = Depends(get_config), api_key = Depends(verify_api_key))
+   :async:
+
+
+   Get current API configuration.
+
+   :param config: Configuration dependency
+   :param api_key: API key verification
+
+   :returns: Current configuration settings
+
+
+.. py:function:: get_proxy(proxy_id, rotator = Depends(get_rotator), api_key = Depends(verify_api_key))
+   :async:
+
+
+   Get details of a specific proxy.
+
+   :param proxy_id: Proxy identifier
+   :param rotator: ProxyWhirl dependency
+   :param api_key: API key verification
+
+   :returns: Proxy resource
+
+
+.. py:function:: get_rate_limit_key(request)
+
+   Extract rate limit key from request.
+
+   SECURITY: This function is designed to prevent rate limit bypass attacks.
+
+   For authenticated requests (with API key):
+       - Uses hashed API key as rate limit key
+       - This ensures rate limiting is per-API-key, not per-IP
+
+   For unauthenticated requests:
+       - Uses ONLY direct client IP (request.client.host)
+       - NEVER trusts X-Forwarded-For header to prevent spoofing attacks
+       - Attackers cannot bypass rate limits by sending fake X-Forwarded-For headers
+
+   Note: If you need to trust X-Forwarded-For (e.g., behind a reverse proxy),
+   configure your reverse proxy to set the real client IP in request.client,
+   or use a trusted proxy middleware that validates the header chain.
+
+   :param request: FastAPI Request object
+
+   :returns: {hash}" or "ip:{address}"
+   :rtype: Rate limit key in format "apikey
+
+
+.. py:function:: get_retry_metrics(api_key = Depends(verify_api_key))
+   :async:
+
+
+   Get aggregated retry metrics.
+
+   :returns: Retry metrics summary
+
+
+.. py:function:: get_retry_metrics_endpoint(format = None, hours = 24, api_key = Depends(verify_api_key))
+   :async:
+
+
+   Get retry statistics in JSON or Prometheus format.
+
+   This endpoint provides comprehensive retry metrics including:
+   - Total retry attempts
+   - Success rate by attempt number
+   - Time-series data (hourly aggregates)
+   - Per-proxy statistics
+
+   :param format: Output format ('prometheus' for Prometheus text format, default: JSON)
+   :param hours: Number of hours of data to include (default: 24)
+   :param api_key: API key verification
+
+   :returns: Retry metrics in requested format
+
+   Example Prometheus format:
+       # HELP proxywhirl_retry_total Total number of retry attempts
+       # TYPE proxywhirl_retry_total counter
+       proxywhirl_retry_total 1250
+
+       # HELP proxywhirl_retry_success_by_attempt Successful requests by attempt number
+       # TYPE proxywhirl_retry_success_by_attempt gauge
+       proxywhirl_retry_success_by_attempt{attempt="0"} 850
+       proxywhirl_retry_success_by_attempt{attempt="1"} 300
+
+
+.. py:function:: get_retry_policy(api_key = Depends(verify_api_key))
+   :async:
+
+
+   Get the current global retry policy configuration.
+
+   :returns: Current retry policy settings
+
+
+.. py:function:: get_retry_stats_by_proxy(hours = 24, api_key = Depends(verify_api_key))
+   :async:
+
+
+   Get retry statistics grouped by proxy.
+
+   :param hours: Number of hours to analyze (default: 24)
+
+   :returns: Per-proxy retry statistics
+
+
+.. py:function:: get_retry_timeseries(hours = 24, api_key = Depends(verify_api_key))
+   :async:
+
+
+   Get hourly retry metrics for the specified time range.
+
+   :param hours: Number of hours to retrieve (default: 24)
+
+   :returns: Time-series retry data
+
+
+.. py:function:: get_rotator()
+
+   Get the singleton ProxyWhirl instance.
+
+   :returns: ProxyWhirl instance
+
+   :raises HTTPException: If rotator not initialized
+
+
+.. py:function:: get_stats(rotator = Depends(get_rotator))
+   :async:
+
+
+   Get API performance statistics (general aggregate metrics).
+
+   This endpoint provides high-level performance statistics for the API,
+   distinct from the detailed Prometheus metrics available at /metrics.
+
+   :param rotator: ProxyWhirl dependency
+
+   :returns: Performance statistics response
+
+   .. note::
+
+      This endpoint provides aggregate metrics. For detailed metrics, use:
+      - /metrics - Prometheus format metrics
+      - /api/v1/metrics/retries - Retry-specific metrics
+      - /metrics/retry - Comprehensive retry metrics with JSON/Prometheus format
+
+
+.. py:function:: get_status(rotator = Depends(get_rotator), storage = Depends(get_storage), config = Depends(get_config))
+   :async:
+
+
+   Get detailed system status including pool stats.
+
+   :param rotator: ProxyWhirl dependency
+   :param storage: Optional storage dependency
+   :param config: Configuration dependency
+
+   :returns: System status response
+
+
+.. py:function:: get_storage()
+
+   Get the optional SQLiteStorage instance.
+
+   :returns: SQLiteStorage instance or None if not configured
+
+
+.. py:function:: health_check(rotator = Depends(get_rotator))
+   :async:
+
+
+   Check API health status.
+
+   Returns 200 if healthy, 503 if unhealthy.
+
+   :param rotator: ProxyWhirl dependency
+
+   :returns: Health status response
+
+
+.. py:function:: health_check_proxies(request_data, rotator = Depends(get_rotator), api_key = Depends(verify_api_key))
+   :async:
+
+
+   Run health checks on specified proxies.
+
+   :param request_data: Optional list of proxy IDs to check
+   :param rotator: ProxyWhirl dependency
+   :param api_key: API key verification
+
+   :returns: List of health check results
+
+
+.. py:function:: health_check_proxies_deprecated(request_data, rotator = Depends(get_rotator), api_key = Depends(verify_api_key))
+   :async:
+
+
+   Run health checks on specified proxies.
+
+   **DEPRECATED:** Use `/api/v1/proxies/health-check` instead.
+   This endpoint is kept for backward compatibility and will be removed in a future version.
+
+   :param request_data: Optional list of proxy IDs to check
+   :param rotator: ProxyWhirl dependency
+   :param api_key: API key verification
+
+   :returns: List of health check results
+
+
+.. py:function:: internal_error_handler(request, exc)
+   :async:
+
+
+   Handle 500 Internal Server errors.
+
+
+.. py:function:: lifespan(app)
+   :async:
+
+
+   Application lifespan manager for startup and shutdown.
+
+   Handles:
+   - ProxyWhirl initialization on startup
+   - Optional SQLiteStorage initialization
+   - Graceful cleanup on shutdown
+
+
+.. py:function:: list_circuit_breakers(api_key = Depends(verify_api_key))
+   :async:
+
+
+   Get circuit breaker states for all proxies.
+
+   :returns: List of circuit breaker states
+
+
+.. py:function:: list_proxies(page = 1, page_size = 50, status_filter = None, rotator = Depends(get_rotator), api_key = Depends(verify_api_key))
+   :async:
+
+
+   List all proxies in the pool with pagination and filtering.
+
+   :param page: Page number (1-indexed)
+   :param page_size: Number of items per page (max 100)
+   :param status_filter: Filter by health status (optional)
+   :param rotator: ProxyWhirl dependency
+   :param api_key: API key verification
+
+   :returns: Paginated list of proxy resources
+
+
+.. py:function:: make_proxied_request(request, request_data = Depends(validate_proxied_request_url), rotator = Depends(get_rotator), api_key = Depends(verify_api_key))
+   :async:
+
+
+   Make an HTTP request through a rotating proxy.
+
+   This endpoint routes your HTTP request through the proxy pool, automatically
+   handling rotation and failover.
+
+   SECURITY: All target URLs are validated to prevent SSRF attacks. The following
+   are blocked by default:
+   - Localhost and loopback addresses (127.0.0.0/8, ::1)
+   - Private IP ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
+   - Link-local addresses (169.254.0.0/16)
+   - Internal domain names (.local, .internal, .lan, .corp)
+   - Non-HTTP/HTTPS schemes (file://, data://, etc.)
+
+   :param request_data: Request details (URL, method, headers, body, timeout) - validated for SSRF
+   :param rotator: ProxyWhirl dependency injection
+   :param api_key: API key verification dependency
+
+   :returns: APIResponse with proxied response data
+
+   :raises HTTPException: For various error conditions including SSRF protection
+
+
+.. py:function:: metrics()
+   :async:
+
+
+   Expose Prometheus metrics in text format.
+
+   This endpoint returns metrics in Prometheus exposition format, including:
+   - proxywhirl_requests_total: Total HTTP requests by endpoint, method, and status
+   - proxywhirl_request_duration_seconds: Request duration histogram
+   - proxywhirl_proxies_total: Total proxies in pool
+   - proxywhirl_proxies_healthy: Number of healthy proxies
+   - proxywhirl_circuit_breaker_state: Circuit breaker states (0=closed, 1=open, 2=half-open)
+
+   :returns: Prometheus metrics in text format
+
+
+.. py:function:: not_found_handler(request, exc)
+   :async:
+
+
+   Handle 404 Not Found errors.
+
+
+.. py:function:: proxy_error_handler(request, exc)
+   :async:
+
+
+   Handle ProxyWhirlError exceptions with enhanced error details.
+
+
+.. py:function:: readiness_check(rotator = Depends(get_rotator), storage = Depends(get_storage))
+   :async:
+
+
+   Check if API is ready to serve requests.
+
+   Returns 200 if ready, 503 if not ready.
+
+   :param rotator: ProxyWhirl dependency
+   :param storage: Optional storage dependency
+
+   :returns: Readiness status response
+
+
+.. py:function:: reset_circuit_breaker(request, proxy_id, api_key = Depends(verify_api_key))
+   :async:
+
+
+   Manually reset a circuit breaker to CLOSED state.
+
+   :param proxy_id: Proxy ID whose circuit breaker to reset
+
+   :returns: Updated circuit breaker state
+
+
+.. py:function:: root()
+   :async:
+
+
+   Root endpoint - redirect to docs.
+
+
+.. py:function:: update_configuration(request, update_data, config = Depends(get_config), rotator = Depends(get_rotator), api_key = Depends(verify_api_key))
+   :async:
+
+
+   Update API configuration at runtime.
+
+   :param update_data: Configuration updates (partial)
+   :param config: Configuration dependency
+   :param rotator: ProxyWhirl dependency
+   :param api_key: API key verification
+
+   :returns: Updated configuration settings
+
+
+.. py:function:: update_prometheus_metrics()
+
+   Update Prometheus metrics for proxy pool and circuit breakers.
+
+
+.. py:function:: update_retry_policy(policy_request, api_key = Depends(verify_api_key))
+   :async:
+
+
+   Update the global retry policy configuration.
+
+   :param policy_request: New retry policy settings
+
+   :returns: Updated retry policy
+
+
+.. py:function:: validate_proxied_request_url(request_data)
+
+   Dependency to validate target URL for SSRF protection.
+
+   This dependency runs BEFORE other dependencies to ensure SSRF validation
+   happens first, preventing malicious URLs from being processed.
+
+   :param request_data: The proxied request data
+
+   :returns: The validated request data
+
+   :raises HTTPException: If URL is invalid or blocked for security reasons
+
+
+.. py:function:: validation_error_handler(request, exc)
+   :async:
+
+
+   Handle 422 Validation errors.
+
+   Returns 400 Bad Request for client input validation failures,
+   which is more semantically appropriate than 422 Unprocessable Entity.
+
+
+.. py:function:: verify_api_key(api_key = Depends(api_key_header))
+
+   Verify API key if authentication is required.
+
+   :param api_key: API key from X-API-Key header
+
+   :raises HTTPException: If auth is required and key is invalid
+
+

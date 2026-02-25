@@ -1,0 +1,317 @@
+proxywhirl.retry
+================
+
+.. py:module:: proxywhirl.retry
+
+.. autoapi-nested-parse::
+
+   Retry execution package with intelligent backoff and circuit breaker integration.
+
+   This package provides:
+   - RetryPolicy: Configuration for retry behavior and backoff strategies
+   - RetryExecutor: Orchestrates retries with proxy selection and circuit breakers
+   - RetryMetrics: Collection and aggregation of retry statistics
+
+   Usage:
+       from proxywhirl.retry import RetryPolicy, RetryExecutor, RetryMetrics
+
+       policy = RetryPolicy(max_attempts=3, backoff_strategy="exponential")
+       metrics = RetryMetrics()
+       executor = RetryExecutor(policy, metrics=metrics)
+
+       # Sync execution
+       result = executor.execute_with_retry(func, proxies, circuit_breakers)
+
+       # Async execution
+       result = await executor.execute_with_retry_async(async_func, proxies, circuit_breakers)
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/proxywhirl/retry/executor/index
+   /autoapi/proxywhirl/retry/metrics/index
+   /autoapi/proxywhirl/retry/policy/index
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   proxywhirl.retry.NonRetryableError
+   proxywhirl.retry.RetryableError
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.retry.BackoffStrategy
+   proxywhirl.retry.CircuitBreakerEvent
+   proxywhirl.retry.HourlyAggregate
+   proxywhirl.retry.RetryAttempt
+   proxywhirl.retry.RetryExecutor
+   proxywhirl.retry.RetryMetrics
+   proxywhirl.retry.RetryOutcome
+   proxywhirl.retry.RetryPolicy
+
+
+Package Contents
+----------------
+
+.. py:exception:: NonRetryableError
+
+   Bases: :py:obj:`Exception`
+
+
+   Exception that does not trigger a retry.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:exception:: RetryableError
+
+   Bases: :py:obj:`Exception`
+
+
+   Exception that triggers a retry.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: BackoffStrategy
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Retry backoff timing strategy.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: CircuitBreakerEvent(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Circuit breaker state change event.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: HourlyAggregate(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Hourly aggregated metrics.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: RetryAttempt(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Record of a single retry attempt.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: RetryExecutor(retry_policy, circuit_breakers, retry_metrics)
+
+   Orchestrates retry logic with exponential backoff and circuit breaker integration.
+
+   Provides both synchronous and asynchronous execution methods:
+   - execute_with_retry: Synchronous with time.sleep (for sync contexts)
+   - execute_with_retry_async: Asynchronous with asyncio.sleep (for async contexts)
+
+   The async variant avoids blocking the event loop during backoff delays.
+
+   Initialize retry executor.
+
+   :param retry_policy: Retry configuration
+   :param circuit_breakers: Circuit breakers by proxy ID
+   :param retry_metrics: Metrics collection instance
+
+
+   .. py:method:: execute_with_retry(request_fn, proxy, method, url, request_id = None)
+
+      Execute a request with retry logic (SYNCHRONOUS).
+
+      This method uses time.sleep for backoff delays and should only be called
+      from synchronous contexts. For async execution, use
+      AsyncProxyClient._execute_async_with_retry instead.
+
+      :param request_fn: Function that executes the request
+      :param proxy: Initial proxy to use
+      :param method: HTTP method
+      :param url: Request URL
+      :param request_id: Optional request ID for tracking
+
+      :returns: HTTP response
+
+      :raises ProxyConnectionError: If all retries exhausted
+      :raises NonRetryableError: If error is not retryable
+
+
+
+   .. py:method:: execute_with_retry_async(request_fn, proxy, method, url, request_id = None)
+      :async:
+
+
+      Execute a request with retry logic (ASYNCHRONOUS).
+
+      This is the async variant of execute_with_retry that uses asyncio.sleep
+      for non-blocking backoff delays instead of time.sleep.
+
+      :param request_fn: Async function that executes the request
+      :param proxy: Initial proxy to use
+      :param method: HTTP method
+      :param url: Request URL
+      :param request_id: Optional request ID for tracking
+
+      :returns: HTTP response
+
+      :raises ProxyConnectionError: If all retries exhausted
+      :raises NonRetryableError: If error is not retryable
+
+
+
+   .. py:method:: select_retry_proxy(available_proxies, failed_proxy, target_region = None)
+
+      Select best proxy for retry based on performance metrics.
+
+      Uses a weighted scoring formula:
+      score = (0.7 ? success_rate) + (0.3 ? (1 - normalized_latency))
+
+      :param available_proxies: List of available proxies
+      :param failed_proxy: The proxy that just failed
+      :param target_region: Optional target region for geo-targeted selection
+
+      :returns: Best proxy for retry, or None if no suitable proxy found
+
+
+
+.. py:class:: RetryMetrics(**data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Aggregated retry metrics collection.
+
+   Initialize with maxlen-bounded deque.
+
+
+   .. py:method:: aggregate_hourly()
+
+      Aggregate current_attempts into hourly summaries.
+
+
+
+   .. py:method:: get_by_proxy(hours = 24)
+
+      Get per-proxy retry statistics.
+
+
+
+   .. py:method:: get_summary()
+
+      Get metrics summary for API response.
+
+
+
+   .. py:method:: get_timeseries(hours = 24)
+
+      Get time-series data for the specified hours.
+
+
+
+   .. py:method:: record_attempt(attempt)
+
+      Record a retry attempt.
+
+
+
+   .. py:method:: record_circuit_breaker_event(event)
+
+      Record circuit breaker state change.
+
+
+
+.. py:class:: RetryOutcome
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Outcome of a retry attempt.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: RetryPolicy(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for retry behavior.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: calculate_delay(attempt, previous_delay = None)
+
+      Calculate delay for given attempt number (0-indexed).
+
+      Uses AWS decorrelated jitter algorithm when jitter is enabled to prevent
+      the thundering herd problem. The decorrelated jitter ensures that retry
+      delays depend on previous delay values, spreading retries across time.
+
+      AWS decorrelated jitter formula:
+          delay = min(cap, random(base, previous_delay * 3))
+
+      Reference: https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
+
+      :param attempt: The attempt number (0 for first retry, 1 for second, etc.)
+      :param previous_delay: The delay from the previous attempt (for decorrelated jitter).
+                             If None and jitter is enabled, uses base_delay as seed.
+
+      :returns: Delay in seconds before the next retry attempt
+
+
+
+   .. py:method:: validate_status_codes(v)
+      :classmethod:
+
+
+      Validate that status codes are 5xx errors.
+
+
+
