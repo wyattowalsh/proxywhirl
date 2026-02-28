@@ -927,7 +927,7 @@
 </span><span data-line="295">
 </span><span data-line="296">    <span class="c1"># Calculate unique proxies</span>
 </span><span data-line="297">    <span class="n">unique_proxies</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-</span><span data-line="298">    <span class="k">for</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;http&quot;</span><span class="p">,</span> <span class="s2">&quot;socks4&quot;</span><span class="p">,</span> <span class="s2">&quot;socks5&quot;</span><span class="p">]:</span>
+</span><span data-line="298">    <span class="k">for</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;http&quot;</span><span class="p">,</span> <span class="s2">&quot;https&quot;</span><span class="p">,</span> <span class="s2">&quot;socks4&quot;</span><span class="p">,</span> <span class="s2">&quot;socks5&quot;</span><span class="p">]:</span>
 </span><span data-line="299">        <span class="n">path</span> <span class="o">=</span> <span class="n">proxy_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">protocol</span><span class="si">}</span><span class="s2">.txt&quot;</span>
 </span><span data-line="300">        <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
 </span><span data-line="301">            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
@@ -935,274 +935,282 @@
 </span><span data-line="303">                    <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">():</span>
 </span><span data-line="304">                        <span class="n">unique_proxies</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
 </span><span data-line="305">
-</span><span data-line="306">    <span class="c1"># Use unique count as the primary total (avoids HTTP/HTTPS double-counting)</span>
-</span><span data-line="307">    <span class="n">unique_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_proxies</span><span class="p">)</span> <span class="k">if</span> <span class="n">unique_proxies</span> <span class="k">else</span> <span class="mi">0</span>
-</span><span data-line="308">
-</span><span data-line="309">    <span class="c1"># Build health stats from status aggregation</span>
-</span><span data-line="310">    <span class="n">status_agg</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;by_status&quot;</span><span class="p">,</span> <span class="p">{})</span>
-</span><span data-line="311">    <span class="n">health</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="312">        <span class="s2">&quot;healthy&quot;</span><span class="p">:</span> <span class="n">status_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;healthy&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-</span><span data-line="313">        <span class="s2">&quot;unhealthy&quot;</span><span class="p">:</span> <span class="n">status_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unhealthy&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-</span><span data-line="314">        <span class="s2">&quot;dead&quot;</span><span class="p">:</span> <span class="n">status_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dead&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-</span><span data-line="315">        <span class="s2">&quot;unknown&quot;</span><span class="p">:</span> <span class="n">status_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unknown&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-</span><span data-line="316">    <span class="p">}</span>
-</span><span data-line="317">    <span class="n">total_validated</span> <span class="o">=</span> <span class="n">health</span><span class="p">[</span><span class="s2">&quot;healthy&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">health</span><span class="p">[</span><span class="s2">&quot;unhealthy&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">health</span><span class="p">[</span><span class="s2">&quot;dead&quot;</span><span class="p">]</span>
-</span><span data-line="318">
-</span><span data-line="319">    <span class="c1"># Performance stats from aggregations</span>
-</span><span data-line="320">    <span class="n">perf_agg</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;performance&quot;</span><span class="p">,</span> <span class="p">{})</span>
-</span><span data-line="321">    <span class="n">performance</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="322">        <span class="s2">&quot;avg_response_ms&quot;</span><span class="p">:</span> <span class="n">perf_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;avg_ms&quot;</span><span class="p">),</span>
-</span><span data-line="323">        <span class="s2">&quot;median_response_ms&quot;</span><span class="p">:</span> <span class="n">perf_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;median_ms&quot;</span><span class="p">),</span>
-</span><span data-line="324">        <span class="s2">&quot;p95_response_ms&quot;</span><span class="p">:</span> <span class="n">perf_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;p95_ms&quot;</span><span class="p">),</span>
-</span><span data-line="325">        <span class="s2">&quot;min_response_ms&quot;</span><span class="p">:</span> <span class="n">perf_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;min_ms&quot;</span><span class="p">),</span>
-</span><span data-line="326">        <span class="s2">&quot;max_response_ms&quot;</span><span class="p">:</span> <span class="n">perf_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_ms&quot;</span><span class="p">),</span>
-</span><span data-line="327">        <span class="s2">&quot;samples&quot;</span><span class="p">:</span> <span class="n">perf_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;samples&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-</span><span data-line="328">    <span class="p">}</span>
-</span><span data-line="329">
-</span><span data-line="330">    <span class="c1"># Validation stats</span>
-</span><span data-line="331">    <span class="n">validation</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="332">        <span class="s2">&quot;total_validated&quot;</span><span class="p">:</span> <span class="n">total_validated</span><span class="p">,</span>
-</span><span data-line="333">        <span class="s2">&quot;success_rate_pct&quot;</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="n">health</span><span class="p">[</span><span class="s2">&quot;healthy&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">total_validated</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-</span><span data-line="334">        <span class="k">if</span> <span class="n">total_validated</span> <span class="o">&gt;</span> <span class="mi">0</span>
-</span><span data-line="335">        <span class="k">else</span> <span class="mi">0</span><span class="p">,</span>
-</span><span data-line="336">    <span class="p">}</span>
-</span><span data-line="337">
-</span><span data-line="338">    <span class="c1"># Geographic stats</span>
-</span><span data-line="339">    <span class="n">country_agg</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;by_country&quot;</span><span class="p">,</span> <span class="p">{})</span>
-</span><span data-line="340">    <span class="n">continent_agg</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;by_continent&quot;</span><span class="p">,</span> <span class="p">{})</span>
-</span><span data-line="341">    <span class="n">top_countries</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
-</span><span data-line="342">        <span class="p">[{</span><span class="s2">&quot;code&quot;</span><span class="p">:</span> <span class="n">k</span><span class="p">,</span> <span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="n">v</span><span class="p">}</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">country_agg</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span>
-</span><span data-line="343">        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="s2">&quot;count&quot;</span><span class="p">],</span>
-</span><span data-line="344">    <span class="p">)[:</span><span class="mi">15</span><span class="p">]</span>
-</span><span data-line="345">    <span class="n">geographic</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="346">        <span class="s2">&quot;total_countries&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">country_agg</span><span class="p">),</span>
-</span><span data-line="347">        <span class="s2">&quot;top_countries&quot;</span><span class="p">:</span> <span class="n">top_countries</span><span class="p">,</span>
-</span><span data-line="348">        <span class="s2">&quot;by_continent&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span data-line="349">            <span class="n">code</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">CONTINENT_NAMES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">code</span><span class="p">),</span> <span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="n">count</span><span class="p">}</span>
-</span><span data-line="350">            <span class="k">for</span> <span class="n">code</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="n">continent_agg</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-</span><span data-line="351">        <span class="p">},</span>
-</span><span data-line="352">    <span class="p">}</span>
-</span><span data-line="353">
-</span><span data-line="354">    <span class="c1"># Source ranking</span>
-</span><span data-line="355">    <span class="n">source_agg</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;by_source&quot;</span><span class="p">,</span> <span class="p">{})</span>
-</span><span data-line="356">    <span class="n">top_sources</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
-</span><span data-line="357">        <span class="p">[{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">k</span><span class="p">,</span> <span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="n">v</span><span class="p">}</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">source_agg</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span>
-</span><span data-line="358">        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="s2">&quot;count&quot;</span><span class="p">],</span>
-</span><span data-line="359">    <span class="p">)[:</span><span class="mi">20</span><span class="p">]</span>
-</span><span data-line="360">    <span class="n">sources_ranking</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="361">        <span class="s2">&quot;total_active&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">source_agg</span><span class="p">),</span>
-</span><span data-line="362">        <span class="s2">&quot;top_sources&quot;</span><span class="p">:</span> <span class="n">top_sources</span><span class="p">,</span>
-</span><span data-line="363">    <span class="p">}</span>
-</span><span data-line="364">
-</span><span data-line="365">    <span class="c1"># Include pre-computed aggregations for frontend</span>
-</span><span data-line="366">    <span class="n">response_time_distribution</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;response_time_distribution&quot;</span><span class="p">,</span> <span class="p">[])</span>
-</span><span data-line="367">    <span class="n">by_port</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;by_port&quot;</span><span class="p">,</span> <span class="p">[])</span>
-</span><span data-line="368">    <span class="n">source_flow</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;source_flow&quot;</span><span class="p">,</span> <span class="p">[])</span>
-</span><span data-line="369">
-</span><span data-line="370">    <span class="k">return</span> <span class="p">{</span>
-</span><span data-line="371">        <span class="s2">&quot;generated_at&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;generated_at&quot;</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()),</span>
-</span><span data-line="372">        <span class="s2">&quot;sources&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span data-line="373">            <span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;total_sources&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-</span><span data-line="374">        <span class="p">},</span>
-</span><span data-line="375">        <span class="s2">&quot;proxies&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span data-line="376">            <span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="n">unique_count</span><span class="p">,</span>
-</span><span data-line="377">            <span class="s2">&quot;unique&quot;</span><span class="p">:</span> <span class="n">unique_count</span><span class="p">,</span>
-</span><span data-line="378">            <span class="s2">&quot;by_protocol&quot;</span><span class="p">:</span> <span class="n">proxy_counts</span><span class="p">,</span>
-</span><span data-line="379">        <span class="p">},</span>
-</span><span data-line="380">        <span class="s2">&quot;file_sizes&quot;</span><span class="p">:</span> <span class="n">file_sizes</span><span class="p">,</span>
-</span><span data-line="381">        <span class="c1"># Enhanced stats sections</span>
-</span><span data-line="382">        <span class="s2">&quot;health&quot;</span><span class="p">:</span> <span class="n">health</span><span class="p">,</span>
-</span><span data-line="383">        <span class="s2">&quot;performance&quot;</span><span class="p">:</span> <span class="n">performance</span><span class="p">,</span>
-</span><span data-line="384">        <span class="s2">&quot;validation&quot;</span><span class="p">:</span> <span class="n">validation</span><span class="p">,</span>
-</span><span data-line="385">        <span class="s2">&quot;geographic&quot;</span><span class="p">:</span> <span class="n">geographic</span><span class="p">,</span>
-</span><span data-line="386">        <span class="s2">&quot;sources_ranking&quot;</span><span class="p">:</span> <span class="n">sources_ranking</span><span class="p">,</span>
-</span><span data-line="387">        <span class="c1"># Pre-computed aggregations for charts</span>
-</span><span data-line="388">        <span class="s2">&quot;aggregations&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span data-line="389">            <span class="s2">&quot;response_time_distribution&quot;</span><span class="p">:</span> <span class="n">response_time_distribution</span><span class="p">,</span>
-</span><span data-line="390">            <span class="s2">&quot;by_port&quot;</span><span class="p">:</span> <span class="n">by_port</span><span class="p">,</span>
-</span><span data-line="391">            <span class="s2">&quot;by_continent&quot;</span><span class="p">:</span> <span class="n">continent_agg</span><span class="p">,</span>
-</span><span data-line="392">            <span class="s2">&quot;source_flow&quot;</span><span class="p">:</span> <span class="n">source_flow</span><span class="p">,</span>
-</span><span data-line="393">        <span class="p">},</span>
-</span><span data-line="394">    <span class="p">}</span></div>
+</span><span data-line="306">    <span class="n">unique_count</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_proxies</span><span class="p">)</span> <span class="k">if</span> <span class="n">unique_proxies</span> <span class="k">else</span> <span class="mi">0</span>
+</span><span data-line="307">
+</span><span data-line="308">    <span class="c1"># Build health stats from status aggregation</span>
+</span><span data-line="309">    <span class="n">status_agg</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;by_status&quot;</span><span class="p">,</span> <span class="p">{})</span>
+</span><span data-line="310">    <span class="n">health</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="311">        <span class="s2">&quot;healthy&quot;</span><span class="p">:</span> <span class="n">status_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;healthy&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+</span><span data-line="312">        <span class="s2">&quot;unhealthy&quot;</span><span class="p">:</span> <span class="n">status_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unhealthy&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+</span><span data-line="313">        <span class="s2">&quot;dead&quot;</span><span class="p">:</span> <span class="n">status_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;dead&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+</span><span data-line="314">        <span class="s2">&quot;unknown&quot;</span><span class="p">:</span> <span class="n">status_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;unknown&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+</span><span data-line="315">    <span class="p">}</span>
+</span><span data-line="316">    <span class="n">total_validated</span> <span class="o">=</span> <span class="n">health</span><span class="p">[</span><span class="s2">&quot;healthy&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">health</span><span class="p">[</span><span class="s2">&quot;unhealthy&quot;</span><span class="p">]</span> <span class="o">+</span> <span class="n">health</span><span class="p">[</span><span class="s2">&quot;dead&quot;</span><span class="p">]</span>
+</span><span data-line="317">
+</span><span data-line="318">    <span class="c1"># Performance stats from aggregations</span>
+</span><span data-line="319">    <span class="n">perf_agg</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;performance&quot;</span><span class="p">,</span> <span class="p">{})</span>
+</span><span data-line="320">    <span class="n">performance</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="321">        <span class="s2">&quot;avg_response_ms&quot;</span><span class="p">:</span> <span class="n">perf_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;avg_ms&quot;</span><span class="p">),</span>
+</span><span data-line="322">        <span class="s2">&quot;median_response_ms&quot;</span><span class="p">:</span> <span class="n">perf_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;median_ms&quot;</span><span class="p">),</span>
+</span><span data-line="323">        <span class="s2">&quot;p95_response_ms&quot;</span><span class="p">:</span> <span class="n">perf_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;p95_ms&quot;</span><span class="p">),</span>
+</span><span data-line="324">        <span class="s2">&quot;min_response_ms&quot;</span><span class="p">:</span> <span class="n">perf_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;min_ms&quot;</span><span class="p">),</span>
+</span><span data-line="325">        <span class="s2">&quot;max_response_ms&quot;</span><span class="p">:</span> <span class="n">perf_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;max_ms&quot;</span><span class="p">),</span>
+</span><span data-line="326">        <span class="s2">&quot;samples&quot;</span><span class="p">:</span> <span class="n">perf_agg</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;samples&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+</span><span data-line="327">    <span class="p">}</span>
+</span><span data-line="328">
+</span><span data-line="329">    <span class="c1"># Validation stats</span>
+</span><span data-line="330">    <span class="n">validation</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="331">        <span class="s2">&quot;total_validated&quot;</span><span class="p">:</span> <span class="n">total_validated</span><span class="p">,</span>
+</span><span data-line="332">        <span class="s2">&quot;success_rate_pct&quot;</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="n">health</span><span class="p">[</span><span class="s2">&quot;healthy&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">total_validated</span> <span class="o">*</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span><span data-line="333">        <span class="k">if</span> <span class="n">total_validated</span> <span class="o">&gt;</span> <span class="mi">0</span>
+</span><span data-line="334">        <span class="k">else</span> <span class="mi">0</span><span class="p">,</span>
+</span><span data-line="335">    <span class="p">}</span>
+</span><span data-line="336">
+</span><span data-line="337">    <span class="c1"># Geographic stats</span>
+</span><span data-line="338">    <span class="n">country_agg</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;by_country&quot;</span><span class="p">,</span> <span class="p">{})</span>
+</span><span data-line="339">    <span class="n">continent_agg</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;by_continent&quot;</span><span class="p">,</span> <span class="p">{})</span>
+</span><span data-line="340">    <span class="n">top_countries</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+</span><span data-line="341">        <span class="p">[{</span><span class="s2">&quot;code&quot;</span><span class="p">:</span> <span class="n">k</span><span class="p">,</span> <span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="n">v</span><span class="p">}</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">country_agg</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span>
+</span><span data-line="342">        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="s2">&quot;count&quot;</span><span class="p">],</span>
+</span><span data-line="343">    <span class="p">)[:</span><span class="mi">15</span><span class="p">]</span>
+</span><span data-line="344">    <span class="n">geographic</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="345">        <span class="s2">&quot;total_countries&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">country_agg</span><span class="p">),</span>
+</span><span data-line="346">        <span class="s2">&quot;top_countries&quot;</span><span class="p">:</span> <span class="n">top_countries</span><span class="p">,</span>
+</span><span data-line="347">        <span class="s2">&quot;by_continent&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span data-line="348">            <span class="n">code</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">CONTINENT_NAMES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">code</span><span class="p">),</span> <span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="n">count</span><span class="p">}</span>
+</span><span data-line="349">            <span class="k">for</span> <span class="n">code</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="n">continent_agg</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+</span><span data-line="350">        <span class="p">},</span>
+</span><span data-line="351">    <span class="p">}</span>
+</span><span data-line="352">
+</span><span data-line="353">    <span class="c1"># Source ranking</span>
+</span><span data-line="354">    <span class="n">source_agg</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;by_source&quot;</span><span class="p">,</span> <span class="p">{})</span>
+</span><span data-line="355">    <span class="n">top_sources</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+</span><span data-line="356">        <span class="p">[{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">k</span><span class="p">,</span> <span class="s2">&quot;count&quot;</span><span class="p">:</span> <span class="n">v</span><span class="p">}</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">source_agg</span><span class="o">.</span><span class="n">items</span><span class="p">()],</span>
+</span><span data-line="357">        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="o">-</span><span class="n">x</span><span class="p">[</span><span class="s2">&quot;count&quot;</span><span class="p">],</span>
+</span><span data-line="358">    <span class="p">)[:</span><span class="mi">20</span><span class="p">]</span>
+</span><span data-line="359">    <span class="n">sources_ranking</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="360">        <span class="s2">&quot;total_active&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">source_agg</span><span class="p">),</span>
+</span><span data-line="361">        <span class="s2">&quot;top_sources&quot;</span><span class="p">:</span> <span class="n">top_sources</span><span class="p">,</span>
+</span><span data-line="362">    <span class="p">}</span>
+</span><span data-line="363">
+</span><span data-line="364">    <span class="c1"># Include pre-computed aggregations for frontend</span>
+</span><span data-line="365">    <span class="n">response_time_distribution</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;response_time_distribution&quot;</span><span class="p">,</span> <span class="p">[])</span>
+</span><span data-line="366">    <span class="n">by_port</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;by_port&quot;</span><span class="p">,</span> <span class="p">[])</span>
+</span><span data-line="367">    <span class="n">source_flow</span> <span class="o">=</span> <span class="n">aggregations</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;source_flow&quot;</span><span class="p">,</span> <span class="p">[])</span>
+</span><span data-line="368">
+</span><span data-line="369">    <span class="k">return</span> <span class="p">{</span>
+</span><span data-line="370">        <span class="s2">&quot;generated_at&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;generated_at&quot;</span><span class="p">,</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()),</span>
+</span><span data-line="371">        <span class="s2">&quot;sources&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span data-line="372">            <span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;total_sources&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+</span><span data-line="373">        <span class="p">},</span>
+</span><span data-line="374">        <span class="s2">&quot;proxies&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span data-line="375">            <span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="n">unique_count</span><span class="p">,</span>
+</span><span data-line="376">            <span class="s2">&quot;unique&quot;</span><span class="p">:</span> <span class="n">unique_count</span><span class="p">,</span>
+</span><span data-line="377">            <span class="s2">&quot;by_protocol&quot;</span><span class="p">:</span> <span class="n">proxy_counts</span><span class="p">,</span>
+</span><span data-line="378">        <span class="p">},</span>
+</span><span data-line="379">        <span class="s2">&quot;file_sizes&quot;</span><span class="p">:</span> <span class="n">file_sizes</span><span class="p">,</span>
+</span><span data-line="380">        <span class="c1"># Enhanced stats sections</span>
+</span><span data-line="381">        <span class="s2">&quot;health&quot;</span><span class="p">:</span> <span class="n">health</span><span class="p">,</span>
+</span><span data-line="382">        <span class="s2">&quot;performance&quot;</span><span class="p">:</span> <span class="n">performance</span><span class="p">,</span>
+</span><span data-line="383">        <span class="s2">&quot;validation&quot;</span><span class="p">:</span> <span class="n">validation</span><span class="p">,</span>
+</span><span data-line="384">        <span class="s2">&quot;geographic&quot;</span><span class="p">:</span> <span class="n">geographic</span><span class="p">,</span>
+</span><span data-line="385">        <span class="s2">&quot;sources_ranking&quot;</span><span class="p">:</span> <span class="n">sources_ranking</span><span class="p">,</span>
+</span><span data-line="386">        <span class="c1"># Pre-computed aggregations for charts</span>
+</span><span data-line="387">        <span class="s2">&quot;aggregations&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span data-line="388">            <span class="s2">&quot;response_time_distribution&quot;</span><span class="p">:</span> <span class="n">response_time_distribution</span><span class="p">,</span>
+</span><span data-line="389">            <span class="s2">&quot;by_port&quot;</span><span class="p">:</span> <span class="n">by_port</span><span class="p">,</span>
+</span><span data-line="390">            <span class="s2">&quot;by_continent&quot;</span><span class="p">:</span> <span class="n">continent_agg</span><span class="p">,</span>
+</span><span data-line="391">            <span class="s2">&quot;source_flow&quot;</span><span class="p">:</span> <span class="n">source_flow</span><span class="p">,</span>
+</span><span data-line="392">        <span class="p">},</span>
+</span><span data-line="393">    <span class="p">}</span></div>
 
+</span><span data-line="394">
 </span><span data-line="395">
-</span><span data-line="396">
+</span><span data-line="396"><span class="k">def</span><span class="w"> </span><span class="nf">_sort_by_speed</span><span class="p">(</span><span class="n">addr_times</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+</span><span data-line="397"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Sort addresses by response time (fastest first, unknowns last).&quot;&quot;&quot;</span>
+</span><span data-line="398">    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span>
+</span><span data-line="399">        <span class="n">addr_times</span><span class="o">.</span><span class="n">keys</span><span class="p">(),</span>
+</span><span data-line="400">        <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">a</span><span class="p">:</span> <span class="p">(</span><span class="n">addr_times</span><span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">,</span> <span class="n">addr_times</span><span class="p">[</span><span class="n">a</span><span class="p">]</span> <span class="ow">or</span> <span class="nb">float</span><span class="p">(</span><span class="s2">&quot;inf&quot;</span><span class="p">)),</span>
+</span><span data-line="401">    <span class="p">)</span>
+</span><span data-line="402">
+</span><span data-line="403">
 <div class="viewcode-block" id="generate_proxy_lists">
 <a class="viewcode-back" href="../../autoapi/proxywhirl/exports/index.html#proxywhirl.exports.generate_proxy_lists">[docs]</a>
-</span><span data-line="397"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">generate_proxy_lists</span><span class="p">(</span>
-</span><span data-line="398">    <span class="n">storage</span><span class="p">:</span> <span class="n">SQLiteStorage</span><span class="p">,</span>
-</span><span data-line="399">    <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
-</span><span data-line="400">    <span class="n">max_age_hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">72</span><span class="p">,</span>
-</span><span data-line="401"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
-</span><span data-line="402"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate proxy list text files and metadata.json from database.</span>
-</span><span data-line="403">
-</span><span data-line="404"><span class="sd">    Creates:</span>
-</span><span data-line="405"><span class="sd">        - http.txt, https.txt, socks4.txt, socks5.txt (one proxy per line)</span>
-</span><span data-line="406"><span class="sd">        - all.txt (combined with headers)</span>
-</span><span data-line="407"><span class="sd">        - proxies.json (structured JSON with metadata)</span>
-</span><span data-line="408"><span class="sd">        - metadata.json (counts and timestamp)</span>
-</span><span data-line="409">
-</span><span data-line="410"><span class="sd">    Args:</span>
-</span><span data-line="411"><span class="sd">        storage: SQLiteStorage instance to query</span>
-</span><span data-line="412"><span class="sd">        output_dir: Directory to write output files</span>
-</span><span data-line="413"><span class="sd">        max_age_hours: Only include proxies validated within this time window.</span>
-</span><span data-line="414"><span class="sd">            Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.</span>
-</span><span data-line="415">
-</span><span data-line="416"><span class="sd">    Returns:</span>
-</span><span data-line="417"><span class="sd">        dict[str, int]: Mapping of protocol name to proxy count.</span>
-</span><span data-line="418"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="419">    <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="420">
-</span><span data-line="421">    <span class="k">if</span> <span class="n">max_age_hours</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="422">        <span class="n">proxies_data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">storage</span><span class="o">.</span><span class="n">load_validated</span><span class="p">(</span><span class="n">max_age_hours</span><span class="p">)</span>
-</span><span data-line="423">    <span class="k">else</span><span class="p">:</span>
-</span><span data-line="424">        <span class="n">proxies_data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">storage</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
-</span><span data-line="425">
-</span><span data-line="426">    <span class="c1"># Group proxies by protocol</span>
-</span><span data-line="427">    <span class="n">proxies_by_protocol</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">set</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="428">        <span class="s2">&quot;http&quot;</span><span class="p">:</span> <span class="nb">set</span><span class="p">(),</span>
-</span><span data-line="429">        <span class="s2">&quot;https&quot;</span><span class="p">:</span> <span class="nb">set</span><span class="p">(),</span>
-</span><span data-line="430">        <span class="s2">&quot;socks4&quot;</span><span class="p">:</span> <span class="nb">set</span><span class="p">(),</span>
-</span><span data-line="431">        <span class="s2">&quot;socks5&quot;</span><span class="p">:</span> <span class="nb">set</span><span class="p">(),</span>
-</span><span data-line="432">    <span class="p">}</span>
-</span><span data-line="433">
-</span><span data-line="434">    <span class="k">for</span> <span class="n">proxy</span> <span class="ow">in</span> <span class="n">proxies_data</span><span class="p">:</span>
-</span><span data-line="435">        <span class="n">ip</span><span class="p">,</span> <span class="n">port</span> <span class="o">=</span> <span class="n">parse_proxy_url</span><span class="p">(</span><span class="n">proxy</span><span class="p">[</span><span class="s2">&quot;url&quot;</span><span class="p">])</span>
-</span><span data-line="436">        <span class="k">if</span> <span class="ow">not</span> <span class="n">ip</span><span class="p">:</span>
-</span><span data-line="437">            <span class="k">continue</span>
-</span><span data-line="438">
-</span><span data-line="439">        <span class="n">addr</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ip</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span data-line="440">        <span class="n">protocol</span> <span class="o">=</span> <span class="p">(</span><span class="n">proxy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;protocol&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;http&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+</span><span data-line="404"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">generate_proxy_lists</span><span class="p">(</span>
+</span><span data-line="405">    <span class="n">storage</span><span class="p">:</span> <span class="n">SQLiteStorage</span><span class="p">,</span>
+</span><span data-line="406">    <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+</span><span data-line="407">    <span class="n">max_age_hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">72</span><span class="p">,</span>
+</span><span data-line="408"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+</span><span data-line="409"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate proxy list text files and metadata.json from database.</span>
+</span><span data-line="410">
+</span><span data-line="411"><span class="sd">    Creates:</span>
+</span><span data-line="412"><span class="sd">        - http.txt, https.txt, socks4.txt, socks5.txt (one proxy per line)</span>
+</span><span data-line="413"><span class="sd">        - all.txt (combined with headers)</span>
+</span><span data-line="414"><span class="sd">        - proxies.json (structured JSON with metadata)</span>
+</span><span data-line="415"><span class="sd">        - metadata.json (counts and timestamp)</span>
+</span><span data-line="416">
+</span><span data-line="417"><span class="sd">    Args:</span>
+</span><span data-line="418"><span class="sd">        storage: SQLiteStorage instance to query</span>
+</span><span data-line="419"><span class="sd">        output_dir: Directory to write output files</span>
+</span><span data-line="420"><span class="sd">        max_age_hours: Only include proxies validated within this time window.</span>
+</span><span data-line="421"><span class="sd">            Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.</span>
+</span><span data-line="422">
+</span><span data-line="423"><span class="sd">    Returns:</span>
+</span><span data-line="424"><span class="sd">        dict[str, int]: Mapping of protocol name to proxy count.</span>
+</span><span data-line="425"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="426">    <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="427">
+</span><span data-line="428">    <span class="k">if</span> <span class="n">max_age_hours</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="429">        <span class="n">proxies_data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">storage</span><span class="o">.</span><span class="n">load_validated</span><span class="p">(</span><span class="n">max_age_hours</span><span class="p">)</span>
+</span><span data-line="430">    <span class="k">else</span><span class="p">:</span>
+</span><span data-line="431">        <span class="n">proxies_data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">storage</span><span class="o">.</span><span class="n">load</span><span class="p">()</span>
+</span><span data-line="432">
+</span><span data-line="433">    <span class="c1"># Group proxies by protocol, tracking response time for sorting</span>
+</span><span data-line="434">    <span class="c1"># Maps protocol -&gt; {addr: best_response_time_ms} (None = unknown)</span>
+</span><span data-line="435">    <span class="n">proxies_by_protocol</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]]</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="436">        <span class="s2">&quot;http&quot;</span><span class="p">:</span> <span class="p">{},</span>
+</span><span data-line="437">        <span class="s2">&quot;https&quot;</span><span class="p">:</span> <span class="p">{},</span>
+</span><span data-line="438">        <span class="s2">&quot;socks4&quot;</span><span class="p">:</span> <span class="p">{},</span>
+</span><span data-line="439">        <span class="s2">&quot;socks5&quot;</span><span class="p">:</span> <span class="p">{},</span>
+</span><span data-line="440">    <span class="p">}</span>
 </span><span data-line="441">
-</span><span data-line="442">        <span class="k">if</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;http&quot;</span><span class="p">,</span> <span class="s2">&quot;https&quot;</span><span class="p">):</span>
-</span><span data-line="443">            <span class="n">proxies_by_protocol</span><span class="p">[</span><span class="s2">&quot;http&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">addr</span><span class="p">)</span>
-</span><span data-line="444">            <span class="n">proxies_by_protocol</span><span class="p">[</span><span class="s2">&quot;https&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">addr</span><span class="p">)</span>
-</span><span data-line="445">        <span class="k">elif</span> <span class="n">protocol</span> <span class="o">==</span> <span class="s2">&quot;socks4&quot;</span><span class="p">:</span>
-</span><span data-line="446">            <span class="n">proxies_by_protocol</span><span class="p">[</span><span class="s2">&quot;socks4&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">addr</span><span class="p">)</span>
-</span><span data-line="447">        <span class="k">elif</span> <span class="n">protocol</span> <span class="o">==</span> <span class="s2">&quot;socks5&quot;</span><span class="p">:</span>
-</span><span data-line="448">            <span class="n">proxies_by_protocol</span><span class="p">[</span><span class="s2">&quot;socks5&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">addr</span><span class="p">)</span>
-</span><span data-line="449">
-</span><span data-line="450">    <span class="n">timestamp</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
-</span><span data-line="451">    <span class="n">total_sources</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ALL_HTTP_SOURCES</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">ALL_SOCKS4_SOURCES</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">ALL_SOCKS5_SOURCES</span><span class="p">)</span>
-</span><span data-line="452">
-</span><span data-line="453">    <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="454">        <span class="s2">&quot;generated_at&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
-</span><span data-line="455">        <span class="s2">&quot;total_sources&quot;</span><span class="p">:</span> <span class="n">total_sources</span><span class="p">,</span>
-</span><span data-line="456">        <span class="s2">&quot;counts&quot;</span><span class="p">:</span> <span class="p">{</span><span class="n">protocol</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">proxy_set</span><span class="p">)</span> <span class="k">for</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">proxy_set</span> <span class="ow">in</span> <span class="n">proxies_by_protocol</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
-</span><span data-line="457">    <span class="p">}</span>
-</span><span data-line="458">
-</span><span data-line="459">    <span class="c1"># Save each protocol in TXT format</span>
-</span><span data-line="460">    <span class="k">for</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">proxy_set</span> <span class="ow">in</span> <span class="n">proxies_by_protocol</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span data-line="461">        <span class="n">txt_file</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">protocol</span><span class="si">}</span><span class="s2">.txt&quot;</span>
-</span><span data-line="462">        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">txt_file</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-</span><span data-line="463">            <span class="k">for</span> <span class="n">proxy_addr</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">proxy_set</span><span class="p">):</span>
-</span><span data-line="464">                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">proxy_addr</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="465">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">proxy_set</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">protocol</span><span class="si">}</span><span class="s2"> proxies to </span><span class="si">{</span><span class="n">txt_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="466">
-</span><span data-line="467">    <span class="c1"># Save all proxies in one file (skip https since it duplicates http)</span>
-</span><span data-line="468">    <span class="n">all_txt</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;all.txt&quot;</span>
-</span><span data-line="469">    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">all_txt</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-</span><span data-line="470">        <span class="k">for</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;http&quot;</span><span class="p">,</span> <span class="s2">&quot;socks4&quot;</span><span class="p">,</span> <span class="s2">&quot;socks5&quot;</span><span class="p">]:</span>
-</span><span data-line="471">            <span class="n">proxy_set</span> <span class="o">=</span> <span class="n">proxies_by_protocol</span><span class="p">[</span><span class="n">protocol</span><span class="p">]</span>
-</span><span data-line="472">            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;# </span><span class="si">{</span><span class="n">protocol</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2"> Proxies (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">proxy_set</span><span class="p">)</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="473">            <span class="k">for</span> <span class="n">proxy_addr</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">proxy_set</span><span class="p">):</span>
-</span><span data-line="474">                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">proxy_addr</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="475">            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="476">    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved all proxies to </span><span class="si">{</span><span class="n">all_txt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="477">
-</span><span data-line="478">    <span class="c1"># Save in JSON format</span>
-</span><span data-line="479">    <span class="n">json_file</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;proxies.json&quot;</span>
-</span><span data-line="480">    <span class="n">json_data</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="481">        <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="p">,</span>
-</span><span data-line="482">        <span class="s2">&quot;proxies&quot;</span><span class="p">:</span> <span class="p">{</span>
-</span><span data-line="483">            <span class="n">protocol</span><span class="p">:</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">proxy_set</span><span class="p">)</span> <span class="k">for</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">proxy_set</span> <span class="ow">in</span> <span class="n">proxies_by_protocol</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-</span><span data-line="484">        <span class="p">},</span>
-</span><span data-line="485">    <span class="p">}</span>
-</span><span data-line="486">    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">json_file</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-</span><span data-line="487">        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">json_data</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-</span><span data-line="488">    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved JSON to </span><span class="si">{</span><span class="n">json_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="489">
-</span><span data-line="490">    <span class="c1"># Save metadata</span>
-</span><span data-line="491">    <span class="n">meta_file</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;metadata.json&quot;</span>
-</span><span data-line="492">    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">meta_file</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-</span><span data-line="493">        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-</span><span data-line="494">    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved metadata to </span><span class="si">{</span><span class="n">meta_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="495">
-</span><span data-line="496">    <span class="k">return</span> <span class="p">{</span><span class="n">protocol</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">proxy_set</span><span class="p">)</span> <span class="k">for</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">proxy_set</span> <span class="ow">in</span> <span class="n">proxies_by_protocol</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span></div>
-
+</span><span data-line="442">    <span class="k">for</span> <span class="n">proxy</span> <span class="ow">in</span> <span class="n">proxies_data</span><span class="p">:</span>
+</span><span data-line="443">        <span class="n">ip</span><span class="p">,</span> <span class="n">port</span> <span class="o">=</span> <span class="n">parse_proxy_url</span><span class="p">(</span><span class="n">proxy</span><span class="p">[</span><span class="s2">&quot;url&quot;</span><span class="p">])</span>
+</span><span data-line="444">        <span class="k">if</span> <span class="ow">not</span> <span class="n">ip</span><span class="p">:</span>
+</span><span data-line="445">            <span class="k">continue</span>
+</span><span data-line="446">
+</span><span data-line="447">        <span class="n">addr</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">ip</span><span class="si">}</span><span class="s2">:</span><span class="si">{</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span data-line="448">        <span class="n">protocol</span> <span class="o">=</span> <span class="p">(</span><span class="n">proxy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;protocol&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;http&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+</span><span data-line="449">        <span class="n">response_time</span> <span class="o">=</span> <span class="n">proxy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;avg_response_time_ms&quot;</span><span class="p">)</span>
+</span><span data-line="450">
+</span><span data-line="451">        <span class="k">if</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="n">proxies_by_protocol</span><span class="p">:</span>
+</span><span data-line="452">            <span class="n">existing</span> <span class="o">=</span> <span class="n">proxies_by_protocol</span><span class="p">[</span><span class="n">protocol</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">addr</span><span class="p">)</span>
+</span><span data-line="453">            <span class="c1"># Keep the best (lowest) response time for deduped addresses</span>
+</span><span data-line="454">            <span class="k">if</span> <span class="n">existing</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="p">(</span><span class="n">response_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">response_time</span> <span class="o">&lt;</span> <span class="n">existing</span><span class="p">):</span>
+</span><span data-line="455">                <span class="n">proxies_by_protocol</span><span class="p">[</span><span class="n">protocol</span><span class="p">][</span><span class="n">addr</span><span class="p">]</span> <span class="o">=</span> <span class="n">response_time</span>
+</span><span data-line="456">
+</span><span data-line="457">    <span class="n">timestamp</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+</span><span data-line="458">    <span class="n">total_sources</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ALL_HTTP_SOURCES</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">ALL_SOCKS4_SOURCES</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">ALL_SOCKS5_SOURCES</span><span class="p">)</span>
+</span><span data-line="459">
+</span><span data-line="460">    <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="461">        <span class="s2">&quot;generated_at&quot;</span><span class="p">:</span> <span class="n">timestamp</span><span class="p">,</span>
+</span><span data-line="462">        <span class="s2">&quot;total_sources&quot;</span><span class="p">:</span> <span class="n">total_sources</span><span class="p">,</span>
+</span><span data-line="463">        <span class="s2">&quot;counts&quot;</span><span class="p">:</span> <span class="p">{</span><span class="n">protocol</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">addrs</span><span class="p">)</span> <span class="k">for</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">addrs</span> <span class="ow">in</span> <span class="n">proxies_by_protocol</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span>
+</span><span data-line="464">    <span class="p">}</span>
+</span><span data-line="465">
+</span><span data-line="466">    <span class="c1"># Save each protocol in TXT format (sorted fastest-first)</span>
+</span><span data-line="467">    <span class="k">for</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">addr_times</span> <span class="ow">in</span> <span class="n">proxies_by_protocol</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span data-line="468">        <span class="n">txt_file</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">protocol</span><span class="si">}</span><span class="s2">.txt&quot;</span>
+</span><span data-line="469">        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">txt_file</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span data-line="470">            <span class="k">for</span> <span class="n">proxy_addr</span> <span class="ow">in</span> <span class="n">_sort_by_speed</span><span class="p">(</span><span class="n">addr_times</span><span class="p">):</span>
+</span><span data-line="471">                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">proxy_addr</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="472">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">addr_times</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">protocol</span><span class="si">}</span><span class="s2"> proxies to </span><span class="si">{</span><span class="n">txt_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="473">
+</span><span data-line="474">    <span class="c1"># Save all proxies in one file (sorted fastest-first per section)</span>
+</span><span data-line="475">    <span class="n">all_txt</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;all.txt&quot;</span>
+</span><span data-line="476">    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">all_txt</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span data-line="477">        <span class="k">for</span> <span class="n">protocol</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;http&quot;</span><span class="p">,</span> <span class="s2">&quot;https&quot;</span><span class="p">,</span> <span class="s2">&quot;socks4&quot;</span><span class="p">,</span> <span class="s2">&quot;socks5&quot;</span><span class="p">]:</span>
+</span><span data-line="478">            <span class="n">addr_times</span> <span class="o">=</span> <span class="n">proxies_by_protocol</span><span class="p">[</span><span class="n">protocol</span><span class="p">]</span>
+</span><span data-line="479">            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;# </span><span class="si">{</span><span class="n">protocol</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2"> Proxies (</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">addr_times</span><span class="p">)</span><span class="si">}</span><span class="s2">)</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="480">            <span class="k">for</span> <span class="n">proxy_addr</span> <span class="ow">in</span> <span class="n">_sort_by_speed</span><span class="p">(</span><span class="n">addr_times</span><span class="p">):</span>
+</span><span data-line="481">                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">proxy_addr</span><span class="si">}</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="482">            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="483">    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved all proxies to </span><span class="si">{</span><span class="n">all_txt</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="484">
+</span><span data-line="485">    <span class="c1"># Save in JSON format (sorted fastest-first)</span>
+</span><span data-line="486">    <span class="n">json_file</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;proxies.json&quot;</span>
+</span><span data-line="487">    <span class="n">json_data</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="488">        <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="p">,</span>
+</span><span data-line="489">        <span class="s2">&quot;proxies&quot;</span><span class="p">:</span> <span class="p">{</span>
+</span><span data-line="490">            <span class="n">protocol</span><span class="p">:</span> <span class="n">_sort_by_speed</span><span class="p">(</span><span class="n">addr_times</span><span class="p">)</span>
+</span><span data-line="491">            <span class="k">for</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">addr_times</span> <span class="ow">in</span> <span class="n">proxies_by_protocol</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+</span><span data-line="492">        <span class="p">},</span>
+</span><span data-line="493">    <span class="p">}</span>
+</span><span data-line="494">    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">json_file</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span data-line="495">        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">json_data</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span><span data-line="496">    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved JSON to </span><span class="si">{</span><span class="n">json_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span data-line="497">
-</span><span data-line="498">
+</span><span data-line="498">    <span class="c1"># Save metadata</span>
+</span><span data-line="499">    <span class="n">meta_file</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;metadata.json&quot;</span>
+</span><span data-line="500">    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">meta_file</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span data-line="501">        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span><span data-line="502">    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Saved metadata to </span><span class="si">{</span><span class="n">meta_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="503">
+</span><span data-line="504">    <span class="k">return</span> <span class="p">{</span><span class="n">protocol</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">addrs</span><span class="p">)</span> <span class="k">for</span> <span class="n">protocol</span><span class="p">,</span> <span class="n">addrs</span> <span class="ow">in</span> <span class="n">proxies_by_protocol</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span></div>
+
+</span><span data-line="505">
+</span><span data-line="506">
 <div class="viewcode-block" id="export_for_web">
 <a class="viewcode-back" href="../../autoapi/proxywhirl/exports/index.html#proxywhirl.exports.export_for_web">[docs]</a>
-</span><span data-line="499"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">export_for_web</span><span class="p">(</span>
-</span><span data-line="500">    <span class="n">db_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
-</span><span data-line="501">    <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
-</span><span data-line="502">    <span class="n">include_stats</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span data-line="503">    <span class="n">include_rich_proxies</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span data-line="504">    <span class="n">include_proxy_lists</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span data-line="505">    <span class="n">max_age_hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">72</span><span class="p">,</span>
-</span><span data-line="506"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]:</span>
-</span><span data-line="507"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Export data for the web dashboard.</span>
-</span><span data-line="508">
-</span><span data-line="509"><span class="sd">    Args:</span>
-</span><span data-line="510"><span class="sd">        db_path: Path to SQLite database</span>
-</span><span data-line="511"><span class="sd">        output_dir: Directory to write output files</span>
-</span><span data-line="512"><span class="sd">        include_stats: Whether to generate stats.json</span>
-</span><span data-line="513"><span class="sd">        include_rich_proxies: Whether to generate proxies-rich.json</span>
-</span><span data-line="514"><span class="sd">        include_proxy_lists: Whether to generate text files and metadata.json</span>
-</span><span data-line="515"><span class="sd">        max_age_hours: Only include proxies validated within this time window.</span>
-</span><span data-line="516"><span class="sd">            Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.</span>
-</span><span data-line="517">
-</span><span data-line="518"><span class="sd">    Returns:</span>
-</span><span data-line="519"><span class="sd">        dict[str, Path]: Mapping of output type to file path.</span>
-</span><span data-line="520"><span class="sd">    &quot;&quot;&quot;</span>
-</span><span data-line="521">    <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span data-line="522">    <span class="n">outputs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="523">
-</span><span data-line="524">    <span class="c1"># Check if we need database access</span>
-</span><span data-line="525">    <span class="n">needs_db</span> <span class="o">=</span> <span class="p">(</span><span class="n">include_proxy_lists</span> <span class="ow">or</span> <span class="n">include_rich_proxies</span><span class="p">)</span> <span class="ow">and</span> <span class="n">db_path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
-</span><span data-line="526">
-</span><span data-line="527">    <span class="k">if</span> <span class="n">needs_db</span><span class="p">:</span>
-</span><span data-line="528">        <span class="n">storage</span> <span class="o">=</span> <span class="n">SQLiteStorage</span><span class="p">(</span><span class="n">db_path</span><span class="p">)</span>
-</span><span data-line="529">        <span class="k">await</span> <span class="n">storage</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
-</span><span data-line="530">
-</span><span data-line="531">        <span class="k">try</span><span class="p">:</span>
-</span><span data-line="532">            <span class="c1"># Generate proxy list files first (metadata.json, txt files, proxies.json)</span>
-</span><span data-line="533">            <span class="c1"># This must happen before stats since stats reads from these files</span>
-</span><span data-line="534">            <span class="k">if</span> <span class="n">include_proxy_lists</span><span class="p">:</span>
-</span><span data-line="535">                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generating proxy list files from database...&quot;</span><span class="p">)</span>
-</span><span data-line="536">                <span class="n">counts</span> <span class="o">=</span> <span class="k">await</span> <span class="n">generate_proxy_lists</span><span class="p">(</span><span class="n">storage</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">max_age_hours</span><span class="p">)</span>
-</span><span data-line="537">                <span class="n">outputs</span><span class="p">[</span><span class="s2">&quot;metadata&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;metadata.json&quot;</span>
-</span><span data-line="538">                <span class="n">outputs</span><span class="p">[</span><span class="s2">&quot;proxies_json&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;proxies.json&quot;</span>
-</span><span data-line="539">                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Proxy lists generated: </span><span class="si">{</span><span class="n">counts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="540">
-</span><span data-line="541">            <span class="c1"># Generate rich proxy data (proxies-rich.json)</span>
-</span><span data-line="542">            <span class="k">if</span> <span class="n">include_rich_proxies</span><span class="p">:</span>
-</span><span data-line="543">                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generating rich proxy data from database...&quot;</span><span class="p">)</span>
-</span><span data-line="544">                <span class="n">rich_data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">generate_rich_proxies</span><span class="p">(</span><span class="n">storage</span><span class="p">,</span> <span class="n">max_age_hours</span><span class="o">=</span><span class="n">max_age_hours</span><span class="p">)</span>
-</span><span data-line="545">                <span class="n">rich_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;proxies-rich.json&quot;</span>
-</span><span data-line="546">                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">rich_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-</span><span data-line="547">                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">rich_data</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
-</span><span data-line="548">                <span class="n">outputs</span><span class="p">[</span><span class="s2">&quot;proxies_rich&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rich_path</span>
-</span><span data-line="549">                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Rich proxy data saved to </span><span class="si">{</span><span class="n">rich_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="550">                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total rich proxies: </span><span class="si">{</span><span class="n">rich_data</span><span class="p">[</span><span class="s1">&#39;total&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="551">        <span class="k">finally</span><span class="p">:</span>
-</span><span data-line="552">            <span class="k">await</span> <span class="n">storage</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-</span><span data-line="553">    <span class="k">elif</span> <span class="n">include_proxy_lists</span> <span class="ow">or</span> <span class="n">include_rich_proxies</span><span class="p">:</span>
-</span><span data-line="554">        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Database not found at </span><span class="si">{</span><span class="n">db_path</span><span class="si">}</span><span class="s2">, skipping database exports&quot;</span><span class="p">)</span>
-</span><span data-line="555">
-</span><span data-line="556">    <span class="c1"># Generate stats from text files (reads metadata.json and txt files)</span>
-</span><span data-line="557">    <span class="k">if</span> <span class="n">include_stats</span><span class="p">:</span>
-</span><span data-line="558">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generating stats.json...&quot;</span><span class="p">)</span>
-</span><span data-line="559">        <span class="n">stats</span> <span class="o">=</span> <span class="n">generate_stats_from_files</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
-</span><span data-line="560">        <span class="n">stats_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;stats.json&quot;</span>
-</span><span data-line="561">        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">stats_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-</span><span data-line="562">            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">stats</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-</span><span data-line="563">        <span class="n">outputs</span><span class="p">[</span><span class="s2">&quot;stats&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stats_path</span>
-</span><span data-line="564">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Stats saved to </span><span class="si">{</span><span class="n">stats_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="565">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total proxies: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;proxies&#39;</span><span class="p">][</span><span class="s1">&#39;total&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span data-line="566">
-</span><span data-line="567">    <span class="k">return</span> <span class="n">outputs</span></div>
+</span><span data-line="507"><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">export_for_web</span><span class="p">(</span>
+</span><span data-line="508">    <span class="n">db_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+</span><span data-line="509">    <span class="n">output_dir</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+</span><span data-line="510">    <span class="n">include_stats</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span data-line="511">    <span class="n">include_rich_proxies</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span data-line="512">    <span class="n">include_proxy_lists</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span data-line="513">    <span class="n">max_age_hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">72</span><span class="p">,</span>
+</span><span data-line="514"><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]:</span>
+</span><span data-line="515"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Export data for the web dashboard.</span>
+</span><span data-line="516">
+</span><span data-line="517"><span class="sd">    Args:</span>
+</span><span data-line="518"><span class="sd">        db_path: Path to SQLite database</span>
+</span><span data-line="519"><span class="sd">        output_dir: Directory to write output files</span>
+</span><span data-line="520"><span class="sd">        include_stats: Whether to generate stats.json</span>
+</span><span data-line="521"><span class="sd">        include_rich_proxies: Whether to generate proxies-rich.json</span>
+</span><span data-line="522"><span class="sd">        include_proxy_lists: Whether to generate text files and metadata.json</span>
+</span><span data-line="523"><span class="sd">        max_age_hours: Only include proxies validated within this time window.</span>
+</span><span data-line="524"><span class="sd">            Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.</span>
+</span><span data-line="525">
+</span><span data-line="526"><span class="sd">    Returns:</span>
+</span><span data-line="527"><span class="sd">        dict[str, Path]: Mapping of output type to file path.</span>
+</span><span data-line="528"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span data-line="529">    <span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span data-line="530">    <span class="n">outputs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="531">
+</span><span data-line="532">    <span class="c1"># Check if we need database access</span>
+</span><span data-line="533">    <span class="n">needs_db</span> <span class="o">=</span> <span class="p">(</span><span class="n">include_proxy_lists</span> <span class="ow">or</span> <span class="n">include_rich_proxies</span><span class="p">)</span> <span class="ow">and</span> <span class="n">db_path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span>
+</span><span data-line="534">
+</span><span data-line="535">    <span class="k">if</span> <span class="n">needs_db</span><span class="p">:</span>
+</span><span data-line="536">        <span class="n">storage</span> <span class="o">=</span> <span class="n">SQLiteStorage</span><span class="p">(</span><span class="n">db_path</span><span class="p">)</span>
+</span><span data-line="537">        <span class="k">await</span> <span class="n">storage</span><span class="o">.</span><span class="n">initialize</span><span class="p">()</span>
+</span><span data-line="538">
+</span><span data-line="539">        <span class="k">try</span><span class="p">:</span>
+</span><span data-line="540">            <span class="c1"># Generate proxy list files first (metadata.json, txt files, proxies.json)</span>
+</span><span data-line="541">            <span class="c1"># This must happen before stats since stats reads from these files</span>
+</span><span data-line="542">            <span class="k">if</span> <span class="n">include_proxy_lists</span><span class="p">:</span>
+</span><span data-line="543">                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generating proxy list files from database...&quot;</span><span class="p">)</span>
+</span><span data-line="544">                <span class="n">counts</span> <span class="o">=</span> <span class="k">await</span> <span class="n">generate_proxy_lists</span><span class="p">(</span><span class="n">storage</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">max_age_hours</span><span class="p">)</span>
+</span><span data-line="545">                <span class="n">outputs</span><span class="p">[</span><span class="s2">&quot;metadata&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;metadata.json&quot;</span>
+</span><span data-line="546">                <span class="n">outputs</span><span class="p">[</span><span class="s2">&quot;proxies_json&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;proxies.json&quot;</span>
+</span><span data-line="547">                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Proxy lists generated: </span><span class="si">{</span><span class="n">counts</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="548">
+</span><span data-line="549">            <span class="c1"># Generate rich proxy data (proxies-rich.json)</span>
+</span><span data-line="550">            <span class="k">if</span> <span class="n">include_rich_proxies</span><span class="p">:</span>
+</span><span data-line="551">                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generating rich proxy data from database...&quot;</span><span class="p">)</span>
+</span><span data-line="552">                <span class="n">rich_data</span> <span class="o">=</span> <span class="k">await</span> <span class="n">generate_rich_proxies</span><span class="p">(</span><span class="n">storage</span><span class="p">,</span> <span class="n">max_age_hours</span><span class="o">=</span><span class="n">max_age_hours</span><span class="p">)</span>
+</span><span data-line="553">                <span class="n">rich_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;proxies-rich.json&quot;</span>
+</span><span data-line="554">                <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">rich_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span data-line="555">                    <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">rich_data</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span>
+</span><span data-line="556">                <span class="n">outputs</span><span class="p">[</span><span class="s2">&quot;proxies_rich&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">rich_path</span>
+</span><span data-line="557">                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Rich proxy data saved to </span><span class="si">{</span><span class="n">rich_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="558">                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total rich proxies: </span><span class="si">{</span><span class="n">rich_data</span><span class="p">[</span><span class="s1">&#39;total&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="559">        <span class="k">finally</span><span class="p">:</span>
+</span><span data-line="560">            <span class="k">await</span> <span class="n">storage</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+</span><span data-line="561">    <span class="k">elif</span> <span class="n">include_proxy_lists</span> <span class="ow">or</span> <span class="n">include_rich_proxies</span><span class="p">:</span>
+</span><span data-line="562">        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Database not found at </span><span class="si">{</span><span class="n">db_path</span><span class="si">}</span><span class="s2">, skipping database exports&quot;</span><span class="p">)</span>
+</span><span data-line="563">
+</span><span data-line="564">    <span class="c1"># Generate stats from text files (reads metadata.json and txt files)</span>
+</span><span data-line="565">    <span class="k">if</span> <span class="n">include_stats</span><span class="p">:</span>
+</span><span data-line="566">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Generating stats.json...&quot;</span><span class="p">)</span>
+</span><span data-line="567">        <span class="n">stats</span> <span class="o">=</span> <span class="n">generate_stats_from_files</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
+</span><span data-line="568">        <span class="n">stats_path</span> <span class="o">=</span> <span class="n">output_dir</span> <span class="o">/</span> <span class="s2">&quot;stats.json&quot;</span>
+</span><span data-line="569">        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">stats_path</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span data-line="570">            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">stats</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span><span data-line="571">        <span class="n">outputs</span><span class="p">[</span><span class="s2">&quot;stats&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stats_path</span>
+</span><span data-line="572">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Stats saved to </span><span class="si">{</span><span class="n">stats_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="573">        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Total proxies: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;proxies&#39;</span><span class="p">][</span><span class="s1">&#39;total&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span data-line="574">
+</span><span data-line="575">    <span class="k">return</span> <span class="n">outputs</span></div>
 
 </span></pre></div>
         </article><button class="back-to-top" type="button">
