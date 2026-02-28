@@ -64,16 +64,17 @@ jobs:
       run: |
         # Re-validate all existing proxies in the database
         # Failed proxies are marked as DEAD, cleaned up after this step
-        # Use 5s timeout and 2000 concurrency (stable for GitHub Actions)
-        uv run proxywhirl fetch --revalidate --timeout 5 --concurrency 2000 --no-export
+        # Use 10s timeout to capture more working proxies (response-time sorting
+        # in export ensures fastest proxies appear first in output files)
+        uv run proxywhirl fetch --revalidate --timeout 10 --concurrency 2000 --no-export
 
     - name: Fetch new proxies from sources
       timeout-minutes: 60
       run: |
         # Fetch and validate NEW proxies from all sources, save to database.
         # No export yet - we clean up dead proxies first.
-        # Use 5s timeout and 2000 concurrency (stable for GitHub Actions)
-        uv run proxywhirl fetch --timeout 5 --concurrency 2000 --no-export
+        # Use 10s timeout for more coverage; fastest proxies sort to top of exports
+        uv run proxywhirl fetch --timeout 10 --concurrency 2000 --no-export
 
     - name: Cleanup dead proxies before export
       run: |

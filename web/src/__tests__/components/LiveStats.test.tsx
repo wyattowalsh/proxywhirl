@@ -100,6 +100,7 @@ describe('LiveStats', () => {
       },
     ]
     render(<LiveStats proxies={proxiesWithoutTiming} generatedAt="2024-01-01T00:00:00Z" />)
-    expect(screen.getByText('—')).toBeInTheDocument()
+    const dashes = screen.getAllByText('—')
+    expect(dashes.length).toBe(2) // avg response time + avg reliability
   })
 })

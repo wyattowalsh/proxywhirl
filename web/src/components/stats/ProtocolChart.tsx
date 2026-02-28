@@ -8,7 +8,7 @@ interface ProtocolChartProps {
 }
 
 export function ProtocolChart({ stats }: ProtocolChartProps) {
-  const data = PROTOCOLS.filter(p => p !== "https").map((protocol) => ({
+  const data = PROTOCOLS.map((protocol) => ({
     name: PROTOCOL_LABELS[protocol],
     value: stats.proxies.by_protocol[protocol],
     color: PROTOCOL_COLORS[protocol],

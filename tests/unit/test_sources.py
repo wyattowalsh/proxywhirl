@@ -455,6 +455,40 @@ class TestValidateSourcesSync:
         assert isinstance(report, SourceValidationReport)
 
 
+class TestSourceProtocolTagging:
+    """Tests for source protocol tagging consistency."""
+
+    def test_https_named_sources_have_protocol_https(self):
+        """Every source with _HTTPS in its name must have protocol='https'."""
+        import proxywhirl.sources as src_module
+
+        for name in dir(src_module):
+            if not name.startswith("GITHUB_") or "_HTTPS" not in name:
+                continue
+            source = getattr(src_module, name)
+            if not isinstance(source, ProxySourceConfig):
+                continue
+            if not source.enabled:
+                continue
+            assert source.protocol == "https", (
+                f"{name} is an HTTPS source but protocol={source.protocol!r}"
+            )
+
+    def test_socks4_plain_text_sources_have_protocol_socks4(self):
+        """Plain text SOCKS4 sources must have protocol='socks4'."""
+        for source in ALL_SOCKS4_SOURCES:
+            if not source.enabled or source.custom_parser is not None:
+                continue
+            assert source.protocol == "socks4", f"SOCKS4 source missing protocol: {source.url}"
+
+    def test_socks5_plain_text_sources_have_protocol_socks5(self):
+        """Plain text SOCKS5 sources must have protocol='socks5'."""
+        for source in ALL_SOCKS5_SOURCES:
+            if not source.enabled or source.custom_parser is not None:
+                continue
+            assert source.protocol == "socks5", f"SOCKS5 source missing protocol: {source.url}"
+
+
 class TestSourceCollectionIntegrity:
     """Tests for source collection integrity."""
 

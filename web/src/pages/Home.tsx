@@ -279,7 +279,7 @@ export function Home() {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {PROTOCOLS.filter((p) => p !== "https").map((protocol) => {
+            {PROTOCOLS.map((protocol) => {
               const filename = `${protocol}.txt`
               const fileSize = stats.file_sizes[filename]
               const count = stats.proxies.by_protocol[protocol as Protocol]

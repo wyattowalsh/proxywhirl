@@ -176,8 +176,8 @@ export type Protocol = "http" | "https" | "socks4" | "socks5"
 
 export const PROTOCOLS: Protocol[] = ["http", "https", "socks4", "socks5"]
 
-// Protocols available for filtering (exclude https as it shares same IPs as http)
-export const FILTERABLE_PROTOCOLS: Protocol[] = ["http", "socks4", "socks5"]
+// All protocols available for filtering
+export const FILTERABLE_PROTOCOLS: Protocol[] = ["http", "https", "socks4", "socks5"]
 
 export const PROTOCOL_COLORS: Record<Protocol, string> = {
   http: "#3b82f6",    // blue-500

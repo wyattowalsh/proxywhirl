@@ -346,7 +346,7 @@ export function RichProxyTable({
             <div className="space-y-2">
               <p className="text-sm font-medium">Protocol</p>
               <div className="flex flex-wrap gap-1">
-                {PROTOCOLS.filter(p => p !== "https").map((protocol) => (
+                {PROTOCOLS.map((protocol) => (
                   <Button
                     key={protocol}
                     variant={filters.protocols.includes(protocol) ? "default" : "outline"}

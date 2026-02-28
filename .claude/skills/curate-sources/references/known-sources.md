@@ -41,7 +41,7 @@ Current sources in `proxywhirl/sources.py`. Use this to avoid adding duplicates.
 | `GITHUB_MONOSANS_HTTP` | monosans/proxy-list | http | Yes | HTTP, RECOMMENDED |
 | `GITHUB_MONOSANS_SOCKS4` | monosans/proxy-list | socks4 | Yes | SOCKS4 |
 | `GITHUB_MONOSANS_SOCKS5` | monosans/proxy-list | socks5 | Yes | SOCKS5, RECOMMENDED |
-| `GITHUB_ROOSTERKID_HTTP` | roosterkid/openproxylist | http | No | HTTP |
+| `GITHUB_ROOSTERKID_HTTPS` | roosterkid/openproxylist | https | No | HTTPS |
 | `GITHUB_ROOSTERKID_SOCKS4` | roosterkid/openproxylist | socks4 | No | SOCKS4 |
 | `GITHUB_ROOSTERKID_SOCKS5` | roosterkid/openproxylist | socks5 | No | SOCKS5 |
 | `GITHUB_SUNNY9577_HTTP` | sunny9577/proxy-scraper | http | No | HTTP |
@@ -121,7 +121,7 @@ Current sources in `proxywhirl/sources.py`. Use this to avoid adding duplicates.
 | `GITHUB_SKILLTER_SOCKS4` | Skillter/ProxyGather | socks4 | Yes | SOCKS4 |
 | `GITHUB_SKILLTER_SOCKS5` | Skillter/ProxyGather | socks5 | Yes | SOCKS5 |
 | `GITHUB_SKILLTER_ALL` | Skillter/ProxyGather | http | Yes | HTTP |
-| `GITHUB_R00TEE_HTTP` | r00tee/Proxy-List | http | No | HTTP |
+| `GITHUB_R00TEE_HTTPS` | r00tee/Proxy-List | https | No | HTTPS |
 | `GITHUB_R00TEE_SOCKS4` | r00tee/Proxy-List | socks4 | No | SOCKS4 |
 | `GITHUB_R00TEE_SOCKS5` | r00tee/Proxy-List | socks5 | No | SOCKS5 |
 | `GITHUB_SEVENWORKS_HTTP` | SevenworksDev/proxy-list | http | No | HTTP |

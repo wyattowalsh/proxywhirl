@@ -146,9 +146,10 @@ GITHUB_MONOSANS_SOCKS5 = ProxySourceConfig(
 )
 
 # roosterkid/openproxylist
-GITHUB_ROOSTERKID_HTTP = ProxySourceConfig(
+GITHUB_ROOSTERKID_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/roosterkid/openproxylist/main/HTTPS_RAW.txt",
     format="plain_text",
+    protocol="https",
 )
 
 GITHUB_ROOSTERKID_SOCKS4 = ProxySourceConfig(
@@ -202,6 +203,7 @@ GITHUB_MMPX12_HTTP = ProxySourceConfig(
 GITHUB_MMPX12_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/mmpx12/proxy-list/master/https.txt",
     format="plain_text",
+    protocol="https",
 )
 
 GITHUB_MMPX12_SOCKS4 = ProxySourceConfig(
@@ -267,6 +269,7 @@ GITHUB_OPENPROXY_HTTP = ProxySourceConfig(
 GITHUB_OPENPROXY_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/https/https.txt",
     format="plain_text",
+    protocol="https",
 )
 
 GITHUB_OPENPROXY_SOCKS4 = ProxySourceConfig(
@@ -291,6 +294,7 @@ GITHUB_VAKHOV_HTTP = ProxySourceConfig(
 GITHUB_VAKHOV_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/vakhov/fresh-proxy-list/master/https.txt",
     format="plain_text",
+    protocol="https",
     trusted=True,
 )
 
@@ -371,6 +375,7 @@ GITHUB_ANONYM0US_HTTP = ProxySourceConfig(
 GITHUB_ANONYM0US_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Anonym0usWork1221/Free-Proxies/main/proxy_files/https_proxies.txt",
     format="plain_text",
+    protocol="https",
 )
 
 GITHUB_ANONYM0US_SOCKS4 = ProxySourceConfig(
@@ -419,6 +424,7 @@ GITHUB_TSPRNAY_HTTP = ProxySourceConfig(
 GITHUB_TSPRNAY_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Tsprnay/Proxy-lists/master/proxies/https.txt",
     format="plain_text",
+    protocol="https",
 )
 
 GITHUB_TSPRNAY_SOCKS4 = ProxySourceConfig(
@@ -460,6 +466,7 @@ GITHUB_ERCINDEDEOGLU_HTTP = ProxySourceConfig(
 GITHUB_ERCINDEDEOGLU_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/https.txt",
     format="plain_text",
+    protocol="https",
 )
 
 GITHUB_ERCINDEDEOGLU_SOCKS4 = ProxySourceConfig(
@@ -484,6 +491,7 @@ GITHUB_IPLOCATE_HTTP = ProxySourceConfig(
 GITHUB_IPLOCATE_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/iplocate/free-proxy-list/main/protocols/https.txt",
     format="plain_text",
+    protocol="https",
     trusted=True,
 )
 
@@ -535,6 +543,7 @@ GITHUB_ZLOI_HTTP = ProxySourceConfig(
 GITHUB_ZLOI_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/zloi-user/hideip.me/master/https.txt",
     format="plain_text",
+    protocol="https",
 )
 
 GITHUB_ZLOI_SOCKS4 = ProxySourceConfig(
@@ -601,9 +610,10 @@ GITHUB_SKILLTER_ALL = ProxySourceConfig(
 # =============================================================================
 
 # r00tee/Proxy-List - 170 stars, 5-min updates
-GITHUB_R00TEE_HTTP = ProxySourceConfig(
+GITHUB_R00TEE_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/r00tee/Proxy-List/main/Https.txt",
     format="plain_text",
+    protocol="https",
 )
 
 GITHUB_R00TEE_SOCKS4 = ProxySourceConfig(
@@ -627,6 +637,7 @@ GITHUB_SEVENWORKS_HTTP = ProxySourceConfig(
 GITHUB_SEVENWORKS_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/SevenworksDev/proxy-list/main/proxies/https.txt",
     format="plain_text",
+    protocol="https",
 )
 
 GITHUB_SEVENWORKS_SOCKS4 = ProxySourceConfig(
@@ -779,7 +790,7 @@ ALL_HTTP_SOURCES = [
     # GitHub sources (high volume)
     GITHUB_THESPEEDX_HTTP,
     GITHUB_MONOSANS_HTTP,
-    GITHUB_ROOSTERKID_HTTP,
+    GITHUB_ROOSTERKID_HTTPS,
     GITHUB_SUNNY9577_HTTP,
     GITHUB_SUNNY9577_ALL,
     GITHUB_MMPX12_HTTP,
@@ -813,7 +824,7 @@ ALL_HTTP_SOURCES = [
     GITHUB_SKILLTER_HTTP,
     GITHUB_SKILLTER_ALL,
     # New sources (Feb 2026)
-    GITHUB_R00TEE_HTTP,
+    GITHUB_R00TEE_HTTPS,
     GITHUB_SEVENWORKS_HTTP,
     GITHUB_SEVENWORKS_HTTPS,
     GITHUB_VANNDEV_HTTP,

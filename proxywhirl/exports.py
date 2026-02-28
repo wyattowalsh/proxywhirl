@@ -295,7 +295,7 @@ def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
 
     # Calculate unique proxies
     unique_proxies = set()
-    for protocol in ["http", "socks4", "socks5"]:
+    for protocol in ["http", "https", "socks4", "socks5"]:
         path = proxy_dir / f"{protocol}.txt"
         if path.exists():
             with open(path) as f:
@@ -303,7 +303,6 @@ def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
                     if line.strip():
                         unique_proxies.add(line.strip())
 
-    # Use unique count as the primary total (avoids HTTP/HTTPS double-counting)
     unique_count = len(unique_proxies) if unique_proxies else 0
 
     # Build health stats from status aggregation
@@ -394,6 +393,14 @@ def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
     }
 
 
+def _sort_by_speed(addr_times: dict[str, float | None]) -> list[str]:
+    """Sort addresses by response time (fastest first, unknowns last)."""
+    return sorted(
+        addr_times.keys(),
+        key=lambda a: (addr_times[a] is None, addr_times[a] or float("inf")),
+    )
+
+
 async def generate_proxy_lists(
     storage: SQLiteStorage,
     output_dir: Path,
@@ -423,12 +430,13 @@ async def generate_proxy_lists(
     else:
         proxies_data = await storage.load()
 
-    # Group proxies by protocol
-    proxies_by_protocol: dict[str, set[str]] = {
-        "http": set(),
-        "https": set(),
-        "socks4": set(),
-        "socks5": set(),
+    # Group proxies by protocol, tracking response time for sorting
+    # Maps protocol -> {addr: best_response_time_ms} (None = unknown)
+    proxies_by_protocol: dict[str, dict[str, float | None]] = {
+        "http": {},
+        "https": {},
+        "socks4": {},
+        "socks5": {},
     }
 
     for proxy in proxies_data:
@@ -438,14 +446,13 @@ async def generate_proxy_lists(
 
         addr = f"{ip}:{port}"
         protocol = (proxy.get("protocol") or "http").lower()
+        response_time = proxy.get("avg_response_time_ms")
 
-        if protocol in ("http", "https"):
-            proxies_by_protocol["http"].add(addr)
-            proxies_by_protocol["https"].add(addr)
-        elif protocol == "socks4":
-            proxies_by_protocol["socks4"].add(addr)
-        elif protocol == "socks5":
-            proxies_by_protocol["socks5"].add(addr)
+        if protocol in proxies_by_protocol:
+            existing = proxies_by_protocol[protocol].get(addr)
+            # Keep the best (lowest) response time for deduped addresses
+            if existing is None or (response_time is not None and response_time < existing):
+                proxies_by_protocol[protocol][addr] = response_time
 
     timestamp = datetime.now(timezone.utc).isoformat()
     total_sources = len(ALL_HTTP_SOURCES) + len(ALL_SOCKS4_SOURCES) + len(ALL_SOCKS5_SOURCES)
@@ -453,34 +460,35 @@ async def generate_proxy_lists(
     metadata = {
         "generated_at": timestamp,
         "total_sources": total_sources,
-        "counts": {protocol: len(proxy_set) for protocol, proxy_set in proxies_by_protocol.items()},
+        "counts": {protocol: len(addrs) for protocol, addrs in proxies_by_protocol.items()},
     }
 
-    # Save each protocol in TXT format
-    for protocol, proxy_set in proxies_by_protocol.items():
+    # Save each protocol in TXT format (sorted fastest-first)
+    for protocol, addr_times in proxies_by_protocol.items():
         txt_file = output_dir / f"{protocol}.txt"
         with open(txt_file, "w") as f:
-            for proxy_addr in sorted(proxy_set):
+            for proxy_addr in _sort_by_speed(addr_times):
                 f.write(f"{proxy_addr}\n")
-        logger.info(f"Saved {len(proxy_set)} {protocol} proxies to {txt_file}")
+        logger.info(f"Saved {len(addr_times)} {protocol} proxies to {txt_file}")
 
-    # Save all proxies in one file (skip https since it duplicates http)
+    # Save all proxies in one file (sorted fastest-first per section)
     all_txt = output_dir / "all.txt"
     with open(all_txt, "w") as f:
-        for protocol in ["http", "socks4", "socks5"]:
-            proxy_set = proxies_by_protocol[protocol]
-            f.write(f"# {protocol.upper()} Proxies ({len(proxy_set)})\n")
-            for proxy_addr in sorted(proxy_set):
+        for protocol in ["http", "https", "socks4", "socks5"]:
+            addr_times = proxies_by_protocol[protocol]
+            f.write(f"# {protocol.upper()} Proxies ({len(addr_times)})\n")
+            for proxy_addr in _sort_by_speed(addr_times):
                 f.write(f"{proxy_addr}\n")
             f.write("\n")
     logger.info(f"Saved all proxies to {all_txt}")
 
-    # Save in JSON format
+    # Save in JSON format (sorted fastest-first)
     json_file = output_dir / "proxies.json"
     json_data = {
         "metadata": metadata,
         "proxies": {
-            protocol: sorted(proxy_set) for protocol, proxy_set in proxies_by_protocol.items()
+            protocol: _sort_by_speed(addr_times)
+            for protocol, addr_times in proxies_by_protocol.items()
         },
     }
     with open(json_file, "w") as f:
@@ -493,7 +501,7 @@ async def generate_proxy_lists(
         json.dump(metadata, f, indent=2)
     logger.info(f"Saved metadata to {meta_file}")
 
-    return {protocol: len(proxy_set) for protocol, proxy_set in proxies_by_protocol.items()}
+    return {protocol: len(addrs) for protocol, addrs in proxies_by_protocol.items()}
 
 
 async def export_for_web(

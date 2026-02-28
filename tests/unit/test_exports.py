@@ -13,6 +13,7 @@ import pytest
 
 from proxywhirl.exports import (
     export_for_web,
+    generate_proxy_lists,
     generate_rich_proxies,
     generate_stats_from_files,
     parse_proxy_url,
@@ -231,8 +232,8 @@ class TestGenerateStatsFromFiles:
         assert result["proxies"]["by_protocol"]["https"] == 1
         assert result["proxies"]["by_protocol"]["socks4"] == 2
         assert result["proxies"]["by_protocol"]["socks5"] == 0
-        # Total uses unique count (http + socks4 + socks5, not https to avoid duplicates)
-        assert result["proxies"]["total"] == 4
+        # Total uses unique count across all protocols
+        assert result["proxies"]["total"] == 5
 
     def test_without_metadata_file(self, tmp_path: Path) -> None:
         """Test generating stats without metadata.json uses defaults."""
@@ -398,3 +399,46 @@ class TestExportForWeb:
                 )
 
         mock_storage.close.assert_called_once()
+
+
+class TestGenerateProxyListsProtocolSeparation:
+    """Test that generate_proxy_lists properly separates HTTP and HTTPS proxies."""
+
+    async def test_http_and_https_are_separated(self, tmp_path: Path) -> None:
+        """http.txt and https.txt must contain different proxies."""
+        mock_storage = AsyncMock()
+        mock_storage.load_validated.return_value = [
+            {"url": "http://1.1.1.1:8080", "protocol": "http"},
+            {"url": "http://2.2.2.2:8080", "protocol": "http"},
+            {"url": "https://3.3.3.3:443", "protocol": "https"},
+            {"url": "socks4://4.4.4.4:1080", "protocol": "socks4"},
+        ]
+
+        counts = await generate_proxy_lists(mock_storage, tmp_path, max_age_hours=72)
+
+        assert counts["http"] == 2
+        assert counts["https"] == 1
+        assert counts["socks4"] == 1
+        assert counts["socks5"] == 0
+
+        http_lines = (tmp_path / "http.txt").read_text().strip().splitlines()
+        https_lines = (tmp_path / "https.txt").read_text().strip().splitlines()
+
+        assert len(http_lines) == 2
+        assert len(https_lines) == 1
+        assert "3.3.3.3:443" in https_lines
+        assert "3.3.3.3:443" not in http_lines
+
+    async def test_all_txt_includes_https_section(self, tmp_path: Path) -> None:
+        """all.txt must include an HTTPS section."""
+        mock_storage = AsyncMock()
+        mock_storage.load_validated.return_value = [
+            {"url": "http://1.1.1.1:8080", "protocol": "http"},
+            {"url": "https://2.2.2.2:443", "protocol": "https"},
+        ]
+
+        await generate_proxy_lists(mock_storage, tmp_path, max_age_hours=72)
+
+        all_content = (tmp_path / "all.txt").read_text()
+        assert "# HTTPS Proxies" in all_content
+        assert "# HTTP Proxies" in all_content

@@ -482,6 +482,12 @@ class ProxyValidator:
         "http://www.msftconnecttest.com/connecttest.txt",  # Microsoft
     ]
 
+    # HTTPS-specific test URLs for validating HTTPS proxy connectivity
+    HTTPS_TEST_URLS = [
+        "https://www.gstatic.com/generate_204",  # Google HTTPS
+        "https://cp.cloudflare.com/generate_204",  # Cloudflare HTTPS
+    ]
+
     def __init__(
         self,
         timeout: float = 5.0,
@@ -504,6 +510,7 @@ class ProxyValidator:
         self.timeout = timeout
         self._custom_test_url = test_url  # None means rotate
         self._test_url_index = 0
+        self._https_test_url_index = 0
         self.level = level or ValidationLevel.STANDARD
         self.concurrency = concurrency
         self._client: httpx.AsyncClient | None = None
@@ -518,6 +525,20 @@ class ProxyValidator:
         url = self.TEST_URLS[self._test_url_index % len(self.TEST_URLS)]
         self._test_url_index += 1
         return url
+
+    def _get_test_url_for_protocol(self, protocol: str | None) -> str:
+        """Get a test URL appropriate for the proxy's protocol.
+
+        HTTPS proxies are validated against HTTPS endpoints to confirm
+        they actually support TLS tunneling.
+        """
+        if self._custom_test_url:
+            return self._custom_test_url
+        if protocol == "https":
+            url = self.HTTPS_TEST_URLS[self._https_test_url_index % len(self.HTTPS_TEST_URLS)]
+            self._https_test_url_index += 1
+            return url
+        return self.test_url
 
     async def _get_client(self) -> httpx.AsyncClient:
         """
@@ -764,6 +785,8 @@ class ProxyValidator:
             # TCP passed - now test actual proxy functionality with timing
             # httpx requires proxy at client initialization, not per-request
             is_socks = proxy_url.startswith(("socks4://", "socks5://"))
+            proxy_protocol = proxy.get("protocol")
+            target_url = self._get_test_url_for_protocol(proxy_protocol)
             start_time = time.perf_counter()
 
             if is_socks:
@@ -790,7 +813,7 @@ class ProxyValidator:
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                     },
                 ) as client:
-                    response = await client.get(self.test_url)
+                    response = await client.get(target_url)
                     elapsed_ms = (time.perf_counter() - start_time) * 1000
                     is_valid = response.status_code in (200, 204)
                     return ValidationResult(
@@ -798,15 +821,23 @@ class ProxyValidator:
                         response_time_ms=elapsed_ms if is_valid else None,
                     )
             else:
-                # Create HTTP client with proxy configured at initialization
+                # For HTTPS-tagged proxies: connect to the proxy via plaintext HTTP.
+                # Free HTTP-CONNECT proxies don't speak TLS themselves — httpx with
+                # proxy="https://..." would attempt a TLS handshake to the proxy and fail.
+                # The HTTPS target_url verifies CONNECT tunneling capability.
+                effective_proxy_url = (
+                    proxy_url.replace("https://", "http://", 1)
+                    if proxy_url.startswith("https://")
+                    else proxy_url
+                )
                 async with httpx.AsyncClient(
-                    proxy=proxy_url,
+                    proxy=effective_proxy_url,
                     timeout=self.timeout,
                     headers={
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                     },
                 ) as client:
-                    response = await client.get(self.test_url)
+                    response = await client.get(target_url)
                     elapsed_ms = (time.perf_counter() - start_time) * 1000
                     is_valid = response.status_code in (200, 204)
                     return ValidationResult(
