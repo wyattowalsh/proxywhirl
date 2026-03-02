@@ -22,7 +22,7 @@
 | Type check | `make type-check` / `uv run ty check proxywhirl/` |
 | Quality gates | `make quality-gates` |
 | Commit | `make commit` (conventional) |
-| Docs build | `uv run sphinx-build -b html docs/source docs/source/_build/html` |
+| Docs build | `make docs-html` / `cd docs && uv run sphinx-build -M html source build` |
 
 **Always prefix with `uv run`** — never bare `pytest`, `python`, or `pip`.
 
@@ -43,7 +43,7 @@
 |--------|---------|
 | `models/` | Pydantic models: `Proxy`, `ProxyPool`, `Session`, `*Config` |
 | `strategies/` | `RoundRobinStrategy`, `WeightedStrategy`, `PerformanceBasedStrategy` |
-| `rotator/` | `ProxyRotator` (sync), `AsyncProxyRotator` (async) |
+| `rotator/` | `ProxyWhirl` (sync), `AsyncProxyWhirl` (async) |
 | `storage.py` | `SQLiteStorage`, `FileStorage`, `ProxyTable` (SQLModel) |
 | `fetchers.py` | `ProxyFetcher`, `ProxyValidator`, parsers (`JSON/CSV/PlainText/HTMLTable`) |
 | `sources.py` | `ALL_SOURCES`, `RECOMMENDED_SOURCES`, predefined proxy endpoints |
@@ -72,7 +72,7 @@
 **Structure:** `proxywhirl/` (core), `tests/` (unit/integration/property/benchmarks/contract), `docs/`, `examples/`
 
 **Key Exports** (from `proxywhirl/__init__.py`):
-- Rotators: `ProxyRotator`, `AsyncProxyRotator`
+- Rotators: `ProxyWhirl`, `AsyncProxyWhirl`
 - Models: `Proxy`, `ProxyPool`, `Session`, `ProxySource`, `HealthStatus`, `ProxyChain`, `SelectionContext`, `ProxyCredentials`, `ProxySourceConfig`, `SourceStats`, `HealthMonitor`, `ProxyFormat`, `RenderMode`, `ValidationLevel`
 - Config: `ProxyConfiguration`, `StrategyConfig`, `CircuitBreakerConfig`, `RetryPolicy`, `CacheConfig`, `DataStorageConfig`
 - Components: `CacheManager`, `CircuitBreaker`, `AsyncCircuitBreaker`, `RetryExecutor`, `BrowserRenderer`, `ProxyFetcher`, `ProxyValidator`
@@ -84,7 +84,7 @@
 
 ## Testing
 
-`pytest` with `asyncio_mode=auto`. Markers: `@pytest.mark.slow`, `@pytest.mark.integration`, `@pytest.mark.network`. Fixtures in `tests/conftest.py`.
+`pytest` with `asyncio_mode=auto`. Markers: `slow`, `integration`, `unit`, `benchmark`, `snapshot`, `property`, `flaky`, `network`. Fixtures in `tests/conftest.py`.
 
 ## Code Style
 
@@ -198,7 +198,7 @@ Lint command: uv run ruff check proxywhirl/<module>.py
 
 | Scenario | Action |
 |----------|--------|
-| Sync vs Async | `ProxyRotator` for scripts/CLI; `AsyncProxyRotator` for web/high-concurrency |
+| Sync vs Async | `ProxyWhirl` for scripts/CLI; `AsyncProxyWhirl` for web/high-concurrency |
 | Tests fail | 1) `uv run pytest path::test -v` 2) Check `conftest.py` 3) `uv sync` |
 | Lint fails | 1) `make format` auto-fix 2) Manual fix remaining 3) Check ruff codes |
 | Type errors | `uv run ty check` (not mypy) — check `ty.rules` in pyproject.toml |

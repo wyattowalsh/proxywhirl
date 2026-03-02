@@ -3782,7 +3782,7 @@ wheels = [
 
 [[package]]
 name = "proxywhirl"
-version = "0.3.0"
+version = "0.3.2"
 source = { editable = "." }
 dependencies = [
     { name = "aiobreaker" },
@@ -3883,6 +3883,8 @@ docs = [
     { name = "sphinx", version = "7.4.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "sphinx", version = "8.1.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "sphinx", version = "8.2.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "sphinx-autoapi", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "sphinx-autoapi", version = "3.7.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "sphinx-copybutton" },
     { name = "sphinx-design" },
     { name = "sphinx-docsearch" },
@@ -4018,6 +4020,7 @@ requires-dist = [
     { name = "shibuya", marker = "extra == 'docs'", specifier = ">=2024.4.0" },
     { name = "slowapi", specifier = ">=0.1.9" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = ">=7.4.0" },
+    { name = "sphinx-autoapi", marker = "extra == 'docs'", specifier = ">=3.6.1" },
     { name = "sphinx-copybutton", marker = "extra == 'docs'", specifier = ">=0.5.2" },
     { name = "sphinx-design", marker = "extra == 'docs'", specifier = ">=0.6.0" },
     { name = "sphinx-docsearch", marker = "extra == 'docs'", specifier = ">=0.2.0b3" },

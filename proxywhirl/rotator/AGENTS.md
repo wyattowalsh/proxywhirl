@@ -4,17 +4,17 @@
 
 ## Modules
 
-`base.py` (`ProxyRotatorBase`), `sync.py` (`ProxyRotator`), `async_.py` (`AsyncProxyRotator`, `LRUAsyncClientPool`), `client_pool.py` (`LRUClientPool`)
+`base.py` (`ProxyRotatorBase`), `sync.py` (`ProxyWhirl`), `async_.py` (`AsyncProxyWhirl`, `LRUAsyncClientPool`), `client_pool.py` (`LRUClientPool`)
 
 ## Usage
 
 ```python
 # Sync (scripts, CLI)
-rotator = ProxyRotator(strategy="round_robin")
+rotator = ProxyWhirl(strategy="round-robin")
 proxy = rotator.get_proxy()
 
 # Async (web apps, high-concurrency)
-async_rotator = AsyncProxyRotator()
+async_rotator = AsyncProxyWhirl()
 proxy = await async_rotator.get_proxy()
 ```
 

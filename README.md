@@ -125,6 +125,7 @@ rotator.set_strategy("geo-targeted", preferences={"US": [...], "EU": [...]})
 | `round-robin` | Even distribution |
 | `random` | Unpredictable patterns |
 | `weighted` | Favor reliable proxies |
+| `least-used` | Even load balance |
 | `performance-based` | Lowest latency |
 | `geo-targeted` | Regional routing |
 | `session-persistence` | Sticky sessions |
