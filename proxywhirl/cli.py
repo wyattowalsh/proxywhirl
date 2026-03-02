@@ -1387,22 +1387,63 @@ def fetch(
         if https_validate and fetch_config["validate"] and proxies:
             http_only = [p for p in proxies if (p.get("protocol") or "http") == "http"]
             if http_only:
-                command_ctx.console.print(
-                    f"[bold]Testing {len(http_only):,} HTTP proxies for HTTPS/CONNECT support...[/bold]"
+                from rich.progress import (
+                    BarColumn,
+                    MofNCompleteColumn,
+                    Progress,
+                    SpinnerColumn,
+                    TaskProgressColumn,
+                    TextColumn,
+                    TimeElapsedColumn,
                 )
+
                 try:
                     from proxywhirl.fetchers import ProxyValidator
 
                     validator = ProxyValidator(
                         timeout=fetch_config["timeout"],
                     )
-                    https_capable = asyncio.run(
-                        validator.validate_https_capability_batch(
-                            http_only,
-                            concurrency=min(fetch_config["max_concurrent"], 500),
-                            max_results=https_max if https_max > 0 else None,
-                        )
+
+                    https_progress = Progress(
+                        SpinnerColumn(),
+                        TextColumn("[bold blue]{task.description}"),
+                        BarColumn(),
+                        TaskProgressColumn(),
+                        MofNCompleteColumn(),
+                        TextColumn("•"),
+                        TimeElapsedColumn(),
+                        TextColumn("{task.fields[status]}"),
+                        console=command_ctx.console,
+                        transient=False,
                     )
+
+                    https_task_id = None
+
+                    def https_progress_callback(done: int, total: int, valid: int) -> None:
+                        nonlocal https_task_id
+                        if https_task_id is not None:
+                            pct = (valid / done * 100) if done > 0 else 0
+                            https_progress.update(
+                                https_task_id,
+                                completed=done,
+                                status=f"[green]{valid:,} HTTPS[/green] ({pct:.1f}%)",
+                            )
+
+                    with https_progress:
+                        https_task_id = https_progress.add_task(
+                            "HTTPS CONNECT test",
+                            total=len(http_only),
+                            status="[cyan]starting...[/cyan]",
+                        )
+                        https_capable = asyncio.run(
+                            validator.validate_https_capability_batch(
+                                http_only,
+                                concurrency=min(fetch_config["max_concurrent"], 500),
+                                max_results=https_max if https_max > 0 else None,
+                                progress_callback=https_progress_callback,
+                            )
+                        )
+
                     if https_capable:
                         proxies = list(proxies) + https_capable
                         command_ctx.console.print(

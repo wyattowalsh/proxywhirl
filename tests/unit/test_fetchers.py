@@ -1016,24 +1016,27 @@ class TestProxyValidatorMethods:
 
         validator = ProxyValidator()
 
-        # Responses: proxy1=204 (pass), proxy2=403 (fail), proxy3=204 (pass)
-        responses = [
-            MagicMock(status_code=204),
-            MagicMock(status_code=403),
-            MagicMock(status_code=204),
-        ]
-        call_idx = 0
+        # proxy2 returns 403 on ALL test URLs (fails), others return 204 (pass)
+        proxy_responses: dict[str, int] = {
+            "http://proxy1.com:8080": 204,
+            "http://proxy2.com:3128": 403,
+            "http://proxy3.com:8888": 204,
+        }
+        current_proxy_url: str = ""
 
-        async def mock_get(url: str) -> MagicMock:
-            nonlocal call_idx
-            r = responses[call_idx % len(responses)]
-            call_idx += 1
-            return r
+        def make_client(**kwargs):
+            nonlocal current_proxy_url
+            current_proxy_url = kwargs.get("proxy", "")
+            client = AsyncMock()
 
-        mock_client = AsyncMock()
-        mock_client.get = mock_get
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
+            async def mock_get(url):
+                code = proxy_responses.get(current_proxy_url, 500)
+                return MagicMock(status_code=code)
+
+            client.get = mock_get
+            client.__aenter__ = AsyncMock(return_value=client)
+            client.__aexit__ = AsyncMock(return_value=False)
+            return client
 
         proxies = [
             {"url": "http://proxy1.com:8080", "protocol": "http"},
@@ -1041,10 +1044,10 @@ class TestProxyValidatorMethods:
             {"url": "http://proxy3.com:8888", "protocol": "http"},
         ]
 
-        with patch("httpx.AsyncClient", return_value=mock_client):
+        with patch("httpx.AsyncClient", side_effect=make_client):
             result = await validator.validate_https_capability_batch(proxies)
 
-        # proxy1 and proxy3 pass (204), proxy2 fails (403)
+        # proxy1 and proxy3 pass (204), proxy2 fails (403 on all URLs)
         https_urls = {r["url"] for r in result}
         assert "https://proxy1.com:8080" in https_urls
         assert "https://proxy2.com:3128" not in https_urls

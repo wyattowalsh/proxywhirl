@@ -971,8 +971,8 @@ class ProxyValidator:
         total = len(unique_proxies)
 
         # Use tight per-stage timeout for HTTPS CONNECT: connect + TLS negotiation
-        # is more overhead than plain HTTP. Cap at 8s total per stage to avoid runaway.
-        per_stage = min(float(self.timeout), 8.0)
+        # is more overhead than plain HTTP. Cap at 5s to reject dead proxies faster.
+        per_stage = min(float(self.timeout), 5.0)
         https_timeout = httpx.Timeout(
             connect=per_stage,
             read=per_stage,
@@ -980,34 +980,58 @@ class ProxyValidator:
             pool=1.0,
         )
 
-        # Rotate HTTPS test URLs across tasks
         https_test_urls = self.HTTPS_TEST_URLS
+
+        # Diagnostic failure counters
+        timeout_count = 0
+        connection_count = 0
+        http_error_count = 0
+        other_error_count = 0
 
         async def test_one(
             proxy: dict[str, Any],
-            test_url: str,
         ) -> tuple[dict[str, Any], ValidationResult]:
             nonlocal completed, valid_count
+            nonlocal timeout_count, connection_count, http_error_count, other_error_count
             if done_event.is_set():
                 completed += 1
                 return (proxy, ValidationResult(is_valid=False, response_time_ms=None))
             async with semaphore:
-                try:
-                    http_url = proxy["url"]  # always http://ip:port here
-                    start = time.perf_counter()
-                    async with httpx.AsyncClient(
-                        proxy=http_url,
-                        timeout=https_timeout,
-                        headers={
-                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-                        },
-                    ) as client:
-                        response = await client.get(test_url)
-                        elapsed_ms = (time.perf_counter() - start) * 1000
-                        is_valid = response.status_code in (200, 204)
-                except Exception:
-                    is_valid = False
-                    elapsed_ms: float | None = None
+                http_url = proxy["url"]  # always http://ip:port here
+                is_valid = False
+                elapsed_ms: float | None = None
+
+                # Try all HTTPS test URLs — succeed on any
+                for test_url in https_test_urls:
+                    if done_event.is_set():
+                        break
+                    try:
+                        start = time.perf_counter()
+                        async with httpx.AsyncClient(
+                            proxy=http_url,
+                            timeout=https_timeout,
+                            headers={
+                                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                            },
+                        ) as client:
+                            response = await client.get(test_url)
+                            elapsed_ms = (time.perf_counter() - start) * 1000
+                            # Accept any 2xx/3xx as proof CONNECT tunneling works
+                            if 200 <= response.status_code < 400:
+                                is_valid = True
+                                break
+                    except (httpx.TimeoutException, TimeoutError):
+                        timeout_count += 1
+                        continue
+                    except (httpx.ConnectError, httpx.ProxyError, OSError):
+                        connection_count += 1
+                        continue
+                    except httpx.HTTPStatusError:
+                        http_error_count += 1
+                        continue
+                    except Exception:
+                        other_error_count += 1
+                        continue
 
                 completed += 1
                 if is_valid:
@@ -1024,13 +1048,21 @@ class ProxyValidator:
                     ),
                 )
 
-        # Build tasks, rotating HTTPS test URLs
-        tasks = [
-            test_one(proxy, https_test_urls[i % len(https_test_urls)])
-            for i, proxy in enumerate(unique_proxies)
-        ]
+        tasks = [test_one(proxy) for proxy in unique_proxies]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Log diagnostic failure summary
+        logger.info(
+            "HTTPS CONNECT validation: {} tested, {} passed, "
+            "failures: {} timeout, {} connection, {} HTTP error, {} other",
+            total,
+            valid_count,
+            timeout_count,
+            connection_count,
+            http_error_count,
+            other_error_count,
+        )
 
         https_capable: list[dict[str, Any]] = []
         for result in results:
