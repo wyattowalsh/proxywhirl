@@ -949,8 +949,8 @@ class ProxyValidator:
             progress_callback: Optional callback(completed, total, valid_count).
 
         Returns:
-            List of proxy dicts with protocol='https' and url='https://...' for
-            each HTTP proxy that successfully tunnels HTTPS via CONNECT.
+            Proxy dicts with ``protocol='https'`` and ``url='https://ip:port'``
+            for each HTTP proxy that successfully tunnels HTTPS via CONNECT.
         """
         if not http_proxies:
             return []
