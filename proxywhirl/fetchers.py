@@ -928,6 +928,132 @@ class ProxyValidator:
 
         return validated
 
+    async def validate_https_capability_batch(
+        self,
+        http_proxies: list[dict[str, Any]],
+        concurrency: int = 500,
+        max_results: int | None = None,
+        progress_callback: Any | None = None,
+    ) -> list[dict[str, Any]]:
+        """Test already-validated HTTP proxies for HTTPS/CONNECT support.
+
+        Many free proxy lists label HTTP proxies as "HTTPS" after testing CONNECT
+        tunneling. This method takes working HTTP proxies and tests each via the
+        CONNECT method against an HTTPS endpoint. Proxies that pass are returned as
+        ``https://`` entries ready for DB insertion.
+
+        Args:
+            http_proxies: Already-validated HTTP proxy dicts (protocol='http').
+            concurrency: Max concurrent HTTPS tests (default 500).
+            max_results: Stop early once this many HTTPS-capable proxies are found.
+            progress_callback: Optional callback(completed, total, valid_count).
+
+        Returns:
+            List of proxy dicts with protocol='https' and url='https://...' for
+            each HTTP proxy that successfully tunnels HTTPS via CONNECT.
+        """
+        if not http_proxies:
+            return []
+
+        # Deduplicate by URL to avoid testing the same proxy multiple times
+        seen: set[str] = set()
+        unique_proxies: list[dict[str, Any]] = []
+        for p in http_proxies:
+            url = p.get("url", "")
+            if url and url not in seen:
+                seen.add(url)
+                unique_proxies.append(p)
+
+        semaphore = asyncio.Semaphore(concurrency)
+        done_event = asyncio.Event()
+        completed = 0
+        valid_count = 0
+        total = len(unique_proxies)
+
+        # Use tight per-stage timeout for HTTPS CONNECT: connect + TLS negotiation
+        # is more overhead than plain HTTP. Cap at 8s total per stage to avoid runaway.
+        per_stage = min(float(self.timeout), 8.0)
+        https_timeout = httpx.Timeout(
+            connect=per_stage,
+            read=per_stage,
+            write=2.0,
+            pool=1.0,
+        )
+
+        # Rotate HTTPS test URLs across tasks
+        https_test_urls = self.HTTPS_TEST_URLS
+
+        async def test_one(
+            proxy: dict[str, Any],
+            test_url: str,
+        ) -> tuple[dict[str, Any], ValidationResult]:
+            nonlocal completed, valid_count
+            async with semaphore:
+                if done_event.is_set():
+                    completed += 1
+                    return (proxy, ValidationResult(is_valid=False, response_time_ms=None))
+                try:
+                    http_url = proxy["url"]  # always http://ip:port here
+                    start = time.perf_counter()
+                    async with httpx.AsyncClient(
+                        proxy=http_url,
+                        timeout=https_timeout,
+                        headers={
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+                        },
+                    ) as client:
+                        response = await client.get(test_url)
+                        elapsed_ms = (time.perf_counter() - start) * 1000
+                        is_valid = response.status_code in (200, 204)
+                except Exception:
+                    is_valid = False
+                    elapsed_ms = None  # type: ignore[assignment]
+
+                completed += 1
+                if is_valid:
+                    valid_count += 1
+                    if max_results is not None and valid_count >= max_results:
+                        done_event.set()
+                if progress_callback:
+                    progress_callback(completed, total, valid_count)
+                return (
+                    proxy,
+                    ValidationResult(
+                        is_valid=is_valid,
+                        response_time_ms=elapsed_ms if is_valid else None,
+                    ),
+                )
+
+        # Build tasks, rotating HTTPS test URLs
+        tasks = [
+            test_one(proxy, https_test_urls[i % len(https_test_urls)])
+            for i, proxy in enumerate(unique_proxies)
+        ]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        https_capable: list[dict[str, Any]] = []
+        for result in results:
+            if isinstance(result, Exception) or not isinstance(result, tuple):
+                continue
+            proxy, vr = result
+            if not vr.is_valid:
+                continue
+            # Build an https:// variant of this proxy
+            http_url = proxy["url"]
+            https_url = "https://" + http_url[len("http://") :]
+            entry = {
+                **proxy,
+                "url": https_url,
+                "protocol": "https",
+                "average_response_time_ms": vr.response_time_ms,
+            }
+            https_capable.append(entry)
+            if max_results is not None and len(https_capable) >= max_results:
+                break
+
+        return https_capable
+
 
 # Retryable HTTP status codes for proxy fetching
 RETRYABLE_STATUS_CODES = {

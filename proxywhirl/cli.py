@@ -1318,6 +1318,16 @@ def fetch(
         "--prune-failed",
         help="Delete failed proxies instead of marking them as DEAD (use with --revalidate)",
     ),
+    https_validate: bool = typer.Option(
+        True,
+        "--https-validate/--no-https-validate",
+        help="After fetching, test valid HTTP proxies for HTTPS/CONNECT support and add them as https:// entries",
+    ),
+    https_max: int = typer.Option(
+        2000,
+        "--https-max",
+        help="Maximum HTTPS-capable proxies to collect during dual-validation (0 = unlimited)",
+    ),
 ) -> None:
     """Fetch proxies from configured sources.
 
@@ -1327,6 +1337,7 @@ def fetch(
       proxywhirl fetch --timeout 5 --concurrency 50
       proxywhirl fetch --revalidate --timeout 5 --concurrency 2000
       proxywhirl fetch --revalidate --prune-failed
+      proxywhirl fetch --no-https-validate
     """
     import asyncio
 
@@ -1371,6 +1382,41 @@ def fetch(
         except Exception as e:
             command_ctx.console.print(f"[red]Fetch failed:[/red] {e}")
             raise typer.Exit(code=1) from e
+
+        # Dual-validate HTTP proxies for HTTPS/CONNECT support
+        if https_validate and fetch_config["validate"] and proxies:
+            http_only = [p for p in proxies if (p.get("protocol") or "http") == "http"]
+            if http_only:
+                command_ctx.console.print(
+                    f"[bold]Testing {len(http_only):,} HTTP proxies for HTTPS/CONNECT support...[/bold]"
+                )
+                try:
+                    from proxywhirl.fetchers import ProxyValidator
+
+                    validator = ProxyValidator(
+                        timeout=fetch_config["timeout"],
+                        concurrency=min(fetch_config["max_concurrent"], 500),
+                    )
+                    https_capable = asyncio.run(
+                        validator.validate_https_capability_batch(
+                            http_only,
+                            concurrency=min(fetch_config["max_concurrent"], 500),
+                            max_results=https_max if https_max > 0 else None,
+                        )
+                    )
+                    if https_capable:
+                        proxies = list(proxies) + https_capable
+                        command_ctx.console.print(
+                            f"[green]✓[/green] Found [green]{len(https_capable):,}[/green] HTTPS-capable proxies"
+                        )
+                    else:
+                        command_ctx.console.print(
+                            "[dim]No HTTPS-capable proxies found in this batch[/dim]"
+                        )
+                except Exception as e:
+                    command_ctx.console.print(
+                        f"[yellow]HTTPS dual-validation skipped:[/yellow] {e}"
+                    )
 
         # Display summary
         _display_summary(command_ctx, proxies, no_validate)
