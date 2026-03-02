@@ -1033,7 +1033,7 @@ class TestProxyValidatorMethods:
                 code = proxy_responses.get(current_proxy_url, 500)
                 return MagicMock(status_code=code)
 
-            client.get = mock_get
+            client.head = mock_get
             client.__aenter__ = AsyncMock(return_value=client)
             client.__aexit__ = AsyncMock(return_value=False)
             return client
@@ -1067,7 +1067,7 @@ class TestProxyValidatorMethods:
         mock_response = MagicMock()
         mock_response.status_code = 204
         mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.head = AsyncMock(return_value=mock_response)
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 
@@ -1087,7 +1087,7 @@ class TestProxyValidatorMethods:
         validator = ProxyValidator()
         call_count = 0
 
-        async def counted_get(url: str) -> MagicMock:
+        async def counted_head(url: str) -> MagicMock:
             nonlocal call_count
             call_count += 1
             r = MagicMock()
@@ -1095,7 +1095,7 @@ class TestProxyValidatorMethods:
             return r
 
         mock_client = AsyncMock()
-        mock_client.get = counted_get
+        mock_client.head = counted_head
         mock_client.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client.__aexit__ = AsyncMock(return_value=False)
 

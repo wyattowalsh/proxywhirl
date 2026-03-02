@@ -1323,6 +1323,11 @@ def fetch(
         "--https-validate/--no-https-validate",
         help="After fetching, test valid HTTP proxies for HTTPS/CONNECT support and add them as https:// entries",
     ),
+    https_timeout: int = typer.Option(
+        8,
+        "--https-timeout",
+        help="Per-stage timeout in seconds for HTTPS CONNECT tests (default 8, higher = more found but slower)",
+    ),
     https_max: int = typer.Option(
         2000,
         "--https-max",
@@ -1338,6 +1343,7 @@ def fetch(
       proxywhirl fetch --revalidate --timeout 5 --concurrency 2000
       proxywhirl fetch --revalidate --prune-failed
       proxywhirl fetch --no-https-validate
+      proxywhirl fetch --https-timeout 10
     """
     import asyncio
 
@@ -1401,7 +1407,7 @@ def fetch(
                     from proxywhirl.fetchers import ProxyValidator
 
                     validator = ProxyValidator(
-                        timeout=fetch_config["timeout"],
+                        timeout=https_timeout,
                     )
 
                     https_progress = Progress(

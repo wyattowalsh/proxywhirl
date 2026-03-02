@@ -482,10 +482,13 @@ class ProxyValidator:
         "http://www.msftconnecttest.com/connecttest.txt",  # Microsoft
     ]
 
-    # HTTPS-specific test URLs for validating HTTPS proxy connectivity
+    # HTTPS-specific test URLs for validating HTTPS proxy connectivity.
+    # Multiple endpoints for fallback — succeed on any.
     HTTPS_TEST_URLS = [
-        "https://www.gstatic.com/generate_204",  # Google HTTPS
-        "https://cp.cloudflare.com/generate_204",  # Cloudflare HTTPS
+        "https://www.gstatic.com/generate_204",  # Google HTTPS (204)
+        "https://cp.cloudflare.com/generate_204",  # Cloudflare HTTPS (204)
+        "https://connectivity-check.ubuntu.com/",  # Ubuntu (204)
+        "https://detectportal.firefox.com/canonical.html",  # Firefox (200)
     ]
 
     def __init__(
@@ -970,9 +973,9 @@ class ProxyValidator:
         valid_count = 0
         total = len(unique_proxies)
 
-        # Use tight per-stage timeout for HTTPS CONNECT: connect + TLS negotiation
-        # is more overhead than plain HTTP. Cap at 5s to reject dead proxies faster.
-        per_stage = min(float(self.timeout), 5.0)
+        # CONNECT tunneling needs: TCP connect + CONNECT handshake + TLS negotiation
+        # + HTTP roundtrip. Cap at 8s per stage — 5s was too aggressive.
+        per_stage = min(float(self.timeout), 8.0)
         https_timeout = httpx.Timeout(
             connect=per_stage,
             read=per_stage,
@@ -1014,7 +1017,7 @@ class ProxyValidator:
                                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                             },
                         ) as client:
-                            response = await client.get(test_url)
+                            response = await client.head(test_url)
                             elapsed_ms = (time.perf_counter() - start) * 1000
                             # Accept any 2xx/3xx as proof CONNECT tunneling works
                             if 200 <= response.status_code < 400:
