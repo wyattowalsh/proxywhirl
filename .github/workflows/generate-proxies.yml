@@ -47,8 +47,12 @@ jobs:
     - name: Download GeoLite2 database
       run: |
         # Download GeoLite2-Country database for IP geolocation
-        curl -sL https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb -o GeoLite2-Country.mmdb
-        echo "Downloaded GeoLite2-Country.mmdb ($(stat --format=%s GeoLite2-Country.mmdb) bytes)"
+        if curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb -o GeoLite2-Country.mmdb; then
+          echo "Downloaded GeoLite2-Country.mmdb ($(stat --format=%s GeoLite2-Country.mmdb) bytes)"
+        else
+          rm -f GeoLite2-Country.mmdb
+          echo "::warning::GeoLite2 download failed after retries; continuing without geolocation database"
+        fi
 
     - name: Show database stats before
       run: |
