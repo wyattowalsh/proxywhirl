@@ -239,6 +239,13 @@ GITHUB_PROXIFLY_SOCKS5 = ProxySourceConfig(
     trusted=True,
 )
 
+GITHUB_PROXIFLY_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/proxifly/free-proxy-list/main/proxies/protocols/https/data.txt",
+    format="plain_text",
+    protocol="https",
+    trusted=True,  # proxifly = verified working proxies
+)
+
 # elliottophellia/yakumo - Checked/validated proxies
 GITHUB_ELLIOTTOPHELLIA_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/elliottophellia/yakumo/master/results/http/global/http_checked.txt",
@@ -322,6 +329,12 @@ GITHUB_ZAEEM_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Zaeem20/FREE_PROXIES_LIST/master/socks4.txt",
     format="plain_text",
     protocol="socks4",
+)
+
+GITHUB_ZAEEM_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/Zaeem20/FREE_PROXIES_LIST/master/https.txt",
+    format="plain_text",
+    protocol="https",
 )
 
 # MuRongPig/Proxy-Master - DISABLED: stale since Aug 2025
@@ -672,6 +685,12 @@ GITHUB_VANNDEV_SOCKS5 = ProxySourceConfig(
     enabled=False,
 )
 
+GITHUB_VANNDEV_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/Vann-Dev/proxy-list/main/proxies/https.txt",
+    format="plain_text",
+    protocol="https",
+)
+
 # ClearProxy/checked-proxy-list - 62 stars, 5-min updates, multi-site verified
 GITHUB_CLEARPROXY_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ClearProxy/checked-proxy-list/main/http/raw/all.txt",
@@ -727,6 +746,12 @@ GITHUB_VMHEAVEN_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/vmheaven/VMHeaven-Free-Proxy-Updated/main/socks5.txt",
     format="plain_text",
     protocol="socks5",
+)
+
+GITHUB_VMHEAVEN_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/vmheaven/VMHeaven-Free-Proxy-Updated/main/https.txt",
+    format="plain_text",
+    protocol="https",
 )
 
 # Vadim287/free-proxy - 43 stars, continuous updates, GeoIP enriched
@@ -796,6 +821,7 @@ ALL_HTTP_SOURCES = [
     GITHUB_MMPX12_HTTP,
     GITHUB_MMPX12_HTTPS,
     GITHUB_PROXIFLY_HTTP,
+    GITHUB_PROXIFLY_HTTPS,
     GITHUB_ELLIOTTOPHELLIA_HTTP,
     GITHUB_OPENPROXY_HTTP,
     GITHUB_OPENPROXY_HTTPS,
@@ -803,6 +829,7 @@ ALL_HTTP_SOURCES = [
     GITHUB_VAKHOV_HTTP,
     GITHUB_VAKHOV_HTTPS,
     GITHUB_ZAEEM_HTTP,
+    GITHUB_ZAEEM_HTTPS,
     GITHUB_KOMUTAN_HTTP,
     GITHUB_ANONYM0US_HTTP,
     GITHUB_ANONYM0US_HTTPS,
@@ -828,9 +855,11 @@ ALL_HTTP_SOURCES = [
     GITHUB_SEVENWORKS_HTTP,
     GITHUB_SEVENWORKS_HTTPS,
     GITHUB_VANNDEV_HTTP,
+    GITHUB_VANNDEV_HTTPS,
     GITHUB_CLEARPROXY_HTTP,
     GITHUB_TUANMINPAY_HTTP,
     GITHUB_VMHEAVEN_HTTP,
+    GITHUB_VMHEAVEN_HTTPS,
     GITHUB_VADIM287_HTTP,
     GITHUB_THEMIRALAY_HTTP,
     GITHUB_SOLISPIRIT_HTTP,
