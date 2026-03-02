@@ -166,7 +166,7 @@ Module Contents
    proxywhirl export --proxies-only --db custom.db
 
 
-.. py:function:: fetch(no_validate = typer.Option(False, '--no-validate', help='Skip proxy validation'), no_save_db = typer.Option(False, '--no-save-db', help="Don't save to database"), no_export = typer.Option(False, '--no-export', help="Don't export to files"), timeout = typer.Option(10, '--timeout', help='Validation timeout in seconds'), concurrency = typer.Option(100, '--concurrency', help='Concurrent validation requests'), revalidate = typer.Option(False, '--revalidate', '-R', help='Re-validate existing proxies in database instead of fetching new ones'), prune_failed = typer.Option(False, '--prune-failed', help='Delete failed proxies instead of marking them as DEAD (use with --revalidate)'), https_validate = typer.Option(True, '--https-validate/--no-https-validate', help='After fetching, test valid HTTP proxies for HTTPS/CONNECT support and add them as https:// entries'), https_max = typer.Option(2000, '--https-max', help='Maximum HTTPS-capable proxies to collect during dual-validation (0 = unlimited)'))
+.. py:function:: fetch(no_validate = typer.Option(False, '--no-validate', help='Skip proxy validation'), no_save_db = typer.Option(False, '--no-save-db', help="Don't save to database"), no_export = typer.Option(False, '--no-export', help="Don't export to files"), timeout = typer.Option(10, '--timeout', help='Validation timeout in seconds'), concurrency = typer.Option(100, '--concurrency', help='Concurrent validation requests'), revalidate = typer.Option(False, '--revalidate', '-R', help='Re-validate existing proxies in database instead of fetching new ones'), prune_failed = typer.Option(False, '--prune-failed', help='Delete failed proxies instead of marking them as DEAD (use with --revalidate)'), https_validate = typer.Option(True, '--https-validate/--no-https-validate', help='After fetching, test valid HTTP proxies for HTTPS/CONNECT support and add them as https:// entries'), https_timeout = typer.Option(8, '--https-timeout', help='Per-stage timeout in seconds for HTTPS CONNECT tests (default 8, higher = more found but slower)'), https_max = typer.Option(2000, '--https-max', help='Maximum HTTPS-capable proxies to collect during dual-validation (0 = unlimited)'))
 
    Fetch proxies from configured sources.
 
@@ -178,6 +178,7 @@ Module Contents
    proxywhirl fetch --revalidate --timeout 5 --concurrency 2000
    proxywhirl fetch --revalidate --prune-failed
    proxywhirl fetch --no-https-validate
+   proxywhirl fetch --https-timeout 10
 
 
 .. py:function:: get_context()
