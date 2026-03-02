@@ -626,6 +626,7 @@
 <li><a class="reference internal" href="#proxywhirl.fetchers.ProxyValidator.close"><code class="docutils literal notranslate">close()</span></code></a></li>
 <li><a class="reference internal" href="#proxywhirl.fetchers.ProxyValidator.validate"><code class="docutils literal notranslate">validate()</span></code></a></li>
 <li><a class="reference internal" href="#proxywhirl.fetchers.ProxyValidator.validate_batch"><code class="docutils literal notranslate">validate_batch()</span></code></a></li>
+<li><a class="reference internal" href="#proxywhirl.fetchers.ProxyValidator.validate_https_capability_batch"><code class="docutils literal notranslate">validate_https_capability_batch()</span></code></a></li>
 <li><a class="reference internal" href="#proxywhirl.fetchers.ProxyValidator.test_url"><code class="docutils literal notranslate">test_url</span></code></a></li>
 </ul>
 </li>
@@ -1127,6 +1128,33 @@ the configured concurrency limit. Records response time for valid proxies.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>List of working proxies with response_time_ms added to each</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, Any]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="proxywhirl.fetchers.ProxyValidator.validate_https_capability_batch">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">validate_https_capability_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">http_proxies</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">concurrency</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_results</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">progress_callback</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/proxywhirl/fetchers.html#ProxyValidator.validate_https_capability_batch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.fetchers.ProxyValidator.validate_https_capability_batch" title="Link to this definition">¶</a></dt>
+<dd><p>Test already-validated HTTP proxies for HTTPS/CONNECT support.</p>
+<p>Many free proxy lists label HTTP proxies as “HTTPS” after testing CONNECT
+tunneling. This method takes working HTTP proxies and tests each via the
+CONNECT method against an HTTPS endpoint. Proxies that pass are returned as
+<code class="docutils literal notranslate"><span class="pre">https://</span></code> entries ready for DB insertion.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>http_proxies</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)"><em>list</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)"><em>dict</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)"><em>str</em></a><em>, </em><em>Any</em><em>]</em><em>]</em>) – Already-validated HTTP proxy dicts (protocol=’http’).</p></li>
+<li><p><strong>concurrency</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a>) – Max concurrent HTTPS tests (default 500).</p></li>
+<li><p><strong>max_results</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> | </em><em>None</em>) – Stop early once this many HTTPS-capable proxies are found.</p></li>
+<li><p><strong>progress_callback</strong> (<em>Any</em><em> | </em><em>None</em>) – Optional callback(completed, total, valid_count).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Proxy dicts with <code class="docutils literal notranslate"><span class="pre">protocol='https'</span></code> and <code class="docutils literal notranslate"><span class="pre">url='https://ip:port'</span></code>
+for each HTTP proxy that successfully tunnels HTTPS via CONNECT.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, Any]]</p>

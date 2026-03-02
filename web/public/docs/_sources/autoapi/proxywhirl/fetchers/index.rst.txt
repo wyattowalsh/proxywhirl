@@ -295,6 +295,27 @@ Module Contents
 
 
 
+   .. py:method:: validate_https_capability_batch(http_proxies, concurrency = 500, max_results = None, progress_callback = None)
+      :async:
+
+
+      Test already-validated HTTP proxies for HTTPS/CONNECT support.
+
+      Many free proxy lists label HTTP proxies as "HTTPS" after testing CONNECT
+      tunneling. This method takes working HTTP proxies and tests each via the
+      CONNECT method against an HTTPS endpoint. Proxies that pass are returned as
+      ``https://`` entries ready for DB insertion.
+
+      :param http_proxies: Already-validated HTTP proxy dicts (protocol='http').
+      :param concurrency: Max concurrent HTTPS tests (default 500).
+      :param max_results: Stop early once this many HTTPS-capable proxies are found.
+      :param progress_callback: Optional callback(completed, total, valid_count).
+
+      :returns: Proxy dicts with ``protocol='https'`` and ``url='https://ip:port'``
+                for each HTTP proxy that successfully tunnels HTTPS via CONNECT.
+
+
+
    .. py:property:: test_url
       :type: str
 
