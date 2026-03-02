@@ -69,7 +69,7 @@ jobs:
         uv run proxywhirl fetch --revalidate --timeout 10 --concurrency 2000 --no-export
 
     - name: Fetch new proxies from sources
-      timeout-minutes: 60
+      timeout-minutes: 120
       run: |
         # Fetch and validate NEW proxies from all sources, save to database.
         # No export yet - we clean up dead proxies first.
