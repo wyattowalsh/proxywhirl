@@ -187,13 +187,6 @@ GITHUB_SUNNY9577_SOCKS5 = ProxySourceConfig(
     protocol="socks5",
 )
 
-# aslisk/proxyhttps - DISABLED: 9 stars, stale since Sep 2025
-GITHUB_ASLISK_HTTP = ProxySourceConfig(
-    url="https://raw.githubusercontent.com/aslisk/proxyhttps/main/https.txt",
-    format="plain_text",
-    enabled=False,
-)
-
 # mmpx12/proxy-list
 GITHUB_MMPX12_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/mmpx12/proxy-list/master/http.txt",
@@ -797,6 +790,13 @@ GITHUB_SOLISPIRIT_SOCKS5 = ProxySourceConfig(
     protocol="socks5",
 )
 
+# NikolaiT/free-proxy-list - 17 stars, active updates, validated HTTPS list
+GITHUB_NIKOLAIT_HTTPS = ProxySourceConfig(
+    url="https://raw.githubusercontent.com/NikolaiT/free-proxy-list/main/proxies/https_working.txt",
+    format="plain_text",
+    protocol="https",
+)
+
 
 # =============================================================================
 # Predefined Source Collections
@@ -863,6 +863,7 @@ ALL_HTTP_SOURCES = [
     GITHUB_VADIM287_HTTP,
     GITHUB_THEMIRALAY_HTTP,
     GITHUB_SOLISPIRIT_HTTP,
+    GITHUB_NIKOLAIT_HTTPS,
 ]
 
 # All SOCKS4 sources

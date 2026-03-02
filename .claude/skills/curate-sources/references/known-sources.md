@@ -5,8 +5,8 @@ Current sources in `proxywhirl/sources.py`. Use this to avoid adding duplicates.
 > **Note:** Regenerate this file before each curation run using:
 > `uv run python scripts/curate_sources.py validate | python -c "import json,sys; ..."`
 
-**Total:** 119 source variables, 113 in ALL_SOURCES (52 HTTP, 32 SOCKS4, 29 SOCKS5)
-6 disabled sources are defined but excluded from collection lists.
+**Total:** 119 source variables, 114 in ALL_SOURCES (53 HTTP, 32 SOCKS4, 29 SOCKS5)
+5 disabled sources are defined but excluded from collection lists.
 
 ## API Sources
 
@@ -46,7 +46,6 @@ Current sources in `proxywhirl/sources.py`. Use this to avoid adding duplicates.
 | `GITHUB_SUNNY9577_ALL` | sunny9577/proxy-scraper | http | No | HTTP |
 | `GITHUB_SUNNY9577_SOCKS4` | sunny9577/proxy-scraper | socks4 | No | SOCKS4 |
 | `GITHUB_SUNNY9577_SOCKS5` | sunny9577/proxy-scraper | socks5 | No | SOCKS5 |
-| `GITHUB_ASLISK_HTTP` | aslisk/proxyhttps | http | No | -- (DISABLED) |
 | `GITHUB_MMPX12_HTTP` | mmpx12/proxy-list | http | No | HTTP |
 | `GITHUB_MMPX12_HTTPS` | mmpx12/proxy-list | https | No | HTTP |
 | `GITHUB_MMPX12_SOCKS4` | mmpx12/proxy-list | socks4 | No | SOCKS4 |
@@ -141,6 +140,7 @@ Current sources in `proxywhirl/sources.py`. Use this to avoid adding duplicates.
 | `GITHUB_SOLISPIRIT_HTTP` | SoliSpirit/proxy-list | http | No | HTTP |
 | `GITHUB_SOLISPIRIT_SOCKS4` | SoliSpirit/proxy-list | socks4 | No | SOCKS4 |
 | `GITHUB_SOLISPIRIT_SOCKS5` | SoliSpirit/proxy-list | socks5 | No | SOCKS5 |
+| `GITHUB_NIKOLAIT_HTTPS` | NikolaiT/free-proxy-list | https | No | HTTP |
 
 ## Unique GitHub Repos (for dedup)
 
@@ -150,6 +150,7 @@ These are the unique GitHub repos currently tracked:
 - ClearProxy/checked-proxy-list
 - ErcinDedeoglu/proxies
 - MuRongPig/Proxy-Master
+- NikolaiT/free-proxy-list
 - ProxyScraper/ProxyScraper
 - SevenworksDev/proxy-list
 - Skillter/ProxyGather
@@ -160,7 +161,6 @@ These are the unique GitHub repos currently tracked:
 - Vadim287/free-proxy
 - Vann-Dev/proxy-list
 - Zaeem20/FREE_PROXIES_LIST
-- aslisk/proxyhttps
 - dpangestuw/Free-Proxy
 - elliottophellia/yakumo
 - hookzof/socks5_list
