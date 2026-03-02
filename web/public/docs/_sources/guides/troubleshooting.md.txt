@@ -954,7 +954,7 @@ proxywhirl health --continuous --interval 30
 ### Export Metrics for Analysis
 
 ```python
-from proxywhirl.retry_metrics import RetryMetrics
+from proxywhirl import RetryMetrics
 
 # Access retry statistics
 metrics = rotator.retry_executor.metrics
@@ -1289,7 +1289,7 @@ Use `AsyncProxyWhirl`:
 
 ```python
 import asyncio
-from proxywhirl.async_client import AsyncProxyWhirl
+from proxywhirl import AsyncProxyWhirl
 
 async def main():
     async with AsyncProxyWhirl(
@@ -1362,14 +1362,14 @@ with httpx.Client(proxy=proxy.url) as client:
 
 3. **Configure retries:**
    ```python
-   from proxywhirl.retry_policy import RetryPolicy
+   from proxywhirl import RetryPolicy
 
    rotator = ProxyWhirl(
        proxies=[...],
        retry_policy=RetryPolicy(
            max_attempts=5,
-           exponential_base=2.0,
-           max_delay=30.0
+           multiplier=2.0,
+           max_backoff_delay=30.0
        )
    )
    ```
