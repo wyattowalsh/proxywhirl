@@ -988,10 +988,10 @@ class ProxyValidator:
             test_url: str,
         ) -> tuple[dict[str, Any], ValidationResult]:
             nonlocal completed, valid_count
+            if done_event.is_set():
+                completed += 1
+                return (proxy, ValidationResult(is_valid=False, response_time_ms=None))
             async with semaphore:
-                if done_event.is_set():
-                    completed += 1
-                    return (proxy, ValidationResult(is_valid=False, response_time_ms=None))
                 try:
                     http_url = proxy["url"]  # always http://ip:port here
                     start = time.perf_counter()
@@ -1007,7 +1007,7 @@ class ProxyValidator:
                         is_valid = response.status_code in (200, 204)
                 except Exception:
                     is_valid = False
-                    elapsed_ms = None  # type: ignore[assignment]
+                    elapsed_ms: float | None = None
 
                 completed += 1
                 if is_valid:
@@ -1041,7 +1041,7 @@ class ProxyValidator:
                 continue
             # Build an https:// variant of this proxy
             http_url = proxy["url"]
-            https_url = "https://" + http_url[len("http://") :]
+            https_url = http_url.replace("http://", "https://", 1)
             entry = {
                 **proxy,
                 "url": https_url,

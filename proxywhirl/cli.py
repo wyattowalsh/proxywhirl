@@ -1395,7 +1395,6 @@ def fetch(
 
                     validator = ProxyValidator(
                         timeout=fetch_config["timeout"],
-                        concurrency=min(fetch_config["max_concurrent"], 500),
                     )
                     https_capable = asyncio.run(
                         validator.validate_https_capability_batch(

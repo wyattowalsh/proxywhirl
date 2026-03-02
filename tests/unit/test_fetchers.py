@@ -1000,6 +1000,116 @@ class TestProxyValidatorMethods:
 
         assert result == []
 
+    async def test_validate_https_capability_batch_empty(self) -> None:
+        """Empty input returns empty list."""
+        from proxywhirl.fetchers import ProxyValidator
+
+        validator = ProxyValidator()
+        result = await validator.validate_https_capability_batch([])
+        assert result == []
+
+    async def test_validate_https_capability_batch_happy_path(self) -> None:
+        """Proxies responding 204 are returned as https:// entries with correct URL rewrite."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from proxywhirl.fetchers import ProxyValidator
+
+        validator = ProxyValidator()
+
+        # Responses: proxy1=204 (pass), proxy2=403 (fail), proxy3=204 (pass)
+        responses = [
+            MagicMock(status_code=204),
+            MagicMock(status_code=403),
+            MagicMock(status_code=204),
+        ]
+        call_idx = 0
+
+        async def mock_get(url: str) -> MagicMock:
+            nonlocal call_idx
+            r = responses[call_idx % len(responses)]
+            call_idx += 1
+            return r
+
+        mock_client = AsyncMock()
+        mock_client.get = mock_get
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        proxies = [
+            {"url": "http://proxy1.com:8080", "protocol": "http"},
+            {"url": "http://proxy2.com:3128", "protocol": "http"},
+            {"url": "http://proxy3.com:8888", "protocol": "http"},
+        ]
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await validator.validate_https_capability_batch(proxies)
+
+        # proxy1 and proxy3 pass (204), proxy2 fails (403)
+        https_urls = {r["url"] for r in result}
+        assert "https://proxy1.com:8080" in https_urls
+        assert "https://proxy2.com:3128" not in https_urls
+        assert "https://proxy3.com:8888" in https_urls
+        for r in result:
+            assert r["protocol"] == "https"
+            assert r["url"].startswith("https://")
+
+    async def test_validate_https_capability_batch_max_results(self) -> None:
+        """max_results caps the number of returned entries."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from proxywhirl.fetchers import ProxyValidator
+
+        validator = ProxyValidator()
+
+        mock_response = MagicMock()
+        mock_response.status_code = 204
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        proxies = [{"url": f"http://proxy{i}.com:8080", "protocol": "http"} for i in range(10)]
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await validator.validate_https_capability_batch(proxies, max_results=2)
+
+        assert len(result) <= 2
+
+    async def test_validate_https_capability_batch_deduplication(self) -> None:
+        """Duplicate URLs in input are tested only once."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from proxywhirl.fetchers import ProxyValidator
+
+        validator = ProxyValidator()
+        call_count = 0
+
+        async def counted_get(url: str) -> MagicMock:
+            nonlocal call_count
+            call_count += 1
+            r = MagicMock()
+            r.status_code = 204
+            return r
+
+        mock_client = AsyncMock()
+        mock_client.get = counted_get
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        # 3 entries but only 2 unique URLs
+        proxies = [
+            {"url": "http://proxy1.com:8080", "protocol": "http"},
+            {"url": "http://proxy1.com:8080", "protocol": "http"},  # duplicate
+            {"url": "http://proxy2.com:3128", "protocol": "http"},
+        ]
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            result = await validator.validate_https_capability_batch(proxies)
+
+        # Only 2 unique proxies should be tested
+        assert call_count == 2
+        assert len(result) == 2
+
     async def test_validate_tcp_connectivity_success(self) -> None:
         """Test _validate_tcp_connectivity succeeds for open port."""
         from unittest.mock import MagicMock, patch
