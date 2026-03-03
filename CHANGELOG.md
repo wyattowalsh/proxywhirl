@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-03-03
+
+### Added
+
+- Added distinct `https://` proxy protocol handling and dual-validation flow to
+  promote validated HTTP proxies to HTTPS-capable exports.
+- Added CLI controls for HTTPS validation behavior (`--https-validate`,
+  `--https-max`, and `--https-timeout`) and expanded HTTPS source coverage.
+
+### Changed
+
+- Curated proxy source inventory and continued automated proxy list/database
+  refresh updates.
+- Updated docs and API references to align class names, imports, and current
+  usage patterns.
+
+### Fixed
+
+- Improved HTTPS CONNECT validation reliability with better fallback behavior
+  and timeout tuning, increasing usable HTTPS proxy output.
+- Hardened automation workflows for proxy fetching and GeoLite download
+  resilience.
+- Fixed docs build and linkcheck stability issues, including optional docs
+  dependency wiring for `sphinx-autoapi`.
+
 ## [0.3.0] - 2026-02-16
 
 ### Added - Retry & Failover Logic (014-retry-failover-logic) 🎉 COMPLETE
@@ -274,7 +299,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fixed**: Bug fixes
 - **Security**: Security fixes
 
-[Unreleased]: https://github.com/wyattowalsh/proxywhirl/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/wyattowalsh/proxywhirl/compare/v0.3.3...HEAD
+[0.3.3]: https://github.com/wyattowalsh/proxywhirl/compare/v0.3.2...v0.3.3
 [0.3.0]: https://github.com/wyattowalsh/proxywhirl/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/wyattowalsh/proxywhirl/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/wyattowalsh/proxywhirl/releases/tag/v0.1.0
