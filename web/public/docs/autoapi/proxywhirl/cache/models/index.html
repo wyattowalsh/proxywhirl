@@ -737,7 +737,7 @@ used across the three-tier caching system (L1/L2/L3).</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="proxywhirl.cache.models.CacheConfig">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">proxywhirl.cache.models.</span></span><span class="sig-name descname"><span class="pre">CacheConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">/</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">**data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/proxywhirl/cache/models.html#CacheConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.cache.models.CacheConfig" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.pydantic.dev/latest/api/base_model/#pydantic.BaseModel" title="(in Pydantic Validation v0.0.0)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pydantic.BaseModel</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://pydantic.dev/docs/validation/latest/api/pydantic/base_model/#pydantic.BaseModel" title="(in Pydantic v0.0.0)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pydantic.BaseModel</span></code></a></p>
 <p>Configuration for cache behavior and tier settings.</p>
 <p>Aggregates configuration for all three tiers plus global settings
 like TTL, cleanup intervals, and storage paths.</p>
@@ -768,7 +768,7 @@ validated to form a valid model.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="proxywhirl.cache.models.CacheEntry">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">proxywhirl.cache.models.</span></span><span class="sig-name descname"><span class="pre">CacheEntry</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">/</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">**data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/proxywhirl/cache/models.html#CacheEntry"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.cache.models.CacheEntry" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.pydantic.dev/latest/api/base_model/#pydantic.BaseModel" title="(in Pydantic Validation v0.0.0)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pydantic.BaseModel</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://pydantic.dev/docs/validation/latest/api/pydantic/base_model/#pydantic.BaseModel" title="(in Pydantic v0.0.0)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pydantic.BaseModel</span></code></a></p>
 <p>Container for a single cached proxy with metadata.</p>
 <p>Stores proxy information with TTL, health status, and access tracking.
 Credentials are SecretStr in memory, encrypted at rest in L2/L3.</p>
@@ -826,7 +826,7 @@ validated to form a valid model.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="proxywhirl.cache.models.CacheStatistics">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">proxywhirl.cache.models.</span></span><span class="sig-name descname"><span class="pre">CacheStatistics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">/</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">**data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/proxywhirl/cache/models.html#CacheStatistics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.cache.models.CacheStatistics" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.pydantic.dev/latest/api/base_model/#pydantic.BaseModel" title="(in Pydantic Validation v0.0.0)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pydantic.BaseModel</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://pydantic.dev/docs/validation/latest/api/pydantic/base_model/#pydantic.BaseModel" title="(in Pydantic v0.0.0)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pydantic.BaseModel</span></code></a></p>
 <p>Aggregate cache statistics across all tiers.</p>
 <p>Combines tier-level statistics and tracks cross-tier operations
 like promotions and demotions.</p>
@@ -884,7 +884,7 @@ validated to form a valid model.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="proxywhirl.cache.models.CacheTierConfig">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">proxywhirl.cache.models.</span></span><span class="sig-name descname"><span class="pre">CacheTierConfig</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">/</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">**data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/proxywhirl/cache/models.html#CacheTierConfig"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.cache.models.CacheTierConfig" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.pydantic.dev/latest/api/base_model/#pydantic.BaseModel" title="(in Pydantic Validation v0.0.0)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pydantic.BaseModel</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://pydantic.dev/docs/validation/latest/api/pydantic/base_model/#pydantic.BaseModel" title="(in Pydantic v0.0.0)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pydantic.BaseModel</span></code></a></p>
 <p>Configuration for a single cache tier.</p>
 <p>Defines capacity, eviction policy, and enable/disable state for
 one tier (L1, L2, or L3).</p>
@@ -943,7 +943,7 @@ O(log n) indexed lookups. Better concurrency and atomic operations.</p></li>
 <dl class="py class">
 <dt class="sig sig-object py" id="proxywhirl.cache.models.TierStatistics">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">proxywhirl.cache.models.</span></span><span class="sig-name descname"><span class="pre">TierStatistics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">/</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">**data</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../../_modules/proxywhirl/cache/models.html#TierStatistics"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.cache.models.TierStatistics" title="Link to this definition">¶</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.pydantic.dev/latest/api/base_model/#pydantic.BaseModel" title="(in Pydantic Validation v0.0.0)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pydantic.BaseModel</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://pydantic.dev/docs/validation/latest/api/pydantic/base_model/#pydantic.BaseModel" title="(in Pydantic v0.0.0)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pydantic.BaseModel</span></code></a></p>
 <p>Statistics for a single cache tier.</p>
 <p>Tracks hits, misses, evictions by reason, and computes hit rate.</p>
 <p class="rubric">Example</p>
