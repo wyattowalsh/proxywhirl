@@ -179,12 +179,14 @@ GITHUB_SUNNY9577_SOCKS4 = ProxySourceConfig(
     url="https://sunny9577.github.io/proxy-scraper/generated/socks4_proxies.txt",
     format="plain_text",
     protocol="socks4",
+    enabled=False,  # Disabled after feed started serving an empty payload in Apr 2026 validation.
 )
 
 GITHUB_SUNNY9577_SOCKS5 = ProxySourceConfig(
     url="https://sunny9577.github.io/proxy-scraper/generated/socks5_proxies.txt",
     format="plain_text",
     protocol="socks5",
+    enabled=False,  # Disabled after feed shrank to a two-line payload in Apr 2026 validation.
 )
 
 # mmpx12/proxy-list
@@ -264,24 +266,28 @@ GITHUB_ELLIOTTOPHELLIA_SOCKS5 = ProxySourceConfig(
 GITHUB_OPENPROXY_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/http/http.txt",
     format="plain_text",
+    enabled=False,  # Disabled after raw endpoints started returning 404 in Apr 2026 validation.
 )
 
 GITHUB_OPENPROXY_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/https/https.txt",
     format="plain_text",
     protocol="https",
+    enabled=False,
 )
 
 GITHUB_OPENPROXY_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/socks4/socks4.txt",
     format="plain_text",
     protocol="socks4",
+    enabled=False,
 )
 
 GITHUB_OPENPROXY_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/socks5/socks5.txt",
     format="plain_text",
     protocol="socks5",
+    enabled=False,
 )
 
 # vakhov/fresh-proxy-list - Verified working proxies
@@ -823,8 +829,6 @@ ALL_HTTP_SOURCES = [
     GITHUB_PROXIFLY_HTTP,
     GITHUB_PROXIFLY_HTTPS,
     GITHUB_ELLIOTTOPHELLIA_HTTP,
-    GITHUB_OPENPROXY_HTTP,
-    GITHUB_OPENPROXY_HTTPS,
     # High-quality verified sources
     GITHUB_VAKHOV_HTTP,
     GITHUB_VAKHOV_HTTPS,
@@ -877,11 +881,9 @@ ALL_SOCKS4_SOURCES = [
     GITHUB_THESPEEDX_SOCKS4,
     GITHUB_MONOSANS_SOCKS4,
     GITHUB_ROOSTERKID_SOCKS4,
-    GITHUB_SUNNY9577_SOCKS4,
     GITHUB_MMPX12_SOCKS4,
     GITHUB_PROXIFLY_SOCKS4,
     GITHUB_ELLIOTTOPHELLIA_SOCKS4,
-    GITHUB_OPENPROXY_SOCKS4,
     # High-quality verified sources
     GITHUB_VAKHOV_SOCKS4,
     GITHUB_ZAEEM_SOCKS4,
@@ -919,11 +921,9 @@ ALL_SOCKS5_SOURCES = [
     GITHUB_THESPEEDX_SOCKS5,
     GITHUB_MONOSANS_SOCKS5,
     GITHUB_ROOSTERKID_SOCKS5,
-    GITHUB_SUNNY9577_SOCKS5,
     GITHUB_MMPX12_SOCKS5,
     GITHUB_PROXIFLY_SOCKS5,
     GITHUB_ELLIOTTOPHELLIA_SOCKS5,
-    GITHUB_OPENPROXY_SOCKS5,
     # High-quality verified sources
     GITHUB_VAKHOV_SOCKS5,
     GITHUB_KOMUTAN_SOCKS5,
