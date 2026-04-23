@@ -317,6 +317,24 @@ Module Contents
 
 
 
+   .. py:method:: load_revalidation_candidates(limit = None)
+      :async:
+
+
+      Load proxies for oldest-first revalidation.
+
+      Proxies are ordered to prioritize entries that have never been checked,
+      followed by the oldest previously checked proxies. This allows scheduled
+      revalidation to progress incrementally across the full inventory while
+      remaining deterministic across runs.
+
+      :param limit: Maximum number of proxies to return. ``None`` or values <= 0
+                    return the full ordered inventory.
+
+      :returns: List of proxy dictionaries with identity and status fields.
+
+
+
    .. py:method:: load_validated(max_age_hours = 48)
       :async:
 

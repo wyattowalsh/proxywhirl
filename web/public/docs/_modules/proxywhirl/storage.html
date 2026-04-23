@@ -1601,226 +1601,287 @@
 </span><span data-line="916">            <span class="k">return</span> <span class="n">proxies</span></div>
 
 </span><span data-line="917">
+<div class="viewcode-block" id="SQLiteStorage.load_revalidation_candidates">
+<a class="viewcode-back" href="../../autoapi/proxywhirl/storage/index.html#proxywhirl.storage.SQLiteStorage.load_revalidation_candidates">[docs]</a>
+</span><span data-line="918">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">load_revalidation_candidates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+</span><span data-line="919"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Load proxies for oldest-first revalidation.</span>
+</span><span data-line="920">
+</span><span data-line="921"><span class="sd">        Proxies are ordered to prioritize entries that have never been checked,</span>
+</span><span data-line="922"><span class="sd">        followed by the oldest previously checked proxies. This allows scheduled</span>
+</span><span data-line="923"><span class="sd">        revalidation to progress incrementally across the full inventory while</span>
+</span><span data-line="924"><span class="sd">        remaining deterministic across runs.</span>
+</span><span data-line="925">
+</span><span data-line="926"><span class="sd">        Args:</span>
+</span><span data-line="927"><span class="sd">            limit: Maximum number of proxies to return. ``None`` or values &lt;= 0</span>
+</span><span data-line="928"><span class="sd">                return the full ordered inventory.</span>
+</span><span data-line="929">
+</span><span data-line="930"><span class="sd">        Returns:</span>
+</span><span data-line="931"><span class="sd">            List of proxy dictionaries with identity and status fields.</span>
+</span><span data-line="932"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="933">        <span class="n">stmt</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="934">            <span class="n">select</span><span class="p">(</span><span class="n">ProxyIdentityTable</span><span class="p">,</span> <span class="n">ProxyStatusTable</span><span class="p">)</span>
+</span><span data-line="935">            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="p">,</span> <span class="n">ProxyIdentityTable</span><span class="o">.</span><span class="n">url</span> <span class="o">==</span> <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="p">)</span>
+</span><span data-line="936">            <span class="o">.</span><span class="n">order_by</span><span class="p">(</span>
+</span><span data-line="937">                <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">last_check_at</span><span class="o">.</span><span class="n">is_</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span><span class="o">.</span><span class="n">desc</span><span class="p">(),</span>
+</span><span data-line="938">                <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">last_check_at</span><span class="o">.</span><span class="n">asc</span><span class="p">()</span><span class="o">.</span><span class="n">nullslast</span><span class="p">(),</span>
+</span><span data-line="939">                <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">updated_at</span><span class="o">.</span><span class="n">asc</span><span class="p">(),</span>
+</span><span data-line="940">                <span class="n">ProxyIdentityTable</span><span class="o">.</span><span class="n">url</span><span class="o">.</span><span class="n">asc</span><span class="p">(),</span>
+</span><span data-line="941">            <span class="p">)</span>
+</span><span data-line="942">        <span class="p">)</span>
+</span><span data-line="943">
+</span><span data-line="944">        <span class="k">if</span> <span class="n">limit</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">limit</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="945">            <span class="n">stmt</span> <span class="o">=</span> <span class="n">stmt</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="n">limit</span><span class="p">)</span>
+</span><span data-line="946">
+</span><span data-line="947">        <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncSession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+</span><span data-line="948">            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+</span><span data-line="949">            <span class="n">rows</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+</span><span data-line="950">
+</span><span data-line="951">            <span class="n">proxies</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="952">            <span class="k">for</span> <span class="n">identity</span><span class="p">,</span> <span class="n">status</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+</span><span data-line="953">                <span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span data-line="954">                    <span class="p">{</span>
+</span><span data-line="955">                        <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">url</span><span class="p">,</span>
+</span><span data-line="956">                        <span class="s2">&quot;protocol&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span>
+</span><span data-line="957">                        <span class="s2">&quot;host&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">host</span><span class="p">,</span>
+</span><span data-line="958">                        <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">port</span><span class="p">,</span>
+</span><span data-line="959">                        <span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decrypt_credential</span><span class="p">(</span><span class="n">identity</span><span class="o">.</span><span class="n">username</span><span class="p">),</span>
+</span><span data-line="960">                        <span class="s2">&quot;password&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decrypt_credential</span><span class="p">(</span><span class="n">identity</span><span class="o">.</span><span class="n">password</span><span class="p">),</span>
+</span><span data-line="961">                        <span class="s2">&quot;country_code&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">country_code</span><span class="p">,</span>
+</span><span data-line="962">                        <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">source</span><span class="p">,</span>
+</span><span data-line="963">                        <span class="s2">&quot;discovered_at&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">discovered_at</span><span class="p">,</span>
+</span><span data-line="964">                        <span class="s2">&quot;health_status&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">health_status</span><span class="p">,</span>
+</span><span data-line="965">                        <span class="s2">&quot;last_check_at&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">last_check_at</span><span class="p">,</span>
+</span><span data-line="966">                        <span class="s2">&quot;last_success_at&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">last_success_at</span><span class="p">,</span>
+</span><span data-line="967">                        <span class="s2">&quot;last_failure_at&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">last_failure_at</span><span class="p">,</span>
+</span><span data-line="968">                        <span class="s2">&quot;avg_response_time_ms&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">avg_response_time_ms</span><span class="p">,</span>
+</span><span data-line="969">                        <span class="s2">&quot;total_checks&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">total_checks</span><span class="p">,</span>
+</span><span data-line="970">                        <span class="s2">&quot;total_successes&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">total_successes</span><span class="p">,</span>
+</span><span data-line="971">                        <span class="s2">&quot;updated_at&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">updated_at</span><span class="p">,</span>
+</span><span data-line="972">                    <span class="p">}</span>
+</span><span data-line="973">                <span class="p">)</span>
+</span><span data-line="974">            <span class="k">return</span> <span class="n">proxies</span></div>
+
+</span><span data-line="975">
 <div class="viewcode-block" id="SQLiteStorage.load_validated">
 <a class="viewcode-back" href="../../autoapi/proxywhirl/storage/index.html#proxywhirl.storage.SQLiteStorage.load_validated">[docs]</a>
-</span><span data-line="918">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">load_validated</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_age_hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">48</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
-</span><span data-line="919"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Load proxies validated within the given time window, excluding dead proxies.</span>
-</span><span data-line="920">
-</span><span data-line="921"><span class="sd">        Args:</span>
-</span><span data-line="922"><span class="sd">            max_age_hours: Maximum age in hours for last_success_at.</span>
-</span><span data-line="923"><span class="sd">                Proxies older than this will be excluded. Default: 48 hours.</span>
-</span><span data-line="924">
-</span><span data-line="925"><span class="sd">        Returns:</span>
-</span><span data-line="926"><span class="sd">            List of proxy dictionaries with recent validations</span>
-</span><span data-line="927"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="928">        <span class="n">cutoff</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="n">max_age_hours</span><span class="p">)</span>
-</span><span data-line="929">
-</span><span data-line="930">        <span class="n">stmt</span> <span class="o">=</span> <span class="p">(</span>
-</span><span data-line="931">            <span class="n">select</span><span class="p">(</span><span class="n">ProxyIdentityTable</span><span class="p">,</span> <span class="n">ProxyStatusTable</span><span class="p">)</span>
-</span><span data-line="932">            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="p">,</span> <span class="n">ProxyIdentityTable</span><span class="o">.</span><span class="n">url</span> <span class="o">==</span> <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="p">)</span>
-</span><span data-line="933">            <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">last_success_at</span><span class="o">.</span><span class="n">isnot</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span>  <span class="c1"># type: ignore[union-attr]</span>
-</span><span data-line="934">            <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">last_success_at</span> <span class="o">&gt;=</span> <span class="n">cutoff</span><span class="p">)</span>  <span class="c1"># type: ignore[operator]</span>
-</span><span data-line="935">            <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">health_status</span> <span class="o">==</span> <span class="s2">&quot;healthy&quot;</span><span class="p">)</span>
-</span><span data-line="936">        <span class="p">)</span>
-</span><span data-line="937">
-</span><span data-line="938">        <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncSession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
-</span><span data-line="939">            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
-</span><span data-line="940">            <span class="n">rows</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
-</span><span data-line="941">
-</span><span data-line="942">            <span class="n">proxies</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span data-line="943">            <span class="k">for</span> <span class="n">identity</span><span class="p">,</span> <span class="n">status</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
-</span><span data-line="944">                <span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-</span><span data-line="945">                    <span class="p">{</span>
-</span><span data-line="946">                        <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">url</span><span class="p">,</span>
-</span><span data-line="947">                        <span class="s2">&quot;protocol&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span>
-</span><span data-line="948">                        <span class="s2">&quot;host&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">host</span><span class="p">,</span>
-</span><span data-line="949">                        <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">port</span><span class="p">,</span>
-</span><span data-line="950">                        <span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decrypt_credential</span><span class="p">(</span><span class="n">identity</span><span class="o">.</span><span class="n">username</span><span class="p">),</span>
-</span><span data-line="951">                        <span class="s2">&quot;password&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decrypt_credential</span><span class="p">(</span><span class="n">identity</span><span class="o">.</span><span class="n">password</span><span class="p">),</span>
-</span><span data-line="952">                        <span class="s2">&quot;country_code&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">country_code</span><span class="p">,</span>
-</span><span data-line="953">                        <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">source</span><span class="p">,</span>
-</span><span data-line="954">                        <span class="s2">&quot;discovered_at&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">discovered_at</span><span class="p">,</span>
-</span><span data-line="955">                        <span class="s2">&quot;health_status&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">health_status</span><span class="p">,</span>
-</span><span data-line="956">                        <span class="s2">&quot;last_success_at&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">last_success_at</span><span class="p">,</span>
-</span><span data-line="957">                        <span class="s2">&quot;last_failure_at&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">last_failure_at</span><span class="p">,</span>
-</span><span data-line="958">                        <span class="s2">&quot;avg_response_time_ms&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">avg_response_time_ms</span><span class="p">,</span>
-</span><span data-line="959">                        <span class="s2">&quot;total_checks&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">total_checks</span><span class="p">,</span>
-</span><span data-line="960">                        <span class="s2">&quot;total_successes&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">total_successes</span><span class="p">,</span>
-</span><span data-line="961">                    <span class="p">}</span>
-</span><span data-line="962">                <span class="p">)</span>
-</span><span data-line="963">            <span class="k">return</span> <span class="n">proxies</span></div>
+</span><span data-line="976">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">load_validated</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_age_hours</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">48</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+</span><span data-line="977"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Load proxies validated within the given time window, excluding dead proxies.</span>
+</span><span data-line="978">
+</span><span data-line="979"><span class="sd">        Args:</span>
+</span><span data-line="980"><span class="sd">            max_age_hours: Maximum age in hours for last_success_at.</span>
+</span><span data-line="981"><span class="sd">                Proxies older than this will be excluded. Default: 48 hours.</span>
+</span><span data-line="982">
+</span><span data-line="983"><span class="sd">        Returns:</span>
+</span><span data-line="984"><span class="sd">            List of proxy dictionaries with recent validations</span>
+</span><span data-line="985"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="986">        <span class="n">cutoff</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">hours</span><span class="o">=</span><span class="n">max_age_hours</span><span class="p">)</span>
+</span><span data-line="987">
+</span><span data-line="988">        <span class="n">stmt</span> <span class="o">=</span> <span class="p">(</span>
+</span><span data-line="989">            <span class="n">select</span><span class="p">(</span><span class="n">ProxyIdentityTable</span><span class="p">,</span> <span class="n">ProxyStatusTable</span><span class="p">)</span>
+</span><span data-line="990">            <span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="p">,</span> <span class="n">ProxyIdentityTable</span><span class="o">.</span><span class="n">url</span> <span class="o">==</span> <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="p">)</span>
+</span><span data-line="991">            <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">last_success_at</span><span class="o">.</span><span class="n">isnot</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span>  <span class="c1"># type: ignore[union-attr]</span>
+</span><span data-line="992">            <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">last_success_at</span> <span class="o">&gt;=</span> <span class="n">cutoff</span><span class="p">)</span>  <span class="c1"># type: ignore[operator]</span>
+</span><span data-line="993">            <span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">health_status</span> <span class="o">==</span> <span class="s2">&quot;healthy&quot;</span><span class="p">)</span>
+</span><span data-line="994">        <span class="p">)</span>
+</span><span data-line="995">
+</span><span data-line="996">        <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncSession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+</span><span data-line="997">            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">stmt</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+</span><span data-line="998">            <span class="n">rows</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+</span><span data-line="999">
+</span><span data-line="1000">            <span class="n">proxies</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span data-line="1001">            <span class="k">for</span> <span class="n">identity</span><span class="p">,</span> <span class="n">status</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">:</span>
+</span><span data-line="1002">                <span class="n">proxies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+</span><span data-line="1003">                    <span class="p">{</span>
+</span><span data-line="1004">                        <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">url</span><span class="p">,</span>
+</span><span data-line="1005">                        <span class="s2">&quot;protocol&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">protocol</span><span class="p">,</span>
+</span><span data-line="1006">                        <span class="s2">&quot;host&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">host</span><span class="p">,</span>
+</span><span data-line="1007">                        <span class="s2">&quot;port&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">port</span><span class="p">,</span>
+</span><span data-line="1008">                        <span class="s2">&quot;username&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decrypt_credential</span><span class="p">(</span><span class="n">identity</span><span class="o">.</span><span class="n">username</span><span class="p">),</span>
+</span><span data-line="1009">                        <span class="s2">&quot;password&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_decrypt_credential</span><span class="p">(</span><span class="n">identity</span><span class="o">.</span><span class="n">password</span><span class="p">),</span>
+</span><span data-line="1010">                        <span class="s2">&quot;country_code&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">country_code</span><span class="p">,</span>
+</span><span data-line="1011">                        <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">source</span><span class="p">,</span>
+</span><span data-line="1012">                        <span class="s2">&quot;discovered_at&quot;</span><span class="p">:</span> <span class="n">identity</span><span class="o">.</span><span class="n">discovered_at</span><span class="p">,</span>
+</span><span data-line="1013">                        <span class="s2">&quot;health_status&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">health_status</span><span class="p">,</span>
+</span><span data-line="1014">                        <span class="s2">&quot;last_success_at&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">last_success_at</span><span class="p">,</span>
+</span><span data-line="1015">                        <span class="s2">&quot;last_failure_at&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">last_failure_at</span><span class="p">,</span>
+</span><span data-line="1016">                        <span class="s2">&quot;avg_response_time_ms&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">avg_response_time_ms</span><span class="p">,</span>
+</span><span data-line="1017">                        <span class="s2">&quot;total_checks&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">total_checks</span><span class="p">,</span>
+</span><span data-line="1018">                        <span class="s2">&quot;total_successes&quot;</span><span class="p">:</span> <span class="n">status</span><span class="o">.</span><span class="n">total_successes</span><span class="p">,</span>
+</span><span data-line="1019">                    <span class="p">}</span>
+</span><span data-line="1020">                <span class="p">)</span>
+</span><span data-line="1021">            <span class="k">return</span> <span class="n">proxies</span></div>
 
-</span><span data-line="964">
+</span><span data-line="1022">
 <div class="viewcode-block" id="SQLiteStorage.cleanup">
 <a class="viewcode-back" href="../../autoapi/proxywhirl/storage/index.html#proxywhirl.storage.SQLiteStorage.cleanup">[docs]</a>
-</span><span data-line="965">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">cleanup</span><span class="p">(</span>
-</span><span data-line="966">        <span class="bp">self</span><span class="p">,</span>
-</span><span data-line="967">        <span class="n">remove_dead</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span data-line="968">        <span class="n">remove_stale_days</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">7</span><span class="p">,</span>
-</span><span data-line="969">        <span class="n">remove_never_validated</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span data-line="970">        <span class="n">vacuum</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-</span><span data-line="971">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
-</span><span data-line="972"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Clean up stale and dead proxies.</span>
-</span><span data-line="973">
-</span><span data-line="974"><span class="sd">        Args:</span>
-</span><span data-line="975"><span class="sd">            remove_dead: Remove proxies with health_status=&#39;dead&#39;</span>
-</span><span data-line="976"><span class="sd">            remove_stale_days: Remove proxies not validated in N days (0 to skip)</span>
-</span><span data-line="977"><span class="sd">            remove_never_validated: Remove proxies that have never been validated</span>
-</span><span data-line="978"><span class="sd">            vacuum: Run VACUUM after cleanup to reclaim space</span>
-</span><span data-line="979">
-</span><span data-line="980"><span class="sd">        Returns:</span>
-</span><span data-line="981"><span class="sd">            dict[str, int]: Counts of removed items by category (dead, stale, never_validated).</span>
-</span><span data-line="982"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="983">        <span class="n">counts</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="984">
-</span><span data-line="985">        <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncSession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
-</span><span data-line="986">            <span class="c1"># Remove dead proxies</span>
-</span><span data-line="987">            <span class="k">if</span> <span class="n">remove_dead</span><span class="p">:</span>
-</span><span data-line="988">                <span class="c1"># Get URLs of dead proxies</span>
-</span><span data-line="989">                <span class="n">dead_stmt</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-</span><span data-line="990">                    <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">health_status</span> <span class="o">==</span> <span class="s2">&quot;dead&quot;</span>
-</span><span data-line="991">                <span class="p">)</span>
-</span><span data-line="992">                <span class="n">dead_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">dead_stmt</span><span class="p">)</span>
-</span><span data-line="993">                <span class="n">dead_urls</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">dead_result</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
-</span><span data-line="994">
-</span><span data-line="995">                <span class="k">if</span> <span class="n">dead_urls</span><span class="p">:</span>
-</span><span data-line="996">                    <span class="c1"># Delete from proxy_identities</span>
-</span><span data-line="997">                    <span class="n">del_stmt</span> <span class="o">=</span> <span class="n">delete</span><span class="p">(</span><span class="n">ProxyIdentityTable</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-</span><span data-line="998">                        <span class="n">ProxyIdentityTable</span><span class="o">.</span><span class="n">url</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">dead_urls</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
-</span><span data-line="999">                    <span class="p">)</span>
-</span><span data-line="1000">                    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">del_stmt</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
-</span><span data-line="1001">                    <span class="n">counts</span><span class="p">[</span><span class="s2">&quot;dead&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">dead_urls</span><span class="p">)</span>
-</span><span data-line="1002">
-</span><span data-line="1003">                    <span class="c1"># Delete from status table</span>
-</span><span data-line="1004">                    <span class="n">del_status</span> <span class="o">=</span> <span class="n">delete</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-</span><span data-line="1005">                        <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">dead_urls</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
-</span><span data-line="1006">                    <span class="p">)</span>
-</span><span data-line="1007">                    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">del_status</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
-</span><span data-line="1008">                <span class="k">else</span><span class="p">:</span>
-</span><span data-line="1009">                    <span class="n">counts</span><span class="p">[</span><span class="s2">&quot;dead&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="1010">
-</span><span data-line="1011">            <span class="c1"># Remove stale proxies (not validated recently)</span>
-</span><span data-line="1012">            <span class="k">if</span> <span class="n">remove_stale_days</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-</span><span data-line="1013">                <span class="n">cutoff</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="n">remove_stale_days</span><span class="p">)</span>
-</span><span data-line="1014">                <span class="n">stale_stmt</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-</span><span data-line="1015">                    <span class="p">(</span><span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">last_check_at</span> <span class="o">&lt;</span> <span class="n">cutoff</span><span class="p">)</span>  <span class="c1"># type: ignore[operator]</span>
-</span><span data-line="1016">                    <span class="o">|</span> <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">last_check_at</span><span class="o">.</span><span class="n">is_</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>  <span class="c1"># type: ignore[union-attr]</span>
-</span><span data-line="1017">                <span class="p">)</span>
-</span><span data-line="1018">                <span class="n">stale_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">stale_stmt</span><span class="p">)</span>
-</span><span data-line="1019">                <span class="n">stale_urls</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">stale_result</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
-</span><span data-line="1020">
-</span><span data-line="1021">                <span class="k">if</span> <span class="n">stale_urls</span><span class="p">:</span>
-</span><span data-line="1022">                    <span class="n">del_stmt</span> <span class="o">=</span> <span class="n">delete</span><span class="p">(</span><span class="n">ProxyIdentityTable</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-</span><span data-line="1023">                        <span class="n">ProxyIdentityTable</span><span class="o">.</span><span class="n">url</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">stale_urls</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
-</span><span data-line="1024">                    <span class="p">)</span>
-</span><span data-line="1025">                    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">del_stmt</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
-</span><span data-line="1026">
-</span><span data-line="1027">                    <span class="n">del_status</span> <span class="o">=</span> <span class="n">delete</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-</span><span data-line="1028">                        <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">stale_urls</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
-</span><span data-line="1029">                    <span class="p">)</span>
-</span><span data-line="1030">                    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">del_status</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
-</span><span data-line="1031">                    <span class="n">counts</span><span class="p">[</span><span class="s2">&quot;stale&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">stale_urls</span><span class="p">)</span>
-</span><span data-line="1032">                <span class="k">else</span><span class="p">:</span>
-</span><span data-line="1033">                    <span class="n">counts</span><span class="p">[</span><span class="s2">&quot;stale&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="1034">
-</span><span data-line="1035">            <span class="c1"># Remove never validated proxies</span>
-</span><span data-line="1036">            <span class="k">if</span> <span class="n">remove_never_validated</span><span class="p">:</span>
-</span><span data-line="1037">                <span class="n">never_stmt</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-</span><span data-line="1038">                    <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">total_checks</span> <span class="o">==</span> <span class="mi">0</span>
-</span><span data-line="1039">                <span class="p">)</span>
-</span><span data-line="1040">                <span class="n">never_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">never_stmt</span><span class="p">)</span>
-</span><span data-line="1041">                <span class="n">never_urls</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">never_result</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+</span><span data-line="1023">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">cleanup</span><span class="p">(</span>
+</span><span data-line="1024">        <span class="bp">self</span><span class="p">,</span>
+</span><span data-line="1025">        <span class="n">remove_dead</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span data-line="1026">        <span class="n">remove_stale_days</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">7</span><span class="p">,</span>
+</span><span data-line="1027">        <span class="n">remove_never_validated</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span data-line="1028">        <span class="n">vacuum</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span data-line="1029">    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]:</span>
+</span><span data-line="1030"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Clean up stale and dead proxies.</span>
+</span><span data-line="1031">
+</span><span data-line="1032"><span class="sd">        Args:</span>
+</span><span data-line="1033"><span class="sd">            remove_dead: Remove proxies with health_status=&#39;dead&#39;</span>
+</span><span data-line="1034"><span class="sd">            remove_stale_days: Remove proxies not validated in N days (0 to skip)</span>
+</span><span data-line="1035"><span class="sd">            remove_never_validated: Remove proxies that have never been validated</span>
+</span><span data-line="1036"><span class="sd">            vacuum: Run VACUUM after cleanup to reclaim space</span>
+</span><span data-line="1037">
+</span><span data-line="1038"><span class="sd">        Returns:</span>
+</span><span data-line="1039"><span class="sd">            dict[str, int]: Counts of removed items by category (dead, stale, never_validated).</span>
+</span><span data-line="1040"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="1041">        <span class="n">counts</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
 </span><span data-line="1042">
-</span><span data-line="1043">                <span class="k">if</span> <span class="n">never_urls</span><span class="p">:</span>
-</span><span data-line="1044">                    <span class="n">del_stmt</span> <span class="o">=</span> <span class="n">delete</span><span class="p">(</span><span class="n">ProxyIdentityTable</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-</span><span data-line="1045">                        <span class="n">ProxyIdentityTable</span><span class="o">.</span><span class="n">url</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">never_urls</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
-</span><span data-line="1046">                    <span class="p">)</span>
-</span><span data-line="1047">                    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">del_stmt</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
-</span><span data-line="1048">
-</span><span data-line="1049">                    <span class="n">del_status</span> <span class="o">=</span> <span class="n">delete</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-</span><span data-line="1050">                        <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">never_urls</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
-</span><span data-line="1051">                    <span class="p">)</span>
-</span><span data-line="1052">                    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">del_status</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
-</span><span data-line="1053">                    <span class="n">counts</span><span class="p">[</span><span class="s2">&quot;never_validated&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">never_urls</span><span class="p">)</span>
-</span><span data-line="1054">                <span class="k">else</span><span class="p">:</span>
-</span><span data-line="1055">                    <span class="n">counts</span><span class="p">[</span><span class="s2">&quot;never_validated&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
-</span><span data-line="1056">
-</span><span data-line="1057">            <span class="c1"># Clean old validation history (keep 1 day)</span>
-</span><span data-line="1058">            <span class="n">history_cutoff</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-</span><span data-line="1059">            <span class="n">del_history</span> <span class="o">=</span> <span class="n">delete</span><span class="p">(</span><span class="n">ValidationResultTable</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-</span><span data-line="1060">                <span class="n">ValidationResultTable</span><span class="o">.</span><span class="n">validated_at</span> <span class="o">&lt;</span> <span class="n">history_cutoff</span>
-</span><span data-line="1061">            <span class="p">)</span>
-</span><span data-line="1062">            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">del_history</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
-</span><span data-line="1063">            <span class="n">counts</span><span class="p">[</span><span class="s2">&quot;old_validations&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">rowcount</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="s2">&quot;rowcount&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
-</span><span data-line="1064">
-</span><span data-line="1065">            <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
-</span><span data-line="1066">
-</span><span data-line="1067">        <span class="c1"># Vacuum to reclaim space</span>
-</span><span data-line="1068">        <span class="k">if</span> <span class="n">vacuum</span><span class="p">:</span>
-</span><span data-line="1069">            <span class="k">async</span> <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">begin</span><span class="p">()</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
-</span><span data-line="1070">                <span class="k">await</span> <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">text</span><span class="p">(</span><span class="s2">&quot;VACUUM&quot;</span><span class="p">))</span>
-</span><span data-line="1071">
-</span><span data-line="1072">        <span class="k">return</span> <span class="n">counts</span></div>
+</span><span data-line="1043">        <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncSession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+</span><span data-line="1044">            <span class="c1"># Remove dead proxies</span>
+</span><span data-line="1045">            <span class="k">if</span> <span class="n">remove_dead</span><span class="p">:</span>
+</span><span data-line="1046">                <span class="c1"># Get URLs of dead proxies</span>
+</span><span data-line="1047">                <span class="n">dead_stmt</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+</span><span data-line="1048">                    <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">health_status</span> <span class="o">==</span> <span class="s2">&quot;dead&quot;</span>
+</span><span data-line="1049">                <span class="p">)</span>
+</span><span data-line="1050">                <span class="n">dead_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">dead_stmt</span><span class="p">)</span>
+</span><span data-line="1051">                <span class="n">dead_urls</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">dead_result</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+</span><span data-line="1052">
+</span><span data-line="1053">                <span class="k">if</span> <span class="n">dead_urls</span><span class="p">:</span>
+</span><span data-line="1054">                    <span class="c1"># Delete from proxy_identities</span>
+</span><span data-line="1055">                    <span class="n">del_stmt</span> <span class="o">=</span> <span class="n">delete</span><span class="p">(</span><span class="n">ProxyIdentityTable</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+</span><span data-line="1056">                        <span class="n">ProxyIdentityTable</span><span class="o">.</span><span class="n">url</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">dead_urls</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
+</span><span data-line="1057">                    <span class="p">)</span>
+</span><span data-line="1058">                    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">del_stmt</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+</span><span data-line="1059">                    <span class="n">counts</span><span class="p">[</span><span class="s2">&quot;dead&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">dead_urls</span><span class="p">)</span>
+</span><span data-line="1060">
+</span><span data-line="1061">                    <span class="c1"># Delete from status table</span>
+</span><span data-line="1062">                    <span class="n">del_status</span> <span class="o">=</span> <span class="n">delete</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+</span><span data-line="1063">                        <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">dead_urls</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
+</span><span data-line="1064">                    <span class="p">)</span>
+</span><span data-line="1065">                    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">del_status</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+</span><span data-line="1066">                <span class="k">else</span><span class="p">:</span>
+</span><span data-line="1067">                    <span class="n">counts</span><span class="p">[</span><span class="s2">&quot;dead&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="1068">
+</span><span data-line="1069">            <span class="c1"># Remove stale proxies (not validated recently)</span>
+</span><span data-line="1070">            <span class="k">if</span> <span class="n">remove_stale_days</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+</span><span data-line="1071">                <span class="n">cutoff</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="n">remove_stale_days</span><span class="p">)</span>
+</span><span data-line="1072">                <span class="n">stale_stmt</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+</span><span data-line="1073">                    <span class="p">(</span><span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">last_check_at</span> <span class="o">&lt;</span> <span class="n">cutoff</span><span class="p">)</span>  <span class="c1"># type: ignore[operator]</span>
+</span><span data-line="1074">                    <span class="o">|</span> <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">last_check_at</span><span class="o">.</span><span class="n">is_</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>  <span class="c1"># type: ignore[union-attr]</span>
+</span><span data-line="1075">                <span class="p">)</span>
+</span><span data-line="1076">                <span class="n">stale_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">stale_stmt</span><span class="p">)</span>
+</span><span data-line="1077">                <span class="n">stale_urls</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">stale_result</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+</span><span data-line="1078">
+</span><span data-line="1079">                <span class="k">if</span> <span class="n">stale_urls</span><span class="p">:</span>
+</span><span data-line="1080">                    <span class="n">del_stmt</span> <span class="o">=</span> <span class="n">delete</span><span class="p">(</span><span class="n">ProxyIdentityTable</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+</span><span data-line="1081">                        <span class="n">ProxyIdentityTable</span><span class="o">.</span><span class="n">url</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">stale_urls</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
+</span><span data-line="1082">                    <span class="p">)</span>
+</span><span data-line="1083">                    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">del_stmt</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+</span><span data-line="1084">
+</span><span data-line="1085">                    <span class="n">del_status</span> <span class="o">=</span> <span class="n">delete</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+</span><span data-line="1086">                        <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">stale_urls</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
+</span><span data-line="1087">                    <span class="p">)</span>
+</span><span data-line="1088">                    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">del_status</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+</span><span data-line="1089">                    <span class="n">counts</span><span class="p">[</span><span class="s2">&quot;stale&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">stale_urls</span><span class="p">)</span>
+</span><span data-line="1090">                <span class="k">else</span><span class="p">:</span>
+</span><span data-line="1091">                    <span class="n">counts</span><span class="p">[</span><span class="s2">&quot;stale&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="1092">
+</span><span data-line="1093">            <span class="c1"># Remove never validated proxies</span>
+</span><span data-line="1094">            <span class="k">if</span> <span class="n">remove_never_validated</span><span class="p">:</span>
+</span><span data-line="1095">                <span class="n">never_stmt</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+</span><span data-line="1096">                    <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">total_checks</span> <span class="o">==</span> <span class="mi">0</span>
+</span><span data-line="1097">                <span class="p">)</span>
+</span><span data-line="1098">                <span class="n">never_result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">never_stmt</span><span class="p">)</span>
+</span><span data-line="1099">                <span class="n">never_urls</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">never_result</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+</span><span data-line="1100">
+</span><span data-line="1101">                <span class="k">if</span> <span class="n">never_urls</span><span class="p">:</span>
+</span><span data-line="1102">                    <span class="n">del_stmt</span> <span class="o">=</span> <span class="n">delete</span><span class="p">(</span><span class="n">ProxyIdentityTable</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+</span><span data-line="1103">                        <span class="n">ProxyIdentityTable</span><span class="o">.</span><span class="n">url</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">never_urls</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
+</span><span data-line="1104">                    <span class="p">)</span>
+</span><span data-line="1105">                    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">del_stmt</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+</span><span data-line="1106">
+</span><span data-line="1107">                    <span class="n">del_status</span> <span class="o">=</span> <span class="n">delete</span><span class="p">(</span><span class="n">ProxyStatusTable</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+</span><span data-line="1108">                        <span class="n">ProxyStatusTable</span><span class="o">.</span><span class="n">proxy_url</span><span class="o">.</span><span class="n">in_</span><span class="p">(</span><span class="n">never_urls</span><span class="p">)</span>  <span class="c1"># type: ignore[attr-defined]</span>
+</span><span data-line="1109">                    <span class="p">)</span>
+</span><span data-line="1110">                    <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">del_status</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+</span><span data-line="1111">                    <span class="n">counts</span><span class="p">[</span><span class="s2">&quot;never_validated&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">never_urls</span><span class="p">)</span>
+</span><span data-line="1112">                <span class="k">else</span><span class="p">:</span>
+</span><span data-line="1113">                    <span class="n">counts</span><span class="p">[</span><span class="s2">&quot;never_validated&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>
+</span><span data-line="1114">
+</span><span data-line="1115">            <span class="c1"># Clean old validation history (keep 1 day)</span>
+</span><span data-line="1116">            <span class="n">history_cutoff</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span> <span class="o">-</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span data-line="1117">            <span class="n">del_history</span> <span class="o">=</span> <span class="n">delete</span><span class="p">(</span><span class="n">ValidationResultTable</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+</span><span data-line="1118">                <span class="n">ValidationResultTable</span><span class="o">.</span><span class="n">validated_at</span> <span class="o">&lt;</span> <span class="n">history_cutoff</span>
+</span><span data-line="1119">            <span class="p">)</span>
+</span><span data-line="1120">            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">del_history</span><span class="p">)</span>  <span class="c1"># type: ignore[arg-type]</span>
+</span><span data-line="1121">            <span class="n">counts</span><span class="p">[</span><span class="s2">&quot;old_validations&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">rowcount</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="s2">&quot;rowcount&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="mi">0</span>
+</span><span data-line="1122">
+</span><span data-line="1123">            <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+</span><span data-line="1124">
+</span><span data-line="1125">        <span class="c1"># Vacuum to reclaim space</span>
+</span><span data-line="1126">        <span class="k">if</span> <span class="n">vacuum</span><span class="p">:</span>
+</span><span data-line="1127">            <span class="k">async</span> <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="o">.</span><span class="n">begin</span><span class="p">()</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+</span><span data-line="1128">                <span class="k">await</span> <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">text</span><span class="p">(</span><span class="s2">&quot;VACUUM&quot;</span><span class="p">))</span>
+</span><span data-line="1129">
+</span><span data-line="1130">        <span class="k">return</span> <span class="n">counts</span></div>
 
-</span><span data-line="1073">
+</span><span data-line="1131">
 <div class="viewcode-block" id="SQLiteStorage.get_stats">
 <a class="viewcode-back" href="../../autoapi/proxywhirl/storage/index.html#proxywhirl.storage.SQLiteStorage.get_stats">[docs]</a>
-</span><span data-line="1074">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-</span><span data-line="1075"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Get database statistics.</span>
-</span><span data-line="1076">
-</span><span data-line="1077"><span class="sd">        Returns:</span>
-</span><span data-line="1078"><span class="sd">            dict[str, Any]: Comprehensive database statistics.</span>
-</span><span data-line="1079"><span class="sd">        &quot;&quot;&quot;</span>
-</span><span data-line="1080">        <span class="n">stats</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span data-line="1081">
-</span><span data-line="1082">        <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncSession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
-</span><span data-line="1083">            <span class="c1"># Total proxies</span>
-</span><span data-line="1084">            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">text</span><span class="p">(</span><span class="s2">&quot;SELECT COUNT(*) FROM proxy_identities&quot;</span><span class="p">))</span>
-</span><span data-line="1085">            <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;total_proxies&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">scalar</span><span class="p">()</span> <span class="ow">or</span> <span class="mi">0</span>
-</span><span data-line="1086">
-</span><span data-line="1087">            <span class="c1"># By health status</span>
-</span><span data-line="1088">            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span>
-</span><span data-line="1089">                <span class="n">text</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
-</span><span data-line="1090"><span class="s2">                SELECT health_status, COUNT(*)</span>
-</span><span data-line="1091"><span class="s2">                FROM proxy_statuses</span>
-</span><span data-line="1092"><span class="s2">                GROUP BY health_status</span>
-</span><span data-line="1093"><span class="s2">            &quot;&quot;&quot;</span><span class="p">)</span>
-</span><span data-line="1094">            <span class="p">)</span>
-</span><span data-line="1095">            <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;by_health&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
-</span><span data-line="1096">
-</span><span data-line="1097">            <span class="c1"># By protocol</span>
-</span><span data-line="1098">            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span>
-</span><span data-line="1099">                <span class="n">text</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
-</span><span data-line="1100"><span class="s2">                SELECT protocol, COUNT(*)</span>
-</span><span data-line="1101"><span class="s2">                FROM proxy_identities</span>
-</span><span data-line="1102"><span class="s2">                GROUP BY protocol</span>
-</span><span data-line="1103"><span class="s2">            &quot;&quot;&quot;</span><span class="p">)</span>
-</span><span data-line="1104">            <span class="p">)</span>
-</span><span data-line="1105">            <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;by_protocol&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
-</span><span data-line="1106">
-</span><span data-line="1107">            <span class="c1"># Validation stats (last 24 hours)</span>
-</span><span data-line="1108">            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span>
-</span><span data-line="1109">                <span class="n">text</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
-</span><span data-line="1110"><span class="s2">                SELECT</span>
-</span><span data-line="1111"><span class="s2">                    COUNT(*) as total_validations,</span>
-</span><span data-line="1112"><span class="s2">                    SUM(CASE WHEN is_valid THEN 1 ELSE 0 END) as successful,</span>
-</span><span data-line="1113"><span class="s2">                    AVG(CASE WHEN is_valid THEN response_time_ms END) as avg_response_time</span>
-</span><span data-line="1114"><span class="s2">                FROM validation_results</span>
-</span><span data-line="1115"><span class="s2">                WHERE validated_at &gt; datetime(&#39;now&#39;, &#39;-24 hours&#39;)</span>
-</span><span data-line="1116"><span class="s2">            &quot;&quot;&quot;</span><span class="p">)</span>
-</span><span data-line="1117">            <span class="p">)</span>
-</span><span data-line="1118">            <span class="n">row</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">one</span><span class="p">()</span>
-</span><span data-line="1119">            <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;validations_24h&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-</span><span data-line="1120">                <span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">,</span>
-</span><span data-line="1121">                <span class="s2">&quot;successful&quot;</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">,</span>
-</span><span data-line="1122">                <span class="s2">&quot;avg_response_time_ms&quot;</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
-</span><span data-line="1123">            <span class="p">}</span>
-</span><span data-line="1124">
-</span><span data-line="1125">            <span class="c1"># Database file size</span>
-</span><span data-line="1126">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">filepath</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-</span><span data-line="1127">                <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;db_size_bytes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">filepath</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span>
-</span><span data-line="1128">
-</span><span data-line="1129">        <span class="k">return</span> <span class="n">stats</span></div>
+</span><span data-line="1132">    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">get_stats</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+</span><span data-line="1133"><span class="w">        </span><span class="sd">&quot;&quot;&quot;Get database statistics.</span>
+</span><span data-line="1134">
+</span><span data-line="1135"><span class="sd">        Returns:</span>
+</span><span data-line="1136"><span class="sd">            dict[str, Any]: Comprehensive database statistics.</span>
+</span><span data-line="1137"><span class="sd">        &quot;&quot;&quot;</span>
+</span><span data-line="1138">        <span class="n">stats</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span data-line="1139">
+</span><span data-line="1140">        <span class="k">async</span> <span class="k">with</span> <span class="n">AsyncSession</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">engine</span><span class="p">)</span> <span class="k">as</span> <span class="n">session</span><span class="p">:</span>
+</span><span data-line="1141">            <span class="c1"># Total proxies</span>
+</span><span data-line="1142">            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span><span class="n">text</span><span class="p">(</span><span class="s2">&quot;SELECT COUNT(*) FROM proxy_identities&quot;</span><span class="p">))</span>
+</span><span data-line="1143">            <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;total_proxies&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">scalar</span><span class="p">()</span> <span class="ow">or</span> <span class="mi">0</span>
+</span><span data-line="1144">
+</span><span data-line="1145">            <span class="c1"># By health status</span>
+</span><span data-line="1146">            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span>
+</span><span data-line="1147">                <span class="n">text</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
+</span><span data-line="1148"><span class="s2">                SELECT health_status, COUNT(*)</span>
+</span><span data-line="1149"><span class="s2">                FROM proxy_statuses</span>
+</span><span data-line="1150"><span class="s2">                GROUP BY health_status</span>
+</span><span data-line="1151"><span class="s2">            &quot;&quot;&quot;</span><span class="p">)</span>
+</span><span data-line="1152">            <span class="p">)</span>
+</span><span data-line="1153">            <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;by_health&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+</span><span data-line="1154">
+</span><span data-line="1155">            <span class="c1"># By protocol</span>
+</span><span data-line="1156">            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span>
+</span><span data-line="1157">                <span class="n">text</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
+</span><span data-line="1158"><span class="s2">                SELECT protocol, COUNT(*)</span>
+</span><span data-line="1159"><span class="s2">                FROM proxy_identities</span>
+</span><span data-line="1160"><span class="s2">                GROUP BY protocol</span>
+</span><span data-line="1161"><span class="s2">            &quot;&quot;&quot;</span><span class="p">)</span>
+</span><span data-line="1162">            <span class="p">)</span>
+</span><span data-line="1163">            <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;by_protocol&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">all</span><span class="p">())</span>
+</span><span data-line="1164">
+</span><span data-line="1165">            <span class="c1"># Validation stats (last 24 hours)</span>
+</span><span data-line="1166">            <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">session</span><span class="o">.</span><span class="n">exec</span><span class="p">(</span>
+</span><span data-line="1167">                <span class="n">text</span><span class="p">(</span><span class="s2">&quot;&quot;&quot;</span>
+</span><span data-line="1168"><span class="s2">                SELECT</span>
+</span><span data-line="1169"><span class="s2">                    COUNT(*) as total_validations,</span>
+</span><span data-line="1170"><span class="s2">                    SUM(CASE WHEN is_valid THEN 1 ELSE 0 END) as successful,</span>
+</span><span data-line="1171"><span class="s2">                    AVG(CASE WHEN is_valid THEN response_time_ms END) as avg_response_time</span>
+</span><span data-line="1172"><span class="s2">                FROM validation_results</span>
+</span><span data-line="1173"><span class="s2">                WHERE validated_at &gt; datetime(&#39;now&#39;, &#39;-24 hours&#39;)</span>
+</span><span data-line="1174"><span class="s2">            &quot;&quot;&quot;</span><span class="p">)</span>
+</span><span data-line="1175">            <span class="p">)</span>
+</span><span data-line="1176">            <span class="n">row</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">one</span><span class="p">()</span>
+</span><span data-line="1177">            <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;validations_24h&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+</span><span data-line="1178">                <span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">,</span>
+</span><span data-line="1179">                <span class="s2">&quot;successful&quot;</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">or</span> <span class="mi">0</span><span class="p">,</span>
+</span><span data-line="1180">                <span class="s2">&quot;avg_response_time_ms&quot;</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+</span><span data-line="1181">            <span class="p">}</span>
+</span><span data-line="1182">
+</span><span data-line="1183">            <span class="c1"># Database file size</span>
+</span><span data-line="1184">            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">filepath</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+</span><span data-line="1185">                <span class="n">stats</span><span class="p">[</span><span class="s2">&quot;db_size_bytes&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">filepath</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span>
+</span><span data-line="1186">
+</span><span data-line="1187">        <span class="k">return</span> <span class="n">stats</span></div>
 </div>
 
 </span></pre></div>

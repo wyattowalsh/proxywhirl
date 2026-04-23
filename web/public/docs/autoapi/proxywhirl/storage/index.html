@@ -611,6 +611,7 @@
 <li><a class="reference internal" href="#proxywhirl.storage.SQLiteStorage.get_stats"><code class="docutils literal notranslate">get_stats()</span></code></a></li>
 <li><a class="reference internal" href="#proxywhirl.storage.SQLiteStorage.initialize"><code class="docutils literal notranslate">initialize()</span></code></a></li>
 <li><a class="reference internal" href="#proxywhirl.storage.SQLiteStorage.load"><code class="docutils literal notranslate">load()</span></code></a></li>
+<li><a class="reference internal" href="#proxywhirl.storage.SQLiteStorage.load_revalidation_candidates"><code class="docutils literal notranslate">load_revalidation_candidates()</span></code></a></li>
 <li><a class="reference internal" href="#proxywhirl.storage.SQLiteStorage.load_validated"><code class="docutils literal notranslate">load_validated()</span></code></a></li>
 <li><a class="reference internal" href="#proxywhirl.storage.SQLiteStorage.query"><code class="docutils literal notranslate">query()</span></code></a></li>
 <li><a class="reference internal" href="#proxywhirl.storage.SQLiteStorage.record_validation"><code class="docutils literal notranslate">record_validation()</span></code></a></li>
@@ -1093,6 +1094,28 @@ existing tables won’t be affected.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
 <dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, Any]]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="proxywhirl.storage.SQLiteStorage.load_revalidation_candidates">
+<span class="property"><span class="k"><span class="pre">async</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">load_revalidation_candidates</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">limit</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/proxywhirl/storage.html#SQLiteStorage.load_revalidation_candidates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#proxywhirl.storage.SQLiteStorage.load_revalidation_candidates" title="Link to this definition">¶</a></dt>
+<dd><p>Load proxies for oldest-first revalidation.</p>
+<p>Proxies are ordered to prioritize entries that have never been checked,
+followed by the oldest previously checked proxies. This allows scheduled
+revalidation to progress incrementally across the full inventory while
+remaining deterministic across runs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>limit</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.14)"><em>int</em></a><em> | </em><em>None</em>) – Maximum number of proxies to return. <code class="docutils literal notranslate"><span class="pre">None</span></code> or values &lt;= 0
+return the full ordered inventory.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>List of proxy dictionaries with identity and status fields.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.14)">list</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.14)">dict</a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.14)">str</a>, Any]]</p>
 </dd>
 </dl>
 </dd></dl>
