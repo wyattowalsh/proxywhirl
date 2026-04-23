@@ -16,7 +16,7 @@ on:
 # Ensure only one instance runs at a time to prevent database conflicts
 # cancel-in-progress: true prevents job stacking if fetch takes > 2h
 concurrency:
-  group: proxy-generation
+  group: proxy-generation-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
