@@ -2,9 +2,10 @@ name: Generate Proxy Lists
 
 on:
   schedule:
-    # Run every 2 hours. Re-validation is incremental oldest-first so each run
-    # advances through the stored inventory without attempting a full sweep.
-    - cron: '0 */2 * * *'
+    # Run every 3 hours. GitHub's schedule jitter can delay starts enough that a
+    # 2-hour cadence still overlaps a healthy 80-90 minute generation run when
+    # cancel-in-progress is enabled.
+    - cron: '0 */3 * * *'
   workflow_dispatch:
     inputs:
       revalidate_limit:
