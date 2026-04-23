@@ -2,6 +2,7 @@
 
 import json
 import tempfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -2545,6 +2546,50 @@ class TestNormalizedSchema:
         healthy = await storage.get_healthy_proxies(max_age_hours=24)
         assert len(healthy) == 1
         assert healthy[0]["url"] == "http://1.2.3.4:8080"
+
+    async def test_load_revalidation_candidates_orders_oldest_first(self, storage):
+        """Test oldest-first ordering for incremental re-validation batches."""
+        proxies = [
+            Proxy(url="http://1.2.3.4:8080", protocol="http", allow_local=True),
+            Proxy(url="http://1.2.3.5:8080", protocol="http", allow_local=True),
+            Proxy(url="http://1.2.3.6:8080", protocol="http", allow_local=True),
+            Proxy(url="http://1.2.3.7:8080", protocol="http", allow_local=True),
+        ]
+        await storage.add_proxies_batch(proxies)
+
+        base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        status_updates = [
+            # Never checked should always come first, regardless of updated_at.
+            ("http://1.2.3.4:8080", None, base + timedelta(hours=4)),
+            # Older updated_at wins when last_check_at ties.
+            ("http://1.2.3.5:8080", base + timedelta(hours=1), base + timedelta(hours=3)),
+            ("http://1.2.3.6:8080", base + timedelta(hours=1), base + timedelta(hours=2)),
+            # URL tie-break after same last_check_at and updated_at.
+            ("http://1.2.3.7:8080", base + timedelta(hours=1), base + timedelta(hours=2)),
+        ]
+
+        async with storage.engine.begin() as conn:
+            for url, last_check_at, updated_at in status_updates:
+                await conn.execute(
+                    sa.text("""
+                    UPDATE proxy_statuses
+                    SET last_check_at = :last_check_at, updated_at = :updated_at
+                    WHERE proxy_url = :url
+                    """),
+                    {
+                        "last_check_at": last_check_at,
+                        "updated_at": updated_at,
+                        "url": url,
+                    },
+                )
+
+        candidates = await storage.load_revalidation_candidates(limit=3)
+
+        assert [candidate["url"] for candidate in candidates] == [
+            "http://1.2.3.4:8080",
+            "http://1.2.3.6:8080",
+            "http://1.2.3.7:8080",
+        ]
 
     async def test_get_healthy_proxies_with_filters(self, storage):
         """Test filtering healthy proxies by protocol and country."""

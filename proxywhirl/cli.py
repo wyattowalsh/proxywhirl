@@ -1113,6 +1113,7 @@ async def _revalidate_existing_proxies(
     timeout: int,
     max_concurrent: int,
     prune_failed: bool,
+    revalidate_limit: int | None,
     console: Any,
 ) -> tuple[list[Any], int]:
     """Re-validate existing proxies in the database.
@@ -1126,6 +1127,7 @@ async def _revalidate_existing_proxies(
         timeout: Validation timeout in seconds
         max_concurrent: Maximum concurrent validation requests
         prune_failed: If True, delete failed proxies. If False, mark them as DEAD.
+        revalidate_limit: Maximum proxies to revalidate in oldest-first order.
         console: Rich console for progress display
 
     Returns:
@@ -1149,14 +1151,21 @@ async def _revalidate_existing_proxies(
     await storage.initialize()
 
     try:
-        existing_proxies = await storage.load()
+        existing_proxies = await storage.load_revalidation_candidates(limit=revalidate_limit)
         total_proxies = len(existing_proxies)
 
         if total_proxies == 0:
             console.print("[yellow]No proxies in database to re-validate[/yellow]")
             return [], 0
 
-        console.print(f"[cyan]Loaded {total_proxies:,} proxies from database[/cyan]")
+        if revalidate_limit and revalidate_limit > 0:
+            console.print(
+                "[cyan]Loaded "
+                f"{total_proxies:,} oldest proxies from database for incremental re-validation"
+                "[/cyan]"
+            )
+        else:
+            console.print(f"[cyan]Loaded {total_proxies:,} proxies from database[/cyan]")
 
         # Build lookup map for original proxies by URL
         original_by_url: dict[str, Any] = {p["url"]: p for p in existing_proxies}
@@ -1313,6 +1322,11 @@ def fetch(
         "-R",
         help="Re-validate existing proxies in database instead of fetching new ones",
     ),
+    revalidate_limit: int = typer.Option(
+        0,
+        "--revalidate-limit",
+        help="Maximum proxies to re-validate in oldest-first order (0 = all; use with --revalidate)",
+    ),
     prune_failed: bool = typer.Option(
         False,
         "--prune-failed",
@@ -1341,6 +1355,7 @@ def fetch(
       proxywhirl fetch --no-validate
       proxywhirl fetch --timeout 5 --concurrency 50
       proxywhirl fetch --revalidate --timeout 5 --concurrency 2000
+      proxywhirl fetch --revalidate --revalidate-limit 2000
       proxywhirl fetch --revalidate --prune-failed
       proxywhirl fetch --no-https-validate
       proxywhirl fetch --https-timeout 10
@@ -1351,10 +1366,27 @@ def fetch(
 
     # Parse configuration
     fetch_config = _parse_fetch_config(no_validate, timeout, concurrency)
+    effective_revalidate_limit = revalidate_limit if revalidate_limit > 0 else None
+
+    if revalidate_limit < 0:
+        command_ctx.console.print("[red]--revalidate-limit must be >= 0[/red]")
+        raise typer.Exit(code=1)
+
+    if revalidate_limit > 0 and not revalidate:
+        command_ctx.console.print(
+            "[red]--revalidate-limit can only be used with --revalidate[/red]"
+        )
+        raise typer.Exit(code=1)
 
     if revalidate:
         # Re-validate existing proxies in database
-        command_ctx.console.print("[bold]Re-validating existing proxies in database...[/bold]")
+        if effective_revalidate_limit is None:
+            command_ctx.console.print("[bold]Re-validating existing proxies in database...[/bold]")
+        else:
+            command_ctx.console.print(
+                "[bold]Re-validating the oldest existing proxies in database "
+                f"(limit {effective_revalidate_limit:,})...[/bold]"
+            )
         try:
             valid_proxies, failed_count = asyncio.run(
                 _revalidate_existing_proxies(
@@ -1362,6 +1394,7 @@ def fetch(
                     timeout=fetch_config["timeout"],
                     max_concurrent=fetch_config["max_concurrent"],
                     prune_failed=prune_failed,
+                    revalidate_limit=effective_revalidate_limit,
                     console=command_ctx.console,
                 )
             )

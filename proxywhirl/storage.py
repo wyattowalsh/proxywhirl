@@ -915,6 +915,64 @@ class SQLiteStorage:
                 )
             return proxies
 
+    async def load_revalidation_candidates(self, limit: int | None = None) -> list[dict[str, Any]]:
+        """Load proxies for oldest-first revalidation.
+
+        Proxies are ordered to prioritize entries that have never been checked,
+        followed by the oldest previously checked proxies. This allows scheduled
+        revalidation to progress incrementally across the full inventory while
+        remaining deterministic across runs.
+
+        Args:
+            limit: Maximum number of proxies to return. ``None`` or values <= 0
+                return the full ordered inventory.
+
+        Returns:
+            List of proxy dictionaries with identity and status fields.
+        """
+        stmt = (
+            select(ProxyIdentityTable, ProxyStatusTable)
+            .join(ProxyStatusTable, ProxyIdentityTable.url == ProxyStatusTable.proxy_url)
+            .order_by(
+                ProxyStatusTable.last_check_at.is_(None).desc(),
+                ProxyStatusTable.last_check_at.asc().nullslast(),
+                ProxyStatusTable.updated_at.asc(),
+                ProxyIdentityTable.url.asc(),
+            )
+        )
+
+        if limit is not None and limit > 0:
+            stmt = stmt.limit(limit)
+
+        async with AsyncSession(self.engine) as session:
+            result = await session.exec(stmt)  # type: ignore[arg-type]
+            rows = result.all()
+
+            proxies = []
+            for identity, status in rows:
+                proxies.append(
+                    {
+                        "url": identity.url,
+                        "protocol": identity.protocol,
+                        "host": identity.host,
+                        "port": identity.port,
+                        "username": self._decrypt_credential(identity.username),
+                        "password": self._decrypt_credential(identity.password),
+                        "country_code": identity.country_code,
+                        "source": identity.source,
+                        "discovered_at": identity.discovered_at,
+                        "health_status": status.health_status,
+                        "last_check_at": status.last_check_at,
+                        "last_success_at": status.last_success_at,
+                        "last_failure_at": status.last_failure_at,
+                        "avg_response_time_ms": status.avg_response_time_ms,
+                        "total_checks": status.total_checks,
+                        "total_successes": status.total_successes,
+                        "updated_at": status.updated_at,
+                    }
+                )
+            return proxies
+
     async def load_validated(self, max_age_hours: int = 48) -> list[dict[str, Any]]:
         """Load proxies validated within the given time window, excluding dead proxies.
 

@@ -2,9 +2,15 @@ name: Generate Proxy Lists
 
 on:
   schedule:
-    # Run every 2 hours (workflow takes 60-90 min with all sources and 5s timeout)
+    # Run every 2 hours. Re-validation is incremental oldest-first so each run
+    # advances through the stored inventory without attempting a full sweep.
     - cron: '0 */2 * * *'
-  workflow_dispatch: # Allow manual triggers
+  workflow_dispatch:
+    inputs:
+      revalidate_limit:
+        description: "Maximum oldest proxies to re-validate before fetch (0 = full sweep)"
+        required: false
+        default: "2000"
 
 # Ensure only one instance runs at a time to prevent database conflicts
 # cancel-in-progress: true prevents job stacking if fetch takes > 2h
@@ -65,12 +71,14 @@ jobs:
 
     - name: Re-validate existing proxies
       timeout-minutes: 60
+      env:
+        REVALIDATE_LIMIT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.revalidate_limit || '2000' }}
       run: |
-        # Re-validate all existing proxies in the database
-        # Failed proxies are marked as DEAD, cleaned up after this step
-        # Use 10s timeout to capture more working proxies (response-time sorting
-        # in export ensures fastest proxies appear first in output files)
-        uv run proxywhirl fetch --revalidate --timeout 10 --concurrency 2000 --no-export
+        # Re-validate the oldest proxies first so scheduled runs stay within
+        # budget while still making progress across the full database.
+        # Pass 0 on manual dispatch to force a full sweep.
+        # Failed proxies are marked as DEAD, cleaned up after this step.
+        uv run proxywhirl fetch --revalidate --revalidate-limit "${REVALIDATE_LIMIT}" --timeout 10 --concurrency 2000 --no-export
 
     - name: Fetch new proxies from sources
       timeout-minutes: 120

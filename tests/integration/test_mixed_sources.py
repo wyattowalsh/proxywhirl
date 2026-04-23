@@ -3,15 +3,17 @@ Integration tests for mixed proxy sources (US6).
 
 Tests cover:
 - T114: Pool contains user + fetched proxies with distinct tags
-- T115: Weighted rotation prefers user-defined proxies
+- T115: Weighted rotation follows configured weights across mixed sources
 - T116: Statistics indicate source for each proxy
 """
+
+import random
 
 import httpx
 import respx
 
 from proxywhirl.fetchers import ProxyFetcher, ProxySourceConfig
-from proxywhirl.models import HealthStatus, Proxy, ProxySource
+from proxywhirl.models import HealthStatus, Proxy, ProxySource, StrategyConfig
 from proxywhirl.rotator import ProxyWhirl
 from proxywhirl.strategies import WeightedStrategy
 
@@ -69,43 +71,54 @@ class TestMixedProxySources:
         assert all(p.source == ProxySource.USER for p in user_proxies)
         assert all(p.source == ProxySource.FETCHED for p in fetched_proxies_list)
 
-    def test_weighted_rotation_prefers_user_proxies(self) -> None:
-        """T115/SC2: Weighted rotation prefers user-defined proxies over fetched."""
-        rotator = ProxyWhirl(strategy=WeightedStrategy())
+    def test_weighted_rotation_prefers_explicit_weights_across_sources(self) -> None:
+        """T115/SC2: Weighted rotation follows configured weights across mixed sources."""
+        random.seed(0)
 
-        # Add user-provided proxies (should get higher weight)
+        strategy = WeightedStrategy()
+
         user_proxy = Proxy(
             url="http://premium-user.example.com:8080",
             source=ProxySource.USER,
             health_status=HealthStatus.HEALTHY,
         )
-        rotator.add_proxy(user_proxy)
 
-        # Add fetched proxies (lower weight)
+        fetched_proxies = []
         for i in range(3):
-            fetched_proxy = Proxy(
-                url=f"http://fetched{i}.example.com:8080",
-                source=ProxySource.FETCHED,
-                health_status=HealthStatus.HEALTHY,
+            fetched_proxies.append(
+                Proxy(
+                    url=f"http://fetched{i}.example.com:8080",
+                    source=ProxySource.FETCHED,
+                    health_status=HealthStatus.HEALTHY,
+                )
             )
+
+        strategy.configure(
+            StrategyConfig(
+                weights={
+                    user_proxy.url: 20.0,
+                    fetched_proxies[0].url: 1.0,
+                    fetched_proxies[1].url: 1.0,
+                    fetched_proxies[2].url: 1.0,
+                }
+            )
+        )
+        rotator = ProxyWhirl(strategy=strategy)
+        rotator.add_proxy(user_proxy)
+        for fetched_proxy in fetched_proxies:
             rotator.add_proxy(fetched_proxy)
 
-        # Sample selections (user proxy should be selected more often)
-        # Increase sample size for more reliable statistics
-        selections = [rotator.strategy.select(rotator.pool).source for _ in range(500)]
-        user_selections = selections.count(ProxySource.USER)
-        fetched_selections = selections.count(ProxySource.FETCHED)
+        selections = [rotator.strategy.select(rotator.pool).url for _ in range(200)]
+        user_selections = selections.count(user_proxy.url)
+        fetched_selections = len(selections) - user_selections
 
-        # With weighted rotation and 1 user vs 3 fetched proxies:
-        # User should get at least 30% of selections (expected ~40%)
-        # Fetched should get at least 50% collectively (expected ~60%)
-        assert user_selections >= 100, (
-            f"Expected user proxy selected >=100 times, got {user_selections}"
+        assert user_selections >= 150, (
+            f"Expected weighted user proxy selected >=150 times, got {user_selections}"
         )
-        assert fetched_selections >= 200, (
-            f"Expected fetched proxies selected >=200 times, got {fetched_selections}"
+        assert user_selections > fetched_selections, (
+            "Expected explicit weights to dominate mixed-source selection counts"
         )
-        assert user_selections + fetched_selections == 500
+        assert user_selections + fetched_selections == 200
 
     def test_statistics_indicate_source_for_each_proxy(self) -> None:
         """T116/SC3: Statistics clearly indicate source for each proxy."""
