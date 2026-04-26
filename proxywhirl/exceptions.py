@@ -36,6 +36,10 @@ class ProxyErrorCode(str, Enum):
     SOURCE_UNAVAILABLE = "SOURCE_UNAVAILABLE"
     EVENT_LOOP_CONFLICT = "EVENT_LOOP_CONFLICT"
     SCHEMA_MIGRATION_ERROR = "SCHEMA_MIGRATION_ERROR"
+    TIMEOUT_CONNECT = "TIMEOUT_CONNECT"
+    TIMEOUT_READ = "TIMEOUT_READ"
+    TIMEOUT_WRITE = "TIMEOUT_WRITE"
+    TIMEOUT_POOL = "TIMEOUT_POOL"
 
 
 SENSITIVE_QUERY_NAME_PARTS = {
@@ -95,7 +99,7 @@ def redact_url(url: str) -> str:
                 redacted += f"?{query}"
             return redacted
         return url
-    except (ValueError, TypeError):
+    except Exception:
         # If parsing fails, try simple regex-based redaction
         return re.sub(r"://[^/@?#]*@", "://***:***@", url)
 
@@ -845,6 +849,130 @@ class TimeoutError(ProxyWhirlError):
         super().__init__(enhanced_msg, retry_recommended=True, **kwargs)
         self.timeout_seconds = timeout_seconds
         self.operation = operation
+
+
+class ConnectTimeoutError(TimeoutError):
+    """Raised when connection timeout occurs.
+
+    Actionable guidance:
+    - Check network connectivity to proxy/target
+    - Increase connect_timeout if network is slow
+    - Verify proxy is reachable and not blocked
+    """
+
+    error_code = ProxyErrorCode.TIMEOUT_CONNECT
+
+    def __init__(
+        self,
+        message: str = "Connection timeout",
+        timeout_seconds: float | None = None,
+        target_host: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize with connection timeout context."""
+        enhanced_msg = message
+        if target_host:
+            enhanced_msg += f" (target: {target_host})"
+        super().__init__(
+            enhanced_msg,
+            timeout_seconds=timeout_seconds,
+            operation="connect",
+            **kwargs,
+        )
+        self.target_host = target_host
+
+
+class ReadTimeoutError(TimeoutError):
+    """Raised when read timeout occurs.
+
+    Actionable guidance:
+    - Check if target is responding slowly
+    - Increase read_timeout value
+    - Verify proxy bandwidth is sufficient
+    """
+
+    error_code = ProxyErrorCode.TIMEOUT_READ
+
+    def __init__(
+        self,
+        message: str = "Read timeout",
+        timeout_seconds: float | None = None,
+        bytes_read: int | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize with read timeout context."""
+        enhanced_msg = message
+        if bytes_read is not None:
+            enhanced_msg += f" (read {bytes_read} bytes)"
+        super().__init__(
+            enhanced_msg,
+            timeout_seconds=timeout_seconds,
+            operation="read",
+            **kwargs,
+        )
+        self.bytes_read = bytes_read
+
+
+class WriteTimeoutError(TimeoutError):
+    """Raised when write timeout occurs.
+
+    Actionable guidance:
+    - Check if proxy is accepting data
+    - Increase write_timeout value
+    - Verify request size is reasonable
+    """
+
+    error_code = ProxyErrorCode.TIMEOUT_WRITE
+
+    def __init__(
+        self,
+        message: str = "Write timeout",
+        timeout_seconds: float | None = None,
+        bytes_to_write: int | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize with write timeout context."""
+        enhanced_msg = message
+        if bytes_to_write is not None:
+            enhanced_msg += f" (write {bytes_to_write} bytes)"
+        super().__init__(
+            enhanced_msg,
+            timeout_seconds=timeout_seconds,
+            operation="write",
+            **kwargs,
+        )
+        self.bytes_to_write = bytes_to_write
+
+
+class PoolTimeoutError(TimeoutError):
+    """Raised when timeout waiting for pool connection.
+
+    Actionable guidance:
+    - Wait for existing requests to complete
+    - Increase pool_timeout value
+    - Reduce concurrent request rate
+    """
+
+    error_code = ProxyErrorCode.TIMEOUT_POOL
+
+    def __init__(
+        self,
+        message: str = "Pool timeout waiting for connection",
+        timeout_seconds: float | None = None,
+        pool_size: int | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize with pool timeout context."""
+        enhanced_msg = message
+        if pool_size is not None:
+            enhanced_msg += f" (pool size: {pool_size})"
+        super().__init__(
+            enhanced_msg,
+            timeout_seconds=timeout_seconds,
+            operation="pool_acquire",
+            **kwargs,
+        )
+        self.pool_size = pool_size
 
 
 class StorageRecoveryError(ProxyStorageError):
