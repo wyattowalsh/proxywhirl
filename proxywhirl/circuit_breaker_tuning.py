@@ -199,9 +199,7 @@ class CircuitBreakerTuner:
             )
         elif failure_rate < 0.1:
             # Few failures, can raise threshold
-            config_updates["failure_threshold"] = (
-                self.current_config.failure_threshold + 1
-            )
+            config_updates["failure_threshold"] = self.current_config.failure_threshold + 1
 
         # Adjust timeout based on latency
         if self.metrics["latencies"]:
@@ -216,9 +214,7 @@ class CircuitBreakerTuner:
 
         # Adjust backoff based on timeout rate
         if timeout_rate > 0.5:
-            config_updates["max_backoff"] = (
-                self.current_config.max_backoff * 1.5
-            )
+            config_updates["max_backoff"] = self.current_config.max_backoff * 1.5
             config_updates["backoff_multiplier"] = min(
                 4.0,
                 self.current_config.backoff_multiplier * 1.2,

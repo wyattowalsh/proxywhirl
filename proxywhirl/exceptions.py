@@ -115,6 +115,10 @@ class ProxyWhirlError(Exception):
         error_code: ProxyErrorCode | None = None,
         retry_recommended: bool = False,
         attempt_count: int | None = None,
+        operation: str | None = None,
+        recovery_hint: str | None = None,
+        file_path: str | None = None,
+        line_number: int | None = None,
         **metadata: Any,
     ) -> None:
         """
@@ -127,6 +131,10 @@ class ProxyWhirlError(Exception):
             error_code: Programmatic error code for handling
             retry_recommended: Whether retrying the operation is recommended
             attempt_count: Number of attempts made before this error
+            operation: The operation being performed when error occurred
+            recovery_hint: Suggested recovery action
+            file_path: Source file where error occurred
+            line_number: Source line number where error occurred
             **metadata: Additional error-specific metadata
         """
         # Redact proxy URL if provided
@@ -146,7 +154,22 @@ class ProxyWhirlError(Exception):
         self.error_code = error_code or self.__class__.error_code
         self.retry_recommended = retry_recommended
         self.attempt_count = attempt_count
+        self.operation = operation
+        self.recovery_hint = recovery_hint
+        self.file_path = file_path
+        self.line_number = line_number
         self.metadata = metadata
+
+    def __repr__(self) -> str:
+        """Return detailed representation for debugging."""
+        parts = [self.__class__.__name__]
+        if self.error_code:
+            parts.append(f"code={self.error_code.value}")
+        if self.operation:
+            parts.append(f"operation={self.operation}")
+        if self.line_number:
+            parts.append(f"line={self.line_number}")
+        return f"{self.__class__.__name__}({str(self)}, {', '.join(parts[1:])})"
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -162,6 +185,10 @@ class ProxyWhirlError(Exception):
             "error_type": self.error_type,
             "retry_recommended": self.retry_recommended,
             "attempt_count": self.attempt_count,
+            "operation": self.operation,
+            "recovery_hint": self.recovery_hint,
+            "file_path": self.file_path,
+            "line_number": self.line_number,
             **self.metadata,
         }
 
@@ -850,3 +877,150 @@ class StorageRecoveryError(ProxyStorageError):
         super().__init__(enhanced_msg, **kwargs)
         self.storage_type = storage_type
         self.recovery_strategy = recovery_strategy
+
+
+# ============================================================================
+# EXCEPTION FACTORY FUNCTIONS
+# ============================================================================
+
+
+def make_connection_error(
+    message: str,
+    proxy_url: str | None = None,
+    operation: str | None = None,
+    recovery_hint: str | None = None,
+    **metadata: Any,
+) -> ProxyConnectionError:
+    """Factory function for creating ProxyConnectionError with context."""
+    return ProxyConnectionError(
+        message,
+        proxy_url=proxy_url,
+        operation=operation,
+        recovery_hint=recovery_hint,
+        **metadata,
+    )
+
+
+def make_validation_error(
+    message: str,
+    field_path: str | None = None,
+    expected_type: str | None = None,
+    received_value: Any = None,
+    recovery_hint: str | None = None,
+    **metadata: Any,
+) -> ProxyValidationPathError:
+    """Factory function for creating ProxyValidationPathError with field path context."""
+    return ProxyValidationPathError(
+        message,
+        field_path=field_path,
+        expected_type=expected_type,
+        received_value=received_value,
+        recovery_hint=recovery_hint,
+        **metadata,
+    )
+
+
+def make_timeout_error(
+    message: str,
+    timeout_seconds: float | None = None,
+    operation: str | None = None,
+    recovery_hint: str | None = None,
+    **metadata: Any,
+) -> TimeoutError:
+    """Factory function for creating TimeoutError with context."""
+    return TimeoutError(
+        message,
+        timeout_seconds=timeout_seconds,
+        operation=operation,
+        recovery_hint=recovery_hint,
+        **metadata,
+    )
+
+
+def make_rate_limit_error(
+    message: str,
+    reset_at: int | None = None,
+    recovery_hint: str | None = None,
+    **metadata: Any,
+) -> RateLimitExceededError:
+    """Factory function for creating RateLimitExceededError with reset context."""
+    return RateLimitExceededError(
+        message,
+        reset_at=reset_at,
+        recovery_hint=recovery_hint,
+        **metadata,
+    )
+
+
+def make_max_retries_error(
+    message: str,
+    max_attempts: int | None = None,
+    last_error: Exception | None = None,
+    recovery_hint: str | None = None,
+    **metadata: Any,
+) -> MaxRetriesExhaustedError:
+    """Factory function for creating MaxRetriesExhaustedError with diagnostic info."""
+    return MaxRetriesExhaustedError(
+        message,
+        max_attempts=max_attempts,
+        last_error=last_error,
+        recovery_hint=recovery_hint,
+        **metadata,
+    )
+
+
+# ============================================================================
+# CONTEXT MANAGER FOR ERROR HANDLING
+# ============================================================================
+
+
+class ProxyErrorContext:
+    """Context manager for automatic error logging and context capture."""
+
+    def __init__(
+        self,
+        operation: str,
+        log_func: callable | None = None,
+        reraise: bool = True,
+    ) -> None:
+        """
+        Initialize error context manager.
+
+        Args:
+            operation: Description of operation being performed
+            log_func: Optional logging function (receives exception)
+            reraise: Whether to reraise exceptions (default: True)
+        """
+        self.operation = operation
+        self.log_func = log_func
+        self.reraise = reraise
+
+    def __enter__(self) -> ProxyErrorContext:
+        """Enter context."""
+        return self
+
+    def __exit__(self, exc_type: type | None, exc_val: Exception | None, exc_tb: Any) -> bool:
+        """
+        Exit context and handle any exception.
+
+        Args:
+            exc_type: Exception type if raised
+            exc_val: Exception instance if raised
+            exc_tb: Traceback if exception raised
+
+        Returns:
+            True to suppress exception, False to propagate
+        """
+        if exc_val is not None and isinstance(exc_val, ProxyWhirlError):
+            # Enrich exception with operation context if not already set
+            if not exc_val.operation:
+                exc_val.operation = self.operation
+
+            # Log if logger provided
+            if self.log_func:
+                self.log_func(exc_val)
+
+            # Return False to propagate unless reraise=False
+            return not self.reraise
+
+        return False

@@ -178,9 +178,7 @@ class ProxyChainValidator:
 
             # Check URL format
             if not proxy_url.startswith(("http://", "https://", "socks4://", "socks5://")):
-                issues.append(
-                    f"Invalid proxy URL format at position {i}: {proxy_url}"
-                )
+                issues.append(f"Invalid proxy URL format at position {i}: {proxy_url}")
 
             # Check for localhost loops
             if "localhost" in proxy_url or "127.0.0.1" in proxy_url:

@@ -70,7 +70,7 @@ class TestRaceConditions:
 
         async def get_or_fetch(key: str) -> str:
             nonlocal fetching
-            
+
             if key in cache:
                 return cache[key]
 
@@ -78,7 +78,7 @@ class TestRaceConditions:
                 # Double-check pattern
                 if key in cache:
                     return cache[key]
-                
+
                 if fetching:
                     # Already fetching, wait and retry
                     pass
@@ -89,7 +89,7 @@ class TestRaceConditions:
                 await asyncio.sleep(0.01)
                 if key in cache:
                     return cache[key]
-            
+
             # Do the fetch
             try:
                 await asyncio.sleep(0.02)

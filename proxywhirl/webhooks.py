@@ -184,12 +184,11 @@ class WebhookDelivery:
 
                 except Exception as e:
                     logger.warning(
-                        f"Webhook delivery attempt {attempt + 1}/{config.max_retries} "
-                        f"failed: {e}"
+                        f"Webhook delivery attempt {attempt + 1}/{config.max_retries} failed: {e}"
                     )
                     if attempt < config.max_retries - 1:
                         self.delivery_stats["retried"] += 1
-                        await asyncio.sleep(2 ** attempt)  # Exponential backoff
+                        await asyncio.sleep(2**attempt)  # Exponential backoff
 
             self.delivery_stats["failed"] += 1
             return False
@@ -207,10 +206,7 @@ class WebhookDelivery:
                 )
 
                 # Deliver to all subscribed webhooks
-                tasks = [
-                    self._deliver_webhook(webhook_id, payload)
-                    for webhook_id in self.webhooks
-                ]
+                tasks = [self._deliver_webhook(webhook_id, payload) for webhook_id in self.webhooks]
                 await asyncio.gather(*tasks, return_exceptions=True)
 
             except asyncio.TimeoutError:

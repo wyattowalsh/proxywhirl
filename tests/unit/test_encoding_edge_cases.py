@@ -25,7 +25,7 @@ class TestEncodingEdgeCases:
         proxy1 = Proxy(url="http://proxy.example.com:80")
         proxy2 = Proxy(url="http://proxy.example.com:8080")
         proxy3 = Proxy(url="http://proxy.example.com:9999")
-        
+
         assert proxy1.url == "http://proxy.example.com:80"
         assert proxy2.url == "http://proxy.example.com:8080"
         assert proxy3.url == "http://proxy.example.com:9999"
@@ -34,7 +34,7 @@ class TestEncodingEdgeCases:
         """Test proxy URL with username and password."""
         proxy = Proxy(
             url="http://user:pass@proxy.example.com:8080",
-            credentials={"username": "user", "password": "pass"}
+            credentials={"username": "user", "password": "pass"},
         )
         assert "user" in proxy.url
 
@@ -91,7 +91,7 @@ class TestEncodingEdgeCases:
             Proxy(url="http://proxy2.example.com:8080"),
             Proxy(url="http://proxy3.example.com:8080"),
         ]
-        
+
         urls = [p.url for p in proxies]
         assert all(isinstance(url, str) for url in urls)
         assert len(urls) == 3

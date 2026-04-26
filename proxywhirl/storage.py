@@ -592,9 +592,7 @@ class SQLiteStorage:
         async with AsyncSession(self.engine) as session:
             # Batch check existing proxies
             urls = [p.url for p in proxies]
-            existing_stmt = select(ProxyIdentityTable.url).where(
-                ProxyIdentityTable.url.in_(urls)
-            )
+            existing_stmt = select(ProxyIdentityTable.url).where(ProxyIdentityTable.url.in_(urls))
             existing_results = await session.execute(existing_stmt)
             existing_urls = {row[0] for row in existing_results}
 
@@ -618,14 +616,10 @@ class SQLiteStorage:
                         host=parsed.hostname or "",
                         port=parsed.port or 80,
                         username=self._encrypt_credential(
-                            proxy.username.get_secret_value()
-                            if proxy.username
-                            else None
+                            proxy.username.get_secret_value() if proxy.username else None
                         ),
                         password=self._encrypt_credential(
-                            proxy.password.get_secret_value()
-                            if proxy.password
-                            else None
+                            proxy.password.get_secret_value() if proxy.password else None
                         ),
                         source=proxy.source.value if proxy.source else "fetched",
                     )

@@ -180,6 +180,8 @@ from proxywhirl.types import (
     RetryCallback,
     SessionCallback,
     SessionEvictionCallback,
+)
+from proxywhirl.types import (
     ValidationLevel as ValidationLevelType,
 )
 from proxywhirl.utils import (

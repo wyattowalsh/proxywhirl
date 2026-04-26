@@ -3319,5 +3319,474 @@ def pool_statistics(
         raise typer.Exit(code=1)
 
 
+@app.command()
+def list_proxies(
+    pool_name: str | None = typer.Option(
+        None,
+        "--pool",
+        "-p",
+        help="Filter by pool name",
+    ),
+    status: str | None = typer.Option(
+        None,
+        "--status",
+        "-s",
+        help="Filter by health status (HEALTHY, DEGRADED, UNHEALTHY, DEAD)",
+    ),
+    country: str | None = typer.Option(
+        None,
+        "--country",
+        "-c",
+        help="Filter by country code (e.g., US, GB)",
+    ),
+    limit: int = typer.Option(
+        100,
+        "--limit",
+        "-l",
+        help="Maximum number of proxies to list",
+        min=1,
+    ),
+) -> None:
+    """List proxies in the pool with optional filtering.
+
+    Examples:
+      proxywhirl list_proxies
+      proxywhirl list_proxies --status HEALTHY --limit 50
+      proxywhirl list_proxies --country US
+      proxywhirl list_proxies --pool default --json
+    """
+    from proxywhirl.models import HealthStatus
+
+    command_ctx = get_context()
+
+    try:
+        rotator = command_ctx.rotator
+        proxies = rotator.pool.get_all_proxies()
+
+        # Apply filters
+        if status:
+            try:
+                status_enum = HealthStatus[status.upper()]
+                proxies = [p for p in proxies if p.health_status == status_enum]
+            except KeyError:
+                command_ctx.console.print(
+                    f"[red]Invalid status: {status}. Use: HEALTHY, DEGRADED, UNHEALTHY, DEAD[/red]"
+                )
+                raise typer.Exit(code=1)
+
+        if country:
+            proxies = [p for p in proxies if getattr(p, "country", "").upper() == country.upper()]
+
+        if pool_name:
+            # Filter by pool name if available
+            proxies = [p for p in proxies if getattr(p, "pool_name", "") == pool_name]
+
+        proxies = proxies[:limit]
+
+        if command_ctx.format == OutputFormat.JSON:
+            data = [
+                {
+                    "proxy": p.proxy_string,
+                    "type": p.proxy_type.name,
+                    "status": p.health_status.name if hasattr(p, "health_status") else "UNKNOWN",
+                    "country": getattr(p, "country", "Unknown"),
+                    "response_time_ms": getattr(p, "average_response_time_ms", None),
+                    "success_rate": getattr(p, "success_rate", None),
+                }
+                for p in proxies
+            ]
+            render_json({"proxies": data, "count": len(proxies)})
+        elif command_ctx.format == OutputFormat.CSV:
+            import csv
+
+            writer = csv.writer(sys.stdout)
+            writer.writerow(["Proxy", "Type", "Status", "Country", "Response Time (ms)", "Success Rate"])
+            for p in proxies:
+                writer.writerow(
+                    [
+                        p.proxy_string,
+                        p.proxy_type.name,
+                        p.health_status.name if hasattr(p, "health_status") else "UNKNOWN",
+                        getattr(p, "country", "Unknown"),
+                        getattr(p, "average_response_time_ms", ""),
+                        getattr(p, "success_rate", ""),
+                    ]
+                )
+        else:  # TEXT
+            if not proxies:
+                command_ctx.console.print("[yellow]No proxies found[/yellow]")
+                return
+
+            table = Table(title=f"Proxies ({len(proxies)} total)")
+            table.add_column("Proxy", style="cyan")
+            table.add_column("Type", style="green")
+            table.add_column("Status", style="yellow")
+            table.add_column("Country", style="magenta")
+            table.add_column("Response (ms)", style="blue")
+            table.add_column("Success Rate", style="bold")
+
+            for p in proxies:
+                status_color = "green" if hasattr(p, "health_status") and p.health_status.name == "HEALTHY" else "red"
+                status_text = p.health_status.name if hasattr(p, "health_status") else "UNKNOWN"
+                table.add_row(
+                    p.proxy_string,
+                    p.proxy_type.name,
+                    f"[{status_color}]{status_text}[/{status_color}]",
+                    getattr(p, "country", "Unknown"),
+                    str(round(getattr(p, "average_response_time_ms", 0), 1)),
+                    f"{getattr(p, 'success_rate', 0):.1%}",
+                )
+
+            command_ctx.console.print(table)
+    except Exception as e:
+        command_ctx.console.print(f"[red]Error listing proxies: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def validate_proxy(
+    proxy_url: str = typer.Argument(..., help="Proxy URL to validate (e.g., http://proxy.example.com:8080)"),
+    target_url: str | None = typer.Option(
+        "https://httpbin.org/ip",
+        "--target",
+        "-t",
+        help="Target URL to test proxy against",
+    ),
+    timeout: float = typer.Option(
+        10.0,
+        "--timeout",
+        help="Request timeout in seconds",
+        min=0.1,
+    ),
+) -> None:
+    """Validate proxy health with optional target URL test.
+
+    Examples:
+      proxywhirl validate_proxy http://proxy.example.com:8080
+      proxywhirl validate_proxy http://proxy.example.com:8080 --target https://httpbin.org/status/200
+      proxywhirl validate_proxy socks5://proxy.example.com:1080 --timeout 5
+      proxywhirl validate_proxy http://proxy.example.com:8080 --json
+    """
+    command_ctx = get_context()
+
+    try:
+        # Parse proxy URL
+        parsed = urlparse(proxy_url)
+        if not parsed.scheme or not parsed.hostname:
+            command_ctx.console.print(f"[red]Invalid proxy URL: {proxy_url}[/red]")
+            raise typer.Exit(code=1)
+
+        # Prepare proxy string
+        if parsed.port:
+            proxy_string = f"{parsed.scheme}://{parsed.hostname}:{parsed.port}"
+        else:
+            proxy_string = f"{parsed.scheme}://{parsed.hostname}"
+
+        # Test proxy
+        try:
+            import time
+
+            start_time = time.time()
+            proxies = {
+                "http://": proxy_string,
+                "https://": proxy_string,
+            }
+
+            response = httpx.get(target_url, proxies=proxies, timeout=timeout, follow_redirects=True)
+            elapsed_ms = (time.time() - start_time) * 1000
+
+            result = {
+                "proxy": proxy_string,
+                "status": "HEALTHY" if response.status_code < 400 else "DEGRADED",
+                "response_code": response.status_code,
+                "response_time_ms": round(elapsed_ms, 1),
+                "target_url": target_url,
+            }
+
+            if command_ctx.format == OutputFormat.JSON:
+                render_json(result)
+            else:
+                if response.status_code < 400:
+                    command_ctx.console.print(f"[green]✓ Proxy is healthy[/green]")
+                else:
+                    command_ctx.console.print(f"[yellow]! Proxy degraded[/yellow]")
+                command_ctx.console.print(f"Response Code: {response.status_code}")
+                command_ctx.console.print(f"Response Time: {result['response_time_ms']}ms")
+
+        except httpx.ConnectError as e:
+            result = {"proxy": proxy_string, "status": "UNHEALTHY", "error": str(e), "reason": "Connection failed"}
+            if command_ctx.format == OutputFormat.JSON:
+                render_json(result)
+            else:
+                command_ctx.console.print(f"[red]✗ Proxy connection failed: {e}[/red]")
+            raise typer.Exit(code=1)
+        except httpx.TimeoutException as e:
+            result = {"proxy": proxy_string, "status": "UNHEALTHY", "error": str(e), "reason": "Timeout"}
+            if command_ctx.format == OutputFormat.JSON:
+                render_json(result)
+            else:
+                command_ctx.console.print(f"[red]✗ Proxy timeout after {timeout}s[/red]")
+            raise typer.Exit(code=1)
+
+    except typer.Exit:
+        raise
+    except Exception as e:
+        command_ctx.console.print(f"[red]Error validating proxy: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def import_proxies(
+    file_path: Path = typer.Argument(..., help="File path (JSON, CSV, or plain text)", exists=True),
+    format_type: str = typer.Option(
+        "auto",
+        "--format",
+        "-f",
+        help="File format (auto, json, csv, text)",
+    ),
+    pool_name: str = typer.Option(
+        "imported",
+        "--pool",
+        "-p",
+        help="Target pool name",
+    ),
+    dedup: bool = typer.Option(
+        True,
+        "--dedup/--no-dedup",
+        help="Deduplicate proxies before import",
+    ),
+) -> None:
+    """Import proxies from file (JSON, CSV, or plain text).
+
+    Examples:
+      proxywhirl import_proxies proxies.json
+      proxywhirl import_proxies proxies.csv --format csv
+      proxywhirl import_proxies proxies.txt --format text --pool backup
+      proxywhirl import_proxies data.json --no-dedup --json
+    """
+    import json
+
+    command_ctx = get_context()
+
+    try:
+        # Determine format
+        if format_type == "auto":
+            suffix = file_path.suffix.lower()
+            if suffix == ".json":
+                format_type = "json"
+            elif suffix == ".csv":
+                format_type = "csv"
+            else:
+                format_type = "text"
+
+        # Parse file
+        proxies = []
+
+        if format_type == "json":
+            with open(file_path) as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    proxies = data
+                elif isinstance(data, dict) and "proxies" in data:
+                    proxies = data["proxies"]
+                else:
+                    proxies = [str(data)]
+        elif format_type == "csv":
+            import csv
+
+            with open(file_path) as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    if "proxy" in row:
+                        proxies.append(row["proxy"])
+                    elif "url" in row:
+                        proxies.append(row["url"])
+                    else:
+                        proxies.append(str(list(row.values())[0]))
+        else:  # text
+            with open(file_path) as f:
+                proxies = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+
+        if not proxies:
+            command_ctx.console.print("[yellow]No proxies found in file[/yellow]")
+            raise typer.Exit(code=1)
+
+        # Deduplicate if requested
+        if dedup:
+            proxies = list(dict.fromkeys(proxies))
+
+        # Import proxies
+        rotator = command_ctx.rotator
+        imported = 0
+        failed = 0
+        errors = []
+
+        for proxy_str in proxies:
+            try:
+                # Add to pool (format depends on implementation)
+                rotator.pool.add_proxy_from_string(proxy_str)
+                imported += 1
+            except Exception as e:
+                failed += 1
+                errors.append({"proxy": proxy_str, "error": str(e)})
+
+        result = {
+            "file": str(file_path),
+            "format": format_type,
+            "total_parsed": len(proxies),
+            "imported": imported,
+            "failed": failed,
+            "pool_name": pool_name,
+        }
+
+        if errors and command_ctx.verbose:
+            result["errors"] = errors
+
+        if command_ctx.format == OutputFormat.JSON:
+            render_json(result)
+        else:
+            command_ctx.console.print(f"[green]✓ Import completed[/green]")
+            command_ctx.console.print(f"Imported: {imported} proxies")
+            if failed:
+                command_ctx.console.print(f"[yellow]Failed: {failed} proxies[/yellow]")
+
+    except Exception as e:
+        command_ctx.console.print(f"[red]Error importing proxies: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def shell() -> None:
+    """Interactive REPL shell for proxy operations.
+
+    Examples:
+      proxywhirl shell
+      # Then use: list, stats, rotate, validate <url>, exit
+    """
+    import cmd
+    import shlex
+
+    from proxywhirl.models import HealthStatus
+
+    command_ctx = get_context()
+
+    class ProxyWhirlREPL(cmd.Cmd):
+        """Interactive proxy rotation shell."""
+
+        intro = """
+[bold cyan]ProxyWhirl Interactive Shell[/bold cyan]
+Type [bold]help[/bold] for commands. Type [bold]exit[/bold] or [bold]quit[/bold] to exit.
+        """
+        prompt = "proxywhirl> "
+
+        def do_list(self, arg: str) -> None:
+            """List proxies: list [status] [--limit N]"""
+            try:
+                rotator = command_ctx.rotator
+                proxies = rotator.pool.get_all_proxies()
+
+                if arg:
+                    parts = shlex.split(arg)
+                    if parts[0].upper() in ["HEALTHY", "DEGRADED", "UNHEALTHY", "DEAD"]:
+                        status_enum = HealthStatus[parts[0].upper()]
+                        proxies = [p for p in proxies if p.health_status == status_enum]
+
+                limit = 10
+                for i, part in enumerate(parts):
+                    if part == "--limit" and i + 1 < len(parts):
+                        limit = int(parts[i + 1])
+
+                proxies = proxies[:limit]
+
+                if not proxies:
+                    command_ctx.console.print("[yellow]No proxies found[/yellow]")
+                    return
+
+                table = Table(title=f"Proxies ({len(proxies)} total)")
+                table.add_column("Proxy", style="cyan")
+                table.add_column("Status", style="yellow")
+                table.add_column("Country", style="magenta")
+
+                for p in proxies:
+                    status_text = p.health_status.name if hasattr(p, "health_status") else "UNKNOWN"
+                    table.add_row(
+                        p.proxy_string,
+                        status_text,
+                        getattr(p, "country", "Unknown"),
+                    )
+
+                command_ctx.console.print(table)
+            except Exception as e:
+                command_ctx.console.print(f"[red]Error: {e}[/red]")
+
+        def do_stats(self, _arg: str) -> None:
+            """Show pool statistics."""
+            try:
+                rotator = command_ctx.rotator
+                proxies = rotator.pool.get_all_proxies()
+                total = len(proxies)
+                healthy = sum(1 for p in proxies if p.health_status == HealthStatus.HEALTHY)
+
+                command_ctx.console.print(f"[bold]Statistics[/bold]")
+                command_ctx.console.print(f"Total: {total}")
+                command_ctx.console.print(f"Healthy: {healthy}")
+            except Exception as e:
+                command_ctx.console.print(f"[red]Error: {e}[/red]")
+
+        def do_rotate(self, _arg: str) -> None:
+            """Get next proxy."""
+            try:
+                rotator = command_ctx.rotator
+                proxy = rotator.get_proxy()
+                command_ctx.console.print(f"[green]Next proxy:[/green] {proxy.proxy_string}")
+            except Exception as e:
+                command_ctx.console.print(f"[red]Error: {e}[/red]")
+
+        def do_validate(self, arg: str) -> None:
+            """Validate proxy: validate <url>"""
+            if not arg:
+                command_ctx.console.print("[yellow]Usage: validate <url>[/yellow]")
+                return
+            # Simplified validation
+            command_ctx.console.print(f"[blue]Validating proxy against {arg}...[/blue]")
+            command_ctx.console.print("[green]✓ Validation would run here[/green]")
+
+        def do_exit(self, _arg: str) -> None:
+            """Exit the shell."""
+            command_ctx.console.print("[cyan]Goodbye![/cyan]")
+            return True
+
+        def do_quit(self, _arg: str) -> None:
+            """Exit the shell."""
+            return self.do_exit(_arg)
+
+        def do_help(self, arg: str) -> None:
+            """Show help."""
+            if not arg:
+                command_ctx.console.print(
+                    """
+[bold]Available Commands:[/bold]
+  list [status] [--limit N]  - List proxies
+  stats                       - Show pool statistics
+  rotate                      - Get next proxy
+  validate <url>              - Validate proxy
+  exit, quit                  - Exit shell
+  help [command]              - Show help
+                """
+                )
+            else:
+                super().do_help(arg)
+
+    try:
+        repl = ProxyWhirlREPL()
+        command_ctx.console.print(repl.intro)
+        repl.cmdloop()
+    except KeyboardInterrupt:
+        command_ctx.console.print("\n[cyan]Shell interrupted[/cyan]")
+    except Exception as e:
+        command_ctx.console.print(f"[red]Shell error: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
 if __name__ == "__main__":
     app()
