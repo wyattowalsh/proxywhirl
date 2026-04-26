@@ -95,7 +95,7 @@ def redact_url(url: str) -> str:
                 redacted += f"?{query}"
             return redacted
         return url
-    except Exception:
+    except (ValueError, TypeError):
         # If parsing fails, try simple regex-based redaction
         return re.sub(r"://[^/@?#]*@", "://***:***@", url)
 

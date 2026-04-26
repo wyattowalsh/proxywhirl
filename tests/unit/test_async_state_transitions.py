@@ -169,7 +169,7 @@ class TestAsyncCircuitBreakerStateTransitions:
     @pytest.mark.asyncio
     async def test_reset_from_any_state(self):
         """Test reset() method resets from any state to CLOSED."""
-        cb = AsyncCircuitBreaker(proxy_id="proxy-1", failure_threshold=1)
+        cb = AsyncCircuitBreaker(proxy_id="proxy-1", failure_threshold=1, timeout_duration=0.3)
 
         # Reset from CLOSED (idempotent)
         await cb.reset()
@@ -183,7 +183,8 @@ class TestAsyncCircuitBreakerStateTransitions:
 
         # Reset from HALF_OPEN
         await cb.record_failure()
-        await asyncio.sleep(0.6)
+        assert cb.state == CircuitBreakerState.OPEN
+        await asyncio.sleep(0.4)
         await cb.should_attempt_request()
         assert cb.state == CircuitBreakerState.HALF_OPEN
         await cb.reset()

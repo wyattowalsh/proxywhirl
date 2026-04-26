@@ -3400,7 +3400,9 @@ def list_proxies(
             import csv
 
             writer = csv.writer(sys.stdout)
-            writer.writerow(["Proxy", "Type", "Status", "Country", "Response Time (ms)", "Success Rate"])
+            writer.writerow(
+                ["Proxy", "Type", "Status", "Country", "Response Time (ms)", "Success Rate"]
+            )
             for p in proxies:
                 writer.writerow(
                     [
@@ -3426,7 +3428,11 @@ def list_proxies(
             table.add_column("Success Rate", style="bold")
 
             for p in proxies:
-                status_color = "green" if hasattr(p, "health_status") and p.health_status.name == "HEALTHY" else "red"
+                status_color = (
+                    "green"
+                    if hasattr(p, "health_status") and p.health_status.name == "HEALTHY"
+                    else "red"
+                )
                 status_text = p.health_status.name if hasattr(p, "health_status") else "UNKNOWN"
                 table.add_row(
                     p.proxy_string,
@@ -3445,7 +3451,9 @@ def list_proxies(
 
 @app.command()
 def validate_proxy(
-    proxy_url: str = typer.Argument(..., help="Proxy URL to validate (e.g., http://proxy.example.com:8080)"),
+    proxy_url: str = typer.Argument(
+        ..., help="Proxy URL to validate (e.g., http://proxy.example.com:8080)"
+    ),
     target_url: str | None = typer.Option(
         "https://httpbin.org/ip",
         "--target",
@@ -3492,7 +3500,9 @@ def validate_proxy(
                 "https://": proxy_string,
             }
 
-            response = httpx.get(target_url, proxies=proxies, timeout=timeout, follow_redirects=True)
+            response = httpx.get(
+                target_url, proxies=proxies, timeout=timeout, follow_redirects=True
+            )
             elapsed_ms = (time.time() - start_time) * 1000
 
             result = {
@@ -3514,14 +3524,24 @@ def validate_proxy(
                 command_ctx.console.print(f"Response Time: {result['response_time_ms']}ms")
 
         except httpx.ConnectError as e:
-            result = {"proxy": proxy_string, "status": "UNHEALTHY", "error": str(e), "reason": "Connection failed"}
+            result = {
+                "proxy": proxy_string,
+                "status": "UNHEALTHY",
+                "error": str(e),
+                "reason": "Connection failed",
+            }
             if command_ctx.format == OutputFormat.JSON:
                 render_json(result)
             else:
                 command_ctx.console.print(f"[red]✗ Proxy connection failed: {e}[/red]")
             raise typer.Exit(code=1)
         except httpx.TimeoutException as e:
-            result = {"proxy": proxy_string, "status": "UNHEALTHY", "error": str(e), "reason": "Timeout"}
+            result = {
+                "proxy": proxy_string,
+                "status": "UNHEALTHY",
+                "error": str(e),
+                "reason": "Timeout",
+            }
             if command_ctx.format == OutputFormat.JSON:
                 render_json(result)
             else:
