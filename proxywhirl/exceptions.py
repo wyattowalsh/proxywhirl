@@ -7,6 +7,7 @@ All exceptions support additional metadata for debugging and retry logic.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from enum import Enum
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse
@@ -1108,7 +1109,7 @@ class ProxyErrorContext:
     def __init__(
         self,
         operation: str,
-        log_func: callable | None = None,
+        log_func: Callable[..., Any] | None = None,
         reraise: bool = True,
     ) -> None:
         """
