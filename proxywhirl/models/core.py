@@ -9,7 +9,7 @@ import threading
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, runtime_checkable
 from uuid import UUID, uuid4
 
 from pydantic import (
@@ -28,6 +28,39 @@ if TYPE_CHECKING:
     import httpx
 
 
+# ============================================================================
+# CONFIGURATION TYPEDDICTS
+# ============================================================================
+
+
+class ProxyPoolConfigDict(TypedDict, total=False):
+    """Type definition for proxy pool configuration dictionaries."""
+
+    max_size: int
+    health_check_interval: float
+    health_check_timeout: float
+    stale_proxy_threshold: float
+    auto_remove_unhealthy: bool
+
+
+class StrategyConfigDict(TypedDict, total=False):
+    """Type definition for rotation strategy configuration dictionaries."""
+
+    weights: dict[str, float]
+    ema_alpha: float
+    session_stickiness_duration_seconds: int
+    preferred_countries: list[str]
+    preferred_regions: list[str]
+    geo_fallback_enabled: bool
+    geo_secondary_strategy: str
+
+
+class CircuitBreakerConfigDict(TypedDict, total=False):
+    """Type definition for circuit breaker configuration dictionaries."""
+
+    failure_threshold: int
+    window_duration: float
+    timeout_duration: float
 # ============================================================================
 # ENUMS
 # ============================================================================
