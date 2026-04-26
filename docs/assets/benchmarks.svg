@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 280" width="800" height="280">
+  <style>
+    .bg { fill: #0d1117; }
+    .title { fill: #f0f6fc; font-family: system-ui, sans-serif; }
+    .label { fill: #8b949e; font-family: system-ui, sans-serif; }
+    .value { fill: #f0f6fc; font-family: monospace; }
+    .axis { stroke: #30363d; }
+    @media (prefers-color-scheme: light) {
+      .bg { fill: #ffffff; }
+      .title { fill: #1e293b; }
+      .label { fill: #64748b; }
+      .value { fill: #1e293b; }
+      .axis { stroke: #e2e8f0; }
+    }
+  </style>
+
+  <defs>
+    <linearGradient id="bar1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#06b6d4"/>
+      <stop offset="100%" style="stop-color:#22d3ee"/>
+    </linearGradient>
+    <linearGradient id="bar2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#a78bfa"/>
+    </linearGradient>
+    <linearGradient id="bar3" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#4ade80"/>
+    </linearGradient>
+    <linearGradient id="bar4" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#f97316"/>
+      <stop offset="100%" style="stop-color:#fb923c"/>
+    </linearGradient>
+    <linearGradient id="bar5" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ec4899"/>
+      <stop offset="100%" style="stop-color:#f472b6"/>
+    </linearGradient>
+    <linearGradient id="bar6" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#60a5fa"/>
+    </linearGradient>
+    <linearGradient id="bar7" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#14b8a6"/>
+      <stop offset="100%" style="stop-color:#2dd4bf"/>
+    </linearGradient>
+    <filter id="barGlow">
+      <feGaussianBlur stdDeviation="1" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="280" class="bg"/>
+
+  <!-- Title -->
+  <text x="400" y="30" text-anchor="middle" class="title" font-size="16" font-weight="bold">Strategy Selection Speed (lower is better)</text>
+  <text x="400" y="50" text-anchor="middle" class="label" font-size="11">Time to select next proxy from pool of 1000</text>
+
+  <!-- Y-axis -->
+  <line x1="180" y1="70" x2="180" y2="250" class="axis" stroke-width="1"/>
+
+  <!-- X-axis -->
+  <line x1="180" y1="250" x2="750" y2="250" class="axis" stroke-width="1"/>
+
+  <!-- X-axis labels -->
+  <text x="280" y="268" text-anchor="middle" class="label" font-size="9">2μs</text>
+  <text x="380" y="268" text-anchor="middle" class="label" font-size="9">4μs</text>
+  <text x="480" y="268" text-anchor="middle" class="label" font-size="9">6μs</text>
+  <text x="580" y="268" text-anchor="middle" class="label" font-size="9">8μs</text>
+  <text x="680" y="268" text-anchor="middle" class="label" font-size="9">10μs</text>
+
+  <!-- Grid lines -->
+  <g stroke="#30363d" stroke-width="0.5" opacity="0.3">
+    <line x1="280" y1="70" x2="280" y2="250"/>
+    <line x1="380" y1="70" x2="380" y2="250"/>
+    <line x1="480" y1="70" x2="480" y2="250"/>
+    <line x1="580" y1="70" x2="580" y2="250"/>
+    <line x1="680" y1="70" x2="680" y2="250"/>
+  </g>
+
+  <!-- Bar 1: Round-Robin (3μs) -->
+  <g transform="translate(0, 75)">
+    <text x="175" y="14" text-anchor="end" class="label" font-size="11">round-robin</text>
+    <rect x="180" y="2" width="0" height="20" rx="4" fill="url(#bar1)" filter="url(#barGlow)">
+      <animate attributeName="width" from="0" to="150" dur="0.8s" fill="freeze"/>
+    </rect>
+    <text x="340" y="17" class="value" font-size="10" opacity="0">
+      3μs
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="0.8s" fill="freeze"/>
+    </text>
+  </g>
+
+  <!-- Bar 2: Least-Used (3μs) -->
+  <g transform="translate(0, 105)">
+    <text x="175" y="14" text-anchor="end" class="label" font-size="11">least-used</text>
+    <rect x="180" y="2" width="0" height="20" rx="4" fill="url(#bar2)" filter="url(#barGlow)">
+      <animate attributeName="width" from="0" to="150" dur="0.8s" begin="0.1s" fill="freeze"/>
+    </rect>
+    <text x="340" y="17" class="value" font-size="10" opacity="0">
+      3μs
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="0.9s" fill="freeze"/>
+    </text>
+  </g>
+
+  <!-- Bar 3: Session-Persistence (3μs) -->
+  <g transform="translate(0, 135)">
+    <text x="175" y="14" text-anchor="end" class="label" font-size="11">session-sticky</text>
+    <rect x="180" y="2" width="0" height="20" rx="4" fill="url(#bar3)" filter="url(#barGlow)">
+      <animate attributeName="width" from="0" to="150" dur="0.8s" begin="0.2s" fill="freeze"/>
+    </rect>
+    <text x="340" y="17" class="value" font-size="10" opacity="0">
+      3μs
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="1s" fill="freeze"/>
+    </text>
+  </g>
+
+  <!-- Bar 4: Performance-Based (5μs) -->
+  <g transform="translate(0, 165)">
+    <text x="175" y="14" text-anchor="end" class="label" font-size="11">performance</text>
+    <rect x="180" y="2" width="0" height="20" rx="4" fill="url(#bar4)" filter="url(#barGlow)">
+      <animate attributeName="width" from="0" to="250" dur="0.8s" begin="0.3s" fill="freeze"/>
+    </rect>
+    <text x="440" y="17" class="value" font-size="10" opacity="0">
+      5μs
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="1.1s" fill="freeze"/>
+    </text>
+  </g>
+
+  <!-- Bar 5: Geo-Targeted (5μs) -->
+  <g transform="translate(0, 195)">
+    <text x="175" y="14" text-anchor="end" class="label" font-size="11">geo-targeted</text>
+    <rect x="180" y="2" width="0" height="20" rx="4" fill="url(#bar5)" filter="url(#barGlow)">
+      <animate attributeName="width" from="0" to="250" dur="0.8s" begin="0.4s" fill="freeze"/>
+    </rect>
+    <text x="440" y="17" class="value" font-size="10" opacity="0">
+      5μs
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="1.2s" fill="freeze"/>
+    </text>
+  </g>
+
+  <!-- Bar 6: Random (7μs) -->
+  <g transform="translate(0, 225)">
+    <text x="175" y="14" text-anchor="end" class="label" font-size="11">random</text>
+    <rect x="180" y="2" width="0" height="20" rx="4" fill="url(#bar6)" filter="url(#barGlow)">
+      <animate attributeName="width" from="0" to="350" dur="0.8s" begin="0.5s" fill="freeze"/>
+    </rect>
+    <text x="540" y="17" class="value" font-size="10" opacity="0">
+      7μs
+      <animate attributeName="opacity" values="0;1" dur="0.3s" begin="1.3s" fill="freeze"/>
+    </text>
+  </g>
+
+  <!-- Legend note -->
+  <g transform="translate(550, 85)">
+    <rect width="180" height="55" rx="8" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+    <text x="15" y="20" class="label" font-size="10">Pool size: 1,000 proxies</text>
+    <text x="15" y="35" class="label" font-size="10">Iterations: 100,000</text>
+    <text x="15" y="50" class="label" font-size="10">CPU: Apple M2</text>
+  </g>
+
+  <!-- Fast indicator -->
+  <g transform="translate(195, 82)">
+    <text class="value" font-size="9" fill="#22c55e">FASTEST</text>
+    <line x1="45" y1="-5" x2="45" y2="80" stroke="#22c55e" stroke-width="1" stroke-dasharray="3,2" opacity="0.5"/>
+  </g>
+</svg>

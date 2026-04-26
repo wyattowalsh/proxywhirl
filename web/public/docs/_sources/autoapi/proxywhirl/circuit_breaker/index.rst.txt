@@ -1,0 +1,34 @@
+proxywhirl.circuit_breaker
+==========================
+
+.. py:module:: proxywhirl.circuit_breaker
+
+.. autoapi-nested-parse::
+
+   Circuit breaker pattern implementation for proxy failure management.
+
+   This package provides both synchronous and asynchronous circuit breaker
+   implementations for managing proxy failures and automatic recovery.
+
+   Usage:
+       Synchronous:
+           >>> from proxywhirl.circuit_breaker import CircuitBreaker
+           >>> cb = CircuitBreaker(proxy_id="proxy-1")
+
+       Asynchronous:
+           >>> from proxywhirl.circuit_breaker import AsyncCircuitBreaker
+           >>> cb = AsyncCircuitBreaker(proxy_id="proxy-1")
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/proxywhirl/circuit_breaker/async_/index
+   /autoapi/proxywhirl/circuit_breaker/base/index
+   /autoapi/proxywhirl/circuit_breaker/sync/index
+
+

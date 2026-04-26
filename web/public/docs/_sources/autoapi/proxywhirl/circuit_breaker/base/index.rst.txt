@@ -1,0 +1,78 @@
+proxywhirl.circuit_breaker.base
+===============================
+
+.. py:module:: proxywhirl.circuit_breaker.base
+
+.. autoapi-nested-parse::
+
+   Base circuit breaker implementation with shared state machine logic.
+
+   This module provides the core state machine logic shared between
+   sync (CircuitBreaker) and async (AsyncCircuitBreaker) implementations.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.circuit_breaker.base.CircuitBreakerBase
+   proxywhirl.circuit_breaker.base.CircuitBreakerState
+
+
+Module Contents
+---------------
+
+.. py:class:: CircuitBreakerBase(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Base circuit breaker with shared state machine logic.
+
+   This class contains all the state management logic shared between
+   sync and async implementations. Subclasses provide the locking mechanism.
+
+   .. attribute:: proxy_id
+
+      Unique identifier for the proxy
+
+   .. attribute:: state
+
+      Current circuit breaker state (CLOSED, OPEN, HALF_OPEN)
+
+   .. attribute:: failure_count
+
+      Number of failures in current window
+
+   .. attribute:: failure_threshold
+
+      Number of failures before opening circuit
+
+   .. attribute:: window_duration
+
+      Rolling window duration in seconds
+
+   .. attribute:: timeout_duration
+
+      How long circuit stays open before testing recovery
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: CircuitBreakerState
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Circuit breaker states.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+

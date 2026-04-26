@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: proxywhirl-config
+  namespace: proxywhirl
+data:
+  proxywhirl.toml: |
+    [api]
+    host = "0.0.0.0"
+    port = 8000
+    workers = 4
+    
+    [storage]
+    type = "sqlite"
+    path = "/data/proxywhirl.db"
+    
+    [cache]
+    enabled = true
+    ttl = 3600
+    
+    [logging]
+    level = "INFO"
+    format = "json"
+    
+    [rotation]
+    strategy = "weighted"
+    timeout = 10
+    retries = 3

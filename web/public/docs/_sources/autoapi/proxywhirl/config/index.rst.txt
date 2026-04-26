@@ -1,0 +1,190 @@
+proxywhirl.config
+=================
+
+.. py:module:: proxywhirl.config
+
+.. autoapi-nested-parse::
+
+   Configuration management for ProxyWhirl CLI.
+
+   This module handles TOML configuration discovery, loading, saving, and credential encryption
+   for the CLI interface.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.config.CLIConfig
+   proxywhirl.config.DataStorageConfig
+   proxywhirl.config.ProxyConfig
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.config.decrypt_credentials
+   proxywhirl.config.discover_config
+   proxywhirl.config.encrypt_credentials
+   proxywhirl.config.get_encryption_key
+   proxywhirl.config.load_config
+   proxywhirl.config.save_config
+
+
+Module Contents
+---------------
+
+.. py:class:: CLIConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Complete CLI configuration.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:class:: Config
+
+      Pydantic config.
+
+
+
+   .. py:method:: validate_format(v)
+      :classmethod:
+
+
+      Validate output format.
+
+
+
+   .. py:method:: validate_strategy(v)
+      :classmethod:
+
+
+      Validate rotation strategy.
+
+
+
+.. py:class:: DataStorageConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for what data to persist to the database.
+
+   All fields are configurable to allow users to:
+   - Reduce storage by disabling less-critical fields
+   - Improve privacy by opting out of geo/IP data
+   - Balance performance vs analytics granularity
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:class:: Config
+
+      Pydantic config.
+
+
+
+.. py:class:: ProxyConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for a single proxy.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: validate_url(v)
+      :classmethod:
+
+
+      Validate proxy URL format.
+
+
+
+.. py:function:: decrypt_credentials(config)
+
+   Decrypt all encrypted credential fields.
+
+   :param config: Configuration with encrypted credentials
+
+   :returns: Configuration with plain credentials
+
+
+.. py:function:: discover_config(explicit_path = None)
+
+   Discover configuration file location.
+
+   :param explicit_path: User-provided config file path (highest priority)
+
+   :returns: Path to config file, or None if not found
+
+   Priority:
+       1. Explicit path provided by user
+       2. ./pyproject.toml (project-local)
+       3. ~/.config/proxywhirl/config.toml (user-global)
+       4. None (use defaults)
+
+
+.. py:function:: encrypt_credentials(config)
+
+   Encrypt all SecretStr fields in proxy configurations.
+
+   :param config: Configuration with plain credentials
+
+   :returns: Configuration with encrypted credentials
+
+
+.. py:function:: get_encryption_key(config)
+
+   Get or create the encryption key.
+
+   Priority:
+   1. Environment variable (if set)
+   2. Persisted key file (~/.config/proxywhirl/key.enc)
+   3. Generate new key and persist it
+
+   :param config: CLI configuration
+
+   :returns: Encryption key bytes
+
+
+.. py:function:: load_config(path = None)
+
+   Load and validate TOML configuration.
+
+   :param path: Path to config file (if None, uses defaults)
+
+   :returns: Validated CLIConfig instance
+
+
+.. py:function:: save_config(config, path)
+
+   Save configuration to TOML file with credential encryption.
+
+   :param config: Configuration to save
+   :param path: Destination file path
+
+

@@ -1,0 +1,272 @@
+proxywhirl.rotator.sync
+=======================
+
+.. py:module:: proxywhirl.rotator.sync
+
+.. autoapi-nested-parse::
+
+   Main proxy rotation implementation.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.rotator.sync.ProxyWhirl
+
+
+Module Contents
+---------------
+
+.. py:class:: ProxyWhirl(proxies = None, strategy = None, config = None, retry_policy = None, rate_limiter = None, bootstrap = None)
+
+   Bases: :py:obj:`proxywhirl.rotator.base.ProxyRotatorBase`
+
+
+   Main class for proxy rotation with automatic failover.
+
+   Provides HTTP methods (GET, POST, PUT, DELETE, PATCH) that automatically
+   rotate through a pool of proxies, with intelligent failover on connection errors.
+
+   Example::
+
+       from proxywhirl import ProxyWhirl, Proxy
+
+       rotator = ProxyWhirl()
+       rotator.add_proxy("http://proxy1.example.com:8080")
+       rotator.add_proxy("http://proxy2.example.com:8080")
+
+       response = rotator.get("https://httpbin.org/ip")
+       print(response.json())
+
+   Initialize ProxyWhirl.
+
+   :param proxies: Initial list of proxies (optional)
+   :param strategy: Rotation strategy instance or name string. Supported
+                    names: ``round-robin``, ``random``, ``weighted``,
+                    ``least-used``, ``performance-based``, ``session``,
+                    ``geo-targeted``. Defaults to RoundRobinStrategy.
+   :param config: Configuration settings (default: ProxyConfiguration())
+   :param retry_policy: Retry policy configuration (default: RetryPolicy())
+   :param rate_limiter: Synchronous rate limiter for controlling request rates (optional)
+   :param bootstrap: Bootstrap configuration for lazy proxy fetching.
+                     False disables auto-bootstrap (for manual proxy management).
+                     True or None uses default BootstrapConfig.
+
+
+   .. py:method:: add_chain(chain)
+
+      Add a proxy chain to the rotator.
+
+      This method registers a proxy chain for potential use in routing.
+      The entry proxy (first proxy in the chain) is added to the pool
+      for selection by rotation strategies.
+
+      Note: Full CONNECT tunneling implementation is not yet supported.
+      Currently, only the entry proxy is used for routing, with chain
+      metadata stored for future multi-hop implementation.
+
+      :param chain: ProxyChain instance to register
+
+      .. rubric:: Example
+
+      >>> rotator = ProxyWhirl()
+      >>> chain = ProxyChain(
+      ...     proxies=[
+      ...         Proxy(url="http://proxy1.com:8080"),
+      ...         Proxy(url="http://proxy2.com:8080"),
+      ...     ],
+      ...     name="my_chain"
+      ... )
+      >>> rotator.add_chain(chain)
+
+
+
+   .. py:method:: add_proxy(proxy)
+
+      Add a proxy to the pool.
+
+      :param proxy: Proxy instance or URL string
+
+
+
+   .. py:method:: clear_queue()
+
+      Clear all pending requests from the queue.
+
+      :returns: Number of requests cleared
+
+      :raises RuntimeError: If queue is not enabled
+
+
+
+   .. py:method:: clear_unhealthy_proxies()
+
+      Remove all unhealthy and dead proxies from the pool.
+
+      :returns: Number of proxies removed
+
+
+
+   .. py:method:: delete(url, **kwargs)
+
+      Make DELETE request.
+
+
+
+   .. py:method:: get(url, **kwargs)
+
+      Make GET request.
+
+
+
+   .. py:method:: get_chains()
+
+      Get all registered proxy chains.
+
+      :returns: List of ProxyChain instances
+
+
+
+   .. py:method:: get_circuit_breaker_states()
+
+      Get circuit breaker states for all proxies.
+
+      :returns: Mapping of proxy IDs to their circuit breaker instances.
+      :rtype: dict[str, CircuitBreaker]
+
+
+
+   .. py:method:: get_pool_stats()
+
+      Get statistics about the proxy pool.
+
+      :returns: Pool statistics including total_proxies, healthy_proxies,
+                unhealthy_proxies, dead_proxies, total_requests, total_successes,
+                total_failures, and average_success_rate.
+      :rtype: dict[str, Any]
+
+
+
+   .. py:method:: get_queue_stats()
+
+      Get statistics about the request queue.
+
+      :returns: Queue statistics including enabled, size, max_size,
+                is_full, and is_empty.
+      :rtype: dict[str, Any]
+
+
+
+   .. py:method:: get_retry_metrics()
+
+      Get retry metrics.
+
+      :returns: RetryMetrics instance with current metrics
+
+
+
+   .. py:method:: get_statistics()
+
+      Get comprehensive statistics including source breakdown (FR-050).
+
+      :returns: All stats from get_pool_stats() plus source_breakdown
+                mapping source names to proxy counts.
+      :rtype: dict[str, Any]
+
+
+
+   .. py:method:: head(url, **kwargs)
+
+      Make HEAD request.
+
+
+
+   .. py:method:: options(url, **kwargs)
+
+      Make OPTIONS request.
+
+
+
+   .. py:method:: patch(url, **kwargs)
+
+      Make PATCH request.
+
+
+
+   .. py:method:: post(url, **kwargs)
+
+      Make POST request.
+
+
+
+   .. py:method:: put(url, **kwargs)
+
+      Make PUT request.
+
+
+
+   .. py:method:: remove_chain(chain_name)
+
+      Remove a proxy chain by name.
+
+      :param chain_name: Name of the chain to remove
+
+      :returns: True if chain was found and removed, False otherwise
+
+
+
+   .. py:method:: remove_proxy(proxy_id)
+
+      Remove a proxy from the pool.
+
+      :param proxy_id: UUID of proxy to remove
+
+
+
+   .. py:method:: reset_circuit_breaker(proxy_id)
+
+      Manually reset a circuit breaker to CLOSED state.
+
+      :param proxy_id: ID of the proxy whose circuit breaker to reset
+
+      :raises KeyError: If proxy_id not found
+
+
+
+   .. py:method:: set_strategy(strategy, *, atomic = True)
+
+      Hot-swap the rotation strategy without restarting.
+
+      This method implements atomic strategy swapping to ensure:
+      - New requests immediately use the new strategy
+      - In-flight requests complete with their original strategy
+      - No requests are dropped during the swap
+      - Swap completes in <100ms (SC-009)
+
+      :param strategy: New strategy instance or name string. Supported
+                       names: ``round-robin``, ``random``, ``weighted``,
+                       ``least-used``, ``performance-based``, ``session``,
+                       ``geo-targeted``.
+      :param atomic: If True (default), ensures atomic swap. If False, allows
+                     immediate replacement (faster but may affect in-flight requests)
+
+      .. rubric:: Example
+
+      >>> rotator = ProxyWhirl(strategy="round-robin")
+      >>> # ... after some requests ...
+      >>> rotator.set_strategy("performance-based")  # Hot-swap
+      >>> # New requests now use performance-based strategy
+
+      Thread Safety:
+          Thread-safe via atomic reference swap. Multiple threads can
+          call this method safely without race conditions.
+
+      Performance:
+          Target: <100ms for hot-swap completion (SC-009)
+          Typical: <10ms for strategy instance creation and assignment
+
+
+

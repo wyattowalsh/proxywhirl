@@ -1,0 +1,45 @@
+groups:
+  - name: proxywhirl
+    interval: 30s
+    rules:
+      - alert: HighErrorRate
+        expr: rate(proxywhirl_errors_total[5m]) > 0.05
+        for: 5m
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }}"
+
+      - alert: LowProxyAvailability
+        expr: proxywhirl_available_proxies < 100
+        for: 5m
+        annotations:
+          summary: "Low proxy availability"
+          description: "Only {{ $value }} proxies available"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, proxywhirl_request_duration_seconds) > 10
+        for: 5m
+        annotations:
+          summary: "High request latency"
+          description: "P95 latency is {{ $value }}s"
+
+      - alert: DatabaseConnectionFailure
+        expr: proxywhirl_database_connection_errors > 0
+        for: 2m
+        annotations:
+          summary: "Database connection failure"
+          description: "Database connection errors detected"
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        annotations:
+          summary: "Redis instance is down"
+          description: "Redis is not responding"
+
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        annotations:
+          summary: "PostgreSQL instance is down"
+          description: "PostgreSQL is not responding"

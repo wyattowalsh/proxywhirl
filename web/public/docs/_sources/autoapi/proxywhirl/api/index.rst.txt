@@ -1,0 +1,42 @@
+proxywhirl.api
+==============
+
+.. py:module:: proxywhirl.api
+
+.. autoapi-nested-parse::
+
+   ProxyWhirl REST API package.
+
+   This package provides the FastAPI-based REST API for ProxyWhirl, including:
+   - Proxy management endpoints (CRUD operations)
+   - Proxied request handling
+   - Health and readiness checks
+   - Configuration management
+   - Metrics and statistics
+
+   Usage:
+       from proxywhirl.api import app
+
+       # Run with uvicorn
+       uvicorn.run(app, host="0.0.0.0", port=8000)
+
+   Environment Variables:
+       PROXYWHIRL_STORAGE_PATH: Path to SQLite database
+       PROXYWHIRL_STRATEGY: Rotation strategy (default: round-robin)
+       PROXYWHIRL_TIMEOUT: Request timeout in seconds (default: 30)
+       PROXYWHIRL_MAX_RETRIES: Max retry attempts (default: 3)
+       PROXYWHIRL_REQUIRE_AUTH: Require API key auth (default: false)
+       PROXYWHIRL_CORS_ORIGINS: Comma-separated CORS origins
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/proxywhirl/api/core/index
+   /autoapi/proxywhirl/api/models/index
+
+

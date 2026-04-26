@@ -1,0 +1,43 @@
+[Unit]
+Description=ProxyWhirl - Python Proxy Rotation Library
+Documentation=https://proxywhirl.readthedocs.io
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+User=proxywhirl
+Group=proxywhirl
+WorkingDirectory=/opt/proxywhirl
+
+Environment="PROXYWHIRL_LOG_LEVEL=INFO"
+Environment="PROXYWHIRL_STORAGE_PATH=/var/lib/proxywhirl/proxywhirl.db"
+EnvironmentFile=-/etc/default/proxywhirl
+
+ExecStartPre=/usr/bin/python3 -m venv /opt/proxywhirl/venv
+ExecStart=/opt/proxywhirl/venv/bin/python3 -m proxywhirl api \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --workers 4
+
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=proxywhirl
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/proxywhirl /var/log/proxywhirl
+
+# Resource limits
+CPUQuota=80%
+MemoryLimit=512M
+LimitNOFILE=65536
+LimitNPROC=512
+
+[Install]
+WantedBy=multi-user.target

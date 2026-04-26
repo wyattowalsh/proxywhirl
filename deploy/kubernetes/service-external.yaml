@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxywhirl-external
+  namespace: proxywhirl
+  labels:
+    app: proxywhirl
+spec:
+  type: LoadBalancer
+  selector:
+    app: proxywhirl
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP

@@ -1,0 +1,208 @@
+proxywhirl.logging_config
+=========================
+
+.. py:module:: proxywhirl.logging_config
+
+.. autoapi-nested-parse::
+
+   Structured logging configuration for ProxyWhirl.
+
+   This module provides MVP Phase 1 functionality for structured logging:
+   - JSON and logfmt output formats
+   - Log rotation configuration
+   - Contextual metadata support
+   - Integration with existing loguru usage
+
+   .. rubric:: Example
+
+   >>> from proxywhirl.logging_config import configure_logging, get_logger
+   >>> configure_logging(format="json", level="INFO", rotation="10 MB")
+   >>> logger = get_logger()
+   >>> logger.info("Started proxy rotation")
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.logging_config.LogContext
+   proxywhirl.logging_config.LogRotationConfig
+   proxywhirl.logging_config.LoggingConfig
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.logging_config.bind_context
+   proxywhirl.logging_config.configure_logging
+   proxywhirl.logging_config.get_logger
+
+
+Module Contents
+---------------
+
+.. py:class:: LogContext(**context)
+
+   Context manager for adding contextual metadata to log entries.
+
+   This class provides a convenient way to bind context variables to the logger
+   for a specific block of code. Context is automatically removed when exiting
+   the context manager.
+
+   .. rubric:: Example
+
+   >>> with LogContext(request_id="req-123", operation="proxy_fetch"):
+   ...     logger.info("Processing request")
+   # Log entry will include request_id and operation in context
+
+   :param \*\*context: Arbitrary keyword arguments to bind as context metadata
+
+   Initialize context with metadata key-value pairs.
+
+
+.. py:class:: LogRotationConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for log file rotation.
+
+   .. attribute:: size
+
+      Size threshold for rotation (e.g., "10 MB", "1 GB")
+
+   .. attribute:: time
+
+      Time threshold for rotation (e.g., "1 day", "1 week")
+
+   .. attribute:: retention
+
+      Number of rotated files to keep (e.g., "5 files", "1 week")
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: LoggingConfig(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Main logging configuration model.
+
+   .. attribute:: format
+
+      Output format - 'default', 'json', or 'logfmt'
+
+   .. attribute:: level
+
+      Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+
+   .. attribute:: rotation
+
+      Log rotation configuration (size/time-based)
+
+   .. attribute:: retention
+
+      Retention policy for rotated logs
+
+   .. attribute:: colorize
+
+      Enable colored output (only for 'default' format)
+
+   .. attribute:: diagnose
+
+      Enable diagnostic mode (adds extra debug info)
+
+   .. attribute:: backtrace
+
+      Enable backtrace on exceptions
+
+   .. attribute:: enqueue
+
+      Enable async logging with queue
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:function:: bind_context(**context)
+
+   Bind contextual metadata to the logger.
+
+   This is a convenience wrapper around logger.bind() for adding metadata
+   to log entries. The bound context persists for the lifetime of the
+   returned logger instance.
+
+   :param \*\*context: Arbitrary keyword arguments to bind as context metadata
+
+   :returns: Logger instance with bound context
+
+   .. rubric:: Example
+
+   >>> request_logger = bind_context(request_id="req-123", operation="fetch")
+   >>> request_logger.info("Started operation")
+   # Log will include request_id and operation in context
+
+
+.. py:function:: configure_logging(format = 'default', level = 'INFO', rotation = None, retention = None, sink=sys.stderr, colorize = None, diagnose = False, backtrace = True, enqueue = True)
+
+   Configure structured logging for ProxyWhirl.
+
+   This function sets up loguru with the specified format, level, and rotation
+   settings. It removes existing handlers and adds a new one with the
+   configured settings.
+
+   :param format: Output format - 'default' (colored text), 'json', or 'logfmt'
+   :param level: Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+   :param rotation: Rotation threshold (e.g., '10 MB', '1 day', '00:00')
+   :param retention: Retention policy (e.g., '5 files', '1 week', '7 days')
+   :param sink: Output destination (file path, sys.stderr, sys.stdout, etc.)
+   :param colorize: Enable colored output (auto-detected if None)
+   :param diagnose: Enable diagnostic mode (adds code context to logs)
+   :param backtrace: Enable backtrace on exceptions
+   :param enqueue: Enable async logging with queue
+
+   .. rubric:: Example
+
+   >>> # JSON logging to file with rotation
+   >>> configure_logging(
+   ...     format="json",
+   ...     level="INFO",
+   ...     rotation="10 MB",
+   ...     retention="5 files",
+   ...     sink="logs/proxywhirl.log"
+   ... )
+
+   >>> # Console logging with colors
+   >>> configure_logging(format="default", level="DEBUG")
+
+   >>> # Logfmt to stderr
+   >>> configure_logging(format="logfmt", level="WARNING")
+
+
+.. py:function:: get_logger()
+
+   Get the configured loguru logger instance.
+
+   :returns: The global loguru logger instance, configured via configure_logging()
+
+   .. rubric:: Example
+
+   >>> logger = get_logger()
+   >>> logger.info("Processing started")
+   >>> logger.bind(request_id="req-123").info("Request received")
+
+

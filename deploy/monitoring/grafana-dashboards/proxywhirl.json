@@ -1,0 +1,64 @@
+{
+  "dashboard": {
+    "title": "ProxyWhirl Metrics",
+    "tags": ["proxywhirl"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "title": "Available Proxies",
+        "targets": [
+          {
+            "expr": "proxywhirl_available_proxies"
+          }
+        ],
+        "type": "graph"
+      },
+      {
+        "title": "Error Rate",
+        "targets": [
+          {
+            "expr": "rate(proxywhirl_errors_total[5m])"
+          }
+        ],
+        "type": "graph"
+      },
+      {
+        "title": "Request Latency (P95)",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, proxywhirl_request_duration_seconds)"
+          }
+        ],
+        "type": "graph"
+      },
+      {
+        "title": "Proxy Rotation Rate",
+        "targets": [
+          {
+            "expr": "rate(proxywhirl_rotations_total[5m])"
+          }
+        ],
+        "type": "graph"
+      },
+      {
+        "title": "Cache Hit Rate",
+        "targets": [
+          {
+            "expr": "rate(proxywhirl_cache_hits_total[5m]) / (rate(proxywhirl_cache_hits_total[5m]) + rate(proxywhirl_cache_misses_total[5m]))"
+          }
+        ],
+        "type": "graph"
+      },
+      {
+        "title": "Database Query Time (P95)",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, proxywhirl_database_query_duration_seconds)"
+          }
+        ],
+        "type": "graph"
+      }
+    ],
+    "refresh": "30s"
+  }
+}

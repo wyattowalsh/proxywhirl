@@ -1,0 +1,32 @@
+proxywhirl.cache
+================
+
+.. py:module:: proxywhirl.cache
+
+.. autoapi-nested-parse::
+
+   Multi-tier caching functionality for ProxyWhirl.
+
+   This subpackage provides L1 (memory), L2 (disk), and L3 (SQLite) caching tiers
+   with credential encryption and comprehensive cache management.
+
+   Modules:
+       manager: Main CacheManager class for multi-tier caching
+       crypto: Credential encryption for secure caching
+       models: Pydantic models for cache entries and configuration
+       tiers: Cache tier implementations (Memory, Disk, SQLite)
+
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/proxywhirl/cache/crypto/index
+   /autoapi/proxywhirl/cache/manager/index
+   /autoapi/proxywhirl/cache/models/index
+   /autoapi/proxywhirl/cache/tiers/index
+
+

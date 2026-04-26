@@ -1,0 +1,1795 @@
+/* ==========================================================================
+   ProxyWhirl Docs — Shibuya Theme Customization
+   Aligned with landing page design system (blue→purple→pink gradient)
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   CSS Custom Properties
+   -------------------------------------------------------------------------- */
+:root {
+  /* Brand gradient colors (from logo.svg) */
+  --pw-violet: #6d64ff;
+  --pw-pink: #c86bff;
+  --pw-blue: #3b82f6;
+  --pw-deep: #1f1b57;
+
+  /* Gradients */
+  --pw-gradient: linear-gradient(135deg, var(--pw-violet), var(--pw-pink));
+  --pw-gradient-text: linear-gradient(90deg, var(--pw-blue), var(--pw-violet), var(--pw-pink));
+  --pw-hero-bg: linear-gradient(135deg, rgba(109, 100, 255, 0.08), rgba(200, 107, 255, 0.08));
+  --pw-glow: 0 0 60px rgba(109, 100, 255, 0.15);
+
+  /* Borders & shadows */
+  --pw-border: rgba(109, 100, 255, 0.2);
+  --pw-border-strong: rgba(109, 100, 255, 0.35);
+  --pw-shadow-sm: 0 4px 12px rgba(17, 15, 35, 0.06);
+  --pw-shadow-md: 0 10px 24px rgba(17, 15, 35, 0.08);
+  --pw-shadow-lg: 0 20px 40px rgba(17, 15, 35, 0.12);
+
+  /* Radius system (matches Tailwind) */
+  --pw-radius-sm: 0.375rem;
+  --pw-radius: 0.5rem;
+  --pw-radius-lg: 0.75rem;
+  --pw-radius-xl: 1rem;
+  --pw-radius-2xl: 1.25rem;
+
+  /* Animation */
+  --pw-transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Light mode accent overrides */
+html.light {
+  --accent-9: #6d64ff;
+  --accent-a9: rgba(109, 100, 255, 0.92);
+  --color-accent-fg: #6d64ff;
+}
+
+/* Dark mode accent overrides */
+html.dark {
+  --accent-9: #a497ff;
+  --accent-a9: rgba(164, 151, 255, 0.92);
+  --color-accent-fg: #a497ff;
+  --pw-hero-bg: linear-gradient(135deg, rgba(109, 100, 255, 0.12), rgba(200, 107, 255, 0.1));
+  --pw-border: rgba(164, 151, 255, 0.2);
+  --pw-shadow-md: 0 10px 24px rgba(0, 0, 0, 0.25);
+}
+
+/* --------------------------------------------------------------------------
+   Shared Navbar (.pw-navbar) — matches SPA Header.tsx
+   -------------------------------------------------------------------------- */
+.pw-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+  border-bottom: 1px solid;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+html.light .pw-navbar {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+
+html.dark .pw-navbar {
+  background: rgba(2, 8, 23, 0.95);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  html.light .pw-navbar { background: rgba(255, 255, 255, 0.6); }
+  html.dark .pw-navbar { background: rgba(2, 8, 23, 0.6); }
+}
+
+.pw-navbar-inner {
+  max-width: 80rem;
+  margin: 0 auto;
+  display: flex;
+  height: 3.5rem;
+  align-items: center;
+  padding: 0 1rem;
+}
+
+@media (min-width: 640px) {
+  .pw-navbar-inner { padding: 0 1.5rem; }
+}
+
+@media (min-width: 1024px) {
+  .pw-navbar-inner { padding: 0 2rem; }
+}
+
+/* Sidebar toggle — mobile only */
+.pw-navbar-sidebar-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.375rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+}
+
+.pw-navbar-sidebar-toggle:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+html.dark .pw-navbar-sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 767px) {
+  .pw-navbar-sidebar-toggle { display: flex; }
+}
+
+/* Brand */
+.pw-navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: 1.5rem;
+  text-decoration: none !important;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+.pw-navbar-brand:hover {
+  text-decoration: none !important;
+  color: inherit;
+}
+
+.pw-navbar-logo {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.pw-navbar-brand strong {
+  font-weight: 700;
+  background: linear-gradient(to right, #06b6d4, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-size: 0.95rem;
+}
+
+/* Desktop nav links */
+.pw-navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.pw-navbar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  text-decoration: none !important;
+  transition: color 0.15s, opacity 0.15s;
+}
+
+html.light .pw-navbar-link { color: rgba(0, 0, 0, 0.6); }
+html.dark .pw-navbar-link { color: rgba(255, 255, 255, 0.6); }
+
+html.light .pw-navbar-link:hover { color: rgba(0, 0, 0, 0.8); }
+html.dark .pw-navbar-link:hover { color: rgba(255, 255, 255, 0.8); }
+
+html.light .pw-navbar-link.active { color: rgba(0, 0, 0, 1); }
+html.dark .pw-navbar-link.active { color: rgba(255, 255, 255, 1); }
+
+@media (max-width: 767px) {
+  .pw-navbar-links { display: none; }
+}
+
+/* Right actions */
+.pw-navbar-actions {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+}
+
+.pw-navbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.375rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.pw-navbar-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+html.dark .pw-navbar-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pw-navbar-btn svg {
+  flex-shrink: 0;
+}
+
+/* GitHub icon — visible on all sizes */
+.pw-navbar-github {
+  color: inherit;
+  text-decoration: none !important;
+}
+
+/* Theme toggle icon visibility */
+html.dark .pw-icon-sun { display: block; }
+html.dark .pw-icon-moon { display: none; }
+html.light .pw-icon-sun { display: none; }
+html.light .pw-icon-moon { display: block; }
+
+/* --------------------------------------------------------------------------
+   Global Typography Enhancements
+   -------------------------------------------------------------------------- */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Gradient text — applied to first h1 in content area */
+.sy-content h1:first-of-type {
+  background: var(--pw-gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   Header & Navigation
+   -------------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------------
+   Hero Section (Index Page)
+   -------------------------------------------------------------------------- */
+.sy-hero {
+  background: var(--pw-hero-bg);
+  border: 1px solid var(--pw-border);
+  border-radius: var(--pw-radius-2xl);
+  padding: 3rem clamp(1.5rem, 5vw, 4rem);
+  margin-bottom: 3rem;
+  box-shadow: var(--pw-shadow-lg), var(--pw-glow);
+  position: relative;
+  overflow: hidden;
+}
+
+.sy-hero::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  right: -30%;
+  width: 60%;
+  height: 200%;
+  background: radial-gradient(ellipse, rgba(109, 100, 255, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.sy-hero h1 {
+  font-size: clamp(2.5rem, 5vw, 3.75rem);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin-bottom: 1rem;
+  background: var(--pw-gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.sy-hero p {
+  font-size: clamp(1.125rem, 2.5vw, 1.375rem);
+  line-height: 1.6;
+  max-width: 52rem;
+  margin-bottom: 2rem;
+  opacity: 0.9;
+}
+
+.sy-hero .sd-btn {
+  font-weight: 600;
+  font-size: 1rem;
+  padding: 0.75rem 1.75rem;
+  border-radius: var(--pw-radius-lg);
+  transition: all var(--pw-transition);
+}
+
+.sy-hero .sd-btn-primary {
+  background: var(--pw-gradient);
+  border: none;
+  box-shadow: 0 4px 14px rgba(109, 100, 255, 0.35);
+}
+
+.sy-hero .sd-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(109, 100, 255, 0.45);
+}
+
+/* --------------------------------------------------------------------------
+   Cards (sphinx-design)
+   -------------------------------------------------------------------------- */
+.sd-card {
+  border-radius: var(--pw-radius-xl);
+  border: 1px solid var(--pw-border);
+  background: var(--color-background-secondary);
+  box-shadow: var(--pw-shadow-sm);
+  transition: all var(--pw-transition);
+  overflow: hidden;
+}
+
+/* card hover — see enhanced version in section 3 below */
+
+.sd-card-header {
+  border-bottom: 1px solid var(--pw-border);
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.04), transparent);
+}
+
+.sd-card-body {
+  padding: 1.75rem 1.5rem;
+}
+
+.sd-card-footer {
+  border-top: 1px solid var(--pw-border);
+  background: rgba(109, 100, 255, 0.02);
+}
+
+/* Card grid improvements */
+.sd-cards-carousel .sd-card,
+.sd-row .sd-card {
+  height: 100%;
+}
+
+/* --------------------------------------------------------------------------
+   Tabs (sphinx-design)
+   -------------------------------------------------------------------------- */
+.sd-tab-set {
+  border-radius: var(--pw-radius-xl);
+  overflow: hidden;
+  border: 1px solid var(--pw-border);
+}
+
+.sd-tab-set > ul {
+  border-bottom: 1px solid var(--pw-border);
+  background: rgba(109, 100, 255, 0.03);
+  padding: 0.5rem 0.5rem 0;
+  gap: 0.25rem;
+}
+
+.sd-tab-set > ul li button[role="tab"] {
+  border-radius: var(--pw-radius-lg) var(--pw-radius-lg) 0 0;
+  border: 1px solid transparent;
+  padding: 0.75rem 1.25rem;
+  font-weight: 500;
+  transition: all var(--pw-transition);
+}
+
+.sd-tab-set > ul li button[role="tab"]:hover {
+  background: rgba(109, 100, 255, 0.08);
+}
+
+.sd-tab-set > ul li button[role="tab"][aria-selected="true"] {
+  border-color: var(--pw-border);
+  border-bottom-color: transparent;
+  background: var(--color-background-primary);
+  color: var(--pw-violet);
+  font-weight: 600;
+}
+
+.sd-tab-content {
+  padding: 1.5rem;
+}
+
+/* --------------------------------------------------------------------------
+   Code Blocks & Syntax Highlighting
+   -------------------------------------------------------------------------- */
+/* Light mode - clean light code blocks */
+html.light .highlight,
+html.light .literal-block-wrapper {
+  background: #fafafa;
+  border: 1px solid rgba(109, 100, 255, 0.2);
+  border-radius: var(--pw-radius-lg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+html.light .highlight pre {
+  background: transparent;
+  padding: 1.25rem 1.5rem;
+  margin: 0;
+  color: #1e1e1e;
+}
+
+/* Light mode syntax colors - vibrant on light bg */
+html.light .highlight .kn,
+html.light .highlight .k,
+html.light .highlight .kc,
+html.light .highlight .kd,
+html.light .highlight .kr,
+html.light .highlight .ow { color: #d946ef !important; } /* magenta/pink for keywords */
+
+html.light .highlight .s,
+html.light .highlight .s1,
+html.light .highlight .s2,
+html.light .highlight .sb,
+html.light .highlight .sc,
+html.light .highlight .sd,
+html.light .highlight .se,
+html.light .highlight .sh,
+html.light .highlight .si,
+html.light .highlight .sx,
+html.light .highlight .sr,
+html.light .highlight .ss { color: #16a34a !important; } /* green for strings */
+
+html.light .highlight .n,
+html.light .highlight .na,
+html.light .highlight .nx { color: #1e1e1e !important; } /* dark for names */
+
+html.light .highlight .nb,
+html.light .highlight .bp { color: #0891b2 !important; } /* cyan for builtins */
+
+html.light .highlight .nc,
+html.light .highlight .nf,
+html.light .highlight .fm { color: #2563eb !important; } /* blue for classes/functions */
+
+html.light .highlight .nn,
+html.light .highlight .ni { color: #7c3aed !important; } /* purple for modules */
+
+html.light .highlight .nv,
+html.light .highlight .no,
+html.light .highlight .nd,
+html.light .highlight .ne,
+html.light .highlight .nl,
+html.light .highlight .nt { color: #1e1e1e !important; } /* dark for other names */
+
+html.light .highlight .c,
+html.light .highlight .c1,
+html.light .highlight .cm,
+html.light .highlight .cp,
+html.light .highlight .cs { color: #6b7280 !important; } /* gray for comments */
+
+html.light .highlight .o,
+html.light .highlight .p { color: #374151 !important; } /* dark gray for operators */
+
+html.light .highlight .m,
+html.light .highlight .mb,
+html.light .highlight .mf,
+html.light .highlight .mh,
+html.light .highlight .mi,
+html.light .highlight .mo { color: #ea580c !important; } /* orange for numbers */
+
+/* Light mode tabs */
+html.light .sd-tab-set {
+  background: #fafafa;
+  border: 1px solid rgba(109, 100, 255, 0.2);
+  border-radius: var(--pw-radius-lg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+
+html.light .sd-tab-set > input {
+  display: none;
+}
+
+html.light .sd-tab-set > label.sd-tab-label {
+  color: #6b7280 !important;
+  background: #f3f4f6 !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  padding: 0.65rem 1.25rem;
+  margin: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+html.light .sd-tab-set > label.sd-tab-label:hover {
+  color: #1f2937 !important;
+  background: #e5e7eb !important;
+}
+
+html.light .sd-tab-set > input:checked + label.sd-tab-label {
+  color: #1f2937 !important;
+  background: #fafafa !important;
+  border-bottom: 2px solid var(--pw-violet) !important;
+}
+
+html.light .sd-tab-content {
+  background: #fafafa;
+}
+
+html.light .sd-tab-content .highlight {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Dark mode - Dracula theme */
+html.dark .highlight,
+html.dark .literal-block-wrapper {
+  background: #282a36;
+  border: 1px solid rgba(139, 233, 253, 0.15);
+  border-radius: var(--pw-radius-lg);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+html.dark .highlight pre {
+  background: transparent;
+  padding: 1.25rem 1.5rem;
+  margin: 0;
+  color: #f8f8f2;
+}
+
+/* Dark mode Dracula syntax colors */
+html.dark .highlight .kn,
+html.dark .highlight .k,
+html.dark .highlight .kc,
+html.dark .highlight .kd,
+html.dark .highlight .kr,
+html.dark .highlight .ow { color: #ff79c6 !important; } /* pink for keywords */
+
+html.dark .highlight .s,
+html.dark .highlight .s1,
+html.dark .highlight .s2,
+html.dark .highlight .sb,
+html.dark .highlight .sc,
+html.dark .highlight .sd,
+html.dark .highlight .se,
+html.dark .highlight .sh,
+html.dark .highlight .si,
+html.dark .highlight .sx,
+html.dark .highlight .sr,
+html.dark .highlight .ss { color: #f1fa8c !important; } /* yellow for strings */
+
+html.dark .highlight .n,
+html.dark .highlight .na,
+html.dark .highlight .nx { color: #f8f8f2 !important; } /* white for names */
+
+html.dark .highlight .nb,
+html.dark .highlight .bp { color: #8be9fd !important; } /* cyan for builtins */
+
+html.dark .highlight .nc,
+html.dark .highlight .nf,
+html.dark .highlight .fm { color: #50fa7b !important; } /* green for classes/functions */
+
+html.dark .highlight .nn,
+html.dark .highlight .ni { color: #bd93f9 !important; } /* purple for modules */
+
+html.dark .highlight .nv,
+html.dark .highlight .no,
+html.dark .highlight .nd,
+html.dark .highlight .ne,
+html.dark .highlight .nl,
+html.dark .highlight .nt { color: #f8f8f2 !important; } /* white for other names */
+
+html.dark .highlight .c,
+html.dark .highlight .c1,
+html.dark .highlight .cm,
+html.dark .highlight .cp,
+html.dark .highlight .cs { color: #6272a4 !important; } /* muted blue for comments */
+
+html.dark .highlight .o,
+html.dark .highlight .p { color: #f8f8f2 !important; } /* white for operators */
+
+html.dark .highlight .m,
+html.dark .highlight .mb,
+html.dark .highlight .mf,
+html.dark .highlight .mh,
+html.dark .highlight .mi,
+html.dark .highlight .mo { color: #bd93f9 !important; } /* purple for numbers */
+
+/* Dark mode tabs - Dracula style */
+html.dark .sd-tab-set {
+  background: #282a36;
+  border: 1px solid rgba(139, 233, 253, 0.15);
+  border-radius: var(--pw-radius-lg);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+html.dark .sd-tab-set > input {
+  display: none;
+}
+
+html.dark .sd-tab-set > label.sd-tab-label {
+  color: #6272a4 !important;
+  background: #21222c !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  padding: 0.65rem 1.25rem;
+  margin: 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+html.dark .sd-tab-set > label.sd-tab-label:hover {
+  color: #f8f8f2 !important;
+  background: #343746 !important;
+}
+
+html.dark .sd-tab-set > input:checked + label.sd-tab-label {
+  color: #f8f8f2 !important;
+  background: #282a36 !important;
+  border-bottom: 2px solid #bd93f9 !important;
+}
+
+html.dark .sd-tab-content {
+  background: #282a36;
+}
+
+html.dark .sd-tab-content .highlight {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* General code block styling */
+.highlight,
+.literal-block-wrapper {
+  border-radius: var(--pw-radius-lg);
+  overflow: hidden;
+}
+
+/* Inline code - ensure contrast (exclude syntax-highlighted code blocks) */
+code.literal,
+:not(.highlight) > code:not([class]),
+p > code:not([class]),
+li > code:not([class]),
+td > code:not([class]),
+.sig-name code {
+  background: rgba(109, 100, 255, 0.1);
+  border: 1px solid rgba(109, 100, 255, 0.15);
+  border-radius: var(--pw-radius-sm);
+  padding: 0.15rem 0.4rem;
+  font-size: 0.875em;
+  color: var(--color-foreground-primary);
+}
+
+html.dark code.literal,
+html.dark :not(.highlight) > code:not([class]),
+html.dark p > code:not([class]),
+html.dark li > code:not([class]),
+html.dark td > code:not([class]),
+html.dark .sig-name code {
+  background: rgba(164, 151, 255, 0.15);
+  border-color: rgba(164, 151, 255, 0.2);
+  color: #e2e8f0;
+}
+
+/* Copy button — see enhanced version in section 8 below */
+
+/* --------------------------------------------------------------------------
+   Admonitions & Callouts
+   -------------------------------------------------------------------------- */
+.admonition {
+  border-radius: var(--pw-radius-lg);
+  border-left: 4px solid;
+  box-shadow: var(--pw-shadow-sm);
+  margin: 1.5rem 0;
+  overflow: visible;
+}
+
+/* Ensure admonition icons are visible */
+.admonition-title {
+  font-weight: 600;
+  padding: 0.75rem 1rem;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admonition-title::before {
+  flex-shrink: 0;
+}
+
+.admonition > p:not(.admonition-title),
+.admonition > ul,
+.admonition > ol {
+  padding: 0 1rem 1rem;
+}
+
+/* Tip admonition with brand accent */
+.admonition.tip {
+  border-color: var(--pw-violet);
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.06), rgba(200, 107, 255, 0.04));
+}
+
+.admonition.tip > .admonition-title {
+  background: rgba(109, 100, 255, 0.1);
+  color: var(--pw-violet);
+}
+
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
+.sd-btn {
+  border-radius: var(--pw-radius-lg);
+  font-weight: 500;
+  transition: all var(--pw-transition);
+  padding: 0.625rem 1.25rem;
+}
+
+.sd-btn-primary {
+  background: var(--pw-gradient);
+  border: none;
+  color: white;
+  box-shadow: 0 2px 8px rgba(109, 100, 255, 0.25);
+}
+
+.sd-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(109, 100, 255, 0.35);
+  filter: brightness(1.05);
+}
+
+.sd-btn-outline-primary {
+  border: 1.5px solid var(--pw-violet);
+  color: var(--pw-violet);
+  background: transparent;
+}
+
+.sd-btn-outline-primary:hover {
+  background: rgba(109, 100, 255, 0.08);
+}
+
+/* --------------------------------------------------------------------------
+   Sidebar Navigation
+   -------------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------------
+   Table of Contents (Right Sidebar)
+   -------------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------------
+   Tables
+   -------------------------------------------------------------------------- */
+table.docutils {
+  border-radius: var(--pw-radius-lg);
+  border: 1px solid var(--pw-border);
+  overflow: hidden;
+  box-shadow: var(--pw-shadow-sm);
+}
+
+table.docutils thead {
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.08), rgba(200, 107, 255, 0.04));
+}
+
+table.docutils thead th {
+  border-bottom: 2px solid var(--pw-border);
+  font-weight: 600;
+  padding: 0.875rem 1rem;
+}
+
+table.docutils tbody tr:nth-child(even) {
+  background: rgba(109, 100, 255, 0.02);
+}
+
+table.docutils tbody td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--pw-border);
+}
+
+/* --------------------------------------------------------------------------
+   Mermaid Diagrams
+   -------------------------------------------------------------------------- */
+.mermaid {
+  background: var(--color-background-secondary);
+  border: 1px solid var(--pw-border);
+  border-radius: var(--pw-radius-lg);
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  box-shadow: var(--pw-shadow-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Footer — hidden for unified design
+   -------------------------------------------------------------------------- */
+.sy-foot {
+  display: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Badges & Pills
+   -------------------------------------------------------------------------- */
+.sd-badge {
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+}
+
+.sd-badge-primary {
+  background: var(--pw-gradient);
+  color: white;
+}
+
+
+/* --------------------------------------------------------------------------
+   Scrollbar Styling
+   -------------------------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(109, 100, 255, 0.2);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(109, 100, 255, 0.35);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--pw-violet) transparent;
+}
+
+/* --------------------------------------------------------------------------
+   Focus States (Accessibility)
+   -------------------------------------------------------------------------- */
+:focus-visible {
+  outline: 2px solid var(--pw-violet);
+  outline-offset: 2px;
+  border-radius: var(--pw-radius-sm);
+}
+
+/* --------------------------------------------------------------------------
+   Print Styles
+   -------------------------------------------------------------------------- */
+@media print {
+  .sy-foot,
+  .sy-lside,
+  .sy-rside,
+  .copybtn,
+  .pw-navbar {
+    display: none !important;
+  }
+
+  .sy-content {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Animations
+   -------------------------------------------------------------------------- */
+
+/* ==========================================================================
+   Enhanced Visual Polish — Appended Styles
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Code Blocks — Enhanced
+   -------------------------------------------------------------------------- */
+/* Slightly larger font for readability */
+.highlight pre,
+.literal-block-wrapper pre {
+  font-size: 0.9rem;
+  line-height: 1.7;
+  tab-size: 4;
+}
+
+/* Code block language label */
+.highlight[class*="highlight-"]::before {
+  display: block;
+  content: attr(data-lang);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.4rem 1rem 0;
+  opacity: 0.5;
+}
+
+/* Line numbers column styling */
+.linenodiv pre {
+  border-right: 1px solid var(--pw-border);
+  padding-right: 0.75rem;
+  margin-right: 0.75rem;
+  opacity: 0.4;
+  user-select: none;
+}
+
+/* --------------------------------------------------------------------------
+   2. Admonitions — Full Set with Icons and Brand Colors
+   -------------------------------------------------------------------------- */
+/* Note */
+.admonition.note {
+  border-color: #3b82f6;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(59, 130, 246, 0.02));
+}
+
+.admonition.note > .admonition-title {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+html.dark .admonition.note {
+  border-color: #60a5fa;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(59, 130, 246, 0.04));
+}
+
+html.dark .admonition.note > .admonition-title {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93bbfd;
+}
+
+/* Warning */
+.admonition.warning {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.06), rgba(245, 158, 11, 0.02));
+}
+
+.admonition.warning > .admonition-title {
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}
+
+html.dark .admonition.warning {
+  border-color: #fbbf24;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(245, 158, 11, 0.04));
+}
+
+html.dark .admonition.warning > .admonition-title {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fcd34d;
+}
+
+/* Danger / Error */
+.admonition.danger,
+.admonition.error {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.06), rgba(239, 68, 68, 0.02));
+}
+
+.admonition.danger > .admonition-title,
+.admonition.error > .admonition-title {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+html.dark .admonition.danger,
+html.dark .admonition.error {
+  border-color: #f87171;
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.04));
+}
+
+html.dark .admonition.danger > .admonition-title,
+html.dark .admonition.error > .admonition-title {
+  background: rgba(239, 68, 68, 0.15);
+  color: #fca5a5;
+}
+
+/* Caution */
+.admonition.caution {
+  border-color: #f97316;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.06), rgba(249, 115, 22, 0.02));
+}
+
+.admonition.caution > .admonition-title {
+  background: rgba(249, 115, 22, 0.1);
+  color: #ea580c;
+}
+
+html.dark .admonition.caution {
+  border-color: #fb923c;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.12), rgba(249, 115, 22, 0.04));
+}
+
+html.dark .admonition.caution > .admonition-title {
+  background: rgba(249, 115, 22, 0.15);
+  color: #fdba74;
+}
+
+/* Important */
+.admonition.important {
+  border-color: var(--pw-violet);
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.06), rgba(109, 100, 255, 0.02));
+}
+
+.admonition.important > .admonition-title {
+  background: rgba(109, 100, 255, 0.1);
+  color: var(--pw-violet);
+}
+
+html.dark .admonition.important {
+  border-color: #a497ff;
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.12), rgba(109, 100, 255, 0.04));
+}
+
+html.dark .admonition.important > .admonition-title {
+  background: rgba(109, 100, 255, 0.15);
+  color: #c4b5fd;
+}
+
+/* See Also */
+.admonition.seealso {
+  border-color: #06b6d4;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.06), rgba(6, 182, 212, 0.02));
+}
+
+.admonition.seealso > .admonition-title {
+  background: rgba(6, 182, 212, 0.1);
+  color: #0891b2;
+}
+
+html.dark .admonition.seealso {
+  border-color: #22d3ee;
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(6, 182, 212, 0.04));
+}
+
+html.dark .admonition.seealso > .admonition-title {
+  background: rgba(6, 182, 212, 0.15);
+  color: #67e8f9;
+}
+
+/* Hint */
+.admonition.hint {
+  border-color: #10b981;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.06), rgba(16, 185, 129, 0.02));
+}
+
+.admonition.hint > .admonition-title {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+}
+
+html.dark .admonition.hint {
+  border-color: #34d399;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.04));
+}
+
+html.dark .admonition.hint > .admonition-title {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+}
+
+/* Dark mode tip override */
+html.dark .admonition.tip {
+  border-color: #a78bfa;
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.12), rgba(200, 107, 255, 0.06));
+}
+
+html.dark .admonition.tip > .admonition-title {
+  background: rgba(109, 100, 255, 0.15);
+  color: #c4b5fd;
+}
+
+/* Admonition content typography */
+.admonition > p:not(.admonition-title) {
+  line-height: 1.7;
+}
+
+.admonition > p:not(.admonition-title) code {
+  font-size: 0.85em;
+}
+
+/* --------------------------------------------------------------------------
+   3. Cards — Enhanced Hover Effects
+   -------------------------------------------------------------------------- */
+/* Gradient border glow on hover */
+.sd-card:hover {
+  border-color: var(--pw-border-strong);
+  box-shadow: var(--pw-shadow-md), 0 0 0 1px rgba(109, 100, 255, 0.08);
+  transform: translateY(-3px);
+}
+
+/* Card title styling */
+.sd-card-title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* Card icon integration */
+.sd-card .sd-card-img-top {
+  border-bottom: 1px solid var(--pw-border);
+}
+
+/* Linked cards — remove underline */
+a.sd-card {
+  text-decoration: none !important;
+}
+
+a.sd-card:hover {
+  text-decoration: none !important;
+}
+
+/* Dark mode card tweaks — see enhanced version in section 20 below */
+
+/* --------------------------------------------------------------------------
+   4. Tables — Enhanced with Sticky Headers
+   -------------------------------------------------------------------------- */
+/* Table wrapper for horizontal scroll */
+.sy-content table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Sticky table headers */
+table.docutils thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  text-align: left;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+html.light table.docutils thead th {
+  background: linear-gradient(135deg, #f5f3ff, #faf5ff);
+}
+
+html.dark table.docutils thead th {
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.12), rgba(200, 107, 255, 0.06));
+}
+
+/* Alternating row colors — dark mode */
+html.dark table.docutils tbody tr:nth-child(even) {
+  background: rgba(109, 100, 255, 0.04);
+}
+
+/* Row hover */
+table.docutils tbody tr {
+  transition: background var(--pw-transition);
+}
+
+table.docutils tbody tr:hover {
+  background: rgba(109, 100, 255, 0.06);
+}
+
+html.dark table.docutils tbody tr:hover {
+  background: rgba(109, 100, 255, 0.1);
+}
+
+/* Better cell padding and border */
+table.docutils td,
+table.docutils th {
+  vertical-align: top;
+}
+
+/* Last row no bottom border */
+table.docutils tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* --------------------------------------------------------------------------
+   5. Sidebar Navigation — Removed (uses Shibuya .sy-lside defaults)
+   -------------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------------
+   6. Smooth Scrolling — Enhanced
+   -------------------------------------------------------------------------- */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5rem; /* Account for sticky header */
+}
+
+/* Anchor target highlight animation */
+@keyframes anchor-highlight {
+  0% { background: rgba(109, 100, 255, 0.2); }
+  100% { background: transparent; }
+}
+
+:target {
+  animation: anchor-highlight 2s ease-out;
+  border-radius: var(--pw-radius);
+}
+
+/* --------------------------------------------------------------------------
+   7. HTTP Method Badges — Removed (using sphinx-design badges instead)
+   -------------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------------
+   8. Copy Button — Enhanced
+   -------------------------------------------------------------------------- */
+.copybtn {
+  opacity: 0;
+  border: 1px solid var(--pw-border) !important;
+  background: var(--color-background-primary) !important;
+  box-shadow: var(--pw-shadow-sm);
+  border-radius: var(--pw-radius) !important;
+  transition: all var(--pw-transition) !important;
+}
+
+/* Show on code block hover */
+.highlight:hover .copybtn,
+.literal-block-wrapper:hover .copybtn {
+  opacity: 1;
+}
+
+.copybtn:hover {
+  background: rgba(109, 100, 255, 0.1) !important;
+  border-color: var(--pw-violet) !important;
+  color: var(--pw-violet) !important;
+  transform: scale(1.05);
+}
+
+/* Success state */
+.copybtn.success {
+  background: rgba(16, 185, 129, 0.1) !important;
+  border-color: #10b981 !important;
+  color: #10b981 !important;
+}
+
+html.dark .copybtn {
+  background: rgba(40, 42, 54, 0.9) !important;
+  border-color: rgba(139, 233, 253, 0.15) !important;
+}
+
+html.dark .copybtn:hover {
+  background: rgba(109, 100, 255, 0.2) !important;
+  border-color: #a497ff !important;
+  color: #a497ff !important;
+}
+
+/* --------------------------------------------------------------------------
+   9. Typography — Enhanced Heading Hierarchy
+   -------------------------------------------------------------------------- */
+.sy-content h1 {
+  font-size: 2.25rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+}
+
+.sy-content h2 {
+  font-size: 1.625rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--pw-border);
+}
+
+.sy-content h3 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+  margin-top: 2.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.sy-content h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-top: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.sy-content h5,
+.sy-content h6 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.85;
+}
+
+/* Paragraph readability */
+.sy-content p {
+  line-height: 1.75;
+  margin-bottom: 1.25rem;
+}
+
+/* List readability */
+.sy-content ul,
+.sy-content ol {
+  line-height: 1.7;
+  margin-bottom: 1.25rem;
+}
+
+.sy-content li {
+  margin-bottom: 0.375rem;
+}
+
+.sy-content li > p {
+  margin-bottom: 0.5rem;
+}
+
+/* Blockquote styling */
+.sy-content blockquote {
+  border-left: 3px solid var(--pw-violet);
+  background: rgba(109, 100, 255, 0.04);
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
+  border-radius: 0 var(--pw-radius) var(--pw-radius) 0;
+  font-style: italic;
+}
+
+html.dark .sy-content blockquote {
+  background: rgba(109, 100, 255, 0.08);
+}
+
+.sy-content blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+/* Horizontal rule */
+.sy-content hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--pw-border-strong), transparent);
+  margin: 2.5rem 0;
+}
+
+/* Definition lists */
+.sy-content dl dt {
+  font-weight: 600;
+  color: var(--pw-violet);
+  margin-top: 1rem;
+}
+
+.sy-content dl dd {
+  margin-left: 1.5rem;
+  margin-bottom: 0.75rem;
+  line-height: 1.7;
+}
+
+/* --------------------------------------------------------------------------
+   10. Selection / Highlight Color
+   -------------------------------------------------------------------------- */
+::selection {
+  background: rgba(109, 100, 255, 0.2);
+  color: inherit;
+}
+
+html.dark ::selection {
+  background: rgba(164, 151, 255, 0.3);
+}
+
+/* --------------------------------------------------------------------------
+   11. Transition Enhancements for Interactive Elements
+   -------------------------------------------------------------------------- */
+a {
+  transition: color var(--pw-transition);
+}
+
+/* Smooth image loading */
+.sy-content img {
+  border-radius: var(--pw-radius);
+  transition: box-shadow var(--pw-transition);
+}
+
+.sy-content img:hover {
+  box-shadow: var(--pw-shadow-md);
+}
+
+/* --------------------------------------------------------------------------
+   12. API Reference Styling
+   -------------------------------------------------------------------------- */
+/* Function/method signatures */
+.sig {
+  background: rgba(109, 100, 255, 0.04);
+  border: 1px solid var(--pw-border);
+  border-radius: var(--pw-radius);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  overflow-x: auto;
+}
+
+html.dark .sig {
+  background: rgba(109, 100, 255, 0.08);
+}
+
+.sig-name {
+  font-weight: 700;
+  color: var(--pw-violet);
+}
+
+/* Parameter descriptions */
+.field-list dt {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.field-list dd {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+}
+
+/* --------------------------------------------------------------------------
+   13. Responsive Improvements
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .sy-content h1 {
+    font-size: 1.75rem;
+  }
+
+  .sy-content h2 {
+    font-size: 1.375rem;
+    margin-top: 2rem;
+  }
+
+  .sy-content h3 {
+    font-size: 1.15rem;
+  }
+
+  .sd-card-body {
+    padding: 1.25rem 1rem;
+  }
+
+  table.docutils {
+    font-size: 0.85rem;
+  }
+
+  table.docutils td,
+  table.docutils th {
+    padding: 0.5rem 0.625rem;
+  }
+
+  .admonition-title {
+    font-size: 0.9rem;
+  }
+
+  .sig {
+    font-size: 0.8rem;
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   14. Reduced Motion — Accessibility
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .sd-card:hover {
+    transform: none;
+  }
+
+  .sd-btn-primary:hover {
+    transform: none;
+  }
+}
+
+/* ==========================================================================
+   Visual Polish Pass — Targeted Fixes
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   15. Button Palette Fix — Secondary & Outline Buttons
+   The .sd-btn-secondary and .sd-btn-outline-secondary were rendering as
+   brownish/muddy in the default Shibuya palette. Force brand colors.
+   -------------------------------------------------------------------------- */
+/* sd-btn-secondary & outline-secondary — brand override with high specificity */
+.sd-btn-outline-secondary {
+  border-color: var(--pw-violet);
+  color: var(--pw-violet);
+}
+
+.sd-btn.sd-btn-secondary {
+  background: rgba(109, 100, 255, 0.12) !important;
+  border: 1.5px solid var(--pw-violet) !important;
+  color: var(--pw-violet) !important;
+}
+
+.sd-btn.sd-btn-secondary:hover {
+  background: rgba(109, 100, 255, 0.2) !important;
+  border-color: var(--pw-pink) !important;
+  transform: translateY(-1px);
+}
+
+html.dark .sd-btn.sd-btn-secondary {
+  background: rgba(164, 151, 255, 0.12) !important;
+  border-color: #a497ff !important;
+  color: #c4b5fd !important;
+}
+
+html.dark .sd-btn.sd-btn-secondary:hover {
+  background: rgba(164, 151, 255, 0.22) !important;
+  border-color: #c4b5fd !important;
+}
+
+/* Hero buttons specifically — ensure white text on gradient for primary */
+.sy-hero .sd-btn.sd-btn-secondary {
+  color: var(--pw-violet) !important;
+  font-weight: 600;
+}
+
+html.dark .sy-hero .sd-btn.sd-btn-secondary {
+  color: #c4b5fd !important;
+}
+
+/* --------------------------------------------------------------------------
+   16. Card Badge / Tag Styling
+   sphinx-design badges at the bottom of cards (asyncio, httpx, etc.)
+   -------------------------------------------------------------------------- */
+.sd-card .sd-badge,
+.sd-card-footer .sd-badge,
+.sd-card .sd-badge-secondary,
+.sd-card .sd-badge-primary {
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.12), rgba(200, 107, 255, 0.08));
+  color: var(--pw-violet);
+  border: 1px solid var(--pw-border);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+}
+
+html.dark .sd-card .sd-badge,
+html.dark .sd-card-footer .sd-badge,
+html.dark .sd-card .sd-badge-secondary,
+html.dark .sd-card .sd-badge-primary {
+  background: linear-gradient(135deg, rgba(164, 151, 255, 0.15), rgba(200, 107, 255, 0.1));
+  color: #c4b5fd;
+  border-color: rgba(164, 151, 255, 0.2);
+}
+
+/* --------------------------------------------------------------------------
+   17. Responsive Table Wrapper
+   Prevent table overflow on narrow viewports.
+   -------------------------------------------------------------------------- */
+.sy-content .table-wrapper,
+.sy-content table.docutils {
+  display: block;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767px) {
+  table.docutils {
+    min-width: 480px;
+  }
+
+  /* Better breadcrumb on mobile — allow truncation */
+  .sy-breadcrumbs {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: calc(100vw - 6rem);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   18. Code Block Mobile Overflow
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .highlight pre {
+    font-size: 0.8rem;
+    line-height: 1.6;
+    padding: 1rem !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Tab labels smaller on mobile */
+  .sd-tab-set > ul li button[role="tab"],
+  .sd-tab-set > label.sd-tab-label {
+    font-size: 0.78rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  /* Cards: single column on mobile */
+  .sd-row {
+    flex-direction: column !important;
+  }
+
+  .sd-row > .sd-col {
+    max-width: 100% !important;
+    flex: 0 0 100% !important;
+  }
+
+  /* Copy-page button: don't overlap content */
+  .sy-content > .sy-actions {
+    position: static;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   19. Navbar Section Links — Getting Started, Guides, Reference, Project
+   Only visible on desktop; show active state based on URL path.
+   -------------------------------------------------------------------------- */
+.pw-navbar-links {
+  gap: 0.75rem;
+}
+
+.pw-navbar-link {
+  font-size: 0.82rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: var(--pw-radius-sm);
+}
+
+.pw-navbar-link:hover {
+  background: rgba(109, 100, 255, 0.06);
+}
+
+html.dark .pw-navbar-link:hover {
+  background: rgba(164, 151, 255, 0.08);
+}
+
+.pw-navbar-link.active {
+  background: rgba(109, 100, 255, 0.1);
+}
+
+html.dark .pw-navbar-link.active {
+  background: rgba(164, 151, 255, 0.12);
+}
+
+/* --------------------------------------------------------------------------
+   20. Improved Dark Mode Contrast
+   -------------------------------------------------------------------------- */
+html.dark .sd-card {
+  background: rgba(30, 30, 50, 0.7);
+  border-color: rgba(164, 151, 255, 0.15);
+}
+
+html.dark .sd-card:hover {
+  border-color: rgba(164, 151, 255, 0.3);
+  box-shadow: var(--pw-shadow-md), 0 0 24px rgba(109, 100, 255, 0.1);
+}
+
+html.dark .sd-card-header {
+  background: linear-gradient(135deg, rgba(109, 100, 255, 0.1), transparent);
+  border-bottom-color: rgba(164, 151, 255, 0.12);
+}
+
+/* Dark mode body text contrast */
+html.dark .sy-content p,
+html.dark .sy-content li {
+  color: rgba(226, 232, 240, 0.92);
+}
+
+/* --------------------------------------------------------------------------
+   21. Hero Section — Mobile Refinements
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  .sy-hero {
+    padding: 2rem 1.25rem;
+    margin-bottom: 2rem;
+  }
+
+  .sy-hero h1 {
+    font-size: 2rem;
+  }
+
+  .sy-hero p {
+    font-size: 1rem;
+  }
+
+  .sy-hero .sd-btn {
+    font-size: 0.875rem;
+    padding: 0.625rem 1.25rem;
+    display: inline-block;
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   22. Link Underline Polish
+   Content links get subtle underlines for better discoverability.
+   -------------------------------------------------------------------------- */
+.sy-content a:not(.sd-btn):not(.sd-card):not(.headerlink):not(.sd-badge) {
+  text-decoration-color: rgba(109, 100, 255, 0.3);
+  text-underline-offset: 0.15em;
+  transition: text-decoration-color var(--pw-transition), color var(--pw-transition);
+}
+
+.sy-content a:not(.sd-btn):not(.sd-card):not(.headerlink):not(.sd-badge):hover {
+  text-decoration-color: var(--pw-violet);
+}
+
+html.dark .sy-content a:not(.sd-btn):not(.sd-card):not(.headerlink):not(.sd-badge) {
+  text-decoration-color: rgba(164, 151, 255, 0.3);
+}
+
+html.dark .sy-content a:not(.sd-btn):not(.sd-card):not(.headerlink):not(.sd-badge):hover {
+  text-decoration-color: #a497ff;
+}
+
+/* --------------------------------------------------------------------------
+   23. Prev/Next Navigation Links
+   -------------------------------------------------------------------------- */
+.sy-content + nav a,
+a[rel="prev"],
+a[rel="next"] {
+  border: 1px solid var(--pw-border);
+  border-radius: var(--pw-radius-lg);
+  padding: 0.75rem 1rem;
+  transition: all var(--pw-transition);
+}
+
+.sy-content + nav a:hover,
+a[rel="prev"]:hover,
+a[rel="next"]:hover {
+  border-color: var(--pw-border-strong);
+  box-shadow: var(--pw-shadow-sm);
+  background: rgba(109, 100, 255, 0.04);
+}
+
+html.dark .sy-content + nav a:hover,
+html.dark a[rel="prev"]:hover,
+html.dark a[rel="next"]:hover {
+  background: rgba(164, 151, 255, 0.06);
+}
+
+/* --------------------------------------------------------------------------
+   24. Mermaid Diagram — Dark Mode Fix
+   -------------------------------------------------------------------------- */
+html.dark .mermaid {
+  background: rgba(30, 30, 50, 0.6);
+  border-color: rgba(164, 151, 255, 0.15);
+}
+
+/* --------------------------------------------------------------------------
+   25. TOC Right Sidebar — Removed (uses Shibuya .sy-rside defaults)
+   -------------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------------
+   26. Skip-to-content Accessibility Link
+   -------------------------------------------------------------------------- */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  background: var(--pw-gradient);
+  color: white;
+  padding: 0.5rem 1rem;
+  z-index: 100;
+  border-radius: 0 0 var(--pw-radius) 0;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* --------------------------------------------------------------------------
+   27. Smooth Theme Transition
+   Prevent flash of unstyled content during dark/light toggle.
+   -------------------------------------------------------------------------- */
+html.light,
+html.dark {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.light,
+  html.dark {
+    transition: none;
+  }
+}

@@ -1,0 +1,136 @@
+proxywhirl.sources
+==================
+
+.. py:module:: proxywhirl.sources
+
+.. autoapi-nested-parse::
+
+   Built-in proxy source configurations.
+
+   This module provides pre-configured ProxySourceConfig instances for popular
+   free proxy list APIs and websites. These can be used directly with ProxyFetcher.
+
+   .. rubric:: Example
+
+   >>> from proxywhirl import ProxyFetcher
+   >>> from proxywhirl.sources import PROXY_SCRAPE_HTTP, GEONODE_HTTP
+   >>> fetcher = ProxyFetcher(sources=[PROXY_SCRAPE_HTTP, GEONODE_HTTP])
+   >>> proxies = await fetcher.fetch_all()
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.sources.SourceValidationReport
+   proxywhirl.sources.SourceValidationResult
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.sources.fetch_all_sources
+   proxywhirl.sources.validate_source
+   proxywhirl.sources.validate_sources
+   proxywhirl.sources.validate_sources_sync
+
+
+Module Contents
+---------------
+
+.. py:class:: SourceValidationReport
+
+   Aggregate report of source validation.
+
+
+   .. py:property:: all_healthy
+      :type: bool
+
+
+      Check if all sources are healthy.
+
+
+   .. py:property:: healthy
+      :type: list[SourceValidationResult]
+
+
+      Get all healthy sources.
+
+
+   .. py:property:: unhealthy
+      :type: list[SourceValidationResult]
+
+
+      Get all unhealthy sources.
+
+
+.. py:class:: SourceValidationResult
+
+   Result of validating a single proxy source.
+
+
+   .. py:property:: is_healthy
+      :type: bool
+
+
+      Check if source is healthy (returns valid proxy data).
+
+
+.. py:function:: fetch_all_sources(validate = True, timeout = 10, max_concurrent = 100, sources = None, fetch_progress_callback = None, validate_progress_callback = None, test_url = None)
+   :async:
+
+
+   Fetch proxies from all built-in sources.
+
+   :param validate: Whether to validate proxies
+   :param timeout: Validation timeout in seconds
+   :param max_concurrent: Maximum concurrent validation requests
+   :param sources: List of sources to fetch from (defaults to ALL_SOURCES)
+   :param fetch_progress_callback: Optional callback(completed, total, proxies_found) for fetch progress
+   :param validate_progress_callback: Optional callback(completed, total, valid_count) for validation progress
+   :param test_url: Optional URL to validate against (defaults to http://www.gstatic.com/generate_204)
+
+   :returns: List of proxy dictionaries
+
+
+.. py:function:: validate_source(source, timeout = 15.0, client = None)
+   :async:
+
+
+   Validate a single proxy source.
+
+   :param source: The proxy source configuration to validate
+   :param timeout: Request timeout in seconds
+   :param client: Optional shared HTTP client
+
+   :returns: SourceValidationResult with validation details
+
+
+.. py:function:: validate_sources(sources = None, timeout = 15.0, concurrency = 20)
+   :async:
+
+
+   Validate multiple proxy sources concurrently.
+
+   :param sources: List of sources to validate (defaults to ALL_SOURCES)
+   :param timeout: Request timeout per source in seconds
+   :param concurrency: Maximum concurrent requests
+
+   :returns: SourceValidationReport with all validation results
+
+
+.. py:function:: validate_sources_sync(sources = None, timeout = 15.0, concurrency = 20)
+
+   Synchronous wrapper for validate_sources.
+
+   :param sources: List of sources to validate (defaults to ALL_SOURCES)
+   :param timeout: Request timeout per source in seconds
+   :param concurrency: Maximum concurrent requests
+
+   :returns: SourceValidationReport with all validation results
+
+

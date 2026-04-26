@@ -1,0 +1,77 @@
+proxywhirl.retry.policy
+=======================
+
+.. py:module:: proxywhirl.retry.policy
+
+.. autoapi-nested-parse::
+
+   Retry policy configuration and backoff strategies.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.retry.policy.BackoffStrategy
+   proxywhirl.retry.policy.RetryPolicy
+
+
+Module Contents
+---------------
+
+.. py:class:: BackoffStrategy
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Retry backoff timing strategy.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:class:: RetryPolicy(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Configuration for retry behavior.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+   .. py:method:: calculate_delay(attempt, previous_delay = None)
+
+      Calculate delay for given attempt number (0-indexed).
+
+      Uses AWS decorrelated jitter algorithm when jitter is enabled to prevent
+      the thundering herd problem. The decorrelated jitter ensures that retry
+      delays depend on previous delay values, spreading retries across time.
+
+      AWS decorrelated jitter formula:
+          delay = min(cap, random(base, previous_delay * 3))
+
+      Reference: https://aws.amazon.com/blogs/architecture/exponential-backoff-and-jitter/
+
+      :param attempt: The attempt number (0 for first retry, 1 for second, etc.)
+      :param previous_delay: The delay from the previous attempt (for decorrelated jitter).
+                             If None and jitter is enabled, uses base_delay as seed.
+
+      :returns: Delay in seconds before the next retry attempt
+
+
+
+   .. py:method:: validate_status_codes(v)
+      :classmethod:
+
+
+      Validate that status codes are 5xx errors.
+
+
+

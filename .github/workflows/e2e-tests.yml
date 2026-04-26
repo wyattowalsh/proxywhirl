@@ -1,0 +1,121 @@
+name: End-to-End Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '0 4 * * *'  # Daily at 4 AM UTC
+
+jobs:
+  e2e-tests:
+    name: E2E Tests - Full Stack
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - uses: actions/checkout@v6
+      
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+      
+      - name: Install dependencies
+        run: uv sync
+      
+      - name: Start ProxyWhirl API server
+        run: |
+          nohup uv run proxywhirl api --port 8000 --workers 4 > api.log 2>&1 &
+          sleep 3
+          echo "API started with PID $!"
+        env:
+          PROXYWHIRL_LOG_LEVEL: INFO
+      
+      - name: Run E2E tests (API + Client)
+        run: |
+          uv run pytest tests/e2e/ \
+            -v \
+            --tb=short \
+            --timeout=120 \
+            --html=report.html \
+            --self-contained-html
+        env:
+          PROXYWHIRL_API_URL: http://localhost:8000
+          REDIS_URL: redis://localhost:6379
+      
+      - name: Test REST API endpoints
+        run: |
+          # Health check
+          curl -f http://localhost:8000/api/v1/health
+          
+          # Get proxy
+          curl -f http://localhost:8000/api/v1/proxy
+          
+          # Validate proxy
+          curl -f -X POST http://localhost:8000/api/v1/proxy/validate \
+            -H "Content-Type: application/json" \
+            -d '{"url":"http://proxy.example.com:8080"}' || true
+          
+          # Get health metrics
+          curl -f http://localhost:8000/api/v1/health/metrics || true
+      
+      - name: Load testing with concurrent clients
+        run: |
+          python3 << 'EOTEST'
+          import asyncio
+          import aiohttp
+          import time
+          
+          async def test_load(n_requests=100):
+              async with aiohttp.ClientSession() as session:
+                  start = time.time()
+                  tasks = []
+                  for _ in range(n_requests):
+                      task = session.get('http://localhost:8000/api/v1/proxy')
+                      tasks.append(task)
+                  
+                  responses = await asyncio.gather(*tasks, return_exceptions=True)
+                  duration = time.time() - start
+                  
+                  success = sum(1 for r in responses if isinstance(r, aiohttp.ClientResponse))
+                  print(f"Completed {success}/{n_requests} in {duration:.2f}s")
+                  print(f"Throughput: {n_requests/duration:.0f} req/sec")
+          
+          asyncio.run(test_load())
+          EOTEST
+      
+      - name: Upload E2E test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-report
+          path: report.html
+          retention-days: 30
+      
+      - name: Upload API logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-logs
+          path: api.log
+          retention-days: 7

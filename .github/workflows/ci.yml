@@ -1,0 +1,407 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "feature/**"
+      - "fix/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+jobs:
+  # Parallelize lint, format, and type-check jobs with shared setup
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+
+      - name: Run Ruff linter
+        id: lint
+        run: |
+          echo "::group::Lint Results"
+          uv run ruff check . || exit 1
+          echo "::endgroup::"
+
+      - name: Run Ruff formatter check
+        id: format
+        run: |
+          echo "::group::Format Check"
+          uv run ruff format --check . || exit 1
+          echo "::endgroup::"
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+
+      - name: Run ty
+        id: typecheck
+        run: |
+          echo "::group::Type Check Results"
+          uv run ty check proxywhirl || exit 1
+          echo "::endgroup::"
+
+  commitlint:
+    name: Validate Commit Messages
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Required for commit history
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install commitizen
+        run: uv pip install commitizen
+
+      - name: Validate commit messages
+        run: |
+          # Check all commits in the PR
+          uv run cz check --rev-range origin/${{ github.base_ref }}..HEAD
+
+  test:
+    name: Test - Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/uv
+          key: uv-py${{ matrix.python-version }}-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            uv-py${{ matrix.python-version }}-${{ runner.os }}-
+
+      - name: Cache pytest
+        uses: actions/cache@v4
+        with:
+          path: .pytest_cache
+          key: pytest-${{ runner.os }}-py${{ matrix.python-version }}-${{ github.sha }}
+          restore-keys: |
+            pytest-${{ runner.os }}-py${{ matrix.python-version }}-
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+
+      - name: Run tests with coverage
+        id: test
+        run: |
+          echo "::group::Test Results"
+          uv run pytest -m "not slow" --cov=proxywhirl --cov-report=xml --cov-report=term-missing --cov-report=json -v
+          echo "::endgroup::"
+
+      - name: Check coverage threshold
+        if: matrix.python-version == '3.11'
+        run: |
+          echo "::group::Coverage Check"
+          uv run pytest --cov=proxywhirl --cov-fail-under=85 -q || (echo "::error::Code coverage is below 85% threshold" && exit 1)
+          echo "::endgroup::"
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        if: matrix.python-version == '3.11'
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        if: matrix.python-version == '3.11'
+        with:
+          name: coverage-data
+          path: coverage.json
+          retention-days: 7
+
+  test-all-extras:
+    name: Test with all extras - Python 3.11
+    runs-on: ubuntu-latest
+    # Only run on PRs and main to avoid redundant test runs
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Cache pytest
+        uses: actions/cache@v4
+        with:
+          path: .pytest_cache
+          key: pytest-extras-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            pytest-extras-${{ runner.os }}-
+
+      - name: Install dependencies with all extras
+        run: |
+          uv venv
+          uv pip install -e ".[all,dev]"
+
+      - name: Run tests
+        run: uv run pytest -m "not slow" -v
+
+  benchmark:
+    name: Benchmark Performance Regression
+    runs-on: ubuntu-latest
+    # Only run benchmarks on PRs and main, not feature branches
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Required to access baseline from git
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Cache benchmark results
+        uses: actions/cache@v4
+        with:
+          path: .benchmarks
+          key: benchmarks-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            benchmarks-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+
+      - name: Run benchmarks with regression check
+        id: benchmark
+        run: |
+          echo "::group::Benchmark Results"
+          uv run pytest tests/benchmarks/ \
+            --benchmark-only \
+            --benchmark-compare=0001 || true
+            --benchmark-compare-fail=min:10% || true
+          echo "::endgroup::"
+
+       - name: Parse benchmark results
+         if: always()
+         id: parse-benchmarks
+         run: |
+           python -c "
+           import json, os
+           bench_files = [f for f in os.listdir('.benchmarks') if f.startswith('.benchmarksession') and f.endswith('.json')]
+           if bench_files:
+             with open(os.path.join('.benchmarks', sorted(bench_files)[-1])) as f:
+               results = json.load(f)
+               print('::group::Benchmark Summary')
+               for bench in results.get('benchmarks', []):
+                 print(f\"  {bench[\\\"name\\\"]}: {bench[\\\"stats\\\"][\\\"mean\\\"]:.6f}s\")
+               print('::endgroup::')
+           " || true
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            .benchmarks/
+            benchmark-histogram*
+
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    needs: [lint, typecheck, test]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Install build dependencies
+        run: |
+          uv venv
+          uv pip install build
+
+      - name: Build package
+        run: uv run python -m build
+
+      - name: Store distribution packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+
+  docs:
+    name: Documentation Build & Linkcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/uv
+          key: uv-docs-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            uv-docs-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[docs]"
+
+      - name: Build documentation
+        run: |
+          cd docs
+          uv run sphinx-build -W --keep-going -b html source build/html
+
+      - name: Check links
+        run: |
+          cd docs
+          uv run sphinx-build -b linkcheck source build/linkcheck
+
+      - name: Upload linkcheck report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linkcheck-report
+          path: docs/build/linkcheck/output.*

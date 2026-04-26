@@ -1,0 +1,136 @@
+proxywhirl.safe_regex
+=====================
+
+.. py:module:: proxywhirl.safe_regex
+
+.. autoapi-nested-parse::
+
+   Safe regex pattern matching with ReDoS protection.
+
+   This module provides utilities for safely compiling and matching user-provided
+   regex patterns with timeout protection to prevent Regular Expression Denial of
+   Service (ReDoS) attacks.
+
+
+
+Exceptions
+----------
+
+.. autoapisummary::
+
+   proxywhirl.safe_regex.RegexComplexityError
+   proxywhirl.safe_regex.RegexTimeoutError
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.safe_regex.safe_regex_compile
+   proxywhirl.safe_regex.safe_regex_findall
+   proxywhirl.safe_regex.safe_regex_match
+   proxywhirl.safe_regex.safe_regex_search
+   proxywhirl.safe_regex.validate_regex_pattern
+
+
+Module Contents
+---------------
+
+.. py:exception:: RegexComplexityError
+
+   Bases: :py:obj:`Exception`
+
+
+   Raised when regex pattern is too complex or dangerous.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:exception:: RegexTimeoutError
+
+   Bases: :py:obj:`Exception`
+
+
+   Raised when regex compilation or matching exceeds timeout.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+
+.. py:function:: safe_regex_compile(pattern, flags = 0, timeout = DEFAULT_REGEX_TIMEOUT, validate = True)
+
+   Safely compile a regex pattern with timeout protection.
+
+   :param pattern: Regex pattern string
+   :param flags: Regex compilation flags (re.IGNORECASE, etc.)
+   :param timeout: Maximum time allowed for compilation in seconds
+   :param validate: Whether to validate pattern complexity first
+
+   :returns: Compiled regex pattern
+
+   :raises RegexTimeoutError: If compilation exceeds timeout
+   :raises typer.Exit: If pattern is rejected during validation
+
+
+.. py:function:: safe_regex_findall(pattern, text, flags = 0, timeout = DEFAULT_REGEX_TIMEOUT, validate = True, max_results = 10000)
+
+   Safely find all matches of a regex pattern in text with timeout protection.
+
+   :param pattern: Regex pattern (string or compiled pattern)
+   :param text: Text to search in
+   :param flags: Regex flags (only used if pattern is a string)
+   :param timeout: Maximum time allowed for searching in seconds
+   :param validate: Whether to validate pattern complexity first (only for string patterns)
+   :param max_results: Maximum number of results to return (prevents DoS)
+
+   :returns: List of matching strings
+
+   :raises RegexTimeoutError: If searching exceeds timeout
+   :raises typer.Exit: If pattern is rejected during validation
+
+
+.. py:function:: safe_regex_match(pattern, text, flags = 0, timeout = DEFAULT_REGEX_TIMEOUT, validate = True)
+
+   Safely match a regex pattern against text with timeout protection.
+
+   :param pattern: Regex pattern (string or compiled pattern)
+   :param text: Text to match against
+   :param flags: Regex flags (only used if pattern is a string)
+   :param timeout: Maximum time allowed for matching in seconds
+   :param validate: Whether to validate pattern complexity first (only for string patterns)
+
+   :returns: Match object if pattern matches, None otherwise
+
+   :raises RegexTimeoutError: If matching exceeds timeout
+   :raises typer.Exit: If pattern is rejected during validation
+
+
+.. py:function:: safe_regex_search(pattern, text, flags = 0, timeout = DEFAULT_REGEX_TIMEOUT, validate = True)
+
+   Safely search for a regex pattern in text with timeout protection.
+
+   This is an alias for safe_regex_match for API compatibility.
+
+   :param pattern: Regex pattern (string or compiled pattern)
+   :param text: Text to search in
+   :param flags: Regex flags (only used if pattern is a string)
+   :param timeout: Maximum time allowed for searching in seconds
+   :param validate: Whether to validate pattern complexity first (only for string patterns)
+
+   :returns: Match object if pattern found, None otherwise
+
+   :raises RegexTimeoutError: If searching exceeds timeout
+   :raises typer.Exit: If pattern is rejected during validation
+
+
+.. py:function:: validate_regex_pattern(pattern, max_length = MAX_PATTERN_LENGTH)
+
+   Validate a regex pattern for safety.
+
+   :param pattern: Regex pattern to validate
+   :param max_length: Maximum allowed pattern length
+
+   :raises RegexComplexityError: If pattern is too complex or dangerous
+   :raises typer.Exit: If pattern is rejected
+
+

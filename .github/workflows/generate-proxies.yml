@@ -1,0 +1,179 @@
+name: Generate Proxy Lists
+
+on:
+  schedule:
+    # Run every 3 hours. GitHub's schedule jitter can delay starts enough that a
+    # 2-hour cadence still overlaps a healthy 80-90 minute generation run when
+    # cancel-in-progress is enabled.
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+    inputs:
+      revalidate_limit:
+        description: "Maximum oldest proxies to re-validate before fetch (0 = full sweep)"
+        required: false
+        default: "2000"
+
+# Ensure only one instance runs at a time to prevent database conflicts
+# cancel-in-progress: true prevents job stacking if fetch takes > 2h
+concurrency:
+  group: proxy-generation-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  generate-proxy-lists:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        # Fetch with token that has write access for pushing
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv venv
+        uv pip install -e .
+
+    - name: Install Playwright browsers
+      run: |
+        # Required for JS-rendered sources
+        uv run python -m playwright install chromium
+
+    - name: Download GeoLite2 database
+      run: |
+        # Download GeoLite2-Country database for IP geolocation
+        if curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb -o GeoLite2-Country.mmdb; then
+          echo "Downloaded GeoLite2-Country.mmdb ($(stat --format=%s GeoLite2-Country.mmdb) bytes)"
+        else
+          rm -f GeoLite2-Country.mmdb
+          echo "::warning::GeoLite2 download failed after retries; continuing without geolocation database"
+        fi
+
+    - name: Show database stats before
+      run: |
+        uv run proxywhirl db-stats || echo "Stats unavailable (fresh database?)"
+
+    - name: Cleanup old stale proxies
+      run: |
+        # Remove proxies not validated in 7 days (dead proxies cleaned after validation)
+        uv run proxywhirl cleanup --stale-days 7 --execute || echo "Cleanup skipped"
+
+    - name: Re-validate existing proxies
+      timeout-minutes: 60
+      env:
+        REVALIDATE_LIMIT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.revalidate_limit || '2000' }}
+      run: |
+        # Re-validate the oldest proxies first so scheduled runs stay within
+        # budget while still making progress across the full database.
+        # Pass 0 on manual dispatch to force a full sweep.
+        # Failed proxies are marked as DEAD, cleaned up after this step.
+        uv run proxywhirl fetch --revalidate --revalidate-limit "${REVALIDATE_LIMIT}" --timeout 10 --concurrency 2000 --no-export
+
+    - name: Fetch new proxies from sources
+      timeout-minutes: 120
+      run: |
+        # Fetch and validate NEW proxies from all sources, save to database.
+        # No export yet - we clean up dead proxies first.
+        # Use 10s timeout for more coverage; fastest proxies sort to top of exports
+        uv run proxywhirl fetch --timeout 10 --concurrency 2000 --no-export
+
+    - name: Cleanup dead proxies before export
+      run: |
+        # Remove proxies that failed validation (marked as DEAD)
+        # This ensures only working proxies are exported to the web dashboard
+        uv run proxywhirl cleanup --stale-days 0 --execute
+
+    - name: Compact database
+      run: |
+        # Drop orphaned validation records and VACUUM to keep db under 100 MB
+        sqlite3 proxywhirl.db <<'SQL'
+        DELETE FROM validation_results WHERE proxy_url NOT IN (SELECT url FROM proxy_identities);
+        VACUUM;
+        SQL
+        DB_SIZE=$(stat --format=%s proxywhirl.db)
+        DB_MB=$((DB_SIZE / 1048576))
+        echo "Database size after compact: ${DB_MB} MB"
+        if [ "$DB_MB" -ge 95 ]; then
+          echo "::warning::Database is ${DB_MB} MB — approaching GitHub 100 MB limit"
+        fi
+
+    - name: Export proxy lists
+      run: |
+        # Export all files for web dashboard after cleanup:
+        # - metadata.json, http.txt, socks4.txt, socks5.txt, all.txt, proxies.json
+        # - proxies-rich.json, stats.json
+        uv run proxywhirl export
+
+    - name: Show database stats after
+      run: |
+        uv run proxywhirl db-stats
+
+    - name: Sync proxy lists to web directory
+      run: |
+        # Copy proxy lists to web/public for Vercel deployment
+        cp -r docs/proxy-lists/* web/public/proxy-lists/
+
+    - name: Build documentation
+      run: |
+        uv pip install -e ".[docs]"
+        cd docs
+        uv run sphinx-build -b html source build/html
+
+    - name: Sync docs to web/public
+      run: |
+        mkdir -p web/public/docs
+        rsync -a --delete docs/build/html/ web/public/docs/
+
+    - name: Commit and push if changes
+      run: |
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
+
+        # Add generated proxy list files and docs
+        git add docs/proxy-lists/ web/public/proxy-lists/ web/public/docs/
+
+        # Only add database if under 95 MB (GitHub rejects files >= 100 MB)
+        DB_SIZE=$(stat --format=%s proxywhirl.db)
+        DB_MB=$((DB_SIZE / 1048576))
+        if [ "$DB_MB" -lt 95 ]; then
+          git add proxywhirl.db
+        else
+          echo "::warning::Skipping proxywhirl.db commit — ${DB_MB} MB exceeds safe limit"
+        fi
+
+        # Only commit if there are staged changes
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "chore: Update proxy lists and database - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+          # Pull with rebase to handle any concurrent changes, then push
+          git pull --rebase origin main || true
+          git push
+        fi
+
+    - name: Upload proxy lists as artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: proxy-lists-${{ github.run_number }}
+        path: docs/proxy-lists/
+        retention-days: 7
+
+    - name: Upload database as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: proxywhirl-db-${{ github.run_number }}
+        path: proxywhirl.db
+        retention-days: 30

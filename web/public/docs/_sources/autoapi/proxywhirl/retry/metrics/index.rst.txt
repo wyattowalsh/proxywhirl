@@ -1,0 +1,141 @@
+proxywhirl.retry.metrics
+========================
+
+.. py:module:: proxywhirl.retry.metrics
+
+.. autoapi-nested-parse::
+
+   Retry metrics collection and aggregation.
+
+   Thread Safety:
+       RetryMetrics uses threading.Lock for thread-safe operation in synchronous contexts.
+       When used in async contexts (e.g., FastAPI endpoints), methods that acquire locks
+       should be called using asyncio.to_thread() to prevent blocking the event loop.
+
+   Usage:
+       Sync context (RetryExecutor, aggregation thread):
+           metrics.record_attempt(attempt)
+           metrics.aggregate_hourly()
+
+       Async context (FastAPI endpoints):
+           summary = await asyncio.to_thread(metrics.get_summary)
+           timeseries = await asyncio.to_thread(metrics.get_timeseries, hours=24)
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.retry.metrics.CircuitBreakerEvent
+   proxywhirl.retry.metrics.HourlyAggregate
+   proxywhirl.retry.metrics.RetryAttempt
+   proxywhirl.retry.metrics.RetryMetrics
+   proxywhirl.retry.metrics.RetryOutcome
+
+
+Module Contents
+---------------
+
+.. py:class:: CircuitBreakerEvent(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Circuit breaker state change event.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: HourlyAggregate(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Hourly aggregated metrics.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: RetryAttempt(/, **data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Record of a single retry attempt.
+
+   Create a new model by parsing and validating input data from keyword arguments.
+
+   Raises [`ValidationError`][pydantic_core.ValidationError] if the input data cannot be
+   validated to form a valid model.
+
+   `self` is explicitly positional-only to allow `self` as a field name.
+
+
+.. py:class:: RetryMetrics(**data)
+
+   Bases: :py:obj:`pydantic.BaseModel`
+
+
+   Aggregated retry metrics collection.
+
+   Initialize with maxlen-bounded deque.
+
+
+   .. py:method:: aggregate_hourly()
+
+      Aggregate current_attempts into hourly summaries.
+
+
+
+   .. py:method:: get_by_proxy(hours = 24)
+
+      Get per-proxy retry statistics.
+
+
+
+   .. py:method:: get_summary()
+
+      Get metrics summary for API response.
+
+
+
+   .. py:method:: get_timeseries(hours = 24)
+
+      Get time-series data for the specified hours.
+
+
+
+   .. py:method:: record_attempt(attempt)
+
+      Record a retry attempt.
+
+
+
+   .. py:method:: record_circuit_breaker_event(event)
+
+      Record circuit breaker state change.
+
+
+
+.. py:class:: RetryOutcome
+
+   Bases: :py:obj:`str`, :py:obj:`enum.Enum`
+
+
+   Outcome of a retry attempt.
+
+   Initialize self.  See help(type(self)) for accurate signature.
+
+

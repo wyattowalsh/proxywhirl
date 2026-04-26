@@ -1,0 +1,116 @@
+version: "3.9"
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: proxywhirl-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - proxywhirl
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: proxywhirl-postgres
+    environment:
+      POSTGRES_DB: proxywhirl
+      POSTGRES_USER: proxywhirl
+      POSTGRES_PASSWORD: changeme
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U proxywhirl"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - proxywhirl
+    restart: unless-stopped
+
+  proxywhirl:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: proxywhirl-api
+    ports:
+      - "8000:8000"
+      - "9090:9090"
+    environment:
+      PROXYWHIRL_LOG_LEVEL: INFO
+      PROXYWHIRL_STORAGE_PATH: /data/proxywhirl.db
+      PROXYWHIRL_ENCRYPTION_KEY: ${PROXYWHIRL_ENCRYPTION_KEY:-changeme}
+      PROXYWHIRL_API_KEY: ${PROXYWHIRL_API_KEY:-changeme}
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql://proxywhirl:changeme@postgres:5432/proxywhirl
+    volumes:
+      - ./data:/data
+      - proxywhirl-logs:/var/log/proxywhirl
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    networks:
+      - proxywhirl
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: proxywhirl-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    networks:
+      - proxywhirl
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: proxywhirl-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deploy/monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./deploy/monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    depends_on:
+      - prometheus
+    networks:
+      - proxywhirl
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  postgres-data:
+  proxywhirl-logs:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  proxywhirl:
+    driver: bridge

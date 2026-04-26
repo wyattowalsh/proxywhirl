@@ -1,0 +1,78 @@
+name: Docker Optimization
+
+on:
+  push:
+    paths:
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+      - '.github/workflows/docker-optimization.yml'
+    branches:
+      - main
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+
+jobs:
+  docker-build-analyze:
+    name: Docker Build & Analysis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v6
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: proxywhirl:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      
+      - name: Analyze image size
+        run: |
+          docker image ls proxywhirl:latest
+          echo "## Docker Image Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Image size:" >> $GITHUB_STEP_SUMMARY
+          docker images proxywhirl:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'proxywhirl:latest'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+      
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+      
+      - name: Check base image updates
+        run: |
+          docker inspect proxywhirl:latest | grep -i "image\|version" || true
+      
+      - name: Generate SBOM (CycloneDX)
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            anchore/syft:latest proxywhirl:latest -o cyclonedx > sbom.xml
+        continue-on-error: true
+      
+      - name: Upload SBOM artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-sbom
+          path: sbom.xml
+          retention-days: 30
+      
+      - name: Docker compose validation
+        run: |
+          docker-compose config
+          echo "✓ docker-compose.yml valid"

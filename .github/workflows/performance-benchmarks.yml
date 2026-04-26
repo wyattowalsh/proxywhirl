@@ -1,0 +1,77 @@
+name: Performance Benchmarks
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+
+jobs:
+  benchmarks:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v6
+      
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+      
+      - name: Install dependencies
+        run: uv sync
+      
+      - name: Run benchmarks
+        run: |
+          uv run pytest tests/benchmark/ \
+            --benchmark-only \
+            --benchmark-json=.benchmarks/output.json \
+            --benchmark-columns=min,max,mean,stddev \
+            -v
+      
+      - name: Store benchmark result
+        uses: benchmark-action/github-action-benchmark@v1
+        with:
+          name: ProxyWhirl Performance Benchmarks
+          tool: 'pytest'
+          output-file-path: .benchmarks/output.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          alert-threshold: '150%'
+          comment-on-alert: true
+          fail-on-alert: false
+      
+      - name: Compare with baseline
+        run: |
+          if [ -f .benchmarks/baseline.json ]; then
+            uv run pytest tests/benchmark/ \
+              --benchmark-only \
+              --benchmark-compare=.benchmarks/baseline.json \
+              --benchmark-compare-fail=mean:10% \
+              -v
+          fi
+      
+      - name: Archive benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: .benchmarks/
+          retention-days: 90
+      
+      - name: Performance summary
+        if: always()
+        run: |
+          echo "## Performance Benchmarks" >> $GITHUB_STEP_SUMMARY
+          echo "See benchmark results in artifacts" >> $GITHUB_STEP_SUMMARY

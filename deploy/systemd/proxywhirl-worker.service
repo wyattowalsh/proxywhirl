@@ -1,0 +1,37 @@
+[Unit]
+Description=ProxyWhirl Worker Service
+Documentation=https://proxywhirl.readthedocs.io
+After=network-online.target proxywhirl.service
+Wants=network-online.target
+PartOf=proxywhirl.service
+
+[Service]
+Type=simple
+User=proxywhirl
+Group=proxywhirl
+WorkingDirectory=/opt/proxywhirl
+
+Environment="PROXYWHIRL_LOG_LEVEL=INFO"
+EnvironmentFile=-/etc/default/proxywhirl
+
+ExecStart=/opt/proxywhirl/venv/bin/python3 -m proxywhirl worker \
+    --queue-name background \
+    --workers 2
+
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=proxywhirl-worker
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/proxywhirl /var/log/proxywhirl
+
+CPUQuota=40%
+MemoryLimit=256M
+
+[Install]
+WantedBy=proxywhirl.service

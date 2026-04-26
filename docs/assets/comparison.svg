@@ -1,0 +1,196 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" width="800" height="300">
+  <style>
+    @media (prefers-color-scheme: light) {
+      .bg { fill: #ffffff; }
+      .card-bg { fill: #f8fafc; }
+      .text-main { fill: #1e293b; }
+      .text-sub { fill: #64748b; }
+      .border { stroke: #e2e8f0; }
+    }
+    .bg { fill: #0d1117; }
+    .card-bg { fill: #161b22; }
+    .text-main { fill: #f0f6fc; }
+    .text-sub { fill: #8b949e; }
+    .border { stroke: #30363d; }
+  </style>
+
+  <defs>
+    <linearGradient id="redGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ef4444"/>
+      <stop offset="100%" style="stop-color:#dc2626"/>
+    </linearGradient>
+    <linearGradient id="greenGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#16a34a"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
+    <filter id="redGlow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#ef4444" flood-opacity="0.5"/>
+      <feComposite in2="blur" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="greenGlow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#22c55e" flood-opacity="0.5"/>
+      <feComposite in2="blur" operator="in"/>
+      <feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="300" class="bg"/>
+
+  <!-- VS divider -->
+  <line x1="400" y1="40" x2="400" y2="260" stroke="#30363d" stroke-width="2" stroke-dasharray="8,4"/>
+  <circle cx="400" cy="150" r="24" fill="#1e293b" stroke="#30363d" stroke-width="2"/>
+  <text x="400" y="156" text-anchor="middle" font-family="system-ui" font-size="14" font-weight="bold" fill="#8b949e">VS</text>
+
+  <!-- LEFT SIDE: Without ProxyWhirl -->
+  <g transform="translate(30, 30)">
+    <!-- Header -->
+    <text x="170" y="20" text-anchor="middle" font-family="system-ui" font-size="16" font-weight="bold" fill="#ef4444">Without ProxyWhirl</text>
+
+    <!-- Card -->
+    <g transform="translate(20, 40)" filter="url(#shadow)">
+      <rect width="300" height="200" rx="12" class="card-bg border" stroke-width="1"/>
+
+      <!-- Error requests animation -->
+      <g font-family="monospace" font-size="11">
+        <!-- Request 1 - Failed -->
+        <g transform="translate(20, 30)">
+          <text fill="#ef4444">GET /api/users</text>
+          <g transform="translate(180, -8)">
+            <rect width="70" height="20" rx="4" fill="#7f1d1d"/>
+            <text x="35" y="14" text-anchor="middle" fill="#fca5a5" font-size="10">403 BLOCKED</text>
+          </g>
+          <line x1="0" y1="8" x2="260" y2="8" stroke="#ef4444" stroke-width="1" opacity="0.3">
+            <animate attributeName="stroke-dasharray" values="0,260;260,0" dur="1s" fill="freeze"/>
+          </line>
+        </g>
+
+        <!-- Request 2 - Timeout -->
+        <g transform="translate(20, 65)">
+          <text fill="#f97316">GET /api/data</text>
+          <g transform="translate(180, -8)">
+            <rect width="70" height="20" rx="4" fill="#7c2d12"/>
+            <text x="35" y="14" text-anchor="middle" fill="#fdba74" font-size="10">TIMEOUT</text>
+          </g>
+          <line x1="0" y1="8" x2="260" y2="8" stroke="#f97316" stroke-width="1" opacity="0.3">
+            <animate attributeName="stroke-dasharray" values="0,260;260,0" dur="1s" begin="0.3s" fill="freeze"/>
+          </line>
+        </g>
+
+        <!-- Request 3 - Rate Limited -->
+        <g transform="translate(20, 100)">
+          <text fill="#eab308">POST /api/submit</text>
+          <g transform="translate(180, -8)">
+            <rect width="70" height="20" rx="4" fill="#713f12"/>
+            <text x="35" y="14" text-anchor="middle" fill="#fde047" font-size="10">429 LIMIT</text>
+          </g>
+          <line x1="0" y1="8" x2="260" y2="8" stroke="#eab308" stroke-width="1" opacity="0.3">
+            <animate attributeName="stroke-dasharray" values="0,260;260,0" dur="1s" begin="0.6s" fill="freeze"/>
+          </line>
+        </g>
+
+        <!-- Request 4 - IP Banned -->
+        <g transform="translate(20, 135)">
+          <text fill="#ef4444">GET /api/search</text>
+          <g transform="translate(180, -8)">
+            <rect width="70" height="20" rx="4" fill="#7f1d1d"/>
+            <text x="35" y="14" text-anchor="middle" fill="#fca5a5" font-size="10">IP BANNED</text>
+          </g>
+          <line x1="0" y1="8" x2="260" y2="8" stroke="#ef4444" stroke-width="1" opacity="0.3">
+            <animate attributeName="stroke-dasharray" values="0,260;260,0" dur="1s" begin="0.9s" fill="freeze"/>
+          </line>
+        </g>
+      </g>
+
+      <!-- Failure indicator -->
+      <g transform="translate(150, 175)">
+        <circle r="12" fill="none" stroke="#ef4444" stroke-width="2" filter="url(#redGlow)">
+          <animate attributeName="opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite"/>
+        </circle>
+        <line x1="-6" y1="-6" x2="6" y2="6" stroke="#ef4444" stroke-width="2"/>
+        <line x1="6" y1="-6" x2="-6" y2="6" stroke="#ef4444" stroke-width="2"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- RIGHT SIDE: With ProxyWhirl -->
+  <g transform="translate(430, 30)">
+    <!-- Header -->
+    <text x="170" y="20" text-anchor="middle" font-family="system-ui" font-size="16" font-weight="bold" fill="#22c55e">With ProxyWhirl</text>
+
+    <!-- Card -->
+    <g transform="translate(20, 40)" filter="url(#shadow)">
+      <rect width="300" height="200" rx="12" class="card-bg border" stroke-width="1"/>
+
+      <!-- Success requests animation -->
+      <g font-family="monospace" font-size="11">
+        <!-- Request 1 - Success -->
+        <g transform="translate(20, 30)">
+          <text fill="#22c55e">GET /api/users</text>
+          <g transform="translate(180, -8)">
+            <rect width="70" height="20" rx="4" fill="#14532d"/>
+            <text x="35" y="14" text-anchor="middle" fill="#86efac" font-size="10">200 OK</text>
+          </g>
+          <line x1="0" y1="8" x2="260" y2="8" stroke="#22c55e" stroke-width="1" opacity="0.3">
+            <animate attributeName="stroke-dasharray" values="0,260;260,0" dur="0.5s" fill="freeze"/>
+          </line>
+          <text x="270" y="4" fill="#64748b" font-size="9">185.x.x.12</text>
+        </g>
+
+        <!-- Request 2 - Success -->
+        <g transform="translate(20, 65)">
+          <text fill="#22c55e">GET /api/data</text>
+          <g transform="translate(180, -8)">
+            <rect width="70" height="20" rx="4" fill="#14532d"/>
+            <text x="35" y="14" text-anchor="middle" fill="#86efac" font-size="10">200 OK</text>
+          </g>
+          <line x1="0" y1="8" x2="260" y2="8" stroke="#22c55e" stroke-width="1" opacity="0.3">
+            <animate attributeName="stroke-dasharray" values="0,260;260,0" dur="0.5s" begin="0.2s" fill="freeze"/>
+          </line>
+          <text x="270" y="4" fill="#64748b" font-size="9">92.x.x.47</text>
+        </g>
+
+        <!-- Request 3 - Success -->
+        <g transform="translate(20, 100)">
+          <text fill="#22c55e">POST /api/submit</text>
+          <g transform="translate(180, -8)">
+            <rect width="70" height="20" rx="4" fill="#14532d"/>
+            <text x="35" y="14" text-anchor="middle" fill="#86efac" font-size="10">201 CREATED</text>
+          </g>
+          <line x1="0" y1="8" x2="260" y2="8" stroke="#22c55e" stroke-width="1" opacity="0.3">
+            <animate attributeName="stroke-dasharray" values="0,260;260,0" dur="0.5s" begin="0.4s" fill="freeze"/>
+          </line>
+          <text x="270" y="4" fill="#64748b" font-size="9">203.x.x.89</text>
+        </g>
+
+        <!-- Request 4 - Success -->
+        <g transform="translate(20, 135)">
+          <text fill="#22c55e">GET /api/search</text>
+          <g transform="translate(180, -8)">
+            <rect width="70" height="20" rx="4" fill="#14532d"/>
+            <text x="35" y="14" text-anchor="middle" fill="#86efac" font-size="10">200 OK</text>
+          </g>
+          <line x1="0" y1="8" x2="260" y2="8" stroke="#22c55e" stroke-width="1" opacity="0.3">
+            <animate attributeName="stroke-dasharray" values="0,260;260,0" dur="0.5s" begin="0.6s" fill="freeze"/>
+          </line>
+          <text x="270" y="4" fill="#64748b" font-size="9">45.x.x.156</text>
+        </g>
+      </g>
+
+      <!-- Success indicator -->
+      <g transform="translate(150, 175)">
+        <circle r="12" fill="none" stroke="#22c55e" stroke-width="2" filter="url(#greenGlow)">
+          <animate attributeName="r" values="12;16;12" dur="1.5s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="1;0.5;1" dur="1.5s" repeatCount="indefinite"/>
+        </circle>
+        <polyline points="-5,0 -1,5 7,-5" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,149 @@
+proxywhirl.cache.crypto
+=======================
+
+.. py:module:: proxywhirl.cache.crypto
+
+.. autoapi-nested-parse::
+
+   Credential encryption utilities for cache storage.
+
+   Provides Fernet symmetric encryption for proxy credentials at rest (L2/L3 tiers).
+   Uses environment variable PROXYWHIRL_CACHE_ENCRYPTION_KEY for key management.
+   Supports key rotation via MultiFernet with PROXYWHIRL_CACHE_KEY_PREVIOUS.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.cache.crypto.CredentialEncryptor
+
+
+Functions
+---------
+
+.. autoapisummary::
+
+   proxywhirl.cache.crypto.create_multi_fernet
+   proxywhirl.cache.crypto.get_encryption_keys
+   proxywhirl.cache.crypto.rotate_key
+
+
+Module Contents
+---------------
+
+.. py:class:: CredentialEncryptor(key = None)
+
+   Handles encryption/decryption of proxy credentials with key rotation support.
+
+   Uses Fernet symmetric encryption (AES-128-CBC + HMAC) to protect
+   credentials stored in L2 (JSONL files) and L3 (SQLite database).
+   Supports gradual key rotation via MultiFernet using both current
+   and previous keys.
+
+   .. rubric:: Example
+
+   >>> encryptor = CredentialEncryptor()
+   >>> encrypted = encryptor.encrypt(SecretStr("mypassword"))
+   >>> decrypted = encryptor.decrypt(encrypted)
+   >>> decrypted.get_secret_value()
+   'mypassword'
+
+   Initialize encryptor with Fernet key or MultiFernet.
+
+   :param key: Optional Fernet key (32 url-safe base64-encoded bytes).
+               If None, uses get_encryption_keys() to load current and
+               previous keys from environment variables. If no env vars set,
+               generates a new key (WARNING: regenerated keys cannot decrypt
+               existing cached data).
+
+   :raises ValueError: If provided key is invalid for Fernet
+
+
+   .. py:method:: decrypt(encrypted)
+
+      Decrypt encrypted bytes back to SecretStr.
+
+      :param encrypted: Encrypted bytes from storage
+
+      :returns: SecretStr containing decrypted plaintext (never logs value)
+
+      :raises ValueError: If decryption fails (wrong key, corrupted data)
+
+
+
+   .. py:method:: encrypt(secret)
+
+      Encrypt a SecretStr to bytes.
+
+      :param secret: SecretStr containing plaintext to encrypt
+
+      :returns: Encrypted bytes suitable for storage in BLOB fields
+
+      :raises ValueError: If encryption fails
+
+
+
+.. py:function:: create_multi_fernet()
+
+   Create MultiFernet instance with all valid encryption keys.
+
+   MultiFernet tries keys in order for decryption (newest first).
+   All new encryptions use the first (current) key.
+
+   :returns: MultiFernet instance configured with current and previous keys
+
+   :raises ValueError: If any key has invalid format
+
+   .. rubric:: Example
+
+   >>> mf = create_multi_fernet()
+   >>> encrypted = mf.encrypt(b"secret")
+   >>> mf.decrypt(encrypted)
+   b'secret'
+
+
+.. py:function:: get_encryption_keys()
+
+   Get all valid encryption keys for MultiFernet.
+
+   Returns keys in priority order: current key first, then previous key.
+   This allows decryption of data encrypted with either key while
+   always encrypting new data with the current (first) key.
+
+   :returns: List of Fernet keys as bytes. Always contains at least one key.
+             First key is current, subsequent keys are for backward compatibility.
+
+   :raises ValueError: If any key has invalid Fernet format
+
+   .. rubric:: Example
+
+   >>> keys = get_encryption_keys()
+   >>> len(keys)  # 1 or 2 depending on env vars
+   1
+
+
+.. py:function:: rotate_key(new_key)
+
+   Rotate encryption keys by setting new current key.
+
+   This function updates environment variables to perform key rotation:
+   - Current key moves to PROXYWHIRL_CACHE_KEY_PREVIOUS
+   - New key becomes PROXYWHIRL_CACHE_ENCRYPTION_KEY
+
+   This allows gradual migration: new data uses new key, old data
+   can still be decrypted with previous key.
+
+   :param new_key: New Fernet key as base64-encoded string
+
+   :raises ValueError: If new_key has invalid Fernet format
+
+   .. rubric:: Example
+
+   >>> from cryptography.fernet import Fernet
+   >>> new_key = Fernet.generate_key().decode()
+   >>> rotate_key(new_key)
+
+

@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: proxywhirl
+  namespace: proxywhirl
+  labels:
+    app: proxywhirl
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8000"
+spec:
+  type: ClusterIP
+  selector:
+    app: proxywhirl
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: metrics
+    protocol: TCP
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 3600

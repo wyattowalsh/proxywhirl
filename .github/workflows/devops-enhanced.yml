@@ -1,0 +1,496 @@
+name: Enhanced CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "feature/**"
+      - "fix/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+jobs:
+  # Quality Gates: Lint, Format, Type Check
+  quality-gates:
+    name: Quality Gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+
+      - name: Lint
+        run: uv run ruff check . --output-format github
+
+      - name: Format check
+        run: uv run ruff format --check .
+
+      - name: Type check
+        run: uv run ty check proxywhirl
+
+  # Parallel Test Matrix: Unit + Coverage Enforcement
+  test-matrix:
+    name: Test - Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/uv
+          key: uv-py${{ matrix.python-version }}-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: uv-py${{ matrix.python-version }}-${{ runner.os }}-
+
+      - uses: actions/cache@v4
+        with:
+          path: .pytest_cache
+          key: pytest-${{ runner.os }}-py${{ matrix.python-version }}-${{ github.sha }}
+          restore-keys: pytest-${{ runner.os }}-py${{ matrix.python-version }}-
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+
+      - name: Run tests with coverage
+        run: |
+          uv run pytest -m "not slow" \
+            --cov=proxywhirl \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-report=json \
+            -v
+
+      - name: Enforce coverage threshold (Python 3.11 only)
+        if: matrix.python-version == '3.11'
+        run: |
+          uv run pytest --cov=proxywhirl --cov-fail-under=85 -q
+
+      - name: Upload coverage (Python 3.11 only)
+        if: matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v5
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload coverage artifact
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-${{ matrix.python-version }}
+          path: coverage.json
+          retention-days: 7
+
+  # Performance Benchmarks with Regression Detection
+  performance-benchmarks:
+    name: Performance Benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - uses: actions/cache@v4
+        with:
+          path: .benchmarks
+          key: benchmarks-${{ runner.os }}-${{ github.sha }}
+          restore-keys: benchmarks-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+
+      - name: Run benchmarks
+        id: benchmark
+        run: |
+          uv run pytest tests/benchmarks/ \
+            --benchmark-only \
+            --benchmark-compare=0001 \
+            --benchmark-compare-fail=min:10% || true
+
+      - name: Parse and report benchmarks
+        if: always()
+        run: |
+          python3 << 'EOF'
+import json
+import os
+from pathlib import Path
+
+bench_dir = Path('.benchmarks')
+if bench_dir.exists():
+  json_files = sorted(bench_dir.glob('.benchmarksession*.json'), reverse=True)
+  if json_files:
+    with open(json_files[0]) as f:
+      data = json.load(f)
+      print('## ⚡ Performance Benchmarks\n')
+      print('| Test | Mean (s) | Min (s) | Max (s) | StdDev |')
+      print('|------|----------|---------|---------|--------|')
+      for bench in data.get('benchmarks', []):
+        stats = bench['stats']
+        print(f"| {bench['name']} | {stats['mean']:.6f} | {stats['min']:.6f} | {stats['max']:.6f} | {stats['stddev']:.6f} |")
+EOF
+
+      - name: Upload benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            .benchmarks/
+            benchmark-histogram*
+          retention-days: 30
+
+  # Security: SAST Scanning
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[dev]" bandit semgrep
+
+      - name: Run Bandit (SAST)
+        run: |
+          uv run bandit -r proxywhirl -f json -o bandit-report.json || true
+
+      - name: Run Semgrep (SAST)
+        run: |
+          uv run semgrep --config=p/security-audit --json -o semgrep-report.json proxywhirl || true
+
+      - name: Upload security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-scan-results
+          path: |
+            bandit-report.json
+            semgrep-report.json
+          retention-days: 30
+
+  # Dependency Vulnerability Scanning
+  vulnerability-scan:
+    name: Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[dev]" safety pip-audit
+
+      - name: Check with Safety
+        continue-on-error: true
+        run: |
+          uv run safety check --json --output safety-report.json || true
+
+      - name: Check with pip-audit
+        continue-on-error: true
+        run: |
+          uv run pip-audit --output-format json --output pip-audit-report.json || true
+
+      - name: Upload vulnerability reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulnerability-scan-results
+          path: |
+            safety-report.json
+            pip-audit-report.json
+          retention-days: 30
+
+  # Integration Tests (Parallelized)
+  integration-tests:
+    name: Integration Tests - ${{ matrix.test-group }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test-group:
+          - "fetcher"
+          - "storage"
+          - "rotator"
+          - "api"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[all,dev]"
+
+      - name: Run ${{ matrix.test-group }} integration tests
+        run: |
+          uv run pytest tests/integration/ -k "${{ matrix.test-group }}" -v --tb=short
+
+  # E2E Tests
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [test-matrix]
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[all,dev]"
+
+      - name: Run E2E tests
+        run: |
+          uv run pytest tests/e2e/ -v --tb=short --timeout=60
+
+  # Docker Build & Optimization
+  docker-build:
+    name: Docker Build & Optimize
+    runs-on: ubuntu-latest
+    needs: [quality-gates]
+    permissions:
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/setup-qemu-action@v3
+
+      - name: Build and analyze image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: proxywhirl:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Analyze image size
+        run: |
+          docker images proxywhirl:test --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: proxywhirl:test
+          format: json
+          output: trivy-report.json
+        continue-on-error: true
+
+      - name: Upload image scan results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-scan-results
+          path: trivy-report.json
+          retention-days: 30
+
+  # Build Distribution Package
+  build:
+    name: Build Distribution
+    runs-on: ubuntu-latest
+    needs: [quality-gates, test-matrix]
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: uv-${{ runner.os }}-
+
+      - name: Install build dependencies
+        run: |
+          uv venv
+          uv pip install build
+
+      - name: Build package
+        run: uv run python -m build
+
+      - name: Store distribution packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-package-distributions
+          path: dist/
+          retention-days: 7
+
+  # Documentation
+  docs:
+    name: Documentation Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/uv
+          key: uv-docs-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: uv-docs-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[docs]"
+
+      - name: Build documentation
+        run: |
+          cd docs
+          uv run sphinx-build -W --keep-going -b html source build/html
+
+      - name: Check links
+        run: |
+          cd docs
+          uv run sphinx-build -b linkcheck source build/linkcheck
+
+      - name: Upload docs
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: docs/build/html/
+          retention-days: 7
+
+  # Summary Job
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [quality-gates, test-matrix, performance-benchmarks, security-scan, vulnerability-scan, integration-tests, docker-build, build, docs]
+    if: always()
+
+    steps:
+      - name: Check CI Status
+        run: |
+          echo "## CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Status" >> $GITHUB_STEP_SUMMARY
+          echo "- Quality Gates: ${{ needs.quality-gates.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Tests: ${{ needs.test-matrix.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Benchmarks: ${{ needs.performance-benchmarks.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Security: ${{ needs.security-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Vulnerabilities: ${{ needs.vulnerability-scan.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Integration Tests: ${{ needs.integration-tests.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker Build: ${{ needs.docker-build.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Build: ${{ needs.build.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Docs: ${{ needs.docs.result }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Fail if any job failed
+        if: |
+          needs.quality-gates.result == 'failure' ||
+          needs.test-matrix.result == 'failure' ||
+          needs.build.result == 'failure' ||
+          needs.docs.result == 'failure'
+        run: exit 1

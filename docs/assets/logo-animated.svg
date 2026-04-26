@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="logoGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4">
+        <animate attributeName="stop-color" values="#06b6d4;#8b5cf6;#ec4899;#06b6d4" dur="4s" repeatCount="indefinite"/>
+      </stop>
+      <stop offset="50%" style="stop-color:#8b5cf6">
+        <animate attributeName="stop-color" values="#8b5cf6;#ec4899;#06b6d4;#8b5cf6" dur="4s" repeatCount="indefinite"/>
+      </stop>
+      <stop offset="100%" style="stop-color:#ec4899">
+        <animate attributeName="stop-color" values="#ec4899;#06b6d4;#8b5cf6;#ec4899" dur="4s" repeatCount="indefinite"/>
+      </stop>
+    </linearGradient>
+    <filter id="logoGlow1">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="#0d1117" stroke="url(#logoGrad1)" stroke-width="3"/>
+
+  <!-- Outer rotating ring -->
+  <circle cx="64" cy="64" r="48" fill="none" stroke="url(#logoGrad1)" stroke-width="4" stroke-dasharray="80 220" filter="url(#logoGlow1)">
+    <animateTransform attributeName="transform" type="rotate" from="0 64 64" to="360 64 64" dur="3s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Middle ring (counter-rotate) -->
+  <circle cx="64" cy="64" r="36" fill="none" stroke="url(#logoGrad1)" stroke-width="3" stroke-dasharray="60 166" opacity="0.7">
+    <animateTransform attributeName="transform" type="rotate" from="360 64 64" to="0 64 64" dur="2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Inner ring -->
+  <circle cx="64" cy="64" r="24" fill="none" stroke="url(#logoGrad1)" stroke-width="2" stroke-dasharray="40 111" opacity="0.5">
+    <animateTransform attributeName="transform" type="rotate" from="0 64 64" to="360 64 64" dur="1.5s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Center dot -->
+  <circle cx="64" cy="64" r="10" fill="url(#logoGrad1)" filter="url(#logoGlow1)">
+    <animate attributeName="r" values="10;12;10" dur="1.5s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Orbiting proxy nodes -->
+  <g>
+    <animateTransform attributeName="transform" type="rotate" from="0 64 64" to="360 64 64" dur="4s" repeatCount="indefinite"/>
+    <circle cx="64" cy="20" r="6" fill="#22c55e">
+      <animate attributeName="opacity" values="1;0.5;1" dur="0.8s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  <g>
+    <animateTransform attributeName="transform" type="rotate" from="120 64 64" to="480 64 64" dur="4s" repeatCount="indefinite"/>
+    <circle cx="64" cy="20" r="6" fill="#22c55e">
+      <animate attributeName="opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+  <g>
+    <animateTransform attributeName="transform" type="rotate" from="240 64 64" to="600 64 64" dur="4s" repeatCount="indefinite"/>
+    <circle cx="64" cy="20" r="6" fill="#22c55e">
+      <animate attributeName="opacity" values="1;0.5;1" dur="1.2s" repeatCount="indefinite"/>
+    </circle>
+  </g>
+</svg>

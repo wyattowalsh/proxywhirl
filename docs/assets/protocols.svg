@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 120" width="800" height="120">
+  <style>
+    .bg { fill: #0d1117; }
+    .card { fill: #161b22; }
+    .label { fill: #f0f6fc; font-family: monospace; font-weight: bold; }
+    .sublabel { fill: #8b949e; font-family: system-ui, sans-serif; }
+    @media (prefers-color-scheme: light) {
+      .bg { fill: #ffffff; }
+      .card { fill: #f8fafc; }
+      .label { fill: #1e293b; }
+      .sublabel { fill: #64748b; }
+    }
+  </style>
+
+  <defs>
+    <linearGradient id="http" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#16a34a"/>
+    </linearGradient>
+    <linearGradient id="https" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4"/>
+      <stop offset="100%" style="stop-color:#0891b2"/>
+    </linearGradient>
+    <linearGradient id="socks4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f97316"/>
+      <stop offset="100%" style="stop-color:#ea580c"/>
+    </linearGradient>
+    <linearGradient id="socks5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+    <filter id="protoGlow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="protoShadow">
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="120" class="bg"/>
+
+  <!-- HTTP -->
+  <g transform="translate(50, 25)" filter="url(#protoShadow)">
+    <rect width="160" height="70" rx="12" class="card" stroke="url(#http)" stroke-width="2"/>
+    <circle cx="35" cy="35" r="20" fill="url(#http)" filter="url(#protoGlow)">
+      <animate attributeName="r" values="20;22;20" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <text x="35" y="40" text-anchor="middle" font-family="monospace" font-size="10" font-weight="bold" fill="white">HTTP</text>
+    <text x="100" y="30" text-anchor="middle" class="label" font-size="14">HTTP</text>
+    <text x="100" y="48" text-anchor="middle" class="sublabel" font-size="10">Port 80</text>
+    <!-- Animated signal -->
+    <g transform="translate(140, 20)">
+      <circle r="3" fill="#22c55e">
+        <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite"/>
+      </circle>
+    </g>
+  </g>
+
+  <!-- HTTPS -->
+  <g transform="translate(230, 25)" filter="url(#protoShadow)">
+    <rect width="160" height="70" rx="12" class="card" stroke="url(#https)" stroke-width="2"/>
+    <circle cx="35" cy="35" r="20" fill="url(#https)" filter="url(#protoGlow)">
+      <animate attributeName="r" values="20;22;20" dur="2s" begin="0.3s" repeatCount="indefinite"/>
+    </circle>
+    <!-- Lock icon -->
+    <g transform="translate(35, 35)">
+      <text text-anchor="middle" y="4" font-family="monospace" font-size="9" font-weight="bold" fill="white">TLS</text>
+    </g>
+    <text x="100" y="30" text-anchor="middle" class="label" font-size="14">HTTPS</text>
+    <text x="100" y="48" text-anchor="middle" class="sublabel" font-size="10">Port 443</text>
+    <!-- Lock indicator -->
+    <g transform="translate(140, 20)">
+      <rect x="-5" y="-3" width="10" height="8" rx="2" fill="#06b6d4"/>
+      <path d="M-3,-3 L-3,-6 Q-3,-9 0,-9 Q3,-9 3,-6 L3,-3" fill="none" stroke="#06b6d4" stroke-width="2"/>
+    </g>
+  </g>
+
+  <!-- SOCKS4 -->
+  <g transform="translate(410, 25)" filter="url(#protoShadow)">
+    <rect width="160" height="70" rx="12" class="card" stroke="url(#socks4)" stroke-width="2"/>
+    <circle cx="35" cy="35" r="20" fill="url(#socks4)" filter="url(#protoGlow)">
+      <animate attributeName="r" values="20;22;20" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+    </circle>
+    <text x="35" y="38" text-anchor="middle" font-family="monospace" font-size="9" font-weight="bold" fill="white">S4</text>
+    <text x="100" y="30" text-anchor="middle" class="label" font-size="14">SOCKS4</text>
+    <text x="100" y="48" text-anchor="middle" class="sublabel" font-size="10">Port 1080</text>
+    <!-- Speed indicator -->
+    <g transform="translate(130, 55)">
+      <text class="sublabel" font-size="8">Fast</text>
+      <polygon points="20,0 25,-5 25,5" fill="#f97316">
+        <animate attributeName="transform" values="translate(0,0);translate(3,0);translate(0,0)" dur="0.5s" repeatCount="indefinite"/>
+      </polygon>
+    </g>
+  </g>
+
+  <!-- SOCKS5 -->
+  <g transform="translate(590, 25)" filter="url(#protoShadow)">
+    <rect width="160" height="70" rx="12" class="card" stroke="url(#socks5)" stroke-width="2"/>
+    <circle cx="35" cy="35" r="20" fill="url(#socks5)" filter="url(#protoGlow)">
+      <animate attributeName="r" values="20;22;20" dur="2s" begin="0.9s" repeatCount="indefinite"/>
+    </circle>
+    <text x="35" y="38" text-anchor="middle" font-family="monospace" font-size="9" font-weight="bold" fill="white">S5</text>
+    <text x="100" y="30" text-anchor="middle" class="label" font-size="14">SOCKS5</text>
+    <text x="100" y="48" text-anchor="middle" class="sublabel" font-size="10">Port 1080</text>
+    <!-- Auth badge -->
+    <g transform="translate(125, 55)">
+      <rect x="0" y="-8" width="30" height="14" rx="3" fill="#7c3aed"/>
+      <text x="15" y="2" text-anchor="middle" font-size="7" fill="white">+AUTH</text>
+    </g>
+  </g>
+
+  <!-- Connecting lines with animated dots -->
+  <g stroke="#30363d" stroke-width="1" stroke-dasharray="4,4">
+    <line x1="210" y1="60" x2="230" y2="60"/>
+    <line x1="390" y1="60" x2="410" y2="60"/>
+    <line x1="570" y1="60" x2="590" y2="60"/>
+  </g>
+</svg>

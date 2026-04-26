@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  proxywhirl-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      cache_from:
+        - type=registry,ref=ghcr.io/wyattowalsh/proxywhirl:latest
+    image: proxywhirl-api:latest
+    container_name: proxywhirl-api
+    ports:
+      - "8000:8000"
+    environment:
+      # Core Configuration
+      - PROXYWHIRL_STRATEGY=round-robin
+      - PROXYWHIRL_TIMEOUT=30
+      - PROXYWHIRL_MAX_RETRIES=3
+      
+      # Authentication & Security
+      - PROXYWHIRL_REQUIRE_AUTH=false
+      # - PROXYWHIRL_API_KEY=your-secret-api-key-here
+      
+      # CORS Configuration
+      - PROXYWHIRL_CORS_ORIGINS=*
+      
+      # Database Storage
+      - PROXYWHIRL_STORAGE_PATH=/data/proxies.db
+      
+      # Logging
+      - PROXYWHIRL_LOG_LEVEL=INFO
+      
+      # Rate Limiting
+      - PROXYWHIRL_RATE_LIMIT_ENABLED=true
+      - PROXYWHIRL_RATE_LIMIT_REQUESTS=100
+      - PROXYWHIRL_RATE_LIMIT_PERIOD=60
+    
+    volumes:
+      # Persistent storage for proxy pool (SQLite)
+      - proxywhirl-data:/data
+      
+      # Development: Mount source code for live reloading (uncomment for dev mode)
+      # - ./proxywhirl:/app/proxywhirl:ro
+      
+      # Optional: Mount custom configuration
+      # - ./config:/app/config:ro
+    
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request, sys; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=5); sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    
+    networks:
+      - proxywhirl-network
+    
+    # Resource limits (adjust based on your needs)
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+volumes:
+  proxywhirl-data:
+    driver: local
+
+networks:
+  proxywhirl-network:
+    driver: bridge

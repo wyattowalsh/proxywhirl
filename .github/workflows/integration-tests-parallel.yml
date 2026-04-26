@@ -1,0 +1,68 @@
+name: Integration Tests (Parallel)
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '0 1 * * *'  # Daily at 1 AM UTC
+
+jobs:
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        test-suite: ["sources", "storage", "api", "cache"]
+      fail-fast: false
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - uses: actions/checkout@v6
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+      
+      - name: Install dependencies
+        run: uv sync
+      
+      - name: Run ${{ matrix.test-suite }} integration tests
+        run: |
+          uv run pytest tests/integration/test_${{ matrix.test-suite }}.py \
+            -v \
+            --tb=short \
+            --timeout=60
+        env:
+          REDIS_URL: redis://localhost:6379
+      
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results-${{ matrix.python-version }}-${{ matrix.test-suite }}
+          path: |
+            .pytest_cache/
+            htmlcov/
+          retention-days: 30

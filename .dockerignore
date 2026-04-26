@@ -1,0 +1,66 @@
+# Test and coverage artifacts
+tests/
+htmlcov/
+logs/
+.coverage
+.pytest_cache/
+*.cover
+.hypothesis/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation
+docs/
+*.md
+!README.md
+TASKS.md
+CLAUDE.md
+
+# Environment
+.env
+.env.*
+venv/
+.venv/
+env/
+ENV/
+
+# Spec and planning
+.specify/
+specs/
+
+# CI/CD and development tools
+.github/
+.codex/
+.cursor/
+
+# Linting and type checking
+.ty_cache/
+.ruff_cache/
+
+# Examples (not needed in production image)
+examples/
+
+# Config files (keep pyproject.toml as it's needed for installation)
+ruff.toml

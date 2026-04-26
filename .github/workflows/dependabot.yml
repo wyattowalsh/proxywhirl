@@ -1,0 +1,57 @@
+name: Dependabot Config
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * MON'  # Monday at 2 AM UTC
+  workflow_dispatch:
+
+jobs:
+  dependabot-auto-merge:
+    name: Auto-merge Dependabot PRs
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]' && github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+      contents: write
+    steps:
+      - name: Enable auto-merge for Dependabot PRs
+        run: |
+          # Auto-merge minor and patch updates only
+          gh pr merge --auto --squash "${{ github.event.pull_request.number }}" || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  license-compliance:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          uv venv
+          uv pip install -e ".[dev]"
+          pip install pip-licenses
+
+      - name: Check licenses
+        run: |
+          echo "::group::License Summary"
+          pip-licenses --format=markdown --with-urls
+          echo "::endgroup::"
+          
+          # Fail if GPL or unknown licenses found
+          pip-licenses --format=csv --fail-on=GPL,AGPL,Unknown | grep -v "^Package,Version,License$" || true

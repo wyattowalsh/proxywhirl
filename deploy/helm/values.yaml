@@ -1,0 +1,127 @@
+replicaCount: 3
+
+image:
+  repository: ghcr.io/wyattowalsh/proxywhirl
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8000"
+  prometheus.io/path: "/metrics"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8000
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: proxywhirl.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: proxywhirl-tls
+      hosts:
+        - proxywhirl.example.com
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - proxywhirl
+        topologyKey: kubernetes.io/hostname
+
+persistence:
+  enabled: true
+  storageClassName: "standard"
+  accessMode: ReadWriteOnce
+  size: 10Gi
+  mountPath: /data
+
+config:
+  api:
+    host: "0.0.0.0"
+    port: 8000
+    workers: 4
+  storage:
+    type: "sqlite"
+    path: "/data/proxywhirl.db"
+  cache:
+    enabled: true
+    ttl: 3600
+  logging:
+    level: "INFO"
+    format: "json"
+  rotation:
+    strategy: "weighted"
+    timeout: 10
+    retries: 3
+
+secrets:
+  encryptionKey: ""
+  apiKey: ""
+
+redis:
+  enabled: true
+  host: redis
+  port: 6379
+  database: 0
+
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    path: /metrics

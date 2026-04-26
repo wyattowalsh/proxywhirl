@@ -1,0 +1,155 @@
+proxywhirl.rwlock
+=================
+
+.. py:module:: proxywhirl.rwlock
+
+.. autoapi-nested-parse::
+
+   Readers-writer locks for high-concurrency scenarios.
+
+   This module provides both async and sync RWLock implementations for
+   allowing multiple concurrent readers but exclusive writer access.
+
+
+
+Classes
+-------
+
+.. autoapisummary::
+
+   proxywhirl.rwlock.AsyncRWLock
+   proxywhirl.rwlock.SyncRWLock
+
+
+Module Contents
+---------------
+
+.. py:class:: AsyncRWLock
+
+   Async readers-writer lock for high-concurrency scenarios.
+
+   Allows multiple concurrent readers but exclusive writer access.
+   Prevents read operations from blocking each other while maintaining
+   data consistency for writes.
+
+   This is a thin wrapper around aiorwlock.RWLock providing a consistent
+   interface with method-based context manager access.
+
+   .. rubric:: Example
+
+   >>> rwlock = AsyncRWLock()
+   >>> async with rwlock.read_lock():
+   ...     # Multiple readers can acquire simultaneously
+   ...     value = shared_data.read()
+   >>> async with rwlock.write_lock():
+   ...     # Only one writer at a time
+   ...     shared_data.write(new_value)
+
+   Initialize the RWLock.
+
+
+   .. py:method:: acquire_read()
+      :async:
+
+
+      Acquire a read lock.
+
+
+
+   .. py:method:: acquire_write()
+      :async:
+
+
+      Acquire a write lock.
+
+
+
+   .. py:method:: read_lock()
+      :async:
+
+
+      Get read lock async context manager.
+
+
+
+   .. py:method:: release_read()
+      :async:
+
+
+      Release a read lock.
+
+
+
+   .. py:method:: release_write()
+      :async:
+
+
+      Release a write lock.
+
+
+
+   .. py:method:: write_lock()
+      :async:
+
+
+      Get write lock async context manager.
+
+
+
+.. py:class:: SyncRWLock
+
+   Synchronous readers-writer lock for high-concurrency scenarios.
+
+   Allows multiple concurrent readers but exclusive writer access.
+   Prevents read operations from blocking each other while maintaining
+   data consistency for writes.
+
+   This is a thin wrapper around readerwriterlock.RWLockFair providing
+   a consistent interface with the async version.
+
+   Features:
+   - Multiple readers can hold the lock simultaneously
+   - Writers get exclusive access (no readers or other writers)
+   - Fair scheduling to prevent writer starvation
+
+   .. rubric:: Example
+
+   >>> rwlock = SyncRWLock()
+   >>> with rwlock.read_lock():
+   ...     # Multiple readers can acquire simultaneously
+   ...     value = shared_data.read()
+   >>> with rwlock.write_lock():
+   ...     # Only one writer at a time
+   ...     shared_data.write(new_value)
+
+   Initialize the SyncRWLock.
+
+
+   .. py:method:: read_lock()
+
+      Context manager for read locks.
+
+      Allows multiple concurrent readers.
+
+      .. rubric:: Example
+
+      >>> with rwlock.read_lock():
+      ...     # Multiple threads can read simultaneously
+      ...     data = shared_resource.read()
+
+
+
+   .. py:method:: write_lock()
+
+      Context manager for write locks.
+
+      Provides exclusive access - no concurrent readers or writers.
+
+      .. rubric:: Example
+
+      >>> with rwlock.write_lock():
+      ...     # Exclusive access guaranteed
+      ...     shared_resource.write(new_data)
+
+
+

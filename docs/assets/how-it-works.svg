@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 180" width="800" height="180">
+  <style>
+    .bg { fill: #0d1117; }
+    .step-bg { fill: #161b22; }
+    .step-border { stroke: #30363d; }
+    .step-num { fill: #f0f6fc; font-family: system-ui, sans-serif; font-weight: bold; }
+    .step-title { fill: #f0f6fc; font-family: system-ui, sans-serif; font-weight: 600; }
+    .step-desc { fill: #8b949e; font-family: system-ui, sans-serif; }
+    .code { fill: #8b949e; font-family: monospace; }
+    @media (prefers-color-scheme: light) {
+      .bg { fill: #ffffff; }
+      .step-bg { fill: #f8fafc; }
+      .step-border { stroke: #e2e8f0; }
+      .step-num { fill: #1e293b; }
+      .step-title { fill: #1e293b; }
+      .step-desc { fill: #64748b; }
+      .code { fill: #64748b; }
+    }
+  </style>
+
+  <defs>
+    <linearGradient id="step1Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4"/>
+      <stop offset="100%" style="stop-color:#0891b2"/>
+    </linearGradient>
+    <linearGradient id="step2Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+    <linearGradient id="step3Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f97316"/>
+      <stop offset="100%" style="stop-color:#ea580c"/>
+    </linearGradient>
+    <linearGradient id="step4Grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e"/>
+      <stop offset="100%" style="stop-color:#16a34a"/>
+    </linearGradient>
+    <filter id="stepShadow">
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#000" flood-opacity="0.25"/>
+    </filter>
+    <marker id="stepArrow" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+      <path d="M0,0 L0,10 L10,5 z" fill="#4b5563"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="800" height="180" class="bg"/>
+
+  <!-- Step 1: Install -->
+  <g transform="translate(30, 30)" filter="url(#stepShadow)">
+    <rect width="160" height="120" rx="12" class="step-bg step-border" stroke-width="1"/>
+    <!-- Number circle -->
+    <circle cx="25" cy="25" r="18" fill="url(#step1Grad)">
+      <animate attributeName="r" values="18;20;18" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <text x="25" y="31" text-anchor="middle" class="step-num" font-size="16">1</text>
+    <text x="55" y="30" class="step-title" font-size="13">Install</text>
+    <text x="15" y="60" class="code" font-size="9">pip install</text>
+    <text x="15" y="75" class="code" font-size="9">proxywhirl</text>
+    <!-- Package icon -->
+    <g transform="translate(120, 80)">
+      <rect x="-15" y="-12" width="30" height="24" rx="3" fill="none" stroke="#06b6d4" stroke-width="1.5"/>
+      <line x1="-15" y1="-4" x2="15" y2="-4" stroke="#06b6d4" stroke-width="1"/>
+      <line x1="0" y1="-12" x2="0" y2="-4" stroke="#06b6d4" stroke-width="1"/>
+      <!-- Download arrow -->
+      <line x1="0" y1="0" x2="0" y2="8" stroke="#06b6d4" stroke-width="2">
+        <animate attributeName="y2" values="8;4;8" dur="1s" repeatCount="indefinite"/>
+      </line>
+      <polyline points="-4,4 0,9 4,4" fill="none" stroke="#06b6d4" stroke-width="2">
+        <animate attributeName="transform" values="translate(0,0);translate(0,-4);translate(0,0)" dur="1s" repeatCount="indefinite"/>
+      </polyline>
+    </g>
+  </g>
+
+  <!-- Arrow 1 -->
+  <path d="M195,90 L210,90" stroke="#4b5563" stroke-width="2" fill="none" marker-end="url(#stepArrow)">
+    <animate attributeName="stroke-dasharray" values="0,30;30,0" dur="0.5s" fill="freeze"/>
+  </path>
+
+  <!-- Step 2: Configure -->
+  <g transform="translate(220, 30)" filter="url(#stepShadow)">
+    <rect width="160" height="120" rx="12" class="step-bg step-border" stroke-width="1"/>
+    <circle cx="25" cy="25" r="18" fill="url(#step2Grad)">
+      <animate attributeName="r" values="18;20;18" dur="2s" begin="0.3s" repeatCount="indefinite"/>
+    </circle>
+    <text x="25" y="31" text-anchor="middle" class="step-num" font-size="16">2</text>
+    <text x="55" y="30" class="step-title" font-size="13">Configure</text>
+    <text x="15" y="60" class="code" font-size="9">ProxyRotator(</text>
+    <text x="15" y="75" class="code" font-size="9">  strategy=...</text>
+    <text x="15" y="90" class="code" font-size="9">)</text>
+    <!-- Gear icon -->
+    <g transform="translate(120, 80)">
+      <circle r="10" fill="none" stroke="#8b5cf6" stroke-width="2">
+        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="4s" repeatCount="indefinite"/>
+      </circle>
+      <circle r="4" fill="#8b5cf6"/>
+      <!-- Gear teeth -->
+      <g stroke="#8b5cf6" stroke-width="2">
+        <line x1="0" y1="-10" x2="0" y2="-14"/>
+        <line x1="0" y1="10" x2="0" y2="14"/>
+        <line x1="-10" y1="0" x2="-14" y2="0"/>
+        <line x1="10" y1="0" x2="14" y2="0"/>
+        <line x1="7" y1="-7" x2="10" y2="-10"/>
+        <line x1="-7" y1="7" x2="-10" y2="10"/>
+        <line x1="-7" y1="-7" x2="-10" y2="-10"/>
+        <line x1="7" y1="7" x2="10" y2="10"/>
+        <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="4s" repeatCount="indefinite"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- Arrow 2 -->
+  <path d="M385,90 L400,90" stroke="#4b5563" stroke-width="2" fill="none" marker-end="url(#stepArrow)">
+    <animate attributeName="stroke-dasharray" values="0,30;30,0" dur="0.5s" begin="0.3s" fill="freeze"/>
+  </path>
+
+  <!-- Step 3: Request -->
+  <g transform="translate(410, 30)" filter="url(#stepShadow)">
+    <rect width="160" height="120" rx="12" class="step-bg step-border" stroke-width="1"/>
+    <circle cx="25" cy="25" r="18" fill="url(#step3Grad)">
+      <animate attributeName="r" values="18;20;18" dur="2s" begin="0.6s" repeatCount="indefinite"/>
+    </circle>
+    <text x="25" y="31" text-anchor="middle" class="step-num" font-size="16">3</text>
+    <text x="55" y="30" class="step-title" font-size="13">Request</text>
+    <text x="15" y="60" class="code" font-size="9">whirl.get(url)</text>
+    <text x="15" y="75" class="code" font-size="9">whirl.post(url)</text>
+    <text x="15" y="90" class="code" font-size="9">...</text>
+    <!-- Send icon with animation -->
+    <g transform="translate(120, 80)">
+      <polygon points="-12,10 15,0 -12,-10 -6,0" fill="none" stroke="#f97316" stroke-width="2" stroke-linejoin="round">
+        <animate attributeName="transform" values="translate(0,0);translate(5,0);translate(0,0)" dur="1s" repeatCount="indefinite"/>
+      </polygon>
+    </g>
+  </g>
+
+  <!-- Arrow 3 -->
+  <path d="M575,90 L590,90" stroke="#4b5563" stroke-width="2" fill="none" marker-end="url(#stepArrow)">
+    <animate attributeName="stroke-dasharray" values="0,30;30,0" dur="0.5s" begin="0.6s" fill="freeze"/>
+  </path>
+
+  <!-- Step 4: Success -->
+  <g transform="translate(600, 30)" filter="url(#stepShadow)">
+    <rect width="170" height="120" rx="12" class="step-bg step-border" stroke-width="1"/>
+    <circle cx="25" cy="25" r="18" fill="url(#step4Grad)">
+      <animate attributeName="r" values="18;20;18" dur="2s" begin="0.9s" repeatCount="indefinite"/>
+    </circle>
+    <text x="25" y="31" text-anchor="middle" class="step-num" font-size="16">4</text>
+    <text x="55" y="30" class="step-title" font-size="13">Success!</text>
+    <text x="15" y="60" class="code" font-size="9">200 OK</text>
+    <text x="15" y="75" class="code" font-size="9">{"origin":</text>
+    <text x="15" y="90" class="code" font-size="9">  "185.x.x.47"}</text>
+    <!-- Checkmark with pulse -->
+    <g transform="translate(130, 80)">
+      <circle r="15" fill="none" stroke="#22c55e" stroke-width="2" opacity="0.3">
+        <animate attributeName="r" values="15;25;15" dur="1.5s" repeatCount="indefinite"/>
+        <animate attributeName="opacity" values="0.3;0;0.3" dur="1.5s" repeatCount="indefinite"/>
+      </circle>
+      <circle r="15" fill="#22c55e"/>
+      <polyline points="-6,0 -2,5 8,-6" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+  </g>
+</svg>
