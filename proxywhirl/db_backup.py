@@ -53,9 +53,7 @@ class DatabaseBackup:
         self.backup_dir = Path(backup_dir)
         self.backup_dir.mkdir(parents=True, exist_ok=True)
 
-    def create_backup(
-        self, compress: bool = True, with_wal: bool = True
-    ) -> BackupInfo:
+    def create_backup(self, compress: bool = True, with_wal: bool = True) -> BackupInfo:
         """Create a database backup.
 
         Args:
@@ -138,9 +136,7 @@ class DatabaseBackup:
             backup_path.unlink(missing_ok=True)
             raise
 
-    def restore_backup(
-        self, backup_path: str | Path, verify: bool = True
-    ) -> None:
+    def restore_backup(self, backup_path: str | Path, verify: bool = True) -> None:
         """Restore database from backup.
 
         Args:

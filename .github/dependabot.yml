@@ -9,13 +9,30 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "America/New_York"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
+    pull-request-branch-name:
+      separator: "/"
     labels:
       - "dependencies"
       - "python"
+      - "automated"
+    reviewers:
+      - "wyattowalsh"
+    assignees:
+      - "wyattowalsh"
     commit-message:
       prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+      include: "scope"
     groups:
+      # Group critical security updates (fast-track)
+      python-security-critical:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+        dependency-type: "production"
+        
       # Group minor and patch updates together
       python-minor-patch:
         patterns:
@@ -23,6 +40,13 @@ updates:
         update-types:
           - "minor"
           - "patch"
+      
+      # Major versions need manual review
+      python-major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -30,8 +54,23 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
+      time: "10:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "github-actions"
+      - "automated"
+    reviewers:
+      - "wyattowalsh"
     commit-message:
-      prefix: "chore(deps)"
+      prefix: "chore(ci)"
+    groups:
+      # Group GitHub Actions updates
+      github-actions-all:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+          - "major"

@@ -54,9 +54,7 @@ class HeaderPolicy:
 class RateLimitHeaderPolicy(HeaderPolicy):
     """Add rate limit metadata headers."""
 
-    def __init__(
-        self, prefix: str = "X-RateLimit", include_reset: bool = True
-    ):
+    def __init__(self, prefix: str = "X-RateLimit", include_reset: bool = True):
         """Initialize policy.
 
         Args:
@@ -98,9 +96,7 @@ class UserAgentPolicy(HeaderPolicy):
 
     def apply(self, headers: dict[str, str]) -> dict[str, str]:
         """Set User-Agent header."""
-        headers["User-Agent"] = self.user_agents[
-            self._index % len(self.user_agents)
-        ]
+        headers["User-Agent"] = self.user_agents[self._index % len(self.user_agents)]
         self._index += 1
         return headers
 
@@ -178,9 +174,7 @@ class HeaderManager:
         self.config.blacklisted.add(header_name)
         logger.debug(f"Blacklisted header: {header_name}")
 
-    def add_filter(
-        self, filter_fn: Callable[[dict[str, str]], dict[str, str]]
-    ) -> None:
+    def add_filter(self, filter_fn: Callable[[dict[str, str]], dict[str, str]]) -> None:
         """Add a custom header filter function.
 
         Args:
@@ -271,4 +265,4 @@ class HeaderManager:
             return False
 
         # Check for valid characters (letters, numbers, hyphen)
-        return all(c.isalnum() or c in '-_' for c in name)
+        return all(c.isalnum() or c in "-_" for c in name)

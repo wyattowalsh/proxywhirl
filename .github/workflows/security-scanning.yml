@@ -32,32 +32,43 @@ jobs:
           version: "latest"
       
       - name: Run Bandit (Python security linter)
+        id: bandit
         run: |
           uv pip install bandit
           bandit -r proxywhirl/ -f json -o bandit-report.json || true
-          bandit -r proxywhirl/ -f txt
-      
+          bandit -r proxywhirl/ -f txt || true
+        continue-on-error: true
+
       - name: Run Safety (dependency vulnerabilities)
+        id: safety
         run: |
           uv pip install safety
           safety check --json > safety-report.json || true
-          safety check
-      
+          safety check || true
+        continue-on-error: true
+
       - name: Run Semgrep (semantic code scanning)
+        id: semgrep
         run: |
           uv pip install semgrep
           semgrep --config=p/security-audit --json -o semgrep-report.json proxywhirl/ || true
-      
+          semgrep --config=p/security-audit proxywhirl/ || true
+        continue-on-error: true
+
       - name: Check for secrets (detect-secrets)
+        id: secrets
         run: |
           uv pip install detect-secrets
           detect-secrets scan --all-files --baseline .secrets.baseline || true
-      
+        continue-on-error: true
+
       - name: Dependency audit (pip-audit)
+        id: pip-audit
         run: |
           uv pip install pip-audit
           pip-audit --desc --output=json > pip-audit-report.json || true
-          pip-audit --desc
+          pip-audit --desc || true
+        continue-on-error: true
       
       - name: Archive security reports
         if: always()

@@ -116,10 +116,7 @@ class DeadLetterQueue:
         if len(self._access_log) > 10000:
             self._access_log = self._access_log[-5000:]
 
-        logger.warning(
-            f"Dead-lettered {proxy_url}: {reason.value} "
-            f"(failures: {failure_count})"
-        )
+        logger.warning(f"Dead-lettered {proxy_url}: {reason.value} (failures: {failure_count})")
 
     def remove(self, proxy_url: str) -> DeadLetterEntry | None:
         """Remove a proxy from the queue (recovery/cleanup).
@@ -155,9 +152,7 @@ class DeadLetterQueue:
         entry.recovery_count += 1
         self._access_log.append((proxy_url, datetime.now(), "recover"))
 
-        logger.info(
-            f"Recovery attempt {entry.recovery_count} for {proxy_url}"
-        )
+        logger.info(f"Recovery attempt {entry.recovery_count} for {proxy_url}")
         return True
 
     def get(self, proxy_url: str) -> DeadLetterEntry | None:
@@ -180,11 +175,7 @@ class DeadLetterQueue:
         Returns:
             List of matching entries
         """
-        return [
-            entry
-            for entry in self._queue.values()
-            if entry.reason == reason
-        ]
+        return [entry for entry in self._queue.values() if entry.reason == reason]
 
     def list_recent(self, hours: int = 24) -> list[DeadLetterEntry]:
         """List recently dead-lettered proxies.
@@ -198,11 +189,7 @@ class DeadLetterQueue:
         from datetime import timedelta
 
         cutoff = datetime.now() - timedelta(hours=hours)
-        recent = [
-            entry
-            for entry in self._queue.values()
-            if entry.timestamp >= cutoff
-        ]
+        recent = [entry for entry in self._queue.values() if entry.timestamp >= cutoff]
         return sorted(recent, key=lambda e: e.timestamp, reverse=True)
 
     def get_stats(self) -> dict[str, Any]:
@@ -234,9 +221,7 @@ class DeadLetterQueue:
             "recovered_count": recovered_count,
             "recovery_success_rate": (
                 sum(
-                    1
-                    for e in self._queue.values()
-                    if e.recovery_attempted and e.recovery_count > 0
+                    1 for e in self._queue.values() if e.recovery_attempted and e.recovery_count > 0
                 )
                 / recovered_count
                 if recovered_count > 0

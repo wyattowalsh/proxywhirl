@@ -90,9 +90,7 @@ class DatasourcePoller:
         """
         self._callbacks.append(callback)
 
-    def _calculate_next_poll_time(
-        self, source_name: str, next_interval: int
-    ) -> datetime:
+    def _calculate_next_poll_time(self, source_name: str, next_interval: int) -> datetime:
         """Calculate when next poll should happen.
 
         Args:
@@ -122,9 +120,8 @@ class DatasourcePoller:
         if self.config.strategy == PollingStrategy.EXPONENTIAL_BACKOFF:
             if stats.failure_count > self.config.failure_threshold:
                 factor = min(
-                    self.config.backoff_factor ** (
-                        stats.failure_count - self.config.failure_threshold
-                    ),
+                    self.config.backoff_factor
+                    ** (stats.failure_count - self.config.failure_threshold),
                     self.config.max_backoff_seconds / base_interval,
                 )
                 return min(int(base_interval * factor), self.config.max_backoff_seconds)
@@ -195,9 +192,7 @@ class DatasourcePoller:
         next_interval = self._get_next_interval(source_name)
         stats.next_poll_time = self._calculate_next_poll_time(source_name, next_interval)
 
-    async def start(
-        self, sources: dict[str, ProxyFetcher], run_immediately: bool = False
-    ) -> None:
+    async def start(self, sources: dict[str, ProxyFetcher], run_immediately: bool = False) -> None:
         """Start polling sources.
 
         Args:
@@ -228,9 +223,7 @@ class DatasourcePoller:
                 )
 
         # Start polling task
-        self._polling_task = asyncio.create_task(
-            self._polling_loop(sources)
-        )
+        self._polling_task = asyncio.create_task(self._polling_loop(sources))
 
     async def _polling_loop(self, sources: dict[str, ProxyFetcher]) -> None:
         """Main polling loop.
@@ -247,10 +240,7 @@ class DatasourcePoller:
                 for source_name, fetcher in sources.items():
                     stats = self.stats[source_name]
 
-                    if (
-                        stats.next_poll_time
-                        and stats.next_poll_time <= now
-                    ):
+                    if stats.next_poll_time and stats.next_poll_time <= now:
                         tasks.append(self._poll_source(source_name, fetcher))
 
                 # Run polling tasks concurrently
@@ -268,7 +258,7 @@ class DatasourcePoller:
         """Stop the polling loop."""
         self._running = False
 
-        if hasattr(self, '_polling_task'):
+        if hasattr(self, "_polling_task"):
             self._polling_task.cancel()
             try:
                 await self._polling_task
@@ -292,12 +282,8 @@ class DatasourcePoller:
             stats = self.stats[source_name]
             return {
                 "source": stats.source_name,
-                "last_poll": stats.last_poll_time.isoformat()
-                if stats.last_poll_time
-                else None,
-                "next_poll": stats.next_poll_time.isoformat()
-                if stats.next_poll_time
-                else None,
+                "last_poll": stats.last_poll_time.isoformat() if stats.last_poll_time else None,
+                "next_poll": stats.next_poll_time.isoformat() if stats.next_poll_time else None,
                 "poll_count": stats.poll_count,
                 "success_count": stats.success_count,
                 "failure_count": stats.failure_count,
@@ -305,7 +291,4 @@ class DatasourcePoller:
                 "proxies_fetched": stats.proxies_fetched,
             }
 
-        return {
-            name: self.get_stats(name)
-            for name in self.stats
-        }
+        return {name: self.get_stats(name) for name in self.stats}

@@ -336,8 +336,7 @@ class CLIConfig(BaseModel):
     rate_limit_per_ip: str = Field(
         "100/minute",
         description=(
-            "Rate limit per IP address when no API key provided "
-            "(format: 'N/minute' or 'N/hour')"
+            "Rate limit per IP address when no API key provided (format: 'N/minute' or 'N/hour')"
         ),
     )
 

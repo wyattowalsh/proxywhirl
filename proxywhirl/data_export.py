@@ -39,6 +39,7 @@ class DataExporter:
         Returns:
             JSON string
         """
+
         def default_handler(obj: Any) -> Any:
             if is_dataclass(obj):
                 return asdict(obj)

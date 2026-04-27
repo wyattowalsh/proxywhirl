@@ -63,9 +63,7 @@ class CompressionConfig:
         ]
         # Filter out unsupported algorithms
         available = self._get_available_algorithms()
-        self.algorithms = [
-            algo for algo in self.algorithms if algo in available
-        ]
+        self.algorithms = [algo for algo in self.algorithms if algo in available]
         self.min_size_bytes = min_size_bytes
         self.level = level
 
@@ -140,8 +138,7 @@ class CompressionManager:
 
         except Exception as e:
             logger.warning(
-                f"Compression failed with {algorithm.value}: {e}. "
-                "Returning uncompressed data."
+                f"Compression failed with {algorithm.value}: {e}. Returning uncompressed data."
             )
             return data
 
@@ -208,7 +205,7 @@ class CompressionManager:
     def _compress_gzip(data: bytes) -> bytes:
         """Compress with gzip."""
         buf = io.BytesIO()
-        with gzip.GzipFile(fileobj=buf, mode='wb') as f:
+        with gzip.GzipFile(fileobj=buf, mode="wb") as f:
             f.write(data)
         return buf.getvalue()
 
@@ -223,12 +220,14 @@ class CompressionManager:
     def _compress_deflate(data: bytes) -> bytes:
         """Compress with deflate."""
         import zlib
+
         return zlib.compress(data)
 
     @staticmethod
     def _decompress_deflate(data: bytes) -> bytes:
         """Decompress deflate."""
         import zlib
+
         return zlib.decompress(data)
 
 
@@ -251,8 +250,5 @@ def parse_content_encoding(encoding_header: str) -> CompressionAlgorithm:
     try:
         return CompressionAlgorithm(encoding)
     except ValueError:
-        logger.warning(
-            f"Unknown Content-Encoding: {encoding}, "
-            "treating as identity"
-        )
+        logger.warning(f"Unknown Content-Encoding: {encoding}, treating as identity")
         return CompressionAlgorithm.IDENTITY

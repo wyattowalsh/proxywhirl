@@ -1271,7 +1271,7 @@ class ProxyFetcher:
             "html": HTMLTableParser,
         }
         self._client: httpx.AsyncClient | None = None
-        
+
         # Request deduplication cache (URL -> (response_content, timestamp))
         self._request_cache: dict[str, tuple[str, float]] = {}
         self._dedup_cache_ttl = dedup_cache_ttl
@@ -1320,21 +1320,21 @@ class ProxyFetcher:
 
     def _get_request_cache_key(self, url: str) -> str:
         """Generate cache key for a URL.
-        
+
         Args:
             url: URL to generate key for
-            
+
         Returns:
             Cache key string (hash of URL)
         """
         return hashlib.md5(url.encode()).hexdigest()
-    
+
     def _get_cached_response(self, url: str) -> str | None:
         """Get cached response if not expired.
-        
+
         Args:
             url: URL to check cache for
-            
+
         Returns:
             Cached response content if available and not expired, None otherwise
         """
@@ -1348,10 +1348,10 @@ class ProxyFetcher:
                 # Cache expired - remove it
                 del self._request_cache[cache_key]
         return None
-    
+
     def _set_cached_response(self, url: str, content: str) -> None:
         """Cache a response content.
-        
+
         Args:
             url: URL that was fetched
             content: Response content to cache
@@ -1400,7 +1400,7 @@ class ProxyFetcher:
             # Check request cache first to avoid duplicate requests
             source_url = str(source.url)
             cached_content = self._get_cached_response(source_url)
-            
+
             # Determine if browser rendering is needed
             html_content: str
 
@@ -1423,7 +1423,7 @@ class ProxyFetcher:
                     raise ProxyFetchError(f"Browser timeout fetching from {source_url}: {e}") from e
                 except RuntimeError as e:
                     raise ProxyFetchError(f"Browser error fetching from {source_url}: {e}") from e
-                
+
                 # Cache the rendered content
                 self._set_cached_response(source_url, html_content)
             else:
@@ -1432,7 +1432,7 @@ class ProxyFetcher:
                 response = await client.get(source_url)
                 response.raise_for_status()
                 html_content = response.text
-                
+
                 # Cache the response content
                 self._set_cached_response(source_url, html_content)
 

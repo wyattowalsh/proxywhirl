@@ -173,9 +173,7 @@ class DeprecationManager:
         for info in self._deprecated_features.values():
             if info.removal_version and self._usage_count.get(info.name, 0) > 0:
                 try:
-                    if pkg_version.parse(info.removal_version) <= pkg_version.parse(
-                        "0.4.0"
-                    ):
+                    if pkg_version.parse(info.removal_version) <= pkg_version.parse("0.4.0"):
                         candidates.append(info)
                 except Exception:
                     pass

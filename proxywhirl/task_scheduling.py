@@ -51,10 +51,7 @@ class Task:
         Returns:
             True if ready
         """
-        return (
-            self.status == TaskStatus.PENDING
-            and datetime.now() >= self.scheduled_time
-        )
+        return self.status == TaskStatus.PENDING and datetime.now() >= self.scheduled_time
 
     def can_retry(self) -> bool:
         """Check if can retry.
@@ -228,7 +225,8 @@ class TaskScheduler:
         before = len(self._tasks)
 
         self._tasks = [
-            t for t in self._tasks
+            t
+            for t in self._tasks
             if t.status not in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED)
         ]
 

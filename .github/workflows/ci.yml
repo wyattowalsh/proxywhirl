@@ -157,7 +157,10 @@ jobs:
       - name: Cache pytest
         uses: actions/cache@v4
         with:
-          path: .pytest_cache
+          path: |
+            .pytest_cache
+            .coverage*
+            htmlcov
           key: pytest-${{ runner.os }}-py${{ matrix.python-version }}-${{ github.sha }}
           restore-keys: |
             pytest-${{ runner.os }}-py${{ matrix.python-version }}-
@@ -229,7 +232,10 @@ jobs:
       - name: Cache pytest
         uses: actions/cache@v4
         with:
-          path: .pytest_cache
+          path: |
+            .pytest_cache
+            .coverage*
+            htmlcov
           key: pytest-extras-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             pytest-extras-${{ runner.os }}-

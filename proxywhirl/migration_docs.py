@@ -73,9 +73,7 @@ class MigrationRegistry:
             migration: Migration to register
         """
         self._migrations[migration.version] = migration
-        logger.info(
-            f"Registered migration {migration.version}: {migration.name}"
-        )
+        logger.info(f"Registered migration {migration.version}: {migration.name}")
 
     def get_migration(self, version: str) -> Migration | None:
         """Get migration by version.
@@ -94,11 +92,7 @@ class MigrationRegistry:
         Returns:
             List of pending migrations
         """
-        return [
-            m
-            for m in self._migrations.values()
-            if m.status == MigrationStatus.PENDING
-        ]
+        return [m for m in self._migrations.values() if m.status == MigrationStatus.PENDING]
 
     def get_applied_migrations(self) -> list[Migration]:
         """Get applied migrations.
@@ -106,11 +100,7 @@ class MigrationRegistry:
         Returns:
             List of applied migrations
         """
-        return [
-            m
-            for m in self._migrations.values()
-            if m.status == MigrationStatus.APPLIED
-        ]
+        return [m for m in self._migrations.values() if m.status == MigrationStatus.APPLIED]
 
     def mark_applied(self, version: str) -> None:
         """Mark migration as applied.
@@ -182,9 +172,7 @@ class MigrationDocumenter:
                 lines.append(f"- **Type**: {migration.migration_type.value}\n")
                 lines.append(f"- **Description**: {migration.description}\n")
                 if migration.applied_at:
-                    lines.append(
-                        f"- **Applied**: {migration.applied_at.isoformat()}\n"
-                    )
+                    lines.append(f"- **Applied**: {migration.applied_at.isoformat()}\n")
                 lines.append("")
 
         # Pending migrations section

@@ -60,7 +60,7 @@ class WebhookConfig:
         """Validate webhook URL."""
         try:
             parsed = urlparse(self.url)
-            if not parsed.scheme or parsed.scheme not in ('http', 'https'):
+            if not parsed.scheme or parsed.scheme not in ("http", "https"):
                 raise ValueError(f"Invalid webhook URL: {self.url}")
             if not parsed.netloc:
                 raise ValueError(f"Invalid webhook URL (no host): {self.url}")
@@ -173,8 +173,7 @@ class WebhookManager:
             return
 
         logger.debug(
-            f"Sending webhook {payload.event.value} to "
-            f"{len(applicable_webhooks)} endpoints"
+            f"Sending webhook {payload.event.value} to {len(applicable_webhooks)} endpoints"
         )
 
         for webhook_id, config in applicable_webhooks:
@@ -237,13 +236,8 @@ class WebhookManager:
                     )
 
                     if response.status_code in (200, 201, 202, 204):
-                        self._delivery_log.append(
-                            (webhook_id, payload.event, True, None)
-                        )
-                        logger.debug(
-                            f"Webhook {webhook_id} delivered "
-                            f"({response.status_code})"
-                        )
+                        self._delivery_log.append((webhook_id, payload.event, True, None))
+                        logger.debug(f"Webhook {webhook_id} delivered ({response.status_code})")
                         return
                     else:
                         last_error = f"HTTP {response.status_code}"
@@ -254,12 +248,10 @@ class WebhookManager:
                 last_error = str(e)
 
             if attempt < config.retry_count - 1:
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
 
         # All retries failed
-        self._delivery_log.append(
-            (webhook_id, payload.event, False, last_error)
-        )
+        self._delivery_log.append((webhook_id, payload.event, False, last_error))
         logger.warning(
             f"Failed to deliver webhook {webhook_id} after "
             f"{config.retry_count} attempts: {last_error}"

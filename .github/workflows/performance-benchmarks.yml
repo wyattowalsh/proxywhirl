@@ -40,7 +40,7 @@ jobs:
             --benchmark-columns=min,max,mean,stddev \
             -v
       
-      - name: Store benchmark result
+      - name: Store benchmark result (Fail on regression)
         uses: benchmark-action/github-action-benchmark@v1
         with:
           name: ProxyWhirl Performance Benchmarks
@@ -50,9 +50,26 @@ jobs:
           auto-push: true
           alert-threshold: '150%'
           comment-on-alert: true
-          fail-on-alert: false
+          fail-on-alert: ${{ github.event_name == 'pull_request' }}
       
-      - name: Compare with baseline
+      - name: Compare with baseline (Strict)
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ -f .benchmarks/baseline.json ]; then
+            uv run pytest tests/benchmark/ \
+              --benchmark-only \
+              --benchmark-compare=.benchmarks/baseline.json \
+              --benchmark-compare-fail=mean:5% \
+              -v || EXIT_CODE=$?
+            if [ $EXIT_CODE -eq 1 ]; then
+              echo "::error::Performance regression detected! Benchmarks failed the 5% threshold."
+              exit 1
+            fi
+          fi
+
+      - name: Compare with baseline (Monitor)
+        if: github.event_name == 'push'
+        continue-on-error: true
         run: |
           if [ -f .benchmarks/baseline.json ]; then
             uv run pytest tests/benchmark/ \

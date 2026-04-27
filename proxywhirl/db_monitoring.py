@@ -76,14 +76,12 @@ class DatabaseMonitor:
             cursor = conn.cursor()
 
             # Get all tables
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-            )
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
             tables = [row[0] for row in cursor.fetchall()]
 
             for table_name in tables:
                 # Skip system tables
-                if table_name.startswith('sqlite_'):
+                if table_name.startswith("sqlite_"):
                     continue
 
                 try:
@@ -92,7 +90,9 @@ class DatabaseMonitor:
                     row_count = cursor.fetchone()[0]
 
                     # Get table size
-                    cursor.execute(f"SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size() WHERE tbl_name='{table_name}'")
+                    cursor.execute(
+                        f"SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size() WHERE tbl_name='{table_name}'"
+                    )
                     result = cursor.fetchone()
                     size_bytes = result[0] if result else 0
 
@@ -192,9 +192,7 @@ class DatabaseMonitor:
         Returns:
             List of slow queries
         """
-        sorted_queries = sorted(
-            self._query_log, key=lambda x: x.duration_ms, reverse=True
-        )
+        sorted_queries = sorted(self._query_log, key=lambda x: x.duration_ms, reverse=True)
         return sorted_queries[:limit]
 
     def log_query(self, query: str, duration_ms: float) -> None:
@@ -224,9 +222,7 @@ class DatabaseMonitor:
         for query in self.get_slow_queries(limit=20):
             if "WHERE" in query.query.upper() and "SELECT" in query.query.upper():
                 # Simple heuristic: SELECT with WHERE likely needs index
-                recommendations.append(
-                    f"Consider index for: {query.query[:80]}"
-                )
+                recommendations.append(f"Consider index for: {query.query[:80]}")
 
         return recommendations[:5]
 
