@@ -42,7 +42,7 @@ jobs:
 
     - name: Close resolved issue if sources are healthy
       if: success()
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       with:
         script: |
           const title = 'Unhealthy Proxy Sources Detected';
@@ -67,7 +67,7 @@ jobs:
 
     - name: Upsert issue if sources are unhealthy
       if: failure()
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       with:
         script: |
           const title = 'Unhealthy Proxy Sources Detected';
