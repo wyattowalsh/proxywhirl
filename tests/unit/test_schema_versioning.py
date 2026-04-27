@@ -1,6 +1,6 @@
 """Tests for schema versioning system."""
 
-from proxywhirl.schema_versioning import (
+from proxywhirl.storage import (
     Migration,
     SchemaVersioningManager,
 )

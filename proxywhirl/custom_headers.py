@@ -122,6 +122,107 @@ class HeaderConfig:
     blacklisted: set[str] = field(default_factory=set)
 
 
+@dataclass
+class ProxyHeaders:
+    """Headers configuration for a proxy or pool."""
+
+    headers: dict[str, str] = field(default_factory=dict)
+    auth_headers: dict[str, str] = field(default_factory=dict)
+    user_agent: str | None = None
+
+    def to_dict(self) -> dict[str, str]:
+        """Convert to flat headers dictionary.
+
+        Returns:
+            Merged headers dictionary
+        """
+        result = dict(self.headers)
+        result.update(self.auth_headers)
+        if self.user_agent:
+            result["User-Agent"] = self.user_agent
+        return result
+
+    def merge(self, other: ProxyHeaders) -> ProxyHeaders:
+        """Merge with another ProxyHeaders instance.
+
+        Other values take precedence.
+
+        Args:
+            other: ProxyHeaders to merge
+
+        Returns:
+            New merged ProxyHeaders instance
+        """
+        return ProxyHeaders(
+            headers={**self.headers, **other.headers},
+            auth_headers={**self.auth_headers, **other.auth_headers},
+            user_agent=other.user_agent or self.user_agent,
+        )
+
+
+class CustomHeadersManager:
+    """Manages custom headers with precedence: proxy > pool > default."""
+
+    def __init__(self):
+        """Initialize custom headers manager."""
+        self._default: ProxyHeaders | None = None
+        self._pool_headers: dict[str, ProxyHeaders] = {}
+        self._proxy_headers: dict[str, ProxyHeaders] = {}
+
+    def set_default_headers(self, headers: ProxyHeaders) -> None:
+        """Set default headers."""
+        self._default = headers
+
+    def set_pool_headers(self, pool_id: str, headers: ProxyHeaders) -> None:
+        """Set pool-specific headers."""
+        self._pool_headers[pool_id] = headers
+
+    def set_proxy_headers(self, proxy_url: str, headers: ProxyHeaders) -> None:
+        """Set proxy-specific headers."""
+        self._proxy_headers[proxy_url] = headers
+
+    def get_headers(
+        self,
+        pool_id: str | None = None,
+        proxy_url: str | None = None,
+    ) -> dict[str, str]:
+        """Get headers with precedence: proxy > pool > default."""
+        result: dict[str, str] = {}
+
+        if self._default:
+            result.update(self._default.to_dict())
+
+        if pool_id and pool_id in self._pool_headers:
+            result.update(self._pool_headers[pool_id].to_dict())
+
+        if proxy_url and proxy_url in self._proxy_headers:
+            result.update(self._proxy_headers[proxy_url].to_dict())
+
+        return result
+
+    def remove_pool_headers(self, pool_id: str) -> bool:
+        """Remove pool-specific headers.
+
+        Returns:
+            True if headers were removed
+        """
+        if pool_id in self._pool_headers:
+            del self._pool_headers[pool_id]
+            return True
+        return False
+
+    def remove_proxy_headers(self, proxy_url: str) -> bool:
+        """Remove proxy-specific headers.
+
+        Returns:
+            True if headers were removed
+        """
+        if proxy_url in self._proxy_headers:
+            del self._proxy_headers[proxy_url]
+            return True
+        return False
+
+
 class HeaderManager:
     """Manages custom request headers."""
 
