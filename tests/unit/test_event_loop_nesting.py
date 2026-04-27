@@ -1,241 +1,268 @@
-"""Tests for event loop nesting detection and cycle prevention."""
+"""Tests for nested event loop detection.
+
+Session 8 SA-8.1: Validates that attempts to run a nested event loop
+are detected and handled appropriately.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import threading
-from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
+from proxywhirl.exceptions import EventLoopConflictError
 
-class EventLoopDetector:
-    """Detects and manages nested event loop issues."""
 
-    @staticmethod
-    def has_running_loop() -> bool:
-        """Check if event loop is already running."""
+# ============================================================================
+# NESTED LOOP DETECTION
+# ============================================================================
+
+
+class TestNestedEventLoopDetection:
+    """Test detection of nested event loop attempts."""
+
+    def test_no_running_loop_in_sync_context(self) -> None:
+        """In a plain sync function there should be no running loop."""
         try:
             asyncio.get_running_loop()
-            return True
-        except RuntimeError:
-            return False
+            pytest.fail("Expected RuntimeError because no loop is running")
+        except RuntimeError as exc:
+            assert "no running event loop" in str(exc).lower()
 
-    @staticmethod
-    def get_event_loop_thread() -> threading.Thread | None:
-        """Get thread where event loop is running."""
+    @pytest.mark.asyncio
+    async def test_running_loop_detected_in_async_context(self) -> None:
+        """Inside an async function a running loop must be detectable."""
+        loop = asyncio.get_running_loop()
+        assert loop is not None
+        assert isinstance(loop, asyncio.AbstractEventLoop)
+
+    @pytest.mark.asyncio
+    async def test_new_loop_run_until_complete_raises(self) -> None:
+        """Creating a new loop and calling ``run_until_complete`` while
+        another loop is already running must raise ``RuntimeError``."""
+        new_loop = asyncio.new_event_loop()
         try:
-            loop = asyncio.get_running_loop()
-            return threading.current_thread()
-        except RuntimeError:
-            return None
-
-    @staticmethod
-    @contextmanager
-    def ensure_clean_loop():
-        """Ensure we're in a clean event loop context."""
-        has_loop = EventLoopDetector.has_running_loop()
-        if has_loop:
-            loop = asyncio.get_running_loop()
-        else:
-            loop = None
-
-        try:
-            yield
+            with pytest.raises(RuntimeError):
+                new_loop.run_until_complete(asyncio.sleep(0.01))
         finally:
-            if not has_loop and loop is None:
-                try:
-                    pending = asyncio.all_tasks()
-                    for task in pending:
-                        task.cancel()
-                except RuntimeError:
-                    pass
-
-
-class TestEventLoopNesting:
-    """Test event loop nesting detection."""
-
-    def test_detect_running_loop(self) -> None:
-        """Test detection of running loop."""
-        assert not EventLoopDetector.has_running_loop()
+            new_loop.close()
 
     @pytest.mark.asyncio
-    async def test_detect_loop_in_async_context(self) -> None:
-        """Test loop detection in async context."""
-        assert EventLoopDetector.has_running_loop()
+    async def test_nested_asyncio_attempt_blocked(self) -> None:
+        """Trying to start an event loop inside a coroutine must fail."""
 
-    def test_get_loop_thread_no_loop(self) -> None:
-        """Test getting loop thread when no loop running."""
-        assert EventLoopDetector.get_event_loop_thread() is None
+        async def inner() -> None:
+            pass
+
+        new_loop = asyncio.new_event_loop()
+        try:
+            with pytest.raises(RuntimeError):
+                new_loop.run_until_complete(inner())
+        finally:
+            new_loop.close()
+
+    def test_run_in_thread_isolated_loop(self) -> None:
+        """Each thread can have its own event loop without conflict."""
+        results: list[bool] = []
+
+        def thread_task() -> None:
+            loop = asyncio.new_event_loop()
+            try:
+                asyncio.set_event_loop(loop)
+                loop.run_until_complete(asyncio.sleep(0.01))
+                results.append(True)
+            finally:
+                loop.close()
+
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [executor.submit(thread_task) for _ in range(3)]
+            for future in futures:
+                future.result()
+
+        assert all(results)
+        assert len(results) == 3
+
+    def test_get_event_loop_returns_different_in_threads(self) -> None:
+        """``get_event_loop`` in a new thread without a set loop may behave
+        differently depending on Python version; here we verify isolation."""
+        loop_ids: list[int] = []
+
+        def capture_loop() -> None:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop_ids.append(id(loop))
+            loop.run_until_complete(asyncio.sleep(0.001))
+            loop.close()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [executor.submit(capture_loop) for _ in range(2)]
+            for future in futures:
+                future.result()
+
+        assert len(loop_ids) == 2
+        assert loop_ids[0] != loop_ids[1]
 
     @pytest.mark.asyncio
-    async def test_get_loop_thread_with_loop(self) -> None:
-        """Test getting loop thread when loop is running."""
-        thread = EventLoopDetector.get_event_loop_thread()
-        assert thread is not None
-        assert thread == threading.current_thread()
+    async def test_asyncio_ensure_future_requires_loop(self) -> None:
+        """``asyncio.ensure_future`` should work when a loop is running."""
 
-    def test_prevent_sync_async_deadlock(self) -> None:
-        """Test sync calling async without deadlock."""
-        result = []
-
-        async def async_func() -> int:
+        async def coro() -> int:
             await asyncio.sleep(0.01)
             return 42
 
-        # Should use run_in_executor or new loop
+        task = asyncio.ensure_future(coro())
+        result = await task
+        assert result == 42
+
+    def test_call_soon_threadsafe_across_threads(self) -> None:
+        """Schedule a callback from another thread into the main loop."""
         loop = asyncio.new_event_loop()
+        results: list[int] = []
+
+        def callback() -> None:
+            results.append(1)
+            loop.stop()
+
+        def schedule_from_thread() -> None:
+            loop.call_soon_threadsafe(callback)
+
+        thread = threading.Thread(target=schedule_from_thread)
         try:
-            value = loop.run_until_complete(async_func())
-            result.append(value)
+            asyncio.set_event_loop(loop)
+            thread.start()
+            # Give the thread a moment to schedule
+            import time
+            time.sleep(0.05)
+            loop.run_forever()
+            thread.join()
         finally:
             loop.close()
 
-        assert result == [42]
+        assert results == [1]
 
     @pytest.mark.asyncio
-    async def test_nested_loop_detection(self) -> None:
-        """Test detection of nested loop attempts."""
-        # We're already in an event loop
-        assert EventLoopDetector.has_running_loop()
+    async def test_cannot_run_asyncio_run_inside_async(self) -> None:
+        """``asyncio.run`` must not be called from inside a running loop."""
+        with pytest.raises(RuntimeError):
+            asyncio.run(asyncio.sleep(0.01))
 
-        # Should not be able to create new loop
-        with pytest.raises((RuntimeError, AssertionError)):
-            asyncio.new_event_loop().run_until_complete(asyncio.sleep(0.01))
+    def test_asyncio_run_in_sync_context_ok(self) -> None:
+        """``asyncio.run`` works fine in a sync context."""
 
-    def test_context_manager_cleanup(self) -> None:
-        """Test context manager cleanup."""
-        with EventLoopDetector.ensure_clean_loop():
-            pass
-        # Should complete without issues
-
-    @pytest.mark.asyncio
-    async def test_context_manager_in_async(self) -> None:
-        """Test context manager in async context."""
-        with EventLoopDetector.ensure_clean_loop():
+        async def inner() -> int:
             await asyncio.sleep(0.01)
+            return 99
 
-    def test_multiple_loop_instances(self) -> None:
-        """Test creating multiple loop instances."""
-        loop1 = asyncio.new_event_loop()
-        loop2 = asyncio.new_event_loop()
+        result = asyncio.run(inner())
+        assert result == 99
 
+
+# ============================================================================
+# EVENT LOOP CONFLICT ERROR
+# ============================================================================
+
+
+class TestEventLoopConflictError:
+    """Test the custom ``EventLoopConflictError`` exception."""
+
+    def test_error_code(self) -> None:
+        """The exception must carry the correct error code."""
+        from proxywhirl.exceptions import ProxyErrorCode
+
+        err = EventLoopConflictError("conflict")
+        assert err.error_code == ProxyErrorCode.EVENT_LOOP_CONFLICT
+
+    def test_context_fields(self) -> None:
+        """Context fields should be captured correctly."""
+        err = EventLoopConflictError(
+            "conflict",
+            current_context="async",
+            expected_context="sync",
+        )
+        assert err.current_context == "async"
+        assert err.expected_context == "sync"
+        assert "async" in str(err)
+        assert "sync" in str(err)
+
+    def test_default_message_enhancement(self) -> None:
+        """Default message should include guidance."""
+        err = EventLoopConflictError("loop conflict")
+        msg = str(err)
+        assert "ProxyWhirl" in msg or "sync" in msg.lower() or "async" in msg.lower()
+
+    def test_to_dict(self) -> None:
+        """``to_dict`` should serialize context."""
+        err = EventLoopConflictError(
+            "test",
+            current_context="async",
+            expected_context="sync",
+        )
+        d = err.to_dict()
+        assert d["error_code"] == "EVENT_LOOP_CONFLICT"
+        assert d["message"] == str(err)
+
+
+# ============================================================================
+# CLEAN LOOP CONTEXT
+# ============================================================================
+
+
+class TestCleanLoopContext:
+    """Test utilities for ensuring clean loop contexts."""
+
+    def test_new_loop_is_not_running(self) -> None:
+        """A freshly created loop should not be running."""
+        loop = asyncio.new_event_loop()
+        assert not loop.is_running()
+        loop.close()
+
+    def test_closed_loop_cannot_run(self) -> None:
+        """A closed loop must raise when asked to run."""
+        loop = asyncio.new_event_loop()
+        loop.close()
+        with pytest.raises(RuntimeError):
+            loop.run_until_complete(asyncio.sleep(0.01))
+
+    @pytest.mark.asyncio
+    async def test_current_task_in_running_loop(self) -> None:
+        """"``asyncio.current_task`` must return the current task."""
+        task = asyncio.current_task()
+        assert task is not None
+        assert isinstance(task, asyncio.Task)
+
+    def test_all_tasks_empty_outside_loop(self) -> None:
+        """Outside a loop ``all_tasks`` should return an empty set."""
+        # Note: in modern asyncio this may raise if no loop; we handle both
         try:
-            assert loop1 is not loop2
-            asyncio.set_event_loop(loop1)
-            assert asyncio.get_event_loop() == loop1
-        finally:
-            loop1.close()
-            loop2.close()
-
-    def test_loop_thread_safety(self) -> None:
-        """Test event loop is thread-safe."""
-        result = []
-        error = []
-
-        def run_in_thread() -> None:
-            try:
-                # Should not have loop in this thread
-                assert not EventLoopDetector.has_running_loop()
-                result.append(True)
-            except Exception as e:
-                error.append(e)
-
-        thread = threading.Thread(target=run_in_thread)
-        thread.start()
-        thread.join()
-
-        assert len(error) == 0
-        assert result == [True]
-
-    @pytest.mark.asyncio
-    async def test_asyncio_ensure_future(self) -> None:
-        """Test asyncio.ensure_future in running loop."""
-
-        async def simple_coro() -> int:
-            await asyncio.sleep(0.01)
-            return 123
-
-        task = asyncio.ensure_future(simple_coro())
-        result = await task
-        assert result == 123
-
-    def test_event_loop_policy(self) -> None:
-        """Test event loop policy."""
-        policy = asyncio.get_event_loop_policy()
-        assert policy is not None
+            tasks = asyncio.all_tasks()
+            assert len(tasks) == 0
+        except RuntimeError as exc:
+            assert "no running" in str(exc).lower()
 
 
-class TestFlakeIsolation:
-    """Test flake isolation in tests."""
+# ============================================================================
+# COUNT CHECK
+# ============================================================================
 
-    @pytest.fixture
-    def isolated_db(self, tmp_path):
-        """Provide isolated database for each test."""
-        return tmp_path / "test.db"
 
-    def test_each_test_gets_clean_db(self, isolated_db) -> None:
-        """Test each test gets clean database."""
-        # First test - db doesn't exist
-        assert not isolated_db.exists()
-        isolated_db.write_text("test data")
-        assert isolated_db.exists()
+def test_at_least_fifteen_tests_exist() -> None:
+    """Meta-test: ensure this module contains >= 15 test functions."""
+    import inspect
+    import sys
 
-    def test_second_test_clean_state(self, isolated_db) -> None:
-        """Test second test starts with clean state."""
-        # Should be clean because fixture provides new tmp_path
-        assert not isolated_db.exists()
+    module = sys.modules[__name__]
 
-    def test_no_global_state_pollution(self) -> None:
-        """Test no global state pollution between tests."""
-        import random
+    def _collect_tests(obj):
+        tests = []
+        for name, member in inspect.getmembers(obj):
+            if name.startswith("test_") and (inspect.isfunction(member) or inspect.ismethod(member)):
+                tests.append(member)
+        return tests
 
-        seed = random.randint(0, 1000000)
-        # Each test should not affect others
-        assert seed >= 0
+    test_funcs = _collect_tests(module)
+    for _, cls in inspect.getmembers(module, inspect.isclass):
+        test_funcs.extend(_collect_tests(cls))
 
-    @pytest.mark.asyncio
-    async def test_async_task_cleanup(self) -> None:
-        """Test async tasks are cleaned up."""
-        tasks_before = len(asyncio.all_tasks())
-
-        async def dummy() -> None:
-            await asyncio.sleep(0.01)
-
-        task = asyncio.create_task(dummy())
-        await task
-
-        tasks_after = len(asyncio.all_tasks())
-        # Task should be cleaned up
-        assert tasks_after <= tasks_before + 1
-
-    def test_temp_file_cleanup(self, tmp_path) -> None:
-        """Test temporary files are cleaned up."""
-        test_file = tmp_path / "test.txt"
-        test_file.write_text("test")
-        assert test_file.exists()
-        # tmp_path fixture auto-cleans
-
-    @pytest.fixture(autouse=True)
-    def reset_state(self) -> None:
-        """Reset state before each test."""
-        # This runs for every test method
-        yield
-        # Cleanup after test
-
-    def test_isolation_marker(self) -> None:
-        """Test isolation works with marker."""
-        pass
-
-    @pytest.mark.flaky
-    def test_flaky_test_marked(self) -> None:
-        """Test that can be marked as flaky."""
-        # Pytest can rerun this
-        pass
-
-    def test_no_external_state_dependency(self) -> None:
-        """Test doesn't depend on external state."""
-        # Should work regardless of test execution order
-        data = []
-        data.append(1)
-        assert len(data) == 1
+    assert len(test_funcs) >= 15, f"Expected >= 15 tests, found {len(test_funcs)}"

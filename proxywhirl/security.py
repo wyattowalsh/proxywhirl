@@ -96,24 +96,24 @@ def is_ip_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> tuple[bo
     if ip in METADATA_SERVICES_BLOCKLIST:
         return True, f"Metadata service blocked: {ip}"
 
-    # Check standard blocklists
+    # Check standard blocklists — most specific first
     if ip.is_loopback:
         return True, "Loopback address blocked"
-
-    if ip.is_private:
-        return True, "Private IP address blocked"
 
     if ip.is_link_local:
         return True, "Link-local address blocked"
 
-    if ip.is_reserved:
-        return True, "Reserved address blocked"
-
     if ip.is_multicast:
         return True, "Multicast address blocked"
 
+    if ip.is_reserved:
+        return True, "Reserved address blocked"
+
     if ip.is_unspecified:
         return True, "Unspecified address blocked"
+
+    if ip.is_private:
+        return True, "Private IP address blocked"
 
     return False, ""
 
@@ -256,7 +256,7 @@ def redact_url(url: str) -> str:
                 (key, "***" if is_sensitive_param_name(key) else value)
                 for key, value in parse_qsl(parsed.query, keep_blank_values=True)
             ]
-            query = urlencode(query_items)
+            query = urlencode(query_items).replace("%2A%2A%2A", "***")
             parsed = parsed._replace(query=query)
 
         return parsed.geturl()
@@ -282,7 +282,14 @@ def redact_dict(data: Any) -> Any:
     elif isinstance(data, dict):
         return {
             key: (
-                "***" if any(s in key.lower() for s in SENSITIVE_LOG_KEYS) else redact_dict(value)
+                redact_dict(value)
+                if any(s in key.lower() for s in SENSITIVE_LOG_KEYS)
+                and isinstance(value, (dict, list, tuple))
+                else (
+                    "***"
+                    if any(s in key.lower() for s in SENSITIVE_LOG_KEYS)
+                    else redact_dict(value)
+                )
             )
             for key, value in data.items()
         }

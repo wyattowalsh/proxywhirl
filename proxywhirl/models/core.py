@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, runtime_checkable
 from uuid import UUID, uuid4
 
+from loguru import logger
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -19,11 +20,11 @@ from pydantic import (
     HttpUrl,
     PrivateAttr,
     SecretStr,
+    field_serializer,
     field_validator,
     model_validator,
 )
 from pydantic_settings import BaseSettings
-from loguru import logger
 
 if TYPE_CHECKING:
     import httpx
@@ -828,6 +829,24 @@ class Proxy(BaseModel):
                 return True
 
             return False
+
+    def __repr__(self) -> str:
+        """Return a representation with the URL redacted."""
+        from proxywhirl.security import redact_url
+
+        r = super().__repr__()
+        return r.replace(self.url, redact_url(self.url))
+
+    def __str__(self) -> str:
+        """Return a string with the URL redacted."""
+        return self.__repr__()
+
+    @field_serializer("url")
+    def serialize_url(self, url: str) -> str:
+        """Serialize URL with credentials redacted."""
+        from proxywhirl.security import redact_url
+
+        return redact_url(url)
 
 
 class ProxyChain(BaseModel):

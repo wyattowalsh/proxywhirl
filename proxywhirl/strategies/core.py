@@ -9,7 +9,7 @@ import threading
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Literal, Protocol, TypeAlias, runtime_checkable
 from uuid import UUID
 
 from proxywhirl.exceptions import ProxyPoolEmptyError
@@ -2137,7 +2137,25 @@ class CompositeStrategy:
         return resolve_builtin_strategy(name)
 
 
-BUILTIN_STRATEGY_CLASSES: dict[str, type[RotationStrategy]] = {
+BuiltinStrategyName: TypeAlias = Literal[
+    "round-robin",
+    "round_robin",
+    "random",
+    "weighted",
+    "least-used",
+    "least_used",
+    "performance-based",
+    "performance_based",
+    "session",
+    "session-persistence",
+    "session_persistence",
+    "geo-targeted",
+    "geo_targeted",
+    "cost-aware",
+    "cost_aware",
+]
+
+BUILTIN_STRATEGY_CLASSES: dict[BuiltinStrategyName, type[RotationStrategy]] = {
     "round-robin": RoundRobinStrategy,
     "round_robin": RoundRobinStrategy,
     "random": RandomStrategy,
@@ -2156,7 +2174,7 @@ BUILTIN_STRATEGY_CLASSES: dict[str, type[RotationStrategy]] = {
 }
 
 
-def resolve_builtin_strategy(name: str) -> RotationStrategy:
+def resolve_builtin_strategy(name: BuiltinStrategyName) -> RotationStrategy:
     """Resolve a built-in strategy name or alias to a new strategy instance."""
     strategy_class = BUILTIN_STRATEGY_CLASSES.get(name.lower())
     if strategy_class is None:

@@ -125,6 +125,7 @@ class BrowserRenderer:
         user_agent: str | None = None,
         viewport: dict[str, int] | None = None,
         max_contexts: int = 3,
+        extra_args: list[str] | None = None,
     ) -> None:
         """Initialize browser renderer with pooled context management.
 
@@ -163,9 +164,13 @@ class BrowserRenderer:
                   - 20+: Only for high-throughput scenarios (requires ~1GB+ RAM)
                 Memory impact: ~50-100MB per context.
                 Choose based on: concurrency needs * expected render time.
+            extra_args: Additional command-line arguments for the browser.
+                Dangerous arguments (e.g., --no-sandbox, --remote-debugging-port)
+                are rejected to prevent security risks.
 
         Raises:
             ValueError: If max_contexts < 1 (automatically adjusted to 1)
+            ValueError: If extra_args contains dangerous browser flags
 
         Examples:
             >>> # Default configuration (recommended)
@@ -193,6 +198,7 @@ class BrowserRenderer:
         self.user_agent = user_agent
         self.viewport = viewport or {"width": 1280, "height": 720}
         self.max_contexts = max(1, max_contexts)
+        self.extra_args = self._validate_browser_args(extra_args or [])
 
         self._playwright: Any | None = None
         self._browser: Browser | None = None
@@ -203,6 +209,37 @@ class BrowserRenderer:
         self._context_pool: asyncio.Queue[BrowserContext] | None = None
         self._all_contexts: list[BrowserContext] = []
         self._pool_lock: asyncio.Lock | None = None
+
+    @staticmethod
+    def _validate_browser_args(args: list[str]) -> list[str]:
+        """Validate browser command-line arguments for security.
+
+        Rejects dangerous flags that could compromise sandboxing or
+        expose remote debugging interfaces.
+
+        Args:
+            args: List of command-line argument strings
+
+        Returns:
+            Validated argument list
+
+        Raises:
+            ValueError: If a dangerous argument is detected
+        """
+        dangerous = {
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--remote-debugging-port",
+            "--remote-debugging-address",
+            "--disable-web-security",
+            "--disable-features=IsolateOrigins",
+            "--disable-site-isolation-trials",
+        }
+        for arg in args:
+            base = arg.split("=", 1)[0].lower()
+            if base in dangerous or base.startswith("--remote-debugging"):
+                raise ValueError(f"Dangerous browser argument rejected: {arg}")
+        return args
 
     async def start(self) -> None:
         """Start the browser instance and initialize the context pool.
@@ -230,7 +267,10 @@ class BrowserRenderer:
 
         # Launch browser
         browser_launcher = getattr(self._playwright, self.browser_type)
-        self._browser = await browser_launcher.launch(headless=self.headless)
+        launch_options: dict[str, Any] = {"headless": self.headless}
+        if self.extra_args:
+            launch_options["args"] = self.extra_args
+        self._browser = await browser_launcher.launch(**launch_options)
 
         # Initialize pool infrastructure
         self._context_pool = asyncio.Queue(maxsize=self.max_contexts)

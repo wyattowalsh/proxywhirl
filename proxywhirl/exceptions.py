@@ -246,12 +246,19 @@ class ProxyConnectionError(ProxyWhirlError):
 
     error_code = ProxyErrorCode.PROXY_CONNECTION_FAILED
 
-    def __init__(self, message: str, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Initialize with connection-specific defaults."""
         if "timeout" in message.lower():
             kwargs.setdefault("error_code", ProxyErrorCode.TIMEOUT)
         kwargs.setdefault("retry_recommended", True)
         super().__init__(message, **kwargs)
+        self.context = context
 
 
 class ProxyAuthenticationError(ProxyWhirlError):
@@ -303,11 +310,18 @@ class ProxyStorageError(ProxyWhirlError):
 
     error_code = ProxyErrorCode.PROXY_STORAGE_FAILED
 
-    def __init__(self, message: str, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        recovery_action: str | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Initialize with storage-specific defaults."""
         if "permissions" not in message.lower() and "disk space" not in message.lower():
             message += ". Check file permissions and disk space."
         super().__init__(message, retry_recommended=False, **kwargs)
+        self.recovery_action = recovery_action
 
 
 class CacheCorruptionError(ProxyWhirlError):
@@ -321,11 +335,18 @@ class CacheCorruptionError(ProxyWhirlError):
 
     error_code = ProxyErrorCode.CACHE_CORRUPTED
 
-    def __init__(self, message: str = "Cache data is corrupted", **kwargs: Any) -> None:
+    def __init__(
+        self,
+        message: str = "Cache data is corrupted",
+        *,
+        tier: str | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Initialize with cache corruption-specific defaults."""
         if "clear cache" not in message.lower():
             message += ". Clear the cache to recover."
         super().__init__(message, retry_recommended=False, **kwargs)
+        self.tier = tier
 
 
 class CacheStorageError(ProxyWhirlError):
@@ -340,9 +361,16 @@ class CacheStorageError(ProxyWhirlError):
 
     error_code = ProxyErrorCode.CACHE_STORAGE_FAILED
 
-    def __init__(self, message: str = "Cache storage backend unavailable", **kwargs: Any) -> None:
+    def __init__(
+        self,
+        message: str = "Cache storage backend unavailable",
+        *,
+        tier: str | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Initialize with cache storage-specific defaults."""
         super().__init__(message, retry_recommended=True, **kwargs)
+        self.tier = tier
 
 
 class CacheValidationError(ValueError, ProxyWhirlError):
@@ -356,8 +384,15 @@ class CacheValidationError(ValueError, ProxyWhirlError):
 
     error_code = ProxyErrorCode.CACHE_VALIDATION_FAILED
 
-    def __init__(self, message: str, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        message: str,
+        *,
+        tier: str | None = None,
+        **kwargs: Any,
+    ) -> None:
         """Initialize with cache validation-specific defaults."""
+        self.tier = tier
         super().__init__(message, retry_recommended=False, **kwargs)
 
 
@@ -974,6 +1009,85 @@ class PoolTimeoutError(TimeoutError):
             **kwargs,
         )
         self.pool_size = pool_size
+
+
+# Backward-compatible alias for timeout errors
+ProxyTimeoutError = TimeoutError
+
+
+class ProxyConnectTimeoutError(ProxyTimeoutError):
+    """Raised when proxy connection timeout occurs."""
+
+    error_code = ProxyErrorCode.TIMEOUT_CONNECT
+
+    def __init__(
+        self,
+        message: str = "Proxy connection timeout",
+        timeout_seconds: float | None = None,
+        target_host: str | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize with proxy connection timeout context."""
+        enhanced_msg = message
+        if target_host:
+            enhanced_msg += f" (target: {target_host})"
+        super().__init__(
+            enhanced_msg,
+            timeout_seconds=timeout_seconds,
+            operation="connect",
+            **kwargs,
+        )
+        self.target_host = target_host
+
+
+class ProxyReadTimeoutError(ProxyTimeoutError):
+    """Raised when proxy read timeout occurs."""
+
+    error_code = ProxyErrorCode.TIMEOUT_READ
+
+    def __init__(
+        self,
+        message: str = "Proxy read timeout",
+        timeout_seconds: float | None = None,
+        bytes_read: int | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize with proxy read timeout context."""
+        enhanced_msg = message
+        if bytes_read is not None:
+            enhanced_msg += f" (read {bytes_read} bytes)"
+        super().__init__(
+            enhanced_msg,
+            timeout_seconds=timeout_seconds,
+            operation="read",
+            **kwargs,
+        )
+        self.bytes_read = bytes_read
+
+
+class ProxyWriteTimeoutError(ProxyTimeoutError):
+    """Raised when proxy write timeout occurs."""
+
+    error_code = ProxyErrorCode.TIMEOUT_WRITE
+
+    def __init__(
+        self,
+        message: str = "Proxy write timeout",
+        timeout_seconds: float | None = None,
+        bytes_to_write: int | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize with proxy write timeout context."""
+        enhanced_msg = message
+        if bytes_to_write is not None:
+            enhanced_msg += f" (write {bytes_to_write} bytes)"
+        super().__init__(
+            enhanced_msg,
+            timeout_seconds=timeout_seconds,
+            operation="write",
+            **kwargs,
+        )
+        self.bytes_to_write = bytes_to_write
 
 
 class StorageRecoveryError(ProxyStorageError):

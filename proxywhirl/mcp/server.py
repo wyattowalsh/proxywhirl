@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from collections.abc import AsyncIterator, Awaitable
 from contextlib import asynccontextmanager
-from typing import Any, Callable, Literal
+from typing import Callable, Literal
 
 from loguru import logger
 
@@ -87,7 +88,7 @@ def _create_auth_middleware_class() -> type | None:
         async def on_call_tool(
             self,
             context: object,
-            call_next: Callable[[object], Any],
+            call_next: Callable[[object], Awaitable[dict[str, object]]],
         ) -> dict[str, object]:
             """Validate API key on tool calls.
 
@@ -123,7 +124,7 @@ _auth_middleware = ProxyWhirlAuthMiddleware() if ProxyWhirlAuthMiddleware else N
 
 
 @asynccontextmanager
-async def _mcp_lifespan(server: object) -> Any:
+async def _mcp_lifespan(server: object) -> AsyncIterator[None]:
     """FastMCP v2 lifespan context manager.
 
     Handles proper startup and shutdown lifecycle:
@@ -278,7 +279,7 @@ async def cleanup_rotator() -> None:
 
 
 @asynccontextmanager
-async def mcp_lifespan() -> Any:
+async def mcp_lifespan() -> AsyncIterator[None]:
     """Lifespan context manager for MCP server (legacy wrapper).
 
     Note: FastMCP v2 uses the lifespan passed to FastMCP() constructor.

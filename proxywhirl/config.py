@@ -11,7 +11,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from cryptography.fernet import Fernet
 from loguru import logger
@@ -87,6 +87,29 @@ def expand_env_vars_recursive(data: Any) -> Any:
     return data
 
 
+def sanitize_path(path: Path, allow_absolute: bool = True) -> Path:
+    """Sanitize a path to prevent directory traversal attacks.
+
+    Rejects paths containing ``..`` components. When *allow_absolute* is
+    ``False``, also rejects absolute paths.
+
+    Args:
+        path: Path to sanitize
+        allow_absolute: Whether absolute paths are permitted
+
+    Returns:
+        Sanitized path
+
+    Raises:
+        ValueError: If path contains ``..`` or is absolute when not allowed
+    """
+    if ".." in path.parts:
+        raise ValueError(f"Path traversal detected: {path}")
+    if not allow_absolute and path.is_absolute():
+        raise ValueError(f"Absolute paths are not allowed: {path}")
+    return path
+
+
 class ConfigWatcher:
     """Watch config file for changes and trigger reload callbacks.
 
@@ -104,9 +127,9 @@ class ConfigWatcher:
         self.debounce_ms = debounce_ms
         self._last_mtime = self.path.stat().st_mtime if path.exists() else 0
         self._last_check_time = time.time()
-        self._callbacks: list[callable] = []
+        self._callbacks: list[Callable[[], None]] = []
 
-    def add_callback(self, callback: callable) -> None:
+    def add_callback(self, callback: Callable[[], None]) -> None:
         """Register a callback to run when config changes.
 
         Args:
@@ -281,12 +304,12 @@ class CLIConfig(BaseModel):
     # Rotation settings
     rotation_strategy: str = Field("round-robin", description="Rotation strategy")
     health_check_interval: int = Field(
-        300, description="Seconds between health checks (0=disabled)"
+        300, ge=0, description="Seconds between health checks (0=disabled)"
     )
 
     # Request settings
-    timeout: int = Field(30, description="Request timeout in seconds")
-    max_retries: int = Field(3, description="Max retry attempts per request")
+    timeout: int = Field(30, gt=0, description="Request timeout in seconds")
+    max_retries: int = Field(3, ge=0, description="Max retry attempts per request")
     follow_redirects: bool = Field(True, description="Follow HTTP redirects")
     verify_ssl: bool = Field(True, description="Verify SSL certificates")
 
@@ -303,10 +326,10 @@ class CLIConfig(BaseModel):
 
     # Cache settings (005-caching-mechanisms-storage)
     cache_enabled: bool = Field(True, description="Enable three-tier caching system")
-    cache_l1_max_entries: int = Field(1000, description="L1 (memory) max entries")
-    cache_l2_max_entries: int = Field(5000, description="L2 (JSONL) max entries")
+    cache_l1_max_entries: int = Field(1000, gt=0, description="L1 (memory) max entries")
+    cache_l2_max_entries: int = Field(5000, gt=0, description="L2 (JSONL) max entries")
     cache_l3_max_entries: int | None = Field(
-        None, description="L3 (SQLite) max entries (None=unlimited)"
+        None, gt=0, description="L3 (SQLite) max entries (None=unlimited)"
     )
     cache_default_ttl: int = Field(3600, ge=60, description="Default cache TTL in seconds")
     cache_cleanup_interval: int = Field(
@@ -423,6 +446,7 @@ def discover_config(explicit_path: Path | None = None) -> Path | None:
     """
     # 1. Explicit path
     if explicit_path:
+        explicit_path = sanitize_path(explicit_path, allow_absolute=True)
         if explicit_path.exists():
             return explicit_path
         raise FileNotFoundError(f"Config file not found: {explicit_path}")
@@ -459,6 +483,8 @@ def load_config(path: Path | None = None) -> CLIConfig:
         # Return defaults - model_validate handles Field defaults properly
         return CLIConfig.model_validate({})
 
+    path = sanitize_path(path, allow_absolute=True)
+
     with open(path, "rb") as f:
         data = tomllib.load(f)
 
@@ -490,6 +516,8 @@ def save_config(config: CLIConfig, path: Path) -> None:
         config: Configuration to save
         path: Destination file path
     """
+    path = sanitize_path(path, allow_absolute=True)
+
     # Encrypt credentials if needed
     if config.encrypt_credentials:
         config = encrypt_credentials(config)

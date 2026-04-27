@@ -1,0 +1,67 @@
+# serializer version: 1
+# name: TestExceptionHierarchy.test_all_exception_inheritance
+  dict({
+    'CircuitBreakerOpenError': True,
+    'MaxRetriesExhaustedError': True,
+    'ProxyAuthenticationError': True,
+    'ProxyConnectionError': True,
+    'ProxyFetchError': True,
+    'ProxyPoolEmptyError': True,
+    'ProxyStorageError': True,
+    'ProxyValidationError': True,
+    'RateLimitExceededError': True,
+  })
+# ---
+# name: TestExceptionHierarchy.test_exception_mro
+  list([
+    'ProxyConnectionError',
+    'ProxyWhirlError',
+    'Exception',
+    'BaseException',
+    'object',
+  ])
+# ---
+# name: TestExceptionMessageSnapshots.test_circuit_breaker_open_error_message
+  'Circuit breaker is open. Wait for cooldown period before retrying.'
+# ---
+# name: TestExceptionMessageSnapshots.test_exception_repr
+  'ProxyWhirlError(Base error with repr, code=NETWORK_ERROR)'
+# ---
+# name: TestExceptionMessageSnapshots.test_exception_str_representation
+  'Base error message'
+# ---
+# name: TestExceptionMessageSnapshots.test_max_retries_exhausted_error_message
+  'Max retries (3) exceeded. Review operation logs for failure patterns.'
+# ---
+# name: TestExceptionMessageSnapshots.test_nested_exception_context
+  'Fetch failed'
+# ---
+# name: TestExceptionMessageSnapshots.test_proxy_authentication_error_message
+  'Invalid credentials. Verify username and password are correct. (proxy: proxy.example.com:8080)'
+# ---
+# name: TestExceptionMessageSnapshots.test_proxy_connection_error_message
+  'Connection timeout (proxy: http://proxy.example.com:8080)'
+# ---
+# name: TestExceptionMessageSnapshots.test_proxy_fetch_error_message
+  'Failed to fetch proxies from source'
+# ---
+# name: TestExceptionMessageSnapshots.test_proxy_pool_empty_error_message
+  'No proxies available in pool. Add proxies using add_proxy() or enable auto-fetch.'
+# ---
+# name: TestExceptionMessageSnapshots.test_proxy_storage_error_message
+  'Database connection failed. Check file permissions and disk space.'
+# ---
+# name: TestExceptionMessageSnapshots.test_proxy_validation_error_message
+  'Invalid proxy URL format. Check proxy URL format and protocol.'
+# ---
+# name: TestExceptionMessageSnapshots.test_rate_limit_exceeded_error_message
+  'Rate limit exceeded: 100 requests per minute. Implement exponential backoff before retrying.'
+# ---
+# name: TestExceptionMessageSnapshots.test_redact_url_snapshot
+  dict({
+    'http://proxy.example.com:8080/path?query=value': 'http://proxy.example.com:8080/path?query=value',
+    'http://user:pass@proxy.example.com:8080': 'http://***:***@proxy.example.com:8080',
+    'https://proxy.example.com:8080': 'https://proxy.example.com:8080',
+    'socks5://proxy.example.com:1080': 'socks5://proxy.example.com:1080',
+  })
+# ---

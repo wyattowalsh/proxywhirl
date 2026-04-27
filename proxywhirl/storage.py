@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import json
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -70,6 +71,7 @@ class ProxyIdentityTable(SQLModel, table=True):
     discovered_at: datetime = Field(
         default_factory=lambda: datetime.now(__import__("datetime").timezone.utc)
     )
+    expires_at: datetime | None = Field(default=None, index=True)
 
 
 class ValidationResultTable(SQLModel, table=True):
@@ -87,7 +89,7 @@ class ValidationResultTable(SQLModel, table=True):
     __tablename__: str = "validation_results"  # type: ignore[misc]
 
     id: int | None = Field(default=None, primary_key=True)
-    proxy_url: str = Field(index=True)  # References proxy_identities.url
+    proxy_url: str = Field(index=True, foreign_key="proxy_identities.url")
     validated_at: datetime = Field(
         default_factory=lambda: datetime.now(__import__("datetime").timezone.utc),
         index=True,
@@ -115,7 +117,7 @@ class ProxyStatusTable(SQLModel, table=True):
 
     __tablename__: str = "proxy_statuses"  # type: ignore[misc]
 
-    proxy_url: str = Field(primary_key=True)  # References proxy_identities.url
+    proxy_url: str = Field(primary_key=True, foreign_key="proxy_identities.url")
     health_status: str = Field(default="unknown", index=True)  # healthy, unhealthy, dead, unknown
     last_success_at: datetime | None = Field(default=None, index=True)
     last_failure_at: datetime | None = None
@@ -127,6 +129,26 @@ class ProxyStatusTable(SQLModel, table=True):
     avg_response_time_ms: float | None = None
     success_rate_7d: float | None = Field(default=None, index=True)
     updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(__import__("datetime").timezone.utc),
+        index=True,
+    )
+
+
+class ProxyAuditTable(SQLModel, table=True):
+    """Audit trail for proxy changes.
+
+    Tracks INSERT, UPDATE, and DELETE operations on proxies
+    for compliance and debugging purposes.
+    """
+
+    __tablename__: str = "proxies_audit"  # type: ignore[misc]
+
+    id: int | None = Field(default=None, primary_key=True)
+    proxy_url: str = Field(index=True)
+    action: str  # INSERT, UPDATE, DELETE
+    old_values: str | None = None  # JSON
+    new_values: str | None = None  # JSON
+    timestamp: datetime = Field(
         default_factory=lambda: datetime.now(__import__("datetime").timezone.utc),
         index=True,
     )
@@ -429,7 +451,11 @@ class SQLiteStorage:
         self.engine: AsyncEngine = create_async_engine(
             db_url,
             echo=False,
+            pool_size=10,
         )
+
+        # Slow query logging threshold (milliseconds)
+        self._slow_query_threshold_ms: float = 100.0
 
         # Initialize credential encryptor for secure credential storage
         self._encryptor: CredentialEncryptor | None = None
@@ -454,6 +480,28 @@ class SQLiteStorage:
                 f"Credential encryption not available, storing credentials unencrypted: {e}"
             )
             self._encryptor = None
+
+    async def _timed_exec(self, session: AsyncSession, statement: Any) -> Any:
+        """Execute a session statement with slow query logging."""
+        start = time.monotonic()
+        result = await session.exec(statement)
+        elapsed_ms = (time.monotonic() - start) * 1000
+        if elapsed_ms > self._slow_query_threshold_ms:
+            logger.warning(
+                f"Slow query ({elapsed_ms:.1f}ms): {str(statement)[:200]}"
+            )
+        return result
+
+    async def _timed_conn_execute(self, conn: Any, statement: Any) -> Any:
+        """Execute a connection statement with slow query logging."""
+        start = time.monotonic()
+        result = await conn.execute(statement)
+        elapsed_ms = (time.monotonic() - start) * 1000
+        if elapsed_ms > self._slow_query_threshold_ms:
+            logger.warning(
+                f"Slow query ({elapsed_ms:.1f}ms): {str(statement)[:200]}"
+            )
+        return result
 
     def _encrypt_credential(self, value: str | None) -> str | None:
         """Encrypt a credential value for storage.
@@ -540,73 +588,79 @@ class SQLiteStorage:
 
         async with self.engine.begin() as conn:
             # Enable WAL mode for concurrent reads/writes
-            await conn.execute(text("PRAGMA journal_mode = WAL"))
+            await self._timed_conn_execute(conn, text("PRAGMA journal_mode = WAL"))
 
             # Enable FOREIGN_KEYS constraint enforcement
-            await conn.execute(text("PRAGMA foreign_keys = ON"))
+            await self._timed_conn_execute(conn, text("PRAGMA foreign_keys = ON"))
 
             # Optimize synchronous mode: NORMAL balances safety and performance
-            await conn.execute(text("PRAGMA synchronous = NORMAL"))
+            await self._timed_conn_execute(conn, text("PRAGMA synchronous = NORMAL"))
 
             # Increase cache_size to reduce disk I/O (negative = MB)
-            await conn.execute(text("PRAGMA cache_size = -65536"))  # 64MB cache
+            await self._timed_conn_execute(conn, text("PRAGMA cache_size = -65536"))  # 64MB cache
 
             # Use memory for temporary tables (faster)
-            await conn.execute(text("PRAGMA temp_store = MEMORY"))
+            await self._timed_conn_execute(conn, text("PRAGMA temp_store = MEMORY"))
 
             # Create all tables
             await conn.run_sync(SQLModel.metadata.create_all)
 
             # Create composite and specialized indexes for hot queries
             # Index on (proxy_id, timestamp) for metrics queries
-            await conn.execute(
+            await self._timed_conn_execute(
+                conn,
                 text(
                     "CREATE INDEX IF NOT EXISTS idx_validation_proxy_time "
                     "ON validation_results(proxy_url, validated_at)"
-                )
+                ),
             )
 
             # Index on cache expiration for TTL cleanup
             # This is for future cache TTL table if implemented
 
             # Index on health_status for filtering healthy/unhealthy proxies
-            await conn.execute(
+            await self._timed_conn_execute(
+                conn,
                 text(
                     "CREATE INDEX IF NOT EXISTS idx_proxy_status_health "
                     "ON proxy_statuses(health_status, last_success_at DESC)"
-                )
+                ),
             )
 
             # Index on URL for duplicate detection
-            await conn.execute(
+            await self._timed_conn_execute(
+                conn,
                 text(
                     "CREATE UNIQUE INDEX IF NOT EXISTS idx_proxy_identity_url "
                     "ON proxy_identities(url)"
-                )
+                ),
             )
 
             # Index on success_rate_7d for performance-based sorting
-            await conn.execute(
+            await self._timed_conn_execute(
+                conn,
                 text(
                     "CREATE INDEX IF NOT EXISTS idx_proxy_status_success_rate "
                     "ON proxy_statuses(success_rate_7d DESC)"
-                )
+                ),
             )
 
             # Index on validation results by validity and recency
-            await conn.execute(
+            await self._timed_conn_execute(
+                conn,
                 text(
                     "CREATE INDEX IF NOT EXISTS idx_validation_recent_valid "
                     "ON validation_results(is_valid, validated_at DESC)"
-                )
+                ),
             )
 
             # Index on last_success_at for finding recently working proxies
-            await conn.execute(
+            await self._timed_conn_execute(
+                conn,
                 text(
                     "CREATE INDEX IF NOT EXISTS idx_proxy_status_recent_success "
                     "ON proxy_statuses(last_success_at DESC)"
-                )
+                ),
             )
 
             logger.info("Database initialized with WAL mode and optimized indexes")
@@ -695,6 +749,16 @@ class SQLiteStorage:
             if not new_proxies:
                 return 0, skipped
 
+            # Deduplicate by URL within the batch to avoid PK collisions
+            seen_urls: set[str] = set()
+            deduped_proxies: list[Proxy] = []
+            for p in new_proxies:
+                if p.url not in seen_urls:
+                    seen_urls.add(p.url)
+                    deduped_proxies.append(p)
+            skipped += len(new_proxies) - len(deduped_proxies)
+            new_proxies = deduped_proxies
+
             # Batch insert identities and statuses
             identity_rows = []
             status_rows = []
@@ -741,6 +805,24 @@ class SQLiteStorage:
             added = len(new_proxies)
 
         return added, skipped
+
+    async def async_batch_insert_proxies(
+        self, proxies: list[Proxy], validated: bool = False
+    ) -> tuple[int, int]:
+        """Async batch insert proxies with aiosqlite-style semantics.
+
+        This is a thin wrapper around :meth:`add_proxies_batch` that provides
+        the ``async_batch_insert_*`` naming convention preferred by some
+        async SQLite workflows.
+
+        Args:
+            proxies: List of Proxy models to insert
+            validated: If True, mark proxies as already validated
+
+        Returns:
+            Tuple of (added_count, skipped_count)
+        """
+        return await self.add_proxies_batch(proxies, validated=validated)
 
     async def save(self, proxies: list[Proxy], validated: bool = False) -> None:
         """Save proxies to database (adds new, skips existing).
@@ -1080,7 +1162,7 @@ class SQLiteStorage:
         )
 
         async with AsyncSession(self.engine) as session:
-            result = await session.exec(stmt)  # type: ignore[arg-type]
+            result = await self._timed_exec(session, stmt)  # type: ignore[arg-type]
             rows = result.all()
 
             proxies = []
@@ -1242,18 +1324,24 @@ class SQLiteStorage:
                 dead_urls = list(dead_result.all())
 
                 if dead_urls:
+                    # Delete from validation_results first (FK constraint)
+                    del_validation = delete(ValidationResultTable).where(
+                        ValidationResultTable.proxy_url.in_(dead_urls)  # type: ignore[attr-defined]
+                    )
+                    await session.exec(del_validation)  # type: ignore[arg-type]
+
+                    # Delete from status table (FK constraint)
+                    del_status = delete(ProxyStatusTable).where(
+                        ProxyStatusTable.proxy_url.in_(dead_urls)  # type: ignore[attr-defined]
+                    )
+                    await session.exec(del_status)  # type: ignore[arg-type]
+
                     # Delete from proxy_identities
                     del_stmt = delete(ProxyIdentityTable).where(
                         ProxyIdentityTable.url.in_(dead_urls)  # type: ignore[attr-defined]
                     )
                     await session.exec(del_stmt)  # type: ignore[arg-type]
                     counts["dead"] = len(dead_urls)
-
-                    # Delete from status table
-                    del_status = delete(ProxyStatusTable).where(
-                        ProxyStatusTable.proxy_url.in_(dead_urls)  # type: ignore[attr-defined]
-                    )
-                    await session.exec(del_status)  # type: ignore[arg-type]
                 else:
                     counts["dead"] = 0
 
@@ -1268,15 +1356,22 @@ class SQLiteStorage:
                 stale_urls = list(stale_result.all())
 
                 if stale_urls:
-                    del_stmt = delete(ProxyIdentityTable).where(
-                        ProxyIdentityTable.url.in_(stale_urls)  # type: ignore[attr-defined]
+                    # Delete from validation_results first (FK constraint)
+                    del_validation = delete(ValidationResultTable).where(
+                        ValidationResultTable.proxy_url.in_(stale_urls)  # type: ignore[attr-defined]
                     )
-                    await session.exec(del_stmt)  # type: ignore[arg-type]
+                    await session.exec(del_validation)  # type: ignore[arg-type]
 
+                    # Delete from status table (FK constraint)
                     del_status = delete(ProxyStatusTable).where(
                         ProxyStatusTable.proxy_url.in_(stale_urls)  # type: ignore[attr-defined]
                     )
                     await session.exec(del_status)  # type: ignore[arg-type]
+
+                    del_stmt = delete(ProxyIdentityTable).where(
+                        ProxyIdentityTable.url.in_(stale_urls)  # type: ignore[attr-defined]
+                    )
+                    await session.exec(del_stmt)  # type: ignore[arg-type]
                     counts["stale"] = len(stale_urls)
                 else:
                     counts["stale"] = 0
@@ -1290,15 +1385,22 @@ class SQLiteStorage:
                 never_urls = list(never_result.all())
 
                 if never_urls:
-                    del_stmt = delete(ProxyIdentityTable).where(
-                        ProxyIdentityTable.url.in_(never_urls)  # type: ignore[attr-defined]
+                    # Delete from validation_results first (FK constraint)
+                    del_validation = delete(ValidationResultTable).where(
+                        ValidationResultTable.proxy_url.in_(never_urls)  # type: ignore[attr-defined]
                     )
-                    await session.exec(del_stmt)  # type: ignore[arg-type]
+                    await session.exec(del_validation)  # type: ignore[arg-type]
 
+                    # Delete from status table (FK constraint)
                     del_status = delete(ProxyStatusTable).where(
                         ProxyStatusTable.proxy_url.in_(never_urls)  # type: ignore[attr-defined]
                     )
                     await session.exec(del_status)  # type: ignore[arg-type]
+
+                    del_stmt = delete(ProxyIdentityTable).where(
+                        ProxyIdentityTable.url.in_(never_urls)  # type: ignore[attr-defined]
+                    )
+                    await session.exec(del_stmt)  # type: ignore[arg-type]
                     counts["never_validated"] = len(never_urls)
                 else:
                     counts["never_validated"] = 0
@@ -1330,31 +1432,36 @@ class SQLiteStorage:
 
         async with AsyncSession(self.engine) as session:
             # Total proxies
-            result = await session.exec(text("SELECT COUNT(*) FROM proxy_identities"))
+            result = await self._timed_exec(
+                session, text("SELECT COUNT(*) FROM proxy_identities")
+            )
             stats["total_proxies"] = result.scalar() or 0
 
             # By health status
-            result = await session.exec(
+            result = await self._timed_exec(
+                session,
                 text("""
                 SELECT health_status, COUNT(*)
                 FROM proxy_statuses
                 GROUP BY health_status
-            """)
+            """),
             )
             stats["by_health"] = dict(result.all())
 
             # By protocol
-            result = await session.exec(
+            result = await self._timed_exec(
+                session,
                 text("""
                 SELECT protocol, COUNT(*)
                 FROM proxy_identities
                 GROUP BY protocol
-            """)
+            """),
             )
             stats["by_protocol"] = dict(result.all())
 
             # Validation stats (last 24 hours)
-            result = await session.exec(
+            result = await self._timed_exec(
+                session,
                 text("""
                 SELECT
                     COUNT(*) as total_validations,
@@ -1362,7 +1469,7 @@ class SQLiteStorage:
                     AVG(CASE WHEN is_valid THEN response_time_ms END) as avg_response_time
                 FROM validation_results
                 WHERE validated_at > datetime('now', '-24 hours')
-            """)
+            """),
             )
             row = result.one()
             stats["validations_24h"] = {
@@ -1515,6 +1622,31 @@ class SQLiteStorage:
                     }
                 )
             return proxies
+
+    async def audit_log_change(
+        self,
+        proxy_url: str,
+        action: str,
+        old_values: dict[str, Any] | None = None,
+        new_values: dict[str, Any] | None = None,
+    ) -> None:
+        """Log a change to the audit trail.
+
+        Args:
+            proxy_url: URL of the proxy that changed
+            action: Type of change (INSERT, UPDATE, DELETE)
+            old_values: Previous values (for UPDATE/DELETE)
+            new_values: New values (for INSERT/UPDATE)
+        """
+        async with AsyncSession(self.engine) as session:
+            audit = ProxyAuditTable(
+                proxy_url=proxy_url,
+                action=action,
+                old_values=json.dumps(old_values) if old_values else None,
+                new_values=json.dumps(new_values) if new_values else None,
+            )
+            session.add(audit)
+            await session.commit()
 
 
 # ============================================================================

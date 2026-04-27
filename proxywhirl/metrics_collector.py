@@ -20,9 +20,22 @@ Usage:
 
 from __future__ import annotations
 
+import os
 from typing import Literal
 
 from prometheus_client import REGISTRY, CollectorRegistry, Counter, Gauge, Histogram
+
+# Optional OpenTelemetry support
+try:
+    from opentelemetry import metrics as otel_metrics
+    from opentelemetry.sdk.metrics import MeterProvider
+    from opentelemetry.sdk.metrics.export import InMemoryMetricReader
+
+    _OTEL_AVAILABLE = True
+except ImportError:
+    _OTEL_AVAILABLE = False
+
+OTEL_ENABLED = os.environ.get("OTEL_ENABLED", "").lower() in ("1", "true", "yes", "on")
 
 
 class MetricsCollector:
@@ -81,6 +94,46 @@ class MetricsCollector:
             registry=self._registry,
         )
 
+        # Initialize optional OpenTelemetry metrics
+        self._otel_meter = None
+        self._otel_requests_counter = None
+        self._otel_request_duration_histogram = None
+        self._otel_proxy_health_gauge = None
+        self._otel_active_proxies_gauge = None
+        self._otel_circuit_breaker_gauge = None
+
+        if OTEL_ENABLED and _OTEL_AVAILABLE:
+            self._init_otel_metrics()
+
+    def _init_otel_metrics(self) -> None:
+        """Initialize OpenTelemetry metrics if available."""
+        reader = InMemoryMetricReader()
+        provider = MeterProvider(metric_readers=[reader])
+        otel_metrics.set_meter_provider(provider)
+        self._otel_meter = otel_metrics.get_meter("proxywhirl")
+
+        self._otel_requests_counter = self._otel_meter.create_counter(
+            "proxywhirl.requests.total",
+            description="Total number of requests made through proxies",
+        )
+        self._otel_request_duration_histogram = self._otel_meter.create_histogram(
+            "proxywhirl.request.duration_seconds",
+            description="Request duration in seconds",
+            unit="s",
+        )
+        self._otel_proxy_health_gauge = self._otel_meter.create_up_down_counter(
+            "proxywhirl.proxy.health",
+            description="Current proxy health status (1=healthy, 0=unhealthy)",
+        )
+        self._otel_active_proxies_gauge = self._otel_meter.create_up_down_counter(
+            "proxywhirl.active_proxies",
+            description="Number of active proxies in the pool",
+        )
+        self._otel_circuit_breaker_gauge = self._otel_meter.create_up_down_counter(
+            "proxywhirl.circuit_breaker.state",
+            description="Circuit breaker state (0=closed, 1=open, 2=half-open)",
+        )
+
     def record_request(
         self,
         status: Literal["success", "error", "timeout"],
@@ -100,6 +153,12 @@ class MetricsCollector:
         # Record request duration
         self.request_duration_seconds.labels(proxy_id=proxy_id).observe(duration)
 
+        # Export to OpenTelemetry if enabled
+        if self._otel_requests_counter is not None:
+            self._otel_requests_counter.add(1, {"status": status, "proxy_id": proxy_id})
+        if self._otel_request_duration_histogram is not None:
+            self._otel_request_duration_histogram.record(duration, {"proxy_id": proxy_id})
+
     def update_proxy_health(self, proxy_id: str, is_healthy: bool) -> None:
         """Update health status for a specific proxy.
 
@@ -107,7 +166,12 @@ class MetricsCollector:
             proxy_id: Identifier of the proxy
             is_healthy: True if proxy is healthy, False otherwise
         """
-        self.proxy_health_status.labels(proxy_id=proxy_id).set(1 if is_healthy else 0)
+        value = 1 if is_healthy else 0
+        self.proxy_health_status.labels(proxy_id=proxy_id).set(value)
+
+        # Export to OpenTelemetry if enabled
+        if self._otel_proxy_health_gauge is not None:
+            self._otel_proxy_health_gauge.add(value, {"proxy_id": proxy_id})
 
     def update_active_proxies(self, count: int) -> None:
         """Update the count of active proxies in the pool.
@@ -116,6 +180,10 @@ class MetricsCollector:
             count: Number of active proxies
         """
         self.active_proxies.set(count)
+
+        # Export to OpenTelemetry if enabled
+        if self._otel_active_proxies_gauge is not None:
+            self._otel_active_proxies_gauge.add(count)
 
     def update_circuit_breaker_state(
         self,
@@ -130,6 +198,10 @@ class MetricsCollector:
         """
         state_value = {"closed": 0, "open": 1, "half-open": 2}[state]
         self.circuit_breaker_state.labels(proxy_id=proxy_id).set(state_value)
+
+        # Export to OpenTelemetry if enabled
+        if self._otel_circuit_breaker_gauge is not None:
+            self._otel_circuit_breaker_gauge.add(state_value, {"proxy_id": proxy_id})
 
     def clear_proxy_metrics(self, proxy_id: str) -> None:
         """Clear all metrics for a specific proxy.

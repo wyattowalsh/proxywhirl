@@ -15,6 +15,8 @@ Example:
 
 from __future__ import annotations
 
+import json
+import os
 import sys
 from typing import Literal
 
@@ -126,6 +128,41 @@ class LoggingConfig(BaseModel):
     )
 
 
+def _json_formatter(record) -> str:
+    """Format a log record as JSON with standard fields.
+
+    Args:
+        record: The loguru log record.
+
+    Returns:
+        JSON string representation of the log record.
+    """
+    log_data = {
+        "timestamp": record["time"].isoformat(),
+        "level": record["level"].name,
+        "message": record["message"],
+        "logger": record["name"],
+        "function": record["function"],
+        "line": record["line"],
+        "thread": record["thread"].id,
+        "process": record["process"].id,
+    }
+
+    # Add exception info if present
+    if record["exception"] is not None:
+        log_data["exception"] = {
+            "type": record["exception"].type,
+            "value": str(record["exception"].value),
+        }
+
+    # Add extra context fields
+    extra = {k: v for k, v in record["extra"].items() if not k.startswith("_")}
+    if extra:
+        log_data["extra"] = extra
+
+    return json.dumps(log_data, default=str) + "\n"
+
+
 # Format templates for different output styles
 FORMAT_TEMPLATES = {
     "default": (
@@ -134,7 +171,7 @@ FORMAT_TEMPLATES = {
         "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
         "<level>{message}</level>"
     ),
-    "json": "{message}",  # JSON serialization handled by serialize parameter
+    "json": "{message}",  # JSON serialization handled by custom formatter
     "logfmt": (
         "time={time:YYYY-MM-DD HH:mm:ss.SSS} "
         "level={level} "
@@ -247,8 +284,8 @@ def configure_logging(
 
     # Add format configuration
     if format == "json":
-        # Use loguru's built-in JSON serialization
-        handler_config["serialize"] = True
+        # Use custom JSON formatter for standard fields
+        handler_config["format"] = _json_formatter
     else:
         handler_config["format"] = FORMAT_TEMPLATES[format]
 
@@ -298,6 +335,11 @@ def bind_context(**context: str | int | float | bool | None):
         # Log will include request_id and operation in context
     """
     return logger.bind(**context)
+
+
+# Auto-configure from environment variables if present
+if os.environ.get("PROXYWHIRL_LOG_FORMAT", "").lower() == "json":
+    configure_logging(format="json")
 
 
 # Export public API

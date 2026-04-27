@@ -35,12 +35,12 @@ class TestExceptionMessageSnapshots:
 
     def test_proxy_connection_error_message(self, snapshot: SnapshotAssertion) -> None:
         """Verify ProxyConnectionError message format."""
-        exc = ProxyConnectionError("Connection timeout", "http://proxy.example.com:8080")
+        exc = ProxyConnectionError("Connection timeout", proxy_url="http://proxy.example.com:8080")
         assert str(exc) == snapshot
 
     def test_proxy_authentication_error_message(self, snapshot: SnapshotAssertion) -> None:
         """Verify ProxyAuthenticationError message format."""
-        exc = ProxyAuthenticationError("Invalid credentials", "proxy.example.com:8080")
+        exc = ProxyAuthenticationError("Invalid credentials", proxy_url="proxy.example.com:8080")
         assert str(exc) == snapshot
 
     def test_proxy_fetch_error_message(self, snapshot: SnapshotAssertion) -> None:

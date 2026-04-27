@@ -11,6 +11,7 @@ import asyncio
 import csv
 import hashlib
 import json
+import os
 import re
 import time
 from datetime import datetime, timezone
@@ -715,6 +716,16 @@ class ValidationResult(NamedTuple):
         return self.is_valid
 
 
+def _get_tls_verify() -> bool | str:
+    """Return TLS verification setting for httpx clients.
+
+    Reads ``PROXYWHIRL_CA_BUNDLE`` environment variable. If set, uses
+    the specified CA bundle path. Otherwise defaults to ``True``.
+    """
+    ca_bundle = os.environ.get("PROXYWHIRL_CA_BUNDLE")
+    return ca_bundle if ca_bundle else True
+
+
 class ProxyValidator:
     """Validate proxy connectivity with detailed metrics and multiple test endpoints.
 
@@ -838,6 +849,7 @@ class ProxyValidator:
         if self._client is None:
             self._client = httpx.AsyncClient(
                 timeout=self.timeout,
+                verify=_get_tls_verify(),
                 limits=httpx.Limits(max_connections=1000, max_keepalive_connections=100),
                 headers={
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -879,6 +891,7 @@ class ProxyValidator:
             self._socks_client = httpx.AsyncClient(
                 transport=transport,
                 timeout=self.timeout,
+                verify=_get_tls_verify(),
                 limits=httpx.Limits(max_connections=1000, max_keepalive_connections=100),
                 headers={
                     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -984,6 +997,7 @@ class ProxyValidator:
                 async with httpx.AsyncClient(
                     proxy=proxy_url,
                     timeout=self.timeout,
+                    verify=_get_tls_verify(),
                 ) as client:
                     response = await client.get(self.test_url)
                     return response.status_code in (200, 204)
@@ -1035,6 +1049,7 @@ class ProxyValidator:
                 async with httpx.AsyncClient(
                     proxy=proxy_url,
                     timeout=self.timeout,
+                    verify=_get_tls_verify(),
                 ) as client:
                     response = await client.get(self.test_url)
             else:
@@ -1185,6 +1200,7 @@ class ProxyValidator:
                 async with httpx.AsyncClient(
                     transport=transport,
                     timeout=self.timeout,
+                    verify=_get_tls_verify(),
                     headers={
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                     },
@@ -1211,6 +1227,7 @@ class ProxyValidator:
                 async with httpx.AsyncClient(
                     proxy=effective_proxy_url,
                     timeout=self.timeout,
+                    verify=_get_tls_verify(),
                     headers={
                         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                     },
@@ -1419,6 +1436,7 @@ class ProxyValidator:
                         async with httpx.AsyncClient(
                             proxy=http_url,
                             timeout=https_timeout,
+                            verify=_get_tls_verify(),
                             headers={
                                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
                             },
@@ -1686,6 +1704,7 @@ class ProxyFetcher:
         if self._client is None:
             self._client = httpx.AsyncClient(
                 timeout=httpx.Timeout(30.0),
+                verify=_get_tls_verify(),
                 limits=httpx.Limits(max_connections=50, max_keepalive_connections=10),
                 http2=True,
             )

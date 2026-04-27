@@ -556,6 +556,51 @@ class AsyncProxyWhirl(ProxyRotatorBase):
 
         return removed_count
 
+    async def check_proxies_health(
+        self, proxies: list[Proxy] | None = None, test_url: str = "https://httpbin.org/get"
+    ) -> list[dict[str, Any]]:
+        """Run concurrent health checks on proxies.
+
+        Args:
+            proxies: List of proxies to check. If None, checks all proxies in the pool.
+            test_url: URL to use for health check requests
+
+        Returns:
+            List of health check result dictionaries
+        """
+        targets = proxies if proxies is not None else self.pool.get_all_proxies()
+        if not targets:
+            return []
+
+        async def _check(proxy: Proxy) -> dict[str, Any]:
+            proxy_dict = self._get_proxy_dict(proxy)
+            loop = asyncio.get_running_loop()
+            start_time = loop.time()
+            try:
+                async with httpx.AsyncClient(
+                    proxy=proxy_dict.get("http://"),
+                    timeout=self.config.timeout,
+                    verify=self.config.verify_ssl,
+                ) as client:
+                    response = await client.get(test_url)
+                    elapsed_ms = (loop.time() - start_time) * 1000
+                    return {
+                        "proxy_id": str(proxy.id),
+                        "status": "healthy" if response.status_code == 200 else "unhealthy",
+                        "latency_ms": elapsed_ms,
+                        "error": None,
+                    }
+            except Exception as e:
+                elapsed_ms = (loop.time() - start_time) * 1000
+                return {
+                    "proxy_id": str(proxy.id),
+                    "status": "unhealthy",
+                    "latency_ms": elapsed_ms,
+                    "error": str(e),
+                }
+
+        return await asyncio.gather(*[_check(p) for p in targets])
+
     async def _get_or_create_client(
         self, proxy: Proxy, proxy_dict: dict[str, str]
     ) -> httpx.AsyncClient:
