@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  proxywhirl-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.staging
+    ports:
+      - "8000:8000"
+    environment:
+      ENV: staging
+      DATABASE_URL: postgresql://user:password@postgres:5432/proxywhirl
+      REDIS_URL: redis://redis:6379/0
+      LOG_LEVEL: info
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./logs:/app/logs
+      - ./config:/app/config
+    networks:
+      - proxywhirl
+
+  proxywhirl-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.staging
+    command: proxywhirl worker start
+    environment:
+      ENV: staging
+      DATABASE_URL: postgresql://user:password@postgres:5432/proxywhirl
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - proxywhirl
+
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: proxywhirl
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - proxywhirl
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    networks:
+      - proxywhirl
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - proxywhirl
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - proxywhirl
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  proxywhirl:
+    driver: bridge

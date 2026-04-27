@@ -1,3 +1,5 @@
+# ProxyWhirl Terraform Module for AWS Deployment
+
 terraform {
   required_version = ">= 1.0"
   required_providers {
@@ -6,122 +8,153 @@ terraform {
       version = "~> 5.0"
     }
   }
-  
-  backend "s3" {
-    bucket         = "proxywhirl-terraform"
-    key            = "proxywhirl/terraform.tfstate"
-    region         = "us-east-1"
-    encrypt        = true
-    dynamodb_table = "proxywhirl-tf-lock"
-  }
 }
 
 provider "aws" {
   region = var.aws_region
-  
-  default_tags {
-    tags = {
-      Project     = "proxywhirl"
-      Environment = var.environment
-      ManagedBy   = "terraform"
+}
+
+# ECS Cluster
+resource "aws_ecs_cluster" "proxywhirl" {
+  name = "proxywhirl-${var.environment}"
+
+  setting {
+    name  = "containerInsights"
+    value = "enabled"
+  }
+
+  tags = local.tags
+}
+
+# ECS Task Definition
+resource "aws_ecs_task_definition" "proxywhirl" {
+  family                   = "proxywhirl"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+
+  container_definitions = jsonencode([{
+    name      = "proxywhirl"
+    image     = "${var.docker_image}:${var.app_version}"
+    essential = true
+    portMappings = [{
+      containerPort = 8000
+      hostPort      = 8000
+      protocol      = "tcp"
+    }]
+    environment = [
+      {
+        name  = "ENVIRONMENT"
+        value = var.environment
+      }
+    ]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = aws_cloudwatch_log_group.proxywhirl.name
+        awslogs-region        = var.aws_region
+        awslogs-stream-prefix = "ecs"
+      }
     }
+  }])
+
+  tags = local.tags
+}
+
+# ECS Service
+resource "aws_ecs_service" "proxywhirl" {
+  name            = "proxywhirl"
+  cluster         = aws_ecs_cluster.proxywhirl.id
+  task_definition = aws_ecs_task_definition.proxywhirl.arn
+  desired_count   = var.desired_count
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = var.subnet_ids
+    security_groups  = [aws_security_group.proxywhirl.id]
+    assign_public_ip = true
+  }
+
+  tags = local.tags
+}
+
+# Auto Scaling
+resource "aws_appautoscaling_target" "proxywhirl_target" {
+  max_capacity       = var.max_capacity
+  min_capacity       = var.min_capacity
+  resource_id        = "service/${aws_ecs_cluster.proxywhirl.name}/${aws_ecs_service.proxywhirl.name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
+
+# Variables
+variable "aws_region" {
+  default = "us-east-1"
+}
+
+variable "environment" {
+  default = "production"
+}
+
+variable "app_version" {
+  default = "latest"
+}
+
+variable "docker_image" {
+  default = "proxywhirl"
+}
+
+variable "desired_count" {
+  default = 3
+}
+
+variable "min_capacity" {
+  default = 2
+}
+
+variable "max_capacity" {
+  default = 10
+}
+
+variable "subnet_ids" {
+  type = list(string)
+}
+
+# Tags
+locals {
+  tags = {
+    Environment = var.environment
+    Project     = "proxywhirl"
+    Terraform   = "true"
   }
 }
 
-module "vpc" {
-  source = "./modules/vpc"
-  
-  environment    = var.environment
-  cidr_block     = var.vpc_cidr
-  azs            = var.availability_zones
-  private_subnets = var.private_subnet_cidrs
-  public_subnets  = var.public_subnet_cidrs
+# CloudWatch Log Group
+resource "aws_cloudwatch_log_group" "proxywhirl" {
+  name              = "/ecs/proxywhirl"
+  retention_in_days = 7
+
+  tags = local.tags
 }
 
-module "ecs" {
-  source = "./modules/ecs"
-  
-  environment         = var.environment
-  vpc_id              = module.vpc.vpc_id
-  private_subnet_ids  = module.vpc.private_subnet_ids
-  container_image     = var.container_image
-  container_port      = var.container_port
-  desired_count       = var.ecs_desired_count
-  min_count           = var.ecs_min_count
-  max_count           = var.ecs_max_count
-  cpu_target_value    = var.ecs_cpu_target
-  memory_target_value = var.ecs_memory_target
-}
+# Security Group
+resource "aws_security_group" "proxywhirl" {
+  name = "proxywhirl-${var.environment}"
 
-module "rds" {
-  source = "./modules/rds"
-  
-  environment     = var.environment
-  vpc_id          = module.vpc.vpc_id
-  subnet_ids      = module.vpc.private_subnet_ids
-  instance_class  = var.rds_instance_class
-  allocated_storage = var.rds_allocated_storage
-  db_name         = var.rds_db_name
-  username        = var.rds_username
-}
+  ingress {
+    from_port   = 8000
+    to_port     = 8000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
-module "elasticache" {
-  source = "./modules/elasticache"
-  
-  environment     = var.environment
-  vpc_id          = module.vpc.vpc_id
-  subnet_ids      = module.vpc.private_subnet_ids
-  node_type       = var.redis_node_type
-  num_cache_nodes = var.redis_num_nodes
-}
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
-module "alb" {
-  source = "./modules/alb"
-  
-  environment       = var.environment
-  vpc_id            = module.vpc.vpc_id
-  public_subnet_ids = module.vpc.public_subnet_ids
-  target_group_arn  = module.ecs.target_group_arn
-  certificate_arn   = var.acm_certificate_arn
-}
-
-module "monitoring" {
-  source = "./modules/monitoring"
-  
-  environment          = var.environment
-  ecs_cluster_name     = module.ecs.cluster_name
-  ecs_service_name     = module.ecs.service_name
-  rds_db_instance_id   = module.rds.db_instance_id
-  elasticache_cluster_id = module.elasticache.cluster_id
-  sns_topic_arn        = aws_sns_topic.alerts.arn
-}
-
-resource "aws_sns_topic" "alerts" {
-  name = "proxywhirl-${var.environment}-alerts"
-}
-
-resource "aws_sns_topic_subscription" "alert_email" {
-  topic_arn = aws_sns_topic.alerts.arn
-  protocol  = "email"
-  endpoint  = var.alert_email
-}
-
-output "alb_dns_name" {
-  description = "DNS name of the load balancer"
-  value       = module.alb.dns_name
-}
-
-output "ecs_cluster_name" {
-  description = "Name of the ECS cluster"
-  value       = module.ecs.cluster_name
-}
-
-output "rds_endpoint" {
-  description = "RDS database endpoint"
-  value       = module.rds.db_endpoint
-}
-
-output "redis_endpoint" {
-  description = "Redis cluster endpoint"
-  value       = module.elasticache.endpoint
+  tags = local.tags
 }
