@@ -133,7 +133,7 @@ class ClusterManager:
 
     def is_leader(self) -> bool:
         """Check if this node is the leader."""
-        return self.leader and self.leader.node_id == self.local_node.node_id
+        return self.leader is not None and self.leader.node_id == self.local_node.node_id
 
     def replicate_state(self, state: dict) -> bool:
         """Replicate state to replica nodes."""
