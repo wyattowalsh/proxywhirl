@@ -38,10 +38,12 @@ jobs:
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
-          path: /home/runner/.cache/uv
-          key: uv-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          path: |
+            /home/runner/.cache/uv
+            .venv
+          key: uv-cache-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: |
-            uv-${{ runner.os }}-
+            uv-cache-${{ runner.os }}-
 
       - name: Install dependencies
         run: |
@@ -220,10 +222,12 @@ jobs:
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
-          path: /home/runner/.cache/uv
-          key: uv-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          path: |
+            /home/runner/.cache/uv
+            .venv
+          key: uv-cache-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: |
-            uv-${{ runner.os }}-
+            uv-cache-${{ runner.os }}-
 
       - name: Cache pytest
         uses: actions/cache@v4
@@ -269,10 +273,12 @@ jobs:
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
-          path: /home/runner/.cache/uv
-          key: uv-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          path: |
+            /home/runner/.cache/uv
+            .venv
+          key: uv-cache-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: |
-            uv-${{ runner.os }}-
+            uv-cache-${{ runner.os }}-
 
       - name: Cache benchmark results
         uses: actions/cache@v4
@@ -343,10 +349,12 @@ jobs:
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
-          path: /home/runner/.cache/uv
-          key: uv-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          path: |
+            /home/runner/.cache/uv
+            .venv
+          key: uv-cache-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: |
-            uv-${{ runner.os }}-
+            uv-cache-${{ runner.os }}-
 
       - name: Install build dependencies
         run: |
@@ -382,7 +390,9 @@ jobs:
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
-          path: /home/runner/.cache/uv
+          path: |
+            /home/runner/.cache/uv
+            .venv
           key: uv-docs-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             uv-docs-${{ runner.os }}-
