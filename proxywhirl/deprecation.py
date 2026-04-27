@@ -54,22 +54,50 @@ class DeprecationInfo:
 
 
 def deprecated(
-    version: str,
-    removal_version: str | None = None,
-    alternative: str | None = None,
-    reason: str | None = None,
+    *args: Any,
+    **kwargs: Any,
 ) -> Callable[[F], F]:
     """Decorator to mark functions/classes as deprecated.
 
-    Args:
-        version: Version when deprecated
-        removal_version: Version when will be removed
-        alternative: Suggested replacement
-        reason: Reason for deprecation
+    Supports all calling conventions:
+        @deprecated("1.0", "2.0", alternative="new_func")
+        @deprecated("Use new_func instead", "1.0", "2.0")
+        @deprecated(version="1.0", removal_version="2.0", alternative="new_func")
 
     Returns:
         Decorator function
     """
+    # Normalize args/kwargs into canonical fields
+    version: str | None = None
+    removal_version: str | None = None
+    alternative: str | None = kwargs.get("alternative")
+    reason: str | None = kwargs.get("reason")
+
+    if kwargs and not args:
+        # Pure keyword call: @deprecated(version="1.0", ...)
+        version = kwargs.get("version", "0.0")
+        removal_version = kwargs.get("removal_version")
+    elif args:
+        first = args[0]
+        # Detect legacy signature where first arg is a message, not a version
+        if isinstance(first, str) and (" " in first or first.lower().startswith("use ")):
+            message = first
+            version = args[1] if len(args) > 1 else "0.0"
+            removal_version = args[2] if len(args) > 2 else kwargs.get("removal_version")
+            alternative = kwargs.get("alternative")
+            if alternative is None and "use " in message.lower():
+                import re
+
+                match = re.search(r"use (\w+)", message, re.IGNORECASE)
+                if match:
+                    alternative = match.group(1)
+            reason = message
+        else:
+            version = first
+            removal_version = args[1] if len(args) > 1 else kwargs.get("removal_version")
+
+    if version is None:
+        version = "0.0"
 
     def decorator(func: F) -> F:
         func_name = func.__qualname__
@@ -93,6 +121,73 @@ def deprecated(
         return wrapper
 
     return decorator
+
+
+def deprecated_parameter(
+    param_name: str,
+    message: str,
+    version: str,
+    alternative: str | None = None,
+) -> Callable[[F], F]:
+    """Decorator to mark a function parameter as deprecated.
+
+    Args:
+        param_name: Name of deprecated parameter
+        message: Deprecation message
+        version: Version when deprecated
+        alternative: Suggested replacement parameter
+
+    Returns:
+        Decorator function
+    """
+
+    def decorator(func: F) -> F:
+        func_name = func.__qualname__
+        alt_msg = f"; use {alternative} instead" if alternative else ""
+        full_message = f"{func_name} parameter '{param_name}' is deprecated since {version}{alt_msg}. {message}"
+
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            if param_name in kwargs:
+                warnings.warn(full_message, DeprecationWarning, stacklevel=2)
+                logger.warning(f"Deprecated parameter used: {full_message}")
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+class deprecated_property:
+    """Decorator/descriptor for deprecated properties."""
+
+    def __init__(
+        self,
+        message: str,
+        version: str,
+        alternative: str | None = None,
+    ):
+        self.message = message
+        self.version = version
+        self.alternative = alternative
+        alt_msg = f"; use {alternative} instead" if alternative else ""
+        self._template = f"{{name}} is deprecated since {version}{alt_msg}. {message}"
+
+    def __call__(self, func: Callable[..., Any]) -> "deprecated_property":
+        self.func = func
+        self.name = func.__name__
+        self.full_message = self._template.format(name=self.name)
+        return self
+
+    def __get__(self, instance: Any, owner: type[Any] | None = None) -> Any:
+        if instance is None:
+            return self
+        warnings.warn(self.full_message, DeprecationWarning, stacklevel=2)
+        logger.warning(f"Deprecated property accessed: {self.full_message}")
+        return self.func(instance)
+
+    def __set__(self, instance: Any, value: Any) -> None:
+        raise AttributeError("Can't set deprecated property")
 
 
 class DeprecationManager:

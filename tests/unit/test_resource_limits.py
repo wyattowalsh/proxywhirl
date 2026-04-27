@@ -3,6 +3,11 @@
 Tests resource management under high load conditions including:
 - Cache eviction behavior under memory pressure
 - Large proxy pool operations (10k+ proxies)
+"""
+
+import pytest
+
+pytestmark = pytest.mark.slow
 - Connection pool limits
 - TTL expiration and cleanup
 """

@@ -27,6 +27,14 @@ class CompressionAlgorithm(str, Enum):
     IDENTITY = "identity"  # No compression
 
 
+class CompressionType(str, Enum):
+    """Legacy compression type alias for backward compatibility."""
+
+    GZIP = "gzip"
+    DEFLATE = "deflate"
+    NONE = "identity"
+
+
 class CompressionLevel(int, Enum):
     """Compression level (1-9, higher = smaller but slower)."""
 
@@ -46,6 +54,7 @@ class CompressionConfig:
         algorithms: list[CompressionAlgorithm] | None = None,
         min_size_bytes: int = 1024,  # Don't compress small responses
         level: CompressionLevel = CompressionLevel.MEDIUM,
+        supported_algorithms: list[CompressionType] | None = None,
     ):
         """Initialize compression config.
 
@@ -54,6 +63,7 @@ class CompressionConfig:
             algorithms: List of algorithms to use (in preference order)
             min_size_bytes: Minimum content size to compress
             level: Compression level
+            supported_algorithms: Legacy alias for backward compatibility
         """
         self.enabled = enabled
         self.algorithms = algorithms or [
@@ -66,6 +76,11 @@ class CompressionConfig:
         self.algorithms = [algo for algo in self.algorithms if algo in available]
         self.min_size_bytes = min_size_bytes
         self.level = level
+        self.supported_algorithms = supported_algorithms or [
+            CompressionType.GZIP,
+            CompressionType.DEFLATE,
+            CompressionType.NONE,
+        ]
 
     @staticmethod
     def _get_available_algorithms() -> set[CompressionAlgorithm]:
@@ -200,6 +215,95 @@ class CompressionManager:
 
         compressed = self.compress_response(data, algorithm)
         return len(compressed) / len(data) if data else 0
+
+    def should_compress(self, data: bytes) -> bool:
+        """Check if data should be compressed.
+
+        Args:
+            data: Data to check
+
+        Returns:
+            True if compression should be applied
+        """
+        if not self.config.enabled or not data:
+            return False
+        return len(data) >= self.config.min_size_bytes
+
+    def compress(
+        self,
+        data: bytes,
+        compression_type: CompressionType = CompressionType.GZIP,
+    ) -> tuple[bytes, CompressionType]:
+        """Compress data with legacy API.
+
+        Args:
+            data: Data to compress
+            compression_type: Compression type to use
+
+        Returns:
+            Tuple of (compressed data, compression type)
+
+        Raises:
+            ValueError: If compression type is not supported
+        """
+        if compression_type not in self.config.supported_algorithms:
+            raise ValueError(f"Compression type {compression_type.value} is not supported")
+
+        if compression_type == CompressionType.NONE:
+            return data, compression_type
+
+        algo = CompressionAlgorithm(compression_type.value)
+        # Bypass min_size check for legacy API
+        if algo == CompressionAlgorithm.GZIP:
+            compressed = self._compress_gzip(data)
+        elif algo == CompressionAlgorithm.DEFLATE:
+            compressed = self._compress_deflate(data)
+        elif algo == CompressionAlgorithm.BROTLI:
+            compressed = self._compress_brotli(data)
+        else:
+            compressed = data
+        return compressed, compression_type
+
+    def decompress(
+        self,
+        data: bytes,
+        compression_type: CompressionType = CompressionType.GZIP,
+    ) -> bytes:
+        """Decompress data with legacy API.
+
+        Args:
+            data: Compressed data
+            compression_type: Compression type that was used
+
+        Returns:
+            Decompressed data
+        """
+        if compression_type == CompressionType.NONE:
+            return data
+
+        algo = CompressionAlgorithm(compression_type.value)
+        # Bypass empty check for legacy API
+        if algo == CompressionAlgorithm.GZIP:
+            return gzip.decompress(data)
+        elif algo == CompressionAlgorithm.DEFLATE:
+            return self._decompress_deflate(data)
+        elif algo == CompressionAlgorithm.BROTLI:
+            if not brotli:
+                raise ValueError("brotli module not available")
+            return brotli.decompress(data)
+        return data
+
+    def get_accept_encoding(self) -> str:
+        """Get Accept-Encoding header value.
+
+        Returns:
+            Accept-Encoding header string
+        """
+        if not self.config.enabled:
+            return "identity"
+
+        encodings = [algo.value for algo in self.config.algorithms]
+        return ", ".join(encodings)
 
     @staticmethod
     def _compress_gzip(data: bytes) -> bytes:

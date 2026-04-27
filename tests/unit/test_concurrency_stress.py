@@ -4,6 +4,10 @@ Tests race conditions, deadlocks, and resource exhaustion.
 Marked with @pytest.mark.stress to skip in CI by default.
 """
 
+import pytest
+
+pytestmark = pytest.mark.slow
+
 import asyncio
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
