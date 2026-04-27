@@ -1,9 +1,9 @@
 """Structured logging configuration."""
 
 import json
-from typing import Any, Dict
-from loguru import logger
 import sys
+
+from loguru import logger
 
 
 class StructuredLogger:

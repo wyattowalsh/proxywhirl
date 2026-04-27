@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import os
-import psutil
 from dataclasses import dataclass
 from typing import Optional
 
+import psutil
 from loguru import logger
 
 

@@ -1,9 +1,9 @@
 """Custom health check endpoints."""
 
-from typing import Callable, Optional, Dict, Any
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from typing import Callable, Dict, Optional
 
 
 class HealthStatus(str, Enum):

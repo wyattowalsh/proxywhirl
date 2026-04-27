@@ -1,8 +1,7 @@
 """Tests for CLI batch operations."""
 
-import pytest
 
-from proxywhirl.cli_batch import BatchOperation, FileBatchProcessor
+from proxywhirl.cli_batch import BatchOperation
 
 
 class TestBatchOperation:

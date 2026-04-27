@@ -7,8 +7,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Optional
 
-from loguru import logger
-
 
 @dataclass
 class LatencyMetrics:

@@ -1,7 +1,8 @@
 """Enhanced geolocation accuracy support."""
 
-from typing import Optional, Dict, List
 from dataclasses import dataclass
+from typing import Dict, List, Optional
+
 import httpx
 from loguru import logger
 

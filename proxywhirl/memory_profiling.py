@@ -1,9 +1,9 @@
 """Memory profiling utilities."""
 
 import tracemalloc
-from typing import Optional, Dict, List
-from dataclasses import dataclass
 from contextlib import contextmanager
+from dataclasses import dataclass
+from typing import Dict, List
 
 
 @dataclass

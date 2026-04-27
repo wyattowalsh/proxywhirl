@@ -1,9 +1,6 @@
 """OpenTelemetry Jaeger tracing integration."""
 
-from typing import Optional
 from dataclasses import dataclass
-from datetime import datetime
-
 
 try:
     from opentelemetry import trace

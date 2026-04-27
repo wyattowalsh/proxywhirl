@@ -1,7 +1,7 @@
 """HTTP/2 protocol support for proxies."""
 
-from typing import Optional
 from enum import Enum
+
 import httpx
 
 
@@ -34,7 +34,7 @@ class HTTP2Detector:
                     self.h1_only_proxies.add(proxy_url)
 
                 return h2_supported
-        except Exception as e:
+        except Exception:
             self.h1_only_proxies.add(proxy_url)
             return False
 

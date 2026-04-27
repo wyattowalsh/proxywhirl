@@ -1,11 +1,11 @@
 """Multiple export format support for proxy data."""
 
-from enum import Enum
-from typing import List, Optional, Dict, Any
-import json
 import csv
 import io
+import json
+from enum import Enum
 from pathlib import Path
+from typing import List, Optional
 
 try:
     import yaml

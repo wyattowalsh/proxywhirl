@@ -1,9 +1,9 @@
 """Notification and alerting system."""
 
-from typing import Callable, List, Optional
-from enum import Enum
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
+from typing import Callable, List, Optional
 
 
 class AlertSeverity(str, Enum):

@@ -1,10 +1,8 @@
 """Adaptive health checking based on performance metrics."""
 
-from typing import Optional
-from dataclasses import dataclass
-from datetime import datetime, timedelta
 from collections import deque
-from loguru import logger
+from dataclasses import dataclass
+from datetime import datetime
 
 
 @dataclass

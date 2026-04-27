@@ -1,11 +1,11 @@
 """Unit tests for clustering module."""
 
-import pytest
 from datetime import datetime, timedelta
+
 from proxywhirl.clustering import (
+    ClusterConfig,
     ClusterManager,
     ClusterNode,
-    ClusterConfig,
     ClusterRole,
     NodeStatus,
 )

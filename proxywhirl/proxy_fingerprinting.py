@@ -1,7 +1,8 @@
 """Proxy fingerprinting and blocking detection."""
 
-from typing import Optional, Dict
 from dataclasses import dataclass
+from typing import Optional
+
 import httpx
 from loguru import logger
 

@@ -240,4 +240,4 @@ class SourceWeightRegistry:
 
     def reset_stats(self) -> None:
         """Reset selection statistics."""
-        self.selection_counts = {name: 0 for name in self.sources}
+        self.selection_counts = dict.fromkeys(self.sources, 0)

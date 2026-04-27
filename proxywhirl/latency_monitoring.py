@@ -1,10 +1,9 @@
 """Latency monitoring and analysis."""
 
-from typing import Dict, List
-from dataclasses import dataclass, field
-from datetime import datetime, timedelta
-from collections import deque
 import statistics
+from collections import deque
+from dataclasses import dataclass
+from typing import Dict
 
 
 @dataclass

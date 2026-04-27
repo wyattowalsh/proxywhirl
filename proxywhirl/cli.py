@@ -3830,7 +3830,6 @@ def diagnose() -> None:
     """
     import platform
     import sqlite3
-    from datetime import datetime
 
     command_ctx = get_context()
     console = command_ctx.console
@@ -3950,7 +3949,6 @@ def diagnose() -> None:
     console.print("[bold cyan]Diagnostics Complete[/bold cyan]")
 
     if command_ctx.format == FormatterOutputFormat.JSON:
-        import json
 
         console.print_json(data=diagnostics)
 

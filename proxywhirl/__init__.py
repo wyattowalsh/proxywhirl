@@ -82,10 +82,6 @@ from proxywhirl.data_export import (
     ExportFormat,
     FileExporter,
 )
-from proxywhirl.diversity_metrics import (
-    DiversityAnalyzer,
-    DiversityMetrics,
-)
 from proxywhirl.data_persistence import (
     DataPersistence,
     PersistenceFormat,
@@ -115,6 +111,10 @@ from proxywhirl.deprecation import (
     DeprecationManager,
     deprecated,
     get_deprecation_manager,
+)
+from proxywhirl.diversity_metrics import (
+    DiversityAnalyzer,
+    DiversityMetrics,
 )
 from proxywhirl.docker_compose_config import (
     BuildContext,

@@ -1,8 +1,6 @@
 """OpenTelemetry metrics export."""
 
-from typing import Optional
 from dataclasses import dataclass
-
 
 try:
     from opentelemetry import metrics

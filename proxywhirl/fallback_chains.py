@@ -1,9 +1,11 @@
 """Fallback proxy chain support."""
 
-from typing import List, Optional
 from dataclasses import dataclass
-from proxywhirl.models import Proxy
+from typing import List, Optional
+
 from loguru import logger
+
+from proxywhirl.models import Proxy
 
 
 @dataclass
