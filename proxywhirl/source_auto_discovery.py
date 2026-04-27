@@ -48,9 +48,7 @@ class SourceDiscoveryEngine:
         self._discovery_handlers: dict[str, list[Callable]] = {}
         logger.debug("SourceDiscoveryEngine initialized")
 
-    def register_discovery_handler(
-        self, method: DiscoveryMethod, handler: Callable
-    ) -> None:
+    def register_discovery_handler(self, method: DiscoveryMethod, handler: Callable) -> None:
         """Register a discovery handler.
 
         Args:

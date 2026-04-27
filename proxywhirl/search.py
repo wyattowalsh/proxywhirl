@@ -55,7 +55,11 @@ class ProxySearch:
                 continue
 
             # Search in tags
-            if hasattr(proxy, "tags") and proxy.tags and any(query_lower in tag.lower() for tag in proxy.tags):
+            if (
+                hasattr(proxy, "tags")
+                and proxy.tags
+                and any(query_lower in tag.lower() for tag in proxy.tags)
+            ):
                 results.append(proxy)
                 continue
 

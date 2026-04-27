@@ -64,8 +64,10 @@ def is_valid_strategy(strategy: Any) -> bool:
     try:
         # Check for required methods
         required_methods = {"select", "reset", "get_stats"}
-        return all(hasattr(strategy, method) and callable(getattr(strategy, method))
-                   for method in required_methods)
+        return all(
+            hasattr(strategy, method) and callable(getattr(strategy, method))
+            for method in required_methods
+        )
     except Exception:
         return False
 

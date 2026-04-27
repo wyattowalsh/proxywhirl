@@ -69,6 +69,7 @@ class StatsCollector:
         """
         try:
             import sqlite3
+
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM proxy WHERE deleted_at IS NULL")
@@ -87,11 +88,10 @@ class StatsCollector:
         """
         try:
             import sqlite3
+
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT COUNT(DISTINCT source) FROM proxy WHERE deleted_at IS NULL"
-            )
+            cursor.execute("SELECT COUNT(DISTINCT source) FROM proxy WHERE deleted_at IS NULL")
             result = cursor.fetchone()
             conn.close()
             return result[0] if result else 0
@@ -107,6 +107,7 @@ class StatsCollector:
         """
         try:
             import sqlite3
+
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute(
@@ -129,6 +130,7 @@ class StatsCollector:
         """
         try:
             import sqlite3
+
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
             cursor.execute(
@@ -231,13 +233,7 @@ class BadgeGenerator:
                 # Insert after first h1
                 h1_idx = readme.find("#")
                 next_newline = readme.find("\n", h1_idx) + 1
-                readme = (
-                    readme[:next_newline]
-                    + "\n"
-                    + badge_section
-                    + "\n"
-                    + readme[next_newline:]
-                )
+                readme = readme[:next_newline] + "\n" + badge_section + "\n" + readme[next_newline:]
 
             Path(readme_path).write_text(readme)
             logger.info(f"Updated {readme_path} with statistics badges")
@@ -259,9 +255,7 @@ class BadgeGenerator:
             stats = {
                 "proxy_count": self.stats.get_proxy_count(),
                 "source_count": self.stats.get_source_count(),
-                "healthy_percentage": round(
-                    self.stats.get_healthy_proxy_percentage(), 2
-                ),
+                "healthy_percentage": round(self.stats.get_healthy_proxy_percentage(), 2),
                 "socks_coverage": self.stats.get_socks_coverage(),
             }
             Path(output_path).write_text(json.dumps(stats, indent=2))

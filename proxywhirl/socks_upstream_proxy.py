@@ -197,7 +197,5 @@ class UpstreamSOCKSProxyManager:
         return {
             "total_proxies": len(self._proxies),
             "healthy_proxies": len(self.get_healthy_proxies()),
-            "proxies": {
-                name: proxy.export_config() for name, proxy in self._proxies.items()
-            },
+            "proxies": {name: proxy.export_config() for name, proxy in self._proxies.items()},
         }

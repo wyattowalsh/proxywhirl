@@ -151,6 +151,7 @@ class TestEventLoopNesting:
     @pytest.mark.asyncio
     async def test_asyncio_ensure_future(self) -> None:
         """Test asyncio.ensure_future in running loop."""
+
         async def simple_coro() -> int:
             await asyncio.sleep(0.01)
             return 123
@@ -188,6 +189,7 @@ class TestFlakeIsolation:
     def test_no_global_state_pollution(self) -> None:
         """Test no global state pollution between tests."""
         import random
+
         seed = random.randint(0, 1000000)
         # Each test should not affect others
         assert seed >= 0
@@ -196,13 +198,13 @@ class TestFlakeIsolation:
     async def test_async_task_cleanup(self) -> None:
         """Test async tasks are cleaned up."""
         tasks_before = len(asyncio.all_tasks())
-        
+
         async def dummy() -> None:
             await asyncio.sleep(0.01)
 
         task = asyncio.create_task(dummy())
         await task
-        
+
         tasks_after = len(asyncio.all_tasks())
         # Task should be cleaned up
         assert tasks_after <= tasks_before + 1

@@ -376,12 +376,14 @@ class ProxyQuery:
             # Health filters
             if self.filters.get("healthy_only"):
                 from proxywhirl.models import HealthStatus
+
                 if getattr(proxy, "health_status", None) != HealthStatus.HEALTHY:
                     proxies.remove(proxy)
                     continue
 
             if self.filters.get("working_only"):
                 from proxywhirl.models import HealthStatus
+
                 if getattr(proxy, "health_status", None) == HealthStatus.DEAD:
                     proxies.remove(proxy)
                     continue

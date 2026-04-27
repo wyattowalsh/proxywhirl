@@ -150,9 +150,7 @@ class QuotaManager:
         )
         logger.debug(f"Quota registered for {entity_id}: {config.quota_type}")
 
-    def consume_quota(
-        self, entity_id: str, quota_type: QuotaType, amount: int = 1
-    ) -> bool:
+    def consume_quota(self, entity_id: str, quota_type: QuotaType, amount: int = 1) -> bool:
         """Consume quota for an entity.
 
         Args:
@@ -189,8 +187,7 @@ class QuotaManager:
 
         if limit and limit.warning_level(usage.current_usage):
             logger.info(
-                f"Quota warning for {entity_id}: {quota_type} "
-                f"at {usage.percentage_used():.1f}%"
+                f"Quota warning for {entity_id}: {quota_type} at {usage.percentage_used():.1f}%"
             )
 
         return True

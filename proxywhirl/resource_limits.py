@@ -79,7 +79,10 @@ class ResourceLimiter:
         usage_percent = self.get_memory_usage_percent()
 
         if usage_mb > self.limits.max_memory_mb:
-            return False, f"Memory limit exceeded: {usage_mb:.1f}MB / {self.limits.max_memory_mb:.1f}MB"
+            return (
+                False,
+                f"Memory limit exceeded: {usage_mb:.1f}MB / {self.limits.max_memory_mb:.1f}MB",
+            )
 
         if usage_percent > (self.limits.warn_threshold * 100):
             return True, f"Memory usage high: {usage_percent:.1f}% of limit"
@@ -118,7 +121,10 @@ class ResourceLimiter:
         percent = (self.open_connections / self.limits.max_open_connections) * 100
 
         if self.open_connections >= self.limits.max_open_connections:
-            return False, f"Connection limit exceeded: {self.open_connections}/{self.limits.max_open_connections}"
+            return (
+                False,
+                f"Connection limit exceeded: {self.open_connections}/{self.limits.max_open_connections}",
+            )
 
         if percent > (self.limits.warn_threshold * 100):
             return True, f"Connection usage high: {percent:.1f}%"
@@ -159,7 +165,10 @@ class ResourceLimiter:
         percent = (self.cache_size_bytes / max_bytes) * 100
 
         if self.cache_size_bytes > max_bytes:
-            return False, f"Cache size limit exceeded: {cache_mb:.1f}MB / {self.limits.max_cache_size_mb:.1f}MB"
+            return (
+                False,
+                f"Cache size limit exceeded: {cache_mb:.1f}MB / {self.limits.max_cache_size_mb:.1f}MB",
+            )
 
         if percent > (self.limits.warn_threshold * 100):
             return True, f"Cache usage high: {percent:.1f}%"

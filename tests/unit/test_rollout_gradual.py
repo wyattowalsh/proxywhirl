@@ -39,9 +39,7 @@ class TestRolloutConfig:
             RolloutPhase(name="canary", traffic_percentage=10.0),
             RolloutPhase(name="stable", traffic_percentage=100.0),
         ]
-        config = RolloutConfig(
-            name="test", strategy=RolloutStrategy.CANARY, phases=phases
-        )
+        config = RolloutConfig(name="test", strategy=RolloutStrategy.CANARY, phases=phases)
         assert config.name == "test"
         assert len(config.phases) == 2
 
@@ -51,9 +49,7 @@ class TestRolloutConfig:
             RolloutPhase(name="canary", traffic_percentage=10.0),
             RolloutPhase(name="stable", traffic_percentage=100.0),
         ]
-        config = RolloutConfig(
-            name="test", strategy=RolloutStrategy.CANARY, phases=phases
-        )
+        config = RolloutConfig(name="test", strategy=RolloutStrategy.CANARY, phases=phases)
         assert config.validate()
 
     def test_validate_no_phases(self):
@@ -64,9 +60,7 @@ class TestRolloutConfig:
     def test_validate_incomplete_rollout(self):
         """Test validating incomplete rollout."""
         phases = [RolloutPhase(name="canary", traffic_percentage=10.0)]
-        config = RolloutConfig(
-            name="test", strategy=RolloutStrategy.CANARY, phases=phases
-        )
+        config = RolloutConfig(name="test", strategy=RolloutStrategy.CANARY, phases=phases)
         assert not config.validate()
 
 
@@ -80,9 +74,7 @@ class TestRolloutManager:
             RolloutPhase(name="canary", traffic_percentage=10.0),
             RolloutPhase(name="stable", traffic_percentage=100.0),
         ]
-        config = RolloutConfig(
-            name="test", strategy=RolloutStrategy.CANARY, phases=phases
-        )
+        config = RolloutConfig(name="test", strategy=RolloutStrategy.CANARY, phases=phases)
         assert manager.create_rollout(config)
 
     def test_get_traffic_percentage(self):
@@ -92,9 +84,7 @@ class TestRolloutManager:
             RolloutPhase(name="canary", traffic_percentage=10.0),
             RolloutPhase(name="stable", traffic_percentage=100.0),
         ]
-        config = RolloutConfig(
-            name="test", strategy=RolloutStrategy.CANARY, phases=phases
-        )
+        config = RolloutConfig(name="test", strategy=RolloutStrategy.CANARY, phases=phases)
         manager.create_rollout(config)
         assert manager.get_traffic_percentage("test") == 10.0
 
@@ -105,9 +95,7 @@ class TestRolloutManager:
             RolloutPhase(name="canary", traffic_percentage=10.0),
             RolloutPhase(name="stable", traffic_percentage=100.0),
         ]
-        config = RolloutConfig(
-            name="test", strategy=RolloutStrategy.CANARY, phases=phases
-        )
+        config = RolloutConfig(name="test", strategy=RolloutStrategy.CANARY, phases=phases)
         manager.create_rollout(config)
         manager.record_request("test", success=True)
         status = manager.get_rollout_status("test")
@@ -120,9 +108,7 @@ class TestRolloutManager:
             RolloutPhase(name="canary", traffic_percentage=10.0),
             RolloutPhase(name="stable", traffic_percentage=100.0),
         ]
-        config = RolloutConfig(
-            name="test", strategy=RolloutStrategy.CANARY, phases=phases
-        )
+        config = RolloutConfig(name="test", strategy=RolloutStrategy.CANARY, phases=phases)
         manager.create_rollout(config)
         status = manager.get_rollout_status("test")
         assert status is not None

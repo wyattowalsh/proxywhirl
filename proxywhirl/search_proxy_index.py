@@ -54,9 +54,7 @@ class ProxySearchEngine:
         logger.info(f"Search index created: {name}")
         return True
 
-    def index_document(
-        self, index_name: str, doc_id: str, document: dict[str, Any]
-    ) -> bool:
+    def index_document(self, index_name: str, doc_id: str, document: dict[str, Any]) -> bool:
         """Index a document.
 
         Args:
@@ -109,11 +107,7 @@ class ProxySearchEngine:
             matches = self._inverted_index.get(token, set())
 
             if index_name:
-                matches = {
-                    doc_id
-                    for doc_id in matches
-                    if doc_id.startswith(f"{index_name}:")
-                }
+                matches = {doc_id for doc_id in matches if doc_id.startswith(f"{index_name}:")}
 
             if results is None:
                 results = matches.copy()
@@ -176,8 +170,7 @@ class ProxySearchEngine:
             "indexed_items": sum(idx.indexed_items for idx in self._indices.values()),
             "unique_tokens": len(self._inverted_index),
             "average_docs_per_token": (
-                sum(len(docs) for docs in self._inverted_index.values())
-                / len(self._inverted_index)
+                sum(len(docs) for docs in self._inverted_index.values()) / len(self._inverted_index)
                 if self._inverted_index
                 else 0
             ),

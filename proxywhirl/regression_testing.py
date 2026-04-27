@@ -156,7 +156,7 @@ class RegressionDetector:
         if is_regressed:
             logger.warning(
                 f"Performance regression detected: {test_name} "
-                f"({baseline_value} → {current_value} {unit}, {diff_percentage*100:.1f}%)"
+                f"({baseline_value} → {current_value} {unit}, {diff_percentage * 100:.1f}%)"
             )
         else:
             logger.debug(f"No regression: {test_name}")

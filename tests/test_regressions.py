@@ -48,6 +48,7 @@ class TestEdgeCases:
         """Regression: zero timeout should be rejected."""
         with pytest.raises(ValueError):
             from proxywhirl.query_builder import ProxyQuery
+
             ProxyQuery().with_max_latency_ms(0)  # type: ignore
 
 

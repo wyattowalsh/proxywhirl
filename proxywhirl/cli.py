@@ -3949,7 +3949,6 @@ def diagnose() -> None:
     console.print("[bold cyan]Diagnostics Complete[/bold cyan]")
 
     if command_ctx.format == FormatterOutputFormat.JSON:
-
         console.print_json(data=diagnostics)
 
 

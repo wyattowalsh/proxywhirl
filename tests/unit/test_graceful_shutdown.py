@@ -9,6 +9,8 @@ import time
 from contextlib import asynccontextmanager, contextmanager
 from typing import Any
 
+import pytest
+
 
 class GracefulShutdownManager:
     """Manages graceful shutdown of services."""
@@ -108,6 +110,7 @@ class TestGracefulShutdown:
     @pytest.mark.asyncio
     async def test_pending_task_tracking(self, shutdown_mgr) -> None:
         """Test pending task tracking."""
+
         async def slow_work() -> None:
             async with shutdown_mgr.track_async_work():
                 await asyncio.sleep(0.1)
@@ -121,6 +124,7 @@ class TestGracefulShutdown:
     @pytest.mark.asyncio
     async def test_wait_for_pending_completes(self, shutdown_mgr) -> None:
         """Test waiting for pending tasks."""
+
         async def quick_work() -> None:
             async with shutdown_mgr.track_async_work():
                 await asyncio.sleep(0.01)
@@ -134,7 +138,7 @@ class TestGracefulShutdown:
     async def test_wait_for_pending_timeout(self, shutdown_mgr) -> None:
         """Test timeout on pending tasks."""
         shutdown_mgr.timeout = 0.05
-        
+
         async def slow_work() -> None:
             async with shutdown_mgr.track_async_work():
                 await asyncio.sleep(10)
@@ -160,6 +164,7 @@ class TestGracefulShutdown:
     @pytest.mark.asyncio
     async def test_multiple_pending_tasks(self, shutdown_mgr) -> None:
         """Test multiple pending tasks."""
+
         async def work() -> None:
             async with shutdown_mgr.track_async_work():
                 await asyncio.sleep(0.01)
@@ -172,16 +177,14 @@ class TestGracefulShutdown:
     @pytest.mark.asyncio
     async def test_shutdown_state_propagation(self, shutdown_mgr) -> None:
         """Test shutdown state propagates."""
+
         async def check_shutdown_flag() -> bool:
             return shutdown_mgr.is_shutting_down
 
         # Before shutdown
         assert not await check_shutdown_flag()
-        
+
         shutdown_mgr.signal_shutdown()
-        
+
         # After shutdown
         assert await check_shutdown_flag()
-
-
-import pytest

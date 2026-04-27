@@ -70,7 +70,9 @@ CONFIG_KEY_TELEMETRY_ENABLED = "telemetry_enabled"
 REGEX_PROXY_URL = r"^(https?|socks[45]):\/\/([^:\/]+):(\d+)"
 REGEX_IP_ADDRESS = r"^(\d{1,3}\.){3}\d{1,3}$"
 REGEX_PORT_NUMBER = r"^\d{1,5}$"
-REGEX_HOSTNAME = r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
+REGEX_HOSTNAME = (
+    r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
+)
 REGEX_UUID = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 REGEX_EMAIL = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
 

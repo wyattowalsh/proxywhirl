@@ -1,6 +1,5 @@
 """Tests for CLI command history."""
 
-
 from proxywhirl.cli_history import CommandHistory
 
 

@@ -62,12 +62,18 @@ class RetryBudget:
 
         # Check per-request limit
         if attempt_count > self.max_retries_per_request:
-            return False, f"Max retries per request exceeded: {attempt_count}/{self.max_retries_per_request}"
+            return (
+                False,
+                f"Max retries per request exceeded: {attempt_count}/{self.max_retries_per_request}",
+            )
 
         # Check global budget
         if self.current_budget <= 0:
             self.stats.budget_exhausted_count += 1
-            return False, f"Retry budget exhausted: {self.current_budget}/{self.total_budget_per_minute}"
+            return (
+                False,
+                f"Retry budget exhausted: {self.current_budget}/{self.total_budget_per_minute}",
+            )
 
         return True, "Retry allowed"
 

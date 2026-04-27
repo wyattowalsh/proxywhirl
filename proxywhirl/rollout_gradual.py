@@ -184,15 +184,13 @@ class RolloutManager:
         if phase.success_threshold > 0 and state.get_success_rate() < phase.success_threshold:
             logger.warning(
                 f"Rollout {name} failed success threshold "
-                f"({state.get_success_rate():.1f}% < {phase.success_threshold*100:.0f}%)"
+                f"({state.get_success_rate():.1f}% < {phase.success_threshold * 100:.0f}%)"
             )
             return False
 
         # Check duration if specified
         if phase.duration_seconds:
-            elapsed = (
-                datetime.now(timezone.utc) - state.phase_started_at
-            ).total_seconds()
+            elapsed = (datetime.now(timezone.utc) - state.phase_started_at).total_seconds()
             if elapsed < phase.duration_seconds:
                 return False
 
@@ -213,9 +211,7 @@ class RolloutManager:
         state = self._states[name]
         state.current_phase += 1
         state.phase_started_at = datetime.now(timezone.utc)
-        logger.info(
-            f"Rollout {name} advanced to phase {state.current_phase}"
-        )
+        logger.info(f"Rollout {name} advanced to phase {state.current_phase}")
         return True
 
     def record_request(self, name: str, success: bool) -> None:

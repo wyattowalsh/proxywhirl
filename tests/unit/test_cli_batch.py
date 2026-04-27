@@ -1,6 +1,5 @@
 """Tests for CLI batch operations."""
 
-
 from proxywhirl.cli_batch import BatchOperation
 
 

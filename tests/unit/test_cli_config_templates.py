@@ -1,6 +1,5 @@
 """Tests for CLI config templates."""
 
-
 from proxywhirl.cli_config_templates import ConfigTemplate, ConfigTemplateManager
 
 
