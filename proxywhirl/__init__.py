@@ -19,8 +19,57 @@ from proxywhirl.cache.models import (
 from proxywhirl.cache.models import (
     HealthStatus as CacheHealthStatus,
 )
+from proxywhirl.audit_trail import AuditAction, AuditEntry, AuditTrail
 from proxywhirl.circuit_breaker import AsyncCircuitBreaker, CircuitBreaker, CircuitBreakerState
+from proxywhirl.compression import (
+    CompressionAlgorithm,
+    CompressionConfig,
+    CompressionLevel,
+    CompressionManager,
+    parse_content_encoding,
+)
 from proxywhirl.config import DataStorageConfig
+from proxywhirl.custom_headers import (
+    HeaderConfig,
+    HeaderManager,
+    HeaderPolicy,
+    HeaderTemplate,
+    RateLimitHeaderPolicy,
+    SecurityHeaderPolicy,
+    UserAgentPolicy,
+)
+from proxywhirl.db_backup import BackupInfo, DatabaseBackup
+from proxywhirl.datasource_poller import (
+    DatasourcePoller,
+    PollingConfig,
+    PollingStats,
+    PollingStrategy,
+)
+from proxywhirl.datasource_webhooks import (
+    WebhookConfig,
+    WebhookEvent,
+    WebhookManager,
+    WebhookPayload,
+)
+from proxywhirl.deadletter_queue import (
+    DeadLetterEntry,
+    DeadLetterQueue,
+    FailureReason,
+)
+from proxywhirl.deprecation import (
+    DeprecationInfo,
+    DeprecationManager,
+    deprecated,
+    get_deprecation_manager,
+)
+from proxywhirl.health_check import (
+    CompositeHealthChecker,
+    HealthCheckResult,
+    HealthChecker,
+    HealthStatus as HealthCheckStatus,
+    SimpleHealthCheck,
+    ThresholdHealthCheck,
+)
 from proxywhirl.events import (
     Event,
     EventBus,
@@ -227,6 +276,53 @@ __all__: list[str] = [
     # Configuration
     "BootstrapConfig",
     "DataStorageConfig",
+    # Audit Trail
+    "AuditTrail",
+    "AuditEntry",
+    "AuditAction",
+    # Database Backup
+    "DatabaseBackup",
+    "BackupInfo",
+    # Datasource Components
+    "DatasourcePoller",
+    "PollingConfig",
+    "PollingStats",
+    "PollingStrategy",
+    # Dead-Letter Queue
+    "DeadLetterQueue",
+    "DeadLetterEntry",
+    "FailureReason",
+    # Compression
+    "CompressionManager",
+    "CompressionConfig",
+    "CompressionAlgorithm",
+    "CompressionLevel",
+    "parse_content_encoding",
+    # Custom Headers
+    "HeaderManager",
+    "HeaderConfig",
+    "HeaderTemplate",
+    "HeaderPolicy",
+    "UserAgentPolicy",
+    "RateLimitHeaderPolicy",
+    "SecurityHeaderPolicy",
+    # Webhooks
+    "WebhookManager",
+    "WebhookConfig",
+    "WebhookPayload",
+    "WebhookEvent",
+    # Deprecation
+    "deprecated",
+    "DeprecationInfo",
+    "DeprecationManager",
+    "get_deprecation_manager",
+    # Health Checks
+    "HealthCheckStatus",
+    "HealthCheckResult",
+    "HealthChecker",
+    "CompositeHealthChecker",
+    "SimpleHealthCheck",
+    "ThresholdHealthCheck",
     # Retry & Failover Components
     "RetryPolicy",
     "BackoffStrategy",

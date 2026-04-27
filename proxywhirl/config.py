@@ -1,14 +1,17 @@
 """Configuration management for ProxyWhirl CLI.
 
 This module handles TOML configuration discovery, loading, saving, and credential encryption
-for the CLI interface.
+for the CLI interface. Supports environment variable expansion, hot-reloading, and JSON schema
+generation for validation.
 """
 
 from __future__ import annotations
 
 import os
+import re
+import time
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from cryptography.fernet import Fernet
 from loguru import logger
@@ -26,6 +29,127 @@ import tomli_w
 from platformdirs import user_config_dir
 
 VALID_ROTATION_STRATEGIES = set(BUILTIN_STRATEGY_CLASSES)
+
+
+def expand_env_vars(value: str) -> str:
+    """Expand environment variables in string values.
+
+    Supports both ${VAR} and $VAR syntax (POSIX style).
+    Raises ValueError if referenced variable is not set.
+
+    Args:
+        value: String potentially containing ${VAR} or $VAR patterns
+
+    Returns:
+        String with all env vars expanded
+
+    Raises:
+        ValueError: If a referenced env var is not set
+    """
+    if not isinstance(value, str):
+        return value
+
+    # Match ${VAR} or ${VAR:default} patterns
+    def replace_braced(match: re.Match[str]) -> str:
+        var_name = match.group(1)
+        default = match.group(2)
+        return os.environ.get(var_name, default or "")
+
+    result = re.sub(r"\$\{([^}:]+)(?::([^}]*))?\}", replace_braced, value)
+
+    # Match $VAR pattern (alphanumeric + underscore only)
+    def replace_bare(match: re.Match[str]) -> str:
+        var_name = match.group(1)
+        if var_name not in os.environ:
+            raise ValueError(f"Environment variable {var_name} not set and no default provided")
+        return os.environ[var_name]
+
+    result = re.sub(r"\$([A-Za-z_][A-Za-z0-9_]*)", replace_bare, result)
+
+    return result
+
+
+def expand_env_vars_recursive(data: Any) -> Any:
+    """Recursively expand environment variables in config data.
+
+    Args:
+        data: Config dict/list/value to expand
+
+    Returns:
+        Config with env vars expanded
+    """
+    if isinstance(data, dict):
+        return {k: expand_env_vars_recursive(v) for k, v in data.items()}
+    if isinstance(data, list):
+        return [expand_env_vars_recursive(item) for item in data]
+    if isinstance(data, str):
+        return expand_env_vars(data)
+    return data
+
+
+class ConfigWatcher:
+    """Watch config file for changes and trigger reload callbacks.
+
+    Supports debouncing to avoid multiple reloads for rapid file changes.
+    """
+
+    def __init__(self, path: Path, debounce_ms: int = 500):
+        """Initialize config watcher.
+
+        Args:
+            path: Path to config file to watch
+            debounce_ms: Debounce interval in milliseconds
+        """
+        self.path = path
+        self.debounce_ms = debounce_ms
+        self._last_mtime = self.path.stat().st_mtime if path.exists() else 0
+        self._last_check_time = time.time()
+        self._callbacks: list[callable] = []
+
+    def add_callback(self, callback: callable) -> None:
+        """Register a callback to run when config changes.
+
+        Args:
+            callback: Callable that accepts no arguments
+        """
+        self._callbacks.append(callback)
+
+    def check_reload(self) -> bool:
+        """Check if config file has changed.
+
+        Returns:
+            True if file was modified (within debounce window)
+        """
+        if not self.path.exists():
+            return False
+
+        now = time.time()
+        current_mtime = self.path.stat().st_mtime
+
+        # First, check if file actually changed
+        if current_mtime <= self._last_mtime:
+            # File hasn't changed
+            return False
+
+        # File changed, now check debounce
+        elapsed_ms = (now - self._last_check_time) * 1000
+
+        if elapsed_ms < self.debounce_ms:
+            # Still within debounce window
+            return False
+
+        # File changed and debounce window has passed
+        self._last_mtime = current_mtime
+        self._last_check_time = now
+        return True
+
+    def trigger_callbacks(self) -> None:
+        """Trigger all registered callbacks."""
+        for callback in self._callbacks:
+            try:
+                callback()
+            except Exception as e:
+                logger.error(f"Error in config reload callback: {e}")
 
 
 class DataStorageConfig(BaseModel):
@@ -211,7 +335,10 @@ class CLIConfig(BaseModel):
     )
     rate_limit_per_ip: str = Field(
         "100/minute",
-        description="Rate limit per IP address when no API key provided (format: 'N/minute' or 'N/hour')",
+        description=(
+            "Rate limit per IP address when no API key provided "
+            "(format: 'N/minute' or 'N/hour')"
+        ),
     )
 
     # Data Storage Configuration
@@ -247,6 +374,37 @@ class CLIConfig(BaseModel):
         """Pydantic config."""
 
         use_enum_values = True
+
+
+def generate_config_schema() -> dict[str, Any]:
+    """Generate JSON schema for CLIConfig validation.
+
+    Returns:
+        JSON schema dict that validates against CLIConfig structure
+
+    Example:
+        schema = generate_config_schema()
+        from jsonschema import validate
+        validate(config_dict, schema)
+    """
+    return CLIConfig.model_json_schema()
+
+
+def validate_config_dict(config_dict: dict[str, Any]) -> tuple[bool, list[str]]:
+    """Validate a configuration dictionary against schema.
+
+    Args:
+        config_dict: Configuration data to validate
+
+    Returns:
+        Tuple of (is_valid, error_messages)
+    """
+    try:
+        CLIConfig(**config_dict)
+        return True, []
+    except Exception as e:
+        errors = str(e).split("\n") if "\n" in str(e) else [str(e)]
+        return False, errors
 
 
 def discover_config(explicit_path: Path | None = None) -> Path | None:
@@ -310,6 +468,13 @@ def load_config(path: Path | None = None) -> CLIConfig:
         config_data = data["tool"]["proxywhirl"]
     else:
         config_data = data
+
+    # Expand environment variables in config data
+    try:
+        config_data = expand_env_vars_recursive(config_data)
+    except ValueError as e:
+        logger.warning(f"Environment variable expansion in {path} failed: {e}")
+        raise
 
     # Decrypt credentials if needed
     config = CLIConfig(**config_data)

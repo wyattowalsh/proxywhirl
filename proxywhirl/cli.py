@@ -1,7 +1,7 @@
 """Command-line interface for ProxyWhirl.
 
 This module provides a Typer-based CLI for proxy rotation operations.
-Supports multiple output formats (text, JSON, CSV) with TTY-aware rendering.
+Supports multiple output formats (text, JSON, CSV, YAML) with TTY-aware rendering.
 """
 
 from __future__ import annotations
@@ -10,7 +10,6 @@ import ipaddress
 import socket
 import sys
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -21,6 +20,7 @@ from rich.console import Console
 from rich.table import Table
 
 from proxywhirl.config import CLIConfig, discover_config, load_config
+from proxywhirl.formatters import OutputFormat as FormatterOutputFormat
 from proxywhirl.models import RequestResult
 from proxywhirl.types import BatchAction, ConfigAction, PoolAction
 from proxywhirl.utils import CLILock, mask_proxy_url
@@ -32,15 +32,6 @@ app = typer.Typer(
     add_completion=True,
     no_args_is_help=True,
 )
-
-
-class OutputFormat(str, Enum):
-    """Supported output formats for CLI commands."""
-
-    TEXT = "text"
-    JSON = "json"
-    CSV = "csv"
-    YAML = "yaml"
 
 
 @dataclass
@@ -58,7 +49,7 @@ class CommandContext:
 
     config: CLIConfig
     config_path: Path
-    format: OutputFormat
+    format: FormatterOutputFormat
     verbose: bool
     console: Console
     lock: CLILock | None = None
@@ -260,8 +251,8 @@ def main(
         dir_okay=False,
         resolve_path=True,
     ),
-    format: OutputFormat = typer.Option(
-        OutputFormat.TEXT,
+    format: FormatterOutputFormat = typer.Option(
+        FormatterOutputFormat.TEXT,
         "--format",
         "-f",
         help="Output format (text/json/csv/yaml)",
@@ -303,7 +294,7 @@ def main(
 
     # Initialize console with TTY detection
     console = Console(
-        force_terminal=format == OutputFormat.TEXT,
+        force_terminal=format == FormatterOutputFormat.TEXT,
         force_interactive=False,
         force_jupyter=False,
     )
@@ -417,13 +408,13 @@ def render_output(context: CommandContext, data: dict[str, Any]) -> None:
         context: Command context with format settings
         data: Data to render
     """
-    if context.format == OutputFormat.TEXT:
+    if context.format == FormatterOutputFormat.TEXT:
         render_text(context.console, data)
-    elif context.format == OutputFormat.JSON:
+    elif context.format == FormatterOutputFormat.JSON:
         render_json(data)
-    elif context.format == OutputFormat.CSV:
+    elif context.format == FormatterOutputFormat.CSV:
         render_csv(data)
-    elif context.format == OutputFormat.YAML:
+    elif context.format == FormatterOutputFormat.YAML:
         render_yaml(data)
 
 
@@ -545,7 +536,7 @@ def request(
             )
 
             # Render output based on format
-            if ctx.format == OutputFormat.TEXT:
+            if ctx.format == FormatterOutputFormat.TEXT:
                 # Human-readable output
                 status_color = "green" if result.is_success() else "red"
                 ctx.console.print(
@@ -561,7 +552,7 @@ def request(
                 if result.body:
                     ctx.console.print("\n[bold]Response:[/bold]")
                     ctx.console.print(result.body)
-            elif ctx.format == OutputFormat.JSON:
+            elif ctx.format == FormatterOutputFormat.JSON:
                 output: dict[str, Any] = {
                     "status_code": result.status_code,
                     "url": result.url,
@@ -572,7 +563,7 @@ def request(
                     "body": result.body,
                 }
                 render_json(output)
-            elif ctx.format == OutputFormat.CSV:
+            elif ctx.format == FormatterOutputFormat.CSV:
                 output_csv: dict[str, Any] = {
                     "table": {
                         "headers": ["Status", "URL", "Time(ms)", "Proxy", "Attempts"],
@@ -692,9 +683,9 @@ def pool(
             proxies=proxy_statuses,
         )
 
-        if command_ctx.format == OutputFormat.JSON:
+        if command_ctx.format == FormatterOutputFormat.JSON:
             render_json(summary.model_dump())
-        elif command_ctx.format == OutputFormat.CSV:
+        elif command_ctx.format == FormatterOutputFormat.CSV:
             # For CSV, output each proxy as a row
             import csv
             import sys
@@ -841,15 +832,15 @@ def pool(
             "rotation_strategy": command_ctx.config.rotation_strategy,
         }
 
-        if command_ctx.format == OutputFormat.JSON:
+        if command_ctx.format == FormatterOutputFormat.JSON:
             render_json(stats_data)
-        elif command_ctx.format == OutputFormat.CSV:
+        elif command_ctx.format == FormatterOutputFormat.CSV:
             import csv
 
             writer = csv.DictWriter(sys.stdout, fieldnames=stats_data.keys())
             writer.writeheader()
             writer.writerow(stats_data)
-        elif command_ctx.format == OutputFormat.YAML:
+        elif command_ctx.format == FormatterOutputFormat.YAML:
             render_yaml(stats_data)
         else:  # TEXT
             command_ctx.console.print("\n[bold]Pool Statistics[/bold]")
@@ -905,11 +896,11 @@ def config(
 
     elif action == "show":
         # Show entire config
-        if command_ctx.format == OutputFormat.JSON:
+        if command_ctx.format == FormatterOutputFormat.JSON:
             # Exclude sensitive fields
             config_dict = command_ctx.config.model_dump(mode="json", exclude={"proxies"})
             render_json(config_dict)
-        elif command_ctx.format == OutputFormat.CSV:
+        elif command_ctx.format == FormatterOutputFormat.CSV:
             # CSV format - show as key-value pairs
             import csv
             import sys
@@ -949,7 +940,7 @@ def config(
             raise typer.Exit(code=1)
 
         value_obj = getattr(command_ctx.config, key)
-        if command_ctx.format == OutputFormat.JSON:
+        if command_ctx.format == FormatterOutputFormat.JSON:
             render_json({key: value_obj})
         else:
             command_ctx.console.print(str(value_obj))
@@ -1039,7 +1030,7 @@ def export(
         )
 
         # Report results
-        if command_ctx.format == OutputFormat.JSON:
+        if command_ctx.format == FormatterOutputFormat.JSON:
             render_json({"exports": {k: str(v) for k, v in outputs.items()}})
         else:
             command_ctx.console.print(f"[green]✓[/green] Export completed to {output}")
@@ -1396,7 +1387,7 @@ def _display_summary(
         proxies: List of fetched Proxy objects
         no_validate: Whether validation was skipped
     """
-    if context.format == OutputFormat.JSON:
+    if context.format == FormatterOutputFormat.JSON:
         render_json(
             {
                 "total": len(proxies),
@@ -1714,9 +1705,9 @@ def stats(
         }
 
     # Render output
-    if command_ctx.format == OutputFormat.JSON:
+    if command_ctx.format == FormatterOutputFormat.JSON:
         render_json(output_data)
-    elif command_ctx.format == OutputFormat.CSV:
+    elif command_ctx.format == FormatterOutputFormat.CSV:
         # For CSV, flatten to table format
         if show_retry and "retry" in output_data:
             data = output_data["retry"]
@@ -1788,7 +1779,7 @@ def setup_geoip(
         # Check if database is available
         available = is_geoip_available()
 
-        if command_ctx.format == OutputFormat.JSON:
+        if command_ctx.format == FormatterOutputFormat.JSON:
             render_json({"available": available})
         else:
             if available:
@@ -1798,7 +1789,7 @@ def setup_geoip(
 
     else:
         # Show installation instructions
-        if command_ctx.format == OutputFormat.JSON:
+        if command_ctx.format == FormatterOutputFormat.JSON:
             render_json(
                 {
                     "instructions": "Download MaxMind GeoLite2 database",
@@ -1966,9 +1957,9 @@ def health(
             proxies=results,
         )
 
-        if command_ctx.format == OutputFormat.JSON:
+        if command_ctx.format == FormatterOutputFormat.JSON:
             render_json(summary.model_dump())
-        elif command_ctx.format == OutputFormat.CSV:
+        elif command_ctx.format == FormatterOutputFormat.CSV:
             import csv
             import sys
 
@@ -2355,7 +2346,7 @@ def audit(
     )
 
     # Output JSON format for CI
-    if command_ctx.format == OutputFormat.JSON:
+    if command_ctx.format == FormatterOutputFormat.JSON:
         render_json(
             {
                 "total_sources": len(audit_results),
@@ -2699,7 +2690,7 @@ def db_stats(
         command_ctx.console.print(f"[red]Error loading stats:[/red] {e}")
         raise typer.Exit(code=1) from e
 
-    if command_ctx.format == OutputFormat.JSON:
+    if command_ctx.format == FormatterOutputFormat.JSON:
         render_json(stats)
     else:
         table = Table(title="Proxy Database Statistics")
@@ -2806,7 +2797,7 @@ def cleanup(
         command_ctx.console.print(f"[red]Cleanup failed:[/red] {e}")
         raise typer.Exit(code=1) from e
 
-    if command_ctx.format == OutputFormat.JSON:
+    if command_ctx.format == FormatterOutputFormat.JSON:
         render_json(result)
     else:
         if result["executed"]:
@@ -2839,8 +2830,8 @@ def discover(
         "-t",
         help="Filter by proxy type (http, socks4, socks5, api)",
     ),
-    format: OutputFormat = typer.Option(
-        OutputFormat.TEXT,
+    format: FormatterOutputFormat = typer.Option(
+        FormatterOutputFormat.TEXT,
         "--format",
         "-f",
         case_sensitive=False,
@@ -2905,9 +2896,9 @@ def discover(
             }
         )
 
-    if format == OutputFormat.JSON:
+    if format == FormatterOutputFormat.JSON:
         render_json(source_data)
-    elif format == OutputFormat.CSV:
+    elif format == FormatterOutputFormat.CSV:
         render_csv(
             {
                 "table": {
@@ -2925,7 +2916,7 @@ def discover(
                 }
             }
         )
-    elif format == OutputFormat.YAML:
+    elif format == FormatterOutputFormat.YAML:
         render_yaml(source_data)
     else:  # TEXT
         table = Table(title=f"Proxy Sources ({len(source_data)} total)")
@@ -3128,16 +3119,16 @@ def batch(
         "error_count": len(results["errors"]),
     }
 
-    if command_ctx.format == OutputFormat.JSON:
+    if command_ctx.format == FormatterOutputFormat.JSON:
         render_json(output_data)
-    elif command_ctx.format == OutputFormat.CSV:
+    elif command_ctx.format == FormatterOutputFormat.CSV:
         import csv
         import sys
 
         writer = csv.DictWriter(sys.stdout, fieldnames=output_data.keys())
         writer.writeheader()
         writer.writerow(output_data)
-    elif command_ctx.format == OutputFormat.YAML:
+    elif command_ctx.format == FormatterOutputFormat.YAML:
         render_yaml(output_data)
     else:  # TEXT
         command_ctx.console.print(f"\n[bold]Batch {action.upper()} Results[/bold]")
@@ -3199,7 +3190,7 @@ def sources_discover(
         # Limit results
         filtered_sources = filtered_sources[:max_results]
 
-        if command_ctx.format == OutputFormat.JSON:
+        if command_ctx.format == FormatterOutputFormat.JSON:
             data = [
                 {
                     "name": s.name,
@@ -3245,7 +3236,7 @@ def list_formats(
         "pac": "Proxy Auto-Config JavaScript",
     }
 
-    if command_ctx.format == OutputFormat.JSON:
+    if command_ctx.format == FormatterOutputFormat.JSON:
         render_json(formats)
     else:
         command_ctx.console.print("\n[bold]Available Export Formats[/bold]\n")
@@ -3293,7 +3284,7 @@ def pool_statistics(
                 )
             stats["proxies"] = proxy_stats
 
-        if command_ctx.format == OutputFormat.JSON:
+        if command_ctx.format == FormatterOutputFormat.JSON:
             render_json(stats)
         else:
             command_ctx.console.print("\n[bold]Pool Statistics[/bold]")
@@ -3383,7 +3374,7 @@ def list_proxies(
 
         proxies = proxies[:limit]
 
-        if command_ctx.format == OutputFormat.JSON:
+        if command_ctx.format == FormatterOutputFormat.JSON:
             data = [
                 {
                     "proxy": p.proxy_string,
@@ -3396,7 +3387,7 @@ def list_proxies(
                 for p in proxies
             ]
             render_json({"proxies": data, "count": len(proxies)})
-        elif command_ctx.format == OutputFormat.CSV:
+        elif command_ctx.format == FormatterOutputFormat.CSV:
             import csv
 
             writer = csv.writer(sys.stdout)
@@ -3513,7 +3504,7 @@ def validate_proxy(
                 "target_url": target_url,
             }
 
-            if command_ctx.format == OutputFormat.JSON:
+            if command_ctx.format == FormatterOutputFormat.JSON:
                 render_json(result)
             else:
                 if response.status_code < 400:
@@ -3530,7 +3521,7 @@ def validate_proxy(
                 "error": str(e),
                 "reason": "Connection failed",
             }
-            if command_ctx.format == OutputFormat.JSON:
+            if command_ctx.format == FormatterOutputFormat.JSON:
                 render_json(result)
             else:
                 command_ctx.console.print(f"[red]✗ Proxy connection failed: {e}[/red]")
@@ -3542,7 +3533,7 @@ def validate_proxy(
                 "error": str(e),
                 "reason": "Timeout",
             }
-            if command_ctx.format == OutputFormat.JSON:
+            if command_ctx.format == FormatterOutputFormat.JSON:
                 render_json(result)
             else:
                 command_ctx.console.print(f"[red]✗ Proxy timeout after {timeout}s[/red]")
@@ -3662,7 +3653,7 @@ def import_proxies(
         if errors and command_ctx.verbose:
             result["errors"] = errors
 
-        if command_ctx.format == OutputFormat.JSON:
+        if command_ctx.format == FormatterOutputFormat.JSON:
             render_json(result)
         else:
             command_ctx.console.print("[green]✓ Import completed[/green]")
@@ -3685,6 +3676,7 @@ def shell() -> None:
     """
     import cmd
     import shlex
+    from pathlib import Path
 
     from proxywhirl.models import HealthStatus
 
@@ -3698,6 +3690,50 @@ def shell() -> None:
 Type [bold]help[/bold] for commands. Type [bold]exit[/bold] or [bold]quit[/bold] to exit.
         """
         prompt = "proxywhirl> "
+        history_file = Path.home() / ".proxywhirl_history"
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.history_list: list[str] = []
+            self._load_history()
+
+        def _load_history(self) -> None:
+            """Load command history from file."""
+            if self.history_file.exists():
+                try:
+                    with open(self.history_file) as f:
+                        self.history_list = [line.rstrip("\n") for line in f.readlines()]
+                except Exception:
+                    pass
+
+        def _save_history(self) -> None:
+            """Save command history to file."""
+            try:
+                with open(self.history_file, "a") as f:
+                    if self.history_list:
+                        f.write(self.history_list[-1] + "\n")
+            except Exception:
+                pass
+
+        def do_history(self, arg: str) -> None:
+            """Search command history: history [search_term]"""
+            if arg:
+                matches = [cmd for cmd in self.history_list if arg.lower() in cmd.lower()]
+                if matches:
+                    for i, cmd_str in enumerate(matches[-10:], 1):
+                        command_ctx.console.print(f"[cyan]{i}[/cyan] {cmd_str}")
+                else:
+                    command_ctx.console.print("[yellow]No matching commands in history[/yellow]")
+            else:
+                for i, cmd_str in enumerate(self.history_list[-20:], 1):
+                    command_ctx.console.print(f"[cyan]{i}[/cyan] {cmd_str}")
+
+        def onecmd_plus_hooks(self, line: str) -> bool:
+            """Override to save commands in history."""
+            if line and not line.startswith("?") and not line.startswith("#"):
+                self.history_list.append(line)
+                self._save_history()
+            return super().onecmd_plus_hooks(line)
 
         def do_list(self, arg: str) -> None:
             """List proxies: list [status] [--limit N]"""
@@ -3790,6 +3826,7 @@ Type [bold]help[/bold] for commands. Type [bold]exit[/bold] or [bold]quit[/bold]
   stats                       - Show pool statistics
   rotate                      - Get next proxy
   validate <url>              - Validate proxy
+  history [search_term]       - Search command history
   exit, quit                  - Exit shell
   help [command]              - Show help
                 """

@@ -7,545 +7,401 @@ Thank you for your interest in contributing to ProxyWhirl! This document provide
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
 - [Development Setup](#development-setup)
-- [Code Style Guidelines](#code-style-guidelines)
-- [Testing Requirements](#testing-requirements)
+- [Making Changes](#making-changes)
+- [Testing](#testing)
+- [Code Style](#code-style)
+- [Committing Changes](#committing-changes)
 - [Pull Request Process](#pull-request-process)
-- [Commit Message Format](#commit-message-format)
-- [Project Structure](#project-structure)
-- [Running the Test Suite](#running-the-test-suite)
+- [Reporting Issues](#reporting-issues)
 
 ## Code of Conduct
 
-This project follows a standard code of conduct. Please be respectful and constructive in all interactions.
+Be respectful, inclusive, and professional in all interactions with other contributors and maintainers.
 
 ## Getting Started
 
-Before you begin:
-1. Check existing [issues](https://github.com/wyattowalsh/proxywhirl/issues) and [pull requests](https://github.com/wyattowalsh/proxywhirl/pulls)
-2. For major changes, open an issue first to discuss your proposal
-3. Fork the repository and create a feature branch
+1. **Fork the repository** on GitHub
+2. **Clone your fork locally**:
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/proxywhirl.git
+   cd proxywhirl
+   ```
+3. **Add upstream remote**:
+   ```bash
+   git remote add upstream https://github.com/wyattowalsh/proxywhirl.git
+   ```
+4. **Keep your fork synced**:
+   ```bash
+   git fetch upstream
+   git checkout develop
+   git merge upstream/develop
+   ```
 
 ## Development Setup
 
-ProxyWhirl uses `uv` for fast, reliable dependency management. Follow these steps to set up your development environment:
-
 ### Prerequisites
 
-- Python 3.9 or higher (3.9, 3.10, 3.11, 3.12, 3.13 supported)
-- `uv` package manager
+- Python 3.9+
+- `uv` package manager (install from https://github.com/astral-sh/uv)
 
-### Install uv
-
-```bash
-# macOS/Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Windows
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-# Or via pip
-pip install uv
-```
-
-### Clone and Setup
+### Install Dependencies
 
 ```bash
-# Clone your fork
-git clone https://github.com/YOUR_USERNAME/proxywhirl.git
-cd proxywhirl
-
-# Sync dependencies (creates venv and installs packages)
 uv sync
-
-# Verify installation
-uv run python -c "import proxywhirl; print('Success!')"
+pre-commit install
 ```
 
-This will:
-- Create a virtual environment in `.venv/`
-- Install all dependencies from `pyproject.toml`
-- Install proxywhirl in editable mode
+This installs all dependencies and sets up git hooks for pre-commit checks.
 
-### Optional: Install Browser Support
+## Making Changes
 
-For browser rendering features (Phase 2.5):
+### Branching Strategy
 
+Branch from `develop` using the naming convention:
+- Feature: `feature/<description>`
+- Bug fix: `fix/<description>`
+- Docs: `docs/<description>`
+- Refactor: `refactor/<description>`
+
+Example:
 ```bash
-uv pip install ".[js]"
-uv run playwright install chromium
+git checkout -b feature/add-socks-support develop
 ```
 
-## Code Style Guidelines
+### Code Changes
 
-ProxyWhirl follows strict code quality standards. All code must pass linting and type checking before being merged.
+#### Type Hints
 
-### Formatting and Linting
-
-We use `ruff` for both linting and formatting:
-
-```bash
-# Check for linting issues
-uv run -- ruff check .
-
-# Auto-fix linting issues (safe fixes only)
-uv run -- ruff check . --fix
-
-# Format code
-uv run -- ruff format .
-
-# Check formatting without changing files
-uv run -- ruff format . --check
-```
-
-### Type Checking
-
-We use `ty` (Astral's fast type checker) for type safety:
-
-```bash
-# Run type checking
-uv run ty check proxywhirl/
-
-# Type check specific file
-uv run ty check proxywhirl/rotator.py
-```
-
-### Code Style Rules
-
-1. **Type Hints**: All functions must have type hints
-   ```python
-   # Good
-   def add_proxy(self, proxy: Proxy | str) -> None:
-       pass
-
-   # Bad
-   def add_proxy(self, proxy):
-       pass
-   ```
-
-2. **Modern Python Syntax**: Use Python 3.9+ features
-   ```python
-   # Good (Python 3.9+)
-   def get_proxies(self) -> list[Proxy]:
-       pass
-
-   # Bad (old style)
-   from typing import List
-   def get_proxies(self) -> List[Proxy]:
-       pass
-   ```
-
-3. **Docstrings**: Use Google-style docstrings for all public APIs
-   ```python
-   def validate_proxy(self, proxy: Proxy) -> bool:
-       """Validate a proxy for connectivity and anonymity.
-
-       Args:
-           proxy: The proxy to validate
-
-       Returns:
-           True if proxy is valid and healthy
-
-       Raises:
-           ValidationError: If proxy URL is malformed
-       """
-   ```
-
-4. **Line Length**: Maximum 100 characters
-
-5. **Imports**: Organize imports in order (stdlib, third-party, local)
-   ```python
-   # Good
-   import asyncio
-   from datetime import datetime
-
-   import httpx
-   from pydantic import BaseModel
-
-   from proxywhirl.models import Proxy
-   ```
-
-## Testing Requirements
-
-All contributions must include tests. ProxyWhirl maintains >80% code coverage.
-
-### Writing Tests
-
-Tests are organized by type:
-- `tests/unit/` - Unit tests for individual functions/classes
-- `tests/integration/` - Integration tests for component interactions
-- `tests/benchmarks/` - Performance benchmarks
-
-Example test:
+Always add type hints to public functions and classes:
 
 ```python
-import pytest
-from proxywhirl import ProxyRotator, Proxy
+from __future__ import annotations
 
-
-def test_add_proxy():
-    """Test adding a proxy to the rotator."""
-    rotator = ProxyRotator()
-    proxy = Proxy(url="http://proxy.example.com:8080")
-
-    rotator.add_proxy(proxy)
-
-    assert len(rotator.pool.get_all_proxies()) == 1
-    assert rotator.pool.get_all_proxies()[0].url == proxy.url
-
-
-@pytest.mark.asyncio
-async def test_health_monitor():
-    """Test health monitoring functionality."""
-    from proxywhirl.models import ProxyPool, HealthMonitor
-
-    pool = ProxyPool(name="test_pool")
-    pool.add_proxy(Proxy(url="http://proxy.example.com:8080"))
-
-    monitor = HealthMonitor(pool=pool, check_interval=1)
-    await monitor.start()
-
-    assert monitor.is_running is True
-
-    await monitor.stop()
-    assert monitor.is_running is False
+def get_proxy(proxy_id: str) -> Proxy | None:
+    """Get a proxy by ID.
+    
+    Args:
+        proxy_id: The proxy identifier
+    
+    Returns:
+        Proxy instance or None if not found
+    """
+    ...
 ```
+
+#### Imports
+
+Organize imports in this order:
+1. Future imports (`from __future__ import ...`)
+2. Standard library
+3. Third-party packages
+4. Local imports
+
+Use `from module import name` not `import module.name`.
+
+#### Comments
+
+Only comment code that needs clarification. Self-documenting code is preferred.
+
+```python
+# Bad: obvious comment
+x = 5  # Set x to 5
+
+# Good: explains why, not what
+# Use 5 retries to balance reliability with performance
+max_retries = 5
+```
+
+#### Logging
+
+Use `loguru` for all logging (never use `print`):
+
+```python
+from loguru import logger
+
+logger.info(f"Proxy {proxy.url} validated successfully")
+logger.error(f"Failed to validate proxy: {e}", exc_info=True)
+```
+
+### Line Length
+
+Maximum line length is **100 characters**. Format with:
+```bash
+uv run ruff format proxywhirl/ tests/
+```
+
+## Testing
 
 ### Running Tests
 
 ```bash
 # Run all tests
-uv run -- pytest
+make test
 
 # Run specific test file
-uv run -- pytest tests/unit/test_rotator.py
+uv run pytest tests/unit/test_rotator.py -v
 
-# Run specific test function
-uv run -- pytest tests/unit/test_rotator.py::test_add_proxy
+# Run with coverage
+uv run pytest tests/ --cov=proxywhirl --cov-report=term-missing
 
-# Run with coverage report
-uv run -- pytest --cov=proxywhirl --cov-report=html
-
-# Run only fast tests (exclude slow integration tests)
-uv run -- pytest -m "not slow"
-
-# Run in verbose mode
-uv run -- pytest -v
-
-# Stop on first failure
-uv run -- pytest -x
+# Run specific marker
+uv run pytest -m unit
 ```
 
-### Coverage Requirements
+### Test Organization
 
-- Minimum coverage: 80%
-- New features must include tests
-- Bug fixes must include regression tests
-- View coverage report: `open logs/htmlcov/index.html`
+- Unit tests: `tests/unit/`
+- Integration tests: `tests/integration/`
+- Property-based tests: `tests/property/`
+- Benchmarks: `tests/benchmarks/`
 
-## Pull Request Process
+### Writing Tests
 
-1. **Create a feature branch**
-   ```bash
-   git checkout -b feature/your-feature-name
-   # or
-   git checkout -b fix/bug-description
-   ```
+Follow these patterns:
 
-2. **Make your changes**
-   - Write code following style guidelines
-   - Add tests for new functionality
-   - Update documentation if needed
+```python
+import pytest
+from proxywhirl import ProxyWhirl, Proxy
 
-3. **Run quality checks**
-   ```bash
-   # Linting
-   uv run -- ruff check .
+class TestProxyWhirl:
+    """Tests for ProxyWhirl rotator."""
+    
+    def test_round_robin_rotation(self) -> None:
+        """Verify round-robin strategy rotates proxies sequentially."""
+        proxies = [
+            Proxy(url="http://proxy1.com:8080"),
+            Proxy(url="http://proxy2.com:8080"),
+        ]
+        rotator = ProxyWhirl(proxies=proxies, strategy="round-robin")
+        
+        assert rotator.get_next_proxy() == proxies[0]
+        assert rotator.get_next_proxy() == proxies[1]
+        assert rotator.get_next_proxy() == proxies[0]
+    
+    @pytest.mark.asyncio
+    async def test_async_rotation(self) -> None:
+        """Verify async rotator works."""
+        from proxywhirl import AsyncProxyWhirl
+        
+        proxies = [Proxy(url="http://proxy1.com:8080")]
+        rotator = AsyncProxyWhirl(proxies=proxies)
+        
+        proxy = await rotator.get_next_proxy()
+        assert proxy is not None
+```
 
-   # Type checking
-   uv run ty check proxywhirl/
+### Test Markers
 
-   # Tests
-   uv run -- pytest
-   ```
+Use pytest markers for test categorization:
 
-4. **Commit your changes**
-   - Follow [commit message format](#commit-message-format)
-   - Make atomic commits (one logical change per commit)
+```python
+@pytest.mark.unit          # Fast unit tests
+@pytest.mark.integration   # Integration tests
+@pytest.mark.slow          # Slow tests (skipped by default)
+@pytest.mark.network       # Tests requiring network
+@pytest.mark.benchmark     # Performance benchmarks
+```
 
-5. **Push and create PR**
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-   - Create a pull request on GitHub
-   - Fill out the PR template
-   - Link any related issues
+## Code Style
 
-6. **Code Review**
-   - Address review feedback
-   - Keep your branch up to date with `main`
-   - Ensure CI passes
+### Naming Conventions
 
-7. **Merge**
-   - Maintainer will merge once approved
-   - Your branch will be deleted after merge
+- **Classes**: `PascalCase` (e.g., `ProxyWhirl`, `CircuitBreaker`)
+- **Functions/Variables**: `snake_case` (e.g., `get_proxy`, `max_retries`)
+- **Constants**: `UPPER_SNAKE_CASE` (e.g., `MAX_RETRIES`, `DEFAULT_TIMEOUT`)
+- **Private**: `_prefix` (e.g., `_internal_method`)
 
-## Commit Message Format
+### Ruff Rules
 
-ProxyWhirl uses [Conventional Commits](https://www.conventionalcommits.org/) format:
+The project uses `ruff` with these rules:
+- E: PEP 8 errors
+- F: PyFlakes
+- I: isort (import sorting)
+- N: pep8-naming
+- W: PEP 8 warnings
+- UP: pyupgrade (modern Python)
+- B: flake8-bugbear
+- C4: flake8-comprehensions
+- SIM: flake8-simplify
+
+Run before committing:
+```bash
+make lint
+make format
+make type-check
+```
+
+### Type Checking
+
+```bash
+# Check types with ty (not mypy!)
+make type-check
+
+# Or manually:
+uv run ty check proxywhirl/
+```
+
+## Committing Changes
+
+Use **conventional commits** format:
 
 ```
-<type>(<scope>): <subject>
+<type>(<scope>): <description>
 
 <body>
 
-<footer>
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 ```
 
-### Type
+### Types
 
 - `feat`: New feature
 - `fix`: Bug fix
-- `docs`: Documentation only
-- `style`: Code style changes (formatting, no logic change)
-- `refactor`: Code refactoring (no functional change)
+- `docs`: Documentation
+- `refactor`: Code refactoring (no feature change)
 - `perf`: Performance improvement
-- `test`: Adding or updating tests
-- `chore`: Maintenance tasks, dependencies
+- `test`: Test additions/modifications
+- `chore`: Build, CI, dependencies
 
 ### Examples
 
 ```
-feat(rotator): add weighted rotation strategy
+feat(rotator): add weighted round-robin strategy
 
-Implement weighted proxy selection based on success rate and
-response time metrics. Proxies with higher success rates and
-lower latency are selected more frequently.
+Implements weighted round-robin rotation strategy that distributes
+requests proportionally based on proxy weights. Includes comprehensive
+tests and documentation.
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
+```
+
+```
+fix(storage): handle missing proxies table gracefully
+
+Fix crash when proxies table doesn't exist during initialization.
+Now creates table automatically if needed.
 
 Closes #123
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
 ```
 
-```
-fix(validator): handle connection timeout correctly
+## Pull Request Process
 
-Previously, connection timeouts were treated as validation
-failures. Now they trigger a retry with exponential backoff.
+### Before Opening a PR
 
-Fixes #456
-```
+1. **Run full quality gates**:
+   ```bash
+   make quality-gates
+   ```
 
-```
-docs: update README with health monitoring examples
+2. **Keep commits clean**: Squash fixup commits if needed
+   ```bash
+   git rebase -i upstream/develop
+   ```
 
-- Add comprehensive health monitoring example
-- Document HealthMonitor configuration options
-- Fix typos in installation section
-```
+3. **Update documentation**: If changing public APIs, update relevant docs
 
-```
-test(storage): add tests for SQLite query filters
+4. **Add tests**: All new code needs tests (aim for 85%+ coverage)
 
-Add integration tests for:
-- Query by source
-- Query by health status
-- Query with multiple filters
-```
+### PR Description
 
-### Commit Message Best Practices
+Use this template:
 
-1. **Subject line**:
-   - Use imperative mood ("add feature" not "added feature")
-   - Keep under 72 characters
-   - Don't end with a period
+```markdown
+## Description
+Brief description of changes
 
-2. **Body** (optional but recommended):
-   - Explain what and why, not how
-   - Wrap at 72 characters
-   - Separate from subject with blank line
+## Motivation
+Why this change is needed
 
-3. **Footer** (optional):
-   - Reference issues: `Closes #123`, `Fixes #456`
-   - Note breaking changes: `BREAKING CHANGE: description`
+## Changes
+- Change 1
+- Change 2
 
-## Automated Commit Validation
+## Testing
+How to verify the changes work
 
-ProxyWhirl uses [Commitizen](https://commitizen-tools.github.io/commitizen/) to enforce conventional commits and automate versioning.
-
-### Setup
-
-After cloning the repository, install the pre-commit hooks:
-
-```bash
-# Install pre-commit hooks (one-time setup)
-uv run pre-commit install --hook-type commit-msg --hook-type pre-commit
+## Checklist
+- [ ] Tests added/updated
+- [ ] Documentation updated
+- [ ] Conventional commit message used
+- [ ] Code passes quality gates
+- [ ] No breaking changes (or documented)
 ```
 
-### Making Commits
+### Review Process
 
-You have two options for creating compliant commits:
+1. **Address feedback**: Commit additional changes on top (don't force-push)
+2. **Request re-review**: When all feedback is addressed
+3. **Squash on merge**: Maintainers will squash commits on merge (you don't need to)
 
-#### Option 1: Interactive Commit (Recommended)
+## Reporting Issues
 
-```bash
-make commit
-# or directly:
-uv run cz commit
+### Bug Reports
+
+Include:
+- Minimal reproducible example
+- Expected vs actual behavior
+- Environment (OS, Python version, etc.)
+- Error traceback (if applicable)
+
+Example:
+```markdown
+## Description
+ProxyWhirl crashes when loading certain proxy URLs
+
+## Steps to Reproduce
+1. Create config with proxy URL `http://proxy.example.com:bad`
+2. Run `proxywhirl pool list`
+
+## Expected
+Validation error with helpful message
+
+## Actual
+Traceback: AttributeError...
+
+## Environment
+- OS: macOS 13.5
+- Python: 3.11.4
+- ProxyWhirl: 0.5.0
 ```
 
-This launches an interactive prompt that guides you through creating a properly formatted commit message.
+### Feature Requests
 
-#### Option 2: Manual Commit
+Include:
+- Use case and motivation
+- Proposed behavior
+- Examples of similar tools/libraries
 
-Write your commit message following the conventional commits format. The pre-commit hook will validate it:
+Example:
+```markdown
+## Request
+Add HTTP/2 proxy support
 
-```bash
-git commit -m "feat(rotator): add geo-targeting support"
+## Motivation
+Many modern proxies support HTTP/2 for better performance
+
+## Proposed Behavior
+New `http2_only` flag in proxy configuration that routes requests through HTTP/2
+
+## Related
+https://github.com/example/project/issues/123
 ```
 
-If the message doesn't comply, the commit will be rejected with guidance on the correct format.
+## Questions?
 
-### Releasing New Versions
+- **Documentation**: See [README.md](README.md) and [docs/](docs/)
+- **Discussions**: Open a GitHub Discussion
+- **Issues**: Open a GitHub Issue for bugs/features
 
-Version bumps are done manually via the CLI:
+## Resources
 
-```bash
-# Dry run to see what would happen
-make bump-dry
-
-# Actual bump (auto-detects patch/minor/major from commits)
-make bump
-
-# Force a specific bump type
-make bump-minor
-make bump-major
-```
-
-This will:
-1. Analyze commits since the last tag
-2. Determine the appropriate version bump (patch/minor/major)
-3. Update version in `pyproject.toml` and `proxywhirl/__init__.py`
-4. Update `CHANGELOG.md` with new entries
-5. Create a git commit and annotated tag
-
-After bumping, push the tag to trigger the CD workflow:
-
-```bash
-git push origin main --tags
-```
-
-### Version Bump Rules
-
-| Commit Type | Description | Version Impact |
-|-------------|-------------|----------------|
-| `feat` | New feature | MINOR bump |
-| `fix` | Bug fix | PATCH bump |
-| `docs` | Documentation | No bump |
-| `style` | Formatting | No bump |
-| `refactor` | Code refactoring | No bump |
-| `perf` | Performance | PATCH bump |
-| `test` | Tests | No bump |
-| `chore` | Maintenance | No bump |
-| `BREAKING CHANGE` | Breaking change | MAJOR bump |
-
-### Bypassing Validation (Emergency Only)
-
-In rare cases where you need to bypass validation:
-
-```bash
-git commit -m "message" --no-verify
-```
-
-**Warning:** Use sparingly. CI may still reject non-compliant commits.
-
-## Project Structure
-
-Understanding the codebase:
-
-```
-proxywhirl/
-├── proxywhirl/              # Main package
-│   ├── __init__.py         # Package exports
-│   ├── models.py           # Data models (Proxy, ProxyPool, etc.)
-│   ├── rotator.py          # Core ProxyRotator class
-│   ├── strategies.py       # Rotation strategies
-│   ├── fetchers.py         # Proxy fetching and parsing
-│   ├── storage.py          # Storage backends (File, SQLite)
-│   ├── browser.py          # Browser rendering (Playwright)
-│   ├── api.py              # REST API server (FastAPI)
-│   ├── cli.py              # Command-line interface (Typer)
-│   ├── exceptions.py       # Custom exceptions
-│   ├── utils.py            # Utility functions
-│   ├── retry_*.py          # Retry and circuit breaker logic
-│   ├── cache*.py           # Caching system
-│   └── sources.py          # Pre-configured proxy sources
-├── tests/                  # Test suite
-│   ├── unit/              # Unit tests
-│   ├── integration/       # Integration tests
-│   └── benchmarks/        # Performance benchmarks
-├── examples/              # Example scripts
-├── specs/                 # Feature specifications
-├── docs/                  # Documentation
-├── pyproject.toml         # Project configuration
-├── uv.lock               # Locked dependencies
-└── README.md             # Project README
-```
-
-### Key Design Principles
-
-1. **Flat Structure**: No nested packages - everything in `proxywhirl/`
-2. **Type Safety**: Full type hints with ty type checking
-3. **Async Support**: Async operations for I/O-bound tasks
-4. **Pydantic Models**: Data validation and serialization
-5. **Minimal Dependencies**: Only essential packages
-
-## Running the Test Suite
-
-### Full Test Suite
-
-```bash
-# Run everything with coverage
-uv run -- pytest --cov=proxywhirl --cov-report=html --cov-report=term
-
-# View coverage report
-open logs/htmlcov/index.html  # macOS
-xdg-open logs/htmlcov/index.html  # Linux
-start logs/htmlcov/index.html  # Windows
-```
-
-### Quick Checks Before Committing
-
-```bash
-# Create a script: scripts/check.sh
-#!/bin/bash
-set -e
-
-echo "Running linter..."
-uv run -- ruff check .
-
-echo "Running type checker..."
-uv run ty check proxywhirl/
-
-echo "Running tests..."
-uv run -- pytest -x
-
-echo "✅ All checks passed!"
-```
-
-Make it executable and run:
-```bash
-chmod +x scripts/check.sh
-./scripts/check.sh
-```
-
-## Getting Help
-
-- **Documentation**: Read the [specs/](specs/) directory for detailed feature documentation
-- **Issues**: Search [existing issues](https://github.com/wyattowalsh/proxywhirl/issues) or create a new one
-- **Discussions**: Use [GitHub Discussions](https://github.com/wyattowalsh/proxywhirl/discussions) for questions
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the MIT License.
+- [Ruff Documentation](https://docs.astral.sh/ruff/)
+- [Pydantic Documentation](https://docs.pydantic.dev/)
+- [Pytest Documentation](https://docs.pytest.org/)
+- [Python Type Hints](https://peps.python.org/pep-0484/)
 
 ---
 
-**Thank you for contributing to ProxyWhirl! 🌀**
+**Thank you for contributing to ProxyWhirl!** 🚀

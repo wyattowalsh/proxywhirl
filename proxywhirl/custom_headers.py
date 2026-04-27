@@ -1,140 +1,274 @@
-"""
-Custom headers support for proxies in ProxyWhirl.
+"""Custom request headers support for proxy requests.
 
-Allows attaching custom HTTP headers to proxies for specialized use cases.
+Allows per-source and per-request custom headers.
 """
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from dataclasses import dataclass, field
+from typing import Any, Callable
+
+from loguru import logger
 
 
-class ProxyHeaders(BaseModel):
-    """Custom headers for proxy requests."""
+@dataclass
+class HeaderTemplate:
+    """Template for custom headers with variable substitution."""
 
-    headers: dict[str, str] = Field(default_factory=dict, description="Custom HTTP headers")
-    auth_headers: dict[str, str] = Field(default_factory=dict, description="Authentication headers")
-    user_agent: str | None = Field(default=None, description="Custom User-Agent header")
+    template: str
+    variables: dict[str, str] = field(default_factory=dict)
 
-    model_config = ConfigDict(frozen=True)
+    def render(self, context: dict[str, Any]) -> str:
+        """Render template with context variables.
 
-    def to_dict(self) -> dict[str, str]:
-        """Convert to dictionary of all headers.
+        Args:
+            context: Variables for substitution
 
         Returns:
-            Combined dictionary of all headers
+            Rendered template string
         """
-        all_headers = dict(self.headers)
-        all_headers.update(self.auth_headers)
+        result = self.template
+        all_vars = {**self.variables, **context}
 
-        if self.user_agent:
-            all_headers["User-Agent"] = self.user_agent
+        for key, value in all_vars.items():
+            result = result.replace(f"{{{key}}}", str(value))
 
-        return all_headers
+        return result
 
-    def merge(self, other: ProxyHeaders) -> ProxyHeaders:
-        """Merge with another ProxyHeaders object.
+
+class HeaderPolicy:
+    """Base class for header policies."""
+
+    def apply(self, headers: dict[str, str]) -> dict[str, str]:
+        """Apply policy to headers.
 
         Args:
-            other: ProxyHeaders to merge
+            headers: Current headers dict
 
         Returns:
-            New ProxyHeaders with merged values
+            Modified headers
         """
-        merged_headers = {**self.headers, **other.headers}
-        merged_auth = {**self.auth_headers, **other.auth_headers}
-        merged_ua = other.user_agent or self.user_agent
-
-        return ProxyHeaders(
-            headers=merged_headers,
-            auth_headers=merged_auth,
-            user_agent=merged_ua,
-        )
+        return headers
 
 
-class CustomHeadersManager:
-    """Manager for custom proxy headers."""
+class RateLimitHeaderPolicy(HeaderPolicy):
+    """Add rate limit metadata headers."""
 
-    def __init__(self):
-        """Initialize the headers manager."""
-        self._default_headers = ProxyHeaders()
-        self._pool_headers: dict[str, ProxyHeaders] = {}
-        self._proxy_headers: dict[str, ProxyHeaders] = {}
-
-    def set_default_headers(self, headers: ProxyHeaders) -> None:
-        """Set default headers for all proxies.
+    def __init__(
+        self, prefix: str = "X-RateLimit", include_reset: bool = True
+    ):
+        """Initialize policy.
 
         Args:
-            headers: ProxyHeaders to use as default
+            prefix: Header name prefix
+            include_reset: Whether to include reset time
         """
-        self._default_headers = headers
+        self.prefix = prefix
+        self.include_reset = include_reset
 
-    def set_pool_headers(self, pool_id: str, headers: ProxyHeaders) -> None:
-        """Set custom headers for a specific pool.
+    def apply(self, headers: dict[str, str]) -> dict[str, str]:
+        """Add rate limit headers."""
+        import time
+
+        headers[f"{self.prefix}-Limit"] = "1000"
+        headers[f"{self.prefix}-Remaining"] = "999"
+
+        if self.include_reset:
+            reset_time = int(time.time()) + 3600
+            headers[f"{self.prefix}-Reset"] = str(reset_time)
+
+        return headers
+
+
+class UserAgentPolicy(HeaderPolicy):
+    """Rotate or customize User-Agent headers."""
+
+    def __init__(self, user_agents: list[str] | None = None):
+        """Initialize policy.
 
         Args:
-            pool_id: Pool identifier
-            headers: ProxyHeaders for the pool
+            user_agents: List of User-Agent strings
         """
-        self._pool_headers[pool_id] = headers
+        self.user_agents = user_agents or [
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+        ]
+        self._index = 0
 
-    def set_proxy_headers(self, proxy_url: str, headers: ProxyHeaders) -> None:
-        """Set custom headers for a specific proxy.
+    def apply(self, headers: dict[str, str]) -> dict[str, str]:
+        """Set User-Agent header."""
+        headers["User-Agent"] = self.user_agents[
+            self._index % len(self.user_agents)
+        ]
+        self._index += 1
+        return headers
+
+
+class SecurityHeaderPolicy(HeaderPolicy):
+    """Add security headers."""
+
+    def apply(self, headers: dict[str, str]) -> dict[str, str]:
+        """Add standard security headers."""
+        headers.setdefault("X-Requested-With", "XMLHttpRequest")
+        headers.setdefault("DNT", "1")
+        headers.setdefault("Upgrade-Insecure-Requests", "1")
+        return headers
+
+
+@dataclass
+class HeaderConfig:
+    """Configuration for custom headers."""
+
+    static_headers: dict[str, str] = field(default_factory=dict)
+    policies: list[HeaderPolicy] = field(default_factory=list)
+    templates: dict[str, HeaderTemplate] = field(default_factory=dict)
+    blacklisted: set[str] = field(default_factory=set)
+
+
+class HeaderManager:
+    """Manages custom request headers."""
+
+    def __init__(self, config: HeaderConfig | None = None):
+        """Initialize header manager.
 
         Args:
-            proxy_url: Proxy URL
-            headers: ProxyHeaders for the proxy
+            config: Header configuration
         """
-        self._proxy_headers[proxy_url] = headers
+        self.config = config or HeaderConfig()
+        self._custom_filters: list[Callable[[dict[str, str]], dict[str, str]]] = []
 
-    def get_headers(
+    def add_static_header(self, key: str, value: str) -> None:
+        """Add a static header.
+
+        Args:
+            key: Header name
+            value: Header value
+        """
+        self.config.static_headers[key] = value
+        logger.debug(f"Added static header: {key}")
+
+    def add_policy(self, policy: HeaderPolicy) -> None:
+        """Add a header policy.
+
+        Args:
+            policy: Header policy instance
+        """
+        self.config.policies.append(policy)
+        logger.debug(f"Added header policy: {policy.__class__.__name__}")
+
+    def add_template(self, name: str, template: HeaderTemplate) -> None:
+        """Add a header template.
+
+        Args:
+            name: Template identifier
+            template: Header template
+        """
+        self.config.templates[name] = template
+        logger.debug(f"Added header template: {name}")
+
+    def blacklist_header(self, header_name: str) -> None:
+        """Blacklist a header name.
+
+        Blacklisted headers will be removed from all requests.
+
+        Args:
+            header_name: Header to blacklist
+        """
+        self.config.blacklisted.add(header_name)
+        logger.debug(f"Blacklisted header: {header_name}")
+
+    def add_filter(
+        self, filter_fn: Callable[[dict[str, str]], dict[str, str]]
+    ) -> None:
+        """Add a custom header filter function.
+
+        Args:
+            filter_fn: Function that takes headers dict and returns modified dict
+        """
+        self._custom_filters.append(filter_fn)
+
+    def build_headers(self, context: dict[str, Any] | None = None) -> dict[str, str]:
+        """Build final headers dict.
+
+        Args:
+            context: Context variables for template rendering
+
+        Returns:
+            Final headers dictionary
+        """
+        context = context or {}
+        headers = dict(self.config.static_headers)
+
+        # Apply policies
+        for policy in self.config.policies:
+            headers = policy.apply(headers)
+
+        # Apply templates
+        for template_name, template in self.config.templates.items():
+            try:
+                rendered = template.render(context)
+                headers[template_name] = rendered
+            except Exception as e:
+                logger.warning(f"Failed to render template {template_name}: {e}")
+
+        # Apply custom filters
+        for filter_fn in self._custom_filters:
+            try:
+                headers = filter_fn(headers)
+            except Exception as e:
+                logger.warning(f"Error in custom header filter: {e}")
+
+        # Remove blacklisted headers
+        for header in self.config.blacklisted:
+            headers.pop(header, None)
+
+        return headers
+
+    def merge_headers(
         self,
-        pool_id: str | None = None,
-        proxy_url: str | None = None,
+        base_headers: dict[str, str],
+        custom_headers: dict[str, str] | None = None,
     ) -> dict[str, str]:
-        """Get combined headers for a proxy.
+        """Merge built headers with custom headers.
+
+        Custom headers take precedence.
 
         Args:
-            pool_id: Optional pool identifier
-            proxy_url: Optional proxy URL
+            base_headers: Base headers from build_headers()
+            custom_headers: Override headers
 
         Returns:
-            Combined dictionary of headers
+            Merged headers dictionary
         """
-        headers = self._default_headers
+        result = dict(base_headers)
 
-        if pool_id and pool_id in self._pool_headers:
-            headers = headers.merge(self._pool_headers[pool_id])
+        if custom_headers:
+            for key, value in custom_headers.items():
+                if key not in self.config.blacklisted:
+                    result[key] = value
 
-        if proxy_url and proxy_url in self._proxy_headers:
-            headers = headers.merge(self._proxy_headers[proxy_url])
+        return result
 
-        return headers.to_dict()
+    def get_config(self) -> HeaderConfig:
+        """Get current configuration.
 
-    def remove_pool_headers(self, pool_id: str) -> bool:
-        """Remove custom headers for a pool.
+        Returns:
+            Header configuration
+        """
+        return self.config
+
+    def validate_header_name(self, name: str) -> bool:
+        """Validate header name.
 
         Args:
-            pool_id: Pool identifier
+            name: Header name to validate
 
         Returns:
-            True if removed, False if not found
+            True if valid
         """
-        if pool_id in self._pool_headers:
-            del self._pool_headers[pool_id]
-            return True
-        return False
+        if not name:
+            return False
 
-    def remove_proxy_headers(self, proxy_url: str) -> bool:
-        """Remove custom headers for a proxy.
-
-        Args:
-            proxy_url: Proxy URL
-
-        Returns:
-            True if removed, False if not found
-        """
-        if proxy_url in self._proxy_headers:
-            del self._proxy_headers[proxy_url]
-            return True
-        return False
+        # Check for valid characters (letters, numbers, hyphen)
+        return all(c.isalnum() or c in '-_' for c in name)

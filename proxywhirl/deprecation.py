@@ -1,8 +1,4 @@
-"""
-Deprecation utilities for ProxyWhirl.
-
-Provides decorators and helpers for deprecating functions and classes.
-"""
+"""Deprecation utilities for marking and managing deprecated features."""
 
 from __future__ import annotations
 
@@ -10,154 +6,190 @@ import functools
 import warnings
 from typing import Any, Callable, TypeVar
 
+from loguru import logger
+
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-def deprecated(
-    reason: str,
-    version: str,
-    removal_version: str | None = None,
-    alternative: str | None = None,
-) -> Callable[[F], F]:
-    """Decorator to mark functions/methods as deprecated.
-
-    Args:
-        reason: Why the function is deprecated
-        version: Version in which it was deprecated
-        removal_version: Version in which it will be removed
-        alternative: Suggested alternative to use
-
-    Returns:
-        Decorated function that emits deprecation warning
-    """
-
-    def decorator(func: F) -> F:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            message = f"{func.__qualname__} is deprecated since v{version}. {reason}"
-            if alternative:
-                message += f" Use {alternative} instead."
-            if removal_version:
-                message += f" Will be removed in v{removal_version}."
-
-            warnings.warn(
-                message,
-                category=DeprecationWarning,
-                stacklevel=2,
-            )
-            return func(*args, **kwargs)
-
-        return wrapper  # type: ignore
-
-    return decorator
-
-
-def deprecated_parameter(
-    param_name: str,
-    reason: str,
-    version: str,
-    removal_version: str | None = None,
-    alternative: str | None = None,
-) -> Callable[[F], F]:
-    """Decorator to mark function parameters as deprecated.
-
-    Args:
-        param_name: Name of the deprecated parameter
-        reason: Why the parameter is deprecated
-        version: Version in which it was deprecated
-        removal_version: Version in which it will be removed
-        alternative: Suggested alternative parameter
-
-    Returns:
-        Decorated function that warns when parameter is used
-    """
-
-    def decorator(func: F) -> F:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            if param_name in kwargs:
-                message = f"Parameter '{param_name}' is deprecated since v{version}. {reason}"
-                if alternative:
-                    message += f" Use '{alternative}' instead."
-                if removal_version:
-                    message += f" Will be removed in v{removal_version}."
-
-                warnings.warn(
-                    message,
-                    category=DeprecationWarning,
-                    stacklevel=2,
-                )
-
-            return func(*args, **kwargs)
-
-        return wrapper  # type: ignore
-
-    return decorator
-
-
-class DeprecatedPropertyDescriptor:
-    """Descriptor for deprecated properties."""
+class DeprecationInfo:
+    """Information about a deprecated feature."""
 
     def __init__(
         self,
-        fget: Callable[[Any], Any],
-        reason: str,
+        name: str,
         version: str,
         removal_version: str | None = None,
         alternative: str | None = None,
+        reason: str | None = None,
     ):
-        self.fget = fget
-        self.reason = reason
+        """Initialize deprecation info.
+
+        Args:
+            name: Name of deprecated feature
+            version: Version when deprecated
+            removal_version: Version when will be removed
+            alternative: Suggested replacement
+            reason: Reason for deprecation
+        """
+        self.name = name
         self.version = version
         self.removal_version = removal_version
         self.alternative = alternative
-        functools.update_wrapper(self, fget)
+        self.reason = reason
 
-    def __get__(self, obj: Any, objtype: Any = None) -> Any:
-        if obj is None:
-            return self
+    def __str__(self) -> str:
+        """Format as deprecation message."""
+        msg = f"{self.name} is deprecated since {self.version}"
 
-        message = (
-            f"Property '{self.fget.__name__}' is deprecated since v{self.version}. {self.reason}"
-        )
-        if self.alternative:
-            message += f" Use '{self.alternative}' instead."
         if self.removal_version:
-            message += f" Will be removed in v{self.removal_version}."
+            msg += f" and will be removed in {self.removal_version}"
 
-        warnings.warn(
-            message,
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
-        return self.fget(obj)
+        if self.alternative:
+            msg += f"; use {self.alternative} instead"
+
+        if self.reason:
+            msg += f". Reason: {self.reason}"
+
+        return msg
 
 
-def deprecated_property(
-    reason: str,
+def deprecated(
     version: str,
     removal_version: str | None = None,
     alternative: str | None = None,
-) -> Callable[[Callable[[Any], Any]], DeprecatedPropertyDescriptor]:
-    """Decorator for deprecated properties.
+    reason: str | None = None,
+) -> Callable[[F], F]:
+    """Decorator to mark functions/classes as deprecated.
 
     Args:
-        reason: Why the property is deprecated
-        version: Version in which it was deprecated
-        removal_version: Version in which it will be removed
-        alternative: Suggested alternative property
+        version: Version when deprecated
+        removal_version: Version when will be removed
+        alternative: Suggested replacement
+        reason: Reason for deprecation
 
     Returns:
-        Decorator that creates a deprecated property descriptor
+        Decorator function
     """
 
-    def decorator(fget: Callable[[Any], Any]) -> DeprecatedPropertyDescriptor:
-        return DeprecatedPropertyDescriptor(
-            fget,
-            reason=reason,
+    def decorator(func: F) -> F:
+        func_name = func.__qualname__
+
+        info = DeprecationInfo(
+            name=func_name,
             version=version,
             removal_version=removal_version,
             alternative=alternative,
+            reason=reason,
         )
 
+        @functools.wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            message = str(info)
+            warnings.warn(message, DeprecationWarning, stacklevel=2)
+            logger.warning(f"Deprecated function called: {message}")
+            return func(*args, **kwargs)
+
+        wrapper.__deprecated__ = info
+        return wrapper
+
     return decorator
+
+
+class DeprecationManager:
+    """Manages deprecated features and their usage tracking."""
+
+    def __init__(self):
+        """Initialize deprecation manager."""
+        self._deprecated_features: dict[str, DeprecationInfo] = {}
+        self._usage_count: dict[str, int] = {}
+
+    def register_deprecated(self, feature: DeprecationInfo) -> None:
+        """Register a deprecated feature.
+
+        Args:
+            feature: Deprecation information
+        """
+        self._deprecated_features[feature.name] = feature
+        self._usage_count[feature.name] = 0
+        logger.info(f"Registered deprecated feature: {feature.name}")
+
+    def mark_as_used(self, feature_name: str) -> None:
+        """Record usage of deprecated feature.
+
+        Args:
+            feature_name: Name of feature
+        """
+        self._usage_count[feature_name] = self._usage_count.get(feature_name, 0) + 1
+
+    def get_deprecation(self, feature_name: str) -> DeprecationInfo | None:
+        """Get deprecation info.
+
+        Args:
+            feature_name: Name of feature
+
+        Returns:
+            Deprecation info or None
+        """
+        return self._deprecated_features.get(feature_name)
+
+    def get_usage_report(self) -> dict[str, int]:
+        """Get usage report for deprecated features.
+
+        Returns:
+            Dict of {feature_name: usage_count}
+        """
+        return dict(self._usage_count)
+
+    def is_deprecated(self, feature_name: str) -> bool:
+        """Check if feature is deprecated.
+
+        Args:
+            feature_name: Name of feature
+
+        Returns:
+            True if deprecated
+        """
+        return feature_name in self._deprecated_features
+
+    def get_all_deprecated(self) -> dict[str, DeprecationInfo]:
+        """Get all deprecated features.
+
+        Returns:
+            Dict of {name: DeprecationInfo}
+        """
+        return dict(self._deprecated_features)
+
+    def get_removal_candidates(self) -> list[DeprecationInfo]:
+        """Get features that should be removed soon.
+
+        Returns:
+            List of DeprecationInfo for features near removal
+        """
+        from packaging import version as pkg_version
+
+        # Assuming current version in some standard location
+        candidates = []
+
+        for info in self._deprecated_features.values():
+            if info.removal_version and self._usage_count.get(info.name, 0) > 0:
+                try:
+                    if pkg_version.parse(info.removal_version) <= pkg_version.parse(
+                        "0.4.0"
+                    ):
+                        candidates.append(info)
+                except Exception:
+                    pass
+
+        return candidates
+
+
+_global_manager = DeprecationManager()
+
+
+def get_deprecation_manager() -> DeprecationManager:
+    """Get global deprecation manager.
+
+    Returns:
+        Global DeprecationManager instance
+    """
+    return _global_manager

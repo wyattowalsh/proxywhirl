@@ -2,22 +2,22 @@
 
 import pytest
 
-from proxywhirl.compression import CompressionConfig, CompressionHandler, CompressionType
+from proxywhirl.compression import CompressionConfig, CompressionManager, CompressionType
 
 
-class TestCompressionHandler:
+class TestCompressionManager:
     """Test compression handler."""
 
     def test_should_compress_large_payload(self):
         """Test compression decision for large payload."""
-        handler = CompressionHandler()
+        handler = CompressionManager()
         data = b"x" * 2000
 
         assert handler.should_compress(data) is True
 
     def test_should_not_compress_small_payload(self):
         """Test no compression for small payload."""
-        handler = CompressionHandler()
+        handler = CompressionManager()
         data = b"x" * 100
 
         assert handler.should_compress(data) is False
@@ -25,14 +25,14 @@ class TestCompressionHandler:
     def test_should_not_compress_disabled(self):
         """Test no compression when disabled."""
         config = CompressionConfig(enabled=False)
-        handler = CompressionHandler(config)
+        handler = CompressionManager(config)
         data = b"x" * 2000
 
         assert handler.should_compress(data) is False
 
     def test_compress_gzip(self):
         """Test gzip compression."""
-        handler = CompressionHandler()
+        handler = CompressionManager()
         data = b"test data" * 100
 
         compressed, algo = handler.compress(data, CompressionType.GZIP)
@@ -41,7 +41,7 @@ class TestCompressionHandler:
 
     def test_decompress_gzip(self):
         """Test gzip decompression."""
-        handler = CompressionHandler()
+        handler = CompressionManager()
         data = b"test data" * 100
 
         compressed, _ = handler.compress(data, CompressionType.GZIP)
@@ -51,7 +51,7 @@ class TestCompressionHandler:
 
     def test_compress_deflate(self):
         """Test deflate compression."""
-        handler = CompressionHandler()
+        handler = CompressionManager()
         data = b"test data" * 100
 
         compressed, algo = handler.compress(data, CompressionType.DEFLATE)
@@ -60,7 +60,7 @@ class TestCompressionHandler:
 
     def test_decompress_deflate(self):
         """Test deflate decompression."""
-        handler = CompressionHandler()
+        handler = CompressionManager()
         data = b"test data" * 100
 
         compressed, _ = handler.compress(data, CompressionType.DEFLATE)
@@ -70,7 +70,7 @@ class TestCompressionHandler:
 
     def test_compress_none(self):
         """Test no compression."""
-        handler = CompressionHandler()
+        handler = CompressionManager()
         data = b"test data"
 
         compressed, algo = handler.compress(data, CompressionType.NONE)
@@ -80,7 +80,7 @@ class TestCompressionHandler:
     def test_unsupported_algorithm(self):
         """Test unsupported algorithm raises error."""
         config = CompressionConfig(supported_algorithms=[CompressionType.GZIP])
-        handler = CompressionHandler(config)
+        handler = CompressionManager(config)
         data = b"test data"
 
         with pytest.raises(ValueError, match="not supported"):
@@ -92,7 +92,7 @@ class TestCompressionHandler:
             enabled=True,
             supported_algorithms=[CompressionType.GZIP, CompressionType.DEFLATE],
         )
-        handler = CompressionHandler(config)
+        handler = CompressionManager(config)
 
         header = handler.get_accept_encoding()
         assert "gzip" in header
@@ -101,7 +101,7 @@ class TestCompressionHandler:
     def test_get_accept_encoding_disabled(self):
         """Test Accept-Encoding when disabled."""
         config = CompressionConfig(enabled=False)
-        handler = CompressionHandler(config)
+        handler = CompressionManager(config)
 
         header = handler.get_accept_encoding()
         assert header == "identity"
