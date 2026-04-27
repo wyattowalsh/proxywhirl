@@ -196,10 +196,40 @@ class ProxyWhirl(ProxyRotatorBase):
 
     def add_proxy(self, proxy: Proxy | str) -> None:
         """
-        Add a proxy to the pool.
+        Add a proxy to the rotation pool.
+
+        Adds a new proxy to the pool for use in automatic rotation.
+        Proxies can be specified as Proxy instances or URL strings.
+        A circuit breaker is automatically initialized for the proxy.
 
         Args:
-            proxy: Proxy instance or URL string
+            proxy : Proxy | str
+                Proxy instance or proxy URL string (e.g., "http://proxy.example.com:8080"
+                or "http://user:pass@proxy.example.com:8080").
+
+        Returns:
+            None
+
+        Raises:
+            ValueError
+                If proxy URL format is invalid.
+
+        Example:
+            >>> rotator = ProxyWhirl()
+            >>> # Add proxy as URL string
+            >>> rotator.add_proxy("http://proxy.example.com:8080")
+            >>> # Add proxy with credentials
+            >>> rotator.add_proxy("http://user:pass@proxy.example.com:8080")
+            >>> # Add proxy as Proxy instance
+            >>> from proxywhirl import Proxy
+            >>> proxy = Proxy(url="socks5://proxy.example.com:1080")
+            >>> rotator.add_proxy(proxy)
+
+        Note:
+            - URL strings are automatically parsed into Proxy instances
+            - Circuit breaker initialized in CLOSED state (FR-021)
+            - Credentials are masked in log output
+            - Proxy ID is automatically assigned as UUID
         """
         if isinstance(proxy, str):
             from proxywhirl.utils import create_proxy_from_url
@@ -217,10 +247,37 @@ class ProxyWhirl(ProxyRotatorBase):
 
     def remove_proxy(self, proxy_id: str) -> None:
         """
-        Remove a proxy from the pool.
+        Remove a proxy from the rotation pool.
+
+        Removes a proxy by its UUID and cleans up associated resources
+        (circuit breaker, pooled HTTP clients). This is safe to call
+        while requests are in flight - they will complete with their
+        current proxy before it's removed.
 
         Args:
-            proxy_id: UUID of proxy to remove
+            proxy_id : str
+                UUID of the proxy to remove (e.g., "550e8400-e29b-41d4-a716-446655440000").
+
+        Returns:
+            None
+
+        Raises:
+            ValueError
+                If proxy_id is not a valid UUID format.
+
+        Example:
+            >>> rotator = ProxyWhirl()
+            >>> rotator.add_proxy("http://proxy1.example.com:8080")
+            >>> # Get the proxy ID (usually from pool)
+            >>> proxies = rotator.get_all_proxies()
+            >>> proxy_id = str(proxies[0].id)
+            >>> rotator.remove_proxy(proxy_id)
+
+        Note:
+            - Closes pooled HTTP clients for this proxy
+            - Removes circuit breaker to prevent memory leaks
+            - Thread-safe: safe to call during active requests
+            - Does not raise error if proxy_id not found
         """
         from uuid import UUID
 
@@ -931,31 +988,265 @@ class ProxyWhirl(ProxyRotatorBase):
             raise ProxyConnectionError(f"Queued request failed: {e}") from e
 
     def get(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Make GET request."""
+        """
+        Make HTTP GET request through rotating proxy.
+
+        Automatically selects a proxy from the pool, rotates on failure,
+        and retries according to the retry policy.
+
+        Args:
+            url : str
+                The target URL to request.
+            **kwargs : dict
+                Additional httpx client arguments (headers, params, timeout, etc.).
+
+        Returns:
+            httpx.Response
+                HTTP response from the target server.
+
+        Raises:
+            ProxyPoolEmptyError
+                If no healthy proxies are available.
+            ProxyConnectionError
+                If the request fails after all retry attempts.
+            ProxyAuthenticationError
+                If proxy authentication fails (401/407).
+            RequestQueueFullError
+                If request queue is full and queuing is enabled.
+
+        Example:
+            >>> rotator = ProxyWhirl()
+            >>> rotator.add_proxy("http://proxy.example.com:8080")
+            >>> response = rotator.get("https://httpbin.org/get")
+            >>> print(response.status_code)  # 200
+            >>> print(response.json())
+
+        Note:
+            - Supports all httpx parameters (headers, params, timeout, etc.)
+            - Credentials are masked in log output for security
+            - Response times are tracked for performance-based strategies
+        """
         return self._make_request("GET", url, **kwargs)
 
     def post(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Make POST request."""
+        """
+        Make HTTP POST request through rotating proxy.
+
+        Automatically selects a proxy from the pool, rotates on failure,
+        and retries according to the retry policy.
+
+        Args:
+            url : str
+                The target URL to request.
+            **kwargs : dict
+                Additional httpx arguments (data, json, headers, etc.).
+
+        Returns:
+            httpx.Response
+                HTTP response from the target server.
+
+        Raises:
+            ProxyPoolEmptyError
+                If no healthy proxies are available.
+            ProxyConnectionError
+                If the request fails after all retry attempts.
+            ProxyAuthenticationError
+                If proxy authentication fails.
+            RequestQueueFullError
+                If request queue is full and queuing is enabled.
+
+        Example:
+            >>> rotator = ProxyWhirl()
+            >>> rotator.add_proxy("http://proxy.example.com:8080")
+            >>> response = rotator.post(
+            ...     "https://httpbin.org/post",
+            ...     json={"key": "value"},
+            ...     headers={"Content-Type": "application/json"}
+            ... )
+            >>> print(response.status_code)  # 200
+
+        Note:
+            - Supports data, json, files, and other POST parameters
+            - Request body is included in retry attempts
+            - Timeouts respect configuration settings
+        """
         return self._make_request("POST", url, **kwargs)
 
     def put(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Make PUT request."""
+        """
+        Make HTTP PUT request through rotating proxy.
+
+        Automatically selects a proxy from the pool, rotates on failure,
+        and retries according to the retry policy.
+
+        Args:
+            url : str
+                The target URL to request.
+            **kwargs : dict
+                Additional httpx arguments (data, json, headers, etc.).
+
+        Returns:
+            httpx.Response
+                HTTP response from the target server.
+
+        Raises:
+            ProxyPoolEmptyError
+                If no healthy proxies are available.
+            ProxyConnectionError
+                If the request fails after all retry attempts.
+            ProxyAuthenticationError
+                If proxy authentication fails.
+            RequestQueueFullError
+                If request queue is full and queuing is enabled.
+
+        Example:
+            >>> rotator = ProxyWhirl()
+            >>> response = rotator.put(
+            ...     "https://api.example.com/resource/123",
+            ...     json={"name": "updated"}
+            ... )
+            >>> print(response.status_code)  # 200
+        """
         return self._make_request("PUT", url, **kwargs)
 
     def delete(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Make DELETE request."""
+        """
+        Make HTTP DELETE request through rotating proxy.
+
+        Automatically selects a proxy from the pool, rotates on failure,
+        and retries according to the retry policy.
+
+        Args:
+            url : str
+                The target URL to request.
+            **kwargs : dict
+                Additional httpx arguments (headers, params, etc.).
+
+        Returns:
+            httpx.Response
+                HTTP response from the target server.
+
+        Raises:
+            ProxyPoolEmptyError
+                If no healthy proxies are available.
+            ProxyConnectionError
+                If the request fails after all retry attempts.
+            ProxyAuthenticationError
+                If proxy authentication fails.
+            RequestQueueFullError
+                If request queue is full and queuing is enabled.
+
+        Example:
+            >>> rotator = ProxyWhirl()
+            >>> response = rotator.delete("https://api.example.com/resource/123")
+            >>> print(response.status_code)  # 204
+        """
         return self._make_request("DELETE", url, **kwargs)
 
     def patch(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Make PATCH request."""
+        """
+        Make HTTP PATCH request through rotating proxy.
+
+        Automatically selects a proxy from the pool, rotates on failure,
+        and retries according to the retry policy.
+
+        Args:
+            url : str
+                The target URL to request.
+            **kwargs : dict
+                Additional httpx arguments (data, json, headers, etc.).
+
+        Returns:
+            httpx.Response
+                HTTP response from the target server.
+
+        Raises:
+            ProxyPoolEmptyError
+                If no healthy proxies are available.
+            ProxyConnectionError
+                If the request fails after all retry attempts.
+            ProxyAuthenticationError
+                If proxy authentication fails.
+            RequestQueueFullError
+                If request queue is full and queuing is enabled.
+
+        Example:
+            >>> rotator = ProxyWhirl()
+            >>> response = rotator.patch(
+            ...     "https://api.example.com/resource/123",
+            ...     json={"status": "active"}
+            ... )
+            >>> print(response.status_code)  # 200
+        """
         return self._make_request("PATCH", url, **kwargs)
 
     def head(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Make HEAD request."""
+        """
+        Make HTTP HEAD request through rotating proxy.
+
+        HEAD request is identical to GET but without response body.
+        Useful for checking resource existence and headers only.
+
+        Args:
+            url : str
+                The target URL to request.
+            **kwargs : dict
+                Additional httpx arguments (headers, params, etc.).
+
+        Returns:
+            httpx.Response
+                HTTP response headers (no body).
+
+        Raises:
+            ProxyPoolEmptyError
+                If no healthy proxies are available.
+            ProxyConnectionError
+                If the request fails after all retry attempts.
+            ProxyAuthenticationError
+                If proxy authentication fails.
+            RequestQueueFullError
+                If request queue is full and queuing is enabled.
+
+        Example:
+            >>> rotator = ProxyWhirl()
+            >>> response = rotator.head("https://example.com/resource")
+            >>> print(response.headers.get("content-type"))
+            >>> print(response.headers.get("content-length"))
+        """
         return self._make_request("HEAD", url, **kwargs)
 
     def options(self, url: str, **kwargs: Any) -> httpx.Response:
-        """Make OPTIONS request."""
+        """
+        Make HTTP OPTIONS request through rotating proxy.
+
+        Retrieve communication options available for a resource.
+        Typically used to discover allowed HTTP methods.
+
+        Args:
+            url : str
+                The target URL to request.
+            **kwargs : dict
+                Additional httpx arguments (headers, params, etc.).
+
+        Returns:
+            httpx.Response
+                HTTP response with Allow header listing supported methods.
+
+        Raises:
+            ProxyPoolEmptyError
+                If no healthy proxies are available.
+            ProxyConnectionError
+                If the request fails after all retry attempts.
+            ProxyAuthenticationError
+                If proxy authentication fails.
+            RequestQueueFullError
+                If request queue is full and queuing is enabled.
+
+        Example:
+            >>> rotator = ProxyWhirl()
+            >>> response = rotator.options("https://api.example.com/resource")
+            >>> print(response.headers.get("allow"))  # GET, POST, PUT, DELETE, ...
+        """
         return self._make_request("OPTIONS", url, **kwargs)
 
     def _start_aggregation_timer(self) -> None:

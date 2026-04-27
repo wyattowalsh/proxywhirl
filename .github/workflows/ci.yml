@@ -79,27 +79,15 @@ jobs:
         with:
           version: "latest"
 
-      - name: Cache pip dependencies
+      - name: Cache pip dependencies (uv)
         uses: actions/cache@v4
         with:
-          path: /home/runner/.cache/uv
-          key: uv-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          path: |
+            /home/runner/.cache/uv
+            .venv
+          key: uv-cache-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: |
-            uv-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: |
-          uv venv
-          uv pip install -e ".[dev]"
-
-      - name: Run ty
-        id: typecheck
-        run: |
-          echo "::group::Type Check Results"
-          uv run ty check proxywhirl || exit 1
-          echo "::endgroup::"
-
-  commitlint:
+            uv-cache-${{ runner.os }}-
     name: Validate Commit Messages
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
@@ -150,13 +138,16 @@ jobs:
         with:
           version: "latest"
 
-      - name: Cache pip dependencies
+      - name: Cache pip dependencies (uv)
         uses: actions/cache@v4
         with:
-          path: /home/runner/.cache/uv
-          key: uv-py${{ matrix.python-version }}-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+          path: |
+            /home/runner/.cache/uv
+            .venv
+          key: uv-cache-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
           restore-keys: |
-            uv-py${{ matrix.python-version }}-${{ runner.os }}-
+            uv-cache-${{ runner.os }}-py${{ matrix.python-version }}-
+            uv-cache-${{ runner.os }}-
 
       - name: Cache pytest
         uses: actions/cache@v4

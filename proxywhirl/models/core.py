@@ -1034,7 +1034,23 @@ class ProxyPool(BaseModel):
     _url_index: set[str] = PrivateAttr(default_factory=set)
 
     def __init__(self, **data: Any) -> None:
-        """Initialize ProxyPool with thread lock and ID/URL indexes."""
+        """
+        Initialize ProxyPool with thread lock and ID/URL indexes.
+
+        Creates a new proxy pool with thread-safe access via RLock.
+        Also builds fast O(1) lookup indexes for proxy IDs and URLs.
+
+        Args:
+            **data : dict
+                Pool configuration including name, proxies list, max_pool_size, etc.
+
+        Returns:
+            None
+
+        Example:
+            >>> pool = ProxyPool(name="default", proxies=[proxy1, proxy2])
+            >>> print(pool.size)  # 2
+        """
         super().__init__(**data)
         # Use object.__setattr__ to bypass Pydantic's field validation
         object.__setattr__(self, "_lock", threading.RLock())
@@ -1088,7 +1104,35 @@ class ProxyPool(BaseModel):
             return total_successes / total_reqs
 
     def add_proxy(self, proxy: Proxy) -> None:
-        """Add proxy to pool (thread-safe)."""
+        """
+        Add proxy to pool with duplicate detection.
+
+        Adds a new proxy to the pool with O(1) duplicate checking.
+        Silently ignores duplicate URLs. Thread-safe via RLock.
+
+        Args:
+            proxy : Proxy
+                Proxy instance to add to the pool.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError
+                If pool is at maximum capacity (max_pool_size).
+
+        Example:
+            >>> pool = ProxyPool(name="default")
+            >>> proxy = Proxy(url="http://proxy.example.com:8080")
+            >>> pool.add_proxy(proxy)
+            >>> print(pool.size)  # 1
+
+        Note:
+            - Thread-safe: uses RLock for concurrent access
+            - O(1) duplicate URL checking via hash set
+            - Automatically updates both ID and URL indexes
+            - Timestamps updated on successful addition
+        """
         with self._lock:
             if self.size >= self.max_pool_size:
                 raise ValueError(f"Pool at maximum capacity ({self.max_pool_size})")
@@ -1106,7 +1150,31 @@ class ProxyPool(BaseModel):
             self.updated_at = datetime.now(timezone.utc)
 
     def remove_proxy(self, proxy_id: UUID) -> None:
-        """Remove proxy from pool (thread-safe)."""
+        """
+        Remove proxy from pool by ID.
+
+        Removes a proxy from the pool by its UUID, updating all internal
+        indexes (ID index, URL index, and proxy list). Thread-safe via RLock.
+
+        Args:
+            proxy_id : UUID
+                UUID of the proxy to remove.
+
+        Returns:
+            None
+
+        Example:
+            >>> pool = ProxyPool(name="default", proxies=[proxy1, proxy2])
+            >>> pool.remove_proxy(proxy1.id)
+            >>> print(pool.size)  # 1
+
+        Note:
+            - Thread-safe: uses RLock for concurrent access
+            - O(1) removal using ID index
+            - Automatically updates all indexes
+            - Does not raise error if proxy not found
+            - Timestamps updated on removal
+        """
         with self._lock:
             # Find and remove proxy
             proxy_to_remove = self._id_index.get(proxy_id) if proxy_id in self._id_index else None
@@ -1124,31 +1192,137 @@ class ProxyPool(BaseModel):
             self.updated_at = datetime.now(timezone.utc)
 
     def has_proxy_url(self, proxy_url: str) -> bool:
-        """Check if pool contains a proxy with given URL (thread-safe, O(1))."""
+        """
+        Check if pool contains a proxy with given URL (O(1) hash lookup).
+
+        Performs constant-time membership check using URL hash set.
+        Thread-safe via RLock.
+
+        Args:
+            proxy_url : str
+                Full proxy URL to check (e.g., "http://proxy.example.com:8080").
+
+        Returns:
+            bool
+                True if proxy URL is in pool, False otherwise.
+
+        Example:
+            >>> pool = ProxyPool(name="default", proxies=[proxy1])
+            >>> pool.has_proxy_url("http://proxy.example.com:8080")
+            True
+
+        Note:
+            - O(1) constant-time lookup using hash set
+            - Thread-safe: uses RLock
+            - Performs exact URL matching
+        """
         with self._lock:
             return proxy_url in self._url_index
 
     def get_proxy_by_id(self, proxy_id: UUID) -> Proxy | None:
-        """Find proxy by ID using O(1) index lookup (thread-safe)."""
+        """
+        Find proxy by ID using O(1) index lookup.
+
+        Retrieves a proxy from the pool by its UUID with constant-time
+        lookup via ID index. Thread-safe via RLock.
+
+        Args:
+            proxy_id : UUID
+                UUID of the proxy to retrieve.
+
+        Returns:
+            Proxy | None
+                Proxy instance if found, None otherwise.
+
+        Example:
+            >>> pool = ProxyPool(name="default", proxies=[proxy1])
+            >>> found = pool.get_proxy_by_id(proxy1.id)
+            >>> print(found.url if found else "Not found")
+
+        Note:
+            - O(1) constant-time lookup using ID index
+            - Thread-safe: uses RLock
+            - Returns None if proxy ID not in pool
+        """
         with self._lock:
             return self._id_index.get(proxy_id)
 
     def filter_by_tags(self, tags: set[str]) -> list[Proxy]:
-        """Get proxies matching all tags (thread-safe)."""
+        """
+        Get proxies matching all tags.
+
+        Returns proxies that have all the specified tags.
+        Thread-safe via RLock.
+
+        Args:
+            tags : set[str]
+                Set of tags to filter by (all must match).
+
+        Returns:
+            list[Proxy]
+                List of proxies with all matching tags.
+
+        Example:
+            >>> pool = ProxyPool(name="default", proxies=[proxy1, proxy2])
+            >>> residential = pool.filter_by_tags({"residential"})
+            >>> rotating = pool.filter_by_tags({"rotating", "http"})
+
+        Note:
+            - Thread-safe: uses RLock
+            - Uses set intersection for matching
+            - Returns empty list if no matches found
+        """
         with self._lock:
             return [p for p in self.proxies if tags.issubset(p.tags)]
 
     def filter_by_source(self, source: ProxySource) -> list[Proxy]:
-        """Get proxies from specific source (thread-safe)."""
+        """
+        Get proxies from specific source.
+
+        Returns all proxies originating from a specific source.
+        Thread-safe via RLock.
+
+        Args:
+            source : ProxySource
+                Source to filter by (e.g., ProxySource.CUSTOM, ProxySource.FETCHED).
+
+        Returns:
+            list[Proxy]
+                List of proxies from the specified source.
+
+        Example:
+            >>> from proxywhirl import ProxySource
+            >>> pool = ProxyPool(name="default", proxies=[proxy1, proxy2])
+            >>> custom = pool.filter_by_source(ProxySource.CUSTOM)
+
+        Note:
+            - Thread-safe: uses RLock
+            - Returns empty list if no proxies from source found
+        """
         with self._lock:
             return [p for p in self.proxies if p.source == source]
 
     def get_healthy_proxies(self) -> list[Proxy]:
-        """Get all healthy or unknown (not yet tested) proxies, excluding expired ones (thread-safe).
+        """
+        Get all healthy or unknown (not yet tested) proxies, excluding expired ones.
 
-        Returns only proxies that are:
-        - Healthy, degraded, or unknown status
-        - Not expired (if TTL is set)
+        Returns only proxies that are in HEALTHY, DEGRADED, or UNKNOWN state
+        and have not expired. Thread-safe via RLock.
+
+        Returns:
+            list[Proxy]
+                List of healthy proxies (not expired).
+
+        Example:
+            >>> pool = ProxyPool(name="default", proxies=[proxy1, proxy2, proxy3])
+            >>> healthy = pool.get_healthy_proxies()
+            >>> print(f"Healthy proxies: {len(healthy)}")
+
+        Note:
+            - Thread-safe: uses RLock
+            - Filters out DEAD and UNHEALTHY proxies
+            - Filters out expired proxies (if TTL set)
+            - Returns copy to prevent external modification
         """
         with self._lock:
             return [
@@ -1160,7 +1334,27 @@ class ProxyPool(BaseModel):
             ]
 
     def clear_unhealthy(self) -> int:
-        """Remove all unhealthy proxies, return count removed (thread-safe)."""
+        """
+        Remove all unhealthy and dead proxies from the pool.
+
+        Removes proxies in DEAD or UNHEALTHY state, rebuilding the ID index.
+        Thread-safe via RLock.
+
+        Returns:
+            int
+                Number of proxies removed.
+
+        Example:
+            >>> pool = ProxyPool(name="default", proxies=[proxy1, proxy2, proxy3])
+            >>> removed = pool.clear_unhealthy()
+            >>> print(f"Removed {removed} unhealthy proxies")
+
+        Note:
+            - Thread-safe: uses RLock
+            - Rebuilds ID index after bulk removal
+            - Updates timestamp
+            - Preferred over manual removal for batches
+        """
         with self._lock:
             initial_count = self.size
             self.proxies = [
@@ -1174,10 +1368,26 @@ class ProxyPool(BaseModel):
             return initial_count - self.size
 
     def clear_expired(self) -> int:
-        """Remove all expired proxies, return count removed (thread-safe).
+        """
+        Remove all expired proxies from the pool.
+
+        Removes proxies that have exceeded their TTL (if set).
+        Rebuilds ID index. Thread-safe via RLock.
 
         Returns:
-            Number of expired proxies removed from the pool
+            int
+                Number of expired proxies removed.
+
+        Example:
+            >>> pool = ProxyPool(name="default", proxies=[proxy1, proxy2, proxy3])
+            >>> removed = pool.clear_expired()
+            >>> print(f"Removed {removed} expired proxies")
+
+        Note:
+            - Thread-safe: uses RLock
+            - Checks is_expired property on each proxy
+            - Rebuilds ID index after bulk removal
+            - Updates timestamp
         """
         with self._lock:
             initial_count = self.size
@@ -1188,12 +1398,51 @@ class ProxyPool(BaseModel):
             return initial_count - self.size
 
     def get_all_proxies(self) -> list[Proxy]:
-        """Get all proxies in the pool (thread-safe)."""
+        """
+        Get all proxies in the pool as a copy.
+
+        Returns a thread-safe copy of all proxies. Thread-safe via RLock.
+
+        Returns:
+            list[Proxy]
+                Copy of all proxies in the pool.
+
+        Example:
+            >>> pool = ProxyPool(name="default", proxies=[proxy1, proxy2])
+            >>> all_proxies = pool.get_all_proxies()
+            >>> for proxy in all_proxies:
+            ...     print(proxy.url)
+
+        Note:
+            - Thread-safe: uses RLock
+            - Returns a copy to prevent external modification
+            - Safe to iterate while other threads modify pool
+        """
         with self._lock:
             return self.proxies.copy()
 
     def get_source_breakdown(self) -> dict[str, int]:
-        """Get count of proxies by source (thread-safe)."""
+        """
+        Get count of proxies by source.
+
+        Returns a dictionary mapping source names to proxy counts.
+        Useful for monitoring pool composition. Thread-safe via RLock.
+
+        Returns:
+            dict[str, int]
+                Mapping of source name (string) to proxy count.
+
+        Example:
+            >>> pool = ProxyPool(name="default", proxies=[proxy1, proxy2, proxy3])
+            >>> breakdown = pool.get_source_breakdown()
+            >>> print(breakdown)
+            {'CUSTOM': 2, 'FETCHED': 1}
+
+        Note:
+            - Thread-safe: uses RLock
+            - Uses source.value for readable source names
+            - Useful for analytics and monitoring
+        """
         with self._lock:
             breakdown: dict[str, int] = {}
             for proxy in self.proxies:

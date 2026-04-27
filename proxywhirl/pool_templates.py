@@ -11,7 +11,7 @@ from typing import Any
 
 from loguru import logger
 
-from proxywhirl.models import ProxyConfiguration, StrategyConfig
+from proxywhirl.models import ProxyConfiguration
 
 
 @dataclass
@@ -28,9 +28,9 @@ class PoolTemplate:
         return {
             "name": self.name,
             "description": self.description,
-            "config": self.config.model_dump()
-            if hasattr(self.config, "model_dump")
-            else str(self.config),
+            "config": (
+                self.config.model_dump() if hasattr(self.config, "model_dump") else str(self.config)
+            ),
             "tags": self.tags,
         }
 
@@ -101,9 +101,8 @@ class TemplateLibrary:
                 name="fast-rotation",
                 description="Optimized for fast rotation with low latency",
                 config=ProxyConfiguration(
-                    strategy=StrategyConfig(name="round_robin"),
-                    cache_config={"enabled": True, "ttl": 300},
-                    retry_policy={"max_retries": 2, "backoff_factor": 0.5},
+                    timeout=5,
+                    health_check_interval_seconds=30,
                 ),
                 tags=["performance", "rotation"],
             )
@@ -115,9 +114,9 @@ class TemplateLibrary:
                 name="reliable-rotation",
                 description="Prioritizes reliability and error handling",
                 config=ProxyConfiguration(
-                    strategy=StrategyConfig(name="weighted"),
-                    cache_config={"enabled": True, "ttl": 600},
-                    retry_policy={"max_retries": 5, "backoff_factor": 2.0},
+                    timeout=10,
+                    max_retries=3,
+                    health_check_interval_seconds=60,
                 ),
                 tags=["reliability", "production"],
             )
@@ -129,8 +128,8 @@ class TemplateLibrary:
                 name="geo-targeted",
                 description="Optimized for geo-targeted requests",
                 config=ProxyConfiguration(
-                    strategy=StrategyConfig(name="geo_location"),
-                    cache_config={"enabled": True, "ttl": 1800},
+                    timeout=8,
+                    health_check_interval_seconds=120,
                 ),
                 tags=["geo", "location-based"],
             )
@@ -142,8 +141,8 @@ class TemplateLibrary:
                 name="performance",
                 description="Maximizes performance metrics",
                 config=ProxyConfiguration(
-                    strategy=StrategyConfig(name="performance_based"),
-                    cache_config={"enabled": True, "ttl": 900},
+                    timeout=3,
+                    health_check_interval_seconds=45,
                 ),
                 tags=["performance", "metrics"],
             )
@@ -154,11 +153,7 @@ class TemplateLibrary:
             PoolTemplate(
                 name="dev-testing",
                 description="For development and testing",
-                config=ProxyConfiguration(
-                    strategy=StrategyConfig(name="round_robin"),
-                    cache_config={"enabled": False},
-                    retry_policy={"max_retries": 1},
-                ),
+                config=ProxyConfiguration(timeout=15),
                 tags=["development", "testing"],
             )
         )
@@ -169,9 +164,9 @@ class TemplateLibrary:
                 name="high-availability",
                 description="Multi-region HA configuration",
                 config=ProxyConfiguration(
-                    strategy=StrategyConfig(name="failover"),
-                    cache_config={"enabled": True, "ttl": 300},
-                    retry_policy={"max_retries": 10, "backoff_factor": 1.5},
+                    timeout=10,
+                    max_retries=5,
+                    health_check_interval_seconds=20,
                 ),
                 tags=["ha", "failover", "production"],
             )
@@ -183,8 +178,8 @@ class TemplateLibrary:
                 name="rate-limited",
                 description="For rate-limited target APIs",
                 config=ProxyConfiguration(
-                    strategy=StrategyConfig(name="random"),
-                    cache_config={"enabled": True, "ttl": 120},
+                    timeout=20,
+                    health_check_interval_seconds=60,
                 ),
                 tags=["rate-limiting", "api"],
             )

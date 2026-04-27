@@ -1,0 +1,186 @@
+name: License Compliance Check
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    - cron: '0 1 * * MON'  # Weekly on Monday at 1 AM UTC
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  license-check:
+    name: Check Dependencies Licenses
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v6
+      
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+      
+      - name: Install dependencies
+        run: uv sync
+      
+      - name: Check licenses with pip-licenses
+        id: license_check
+        run: |
+          uv pip install pip-licenses
+          
+          # Generate license report
+          mkdir -p .license-reports
+          uv run pip-licenses \
+            --format=json \
+            --with-urls \
+            --output-file=.license-reports/licenses.json
+          
+          # Check for forbidden licenses
+          python3 << 'CHECKER'
+          import json
+          import sys
+          
+          FORBIDDEN_LICENSES = {
+              'GNU General Public License v3.0 (GPLv3)',
+              'GNU Affero General Public License v3.0 (AGPLv3)',
+              'GPLv3',
+              'AGPLv3',
+              'GPL-3.0',
+              'AGPL-3.0',
+              'GPL',
+              'AGPL',
+          }
+          
+          with open('.license-reports/licenses.json') as f:
+              licenses = json.load(f)
+          
+          problematic = []
+          for pkg in licenses:
+              license_type = pkg.get('License', '').strip()
+              if any(forbidden.lower() in license_type.lower() for forbidden in FORBIDDEN_LICENSES):
+                  problematic.append({
+                      'name': pkg.get('Name'),
+                      'version': pkg.get('Version'),
+                      'license': license_type,
+                      'url': pkg.get('URL')
+                  })
+          
+          if problematic:
+              print("❌ Found packages with forbidden licenses:\n")
+              for pkg in problematic:
+                  print(f"- {pkg['name']} ({pkg['version']})")
+                  print(f"  License: {pkg['license']}")
+                  print(f"  URL: {pkg['url']}\n")
+              
+              with open('.license-reports/forbidden-licenses.json', 'w') as f:
+                  json.dump(problematic, f, indent=2)
+              
+              sys.exit(1)
+          else:
+              print("✅ All dependencies use compatible licenses!")
+              with open('.license-reports/forbidden-licenses.json', 'w') as f:
+                  json.dump([], f)
+          
+          CHECKER
+      
+      - name: Generate license report
+        if: always()
+        run: |
+          python3 << 'REPORT'
+          import json
+          
+          with open('.license-reports/licenses.json') as f:
+              licenses = json.load(f)
+          
+          # Group by license
+          by_license = {}
+          for pkg in licenses:
+              lic = pkg.get('License', 'Unknown')
+              if lic not in by_license:
+                  by_license[lic] = []
+              by_license[lic].append(pkg.get('Name'))
+          
+          print("\n## 📋 License Report\n")
+          for lic, packages in sorted(by_license.items()):
+              print(f"### {lic}")
+              for pkg in sorted(packages):
+                  print(f"- {pkg}")
+              print()
+          
+          REPORT
+      
+      - name: Upload license reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-reports
+          path: .license-reports/
+          retention-days: 90
+      
+      - name: Comment PR on license violation
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const forbidden = fs.existsSync('.license-reports/forbidden-licenses.json') ?
+              JSON.parse(fs.readFileSync('.license-reports/forbidden-licenses.json', 'utf8')) : [];
+            
+            if (forbidden.length > 0) {
+              const comment = `## ⚠️ License Compliance Violation
+              
+              This PR introduces dependencies with forbidden licenses (GPL/AGPL):
+              
+              ${forbidden.map(pkg => 
+                `- **${pkg.name}** (${pkg.version}): ${pkg.license}\n  ${pkg.url}`
+              ).join('\n')}
+              
+              Please remove or replace these dependencies with compatible alternatives.`;
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+
+  sbom-generation:
+    name: Generate Software Bill of Materials
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v6
+      
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+      
+      - name: Generate SBOM
+        run: |
+          uv pip install cyclonedx-bom
+          mkdir -p .license-reports
+          uv run cyclonedx-bom -o .license-reports/sbom.xml
+      
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: .license-reports/sbom.xml
+          retention-days: 90
