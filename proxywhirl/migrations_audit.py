@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 from loguru import logger
 
@@ -106,10 +105,11 @@ class MigrationAuditor:
         ]
 
         for pattern, issue in dangerous_patterns:
-            if pattern.lower() in migration.up_sql.lower():
-                # Check if it's safe (has WHERE clause, etc.)
-                if "WHERE" not in migration.up_sql.upper():
-                    warnings.append(f"Potential issue: {issue}")
+            if (
+                pattern.lower() in migration.up_sql.lower()
+                and "WHERE" not in migration.up_sql.upper()
+            ):
+                warnings.append(f"Potential issue: {issue}")
 
         # Check for required safety patterns
         if "BEGIN" not in migration.up_sql.upper():
@@ -149,7 +149,7 @@ class MigrationAuditor:
         version: str,
         status: MigrationStatus,
         duration_seconds: float = 0.0,
-        error: Optional[str] = None,
+        error: str | None = None,
     ) -> None:
         """
         Log a migration execution.
@@ -183,7 +183,7 @@ class MigrationAuditor:
         """
         return self.execution_log.copy()
 
-    def get_migration_status(self, version: str) -> Optional[MigrationStatus]:
+    def get_migration_status(self, version: str) -> MigrationStatus | None:
         """
         Get current status of a migration.
 
@@ -197,7 +197,7 @@ class MigrationAuditor:
             return self.migrations[version].status
         return None
 
-    def get_reversibility_report(self) -> dict[str, int | list]:
+    def get_reversibility_report(self) -> dict[str, int | list | float]:
         """
         Get report on migration reversibility.
 

@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
 from loguru import logger
 
@@ -13,8 +12,8 @@ class Tag:
     """A tag for proxy metadata."""
 
     name: str
-    category: Optional[str] = None
-    description: Optional[str] = None
+    category: str | None = None
+    description: str | None = None
     color: str = "#808080"
 
     def __hash__(self) -> int:
