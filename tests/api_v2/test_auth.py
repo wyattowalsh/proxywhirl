@@ -3,7 +3,6 @@
 from datetime import datetime, timezone
 
 import pytest
-
 from proxywhirl.api.v2.auth import WebhookSignature, WebhookSigner
 
 
