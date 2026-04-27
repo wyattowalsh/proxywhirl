@@ -139,5 +139,5 @@ class ThreadPoolManager:
         """
         return {
             "total_pools": len(self._pools),
-            "pools": {name: {"active": True} for name in self._pools.keys()},
+            "pools": {name: {"active": True} for name in self._pools},
         }

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 from loguru import logger
 
@@ -77,7 +76,7 @@ class SessionPool:
         self.available_sessions: list[str] = []
         self.in_use_sessions: set[str] = set()
 
-    def acquire_session(self, session_id: Optional[str] = None) -> str:
+    def acquire_session(self, session_id: str | None = None) -> str:
         """
         Acquire a session from the pool.
 
@@ -88,13 +87,16 @@ class SessionPool:
             Session ID
         """
         # Try to reuse existing session
-        if session_id and session_id in self.available_sessions:
-            if not self.sessions[session_id].is_stale():
-                self.available_sessions.remove(session_id)
-                self.in_use_sessions.add(session_id)
-                self.sessions[session_id].touch()
-                logger.debug(f"Reused session: {session_id}")
-                return session_id
+        if (
+            session_id
+            and session_id in self.available_sessions
+            and not self.sessions[session_id].is_stale()
+        ):
+            self.available_sessions.remove(session_id)
+            self.in_use_sessions.add(session_id)
+            self.sessions[session_id].touch()
+            logger.debug(f"Reused session: {session_id}")
+            return session_id
 
         # Clean up stale sessions
         self.cleanup_stale()
@@ -198,7 +200,7 @@ class SessionPool:
             ),
         }
 
-    def get_session_info(self, session_id: str) -> Optional[dict]:
+    def get_session_info(self, session_id: str) -> dict | None:
         """
         Get information about a session.
 

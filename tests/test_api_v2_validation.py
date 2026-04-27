@@ -8,9 +8,8 @@ from __future__ import annotations
 
 import pytest
 from pydantic import ValidationError
-from typing import Optional
 
-from proxywhirl import Proxy, ProxyPool, ProxyWhirl, AsyncProxyWhirl
+from proxywhirl import AsyncProxyWhirl, Proxy, ProxyPool, ProxyWhirl
 
 
 class TestAPIv2Validation:
@@ -40,11 +39,7 @@ class TestAPIv2Validation:
     def test_proxy_v2_extra_forbid(self):
         """Test Proxy v2 forbids extra fields."""
         try:
-            proxy = Proxy(
-                url="http://proxy:8080",
-                protocol="http",
-                invalid_field="should_fail"
-            )
+            proxy = Proxy(url="http://proxy:8080", protocol="http", invalid_field="should_fail")
             # If accepted, that's okay for backward compat
         except ValidationError as e:
             # Should reject extra fields
@@ -144,9 +139,7 @@ class TestAPIv2Validation:
     def test_proxywhirl_v2_config_validation(self):
         """Test ProxyWhirl v2 config validation."""
         try:
-            pw = ProxyWhirl(
-                rotation_strategy="invalid_strategy"
-            )
+            pw = ProxyWhirl(rotation_strategy="invalid_strategy")
             # Config should be validated
         except (ValidationError, ValueError):
             # Should reject invalid strategy
@@ -193,10 +186,7 @@ class TestAPIv2Validation:
     def test_proxy_v2_authentication_fields(self):
         """Test Proxy v2 handles authentication."""
         try:
-            proxy = Proxy(
-                url="http://user:pass@proxy:8080",
-                protocol="http"
-            )
+            proxy = Proxy(url="http://user:pass@proxy:8080", protocol="http")
             # Should accept auth in URL
             assert proxy.url is not None
         except ValidationError:
@@ -208,6 +198,7 @@ class TestAPIv2Validation:
         # Should have proper response typing
         if hasattr(pw, "get"):
             import inspect
+
             sig = inspect.signature(pw.get)
             # Should have return annotation
             if sig.return_annotation != inspect.Signature.empty:

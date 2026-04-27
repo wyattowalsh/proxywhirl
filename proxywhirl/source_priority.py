@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass
-from typing import Optional
 
 from loguru import logger
 
@@ -136,7 +135,7 @@ class SourceWeightRegistry:
             self.sources[name].enabled = False
             logger.debug(f"Disabled source: {name}")
 
-    def select_source(self) -> Optional[WeightedSource]:
+    def select_source(self) -> WeightedSource | None:
         """
         Select a source using weighted random selection.
 
@@ -190,7 +189,7 @@ class SourceWeightRegistry:
 
         return random.choices(enabled_sources, weights=weights, k=k)
 
-    def get_source(self, name: str) -> Optional[WeightedSource]:
+    def get_source(self, name: str) -> WeightedSource | None:
         """
         Get source by name.
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 
 from loguru import logger
 
@@ -14,7 +14,7 @@ class StorageBackend(Protocol):
         """Store a value."""
         ...
 
-    def retrieve(self, key: str) -> Optional[Any]:
+    def retrieve(self, key: str) -> Any | None:
         """Retrieve a value."""
         ...
 
@@ -89,7 +89,7 @@ class DualWriteStorage:
             else:
                 logger.warning(f"Partial dual-write for {key}: {errors}")
 
-    def retrieve(self, key: str) -> Optional[Any]:
+    def retrieve(self, key: str) -> Any | None:
         """
         Retrieve value from storage.
 
@@ -144,9 +144,8 @@ class DualWriteStorage:
             logger.error(f"Failed to delete {key} from secondary: {e}")
             errors.append(("secondary", e))
 
-        if errors:
-            if len(errors) == 2:
-                raise RuntimeError(f"Dual-delete failed for {key}: {errors}")
+        if errors and len(errors) == 2:
+            raise RuntimeError(f"Dual-delete failed for {key}: {errors}")
 
     def switch_to_secondary(self) -> None:
         """Switch primary reads to secondary backend."""

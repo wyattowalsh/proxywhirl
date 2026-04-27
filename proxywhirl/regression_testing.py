@@ -181,9 +181,11 @@ class RegressionDetector:
         Returns:
             RegressionResult
         """
-        return self.detect_performance_regression(
+        result = self.detect_performance_regression(
             test_name, baseline_value, current_value, unit="MB", threshold=threshold
         )
+        result.regression_type = RegressionType.MEMORY
+        return result
 
     def detect_latency_regression(
         self,

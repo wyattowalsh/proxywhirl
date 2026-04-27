@@ -5,7 +5,6 @@ import io
 import json
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
 
 try:
     import yaml
@@ -38,7 +37,7 @@ class MultiFormatExporter:
         }
 
     def export(
-        self, proxies: List[Proxy], format: ExportFormat, output_path: Optional[str] = None
+        self, proxies: list[Proxy], format: ExportFormat, output_path: str | None = None
     ) -> str:
         """Export proxies to specified format."""
         exporter = self.formats.get(format)
@@ -52,7 +51,7 @@ class MultiFormatExporter:
 
         return content
 
-    def _export_json(self, proxies: List[Proxy]) -> str:
+    def _export_json(self, proxies: list[Proxy]) -> str:
         """Export as JSON."""
         data = [
             {
@@ -67,7 +66,7 @@ class MultiFormatExporter:
         ]
         return json.dumps(data, indent=2)
 
-    def _export_csv(self, proxies: List[Proxy]) -> str:
+    def _export_csv(self, proxies: list[Proxy]) -> str:
         """Export as CSV."""
         output = io.StringIO()
         writer = csv.DictWriter(
@@ -88,7 +87,7 @@ class MultiFormatExporter:
 
         return output.getvalue()
 
-    def _export_yaml(self, proxies: List[Proxy]) -> str:
+    def _export_yaml(self, proxies: list[Proxy]) -> str:
         """Export as YAML."""
         if not yaml:
             raise ImportError("PyYAML not installed. Install with: pip install pyyaml")
@@ -104,7 +103,7 @@ class MultiFormatExporter:
         ]
         return yaml.dump(data, default_flow_style=False)
 
-    def _export_jsonl(self, proxies: List[Proxy]) -> str:
+    def _export_jsonl(self, proxies: list[Proxy]) -> str:
         """Export as JSONL (JSON Lines)."""
         lines = [
             json.dumps(
@@ -119,7 +118,7 @@ class MultiFormatExporter:
         ]
         return "\n".join(lines)
 
-    def _export_tsv(self, proxies: List[Proxy]) -> str:
+    def _export_tsv(self, proxies: list[Proxy]) -> str:
         """Export as TSV."""
         output = io.StringIO()
         writer = csv.DictWriter(

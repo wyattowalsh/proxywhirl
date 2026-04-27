@@ -22,7 +22,6 @@ from proxywhirl.safe_regex import (
     validate_regex_pattern,
 )
 
-
 # ============================================================================
 # EVIL PATTERN REJECTION
 # ============================================================================
@@ -78,7 +77,7 @@ class TestEvilPatternRejection:
         ],
     )
     def test_evil_pattern_rejected_by_match(self, evil_pattern: str) -> None:
-        """"``safe_regex_match`` must reject evil patterns before matching."""
+        """ "``safe_regex_match`` must reject evil patterns before matching."""
         with pytest.raises(typer.Exit) as exc_info:
             safe_regex_match(evil_pattern, "aaaaab")
         assert exc_info.value.exit_code == 1
@@ -350,7 +349,7 @@ class TestEdgeCases:
         assert len(matches) == 50
 
     def test_regex_timeout_error_is_exception(self) -> None:
-        """"``RegexTimeoutError`` must be an Exception subclass."""
+        """ "``RegexTimeoutError`` must be an Exception subclass."""
         assert issubclass(RegexTimeoutError, Exception)
 
 
@@ -369,7 +368,9 @@ def test_at_least_fifteen_tests_exist() -> None:
     def _collect_tests(obj):
         tests = []
         for name, member in inspect.getmembers(obj):
-            if name.startswith("test_") and (inspect.isfunction(member) or inspect.ismethod(member)):
+            if name.startswith("test_") and (
+                inspect.isfunction(member) or inspect.ismethod(member)
+            ):
                 tests.append(member)
         return tests
 

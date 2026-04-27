@@ -7,9 +7,10 @@ concurrent operations and handles context switching correctly.
 from __future__ import annotations
 
 import asyncio
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
-from proxywhirl import AsyncProxyWhirl, Proxy, ProxyPool
+
+from proxywhirl import AsyncProxyWhirl, Proxy
 
 
 class TestAsyncContextIsolation:
@@ -34,10 +35,7 @@ class TestAsyncContextIsolation:
 
         try:
             results = await asyncio.gather(
-                get_proxy(),
-                get_proxy(),
-                get_proxy(),
-                return_exceptions=True
+                get_proxy(), get_proxy(), get_proxy(), return_exceptions=True
             )
             # Should not raise
             assert len(results) == 3
@@ -115,11 +113,7 @@ class TestAsyncContextIsolation:
                 return None
 
         try:
-            result = await asyncio.gather(
-                failing_task(),
-                normal_task(),
-                return_exceptions=True
-            )
+            result = await asyncio.gather(failing_task(), normal_task(), return_exceptions=True)
             # Both should complete
             assert len(result) == 2
         except Exception:
@@ -132,10 +126,10 @@ class TestAsyncContextIsolation:
         pw2 = AsyncProxyWhirl()
 
         # Modify config of pw1
-        original_timeout = pw1.config.timeout if hasattr(pw1.config, 'timeout') else None
+        original_timeout = pw1.config.timeout if hasattr(pw1.config, "timeout") else None
 
         try:
-            if hasattr(pw1.config, 'timeout'):
+            if hasattr(pw1.config, "timeout"):
                 pw1.config.timeout = 99
         except Exception:
             pass
@@ -239,11 +233,7 @@ class TestAsyncContextIsolation:
             await asyncio.sleep(0.01)
             task1.cancel()
 
-            results = await asyncio.gather(
-                task1,
-                task2,
-                return_exceptions=True
-            )
+            results = await asyncio.gather(task1, task2, return_exceptions=True)
             # task2 should still complete
             assert len(results) == 2
         except Exception:

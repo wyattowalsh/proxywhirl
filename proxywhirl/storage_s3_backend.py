@@ -89,7 +89,7 @@ class S3StorageBackend:
         try:
             import json
 
-            data = json.dumps(value) if not isinstance(value, bytes) else value
+            json.dumps(value) if not isinstance(value, bytes) else value
             logger.debug(f"Written to S3: {self.config.bucket_name}/{key}")
             return True
         except Exception as e:

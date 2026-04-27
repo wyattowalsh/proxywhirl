@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import random
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
 
 import pytest
 

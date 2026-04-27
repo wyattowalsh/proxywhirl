@@ -79,7 +79,6 @@ class RequestTracer:
         )
 
         self._spans[span_id] = span
-        previous = self._current_span_id
         self._current_span_id = span_id
 
         logger.debug(f"Span started: {span_id} ({operation_name})")

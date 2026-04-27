@@ -10,10 +10,9 @@ import json
 from typing import Any
 
 import pytest
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
 from proxywhirl.api.models import (
-    ConfigurationSettings,
     CreateProxyRequest,
     ProxiedRequest,
     UpdateConfigRequest,
@@ -26,7 +25,6 @@ from proxywhirl.validators import (
     is_valid_port,
     is_valid_proxy_url,
 )
-
 
 # ============================================================================
 # PROXIED REQUEST EDGE CASES
@@ -472,7 +470,9 @@ def test_at_least_twenty_tests_exist() -> None:
     def _collect_tests(obj):
         tests = []
         for name, member in inspect.getmembers(obj):
-            if name.startswith("test_") and (inspect.isfunction(member) or inspect.ismethod(member)):
+            if name.startswith("test_") and (
+                inspect.isfunction(member) or inspect.ismethod(member)
+            ):
                 tests.append(member)
         return tests
 

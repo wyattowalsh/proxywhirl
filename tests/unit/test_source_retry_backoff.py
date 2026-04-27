@@ -31,7 +31,7 @@ class RetryBackoff:
     def get_delay(self) -> float:
         """Get delay for next retry."""
         self.attempt += 1
-        
+
         if self.strategy == BackoffStrategy.LINEAR:
             delay = self.attempt
         elif self.strategy == BackoffStrategy.EXPONENTIAL:
@@ -42,7 +42,7 @@ class RetryBackoff:
             delay = random.uniform(1, 10)
         else:
             delay = 1
-        
+
         return min(delay, self.max_wait)
 
     def _fibonacci(self, n: int) -> float:
@@ -65,7 +65,7 @@ class TestSourceRetryBackoff:
     def test_linear_backoff(self) -> None:
         """Test linear backoff."""
         backoff = RetryBackoff(BackoffStrategy.LINEAR)
-        
+
         assert backoff.get_delay() == 1
         assert backoff.get_delay() == 2
         assert backoff.get_delay() == 3
@@ -74,7 +74,7 @@ class TestSourceRetryBackoff:
     def test_exponential_backoff(self) -> None:
         """Test exponential backoff."""
         backoff = RetryBackoff(BackoffStrategy.EXPONENTIAL)
-        
+
         assert backoff.get_delay() == 1
         assert backoff.get_delay() == 2
         assert backoff.get_delay() == 4
@@ -84,7 +84,7 @@ class TestSourceRetryBackoff:
     def test_fibonacci_backoff(self) -> None:
         """Test fibonacci backoff."""
         backoff = RetryBackoff(BackoffStrategy.FIBONACCI)
-        
+
         delays = [backoff.get_delay() for _ in range(6)]
         # Fibonacci: 1, 1, 2, 3, 5, 8
         assert delays[0] == 1
@@ -97,7 +97,7 @@ class TestSourceRetryBackoff:
     def test_random_backoff(self) -> None:
         """Test random backoff."""
         backoff = RetryBackoff(BackoffStrategy.RANDOM)
-        
+
         for _ in range(5):
             delay = backoff.get_delay()
             assert 1 <= delay <= 10
@@ -106,7 +106,7 @@ class TestSourceRetryBackoff:
         """Test max wait clamping."""
         backoff = RetryBackoff(BackoffStrategy.EXPONENTIAL)
         backoff.max_wait = 5.0
-        
+
         backoff.get_delay()  # 1
         backoff.get_delay()  # 2
         backoff.get_delay()  # 4
@@ -116,28 +116,28 @@ class TestSourceRetryBackoff:
     def test_reset_backoff(self) -> None:
         """Test resetting backoff."""
         backoff = RetryBackoff(BackoffStrategy.EXPONENTIAL)
-        
+
         backoff.get_delay()  # 1
         backoff.get_delay()  # 2
         backoff.reset()
-        
+
         assert backoff.get_delay() == 1
 
     def test_multiple_strategy_instances(self) -> None:
         """Test multiple backoff instances."""
         linear = RetryBackoff(BackoffStrategy.LINEAR)
         exponential = RetryBackoff(BackoffStrategy.EXPONENTIAL)
-        
+
         linear_delay = linear.get_delay()
         exp_delay = exponential.get_delay()
-        
+
         assert linear_delay == 1
         assert exp_delay == 1
 
     def test_backoff_increases(self) -> None:
         """Test backoff increases with retries."""
         backoff = RetryBackoff(BackoffStrategy.EXPONENTIAL)
-        
+
         delays = [backoff.get_delay() for _ in range(5)]
         for i in range(len(delays) - 1):
             assert delays[i] <= delays[i + 1]
@@ -145,7 +145,7 @@ class TestSourceRetryBackoff:
     def test_attempt_tracking(self) -> None:
         """Test attempt counter."""
         backoff = RetryBackoff(BackoffStrategy.LINEAR)
-        
+
         assert backoff.attempt == 0
         backoff.get_delay()
         assert backoff.attempt == 1
@@ -155,7 +155,7 @@ class TestSourceRetryBackoff:
     def test_jitter_randomness(self) -> None:
         """Test random strategy produces different values."""
         backoff = RetryBackoff(BackoffStrategy.RANDOM)
-        
+
         values = [backoff.get_delay() for _ in range(10)]
         # At least some variation
         assert len(set(values)) > 1
@@ -164,19 +164,19 @@ class TestSourceRetryBackoff:
     async def test_async_backoff_sleep(self) -> None:
         """Test async sleep with backoff."""
         backoff = RetryBackoff(BackoffStrategy.LINEAR)
-        
+
         start = time.time()
         delay = backoff.get_delay()
         await asyncio.sleep(delay)
         elapsed = time.time() - start
-        
+
         assert elapsed >= delay
 
     def test_max_wait_constraint(self) -> None:
         """Test max wait is respected."""
         backoff = RetryBackoff(BackoffStrategy.EXPONENTIAL)
         backoff.max_wait = 2.0
-        
+
         for _ in range(10):
             delay = backoff.get_delay()
             assert delay <= 2.0

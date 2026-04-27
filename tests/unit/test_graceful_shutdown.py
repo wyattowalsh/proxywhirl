@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-import signal
 import threading
 import time
 from contextlib import asynccontextmanager, contextmanager
-from typing import Any
 
 import pytest
 

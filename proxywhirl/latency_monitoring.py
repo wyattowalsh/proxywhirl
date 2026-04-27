@@ -3,7 +3,6 @@
 import statistics
 from collections import deque
 from dataclasses import dataclass
-from typing import Dict
 
 
 @dataclass
@@ -25,9 +24,9 @@ class LatencyMonitor:
     def __init__(self, window_size: int = 1000):
         self.window_size = window_size
         self.latencies: deque = deque(maxlen=window_size)
-        self.proxy_latencies: Dict[str, deque] = {}
+        self.proxy_latencies: dict[str, deque] = {}
 
-    def record_latency(self, latency_ms: float, proxy_url: Optional[str] = None) -> None:
+    def record_latency(self, latency_ms: float, proxy_url: str | None = None) -> None:
         """Record a latency measurement."""
         self.latencies.append(latency_ms)
 
@@ -36,12 +35,12 @@ class LatencyMonitor:
                 self.proxy_latencies[proxy_url] = deque(maxlen=self.window_size)
             self.proxy_latencies[proxy_url].append(latency_ms)
 
-    def get_stats(self) -> Optional[LatencyStats]:
+    def get_stats(self) -> LatencyStats | None:
         """Get latency statistics."""
         if not self.latencies:
             return None
 
-        data = sorted(list(self.latencies))
+        data = sorted(self.latencies)
 
         return LatencyStats(
             min_ms=min(data),
@@ -53,13 +52,13 @@ class LatencyMonitor:
             stddev_ms=statistics.stdev(data) if len(data) > 1 else 0.0,
         )
 
-    def get_proxy_stats(self, proxy_url: str) -> Optional[LatencyStats]:
+    def get_proxy_stats(self, proxy_url: str) -> LatencyStats | None:
         """Get stats for specific proxy."""
         latencies = self.proxy_latencies.get(proxy_url)
         if not latencies or len(latencies) == 0:
             return None
 
-        data = sorted(list(latencies))
+        data = sorted(latencies)
 
         return LatencyStats(
             min_ms=min(data),

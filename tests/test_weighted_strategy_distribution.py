@@ -11,19 +11,17 @@ from __future__ import annotations
 
 from collections import Counter
 
-import pytest
-
 from proxywhirl.models import Proxy, ProxyPool, SelectionContext
 from proxywhirl.strategies.core import WeightedStrategy
 
 
 def create_proxy_with_success_rate(url: str, success_rate: float) -> Proxy:
     """Create a proxy with specific success rate.
-    
+
     Args:
         url: Proxy URL
         success_rate: Desired success rate (0.0-1.0)
-    
+
     Returns:
         Proxy with total_successes/total_requests set to achieve desired rate
     """
@@ -367,10 +365,13 @@ class TestRandomnessProperties:
         distributions = []
         for _ in range(3):
             strategy = WeightedStrategy()
-            pool = ProxyPool(name="test_pool", proxies=[
-                create_proxy_with_success_rate("http://proxy1.example.com:8080", 0.7),
-                create_proxy_with_success_rate("http://proxy2.example.com:8080", 0.3),
-            ])
+            pool = ProxyPool(
+                name="test_pool",
+                proxies=[
+                    create_proxy_with_success_rate("http://proxy1.example.com:8080", 0.7),
+                    create_proxy_with_success_rate("http://proxy2.example.com:8080", 0.3),
+                ],
+            )
 
             selections = []
             for _ in range(1_000):
@@ -379,7 +380,9 @@ class TestRandomnessProperties:
                 selections.append(selected.url)
 
             counts = Counter(selections)
-            ratio = counts.get("http://proxy1.example.com:8080", 0) / counts.get("http://proxy2.example.com:8080", 1)
+            ratio = counts.get("http://proxy1.example.com:8080", 0) / counts.get(
+                "http://proxy2.example.com:8080", 1
+            )
             distributions.append(ratio)
 
         # Ratios should be similar across runs (within 20%)

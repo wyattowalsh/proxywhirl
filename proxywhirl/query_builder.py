@@ -320,22 +320,28 @@ class ProxyQuery:
         # Apply filters
         for proxy in proxies[:]:
             # Country filter
-            if "country" in self.filters:
-                if getattr(proxy, "country", None) != self.filters["country"]:
-                    proxies.remove(proxy)
-                    continue
+            if (
+                "country" in self.filters
+                and getattr(proxy, "country", None) != self.filters["country"]
+            ):
+                proxies.remove(proxy)
+                continue
 
             # Protocol filter
-            if "protocol" in self.filters:
-                if getattr(proxy, "protocol", "").lower() != self.filters["protocol"]:
-                    proxies.remove(proxy)
-                    continue
+            if (
+                "protocol" in self.filters
+                and getattr(proxy, "protocol", "").lower() != self.filters["protocol"]
+            ):
+                proxies.remove(proxy)
+                continue
 
             # Multiple protocols filter
-            if "protocols" in self.filters:
-                if getattr(proxy, "protocol", "").lower() not in self.filters["protocols"]:
-                    proxies.remove(proxy)
-                    continue
+            if (
+                "protocols" in self.filters
+                and getattr(proxy, "protocol", "").lower() not in self.filters["protocols"]
+            ):
+                proxies.remove(proxy)
+                continue
 
             # Anonymity filters
             if "min_anonymity" in self.filters:
@@ -346,10 +352,12 @@ class ProxyQuery:
                     proxies.remove(proxy)
                     continue
 
-            if "anonymity" in self.filters:
-                if getattr(proxy, "anonymity", None) != self.filters["anonymity"]:
-                    proxies.remove(proxy)
-                    continue
+            if (
+                "anonymity" in self.filters
+                and getattr(proxy, "anonymity", None) != self.filters["anonymity"]
+            ):
+                proxies.remove(proxy)
+                continue
 
             # Tags filter (all tags must match)
             if "tags" in self.filters:
@@ -368,10 +376,12 @@ class ProxyQuery:
                     continue
 
             # Exclude countries filter
-            if "exclude_countries" in self.filters:
-                if getattr(proxy, "country", None) in self.filters["exclude_countries"]:
-                    proxies.remove(proxy)
-                    continue
+            if (
+                "exclude_countries" in self.filters
+                and getattr(proxy, "country", None) in self.filters["exclude_countries"]
+            ):
+                proxies.remove(proxy)
+                continue
 
             # Health filters
             if self.filters.get("healthy_only"):

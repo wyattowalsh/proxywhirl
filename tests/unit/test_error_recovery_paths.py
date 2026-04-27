@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import tempfile
 import time
 from unittest.mock import patch
 
@@ -10,6 +12,7 @@ import pytest
 from pydantic import ValidationError
 
 from proxywhirl.cache.manager import CacheManager
+from proxywhirl.cache.models import CacheConfig
 from proxywhirl.circuit_breaker import AsyncCircuitBreaker, CircuitBreaker
 from proxywhirl.exceptions import (
     CacheCorruptionError,
@@ -19,6 +22,7 @@ from proxywhirl.exceptions import (
 from proxywhirl.models import Proxy, ProxyPool
 from proxywhirl.retry import RetryableError
 from proxywhirl.retry.executor import RetryExecutor, RetryPolicy
+from proxywhirl.retry.metrics import RetryMetrics
 from proxywhirl.storage import SQLiteStorage
 from tests.conftest import ProxyFactory, ProxyPoolFactory
 
@@ -150,7 +154,11 @@ class TestRecoveryPaths:
             max_delay_ms=100,
             exponential_base=2.0,
         )
-        executor = RetryExecutor(policy=policy)
+        executor = RetryExecutor(
+            retry_policy=policy,
+            circuit_breakers={},
+            retry_metrics=RetryMetrics(),
+        )
 
         attempt_count = 0
         attempt_times: list[float] = []
@@ -175,7 +183,8 @@ class TestRecoveryPaths:
 
     def test_storage_corruption_recovery(self) -> None:
         """Test recovery from corrupted storage."""
-        storage = SQLiteStorage()
+        db_path = tempfile.mktemp(suffix=".db")
+        storage = SQLiteStorage(filepath=db_path)
 
         # Create valid proxy
         proxy = ProxyFactory.build()
@@ -195,6 +204,10 @@ class TestRecoveryPaths:
                 storage.delete_pool(pool.id)
             except Exception:
                 pass
+            try:
+                os.unlink(db_path)
+            except Exception:
+                pass
 
     @pytest.mark.asyncio
     async def test_async_retry_recovery(self) -> None:
@@ -204,7 +217,11 @@ class TestRecoveryPaths:
             initial_delay_ms=10,
             exponential_base=1.5,
         )
-        executor = RetryExecutor(policy=policy)
+        executor = RetryExecutor(
+            retry_policy=policy,
+            circuit_breakers={},
+            retry_metrics=RetryMetrics(),
+        )
 
         attempt_count = 0
 
@@ -254,7 +271,7 @@ class TestCorruptionRecovery:
 
     def test_cache_corruption_detection(self) -> None:
         """Test detection of corrupted cache data."""
-        cache = CacheManager()
+        cache = CacheManager(CacheConfig())
 
         proxy = ProxyFactory.build()
         cache_key = f"proxy:{proxy.id}"
@@ -270,7 +287,8 @@ class TestCorruptionRecovery:
     def test_pool_corruption_recovery(self) -> None:
         """Test recovery from corrupted pool data."""
         pool = ProxyPoolFactory.build()
-        storage = SQLiteStorage()
+        db_path = tempfile.mktemp(suffix=".db")
+        storage = SQLiteStorage(filepath=db_path)
 
         try:
             storage.save_pool(pool)
@@ -290,6 +308,10 @@ class TestCorruptionRecovery:
                 storage.delete_pool(pool.id)
             except Exception:
                 pass
+            try:
+                os.unlink(db_path)
+            except Exception:
+                pass
 
     def test_partial_proxy_corruption_handling(self) -> None:
         """Test handling of partially corrupted proxy data."""
@@ -297,7 +319,8 @@ class TestCorruptionRecovery:
             name="test_corruption_pool",
             proxies=[ProxyFactory.build() for _ in range(5)],
         )
-        storage = SQLiteStorage()
+        db_path = tempfile.mktemp(suffix=".db")
+        storage = SQLiteStorage(filepath=db_path)
 
         try:
             storage.save_pool(pool)
@@ -320,6 +343,10 @@ class TestCorruptionRecovery:
                 storage.delete_pool(pool.id)
             except Exception:
                 pass
+            try:
+                os.unlink(db_path)
+            except Exception:
+                pass
 
 
 # ============================================================================
@@ -332,7 +359,7 @@ class TestTimeoutBehavior:
 
     def test_cache_manager_operation_timeout(self) -> None:
         """Test timeout behavior in cache operations."""
-        cache = CacheManager()
+        cache = CacheManager(CacheConfig())
 
         # Normal operation should complete
         cache.set("test_key", "test_value", ttl_seconds=60)

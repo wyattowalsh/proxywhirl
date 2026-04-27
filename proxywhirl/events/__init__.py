@@ -64,7 +64,7 @@ class Event(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     source: str = Field(description="Component that emitted event")
     payload: dict[str, Any] = Field(default_factory=dict)
-    correlation_id: Optional[UUID] = Field(None, description="For correlating related events")
+    correlation_id: UUID | None = Field(None, description="For correlating related events")
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -87,7 +87,7 @@ class EventSubscriber:
         self,
         event_types: list[EventType] | EventType,
         handler: EventHandler | Callable[[Event], Any],
-        filter_fn: Optional[Callable[[Event], bool]] = None,
+        filter_fn: Callable[[Event], bool] | None = None,
     ):
         """Initialize event subscriber.
 
@@ -130,7 +130,7 @@ class EventBus:
         self._subscribers: dict[EventType, list[EventSubscriber]] = {}
         self._event_queue: asyncio.Queue[Event] = asyncio.Queue(maxsize=max_queue_size)
         self._running = False
-        self._worker_task: Optional[asyncio.Task[None]] = None
+        self._worker_task: asyncio.Task[None] | None = None
         self._event_history: list[Event] = []
         self._max_history = 1000
 
@@ -138,7 +138,7 @@ class EventBus:
         self,
         event_type: EventType | list[EventType],
         handler: EventHandler | Callable[[Event], Any],
-        filter_fn: Optional[Callable[[Event], bool]] = None,
+        filter_fn: Callable[[Event], bool] | None = None,
     ) -> Callable[[], None]:
         """Subscribe to event(s).
 
@@ -232,7 +232,7 @@ class EventBus:
                 logger.error("Event worker error", error=e)
 
     def get_event_history(
-        self, event_type: Optional[EventType] = None, limit: int = 100
+        self, event_type: EventType | None = None, limit: int = 100
     ) -> list[Event]:
         """Get event history.
 
@@ -260,7 +260,7 @@ class EventBus:
 
 
 # Global event bus instance
-_event_bus: Optional[EventBus] = None
+_event_bus: EventBus | None = None
 
 
 def get_event_bus() -> EventBus:

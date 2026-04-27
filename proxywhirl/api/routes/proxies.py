@@ -680,7 +680,7 @@ async def get_proxy(
 async def delete_proxy(
     proxy_id: str,
     rotator: ProxyWhirl = Depends(get_rotator),
-    storage = Depends(get_storage),
+    storage=Depends(get_storage),
     api_key: None = Depends(verify_api_key),
 ) -> None:
     """Remove a proxy from the pool.

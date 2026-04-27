@@ -335,8 +335,7 @@ class TestAsyncRetryMonitoring:
             call_count = 0
             max_retries = 3
 
-            for attempt in range(max_retries):
-                call_count += 1
+            for call_count, attempt in enumerate(range(max_retries), start=1):
                 attempts.append(attempt)
                 try:
                     if call_count < 2:

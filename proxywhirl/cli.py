@@ -3990,22 +3990,20 @@ def diversity() -> None:
                     "diversity_score": round(diversity_score, 2),
                     "shannon_entropy": round(metrics.shannon_entropy, 3),
                     "geographic_spread": round(metrics.geographic_spread, 2),
-                    "top_countries": {
-                        k: v
-                        for k, v in sorted(
+                    "top_countries": dict(
+                        sorted(
                             metrics.country_distribution.items(),
                             key=lambda x: x[1],
                             reverse=True,
                         )[:5]
-                    },
-                    "top_as": {
-                        k: v
-                        for k, v in sorted(
+                    ),
+                    "top_as": dict(
+                        sorted(
                             metrics.as_distribution.items(),
                             key=lambda x: x[1],
                             reverse=True,
                         )[:5]
-                    },
+                    ),
                     "warning": warning,
                 }
             )

@@ -71,11 +71,11 @@ class ProxySearchEngine:
 
         index = self._indices[index_name]
 
-        for field in index.indexed_fields:
-            if field not in document:
+        for idx_field in index.indexed_fields:
+            if idx_field not in document:
                 continue
 
-            value = str(document[field]).lower()
+            value = str(document[idx_field]).lower()
             tokens = self._tokenize(value)
 
             for token in tokens:
@@ -150,8 +150,9 @@ class ProxySearchEngine:
         """
         found = False
         for token_docs in self._inverted_index.values():
-            if doc_id in token_docs:
-                token_docs.discard(doc_id)
+            to_remove = {d for d in token_docs if d == doc_id or d.endswith(f":{doc_id}")}
+            if to_remove:
+                token_docs -= to_remove
                 found = True
 
         if found:

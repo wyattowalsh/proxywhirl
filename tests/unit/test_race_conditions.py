@@ -15,7 +15,6 @@ import pytest
 from proxywhirl.models import Proxy, ProxyPool
 from tests.conftest import ProxyFactory
 
-
 # ============================================================================
 # SHARED STATE UNDER ASYNCIO.GATHER
 # ============================================================================
@@ -62,9 +61,7 @@ class TestAsyncioGatherSharedState:
             async with lock:
                 data[key] = data.get(key, 0) + value
 
-        await asyncio.gather(
-            *[update(f"key_{i % 5}", 1) for i in range(100)]
-        )
+        await asyncio.gather(*[update(f"key_{i % 5}", 1) for i in range(100)])
         assert sum(data.values()) == 100
 
     @pytest.mark.asyncio
@@ -252,7 +249,9 @@ class TestConcurrentProxyPoolModifications:
 
     def test_proxy_pool_concurrent_selection(self) -> None:
         """Multiple threads selecting proxies concurrently."""
-        pool = ProxyPool(name="concurrent_select", proxies=[ProxyFactory.healthy() for _ in range(20)])
+        pool = ProxyPool(
+            name="concurrent_select", proxies=[ProxyFactory.healthy() for _ in range(20)]
+        )
         lock = threading.Lock()
         selected: list[Proxy] = []
         errors: list[Exception] = []
@@ -374,7 +373,9 @@ def test_at_least_fifteen_tests_exist() -> None:
     def _collect_tests(obj):
         tests = []
         for name, member in inspect.getmembers(obj):
-            if name.startswith("test_") and (inspect.isfunction(member) or inspect.ismethod(member)):
+            if name.startswith("test_") and (
+                inspect.isfunction(member) or inspect.ismethod(member)
+            ):
                 tests.append(member)
         return tests
 

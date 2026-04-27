@@ -6,8 +6,10 @@ timeouts, and network errors gracefully.
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+
 from proxywhirl.browser import BrowserRenderer
 
 
@@ -29,7 +31,7 @@ class TestBrowserFailures:
         """Test handling of browser launch failure."""
         with patch("proxywhirl.browser.BrowserRenderer") as mock_renderer:
             mock_renderer.side_effect = RuntimeError("Browser launch failed")
-            
+
             try:
                 renderer = BrowserRenderer()
             except RuntimeError:

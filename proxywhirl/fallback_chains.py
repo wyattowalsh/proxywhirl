@@ -1,7 +1,8 @@
 """Fallback proxy chain support."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import List, Optional
 
 from loguru import logger
 
@@ -12,14 +13,14 @@ from proxywhirl.models import Proxy
 class ProxyChain:
     """Chain of fallback proxies."""
 
-    proxies: List[Proxy]
+    proxies: list[Proxy]
     name: str
-    description: Optional[str] = None
+    description: str | None = None
 
     def __iter__(self):
         return iter(self.proxies)
 
-    def get_next(self, current_index: int) -> Optional[Proxy]:
+    def get_next(self, current_index: int) -> Proxy | None:
         """Get next proxy in chain."""
         if current_index + 1 < len(self.proxies):
             return self.proxies[current_index + 1]
@@ -37,17 +38,17 @@ class FallbackChainManager:
         self.chains[chain.name] = chain
         logger.info(f"Registered chain '{chain.name}' with {len(chain.proxies)} proxies")
 
-    def get_chain(self, name: str) -> Optional[ProxyChain]:
+    def get_chain(self, name: str) -> ProxyChain | None:
         """Get chain by name."""
         return self.chains.get(name)
 
-    def select_with_fallbacks(self, chain_name: str, start_index: int = 0) -> Optional[Proxy]:
+    def select_with_fallbacks(self, chain_name: str, start_index: int = 0) -> Proxy | None:
         """Select proxy from chain with fallback."""
         chain = self.get_chain(chain_name)
         if not chain or start_index >= len(chain.proxies):
             return None
         return chain.proxies[start_index]
 
-    def list_chains(self) -> List[str]:
+    def list_chains(self) -> list[str]:
         """List available chains."""
         return list(self.chains.keys())

@@ -9,12 +9,10 @@ from __future__ import annotations
 import ipaddress
 import socket
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 
 from proxywhirl.utils import validate_target_url_safe
-
 
 # ============================================================================
 # FIXTURES
@@ -349,7 +347,9 @@ class TestSSRFDefenseDepth:
             ("http://0177.0000.0000.0001/", "127.0.0.1"),
         ],
     )
-    def test_octal_notation_blocked(self, octal_url: str, resolved_ip: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_octal_notation_blocked(
+        self, octal_url: str, resolved_ip: str, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Octal IP notation that resolves to private IPs must be blocked."""
         import socket
 
@@ -377,7 +377,9 @@ def test_at_least_twenty_tests_exist() -> None:
     def _collect_tests(obj):
         tests = []
         for name, member in inspect.getmembers(obj):
-            if name.startswith("test_") and (inspect.isfunction(member) or inspect.ismethod(member)):
+            if name.startswith("test_") and (
+                inspect.isfunction(member) or inspect.ismethod(member)
+            ):
                 tests.append(member)
         return tests
 

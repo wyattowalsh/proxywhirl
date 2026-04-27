@@ -2,7 +2,6 @@
 
 import math
 from dataclasses import dataclass
-from typing import List, Tuple
 
 
 @dataclass
@@ -20,7 +19,7 @@ class GeoSpatialIndex:
     def __init__(self, grid_size: int = 100):
         self.grid_size = grid_size
         self.grid = {}
-        self.points: List[GeoPoint] = []
+        self.points: list[GeoPoint] = []
 
     def add_point(self, point: GeoPoint) -> None:
         """Add a geographic point."""
@@ -32,7 +31,7 @@ class GeoSpatialIndex:
             self.grid[grid_key] = []
         self.grid[grid_key].append(point)
 
-    def _get_grid_key(self, latitude: float, longitude: float) -> Tuple[int, int]:
+    def _get_grid_key(self, latitude: float, longitude: float) -> tuple[int, int]:
         """Get grid key for coordinates."""
         lat_key = int((latitude + 90) / (180 / self.grid_size))
         lon_key = int((longitude + 180) / (360 / self.grid_size))
@@ -40,7 +39,7 @@ class GeoSpatialIndex:
 
     def find_nearby(
         self, latitude: float, longitude: float, radius_km: float = 100
-    ) -> List[GeoPoint]:
+    ) -> list[GeoPoint]:
         """Find proxies near coordinates."""
         results = []
 
@@ -59,7 +58,7 @@ class GeoSpatialIndex:
 
     def _haversine_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
         """Calculate haversine distance between two points in km."""
-        R = 6371  # Earth radius in km
+        r = 6371  # Earth radius in km
 
         dlat = math.radians(lat2 - lat1)
         dlon = math.radians(lon2 - lon1)
@@ -70,4 +69,4 @@ class GeoSpatialIndex:
         )
         c = 2 * math.asin(math.sqrt(a))
 
-        return R * c
+        return r * c

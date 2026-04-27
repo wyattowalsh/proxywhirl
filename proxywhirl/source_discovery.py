@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Optional
 
 from loguru import logger
 
@@ -17,7 +16,7 @@ class DiscoveredSource:
     url: str
     source_type: str  # "github", "http", "rss", etc.
     format: str  # "json", "csv", "plaintext", "html", etc.
-    repository: Optional[str] = None
+    repository: str | None = None
     last_discovered: float = 0.0
     reliability_score: float = 0.5  # 0.0-1.0
 
@@ -52,7 +51,7 @@ class SourceDiscovery:
     def discover_from_github(
         self,
         query: str = "proxy",
-        language: Optional[str] = None,
+        language: str | None = None,
     ) -> list[DiscoveredSource]:
         """
         Discover proxy sources from GitHub.
@@ -67,13 +66,6 @@ class SourceDiscovery:
         discovered = []
 
         # Simulate GitHub API search (in real implementation, use github API)
-        search_url = "https://api.github.com/search/repositories"
-        params = {
-            "q": f"{query} language:{language}" if language else query,
-            "sort": "stars",
-            "order": "desc",
-        }
-
         logger.info(f"Searching GitHub for proxy sources: {query}")
 
         # In a real implementation, would call GitHub API here
@@ -103,7 +95,7 @@ class SourceDiscovery:
     def discover_from_raw_files(
         self,
         repository: str,
-        patterns: Optional[list[str]] = None,
+        patterns: list[str] | None = None,
     ) -> list[DiscoveredSource]:
         """
         Discover proxy list files in a repository.
@@ -257,6 +249,6 @@ class SourceDiscovery:
                 source_type: sum(
                     1 for s in self.discovered_sources.values() if s.source_type == source_type
                 )
-                for source_type in set(s.source_type for s in self.discovered_sources.values())
+                for source_type in {s.source_type for s in self.discovered_sources.values()}
             },
         }

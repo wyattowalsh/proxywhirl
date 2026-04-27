@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 from loguru import logger
 
@@ -48,9 +47,7 @@ class SessionAffinityManager:
         self.default_ttl_seconds = default_ttl_seconds
         self.affinities: dict[str, SessionAffinity] = {}
 
-    def set_affinity(
-        self, client_id: str, proxy_id: str, ttl_seconds: Optional[int] = None
-    ) -> None:
+    def set_affinity(self, client_id: str, proxy_id: str, ttl_seconds: int | None = None) -> None:
         """
         Set session affinity for a client.
 
@@ -67,7 +64,7 @@ class SessionAffinityManager:
         )
         logger.debug(f"Set session affinity: {client_id} -> {proxy_id} (TTL: {ttl}s)")
 
-    def get_affinity(self, client_id: str) -> Optional[str]:
+    def get_affinity(self, client_id: str) -> str | None:
         """
         Get affinity for a client.
 
@@ -153,7 +150,7 @@ class SessionAffinityManager:
             "total_requests_via_affinity": total_requests,
         }
 
-    def get_affinity_details(self, client_id: str) -> Optional[dict]:
+    def get_affinity_details(self, client_id: str) -> dict | None:
         """
         Get detailed information about a client's affinity.
 

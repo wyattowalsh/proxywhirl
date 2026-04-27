@@ -9,18 +9,14 @@ Tests:
 
 from __future__ import annotations
 
-import re
-
-import pytest
 from pydantic import SecretStr
 
-from proxywhirl.models import Proxy, ProxyCredentials
 from proxywhirl.exceptions import (
     ProxyAuthenticationError,
     ProxyConnectionError,
-    ProxyWhirlError,
     redact_url,
 )
+from proxywhirl.models import Proxy, ProxyCredentials
 
 
 class TestCredentialRedaction:

@@ -110,7 +110,7 @@ class DatacenterAwareRouter:
         Returns:
             Datacenter ID or None
         """
-        from math import acos, cos, pi, radians, sin
+        from math import acos, cos, radians, sin
 
         min_distance = float("inf")
         closest_dc = None

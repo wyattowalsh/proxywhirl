@@ -3,7 +3,6 @@
 import tracemalloc
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Dict, List
 
 
 @dataclass
@@ -20,7 +19,7 @@ class MemoryProfiler:
     """Profiles memory usage."""
 
     def __init__(self):
-        self.snapshots: List[MemorySnapshot] = []
+        self.snapshots: list[MemorySnapshot] = []
         tracemalloc.start()
 
     @contextmanager
@@ -46,7 +45,7 @@ class MemoryProfiler:
                 )
             )
 
-    def get_top_allocations(self, limit: int = 10) -> List[str]:
+    def get_top_allocations(self, limit: int = 10) -> list[str]:
         """Get top memory allocations."""
         snapshot = tracemalloc.take_snapshot()
         top_stats = snapshot.statistics("lineno")
@@ -56,7 +55,7 @@ class MemoryProfiler:
             results.append(f"{stat.filename}:{stat.lineno} {stat.size / 1024}KB")
         return results
 
-    def get_summary(self) -> Dict:
+    def get_summary(self) -> dict:
         """Get memory profiling summary."""
         current, peak = tracemalloc.get_traced_memory()
         return {

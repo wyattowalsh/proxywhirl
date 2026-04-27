@@ -249,10 +249,7 @@ class TestEdgeCasePoolSizes:
     def test_weighted_strategy_returns_valid_proxy(self) -> None:
         """Test weighted strategy returns proxy from pool."""
         strategy = WeightedStrategy()
-        proxies = [
-            Proxy(url=f"http://proxy{i}.example.com:8080", weight=1.0)
-            for i in range(5)
-        ]
+        proxies = [Proxy(url=f"http://proxy{i}.example.com:8080", weight=1.0) for i in range(5)]
         pool = ProxyPool(name="test_pool", proxies=proxies)
         context = SelectionContext()
 
@@ -292,9 +289,7 @@ class TestEdgeCasePoolSizes:
         strategy = RoundRobinStrategy()
 
         # Original pool
-        original_proxies = [
-            Proxy(url=f"http://proxy{i}.example.com:8080") for i in range(10)
-        ]
+        original_proxies = [Proxy(url=f"http://proxy{i}.example.com:8080") for i in range(10)]
 
         # Filtered pool (e.g., only healthy ones)
         filtered_proxies = original_proxies[:5]

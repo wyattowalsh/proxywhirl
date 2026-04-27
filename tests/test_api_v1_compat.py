@@ -6,11 +6,11 @@ correctly, validating backward compatibility for existing consumers.
 
 from __future__ import annotations
 
-import pytest
-from httpx import AsyncClient
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
-from proxywhirl import ProxyWhirl, AsyncProxyWhirl, Proxy, ProxyPool
+import pytest
+
+from proxywhirl import AsyncProxyWhirl, Proxy, ProxyPool, ProxyWhirl
 
 
 class TestAPIv1BackwardCompatibility:
@@ -125,10 +125,7 @@ class TestAPIv1BackwardCompatibility:
 
     def test_proxy_pool_iteration_v1(self):
         """Test ProxyPool iteration for v1."""
-        proxies = [
-            Proxy(url=f"http://proxy{i}:8080", protocol="http")
-            for i in range(3)
-        ]
+        proxies = [Proxy(url=f"http://proxy{i}:8080", protocol="http") for i in range(3)]
         pool = ProxyPool(proxies=proxies, name="test")
         count = 0
         for proxy in pool.proxies:
@@ -195,12 +192,9 @@ class TestAPIv1BackwardCompatibility:
             stats = pw.config
             assert stats is not None
 
-    def test_proxy_pool_iteration_v1(self):
+    def test_proxy_pool_iteration_v1_second(self):
         """Test ProxyPool iteration for v1."""
-        proxies = [
-            Proxy(url=f"http://proxy{i}:8080", protocol="http")
-            for i in range(3)
-        ]
+        proxies = [Proxy(url=f"http://proxy{i}:8080", protocol="http") for i in range(3)]
         pool = ProxyPool(proxies=proxies, name="test")
         count = 0
         for proxy in pool.proxies:

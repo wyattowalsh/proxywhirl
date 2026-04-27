@@ -14,7 +14,6 @@ import pytest
 
 from proxywhirl.exceptions import EventLoopConflictError
 
-
 # ============================================================================
 # NESTED LOOP DETECTION
 # ============================================================================
@@ -134,6 +133,7 @@ class TestNestedEventLoopDetection:
             thread.start()
             # Give the thread a moment to schedule
             import time
+
             time.sleep(0.05)
             loop.run_forever()
             thread.join()
@@ -227,7 +227,7 @@ class TestCleanLoopContext:
 
     @pytest.mark.asyncio
     async def test_current_task_in_running_loop(self) -> None:
-        """"``asyncio.current_task`` must return the current task."""
+        """ "``asyncio.current_task`` must return the current task."""
         task = asyncio.current_task()
         assert task is not None
         assert isinstance(task, asyncio.Task)
@@ -257,7 +257,9 @@ def test_at_least_fifteen_tests_exist() -> None:
     def _collect_tests(obj):
         tests = []
         for name, member in inspect.getmembers(obj):
-            if name.startswith("test_") and (inspect.isfunction(member) or inspect.ismethod(member)):
+            if name.startswith("test_") and (
+                inspect.isfunction(member) or inspect.ismethod(member)
+            ):
                 tests.append(member)
         return tests
 

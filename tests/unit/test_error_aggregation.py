@@ -59,12 +59,12 @@ class ErrorAggregator:
         return [e for e in self.errors if isinstance(e, error_type)]
 
     def raise_if_has_errors(self) -> None:
-        """Raise MultipleErrors if any errors present."""
+        """Raise MultipleErrorsError if any errors present."""
         if self.errors:
-            raise MultipleErrors(self.errors)
+            raise MultipleErrorsError(self.errors)
 
 
-class MultipleErrors(ProxyWhirlError):
+class MultipleErrorsError(ProxyWhirlError):
     """Exception for aggregating multiple errors."""
 
     def __init__(self, errors: list[Exception]) -> None:
@@ -198,7 +198,7 @@ class TestErrorAggregation:
         aggregator.add_error(ProxyConnectionError("Error 1"))
         aggregator.add_error(ProxyValidationError("Error 2"))
 
-        with pytest.raises(MultipleErrors) as exc_info:
+        with pytest.raises(MultipleErrorsError) as exc_info:
             aggregator.raise_if_has_errors()
 
         assert len(exc_info.value.errors) == 2
@@ -209,7 +209,7 @@ class TestErrorAggregation:
         error2 = ProxyValidationError("Validation failed")
         errors = [error1, error2]
 
-        exc = MultipleErrors(errors)
+        exc = MultipleErrorsError(errors)
 
         assert exc.errors == errors
         assert "2 total" in str(exc)
@@ -224,7 +224,7 @@ class TestErrorAggregation:
             MaxRetriesExhaustedError("Max retries"),
         ]
 
-        exc = MultipleErrors(errors)
+        exc = MultipleErrorsError(errors)
 
         assert len(exc.errors) == 3
         assert all(isinstance(e, ProxyWhirlError) for e in exc.errors)
@@ -236,7 +236,7 @@ class TestErrorAggregation:
             ProxyValidationError("Second error"),
         ]
 
-        exc = MultipleErrors(errors)
+        exc = MultipleErrorsError(errors)
         message = str(exc)
 
         assert "Multiple errors occurred (2 total)" in message

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import random
 from enum import Enum
-from typing import Optional
 
 from loguru import logger
 
@@ -93,7 +92,7 @@ class TraceSampler:
     def sample_trace(
         self,
         trace_id: str,
-        sample_rate: Optional[float | SamplingLevel] = None,
+        sample_rate: float | SamplingLevel | None = None,
     ) -> bool:
         """
         Sample a trace.
@@ -105,10 +104,7 @@ class TraceSampler:
         Returns:
             True if trace should be sampled
         """
-        if sample_rate is not None:
-            config = SamplingConfig(sample_rate)
-        else:
-            config = self.config
+        config = SamplingConfig(sample_rate) if sample_rate is not None else self.config
 
         if config.should_sample():
             self.traces_sampled += 1

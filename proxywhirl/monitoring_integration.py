@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict
 
 
 @dataclass
@@ -37,7 +36,7 @@ class MonitoringIntegration:
         """Get service uptime."""
         return (datetime.now() - self.start_time).total_seconds()
 
-    def get_metrics_summary(self) -> Dict:
+    def get_metrics_summary(self) -> dict:
         """Get monitoring metrics summary."""
         summary = {
             "uptime_seconds": self.get_uptime_seconds(),
@@ -46,7 +45,7 @@ class MonitoringIntegration:
         }
         return summary
 
-    def export_metrics(self) -> Dict:
+    def export_metrics(self) -> dict:
         """Export metrics for external systems."""
         return {
             "timestamp": datetime.now().isoformat(),

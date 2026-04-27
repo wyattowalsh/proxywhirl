@@ -22,6 +22,7 @@ import pytest
 
 from proxywhirl.browser import BrowserRenderer
 from proxywhirl.cache.manager import CacheManager
+from proxywhirl.cache.models import CacheConfig
 from proxywhirl.enrichment import OfflineEnricher
 from proxywhirl.exceptions import ProxyPoolEmptyError
 from proxywhirl.models import Proxy, ProxyPool
@@ -158,7 +159,7 @@ class TestDataCorruptionDetection:
         """Test detection of cache data corruption."""
         # This would test CacheCorruptionError being raised
         # when cached data fails validation
-        cache = CacheManager(max_size=100)
+        cache = CacheManager(CacheConfig())
 
         # Simulate corruption detection
         assert cache is not None
@@ -220,7 +221,7 @@ class TestCacheCoherence:
     @pytest.mark.asyncio
     async def test_cache_invalidation_propagation(self) -> None:
         """Test that cache invalidation propagates through tiers."""
-        cache = CacheManager(max_size=100)
+        cache = CacheManager(CacheConfig())
 
         # Set a value
         cache.set("key1", "value1")
@@ -233,7 +234,7 @@ class TestCacheCoherence:
     @pytest.mark.asyncio
     async def test_concurrent_cache_updates(self) -> None:
         """Test concurrent cache updates don't cause corruption."""
-        cache = CacheManager(max_size=100)
+        cache = CacheManager(CacheConfig())
         lock = asyncio.Lock()
 
         async def update_cache(key: str, value: str) -> None:

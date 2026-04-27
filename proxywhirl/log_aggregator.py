@@ -76,7 +76,7 @@ class LogAggregator:
 
     def __init__(
         self,
-        log_dir: Path = Path.home() / ".proxywhirl" / "logs",
+        log_dir: Path | None = None,
         max_entries: int = 10000,
         max_file_size_mb: int = 100,
     ):
@@ -87,7 +87,7 @@ class LogAggregator:
             max_entries: Max entries in memory
             max_file_size_mb: Max size per log file
         """
-        self.log_dir = Path(log_dir)
+        self.log_dir = Path(log_dir) if log_dir else Path.home() / ".proxywhirl" / "logs"
         self.max_entries = max_entries
         self.max_file_size_mb = max_file_size_mb
         self.entries: list[LogEntry] = []

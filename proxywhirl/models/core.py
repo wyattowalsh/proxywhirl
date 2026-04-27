@@ -1781,10 +1781,7 @@ class TimezoneManager:
 
     def to_iso8601(self, dt: datetime | None = None) -> str:
         """Convert to ISO 8601 format."""
-        if dt is None:
-            dt = self.now_utc()
-        else:
-            dt = self.to_utc(dt)
+        dt = self.now_utc() if dt is None else self.to_utc(dt)
         return dt.isoformat()
 
     def from_iso8601(self, iso_string: str) -> datetime | None:

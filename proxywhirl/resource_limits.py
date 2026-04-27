@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 import psutil
 from loguru import logger
@@ -33,7 +32,7 @@ class ResourceLimiter:
     - Log file size
     """
 
-    def __init__(self, limits: Optional[ResourceLimits] = None):
+    def __init__(self, limits: ResourceLimits | None = None):
         """
         Initialize resource limiter.
 

@@ -487,9 +487,7 @@ class SQLiteStorage:
         result = await session.exec(statement)
         elapsed_ms = (time.monotonic() - start) * 1000
         if elapsed_ms > self._slow_query_threshold_ms:
-            logger.warning(
-                f"Slow query ({elapsed_ms:.1f}ms): {str(statement)[:200]}"
-            )
+            logger.warning(f"Slow query ({elapsed_ms:.1f}ms): {str(statement)[:200]}")
         return result
 
     async def _timed_conn_execute(self, conn: Any, statement: Any) -> Any:
@@ -498,9 +496,7 @@ class SQLiteStorage:
         result = await conn.execute(statement)
         elapsed_ms = (time.monotonic() - start) * 1000
         if elapsed_ms > self._slow_query_threshold_ms:
-            logger.warning(
-                f"Slow query ({elapsed_ms:.1f}ms): {str(statement)[:200]}"
-            )
+            logger.warning(f"Slow query ({elapsed_ms:.1f}ms): {str(statement)[:200]}")
         return result
 
     def _encrypt_credential(self, value: str | None) -> str | None:
@@ -1432,9 +1428,7 @@ class SQLiteStorage:
 
         async with AsyncSession(self.engine) as session:
             # Total proxies
-            result = await self._timed_exec(
-                session, text("SELECT COUNT(*) FROM proxy_identities")
-            )
+            result = await self._timed_exec(session, text("SELECT COUNT(*) FROM proxy_identities"))
             stats["total_proxies"] = result.scalar() or 0
 
             # By health status
@@ -1780,7 +1774,7 @@ class SchemaVersioningManager:
 
     def get_applied_migrations(self) -> list[_SchemaVersion]:
         """Get applied migrations."""
-        return [v for v in sorted(self._versions.values(), key=lambda x: x.version)]
+        return sorted(self._versions.values(), key=lambda x: x.version)
 
     def export_status(self) -> dict[str, Any]:
         """Export migration status."""

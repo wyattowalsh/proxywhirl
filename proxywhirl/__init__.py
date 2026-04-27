@@ -195,6 +195,7 @@ from proxywhirl.helm_chart import (
     ChartRenderer,
     HelmChart,
     HelmChartBuilder,
+    HelmValue,
     ValuesConfig,
 )
 from proxywhirl.k8s_manifests import (

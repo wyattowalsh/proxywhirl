@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Callable, List, Optional
+from typing import Callable, Optional
 
 
 class AlertSeverity(str, Enum):
@@ -30,8 +30,8 @@ class AlertManager:
     """Manages alerts and notifications."""
 
     def __init__(self):
-        self.handlers: List[Callable] = []
-        self.alerts: List[Alert] = []
+        self.handlers: list[Callable] = []
+        self.alerts: list[Alert] = []
 
     def register_handler(self, handler: Callable) -> None:
         """Register alert handler."""
@@ -55,7 +55,7 @@ class AlertManager:
                 print(f"Alert handler error: {e}")
 
     def send_email_alert(
-        self, recipients: List[str], title: str, message: str, severity: AlertSeverity
+        self, recipients: list[str], title: str, message: str, severity: AlertSeverity
     ) -> None:
         """Send email alert."""
         alert = Alert(
@@ -80,6 +80,6 @@ class AlertManager:
         )
         self.alerts.append(alert)
 
-    def get_recent_alerts(self, limit: int = 10) -> List[Alert]:
+    def get_recent_alerts(self, limit: int = 10) -> list[Alert]:
         """Get recent alerts."""
         return self.alerts[-limit:]

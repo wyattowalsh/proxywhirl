@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
-from typing import Any
 
 import pytest
 
@@ -178,9 +177,7 @@ class TestConcurrentSelections:
                 errors.append(e)
 
         # Create 10 threads
-        threads = [
-            threading.Thread(target=select_in_thread, args=(100,)) for _ in range(10)
-        ]
+        threads = [threading.Thread(target=select_in_thread, args=(100,)) for _ in range(10)]
 
         for t in threads:
             t.start()
@@ -259,9 +256,7 @@ class TestPerformanceCharacteristics:
         sizes = [10, 50, 100]
 
         for size in sizes:
-            proxies = [
-                Proxy(url=f"http://proxy{i}.example.com:8080") for i in range(size)
-            ]
+            proxies = [Proxy(url=f"http://proxy{i}.example.com:8080") for i in range(size)]
             pool = ProxyPool(name="test_pool", proxies=proxies)
 
             start = datetime.now(timezone.utc)

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from loguru import logger
 
@@ -14,9 +13,9 @@ class S3Config:
 
     bucket: str
     region: str = "us-east-1"
-    access_key_id: Optional[str] = None
-    secret_access_key: Optional[str] = None
-    endpoint_url: Optional[str] = None
+    access_key_id: str | None = None
+    secret_access_key: str | None = None
+    endpoint_url: str | None = None
     use_ssl: bool = True
     path_prefix: str = "proxies/"
 
@@ -88,7 +87,7 @@ class S3ProxyStorage:
             logger.error(f"Failed to store proxies in S3: {e}")
             raise
 
-    def retrieve_proxies(self, key: str) -> Optional[bytes]:
+    def retrieve_proxies(self, key: str) -> bytes | None:
         """
         Retrieve proxy data from S3.
 
@@ -197,7 +196,7 @@ class S3ProxyStorage:
 
         logger.info(f"Backed up proxies to S3: {backup_full_key}")
 
-    def restore_from_s3(self, backup_key: str) -> Optional[bytes]:
+    def restore_from_s3(self, backup_key: str) -> bytes | None:
         """
         Restore data from S3 backup.
 

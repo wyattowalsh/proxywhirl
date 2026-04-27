@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
 
 from loguru import logger
 
@@ -14,8 +13,8 @@ class SOCKSUpstream:
 
     host: str
     port: int
-    username: Optional[str] = None
-    password: Optional[str] = None
+    username: str | None = None
+    password: str | None = None
     socks_version: int = 5  # 4 or 5
 
     def url(self) -> str:
@@ -33,10 +32,7 @@ class SOCKSUpstream:
         if self.socks_version not in (4, 5):
             return False
 
-        if self.username and not self.password:
-            return False
-
-        return True
+        return not (self.username and not self.password)
 
 
 class SOCKSChain:
@@ -55,8 +51,8 @@ class SOCKSChain:
         self,
         host: str,
         port: int,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
         socks_version: int = 5,
     ) -> None:
         """
@@ -148,8 +144,8 @@ class SOCKSProxyConfig:
         self,
         host: str,
         port: int,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
         socks_version: int = 5,
     ):
         """
@@ -173,8 +169,8 @@ class SOCKSProxyConfig:
         self,
         host: str,
         port: int,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
         socks_version: int = 5,
     ) -> None:
         """

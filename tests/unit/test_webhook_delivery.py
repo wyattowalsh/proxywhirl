@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -53,20 +52,20 @@ class WebhookDeliveryManager:
         """Deliver event."""
         if event_id not in self.events:
             return False
-        
+
         event = self.events[event_id]
         event.attempts += 1
         event.status = DeliveryStatus.RETRYING
-        
+
         for handler in self.handlers:
             if handler(event):
                 event.status = DeliveryStatus.DELIVERED
                 return True
-        
+
         if event.attempts >= self.max_retries:
             event.status = DeliveryStatus.FAILED
             return False
-        
+
         event.status = DeliveryStatus.PENDING
         return False
 
@@ -78,10 +77,7 @@ class WebhookDeliveryManager:
 
     def get_pending_events(self) -> list[WebhookEvent]:
         """Get pending events."""
-        return [
-            e for e in self.events.values()
-            if e.status == DeliveryStatus.PENDING
-        ]
+        return [e for e in self.events.values() if e.status == DeliveryStatus.PENDING]
 
 
 class TestWebhookDelivery:
@@ -101,7 +97,7 @@ class TestWebhookDelivery:
             timestamp=datetime.now(),
         )
         manager.add_event(event)
-        
+
         assert "evt_1" in manager.events
 
     def test_initial_status_pending(self, manager) -> None:
@@ -113,7 +109,7 @@ class TestWebhookDelivery:
             timestamp=datetime.now(),
         )
         manager.add_event(event)
-        
+
         assert manager.get_status("evt_1") == DeliveryStatus.PENDING
 
     def test_delivery_success(self, manager) -> None:
@@ -125,13 +121,13 @@ class TestWebhookDelivery:
             timestamp=datetime.now(),
         )
         manager.add_event(event)
-        
+
         def handler(e: WebhookEvent) -> bool:
             return True
-        
+
         manager.register_handler(handler)
         result = manager.deliver("evt_1")
-        
+
         assert result is True
         assert manager.get_status("evt_1") == DeliveryStatus.DELIVERED
 
@@ -144,13 +140,13 @@ class TestWebhookDelivery:
             timestamp=datetime.now(),
         )
         manager.add_event(event)
-        
+
         def handler(e: WebhookEvent) -> bool:
             return False
-        
+
         manager.register_handler(handler)
         result = manager.deliver("evt_1")
-        
+
         assert result is False
         assert manager.get_status("evt_1") == DeliveryStatus.PENDING
 
@@ -163,16 +159,16 @@ class TestWebhookDelivery:
             timestamp=datetime.now(),
         )
         manager.add_event(event)
-        
+
         def handler(e: WebhookEvent) -> bool:
             return False
-        
+
         manager.register_handler(handler)
-        
+
         # Exhaust retries
         for _ in range(manager.max_retries):
             manager.deliver("evt_1")
-        
+
         assert manager.get_status("evt_1") == DeliveryStatus.FAILED
 
     def test_multiple_handlers(self, manager) -> None:
@@ -184,22 +180,22 @@ class TestWebhookDelivery:
             timestamp=datetime.now(),
         )
         manager.add_event(event)
-        
+
         call_count = [0]
-        
+
         def handler1(e: WebhookEvent) -> bool:
             call_count[0] += 1
             return False
-        
+
         def handler2(e: WebhookEvent) -> bool:
             call_count[0] += 1
             return True
-        
+
         manager.register_handler(handler1)
         manager.register_handler(handler2)
-        
+
         result = manager.deliver("evt_1")
-        
+
         assert result is True
         assert call_count[0] == 2
 
@@ -219,13 +215,13 @@ class TestWebhookDelivery:
         )
         manager.add_event(event1)
         manager.add_event(event2)
-        
+
         def handler(e: WebhookEvent) -> bool:
             return e.id == "evt_1"
-        
+
         manager.register_handler(handler)
         manager.deliver("evt_1")
-        
+
         pending = manager.get_pending_events()
         assert len(pending) == 1
         assert pending[0].id == "evt_2"
@@ -239,12 +235,12 @@ class TestWebhookDelivery:
             timestamp=datetime.now(),
         )
         manager.add_event(event)
-        
+
         def handler(e: WebhookEvent) -> bool:
             return False
-        
+
         manager.register_handler(handler)
-        
+
         assert event.attempts == 0
         manager.deliver("evt_1")
         assert event.attempts == 1
@@ -266,7 +262,7 @@ class TestWebhookDelivery:
             timestamp=datetime.now(),
         )
         manager.add_event(event)
-        
+
         assert manager.events["evt_1"].payload == payload
 
     def test_conditional_handler(self, manager) -> None:
@@ -278,19 +274,19 @@ class TestWebhookDelivery:
             timestamp=datetime.now(),
         )
         manager.add_event(event)
-        
+
         def handler(e: WebhookEvent) -> bool:
             return e.event_type == "important.event"
-        
+
         manager.register_handler(handler)
         result = manager.deliver("evt_1")
-        
+
         assert result is True
 
     def test_custom_max_retries(self) -> None:
         """Test custom max retries."""
         manager = WebhookDeliveryManager(max_retries=5)
-        
+
         event = WebhookEvent(
             id="evt_1",
             event_type="test.event",
@@ -298,13 +294,13 @@ class TestWebhookDelivery:
             timestamp=datetime.now(),
         )
         manager.add_event(event)
-        
+
         def handler(e: WebhookEvent) -> bool:
             return False
-        
+
         manager.register_handler(handler)
-        
+
         for _ in range(5):
             manager.deliver("evt_1")
-        
+
         assert manager.get_status("evt_1") == DeliveryStatus.FAILED

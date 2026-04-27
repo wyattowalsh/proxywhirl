@@ -158,7 +158,7 @@ def deprecated_parameter(
     return decorator
 
 
-class deprecated_property:
+class DeprecatedProperty:
     """Decorator/descriptor for deprecated properties."""
 
     def __init__(
@@ -173,7 +173,7 @@ class deprecated_property:
         alt_msg = f"; use {alternative} instead" if alternative else ""
         self._template = f"{{name}} is deprecated since {version}{alt_msg}. {message}"
 
-    def __call__(self, func: Callable[..., Any]) -> "deprecated_property":
+    def __call__(self, func: Callable[..., Any]) -> DeprecatedProperty:
         self.func = func
         self.name = func.__name__
         self.full_message = self._template.format(name=self.name)
@@ -188,6 +188,10 @@ class deprecated_property:
 
     def __set__(self, instance: Any, value: Any) -> None:
         raise AttributeError("Can't set deprecated property")
+
+
+# Backward-compatible alias for code that imports deprecated_property
+deprecated_property = DeprecatedProperty
 
 
 class DeprecationManager:

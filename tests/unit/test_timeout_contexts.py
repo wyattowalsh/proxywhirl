@@ -21,7 +21,6 @@ from proxywhirl.exceptions import (
     WriteTimeoutError,
 )
 
-
 # ============================================================================
 # CUSTOM TIMEOUT CONTEXT MANAGER (used in tests)
 # ============================================================================
@@ -119,6 +118,7 @@ class TestReadTimeout:
     @pytest.mark.asyncio
     async def test_read_timeout_simulation(self) -> None:
         """Simulate a read timeout: data starts arriving but stalls."""
+
         async def slow_stream() -> None:
             await asyncio.sleep(0.01)
             await asyncio.sleep(1.0)
@@ -165,6 +165,7 @@ class TestWriteTimeout:
     @pytest.mark.asyncio
     async def test_write_timeout_simulation(self) -> None:
         """Simulate a write timeout: send buffer stalls."""
+
         async def slow_writer() -> None:
             await asyncio.sleep(1.0)
 
@@ -328,6 +329,7 @@ class TestAsyncTimeoutContexts:
     @pytest.mark.asyncio
     async def test_timeout_with_gather(self) -> None:
         """Timeout should apply to a ``gather`` of multiple tasks."""
+
         async def slow_task() -> None:
             await asyncio.sleep(1.0)
 
@@ -338,6 +340,7 @@ class TestAsyncTimeoutContexts:
     @pytest.mark.asyncio
     async def test_timeout_with_mixed_tasks(self) -> None:
         """Timeout with mixed fast/slow tasks should still trigger."""
+
         async def fast() -> None:
             await asyncio.sleep(0.001)
 
@@ -370,7 +373,9 @@ def test_at_least_fifteen_tests_exist() -> None:
     def _collect_tests(obj):
         tests = []
         for name, member in inspect.getmembers(obj):
-            if name.startswith("test_") and (inspect.isfunction(member) or inspect.ismethod(member)):
+            if name.startswith("test_") and (
+                inspect.isfunction(member) or inspect.ismethod(member)
+            ):
                 tests.append(member)
         return tests
 

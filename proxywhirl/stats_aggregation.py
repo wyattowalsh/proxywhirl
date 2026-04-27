@@ -5,7 +5,6 @@ from __future__ import annotations
 import statistics
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -135,7 +134,7 @@ class StatsAggregator:
         metrics.p95 = percentile(sorted_samples, 95)
         metrics.p99 = percentile(sorted_samples, 99)
 
-    def get_proxy_stats(self, proxy_id: str) -> Optional[ProxyStats]:
+    def get_proxy_stats(self, proxy_id: str) -> ProxyStats | None:
         """
         Get statistics for a specific proxy.
 
@@ -289,7 +288,7 @@ class StatsAggregator:
         )
         return [(pid, stats.success_rate) for pid, stats in sorted_proxies[:limit]]
 
-    def reset_stats(self, proxy_id: Optional[str] = None) -> None:
+    def reset_stats(self, proxy_id: str | None = None) -> None:
         """
         Reset statistics.
 

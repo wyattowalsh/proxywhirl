@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from proxywhirl.models import Proxy, ProxyPool
 
 
@@ -180,9 +178,8 @@ class ProxySearch:
         results = []
 
         for proxy in self.pool.proxies.values():
-            if hasattr(proxy, "region") and proxy.region:
-                if region_lower in proxy.region.lower():
-                    results.append(proxy)
+            if hasattr(proxy, "region") and proxy.region and region_lower in proxy.region.lower():
+                results.append(proxy)
 
         return results
 
@@ -200,9 +197,8 @@ class ProxySearch:
         results = []
 
         for proxy in self.pool.proxies.values():
-            if hasattr(proxy, "isp") and proxy.isp:
-                if isp_lower in proxy.isp.lower():
-                    results.append(proxy)
+            if hasattr(proxy, "isp") and proxy.isp and isp_lower in proxy.isp.lower():
+                results.append(proxy)
 
         return results
 
@@ -224,11 +220,11 @@ class ProxySearch:
 
     def combined_search(
         self,
-        text: Optional[str] = None,
-        country: Optional[str] = None,
-        protocol: Optional[str] = None,
-        anonymity: Optional[str] = None,
-        tags: Optional[list[str]] = None,
+        text: str | None = None,
+        country: str | None = None,
+        protocol: str | None = None,
+        anonymity: str | None = None,
+        tags: list[str] | None = None,
     ) -> list[Proxy]:
         """
         Perform combined search with multiple criteria.

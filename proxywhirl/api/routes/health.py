@@ -98,7 +98,7 @@ async def health_check(
 )
 async def readiness_check(
     rotator: ProxyWhirl = Depends(get_rotator),
-    storage = Depends(get_storage),
+    storage=Depends(get_storage),
 ) -> JSONResponse:
     """Check if API is ready to serve requests.
 
@@ -138,7 +138,7 @@ async def readiness_check(
 )
 async def get_status(
     rotator: ProxyWhirl = Depends(get_rotator),
-    storage = Depends(get_storage),
+    storage=Depends(get_storage),
     config: dict = Depends(get_config),
 ) -> APIResponse[StatusResponse]:
     """Get detailed system status including pool stats.

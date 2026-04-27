@@ -10,9 +10,6 @@ Tests all valid state transitions and edge cases:
 from __future__ import annotations
 
 import time
-from datetime import datetime, timezone
-
-import pytest
 
 from proxywhirl.circuit_breaker.base import CircuitBreakerBase, CircuitBreakerState
 

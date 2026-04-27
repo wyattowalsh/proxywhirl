@@ -10,6 +10,7 @@ Features:
 
 from __future__ import annotations
 
+import asyncio
 from abc import ABC, abstractmethod
 from datetime import timedelta
 from typing import Any, Generic, TypeVar
@@ -290,7 +291,6 @@ class DistributedLock:
 
 
 # Helper function for easier redis-like usage
-import asyncio
 
 
 async def get_distributed_cache() -> DistributedCache:

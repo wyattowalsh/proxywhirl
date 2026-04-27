@@ -180,17 +180,17 @@ class ProxyChainValidator:
                 issues.append(f"Invalid proxy URL format at position {i}: {proxy_url}")
 
             # Check for localhost loops
-            if "localhost" in proxy_url or "127.0.0.1" in proxy_url:
-                if i < len(proxy_chain) - 1:
-                    issues.append(
-                        f"Localhost proxy should not be in middle of chain (position {i})"
-                    )
+            if ("localhost" in proxy_url or "127.0.0.1" in proxy_url) and i < len(proxy_chain) - 1:
+                issues.append(f"Localhost proxy should not be in middle of chain (position {i})")
 
         # Check for protocol compatibility
         protocols = [self._extract_protocol(url) for url in proxy_chain]
-        if protocols and protocols[0] == "socks":
-            if any(p not in ("socks", None) for p in protocols[1:]):
-                issues.append("SOCKS proxy cannot chain with HTTP proxies")
+        if (
+            protocols
+            and protocols[0] == "socks"
+            and any(p not in ("socks", None) for p in protocols[1:])
+        ):
+            issues.append("SOCKS proxy cannot chain with HTTP proxies")
 
         return issues
 

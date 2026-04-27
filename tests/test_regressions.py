@@ -7,9 +7,10 @@ Tests fixed bugs and edge cases to prevent regressions.
 from __future__ import annotations
 
 import pytest
-from proxywhirl.exceptions import ProxyPoolEmptyError, ProxyValidationError
-from proxywhirl.models import Proxy, ProxyPool, HealthStatus
-from proxywhirl.validators import is_valid_proxy_url, is_healthy_proxy
+
+from proxywhirl.exceptions import ProxyPoolEmptyError
+from proxywhirl.models import Proxy, ProxyPool
+from proxywhirl.validators import is_valid_proxy_url
 
 
 class TestEdgeCases:

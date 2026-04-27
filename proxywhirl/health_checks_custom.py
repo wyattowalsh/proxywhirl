@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Callable, Dict, Optional
+from typing import Callable, Optional
 
 
 class HealthStatus(str, Enum):
@@ -29,8 +29,8 @@ class CustomHealthCheckManager:
     """Manages custom health checks."""
 
     def __init__(self):
-        self.checks: Dict[str, Callable] = {}
-        self.results: Dict[str, HealthCheckResult] = {}
+        self.checks: dict[str, Callable] = {}
+        self.results: dict[str, HealthCheckResult] = {}
 
     def register_check(self, name: str, check_func: Callable) -> None:
         """Register a custom health check."""
@@ -67,7 +67,7 @@ class CustomHealthCheckManager:
             self.results[name] = result
             return result
 
-    async def run_all_checks(self) -> Dict[str, HealthCheckResult]:
+    async def run_all_checks(self) -> dict[str, HealthCheckResult]:
         """Run all health checks."""
         for name in self.checks:
             await self.run_check(name)

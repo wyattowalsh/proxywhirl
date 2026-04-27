@@ -2,7 +2,7 @@
 
 import asyncio
 import signal
-from typing import Callable, List
+from typing import Callable
 
 from loguru import logger
 
@@ -11,7 +11,7 @@ class GracefulShutdownManager:
     """Manages graceful shutdown."""
 
     def __init__(self):
-        self.callbacks: List[Callable] = []
+        self.callbacks: list[Callable] = []
         self.is_shutting_down = False
 
     def register_shutdown_handler(self, callback: Callable) -> None:
