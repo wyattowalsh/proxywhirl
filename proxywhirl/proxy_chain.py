@@ -239,3 +239,90 @@ def merge_chains(chain1: ProxyChain, chain2: ProxyChain) -> ProxyChain:
         merged.add_proxy(node.proxy)
 
     return merged
+
+
+class FallbackProxyChain:
+    """Fallback chain for sequential proxy failover."""
+
+    def __init__(self, max_retries: int = 3):
+        """Initialize fallback chain.
+
+        Args:
+            max_retries: Max retries per proxy before moving to next
+        """
+        self.chains: list[ProxyChain] = []
+        self.current_chain_idx = 0
+        self.max_retries = max_retries
+        self.retry_count = 0
+
+    def add_chain(self, chain: ProxyChain) -> None:
+        """Add fallback chain.
+
+        Args:
+            chain: Proxy chain to add
+        """
+        self.chains.append(chain)
+        logger.debug(f"Added fallback chain ({len(self.chains)} total)")
+
+    def get_current_proxy(self) -> Optional[Proxy]:
+        """Get current proxy from active fallback chain.
+
+        Returns:
+            Current proxy or None
+        """
+        if self.current_chain_idx >= len(self.chains):
+            return None
+        chain = self.chains[self.current_chain_idx]
+        return chain.get_current_proxy()
+
+    def mark_current_failed(self) -> bool:
+        """Mark current proxy as failed, advance if retries exhausted.
+
+        Returns:
+            True if advanced, False if all chains exhausted
+        """
+        self.retry_count += 1
+
+        if self.retry_count >= self.max_retries:
+            if self.current_chain_idx < len(self.chains) - 1:
+                self.current_chain_idx += 1
+                self.retry_count = 0
+                self.chains[self.current_chain_idx].reset()
+                logger.info(f"Switched to fallback chain {self.current_chain_idx}")
+                return True
+            logger.error("All fallback chains exhausted")
+            return False
+
+        logger.debug(f"Proxy retry {self.retry_count}/{self.max_retries}")
+        return True
+
+    def mark_current_success(self) -> None:
+        """Mark current proxy as successful."""
+        self.retry_count = 0
+        if self.current_chain_idx < len(self.chains):
+            self.chains[self.current_chain_idx].mark_success()
+
+    def reset(self) -> None:
+        """Reset to first chain."""
+        self.current_chain_idx = 0
+        self.retry_count = 0
+        for chain in self.chains:
+            chain.reset()
+        logger.debug("Reset all fallback chains")
+
+    def is_exhausted(self) -> bool:
+        """Check if all chains exhausted.
+
+        Returns:
+            True if no more fallback chains
+        """
+        return self.current_chain_idx >= len(self.chains)
+
+    def get_stats(self) -> dict[str, Any]:
+        """Get statistics for fallback chain."""
+        return {
+            "total_chains": len(self.chains),
+            "current_chain_idx": self.current_chain_idx,
+            "retry_count": self.retry_count,
+            "chains": [chain.get_chain_stats() for chain in self.chains],
+        }

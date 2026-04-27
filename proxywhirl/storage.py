@@ -131,32 +131,85 @@ class ProxyStatusTable(SQLModel, table=True):
 
 
 class FileStorage:
-    """File-based storage backend using JSON.
+    """File-based storage backend using JSON with optional encryption.
 
     Stores proxies in a JSON file with atomic writes to prevent corruption.
-    Supports optional encryption for sensitive credential data.
+    Supports optional Fernet encryption for sensitive credential data.
+    All writes are atomic using temp files to ensure data consistency.
+
+    Attributes:
+        filepath: Path to the JSON storage file
+        encryption_key: Optional Fernet encryption key (bytes)
+        _cipher: Fernet cipher instance for encryption/decryption
     """
 
     def __init__(self, filepath: str | Path, encryption_key: bytes | None = None) -> None:
-        """Initialize file storage.
+        """
+        Initialize file storage with optional encryption.
+
+        Creates a new file storage instance. If encryption_key is provided,
+        all data is encrypted at rest using Fernet symmetric encryption.
 
         Args:
-            filepath: Path to the JSON file for storage
-            encryption_key: Optional Fernet encryption key for encrypting credentials.
-                If provided, all data will be encrypted at rest.
+            filepath : str | Path
+                Path to the JSON file for storage. Parent directories are
+                created automatically on first save.
+            encryption_key : bytes | None
+                Optional Fernet encryption key for encrypting credentials.
+                If provided, all data is encrypted at rest. To generate:
+                `key = Fernet.generate_key()`. Default: None (no encryption).
+
+        Returns:
+            None
+
+        Raises:
+            cryptography.fernet.InvalidToken
+                If encryption_key is invalid Fernet key format.
+
+        Example:
+            >>> from cryptography.fernet import Fernet
+            >>> key = Fernet.generate_key()
+            >>> storage = FileStorage("proxies.json", encryption_key=key)
+            >>> # Or without encryption:
+            >>> storage = FileStorage("proxies.json")
         """
         self.filepath = Path(filepath)
         self.encryption_key = encryption_key
         self._cipher = Fernet(encryption_key) if encryption_key else None
 
     async def save(self, proxies: list[Proxy]) -> None:
-        """Save proxies to JSON file.
+        """
+        Save proxies to JSON file with atomic writes and optional encryption.
+
+        Serializes proxy list to JSON and writes atomically using a temp file.
+        Credentials (username/password) are revealed and stored as strings.
+        If encryption is configured, the entire JSON is encrypted before writing.
 
         Args:
-            proxies: List of proxies to save
+            proxies : list[Proxy]
+                List of Proxy objects to save.
+
+        Returns:
+            None
 
         Raises:
-            IOError: If save operation fails
+            OSError
+                If file write fails or parent directory cannot be created.
+
+        Example:
+            >>> from proxywhirl.models import Proxy
+            >>> proxies = [
+            ...     Proxy(url="http://1.2.3.4:8080"),
+            ...     Proxy(url="http://5.6.7.8:9090", username="user", password="pass"),
+            ... ]
+            >>> storage = FileStorage("proxies.json")
+            >>> await storage.save(proxies)
+
+        Note:
+            - Atomic writes prevent corruption on concurrent writes
+            - SecretStr credentials are revealed for storage
+            - Encryption is applied at the entire file level
+            - Parent directories are created automatically
         """
         # Ensure parent directory exists
         self.filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -203,15 +256,37 @@ class FileStorage:
             raise OSError(f"Failed to save proxies: {e}") from e
 
     async def load(self) -> list[Proxy]:
-        """Load proxies from JSON file.
+        """
+        Load proxies from JSON file with optional decryption.
+
+        Reads JSON file, decrypts if encryption is configured, and deserializes
+        to Proxy objects. Validates all proxy data during deserialization.
+
+        Args:
+            None
 
         Returns:
-            List of proxies loaded from file
+            list[Proxy]
+                List of Proxy objects loaded from file.
 
         Raises:
-            FileNotFoundError: If file doesn't exist
-            ValueError: If JSON is invalid or data is corrupted
-            cryptography.fernet.InvalidToken: If decryption fails (wrong key)
+            FileNotFoundError
+                If storage file does not exist.
+            ValueError
+                If JSON is invalid or proxy data fails validation.
+            cryptography.fernet.InvalidToken
+                If decryption fails (wrong encryption key or corrupted data).
+
+        Example:
+            >>> storage = FileStorage("proxies.json")
+            >>> proxies = await storage.load()
+            >>> for proxy in proxies:
+            ...     print(proxy.url)
+
+        Note:
+            - Validates all proxy data during deserialization
+            - Credentials are loaded as SecretStr (redacted in logs)
+            - Empty file raises FileNotFoundError
         """
         from cryptography.fernet import InvalidToken
 
@@ -243,10 +318,25 @@ class FileStorage:
             raise ValueError(f"Failed to load proxies: {e}") from e
 
     async def clear(self) -> None:
-        """Clear all proxies from storage by deleting the file.
+        """
+        Clear all proxies from storage by deleting the file.
+
+        Removes the storage file completely. Subsequent loads will fail
+        with FileNotFoundError until new data is saved.
+
+        Args:
+            None
+
+        Returns:
+            None
 
         Raises:
-            IOError: If clear operation fails
+            OSError
+                If file deletion fails.
+
+        Example:
+            >>> storage = FileStorage("proxies.json")
+            >>> await storage.clear()  # File is deleted
         """
         try:
             if self.filepath.exists():

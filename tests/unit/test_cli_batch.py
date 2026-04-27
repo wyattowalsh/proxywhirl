@@ -16,6 +16,7 @@ class TestBatchOperation:
 
     def test_batch_error_handling(self):
         """Test error handling."""
+
         def failing_op(x):
             if x == 2:
                 raise ValueError("test error")

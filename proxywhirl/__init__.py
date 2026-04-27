@@ -82,6 +82,10 @@ from proxywhirl.data_export import (
     ExportFormat,
     FileExporter,
 )
+from proxywhirl.diversity_metrics import (
+    DiversityAnalyzer,
+    DiversityMetrics,
+)
 from proxywhirl.data_persistence import (
     DataPersistence,
     PersistenceFormat,
@@ -499,6 +503,9 @@ __all__: list[str] = [
     "ExportFormat",
     "DataExporter",
     "FileExporter",
+    # Diversity Metrics
+    "DiversityMetrics",
+    "DiversityAnalyzer",
     # Task Scheduling
     "TaskStatus",
     "TaskPriority",

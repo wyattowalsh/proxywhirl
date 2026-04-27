@@ -3667,6 +3667,245 @@ def import_proxies(
 
 
 @app.command()
+def diagnose() -> None:
+    """Run system health diagnostics.
+
+    Checks database connectivity, configuration, dependencies, and system health.
+    Useful for troubleshooting issues.
+
+    Examples:
+      proxywhirl diagnose
+    """
+    import platform
+    import sqlite3
+    from datetime import datetime
+
+    command_ctx = get_context()
+    console = command_ctx.console
+
+    console.print("[bold cyan]ProxyWhirl System Diagnostics[/bold cyan]\n")
+
+    diagnostics = {
+        "system": {},
+        "configuration": {},
+        "database": {},
+        "proxy_pool": {},
+        "dependencies": {},
+    }
+
+    try:
+        diagnostics["system"]["platform"] = platform.system()
+        diagnostics["system"]["python_version"] = f"{platform.python_version()}"
+        diagnostics["system"]["architecture"] = platform.machine()
+        console.print("[bold]System Information[/bold]")
+        console.print(f"  Platform: {diagnostics['system']['platform']}")
+        console.print(f"  Python: {diagnostics['system']['python_version']}")
+        console.print(f"  Architecture: {diagnostics['system']['architecture']}\n")
+    except Exception as e:
+        console.print(f"[red]✗ System check failed: {e}[/red]\n")
+        diagnostics["system"]["error"] = str(e)
+
+    try:
+        console.print("[bold]Configuration[/bold]")
+        cfg = command_ctx.config
+        diagnostics["configuration"]["has_config"] = command_ctx.config_path.exists()
+        diagnostics["configuration"]["config_path"] = str(command_ctx.config_path)
+        console.print(f"  Config file: {command_ctx.config_path}")
+        console.print(f"  Exists: {'✓' if diagnostics['configuration']['has_config'] else '✗'}")
+
+        if hasattr(cfg, "data_storage") and cfg.data_storage:
+            db_path = getattr(cfg.data_storage, "db_path", None)
+            if db_path:
+                diagnostics["configuration"]["database_path"] = str(db_path)
+                console.print(f"  Database: {db_path}\n")
+        else:
+            console.print("[yellow]  Note: No persistent storage configured[/yellow]\n")
+    except Exception as e:
+        console.print(f"[red]✗ Configuration check failed: {e}[/red]\n")
+        diagnostics["configuration"]["error"] = str(e)
+
+    try:
+        console.print("[bold]Database Connection[/bold]")
+        if hasattr(command_ctx.config, "data_storage") and command_ctx.config.data_storage:
+            db_path = getattr(command_ctx.config.data_storage, "db_path", None)
+            if db_path:
+                conn = sqlite3.connect(str(db_path))
+                cursor = conn.cursor()
+                cursor.execute("SELECT COUNT(*) FROM sqlite_master WHERE type='table'")
+                table_count = cursor.fetchone()[0]
+                cursor.execute("SELECT COUNT(*) FROM proxy_table")
+                proxy_count = cursor.fetchone()[0]
+                conn.close()
+
+                diagnostics["database"]["connected"] = True
+                diagnostics["database"]["tables"] = table_count
+                diagnostics["database"]["proxies"] = proxy_count
+                console.print(f"  ✓ Connected to {db_path}")
+                console.print(f"  Tables: {table_count}")
+                console.print(f"  Proxies in DB: {proxy_count}\n")
+            else:
+                console.print("[yellow]  No database path configured[/yellow]\n")
+        else:
+            console.print("[yellow]  No storage configuration[/yellow]\n")
+    except sqlite3.Error as e:
+        console.print(f"[red]✗ Database connection failed: {e}[/red]\n")
+        diagnostics["database"]["error"] = str(e)
+    except Exception as e:
+        console.print(f"[yellow]⚠ Database check skipped: {e}[/yellow]\n")
+        diagnostics["database"]["warning"] = str(e)
+
+    try:
+        console.print("[bold]Proxy Pool Status[/bold]")
+        rotator = command_ctx.rotator
+        proxies = rotator.pool.get_all_proxies()
+        healthy_count = sum(
+            1 for p in proxies if hasattr(p, "health_status") and p.health_status.name == "HEALTHY"
+        )
+        diagnostics["proxy_pool"]["total"] = len(proxies)
+        diagnostics["proxy_pool"]["healthy"] = healthy_count
+        console.print(f"  Total proxies: {len(proxies)}")
+        console.print(f"  Healthy: {healthy_count}")
+        if len(proxies) > 0:
+            console.print(f"  Health ratio: {healthy_count}/{len(proxies)}")
+        console.print()
+    except Exception as e:
+        console.print(f"[yellow]⚠ Proxy pool check skipped: {e}[/yellow]\n")
+        diagnostics["proxy_pool"]["warning"] = str(e)
+
+    try:
+        console.print("[bold]Key Dependencies[/bold]")
+        import_checks = {
+            "httpx": False,
+            "pydantic": False,
+            "sqlmodel": False,
+            "loguru": False,
+            "rich": False,
+            "typer": False,
+        }
+        for module in import_checks:
+            try:
+                __import__(module)
+                import_checks[module] = True
+                console.print(f"  ✓ {module}")
+            except ImportError:
+                console.print(f"  [red]✗ {module}[/red]")
+
+        diagnostics["dependencies"] = import_checks
+        console.print()
+    except Exception as e:
+        console.print(f"[yellow]⚠ Dependency check skipped: {e}[/yellow]\n")
+
+    console.print("[bold cyan]Diagnostics Complete[/bold cyan]")
+
+    if command_ctx.format == FormatterOutputFormat.JSON:
+        import json
+
+        console.print_json(data=diagnostics)
+
+
+@app.command()
+def diversity() -> None:
+    """Analyze proxy pool diversity metrics.
+
+    Shows geographic and AS (Autonomous System) diversity metrics.
+    Helps identify if proxy pool is balanced across regions.
+
+    Examples:
+      proxywhirl diversity
+      proxywhirl diversity --format json
+    """
+    from proxywhirl.diversity_metrics import DiversityAnalyzer
+
+    command_ctx = get_context()
+    console = command_ctx.console
+
+    try:
+        rotator = command_ctx.rotator
+        proxies = rotator.pool.get_all_proxies()
+
+        if not proxies:
+            console.print("[yellow]No proxies in pool[/yellow]")
+            return
+
+        metrics = DiversityAnalyzer.calculate_metrics(proxies)
+        diversity_score = DiversityAnalyzer.get_diversity_score(metrics, len(proxies))
+        warning = DiversityAnalyzer.get_concentration_warning(metrics, len(proxies))
+
+        if command_ctx.format == FormatterOutputFormat.JSON:
+            console.print_json(
+                data={
+                    "total_proxies": len(proxies),
+                    "country_count": metrics.country_count,
+                    "as_count": metrics.as_count,
+                    "city_count": metrics.city_count,
+                    "diversity_score": round(diversity_score, 2),
+                    "shannon_entropy": round(metrics.shannon_entropy, 3),
+                    "geographic_spread": round(metrics.geographic_spread, 2),
+                    "top_countries": {
+                        k: v
+                        for k, v in sorted(
+                            metrics.country_distribution.items(),
+                            key=lambda x: x[1],
+                            reverse=True,
+                        )[:5]
+                    },
+                    "top_as": {
+                        k: v
+                        for k, v in sorted(
+                            metrics.as_distribution.items(),
+                            key=lambda x: x[1],
+                            reverse=True,
+                        )[:5]
+                    },
+                    "warning": warning,
+                }
+            )
+        else:
+            console.print("[bold cyan]Proxy Pool Diversity Analysis[/bold cyan]\n")
+            console.print(f"Total proxies: {len(proxies)}")
+            console.print(f"Unique countries: {metrics.country_count}")
+            console.print(f"Unique ASNs: {metrics.as_count}")
+            console.print(f"Unique cities: {metrics.city_count}")
+            console.print()
+
+            score_color = (
+                "green" if diversity_score >= 70 else ("yellow" if diversity_score >= 50 else "red")
+            )
+            console.print(
+                f"[{score_color}]Diversity Score: {diversity_score:.1f}/100[/{score_color}]"
+            )
+            console.print(f"Geographic Spread: {metrics.geographic_spread:.1f}%")
+            console.print(f"Shannon Entropy: {metrics.shannon_entropy:.3f}")
+
+            if warning:
+                console.print(f"\n[yellow]⚠ Warning: {warning}[/yellow]")
+
+            if metrics.country_distribution:
+                console.print("\n[bold]Top Countries[/bold]")
+                for country, count in sorted(
+                    metrics.country_distribution.items(),
+                    key=lambda x: x[1],
+                    reverse=True,
+                )[:5]:
+                    pct = (count / len(proxies)) * 100
+                    console.print(f"  {country}: {count} ({pct:.1f}%)")
+
+            if metrics.as_distribution:
+                console.print("\n[bold]Top ASNs[/bold]")
+                for asn, count in sorted(
+                    metrics.as_distribution.items(),
+                    key=lambda x: x[1],
+                    reverse=True,
+                )[:5]:
+                    pct = (count / len(proxies)) * 100
+                    console.print(f"  {asn}: {count} ({pct:.1f}%)")
+
+    except Exception as e:
+        console.print(f"[red]Error analyzing diversity: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def shell() -> None:
     """Interactive REPL shell for proxy operations.
 

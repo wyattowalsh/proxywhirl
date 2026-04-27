@@ -63,9 +63,7 @@ class TestClusterManager:
 
         healthy_node = ClusterNode(hostname="node1")
         unhealthy_node = ClusterNode(hostname="node2")
-        unhealthy_node.last_heartbeat = (
-            datetime.utcnow() - timedelta(seconds=60)
-        )
+        unhealthy_node.last_heartbeat = datetime.utcnow() - timedelta(seconds=60)
 
         manager.register_node(healthy_node)
         manager.register_node(unhealthy_node)

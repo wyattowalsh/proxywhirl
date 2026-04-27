@@ -12,6 +12,13 @@ from typing import Any
 
 from loguru import logger
 
+try:
+    import yaml
+
+    HAS_YAML = True
+except ImportError:
+    HAS_YAML = False
+
 
 class ExportFormat(str, Enum):
     """Export format options."""
@@ -22,6 +29,7 @@ class ExportFormat(str, Enum):
     PLAIN_TEXT = "text"
     HTML = "html"
     XML = "xml"
+    YAML = "yaml"
 
 
 class DataExporter:
@@ -194,6 +202,45 @@ class DataExporter:
 
         return "\n".join(lines)
 
+    @staticmethod
+    def to_yaml(data: Any, default_flow_style: bool = False) -> str:
+        """Export to YAML.
+
+        Args:
+            data: Data to export
+            default_flow_style: Use flow style for collections
+
+        Returns:
+            YAML string
+
+        Raises:
+            ImportError: If PyYAML not installed
+        """
+        if not HAS_YAML:
+            raise ImportError(
+                "PyYAML is required for YAML export. Install with: pip install pyyaml"
+            )
+
+        def default_handler(obj: Any) -> Any:
+            if is_dataclass(obj):
+                return asdict(obj)
+            if isinstance(obj, Enum):
+                return obj.value
+            if hasattr(obj, "__dict__"):
+                return obj.__dict__
+            return str(obj)
+
+        class CustomEncoder(yaml.SafeDumper):
+            pass
+
+        CustomEncoder.add_representer(
+            type(None), lambda dumper, _: dumper.represent_scalar("tag:yaml.org,2002:null", "")
+        )
+
+        return yaml.dump(
+            data, Dumper=CustomEncoder, default_flow_style=default_flow_style, allow_unicode=True
+        )
+
 
 class FileExporter:
     """Exports data to files."""
@@ -238,6 +285,8 @@ class FileExporter:
                 content = DataExporter.to_html(data)
             elif format == ExportFormat.XML:
                 content = DataExporter.to_xml(data)
+            elif format == ExportFormat.YAML:
+                content = DataExporter.to_yaml(data)
             else:
                 raise ValueError(f"Unsupported format: {format}")
 

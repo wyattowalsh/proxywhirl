@@ -42,19 +42,39 @@ class TTLManager:
     - Lazy expiration: Check TTL on every get() operation
     - Background cleanup: Periodic scan of all tiers to remove expired entries
 
+    Runs in a daemon thread to clean up expired cache entries. Uses bulk cleanup
+    operations for efficiency (O(1) for SQLite, O(n) for memory).
+
     Attributes:
         cache_manager: Reference to parent CacheManager
-        cleanup_interval: Seconds between background cleanup runs
+        cleanup_interval: Seconds between background cleanup runs (default: 60)
         enabled: Whether background cleanup is running
         cleanup_thread: Background thread for cleanup
     """
 
     def __init__(self, cache_manager: CacheManager, cleanup_interval: int = 60) -> None:
-        """Initialize TTL manager.
+        """
+        Initialize TTL manager for background cache cleanup.
+
+        Creates a daemon thread that periodically scans all cache tiers
+        and removes expired entries. Can be started/stopped independently.
 
         Args:
-            cache_manager: Parent CacheManager instance
-            cleanup_interval: Seconds between cleanup runs
+            cache_manager : CacheManager
+                Parent CacheManager instance to clean.
+            cleanup_interval : int
+                Seconds between cleanup runs (default: 60).
+
+        Returns:
+            None
+
+        Example:
+            >>> config = CacheConfig()
+            >>> manager = CacheManager(config)
+            >>> ttl = TTLManager(manager, cleanup_interval=120)
+            >>> ttl.start()
+            >>> # ... perform cache operations ...
+            >>> ttl.stop()
         """
         self.cache_manager = cache_manager
         self.cleanup_interval = cleanup_interval
@@ -63,7 +83,23 @@ class TTLManager:
         self._stop_event = threading.Event()
 
     def start(self) -> None:
-        """Start background cleanup thread."""
+        """
+        Start background cleanup thread for expired entries.
+
+        Creates and starts a daemon thread that runs cleanup_interval seconds
+        apart. Does nothing if already running. Thread is daemon so it won't
+        block process shutdown.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Example:
+            >>> ttl = TTLManager(cache_manager)
+            >>> ttl.start()  # Starts cleanup thread
+        """
         if self.enabled:
             return
 
@@ -78,7 +114,21 @@ class TTLManager:
         logger.info(f"TTL background cleanup started (interval: {self.cleanup_interval}s)")
 
     def stop(self) -> None:
-        """Stop background cleanup thread."""
+        """
+        Stop background cleanup thread.
+
+        Signals cleanup thread to stop and waits up to 5 seconds for graceful
+        shutdown. Does nothing if cleanup is not running.
+
+        Args:
+            None
+
+        Returns:
+            None
+
+        Example:
+            >>> ttl.stop()  # Stops cleanup thread
+        """
         if not self.enabled:
             return
 
@@ -89,7 +139,18 @@ class TTLManager:
         logger.info("TTL background cleanup stopped")
 
     def _cleanup_loop(self) -> None:
-        """Background cleanup loop - runs periodically."""
+        """
+        Background cleanup loop - runs periodically in daemon thread.
+
+        Infinite loop that runs cleanup_interval seconds apart until stop() is called.
+        Catches and logs exceptions to prevent thread from crashing.
+
+        Args:
+            None
+
+        Returns:
+            None
+        """
         while self.enabled and not self._stop_event.is_set():
             try:
                 removed = self._cleanup_expired_entries()
@@ -102,17 +163,24 @@ class TTLManager:
             self._stop_event.wait(self.cleanup_interval)
 
     def _cleanup_expired_entries(self) -> int:
-        """Scan all tiers and remove expired entries using bulk operations.
+        """
+        Scan all cache tiers and remove expired entries using bulk operations.
 
         Uses optimized bulk cleanup methods for each tier instead of iterating
         through individual entries. For SQLite, this reduces cleanup from O(n)
-        to O(1) using SQL DELETE with WHERE clause.
+        to O(1) using SQL DELETE with WHERE clause. Thread-safe via cache manager lock.
 
-        Thread-safe: Acquires cache manager lock during cleanup to prevent
-        race conditions with concurrent cache operations.
+        Args:
+            None
 
         Returns:
-            Number of entries removed
+            int
+                Total number of entries removed from all tiers.
+
+        Note:
+            - Acquires cache manager lock during cleanup
+            - L3 cleanup is most efficient (O(1) with SQL)
+            - Failures in individual tiers are silently skipped
         """
         with self.cache_manager._lock:
             removed = 0

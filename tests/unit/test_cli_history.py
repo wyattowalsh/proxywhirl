@@ -19,7 +19,7 @@ class TestCommandHistory:
         history = CommandHistory()
         history.add("validate proxy")
         history.add("rotate pool")
-        
+
         results = history.search("validate")
         assert len(results) > 0
         assert "validate" in results[0].command
@@ -30,7 +30,7 @@ class TestCommandHistory:
         history.add("cmd1")
         history.add("cmd2")
         history.add("cmd3")
-        
+
         recent = history.get_recent(2)
         assert len(recent) == 2
 
@@ -39,7 +39,7 @@ class TestCommandHistory:
         history = CommandHistory()
         history.add("cmd1", exit_code=0)
         history.add("cmd2", exit_code=1)
-        
+
         stats = history.get_stats()
         assert stats["total_commands"] == 2
         assert stats["success_count"] == 1

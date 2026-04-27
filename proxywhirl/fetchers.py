@@ -50,7 +50,15 @@ except ImportError:
 
 
 class JSONParser:
-    """Parse JSON-formatted proxy lists."""
+    """Parse JSON-formatted proxy lists with optional key extraction.
+
+    Supports JSON arrays directly or arrays nested under a specified key.
+    Validates required fields if specified.
+
+    Attributes:
+        key: Optional key to extract from JSON object before parsing array
+        required_fields: List of field names that must be present in each proxy
+    """
 
     def __init__(
         self,
@@ -58,28 +66,62 @@ class JSONParser:
         required_fields: list[str] | None = None,
     ) -> None:
         """
-        Initialize JSON parser.
+        Initialize JSON parser with optional key extraction and validation.
 
         Args:
-            key: Optional key to extract from JSON object
-            required_fields: Fields that must be present in each proxy
+            key : str | None
+                Optional key to extract from JSON object. For example, if JSON is
+                {"proxies": [{...}, {...}]}, set key="proxies" to extract the array.
+                Default: None (expect array at top level).
+            required_fields : list[str] | None
+                Field names that must be present in each proxy dictionary.
+                If any proxy is missing a required field, ProxyValidationError is raised.
+                Default: None (no validation).
+
+        Returns:
+            None
+
+        Example:
+            >>> # Parse top-level array
+            >>> parser = JSONParser()
+            >>> proxies = parser.parse('[{"url": "http://1.2.3.4:8080"}]')
+            >>> # Parse array nested under key
+            >>> parser = JSONParser(key="proxies")
+            >>> proxies = parser.parse('{"proxies": [{"url": "http://1.2.3.4:8080"}]}')
+            >>> # Validate required fields
+            >>> parser = JSONParser(required_fields=["url", "country"])
+            >>> proxies = parser.parse('[{"url": "...", "country": "US"}]')
         """
         self.key = key
         self.required_fields = required_fields or []
 
     def parse(self, data: str) -> list[dict[str, Any]]:
         """
-        Parse JSON proxy data.
+        Parse JSON string into list of proxy dictionaries.
+
+        Extracts array from optional key, validates structure, and checks
+        required fields if specified.
 
         Args:
-            data: JSON string to parse
+            data : str
+                JSON string containing proxy array or object with proxy array.
 
         Returns:
-            List of proxy dictionaries
+            list[dict[str, Any]]
+                List of proxy dictionaries parsed from JSON.
 
         Raises:
-            ProxyFetchError: If JSON is invalid
-            ProxyValidationError: If required fields are missing
+            ProxyFetchError
+                If JSON is invalid or missing expected key.
+            ProxyValidationError
+                If required fields are missing or entry is not a dict.
+
+        Example:
+            >>> parser = JSONParser()
+            >>> data = '[{"url": "http://1.2.3.4:8080", "country": "US"}]'
+            >>> proxies = parser.parse(data)
+            >>> print(proxies[0])
+            {'url': 'http://1.2.3.4:8080', 'country': 'US'}
         """
         try:
             parsed = json.loads(data)
@@ -111,7 +153,16 @@ class JSONParser:
 
 
 class CSVParser:
-    """Parse CSV-formatted proxy lists."""
+    """Parse CSV-formatted proxy lists with flexible header handling.
+
+    Supports both header-based and column-indexed CSV formats.
+    Can skip malformed rows or raise errors depending on configuration.
+
+    Attributes:
+        has_header: Whether first row contains column headers
+        columns: Column names to use if no header row
+        skip_invalid: Skip malformed rows instead of raising error
+    """
 
     def __init__(
         self,
@@ -120,12 +171,30 @@ class CSVParser:
         skip_invalid: bool = False,
     ) -> None:
         """
-        Initialize CSV parser.
+        Initialize CSV parser with header and column configuration.
 
         Args:
-            has_header: Whether CSV has header row
-            columns: Column names if no header
-            skip_invalid: Skip malformed rows instead of raising error
+            has_header : bool
+                Whether CSV has header row (default: True).
+            columns : list[str] | None
+                Column names to use when CSV has no header row.
+                Required if has_header is False. Default: None.
+            skip_invalid : bool
+                Skip rows with incorrect column count instead of raising error
+                (default: False). When True, malformed rows are silently skipped.
+
+        Returns:
+            None
+
+        Example:
+            >>> # Parse CSV with header
+            >>> parser = CSVParser(has_header=True)
+            >>> csv_data = "url,country,port\\n1.2.3.4,US,8080\\n"
+            >>> proxies = parser.parse(csv_data)
+            >>> # Parse CSV without header
+            >>> parser = CSVParser(has_header=False, columns=["url", "country", "port"])
+            >>> csv_data = "1.2.3.4,US,8080\\n"
+            >>> proxies = parser.parse(csv_data)
         """
         self.has_header = has_header
         self.columns = columns
@@ -133,16 +202,35 @@ class CSVParser:
 
     def parse(self, data: str) -> list[dict[str, Any]]:
         """
-        Parse CSV proxy data.
+        Parse CSV string into list of proxy dictionaries.
+
+        Converts each row to a dictionary with column names as keys.
+        Handles both header-based and column-indexed formats.
 
         Args:
-            data: CSV string to parse
+            data : str
+                CSV string with proxy data.
 
         Returns:
-            List of proxy dictionaries
+            list[dict[str, Any]]
+                List of proxy dictionaries, one per CSV row.
 
         Raises:
-            ProxyFetchError: If CSV is malformed and skip_invalid is False
+            ProxyFetchError
+                If CSV is malformed (column count mismatch) and skip_invalid is False,
+                or if columns are not specified for header-less CSV.
+
+        Example:
+            >>> parser = CSVParser(has_header=True)
+            >>> csv = "url,country,port\\n1.2.3.4,US,8080\\n5.6.7.8,CN,9090\\n"
+            >>> proxies = parser.parse(csv)
+            >>> print(proxies[0])
+            {'url': '1.2.3.4', 'country': 'US', 'port': '8080'}
+
+        Note:
+            - Empty input returns empty list
+            - Column values are strings (no type conversion)
+            - Set skip_invalid=True to handle partial/incomplete data
         """
         if not data.strip():
             return []
@@ -185,7 +273,15 @@ class CSVParser:
 
 
 class PlainTextParser:
-    """Parse plain text proxy lists (one per line)."""
+    """Parse plain text proxy lists (one proxy per line in IP:PORT format).
+
+    Supports optional trailing metadata (e.g., country codes) which are ignored.
+    Validates IP octets (0-255) and port ranges (1-65535) per RFC standards.
+
+    Attributes:
+        skip_invalid: Whether to skip invalid lines or raise error
+        _IP_PORT_PATTERN: Pre-compiled regex for IP:PORT format (ReDoS-safe)
+    """
 
     # Pre-compiled regex pattern for IP:PORT format with anchors to prevent ReDoS
     # Matches: 1.2.3.4:8080  or  1.2.3.4:8080:Country Name (trailing suffix ignored)
@@ -194,22 +290,49 @@ class PlainTextParser:
 
     def __init__(self, skip_invalid: bool = True) -> None:
         """
-        Initialize plain text parser.
+        Initialize plain text parser for line-based proxy lists.
 
         Args:
-            skip_invalid: Skip invalid URLs instead of raising error
+            skip_invalid : bool
+                Skip invalid lines instead of raising error (default: True).
+                When False, raises ProxyValidationError on first invalid line.
+
+        Returns:
+            None
+
+        Example:
+            >>> parser = PlainTextParser(skip_invalid=True)
+            >>> text = "1.2.3.4:8080\\n5.6.7.8:9090\\ninvalid\\n"
+            >>> proxies = parser.parse(text)  # Returns first 2 proxies
+            >>> # Each proxy dict has {'url': 'http://1.2.3.4:8080'}
         """
         self.skip_invalid = skip_invalid
 
     def _is_valid_ip_port(self, ip_str: str, port_str: str) -> bool:
-        """Validate IP address octets (0-255) and port range (1-65535).
+        """
+        Validate IP address octets (0-255) and port range (1-65535).
+
+        Performs RFC-compliant validation of IPv4 addresses and port numbers.
+        Each octet must be 0-255. Port must be 1-65535 (0 is reserved).
 
         Args:
-            ip_str: IP address string (e.g., "192.168.1.1")
-            port_str: Port number string (e.g., "8080")
+            ip_str : str
+                IP address string (e.g., "192.168.1.1").
+            port_str : str
+                Port number string (e.g., "8080").
 
         Returns:
-            True if IP and port are valid, False otherwise
+            bool
+                True if IP and port are valid, False otherwise.
+
+        Example:
+            >>> parser = PlainTextParser()
+            >>> parser._is_valid_ip_port("192.168.1.1", "8080")
+            True
+            >>> parser._is_valid_ip_port("256.1.1.1", "8080")  # Octet > 255
+            False
+            >>> parser._is_valid_ip_port("192.168.1.1", "70000")  # Port > 65535
+            False
         """
         # Validate each IP octet is 0-255
         octets = ip_str.split(".")
@@ -246,17 +369,51 @@ class PlainTextParser:
 
     def parse(self, data: str) -> list[dict[str, Any]]:
         """
-        Parse plain text proxy data.
+        Parse plain text proxy data (one proxy per line).
+
+        Supports multiple input formats:
+        - IP:PORT (converted to http://IP:PORT)
+        - http://IP:PORT or https://IP:PORT
+        - socks4://IP:PORT or socks5://IP:PORT
+        - IP:PORT:CountryCode (trailing metadata ignored)
+
+        Empty lines and comments (# prefix) are skipped. Validates IPv4 octets
+        (0-255) and port ranges (1-65535) per RFC standards.
 
         Args:
-            data: Plain text string with one proxy per line
-                  Supports formats: IP:PORT, http://IP:PORT, socks5://IP:PORT
+            data : str
+                Plain text string with one proxy per line.
 
         Returns:
-            List of proxy dictionaries with 'url' key
+            list[dict[str, Any]]
+                List of proxy dictionaries with 'url' key set to full proxy URL.
 
         Raises:
-            ProxyFetchError: If invalid proxy format is encountered and skip_invalid=False
+            ProxyFetchError
+                If invalid proxy format is encountered and skip_invalid is False.
+
+        Example:
+            >>> parser = PlainTextParser(skip_invalid=True)
+            >>> text = '''
+            ... 1.2.3.4:8080
+            ... http://5.6.7.8:9090
+            ... socks5://10.0.0.1:1080
+            ... # This is a comment
+            ... invalid data here
+            ... '''
+            >>> proxies = parser.parse(text)
+            >>> for p in proxies:
+            ...     print(p['url'])
+            http://1.2.3.4:8080
+            http://5.6.7.8:9090
+            socks5://10.0.0.1:1080
+
+        Note:
+            - Empty lines and comments (# prefix) are skipped
+            - IPv4 validation checks octets (0-255) and port (1-65535)
+            - Leading zeros in octets are rejected (e.g., "192.01.1.1" invalid)
+            - Regex is ReDoS-safe with anchors
+            - Invalid proxies skipped if skip_invalid=True
         """
         proxies = []
 
@@ -301,7 +458,17 @@ class PlainTextParser:
 
 
 class HTMLTableParser:
-    """Parse HTML table-formatted proxy lists."""
+    """Parse HTML table-formatted proxy lists with flexible column mapping.
+
+    Extracts proxies from HTML <table> elements. Supports both:
+    - Header-based mapping (matching header names to fields)
+    - Column index mapping (selecting specific columns by position)
+
+    Attributes:
+        table_selector: CSS selector for table element (default: "table")
+        column_map: Map from header names to proxy field names
+        column_indices: Map from proxy field names to column indices
+    """
 
     def __init__(
         self,
@@ -310,12 +477,34 @@ class HTMLTableParser:
         column_indices: dict[str, int] | None = None,
     ) -> None:
         """
-        Initialize HTML table parser.
+        Initialize HTML table parser with selector and column configuration.
 
         Args:
-            table_selector: CSS selector for table element
-            column_map: Map header names to proxy fields
-            column_indices: Map field names to column indices
+            table_selector : str
+                CSS selector for table element (default: "table").
+                Examples: "table", "table.proxies", "#proxy-table".
+            column_map : dict[str, str] | None
+                Map from HTML header names to proxy field names.
+                Example: {"IP Address": "ip", "Port": "port"}.
+                Default: None (use all columns in order).
+            column_indices : dict[str, int] | None
+                Map from proxy field names to column indices (0-based).
+                Example: {"ip": 0, "port": 1}.
+                Default: None (use column_map if provided).
+
+        Returns:
+            None
+
+        Example:
+            >>> # Extract from table with column_indices
+            >>> parser = HTMLTableParser(
+            ...     table_selector="table.proxies",
+            ...     column_indices={"url": 0, "country": 2}
+            ... )
+            >>> # Extract from table with headers and column mapping
+            >>> parser = HTMLTableParser(
+            ...     column_map={"IP": "url", "Location": "country"}
+            ... )
         """
         self.table_selector = table_selector
         self.column_map = column_map or {}
@@ -323,13 +512,43 @@ class HTMLTableParser:
 
     def parse(self, data: str) -> list[dict[str, Any]]:
         """
-        Parse HTML table proxy data.
+        Parse HTML table into list of proxy dictionaries.
+
+        Extracts all rows from the first matching table. Handles both
+        header-based and index-based column extraction.
 
         Args:
-            data: HTML string containing table
+            data : str
+                HTML string containing table with proxy data.
 
         Returns:
-            List of proxy dictionaries
+            list[dict[str, Any]]
+                List of proxy dictionaries, one per table row (excluding header).
+
+        Raises:
+            None - Returns empty list if no table found or on parse errors.
+
+        Example:
+            >>> html = '''
+            ... <table class="proxies">
+            ...     <tr><th>IP</th><th>Port</th><th>Country</th></tr>
+            ...     <tr><td>1.2.3.4</td><td>8080</td><td>US</td></tr>
+            ...     <tr><td>5.6.7.8</td><td>9090</td><td>CN</td></tr>
+            ... </table>
+            ... '''
+            >>> parser = HTMLTableParser(
+            ...     table_selector="table.proxies",
+            ...     column_map={"IP": "url", "Port": "port"}
+            ... )
+            >>> proxies = parser.parse(html)
+            >>> print(proxies[0])
+            {'url': '1.2.3.4', 'port': '8080'}
+
+        Note:
+            - Returns empty list if no matching table found
+            - Automatically detects header row by looking for <th> elements
+            - Empty cells are extracted as empty strings
+            - Both column_indices and column_map can be used (indices take priority)
         """
         soup = BeautifulSoup(data, "html.parser")
         table = soup.select_one(self.table_selector)
@@ -497,7 +716,19 @@ class ValidationResult(NamedTuple):
 
 
 class ProxyValidator:
-    """Validate proxy connectivity with metrics collection."""
+    """Validate proxy connectivity with detailed metrics and multiple test endpoints.
+
+    Validates proxies by attempting actual HTTP/HTTPS requests through them.
+    Includes result caching, concurrent validation limits, and multi-endpoint
+    fallback for robust testing. Supports HTTP and SOCKS proxies.
+
+    Attributes:
+        timeout: HTTP request timeout in seconds
+        level: Validation level (BASIC, STANDARD, FULL)
+        concurrency: Maximum concurrent validations
+        TEST_URLS: List of fast HTTP endpoints for testing
+        HTTPS_TEST_URLS: List of HTTPS endpoints for protocol testing
+    """
 
     # Multiple test URLs to avoid single-point bottleneck and rate limiting
     TEST_URLS = [
@@ -525,15 +756,38 @@ class ProxyValidator:
         cache_ttl_seconds: int = 3600,
     ) -> None:
         """
-        Initialize proxy validator.
+        Initialize proxy validator with configurable endpoints and validation level.
+
+        Creates a new proxy validator with support for HTTP/HTTPS and SOCKS proxies.
+        Multiple test endpoints are available to work around rate limiting.
 
         Args:
-            timeout: Connection timeout in seconds
-            test_url: URL to use for connectivity testing. If None, rotates between
-                     multiple fast endpoints (Google, Cloudflare, etc.)
-            level: Validation level (BASIC, STANDARD, FULL). Defaults to STANDARD.
-            concurrency: Maximum number of concurrent validations
-            cache_ttl_seconds: TTL for validation result caching in seconds (default: 1 hour)
+            timeout : float
+                Connection timeout in seconds (default: 5.0).
+            test_url : str | None
+                Custom URL for proxy testing. If None, rotates between
+                fast endpoints (Google, Cloudflare, etc.). Default: None.
+            level : ValidationLevel | None
+                Validation level: BASIC (TCP only), STANDARD (HTTP request),
+                or FULL (detailed checks). Default: STANDARD.
+            concurrency : int
+                Maximum concurrent validations (default: 50). Uses asyncio.Semaphore.
+            cache_ttl_seconds : int
+                TTL for validation result caching in seconds (default: 3600 / 1 hour).
+
+        Returns:
+            None
+
+        Example:
+            >>> validator = ProxyValidator(timeout=10.0, level=ValidationLevel.FULL)
+            >>> async with validator:
+            ...     result = await validator.validate({"url": "http://proxy.example.com:8080"})
+            ...     print(result.is_valid)
+
+        Note:
+            - Result caching reduces redundant validations
+            - Concurrent validations limited to prevent resource exhaustion
+            - SOCKS support requires httpx-socks library
         """
         from proxywhirl.models import ValidationLevel
 
@@ -827,11 +1081,42 @@ class ProxyValidator:
         """
         Validate proxy connectivity with fast TCP pre-check and timing metrics.
 
+        Performs a two-stage validation:
+        1. Fast TCP pre-check to ensure port is open (1 second timeout)
+        2. Full HTTP request through proxy to test functionality
+
+        Includes result caching to avoid re-validating identical proxies.
+        Response times are measured for successful validations only.
+
         Args:
-            proxy: Proxy dictionary with 'url' key (e.g., "http://1.2.3.4:8080")
+            proxy : dict[str, Any]
+                Proxy dictionary with 'url' key (e.g., "http://1.2.3.4:8080").
+                May also include 'protocol' key for HTTPS/SOCKS validation.
 
         Returns:
-            ValidationResult with is_valid flag and response_time_ms (if successful)
+            ValidationResult
+                NamedTuple with:
+                - is_valid: bool - Whether proxy is working
+                - response_time_ms: float | None - HTTP response time in ms (only if valid)
+
+        Raises:
+            None - All exceptions are caught and return invalid result.
+
+        Example:
+            >>> validator = ProxyValidator(timeout=10.0)
+            >>> proxy = {"url": "http://proxy.example.com:8080", "protocol": "http"}
+            >>> result = await validator.validate(proxy)
+            >>> if result.is_valid:
+            ...     print(f"Proxy works! Response time: {result.response_time_ms:.1f}ms")
+            ... else:
+            ...     print("Proxy is not working")
+
+        Note:
+            - Results are cached with TTL (default: 1 hour)
+            - TCP pre-check uses 1 second timeout to fail fast
+            - HTTPS proxies tested against HTTPS endpoints
+            - SOCKS proxies require httpx-socks library
+            - Transparent proxies are validated as working
         """
         # Check cache first
         cached_result = self._get_cached_result(proxy)
@@ -954,13 +1239,40 @@ class ProxyValidator:
 
         Uses asyncio.Semaphore to limit concurrent validations based on
         the configured concurrency limit. Records response time for valid proxies.
+        Invalid proxies are excluded from the result.
 
         Args:
-            proxies: List of proxy dictionaries
-            progress_callback: Optional callback(completed, total, valid_count) for progress
+            proxies : list[dict[str, Any]]
+                List of proxy dictionaries to validate. Each dict should have
+                a "url" key with the proxy URL.
+            progress_callback : callable | None
+                Optional callback with signature progress_callback(completed, total, valid_count)
+                called after each validation completes (default: None).
 
         Returns:
-            List of working proxies with response_time_ms added to each
+            list[dict[str, Any]]
+                List of working proxies with response_time_ms added to each entry.
+
+        Raises:
+            None - Validation errors are handled gracefully with failed proxies excluded.
+
+        Example:
+            >>> validator = ProxyValidator()
+            >>> proxies = [
+            ...     {"url": "http://proxy1.example.com:8080"},
+            ...     {"url": "http://proxy2.example.com:8080"},
+            ... ]
+            >>> def callback(completed, total, valid):
+            ...     print(f"Progress: {completed}/{total}, Valid: {valid}")
+            >>> valid_proxies = await validator.validate_batch(proxies, callback)
+            >>> for proxy in valid_proxies:
+            ...     print(f"{proxy['url']} - {proxy['response_time_ms']:.1f}ms")
+
+        Note:
+            - Uses concurrent validation with semaphore to prevent resource exhaustion
+            - Includes caching to avoid re-validating proxies
+            - Failed proxies are silently excluded from results
+            - Response time is only recorded for valid proxies
         """
         if not proxies:
             return []
@@ -1243,7 +1555,18 @@ def _wait_with_retry_after(retry_state: RetryCallState) -> float:
 
 
 class ProxyFetcher:
-    """Fetch proxies from various sources."""
+    """Fetch and parse proxies from multiple sources with validation and deduplication.
+
+    Supports multiple proxy source formats (JSON, CSV, plain text, HTML tables)
+    and automatic proxy validation. Includes request caching to avoid duplicate
+    fetches and deduplication by URL+Port combination.
+
+    Attributes:
+        sources: List of proxy source configurations
+        validator: ProxyValidator instance for validating fetched proxies
+        _parsers: Mapping of format names to parser classes
+        _request_cache: Cache for HTTP responses (URL -> content)
+    """
 
     def __init__(
         self,
@@ -1252,12 +1575,37 @@ class ProxyFetcher:
         dedup_cache_ttl: int = 3600,
     ) -> None:
         """
-        Initialize proxy fetcher.
+        Initialize proxy fetcher with sources and validator.
+
+        Creates a new proxy fetcher with support for multiple source formats
+        and automatic validation. Request responses are cached to avoid
+        duplicate HTTP fetches.
 
         Args:
-            sources: List of proxy source configurations
-            validator: ProxyValidator instance for validating fetched proxies
-            dedup_cache_ttl: TTL for request deduplication cache in seconds (default: 1 hour)
+            sources : list[ProxySourceConfig] | None
+                List of proxy source configurations (default: []).
+            validator : ProxyValidator | None
+                ProxyValidator instance for validating fetched proxies.
+                If None, creates a new ProxyValidator with default settings.
+            dedup_cache_ttl : int
+                TTL for request deduplication cache in seconds (default: 3600 / 1 hour).
+
+        Returns:
+            None
+
+        Example:
+            >>> sources = [
+            ...     ProxySourceConfig(url="https://example.com/proxies.json", format="json"),
+            ...     ProxySourceConfig(url="https://example.com/proxies.csv", format="csv"),
+            ... ]
+            >>> fetcher = ProxyFetcher(sources=sources)
+            >>> proxies = await fetcher.fetch_proxies()
+
+        Note:
+            - Supports JSON, CSV, plain text, and HTML table formats
+            - Automatic deduplication by URL+Port
+            - Request caching reduces redundant HTTP fetches
+            - Validator caching reduces redundant proxy tests
         """
         self.sources = sources or []
         self.validator = validator or ProxyValidator()
@@ -1278,10 +1626,29 @@ class ProxyFetcher:
 
     def add_source(self, source: ProxySourceConfig) -> None:
         """
-        Add a proxy source.
+        Add a proxy source to fetch from.
+
+        Appends a new source configuration to the list of sources.
+        Sources will be fetched in order when fetch_proxies() is called.
 
         Args:
-            source: Proxy source configuration to add
+            source : ProxySourceConfig
+                Proxy source configuration with URL and format.
+
+        Returns:
+            None
+
+        Example:
+            >>> fetcher = ProxyFetcher()
+            >>> source = ProxySourceConfig(
+            ...     url="https://example.com/proxies.json",
+            ...     format="json"
+            ... )
+            >>> fetcher.add_source(source)
+
+        Note:
+            - Duplicate sources are allowed
+            - Sources are not validated at add time
         """
         self.sources.append(source)
 
@@ -1289,8 +1656,23 @@ class ProxyFetcher:
         """
         Remove a proxy source by URL.
 
+        Removes all sources matching the given URL. If multiple sources
+        have the same URL, all are removed.
+
         Args:
-            url: URL of source to remove
+            url : str
+                URL of source to remove (e.g., "https://example.com/proxies.json").
+
+        Returns:
+            None
+
+        Example:
+            >>> fetcher = ProxyFetcher()
+            >>> fetcher.remove_source("https://example.com/proxies.json")
+
+        Note:
+            - Does not raise error if source not found
+            - Removes all matching URLs
         """
         self.sources = [s for s in self.sources if str(s.url) != url]
 
@@ -1378,7 +1760,12 @@ class ProxyFetcher:
     )
     async def fetch_from_source(self, source: ProxySourceConfig) -> list[dict[str, Any]]:
         """
-        Fetch proxies from a single source.
+        Fetch and parse proxies from a single source with automatic retries and caching.
+
+        Handles multiple source formats (JSON, CSV, plain text, HTML tables) and
+        supports browser rendering for JavaScript-heavy pages. Includes automatic
+        retry with exponential backoff for rate limiting and temporary server errors.
+        Request responses are cached to avoid duplicate fetches.
 
         Includes automatic retry with exponential backoff for:
         - HTTP 429 (Too Many Requests) - respects Retry-After header
@@ -1388,13 +1775,39 @@ class ProxyFetcher:
         - Network timeouts
 
         Args:
-            source: Proxy source configuration
+            source : ProxySourceConfig
+                Proxy source configuration with:
+                - url: Source URL (str or HttpUrl)
+                - format: Format identifier (json, csv, plain_text, html_table)
+                - protocol: Optional protocol override (socks4, socks5)
+                - render_mode: RenderMode.BROWSER or RenderMode.STATIC (default)
+                - custom_parser: Optional custom parser object
 
         Returns:
-            List of proxy dictionaries
+            list[dict[str, Any]]
+                List of raw proxy dictionaries parsed from source. Each dict
+                typically contains 'url' and optionally 'protocol', 'source', etc.
 
         Raises:
-            ProxyFetchError: If fetching fails after retries
+            ProxyFetchError
+                If HTTP request fails after retries, format is unsupported,
+                or parsing fails.
+
+        Example:
+            >>> fetcher = ProxyFetcher()
+            >>> source = ProxySourceConfig(
+            ...     url="https://example.com/proxies.json",
+            ...     format="json"
+            ... )
+            >>> proxies = await fetcher.fetch_from_source(source)
+            >>> print(f"Fetched {len(proxies)} proxies")
+
+        Note:
+            - Browser rendering requires Playwright (install with `pip install 'proxywhirl[js]'`)
+            - Request responses cached for 1 hour (configurable)
+            - Retries use exponential backoff with up to 5 attempts
+            - Protocol override applied after parsing (for plain text sources)
+            - Custom parsers take precedence over format-based parsers
         """
         try:
             # Check request cache first to avoid duplicate requests
@@ -1486,16 +1899,55 @@ class ProxyFetcher:
         validate_progress_callback: Any | None = None,
     ) -> list[dict[str, Any]]:
         """
-        Fetch proxies from all configured sources.
+        Fetch and optionally validate proxies from all configured sources in parallel.
+
+        Fetches from all sources concurrently, deduplicates by URL+Port if requested,
+        and validates using the configured ProxyValidator. Progress can be tracked
+        via callbacks during both fetch and validation phases.
 
         Args:
-            validate: Whether to validate proxies before returning
-            deduplicate: Whether to deduplicate proxies
-            fetch_progress_callback: Optional callback(completed, total, proxies_found) for fetch progress
-            validate_progress_callback: Optional callback(completed, total, valid_count) for validation progress
+            validate : bool
+                Whether to validate proxies before returning (default: True).
+            deduplicate : bool
+                Whether to deduplicate proxies by URL+Port (default: True).
+            fetch_progress_callback : callable | None
+                Optional callback with signature callback(completed, total, proxies_found)
+                called after each source is fetched. Default: None.
+            validate_progress_callback : callable | None
+                Optional callback with signature callback(completed, total, valid_count)
+                called during validation progress. Default: None.
 
         Returns:
-            List of proxy dictionaries
+            list[dict[str, Any]]
+                List of working proxies with response_time_ms added if validated.
+                Failed fetches from individual sources are logged but don't fail
+                the entire operation.
+
+        Raises:
+            None - Individual source failures are logged and skipped gracefully.
+
+        Example:
+            >>> sources = [
+            ...     ProxySourceConfig(url="https://api1.example.com/proxies.json", format="json"),
+            ...     ProxySourceConfig(url="https://api2.example.com/proxies.csv", format="csv"),
+            ... ]
+            >>> fetcher = ProxyFetcher(sources=sources)
+            >>> def fetch_callback(completed, total, proxies):
+            ...     print(f"Fetched from {completed}/{total} sources, {proxies} proxies found")
+            >>> def validate_callback(completed, total, valid):
+            ...     print(f"Validated {completed}/{total}, {valid} are working")
+            >>> proxies = await fetcher.fetch_all(
+            ...     fetch_progress_callback=fetch_callback,
+            ...     validate_progress_callback=validate_callback
+            ... )
+            >>> print(f"Final list: {len(proxies)} working proxies")
+
+        Note:
+            - Fetches from all sources in parallel for speed
+            - Deduplication happens before validation
+            - Failed individual source fetches are logged but don't fail the entire fetch
+            - Validation uses configured concurrency limit
+            - Returns empty list if all sources fail
         """
         all_proxies: list[dict[str, Any]] = []
         completed_sources = 0

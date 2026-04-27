@@ -24,9 +24,6 @@ class TestConfigTemplateManager:
     def test_merge_template(self):
         """Test merging template with custom config."""
         manager = ConfigTemplateManager()
-        merged = manager.merge_template(
-            ConfigTemplate.STANDARD,
-            {"pool": {"max_size": 200}}
-        )
+        merged = manager.merge_template(ConfigTemplate.STANDARD, {"pool": {"max_size": 200}})
         assert merged["pool"]["max_size"] == 200
         assert "rotation" in merged
