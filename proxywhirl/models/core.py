@@ -364,7 +364,7 @@ class Proxy(BaseModel):
     requests_started: int = 0  # Total requests initiated
     requests_completed: int = 0  # Total requests finished (success or failure)
     requests_active: int = 0  # Currently in-flight requests
-    total_requests: int = 0  # Legacy field, kept for backwards compatibility
+    total_requests: int = 0  # Legacy field for backwards compatibility. Use requests_completed instead. To be removed in v2.0.
     total_successes: int = 0
     total_failures: int = 0
     average_response_time_ms: float | None = None
@@ -376,7 +376,7 @@ class Proxy(BaseModel):
     # complete_request methods. This field is retained for storage serialization
     # and backward compatibility only. Strategies using StrategyState manage
     # their own per-proxy metrics with independent alpha values.
-    ema_alpha: float = 0.2  # Deprecated - use StrategyConfig.ema_alpha instead
+    ema_alpha: float = 0.2  # Deprecated in v1.8+: use StrategyConfig.ema_alpha in strategies instead. Will be removed in v2.0. See migration guide: docs/source/guides/migration-v2.md
     # Sliding window for counter staleness prevention
     window_start: datetime | None = None  # Start time of current window
     window_duration_seconds: int = 3600  # Window duration (default 1 hour)

@@ -33,6 +33,7 @@ from typing import Any
 from pydantic import PrivateAttr
 
 from proxywhirl.circuit_breaker.base import CircuitBreakerBase, CircuitBreakerState
+from proxywhirl.deprecation import deprecated
 from proxywhirl.models import CircuitBreakerConfig
 
 # Re-export for backward compatibility
@@ -123,6 +124,12 @@ class CircuitBreaker(CircuitBreakerBase):
         return cls(proxy_id=proxy_id, **kwargs)
 
     @classmethod
+    @deprecated(
+        version="1.8",
+        removal_version="2.0",
+        alternative="CircuitBreaker.create()",
+        reason="Simplified API; use create() method directly",
+    )
     def from_config(
         cls,
         proxy_id: str,
