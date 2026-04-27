@@ -61,6 +61,8 @@ class CircuitBreakerConfigDict(TypedDict, total=False):
     failure_threshold: int
     window_duration: float
     timeout_duration: float
+
+
 # ============================================================================
 # ENUMS
 # ============================================================================

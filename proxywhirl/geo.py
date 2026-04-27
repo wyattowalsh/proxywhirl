@@ -7,7 +7,6 @@ Falls back to ip-api.com batch API if database not available.
 from __future__ import annotations
 
 import asyncio
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 

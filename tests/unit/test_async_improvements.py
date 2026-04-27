@@ -175,7 +175,7 @@ class TestConcurrentAsyncOperations:
 
         try:
             result = await asyncio.wait_for(slow_task(), timeout=0.1)
-            assert False, "Should have timed out"
+            raise AssertionError("Should have timed out")
         except asyncio.TimeoutError:
             pass  # Expected
 

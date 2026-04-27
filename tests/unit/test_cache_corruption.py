@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
 
 import pytest
-
-from proxywhirl.cache.manager import CacheManager
-from proxywhirl.exceptions import CacheCorruptionError, CacheValidationError
 
 
 class TestCacheCorruptionRecovery:

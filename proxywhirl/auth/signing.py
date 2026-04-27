@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
@@ -93,8 +92,8 @@ class WebhookVerifier(BaseModel):
         self,
         payload: bytes,
         signature: str,
-        timestamp: Optional[str] = None,
-    ) -> tuple[bool, Optional[str]]:
+        timestamp: str | None = None,
+    ) -> tuple[bool, str | None]:
         """Verify a complete webhook request with optional timestamp validation.
 
         Args:

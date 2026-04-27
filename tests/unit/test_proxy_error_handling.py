@@ -3,8 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from proxywhirl.models import Proxy, HealthStatus
-from proxywhirl.exceptions import ProxyValidationError
+from proxywhirl.models import Proxy
 
 
 class TestProxyURLErrors:
@@ -44,39 +43,25 @@ class TestProxyCredentialErrors:
     def test_username_without_password(self):
         """Test username without password raises error."""
         with pytest.raises(ValidationError) as exc_info:
-            Proxy(
-                url="http://proxy.example.com:8080",
-                username="user"
-            )
+            Proxy(url="http://proxy.example.com:8080", username="user")
         assert "password" in str(exc_info.value).lower()
 
     def test_password_without_username(self):
         """Test password without username raises error."""
         with pytest.raises(ValidationError) as exc_info:
-            Proxy(
-                url="http://proxy.example.com:8080",
-                password="pass"
-            )
+            Proxy(url="http://proxy.example.com:8080", password="pass")
         assert "username" in str(exc_info.value).lower()
 
     def test_empty_username(self):
         """Test empty username with password is allowed (validated at runtime)."""
         # Empty username doesn't raise validation error, but is semantically wrong
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            username="",
-            password="pass"
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", username="", password="pass")
         assert proxy.username is not None
 
     def test_empty_password(self):
         """Test empty password with username is allowed (validated at runtime)."""
         # Empty password doesn't raise validation error, but is semantically wrong
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            username="user",
-            password=""
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", username="user", password="")
         assert proxy.password is not None
 
 
@@ -124,7 +109,7 @@ class TestProxyFieldTypeErrors:
         # Should still accept string
         proxy = Proxy(
             url="http://proxy.example.com:8080",
-            country_code="INVALID_CODE"  # Length is fine, just a string
+            country_code="INVALID_CODE",  # Length is fine, just a string
         )
         assert proxy.country_code == "INVALID_CODE"
 
@@ -133,7 +118,7 @@ class TestProxyFieldTypeErrors:
         # Pydantic should accept any int, but semantically negative TTL is invalid
         proxy = Proxy(
             url="http://proxy.example.com:8080",
-            ttl=-1  # Negative TTL
+            ttl=-1,  # Negative TTL
         )
         # Should be stored but it's semantically wrong
         assert proxy.ttl == -1
@@ -141,18 +126,12 @@ class TestProxyFieldTypeErrors:
     def test_cost_per_request_negative_rejected(self):
         """Test negative cost per request is rejected."""
         with pytest.raises(ValidationError):
-            Proxy(
-                url="http://proxy.example.com:8080",
-                cost_per_request=-0.5
-            )
+            Proxy(url="http://proxy.example.com:8080", cost_per_request=-0.5)
 
     def test_invalid_health_status_type(self):
         """Test invalid health status type."""
         with pytest.raises(ValidationError):
-            Proxy(
-                url="http://proxy.example.com:8080",
-                health_status="INVALID_STATUS"
-            )
+            Proxy(url="http://proxy.example.com:8080", health_status="INVALID_STATUS")
 
 
 class TestProxyRequestCountErrors:
@@ -164,7 +143,7 @@ class TestProxyRequestCountErrors:
         with pytest.raises(ValidationError):
             Proxy(
                 url="http://proxy.example.com:8080",
-                requests_completed=-5  # Negative
+                requests_completed=-5,  # Negative
             )
 
     def test_completed_exceeds_total(self):
@@ -172,7 +151,7 @@ class TestProxyRequestCountErrors:
         proxy = Proxy(
             url="http://proxy.example.com:8080",
             total_requests=100,
-            requests_completed=150  # More than total
+            requests_completed=150,  # More than total
         )
         # Model allows this, but it's logically inconsistent
         assert proxy.requests_completed > proxy.total_requests
@@ -180,10 +159,7 @@ class TestProxyRequestCountErrors:
     def test_negative_total_requests(self):
         """Test negative total requests are rejected."""
         with pytest.raises(ValidationError):
-            Proxy(
-                url="http://proxy.example.com:8080",
-                total_requests=-10
-            )
+            Proxy(url="http://proxy.example.com:8080", total_requests=-10)
 
 
 class TestProxyModelEdgeCases:
@@ -241,18 +217,12 @@ class TestProxyConsecutiveCounters:
 
     def test_consecutive_failures_max_value(self):
         """Test very high consecutive failure count."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            consecutive_failures=999999
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", consecutive_failures=999999)
         assert proxy.consecutive_failures == 999999
 
     def test_consecutive_successes_max_value(self):
         """Test very high consecutive success count."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            consecutive_successes=999999
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", consecutive_successes=999999)
         assert proxy.consecutive_successes == 999999
 
     def test_both_consecutive_counters(self):
@@ -260,7 +230,7 @@ class TestProxyConsecutiveCounters:
         proxy = Proxy(
             url="http://proxy.example.com:8080",
             consecutive_failures=10,
-            consecutive_successes=50  # Logically impossible but allowed
+            consecutive_successes=50,  # Logically impossible but allowed
         )
         assert proxy.consecutive_failures == 10
         assert proxy.consecutive_successes == 50
@@ -273,23 +243,14 @@ class TestProxyResponseTimeFields:
         """Test negative response time is rejected."""
         # Response times must be non-negative
         with pytest.raises(ValidationError):
-            Proxy(
-                url="http://proxy.example.com:8080",
-                average_response_time_ms=-100.0
-            )
+            Proxy(url="http://proxy.example.com:8080", average_response_time_ms=-100.0)
 
     def test_zero_response_time(self):
         """Test zero response time."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            average_response_time_ms=0.0
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", average_response_time_ms=0.0)
         assert proxy.average_response_time_ms == 0.0
 
     def test_very_high_response_time(self):
         """Test very high response time."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            average_response_time_ms=999999999.99
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", average_response_time_ms=999999999.99)
         assert proxy.average_response_time_ms > 0

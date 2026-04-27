@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -61,7 +61,7 @@ class RequestMetadata(BaseModel):
         description="Request timestamp",
     )
     api_version: str = Field(default="2.0", description="API version")
-    client_ip: Optional[str] = Field(None, description="Client IP address")
+    client_ip: str | None = Field(None, description="Client IP address")
 
 
 class ResponseMetadata(BaseModel):
@@ -73,7 +73,7 @@ class ResponseMetadata(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     processing_time_ms: float = Field(description="Request processing time in ms")
     api_version: str = "2.0"
-    trace_id: Optional[UUID] = Field(None, description="Distributed trace ID")
+    trace_id: UUID | None = Field(None, description="Distributed trace ID")
 
 
 class APIResponse(BaseModel, Generic[T]):
@@ -82,8 +82,8 @@ class APIResponse(BaseModel, Generic[T]):
     model_config = ConfigDict(generic=True)
 
     success: bool = Field(description="Whether request succeeded")
-    data: Optional[T] = Field(None, description="Response payload")
-    error: Optional[ErrorDetail] = Field(None, description="Error details if failed")
+    data: T | None = Field(None, description="Response payload")
+    error: ErrorDetail | None = Field(None, description="Error details if failed")
     metadata: ResponseMetadata
 
 
@@ -123,7 +123,7 @@ class ProxyResourceV2(BaseModel):
     host: str
     port: int
     is_active: bool
-    last_verified: Optional[datetime] = None
+    last_verified: datetime | None = None
     custom_headers: dict[str, str] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -143,7 +143,7 @@ class NodeSelector:
 
         return selected
 
-    def select_random(self) -> Optional[ClusterNode]:
+    def select_random(self) -> ClusterNode | None:
         """Select a random healthy node."""
         import random
 
@@ -152,7 +152,7 @@ class NodeSelector:
             return None
         return random.choice(healthy)
 
-    def select_best_performing(self) -> Optional[ClusterNode]:
+    def select_best_performing(self) -> ClusterNode | None:
         """Select node with best performance."""
         healthy = self.healthy_nodes()
         if not healthy:
@@ -164,7 +164,7 @@ class NodeSelector:
 
         return min(healthy, key=get_response_time)
 
-    def select_least_loaded(self) -> Optional[ClusterNode]:
+    def select_least_loaded(self) -> ClusterNode | None:
         """Select node with least load."""
         healthy = self.healthy_nodes()
         if not healthy:
@@ -203,7 +203,7 @@ class ConsistentHash:
                 hash_value = int(hashlib.md5(key.encode()).hexdigest(), 16)
                 self._ring[hash_value] = node
 
-    def get_node(self, key: str) -> Optional[ClusterNode]:
+    def get_node(self, key: str) -> ClusterNode | None:
         """Get node responsible for key.
 
         Args:

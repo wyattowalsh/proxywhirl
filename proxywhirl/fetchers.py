@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import csv
+import hashlib
 import json
 import re
 import time
@@ -521,6 +522,7 @@ class ProxyValidator:
         test_url: str | None = None,
         level: ValidationLevel | None = None,
         concurrency: int = 50,
+        cache_ttl_seconds: int = 3600,
     ) -> None:
         """
         Initialize proxy validator.
@@ -531,6 +533,7 @@ class ProxyValidator:
                      multiple fast endpoints (Google, Cloudflare, etc.)
             level: Validation level (BASIC, STANDARD, FULL). Defaults to STANDARD.
             concurrency: Maximum number of concurrent validations
+            cache_ttl_seconds: TTL for validation result caching in seconds (default: 1 hour)
         """
         from proxywhirl.models import ValidationLevel
 
@@ -542,6 +545,10 @@ class ProxyValidator:
         self.concurrency = concurrency
         self._client: httpx.AsyncClient | None = None
         self._socks_client: httpx.AsyncClient | None = None
+
+        # Validation result cache with TTL
+        self._validation_cache: dict[str, tuple[ValidationResult, float]] = {}
+        self._cache_ttl_seconds = cache_ttl_seconds
 
     @property
     def test_url(self) -> str:
@@ -641,6 +648,48 @@ class ProxyValidator:
     async def __aexit__(self, *args: Any) -> None:
         """Async context manager exit."""
         await self.close()
+
+    def _get_cache_key(self, proxy: dict[str, Any]) -> str:
+        """Generate cache key for a proxy.
+
+        Args:
+            proxy: Proxy dictionary with 'url' key
+
+        Returns:
+            Cache key string (hash of proxy URL)
+        """
+        proxy_url = proxy.get("url", "")
+        return hashlib.md5(proxy_url.encode()).hexdigest()
+
+    def _get_cached_result(self, proxy: dict[str, Any]) -> ValidationResult | None:
+        """Get validation result from cache if not expired.
+
+        Args:
+            proxy: Proxy dictionary to check cache for
+
+        Returns:
+            ValidationResult if cached and not expired, None otherwise
+        """
+        cache_key = self._get_cache_key(proxy)
+        if cache_key in self._validation_cache:
+            result, timestamp = self._validation_cache[cache_key]
+            if time.time() - timestamp < self._cache_ttl_seconds:
+                logger.debug(f"Validation cache hit for {proxy.get('url')}")
+                return result
+            else:
+                # Cache expired - remove it
+                del self._validation_cache[cache_key]
+        return None
+
+    def _set_cached_result(self, proxy: dict[str, Any], result: ValidationResult) -> None:
+        """Cache a validation result.
+
+        Args:
+            proxy: Proxy dictionary that was validated
+            result: Validation result to cache
+        """
+        cache_key = self._get_cache_key(proxy)
+        self._validation_cache[cache_key] = (result, time.time())
 
     async def _validate_tcp_connectivity(self, host: str, port: int) -> bool:
         """
@@ -784,9 +833,16 @@ class ProxyValidator:
         Returns:
             ValidationResult with is_valid flag and response_time_ms (if successful)
         """
+        # Check cache first
+        cached_result = self._get_cached_result(proxy)
+        if cached_result is not None:
+            return cached_result
+
         proxy_url = proxy.get("url")
         if not proxy_url:
-            return ValidationResult(is_valid=False, response_time_ms=None)
+            result = ValidationResult(is_valid=False, response_time_ms=None)
+            self._set_cached_result(proxy, result)
+            return result
 
         try:
             # Parse host:port from URL
@@ -795,7 +851,9 @@ class ProxyValidator:
             port = parsed.port
 
             if not host or not port:
-                return ValidationResult(is_valid=False, response_time_ms=None)
+                result = ValidationResult(is_valid=False, response_time_ms=None)
+                self._set_cached_result(proxy, result)
+                return result
 
             # Fast TCP pre-check (async) - skip HTTP if port isn't even open
             # Use very short timeout for TCP (1s) - if port isn't open, fail fast
@@ -807,7 +865,9 @@ class ProxyValidator:
                 writer.close()
                 await writer.wait_closed()
             except (asyncio.TimeoutError, OSError, ConnectionRefusedError):
-                return ValidationResult(is_valid=False, response_time_ms=None)
+                result = ValidationResult(is_valid=False, response_time_ms=None)
+                self._set_cached_result(proxy, result)
+                return result
 
             # TCP passed - now test actual proxy functionality with timing
             # httpx requires proxy at client initialization, not per-request
@@ -825,12 +885,16 @@ class ProxyValidator:
                     )
                     # Return invalid rather than error - graceful degradation
                     # SOCKS proxies cannot be validated without the library
-                    return ValidationResult(is_valid=False, response_time_ms=None)
+                    result = ValidationResult(is_valid=False, response_time_ms=None)
+                    self._set_cached_result(proxy, result)
+                    return result
 
                 if AsyncProxyTransport is None:
                     # This should not happen if SOCKS_AVAILABLE is True, but guard against it
                     logger.error("SOCKS_AVAILABLE is True but AsyncProxyTransport is None")
-                    return ValidationResult(is_valid=False, response_time_ms=None)
+                    result = ValidationResult(is_valid=False, response_time_ms=None)
+                    self._set_cached_result(proxy, result)
+                    return result
 
                 transport = AsyncProxyTransport.from_url(proxy_url)
                 async with httpx.AsyncClient(
@@ -843,10 +907,12 @@ class ProxyValidator:
                     response = await client.get(target_url)
                     elapsed_ms = (time.perf_counter() - start_time) * 1000
                     is_valid = response.status_code in (200, 204)
-                    return ValidationResult(
+                    result = ValidationResult(
                         is_valid=is_valid,
                         response_time_ms=elapsed_ms if is_valid else None,
                     )
+                    self._set_cached_result(proxy, result)
+                    return result
             else:
                 # For HTTPS-tagged proxies: connect to the proxy via plaintext HTTP.
                 # Free HTTP-CONNECT proxies don't speak TLS themselves — httpx with
@@ -867,12 +933,16 @@ class ProxyValidator:
                     response = await client.get(target_url)
                     elapsed_ms = (time.perf_counter() - start_time) * 1000
                     is_valid = response.status_code in (200, 204)
-                    return ValidationResult(
+                    result = ValidationResult(
                         is_valid=is_valid,
                         response_time_ms=elapsed_ms if is_valid else None,
                     )
+                    self._set_cached_result(proxy, result)
+                    return result
         except Exception:
-            return ValidationResult(is_valid=False, response_time_ms=None)
+            result = ValidationResult(is_valid=False, response_time_ms=None)
+            self._set_cached_result(proxy, result)
+            return result
 
     async def validate_batch(
         self,
@@ -1179,6 +1249,7 @@ class ProxyFetcher:
         self,
         sources: list[ProxySourceConfig] | None = None,
         validator: ProxyValidator | None = None,
+        dedup_cache_ttl: int = 3600,
     ) -> None:
         """
         Initialize proxy fetcher.
@@ -1186,6 +1257,7 @@ class ProxyFetcher:
         Args:
             sources: List of proxy source configurations
             validator: ProxyValidator instance for validating fetched proxies
+            dedup_cache_ttl: TTL for request deduplication cache in seconds (default: 1 hour)
         """
         self.sources = sources or []
         self.validator = validator or ProxyValidator()
@@ -1199,6 +1271,10 @@ class ProxyFetcher:
             "html": HTMLTableParser,
         }
         self._client: httpx.AsyncClient | None = None
+        
+        # Request deduplication cache (URL -> (response_content, timestamp))
+        self._request_cache: dict[str, tuple[str, float]] = {}
+        self._dedup_cache_ttl = dedup_cache_ttl
 
     def add_source(self, source: ProxySourceConfig) -> None:
         """
@@ -1220,15 +1296,16 @@ class ProxyFetcher:
 
     async def _get_client(self) -> httpx.AsyncClient:
         """
-        Get or create the shared HTTP client.
+        Get or create the shared HTTP client with HTTP/2 support.
 
         Returns:
-            Shared httpx.AsyncClient instance
+            Shared httpx.AsyncClient instance with HTTP/1.1 and HTTP/2 support
         """
         if self._client is None:
             self._client = httpx.AsyncClient(
                 timeout=httpx.Timeout(30.0),
                 limits=httpx.Limits(max_connections=50, max_keepalive_connections=10),
+                http2=True,
             )
         return self._client
 
@@ -1240,6 +1317,47 @@ class ProxyFetcher:
         # Also close validator's clients
         if self.validator:
             await self.validator.close()
+
+    def _get_request_cache_key(self, url: str) -> str:
+        """Generate cache key for a URL.
+        
+        Args:
+            url: URL to generate key for
+            
+        Returns:
+            Cache key string (hash of URL)
+        """
+        return hashlib.md5(url.encode()).hexdigest()
+    
+    def _get_cached_response(self, url: str) -> str | None:
+        """Get cached response if not expired.
+        
+        Args:
+            url: URL to check cache for
+            
+        Returns:
+            Cached response content if available and not expired, None otherwise
+        """
+        cache_key = self._get_request_cache_key(url)
+        if cache_key in self._request_cache:
+            content, timestamp = self._request_cache[cache_key]
+            if time.time() - timestamp < self._dedup_cache_ttl:
+                logger.debug(f"Request cache hit for {url}")
+                return content
+            else:
+                # Cache expired - remove it
+                del self._request_cache[cache_key]
+        return None
+    
+    def _set_cached_response(self, url: str, content: str) -> None:
+        """Cache a response content.
+        
+        Args:
+            url: URL that was fetched
+            content: Response content to cache
+        """
+        cache_key = self._get_request_cache_key(url)
+        self._request_cache[cache_key] = (content, time.time())
 
     async def __aenter__(self) -> ProxyFetcher:
         """Async context manager entry."""
@@ -1279,10 +1397,16 @@ class ProxyFetcher:
             ProxyFetchError: If fetching fails after retries
         """
         try:
+            # Check request cache first to avoid duplicate requests
+            source_url = str(source.url)
+            cached_content = self._get_cached_response(source_url)
+            
             # Determine if browser rendering is needed
             html_content: str
 
-            if source.render_mode == RenderMode.BROWSER:
+            if cached_content is not None:
+                html_content = cached_content
+            elif source.render_mode == RenderMode.BROWSER:
                 # Use browser rendering for JavaScript-heavy pages
                 try:
                     from proxywhirl.browser import BrowserRenderer
@@ -1294,17 +1418,23 @@ class ProxyFetcher:
 
                 try:
                     async with BrowserRenderer() as renderer:
-                        html_content = await renderer.render(str(source.url))
+                        html_content = await renderer.render(source_url)
                 except TimeoutError as e:
-                    raise ProxyFetchError(f"Browser timeout fetching from {source.url}: {e}") from e
+                    raise ProxyFetchError(f"Browser timeout fetching from {source_url}: {e}") from e
                 except RuntimeError as e:
-                    raise ProxyFetchError(f"Browser error fetching from {source.url}: {e}") from e
+                    raise ProxyFetchError(f"Browser error fetching from {source_url}: {e}") from e
+                
+                # Cache the rendered content
+                self._set_cached_response(source_url, html_content)
             else:
                 # Use standard HTTP client for static pages
                 client = await self._get_client()
-                response = await client.get(str(source.url))
+                response = await client.get(source_url)
                 response.raise_for_status()
                 html_content = response.text
+                
+                # Cache the response content
+                self._set_cached_response(source_url, html_content)
 
             # Use custom parser if provided
             if source.custom_parser:

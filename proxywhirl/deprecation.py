@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import functools
 import warnings
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, Callable, TypeVar
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -16,8 +16,8 @@ F = TypeVar("F", bound=Callable[..., Any])
 def deprecated(
     reason: str,
     version: str,
-    removal_version: Optional[str] = None,
-    alternative: Optional[str] = None,
+    removal_version: str | None = None,
+    alternative: str | None = None,
 ) -> Callable[[F], F]:
     """Decorator to mark functions/methods as deprecated.
 
@@ -56,8 +56,8 @@ def deprecated_parameter(
     param_name: str,
     reason: str,
     version: str,
-    removal_version: Optional[str] = None,
-    alternative: Optional[str] = None,
+    removal_version: str | None = None,
+    alternative: str | None = None,
 ) -> Callable[[F], F]:
     """Decorator to mark function parameters as deprecated.
 
@@ -103,8 +103,8 @@ class DeprecatedPropertyDescriptor:
         fget: Callable[[Any], Any],
         reason: str,
         version: str,
-        removal_version: Optional[str] = None,
-        alternative: Optional[str] = None,
+        removal_version: str | None = None,
+        alternative: str | None = None,
     ):
         self.fget = fget
         self.reason = reason
@@ -136,8 +136,8 @@ class DeprecatedPropertyDescriptor:
 def deprecated_property(
     reason: str,
     version: str,
-    removal_version: Optional[str] = None,
-    alternative: Optional[str] = None,
+    removal_version: str | None = None,
+    alternative: str | None = None,
 ) -> Callable[[Callable[[Any], Any]], DeprecatedPropertyDescriptor]:
     """Decorator for deprecated properties.
 

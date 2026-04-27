@@ -398,9 +398,8 @@ def validate_input_string(value: str, max_length: int = 2048, pattern: str | Non
     if len(value) > max_length:
         raise ValueError(f"String exceeds maximum length of {max_length}")
 
-    if pattern:
-        if not re.match(pattern, value):
-            raise ValueError("String does not match required pattern")
+    if pattern and not re.match(pattern, value):
+        raise ValueError("String does not match required pattern")
 
     return value
 

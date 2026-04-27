@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncIterator
-from typing import Any, Optional
+from typing import Any
 
 from fastapi.responses import StreamingResponse
 
@@ -57,7 +57,7 @@ class StreamingFormatter:
     @staticmethod
     async def csv_stream(
         data_iterator: AsyncIterator[dict[str, Any]],
-        headers: Optional[list[str]] = None,
+        headers: list[str] | None = None,
     ) -> AsyncIterator[str]:
         """Format data as CSV.
 

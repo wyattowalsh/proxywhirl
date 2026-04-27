@@ -14,7 +14,7 @@ import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 from uuid import uuid4
 
 from loguru import logger
@@ -112,7 +112,7 @@ class HotReloadConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     enabled: bool = Field(default=True)
-    watch_path: Optional[str] = Field(None, description="Path to watch for changes")
+    watch_path: str | None = Field(None, description="Path to watch for changes")
     reload_delay_seconds: float = Field(default=1.0, ge=0.1)
     validate_before_reload: bool = Field(
         default=True, description="Validate config before applying changes"
@@ -125,7 +125,7 @@ class ConfigurationManager:
     def __init__(
         self,
         config_data: dict[str, Any],
-        hot_reload_config: Optional[HotReloadConfig] = None,
+        hot_reload_config: HotReloadConfig | None = None,
     ):
         """Initialize config manager.
 

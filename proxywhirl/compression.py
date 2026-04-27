@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import gzip
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -40,7 +39,7 @@ class CompressionConfig(BaseModel):
 class CompressionHandler:
     """Handler for request/response compression."""
 
-    def __init__(self, config: Optional[CompressionConfig] = None):
+    def __init__(self, config: CompressionConfig | None = None):
         """Initialize compression handler.
 
         Args:
@@ -65,7 +64,7 @@ class CompressionHandler:
     def compress(
         self,
         data: bytes,
-        algorithm: Optional[CompressionType] = None,
+        algorithm: CompressionType | None = None,
     ) -> tuple[bytes, CompressionType]:
         """Compress data.
 

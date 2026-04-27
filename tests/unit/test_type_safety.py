@@ -11,8 +11,8 @@ from enum import Enum
 import pytest
 
 from proxywhirl.models import (
-    Proxy,
     HealthStatus,
+    Proxy,
     ProxyFormat,
     RenderMode,
     ValidationLevel,

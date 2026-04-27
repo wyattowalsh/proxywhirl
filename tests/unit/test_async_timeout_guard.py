@@ -1,8 +1,9 @@
 """Tests for async timeout guards and timeouts in proxy operations."""
 
-import pytest
 import asyncio
-from unittest.mock import AsyncMock, patch
+
+import pytest
+
 from proxywhirl.models import Proxy
 
 
@@ -12,10 +13,11 @@ class TestAsyncTimeoutBasics:
     @pytest.mark.asyncio
     async def test_timeout_with_asyncio_timeout(self):
         """Test asyncio.timeout guard for operations."""
+
         async def fast_operation():
             await asyncio.sleep(0.01)
             return "success"
-        
+
         # Should complete within timeout
         try:
             async with asyncio.timeout(1.0):
@@ -27,10 +29,11 @@ class TestAsyncTimeoutBasics:
     @pytest.mark.asyncio
     async def test_timeout_with_slow_operation(self):
         """Test timeout raises error for slow operation."""
+
         async def slow_operation():
             await asyncio.sleep(2.0)
             return "should not reach"
-        
+
         # Should timeout
         with pytest.raises(asyncio.TimeoutError):
             async with asyncio.timeout(0.1):
@@ -40,18 +43,18 @@ class TestAsyncTimeoutBasics:
     async def test_timeout_context_cleanup(self):
         """Test that timeout context cleans up properly."""
         cleanup_called = False
-        
+
         async def operation_with_cleanup():
             nonlocal cleanup_called
             try:
                 await asyncio.sleep(2.0)
             finally:
                 cleanup_called = True
-        
+
         with pytest.raises(asyncio.TimeoutError):
             async with asyncio.timeout(0.1):
                 await operation_with_cleanup()
-        
+
         # Give time for cleanup
         await asyncio.sleep(0.05)
         # Cleanup should have been called
@@ -64,11 +67,12 @@ class TestAsyncNetworkTimeouts:
     @pytest.mark.asyncio
     async def test_proxy_selection_timeout(self):
         """Test timeout during proxy selection."""
+
         async def select_proxy_slow():
             # Simulate slow proxy selection
             await asyncio.sleep(0.5)
             return Proxy(url="http://selected.example.com:8080")
-        
+
         # Should timeout
         with pytest.raises(asyncio.TimeoutError):
             async with asyncio.timeout(0.1):
@@ -77,10 +81,11 @@ class TestAsyncNetworkTimeouts:
     @pytest.mark.asyncio
     async def test_proxy_health_check_timeout(self):
         """Test timeout during health check."""
+
         async def health_check_slow():
             await asyncio.sleep(1.0)
             return True
-        
+
         # Timeout should interrupt health check
         with pytest.raises(asyncio.TimeoutError):
             async with asyncio.timeout(0.1):
@@ -89,10 +94,11 @@ class TestAsyncNetworkTimeouts:
     @pytest.mark.asyncio
     async def test_proxy_validation_timeout(self):
         """Test timeout during proxy validation."""
+
         async def validate_proxy_slow():
             await asyncio.sleep(2.0)
             return True
-        
+
         # Should timeout
         with pytest.raises(asyncio.TimeoutError):
             async with asyncio.timeout(0.05):
@@ -105,10 +111,11 @@ class TestAsyncMultipleTimeouts:
     @pytest.mark.asyncio
     async def test_concurrent_operations_with_timeout(self):
         """Test concurrent operations each with timeout."""
+
         async def operation(idx, delay):
             await asyncio.sleep(delay)
             return idx
-        
+
         # All operations complete within timeout
         try:
             async with asyncio.timeout(1.0):
@@ -124,10 +131,11 @@ class TestAsyncMultipleTimeouts:
     @pytest.mark.asyncio
     async def test_mixed_timeout_compliance(self):
         """Test that some ops timeout and some complete."""
+
         async def operation(idx, delay):
             await asyncio.sleep(delay)
             return idx
-        
+
         # One will timeout, others won't
         with pytest.raises((asyncio.TimeoutError, Exception)):
             async with asyncio.timeout(0.2):
@@ -136,16 +144,17 @@ class TestAsyncMultipleTimeouts:
                     operation(0, 0.05),
                     operation(1, 0.05),
                     operation(2, 0.5),  # This will timeout
-                    return_exceptions=True
+                    return_exceptions=True,
                 )
 
     @pytest.mark.asyncio
     async def test_nested_timeouts(self):
         """Test nested timeout contexts."""
+
         async def inner_op():
             await asyncio.sleep(0.01)
             return "inner"
-        
+
         try:
             async with asyncio.timeout(2.0):  # Outer timeout
                 async with asyncio.timeout(1.0):  # Inner timeout
@@ -162,7 +171,7 @@ class TestAsyncTimeoutCancellation:
     async def test_timeout_cancellation_propagation(self):
         """Test that timeout cancellation propagates correctly."""
         was_cancelled = False
-        
+
         async def cancellable_op():
             nonlocal was_cancelled
             try:
@@ -170,21 +179,22 @@ class TestAsyncTimeoutCancellation:
             except asyncio.CancelledError:
                 was_cancelled = True
                 raise
-        
+
         with pytest.raises(asyncio.TimeoutError):
             async with asyncio.timeout(0.1):
                 await cancellable_op()
-        
+
         await asyncio.sleep(0.05)
         assert was_cancelled
 
     @pytest.mark.asyncio
     async def test_timeout_with_shield(self):
         """Test using asyncio.shield with timeout."""
+
         async def protected_op():
             await asyncio.sleep(0.01)
             return "protected"
-        
+
         # Shield won't prevent timeout
         with pytest.raises(asyncio.TimeoutError):
             async with asyncio.timeout(0.001):
@@ -194,20 +204,20 @@ class TestAsyncTimeoutCancellation:
     async def test_timeout_exception_cleanup(self):
         """Test cleanup when timeout occurs."""
         resources_closed = []
-        
+
         async def operation_with_resources():
             async def resource():
                 try:
                     await asyncio.sleep(10.0)
                 finally:
                     resources_closed.append(True)
-            
+
             await resource()
-        
+
         with pytest.raises(asyncio.TimeoutError):
             async with asyncio.timeout(0.05):
                 await operation_with_resources()
-        
+
         await asyncio.sleep(0.05)
 
 
@@ -217,10 +227,11 @@ class TestAsyncTimeoutEdgeCases:
     @pytest.mark.asyncio
     async def test_timeout_zero(self):
         """Test timeout of zero (immediate timeout)."""
+
         async def any_operation():
             await asyncio.sleep(0)
             return "done"
-        
+
         # May timeout immediately or complete if already ready
         try:
             async with asyncio.timeout(0):
@@ -231,10 +242,11 @@ class TestAsyncTimeoutEdgeCases:
     @pytest.mark.asyncio
     async def test_timeout_very_large(self):
         """Test with very large timeout."""
+
         async def fast_op():
             await asyncio.sleep(0.01)
             return "done"
-        
+
         try:
             async with asyncio.timeout(1000.0):
                 result = await fast_op()
@@ -246,7 +258,7 @@ class TestAsyncTimeoutEdgeCases:
     async def test_multiple_sequential_timeouts(self):
         """Test multiple sequential timeout contexts."""
         results = []
-        
+
         for i in range(3):
             try:
                 async with asyncio.timeout(0.1):
@@ -254,6 +266,6 @@ class TestAsyncTimeoutEdgeCases:
                     results.append(f"success-{i}")
             except asyncio.TimeoutError:
                 results.append(f"timeout-{i}")
-        
+
         assert len(results) == 3
         assert all("success" in r for r in results)

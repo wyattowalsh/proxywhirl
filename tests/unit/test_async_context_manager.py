@@ -9,10 +9,10 @@ Verifies:
 """
 
 import asyncio
+
 import pytest
-import httpx
+
 from proxywhirl.rotator import AsyncProxyWhirl
-from proxywhirl.models import Proxy
 
 
 class TestAsyncContextManager:
@@ -22,10 +22,10 @@ class TestAsyncContextManager:
     async def test_async_context_manager_protocol(self):
         """Test that AsyncProxyWhirl supports async context manager protocol."""
         rotator = AsyncProxyWhirl()
-        
+
         # Should have __aenter__ and __aexit__
-        assert hasattr(rotator, '__aenter__')
-        assert hasattr(rotator, '__aexit__')
+        assert hasattr(rotator, "__aenter__")
+        assert hasattr(rotator, "__aexit__")
         assert callable(rotator.__aenter__)
         assert callable(rotator.__aexit__)
 
@@ -35,7 +35,7 @@ class TestAsyncContextManager:
         async with AsyncProxyWhirl() as rotator:
             assert rotator is not None
             assert isinstance(rotator, AsyncProxyWhirl)
-            
+
             # Should be able to add proxies inside context
             await rotator.add_proxy("http://proxy1.example.com:8080")
             proxies = rotator.pool.get_all_proxies()
@@ -46,11 +46,11 @@ class TestAsyncContextManager:
         """Test that async context manager properly cleans up resources."""
         rotator = AsyncProxyWhirl()
         await rotator.add_proxy("http://proxy1.example.com:8080")
-        
+
         async with rotator:
             # Context entered successfully
             assert rotator.pool.get_all_proxies()
-        
+
         # Should be cleaned up after exit
 
     @pytest.mark.asyncio
@@ -65,13 +65,13 @@ class TestAsyncContextManager:
     async def test_async_context_manager_exception_handling(self):
         """Test exception handling in async with block."""
         rotator = AsyncProxyWhirl()
-        
+
         try:
             async with rotator:
                 raise RuntimeError("Simulated error")
         except RuntimeError:
             pass  # Expected
-        
+
         # Rotator should still exist and be in valid state
         assert rotator is not None
 
@@ -96,11 +96,11 @@ class TestAsyncContextManager:
         rotator = AsyncProxyWhirl()
         await rotator.add_proxy("http://proxy1.example.com:8080")
         initial_count = len(rotator.pool.get_all_proxies())
-        
+
         async with rotator:
             await rotator.add_proxy("http://proxy2.example.com:8080")
             assert len(rotator.pool.get_all_proxies()) == initial_count + 1
-        
+
         # State should be preserved
         assert len(rotator.pool.get_all_proxies()) == initial_count + 1
 
@@ -109,12 +109,9 @@ class TestAsyncContextManager:
         """Test async with context with concurrent operations."""
         async with AsyncProxyWhirl() as rotator:
             # Add multiple proxies concurrently
-            tasks = [
-                rotator.add_proxy(f"http://proxy{i}.example.com:808{i}")
-                for i in range(5)
-            ]
+            tasks = [rotator.add_proxy(f"http://proxy{i}.example.com:808{i}") for i in range(5)]
             await asyncio.gather(*tasks)
-            
+
             assert len(rotator.pool.get_all_proxies()) == 5
 
     @pytest.mark.asyncio
@@ -139,7 +136,7 @@ class TestAsyncContextManager:
         """Test __aexit__ with exception."""
         rotator = AsyncProxyWhirl()
         await rotator.__aenter__()
-        
+
         exc = ValueError("test")
         result = await rotator.__aexit__(type(exc), exc, None)
         # Should not suppress exception

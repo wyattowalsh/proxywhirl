@@ -188,9 +188,8 @@ class LogAggregator:
                     continue
 
             # Text search
-            if query:
-                if query.lower() not in entry.message.lower():
-                    continue
+            if query and query.lower() not in entry.message.lower():
+                continue
 
             results.append(entry)
 

@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
 
 import pytest
 
-from proxywhirl.exceptions import ProxyConnectionError, ProxyValidationError
+from proxywhirl.exceptions import ProxyValidationError
 from proxywhirl.models import Proxy
 
 

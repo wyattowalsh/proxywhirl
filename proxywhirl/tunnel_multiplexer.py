@@ -157,9 +157,7 @@ class ProxyTunnel:
             return True
         if self.metrics.age_seconds > self.max_age_seconds:
             return True
-        if self.state == TunnelState.STALE:
-            return True
-        return False
+        return self.state == TunnelState.STALE
 
     def get_stats(self) -> dict[str, Any]:
         """Get tunnel statistics."""

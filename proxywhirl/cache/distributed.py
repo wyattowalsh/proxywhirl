@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import timedelta
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -26,7 +26,7 @@ class CacheEntry(BaseModel, Generic[T]):
 
     key: str
     value: T
-    ttl_seconds: Optional[int] = Field(None, description="Time to live in seconds")
+    ttl_seconds: int | None = Field(None, description="Time to live in seconds")
     created_at: int = Field(description="Unix timestamp when created")
     tags: list[str] = Field(default_factory=list, description="Tags for batch invalidation")
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -56,11 +56,11 @@ class DistributedCacheBackend(ABC):
     """Abstract distributed cache backend."""
 
     @abstractmethod
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get value from cache."""
 
     @abstractmethod
-    async def set(self, key: str, value: Any, ttl: Optional[timedelta] = None) -> bool:
+    async def set(self, key: str, value: Any, ttl: timedelta | None = None) -> bool:
         """Set value in cache."""
 
     @abstractmethod
@@ -101,7 +101,7 @@ class InMemoryCacheBackend(DistributedCacheBackend):
         self._data: dict[str, Any] = {}
         self._stats = {"hits": 0, "misses": 0, "evictions": 0}
 
-    async def get(self, key: str) -> Optional[Any]:
+    async def get(self, key: str) -> Any | None:
         """Get value from cache."""
         if key in self._data:
             self._stats["hits"] += 1
@@ -109,7 +109,7 @@ class InMemoryCacheBackend(DistributedCacheBackend):
         self._stats["misses"] += 1
         return None
 
-    async def set(self, key: str, value: Any, ttl: Optional[timedelta] = None) -> bool:
+    async def set(self, key: str, value: Any, ttl: timedelta | None = None) -> bool:
         """Set value in cache."""
         if len(self._data) >= self.max_size:
             # Simple eviction: remove first (oldest) entry
@@ -150,7 +150,7 @@ class InMemoryCacheBackend(DistributedCacheBackend):
         import re
 
         regex = re.compile(pattern.replace("*", ".*"))
-        keys_to_delete = [k for k in self._data.keys() if regex.match(k)]
+        keys_to_delete = [k for k in self._data if regex.match(k)]
         for key in keys_to_delete:
             del self._data[key]
         return len(keys_to_delete)
@@ -180,7 +180,7 @@ class DistributedCache:
         self,
         key: str,
         factory,
-        ttl: Optional[timedelta] = None,
+        ttl: timedelta | None = None,
     ) -> Any:
         """Get value from cache or compute it.
 

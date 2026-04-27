@@ -14,7 +14,7 @@ from __future__ import annotations
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
@@ -58,7 +58,7 @@ app = FastAPI(
 # =============================================================================
 
 
-async def get_api_key(authorization: Optional[str] = Header(None)) -> APIKeyAuth:
+async def get_api_key(authorization: str | None = Header(None)) -> APIKeyAuth:
     """Extract and validate API key from header.
 
     Args:

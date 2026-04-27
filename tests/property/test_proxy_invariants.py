@@ -8,8 +8,11 @@ Tests invariants:
 """
 
 import re
-from hypothesis import given, strategies as st, settings, HealthCheck
-from proxywhirl.models import Proxy, HealthStatus
+
+from hypothesis import HealthCheck, given, settings
+from hypothesis import strategies as st
+
+from proxywhirl.models import HealthStatus, Proxy
 
 
 # Hypothesis strategy for valid proxy URLs
@@ -18,11 +21,13 @@ def valid_proxy_urls(draw):
     """Generate valid proxy URLs."""
     proto = draw(st.sampled_from(["http", "https", "socks4", "socks5"]))
     # Generate hostnames with at least one dot
-    parts = draw(st.lists(
-        st.text(alphabet="abcdefghijklmnopqrstuvwxyz0123456789", min_size=1, max_size=10),
-        min_size=2,
-        max_size=4
-    ))
+    parts = draw(
+        st.lists(
+            st.text(alphabet="abcdefghijklmnopqrstuvwxyz0123456789", min_size=1, max_size=10),
+            min_size=2,
+            max_size=4,
+        )
+    )
     hostname = ".".join(parts)
     port = draw(st.integers(min_value=1024, max_value=65535))
     return f"{proto}://{hostname}:{port}"
@@ -36,13 +41,12 @@ class TestProxyModelInvariants:
     def test_proxy_url_structure_preserved(self, url):
         """Verify that proxy URL structure is preserved."""
         proxy = Proxy(url=url)
-        
+
         # URL should match pattern
-        assert re.match(
-            r"^(https?|socks[45])://[a-zA-Z0-9.-]+:\d+$",
-            proxy.url
-        ), f"Invalid URL format: {proxy.url}"
-        
+        assert re.match(r"^(https?|socks[45])://[a-zA-Z0-9.-]+:\d+$", proxy.url), (
+            f"Invalid URL format: {proxy.url}"
+        )
+
         # Port should be extractable
         port_str = proxy.url.split(":")[-1]
         port = int(port_str)
@@ -53,43 +57,42 @@ class TestProxyModelInvariants:
     def test_proxy_serialization_roundtrip(self, url):
         """Verify model can serialize and deserialize symmetrically."""
         proxy = Proxy(url=url)
-        
+
         # Serialize to dict
         proxy_dict = proxy.model_dump()
-        
+
         # Deserialize from dict
         proxy2 = Proxy(**proxy_dict)
-        
+
         # Should be equivalent
         assert proxy2.url == proxy.url
         assert proxy2.id == proxy.id
 
-    @given(
-        url1=valid_proxy_urls(),
-        url2=valid_proxy_urls()
-    )
+    @given(url1=valid_proxy_urls(), url2=valid_proxy_urls())
     @settings(suppress_health_check=[HealthCheck.filter_too_much])
     def test_different_proxies_have_different_ids(self, url1, url2):
         """Verify different proxies get different IDs."""
         proxy1 = Proxy(url=url1)
         proxy2 = Proxy(url=url2)
-        
+
         # IDs should be different
         assert proxy1.id != proxy2.id
 
     @given(
         url=valid_proxy_urls(),
-        status=st.sampled_from([HealthStatus.HEALTHY, HealthStatus.UNHEALTHY, HealthStatus.UNKNOWN])
+        status=st.sampled_from(
+            [HealthStatus.HEALTHY, HealthStatus.UNHEALTHY, HealthStatus.UNKNOWN]
+        ),
     )
     @settings(suppress_health_check=[HealthCheck.filter_too_much])
     def test_health_status_preserved(self, url, status):
         """Verify health status is preserved through serialization."""
         proxy = Proxy(url=url, health_status=status)
-        
+
         # Serialize and deserialize
         proxy_dict = proxy.model_dump()
         proxy2 = Proxy(**proxy_dict)
-        
+
         # Status should match
         assert proxy2.health_status == status
 
@@ -98,7 +101,7 @@ class TestProxyModelInvariants:
         """Verify port extraction is correct."""
         url = f"http://example.com:{port}"
         proxy = Proxy(url=url)
-        
+
         # Extract port from URL
         extracted_port = int(proxy.url.split(":")[-1])
         assert extracted_port == port

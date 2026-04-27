@@ -14,12 +14,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Any, Literal
+from typing import Any
 
 import httpx
 from loguru import logger
-
-from proxywhirl.exceptions import ProxyWhirlError
 
 
 class AlertLevel(str, Enum):

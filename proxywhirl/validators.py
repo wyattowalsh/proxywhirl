@@ -146,10 +146,7 @@ def is_valid_proxy_url(url: str) -> TypeGuard[str]:
             return False
 
         # Validate port is in valid range
-        if not (1 <= parsed.port <= 65535):
-            return False
-
-        return True
+        return 1 <= parsed.port <= 65535
     except (ValueError, AttributeError):
         return False
 

@@ -159,6 +159,11 @@ addopts = [
     "--strict-config",
     "-ra",
     "--tb=short",
+    "-n", "auto",
+    "--cov=proxywhirl",
+    "--cov-report=html",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-branch",
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
@@ -215,6 +220,16 @@ omit = [
 precision = 2
 show_missing = true
 skip_covered = false
+fail_under = 85
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "^\\s*@(abc\\.)?abstractmethod",
+]
 
 [tool.ruff]
 line-length = 100

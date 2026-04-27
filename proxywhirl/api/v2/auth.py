@@ -14,7 +14,6 @@ import os
 import secrets
 import time
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -31,8 +30,8 @@ class APIKeyAuth(BaseModel):
     requests_per_hour: int = Field(default=3600, ge=1, le=1000000)
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    last_used: Optional[datetime] = None
-    expires_at: Optional[datetime] = None
+    last_used: datetime | None = None
+    expires_at: datetime | None = None
     scopes: list[str] = Field(
         default_factory=list,
         description="API scopes this key has access to",
@@ -78,7 +77,7 @@ class WebhookSignature(BaseModel):
 class WebhookSigner:
     """Sign and verify webhook requests using HMAC-SHA256."""
 
-    def __init__(self, webhook_secret: Optional[str] = None):
+    def __init__(self, webhook_secret: str | None = None):
         """Initialize webhook signer.
 
         Args:
@@ -160,7 +159,7 @@ def create_api_key(
     name: str,
     requests_per_minute: int = 60,
     requests_per_hour: int = 3600,
-    expires_in_days: Optional[int] = None,
+    expires_in_days: int | None = None,
 ) -> tuple[str, str]:
     """Create a new API key.
 
@@ -176,8 +175,7 @@ def create_api_key(
     key_id = f"pk_{secrets.token_hex(8)}"
     key_secret = secrets.token_urlsafe(32)
 
-    expires_at = None
     if expires_in_days:
-        expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
+        datetime.now(timezone.utc) + timedelta(days=expires_in_days)
 
     return key_id, key_secret

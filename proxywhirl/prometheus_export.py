@@ -86,9 +86,8 @@ class PrometheusRegistry:
         labels: dict[str, str] | None = None,
     ) -> None:
         """Record a counter increment."""
-        key = name
         if labels:
-            key = f"{name}_{hash(frozenset(labels.items()))}"
+            f"{name}_{hash(frozenset(labels.items()))}"
 
         found = False
         for metric in self.metrics[name]:

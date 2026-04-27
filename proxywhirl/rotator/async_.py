@@ -263,6 +263,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
                 max_connections=self.config.pool_connections,
                 max_keepalive_connections=self.config.pool_max_keepalive,
             ),
+            http2=True,
         )
         return self
 
@@ -592,6 +593,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
                 max_connections=self.config.pool_connections,
                 max_keepalive_connections=self.config.pool_max_keepalive,
             ),
+            http2=True,
         )
 
         # Store in LRU pool (automatically evicts LRU if at capacity)

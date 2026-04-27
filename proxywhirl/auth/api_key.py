@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -31,8 +30,8 @@ class APIKey(BaseModel):
     key_hash: str = Field(description="Bcrypt hash of the secret key")
     name: str = Field(description="Human-readable key name")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    expires_at: Optional[datetime] = Field(default=None, description="Optional expiration date")
-    last_used_at: Optional[datetime] = Field(default=None)
+    expires_at: datetime | None = Field(default=None, description="Optional expiration date")
+    last_used_at: datetime | None = Field(default=None)
     is_active: bool = Field(default=True)
     metadata: dict[str, str] = Field(default_factory=dict)
 

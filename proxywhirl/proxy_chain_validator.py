@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Optional
 
 import httpx
 from loguru import logger
@@ -196,7 +195,7 @@ class ProxyChainValidator:
         return issues
 
     @staticmethod
-    def _extract_protocol(proxy_url: str) -> Optional[str]:
+    def _extract_protocol(proxy_url: str) -> str | None:
         """Extract protocol from proxy URL.
 
         Args:

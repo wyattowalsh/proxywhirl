@@ -14,7 +14,7 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 
 from loguru import logger
 
@@ -36,7 +36,7 @@ class PreheatProgress:
     loaded_items: int = 0
     failed_items: int = 0
     start_time: float = field(default_factory=time.time)
-    end_time: Optional[float] = None
+    end_time: float | None = None
 
     @property
     def elapsed_seconds(self) -> float:
@@ -214,7 +214,7 @@ class CachePrewarmer:
         self.cache_set = cache_set
         self.max_concurrent = max_concurrent
         self.sources: list[PrewarmSource] = []
-        self.progress: Optional[PreheatProgress] = None
+        self.progress: PreheatProgress | None = None
 
     def add_source(self, source: PrewarmSource) -> None:
         """Add a prewarming source.
@@ -227,7 +227,7 @@ class CachePrewarmer:
 
     async def preheat(
         self,
-        on_progress: Optional[Callable[[PreheatProgress], None]] = None,
+        on_progress: Callable[[PreheatProgress], None] | None = None,
     ) -> PreheatProgress:
         """Execute cache prewarming.
 
@@ -289,7 +289,7 @@ class CachePrewarmer:
 
     async def preheat_background(
         self,
-        on_progress: Optional[Callable[[PreheatProgress], None]] = None,
+        on_progress: Callable[[PreheatProgress], None] | None = None,
     ) -> asyncio.Task:
         """Execute cache prewarming in background task.
 
@@ -305,7 +305,7 @@ class CachePrewarmer:
 
         return asyncio.create_task(_run())
 
-    def get_progress(self) -> Optional[PreheatProgress]:
+    def get_progress(self) -> PreheatProgress | None:
         """Get current prewarming progress."""
         return self.progress
 

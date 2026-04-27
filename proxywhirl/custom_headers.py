@@ -6,8 +6,6 @@ Allows attaching custom HTTP headers to proxies for specialized use cases.
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel, ConfigDict, Field
 
 
@@ -16,7 +14,7 @@ class ProxyHeaders(BaseModel):
 
     headers: dict[str, str] = Field(default_factory=dict, description="Custom HTTP headers")
     auth_headers: dict[str, str] = Field(default_factory=dict, description="Authentication headers")
-    user_agent: Optional[str] = Field(default=None, description="Custom User-Agent header")
+    user_agent: str | None = Field(default=None, description="Custom User-Agent header")
 
     model_config = ConfigDict(frozen=True)
 
@@ -91,8 +89,8 @@ class CustomHeadersManager:
 
     def get_headers(
         self,
-        pool_id: Optional[str] = None,
-        proxy_url: Optional[str] = None,
+        pool_id: str | None = None,
+        proxy_url: str | None = None,
     ) -> dict[str, str]:
         """Get combined headers for a proxy.
 

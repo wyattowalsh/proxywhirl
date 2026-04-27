@@ -8,11 +8,12 @@ Tests:
 - Credential handling
 """
 
-import pytest
 from datetime import datetime
+
+import pytest
 from pydantic import ValidationError
 
-from proxywhirl.models import Proxy, HealthStatus, ProxyCredentials, ProxySource
+from proxywhirl.models import HealthStatus, Proxy, ProxySource
 
 
 class TestProxyURLValidation:
@@ -89,35 +90,23 @@ class TestProxyHealthStatus:
 
     def test_health_status_healthy(self):
         """Test setting health status to HEALTHY."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            health_status=HealthStatus.HEALTHY
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         assert proxy.health_status == HealthStatus.HEALTHY
 
     def test_health_status_unhealthy(self):
         """Test setting health status to UNHEALTHY."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            health_status=HealthStatus.UNHEALTHY
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.UNHEALTHY)
         assert proxy.health_status == HealthStatus.UNHEALTHY
 
     def test_health_status_degraded(self):
         """Test setting health status to DEGRADED."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            health_status=HealthStatus.DEGRADED
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.DEGRADED)
         assert proxy.health_status == HealthStatus.DEGRADED
 
     def test_all_health_status_values(self):
         """Test all health status enum values."""
         for status in HealthStatus:
-            proxy = Proxy(
-                url="http://proxy.example.com:8080",
-                health_status=status
-            )
+            proxy = Proxy(url="http://proxy.example.com:8080", health_status=status)
             assert proxy.health_status == status
 
 
@@ -139,7 +128,7 @@ class TestProxyFieldConstraints:
             requests_completed=100,
             total_requests=150,
             total_successes=80,
-            total_failures=20
+            total_failures=20,
         )
         assert proxy.requests_completed == 100
         assert proxy.total_requests == 150
@@ -148,44 +137,30 @@ class TestProxyFieldConstraints:
 
     def test_consecutive_failures_tracking(self):
         """Test consecutive failures tracking."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            consecutive_failures=5
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", consecutive_failures=5)
         assert proxy.consecutive_failures == 5
 
     def test_consecutive_successes_tracking(self):
         """Test consecutive successes tracking."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            consecutive_successes=10
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", consecutive_successes=10)
         assert proxy.consecutive_successes == 10
 
     def test_response_time_tracking(self):
         """Test response time tracking."""
         proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            average_response_time_ms=150.5,
-            latency_ms=175.0
+            url="http://proxy.example.com:8080", average_response_time_ms=150.5, latency_ms=175.0
         )
         assert proxy.average_response_time_ms == 150.5
         assert proxy.latency_ms == 175.0
 
     def test_cost_per_request_non_negative(self):
         """Test cost per request must be non-negative."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            cost_per_request=0.05
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", cost_per_request=0.05)
         assert proxy.cost_per_request == 0.05
 
     def test_cost_per_request_zero_free(self):
         """Test cost of zero is free."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            cost_per_request=0.0
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", cost_per_request=0.0)
         assert proxy.cost_per_request == 0.0
 
 
@@ -194,39 +169,25 @@ class TestProxyCredentials:
 
     def test_credentials_with_username(self):
         """Test credentials with username field (requires password too)."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            username="myuser",
-            password="mypass"
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", username="myuser", password="mypass")
         assert proxy.username is not None
 
     def test_credentials_with_password(self):
         """Test credentials with password field (requires username too)."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            username="myuser",
-            password="mypass"
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", username="myuser", password="mypass")
         assert proxy.password is not None
 
     def test_credentials_both_username_and_password(self):
         """Test credentials with both username and password."""
         proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            username="user@domain.com",
-            password="p@ssw0rd!#$"
+            url="http://proxy.example.com:8080", username="user@domain.com", password="p@ssw0rd!#$"
         )
         assert proxy.username is not None
         assert proxy.password is not None
 
     def test_proxy_without_credentials(self):
         """Test proxy without credentials."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            username=None,
-            password=None
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", username=None, password=None)
         assert proxy.username is None
         assert proxy.password is None
 
@@ -236,27 +197,17 @@ class TestProxyGeoLocation:
 
     def test_proxy_country_code(self):
         """Test country code field."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            country_code="US"
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", country_code="US")
         assert proxy.country_code == "US"
 
     def test_proxy_region(self):
         """Test region field."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            region="California"
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", region="California")
         assert proxy.region == "California"
 
     def test_proxy_country_and_region(self):
         """Test country code and region together."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            country_code="GB",
-            region="England"
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", country_code="GB", region="England")
         assert proxy.country_code == "GB"
         assert proxy.region == "England"
 
@@ -266,10 +217,7 @@ class TestProxyMetadata:
 
     def test_proxy_tags(self):
         """Test proxy tags."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            tags={"fast", "reliable"}
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", tags={"fast", "reliable"})
         assert "fast" in proxy.tags
         assert "reliable" in proxy.tags
 
@@ -281,19 +229,13 @@ class TestProxyMetadata:
     def test_proxy_metadata(self):
         """Test proxy metadata field."""
         meta = {"tier": "premium", "region": "EU"}
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            metadata=meta
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", metadata=meta)
         assert proxy.metadata["tier"] == "premium"
         assert proxy.metadata["region"] == "EU"
 
     def test_proxy_source(self):
         """Test proxy source field."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            source=ProxySource.USER
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", source=ProxySource.USER)
         assert proxy.source == ProxySource.USER
 
 
@@ -320,39 +262,24 @@ class TestProxyEdgeCases:
 
     def test_proxy_ttl_field(self):
         """Test TTL field."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            ttl=3600
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", ttl=3600)
         assert proxy.ttl == 3600
 
     def test_proxy_active_requests(self):
         """Test active requests counter."""
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            requests_active=5
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", requests_active=5)
         assert proxy.requests_active == 5
 
     def test_proxy_last_success_at(self):
         """Test last success timestamp."""
         now = datetime.now()
-        proxy = Proxy(
-            url="http://proxy.example.com:8080",
-            last_success_at=now
-        )
+        proxy = Proxy(url="http://proxy.example.com:8080", last_success_at=now)
         assert proxy.last_success_at == now
 
     def test_proxy_allow_local_flag(self):
         """Test allow_local flag."""
-        proxy_allow = Proxy(
-            url="http://localhost:8080",
-            allow_local=True
-        )
+        proxy_allow = Proxy(url="http://localhost:8080", allow_local=True)
         assert proxy_allow.allow_local is True
-        
-        proxy_deny = Proxy(
-            url="http://proxy.example.com:8080",
-            allow_local=False
-        )
+
+        proxy_deny = Proxy(url="http://proxy.example.com:8080", allow_local=False)
         assert proxy_deny.allow_local is False

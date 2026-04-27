@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -32,7 +31,7 @@ class DeadLetterEntry(BaseModel):
     """Entry in the dead-letter queue."""
 
     proxy_url: str = Field(description="Proxy URL")
-    pool_id: Optional[str] = Field(default=None, description="Pool identifier")
+    pool_id: str | None = Field(default=None, description="Pool identifier")
     reason: FailureReason = Field(description="Reason for failure")
     error_message: str = Field(description="Error message")
     failure_count: int = Field(ge=1, description="Number of failures")
@@ -61,8 +60,8 @@ class DeadLetterQueue:
         proxy_url: str,
         reason: FailureReason,
         error_message: str,
-        pool_id: Optional[str] = None,
-        metadata: Optional[dict[str, str]] = None,
+        pool_id: str | None = None,
+        metadata: dict[str, str] | None = None,
     ) -> DeadLetterEntry:
         """Add a proxy to the dead-letter queue.
 
@@ -107,7 +106,7 @@ class DeadLetterQueue:
 
         return entry
 
-    def get(self, proxy_url: str) -> Optional[DeadLetterEntry]:
+    def get(self, proxy_url: str) -> DeadLetterEntry | None:
         """Get an entry from the queue.
 
         Args:
@@ -140,9 +139,9 @@ class DeadLetterQueue:
 
     def list_entries(
         self,
-        pool_id: Optional[str] = None,
-        reason: Optional[FailureReason] = None,
-        limit: Optional[int] = None,
+        pool_id: str | None = None,
+        reason: FailureReason | None = None,
+        limit: int | None = None,
     ) -> list[DeadLetterEntry]:
         """List entries in the queue.
 

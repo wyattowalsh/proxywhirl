@@ -3517,9 +3517,9 @@ def validate_proxy(
                 render_json(result)
             else:
                 if response.status_code < 400:
-                    command_ctx.console.print(f"[green]✓ Proxy is healthy[/green]")
+                    command_ctx.console.print("[green]✓ Proxy is healthy[/green]")
                 else:
-                    command_ctx.console.print(f"[yellow]! Proxy degraded[/yellow]")
+                    command_ctx.console.print("[yellow]! Proxy degraded[/yellow]")
                 command_ctx.console.print(f"Response Code: {response.status_code}")
                 command_ctx.console.print(f"Response Time: {result['response_time_ms']}ms")
 
@@ -3665,7 +3665,7 @@ def import_proxies(
         if command_ctx.format == OutputFormat.JSON:
             render_json(result)
         else:
-            command_ctx.console.print(f"[green]✓ Import completed[/green]")
+            command_ctx.console.print("[green]✓ Import completed[/green]")
             command_ctx.console.print(f"Imported: {imported} proxies")
             if failed:
                 command_ctx.console.print(f"[yellow]Failed: {failed} proxies[/yellow]")
@@ -3747,7 +3747,7 @@ Type [bold]help[/bold] for commands. Type [bold]exit[/bold] or [bold]quit[/bold]
                 total = len(proxies)
                 healthy = sum(1 for p in proxies if p.health_status == HealthStatus.HEALTHY)
 
-                command_ctx.console.print(f"[bold]Statistics[/bold]")
+                command_ctx.console.print("[bold]Statistics[/bold]")
                 command_ctx.console.print(f"Total: {total}")
                 command_ctx.console.print(f"Healthy: {healthy}")
             except Exception as e:

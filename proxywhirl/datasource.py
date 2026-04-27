@@ -13,7 +13,7 @@ import asyncio
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any, Callable
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -71,7 +71,7 @@ class PollingSchedule(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     source_id: str
-    last_poll: Optional[datetime] = None
+    last_poll: datetime | None = None
     next_poll: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc) + timedelta(hours=1)
     )
@@ -79,7 +79,7 @@ class PollingSchedule(BaseModel):
     success_count: int = 0
     failure_count: int = 0
     avg_duration_ms: float = 0.0
-    last_error: Optional[str] = None
+    last_error: str | None = None
 
 
 class SourcePollingManager:
@@ -101,7 +101,7 @@ class SourcePollingManager:
         self,
         source_id: str,
         handler: Callable[[SourceUpdate], Any],
-        initial_delay: Optional[timedelta] = None,
+        initial_delay: timedelta | None = None,
     ) -> None:
         """Register a source for polling.
 
@@ -188,7 +188,7 @@ class SourcePollingManager:
                 next_interval = self.config.interval_seconds * (1 + jitter)
                 schedule.next_poll = now + timedelta(seconds=next_interval)
 
-    def get_schedule(self, source_id: str) -> Optional[PollingSchedule]:
+    def get_schedule(self, source_id: str) -> PollingSchedule | None:
         """Get polling schedule for a source."""
         return self._schedules.get(source_id)
 
