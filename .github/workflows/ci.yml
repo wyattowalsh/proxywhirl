@@ -13,6 +13,9 @@ on:
       - develop
   workflow_dispatch:
 
+env:
+  STEP_TIMING_ENABLED: "true"
+
 jobs:
   # Parallelize lint, format, and type-check jobs with shared setup
   lint:
@@ -126,6 +129,7 @@ jobs:
 
   test:
     name: Test - Python ${{ matrix.python-version }}
+    needs: typecheck
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -204,6 +208,7 @@ jobs:
 
   test-all-extras:
     name: Test with all extras - Python 3.11
+    needs: typecheck
     runs-on: ubuntu-latest
     # Only run on PRs and main to avoid redundant test runs
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
@@ -250,6 +255,7 @@ jobs:
 
   benchmark:
     name: Benchmark Performance Regression
+    needs: typecheck
     runs-on: ubuntu-latest
     # Only run benchmarks on PRs and main, not feature branches
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
@@ -411,3 +417,10 @@ jobs:
         with:
           name: linkcheck-report
           path: docs/build/linkcheck/output.*
+
+      - name: Report workflow timing
+        if: always()
+        run: |
+          echo "## CI Workflow Timing" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All jobs have completed. Check individual job logs for step-level timings." >> $GITHUB_STEP_SUMMARY
