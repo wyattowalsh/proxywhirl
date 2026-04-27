@@ -204,7 +204,7 @@ class CacheManager:
     """
     Manages multi-tier caching of proxies with automatic promotion/demotion.
 
-    Orchestrates caching across three tiers:
+    Orchestrates caching across three tiers with automatic tier management:
 
     - L1 (Memory): Fast in-memory cache using OrderedDict (LRU)
     - L2 (Disk): Persistent cache with configurable backend
@@ -212,7 +212,16 @@ class CacheManager:
     - L3 (SQLite): Database cache for cold storage with full queryability
 
     Supports TTL-based expiration, health-based invalidation, and graceful
-    degradation when tiers fail.
+    degradation when tiers fail. Thread-safe for concurrent access.
+
+    Attributes:
+        config: CacheConfig instance with tier settings
+        l1_tier: L1 memory cache
+        l2_tier: L2 disk cache (JSONL or SQLite)
+        l3_tier: L3 SQLite database cache
+        ttl_manager: TTL cleanup manager (if enabled)
+        encryptor: Credential encryptor for sensitive data
+        statistics: Cache operation statistics
 
     Example:
         >>> # Default JSONL backend
@@ -226,10 +235,45 @@ class CacheManager:
     """
 
     def __init__(self, config: CacheConfig) -> None:
-        """Initialize cache manager with configuration.
+        """
+        Initialize cache manager with multi-tier configuration.
+
+        Sets up L1, L2, and L3 cache tiers with optional TTL cleanup.
+        Gracefully handles tier initialization failures by disabling failed tiers.
+        All credentials are encrypted using the provided encryption key.
 
         Args:
-            config: Cache configuration with tier settings
+            config : CacheConfig
+                Cache configuration with settings for each tier:
+                - l1_config: L1 memory cache settings (max_entries, ttl_seconds)
+                - l2_config: L2 disk cache settings
+                - l2_backend: L2Backend type (JSONL or SQLITE)
+                - l3_config: L3 database settings
+                - encryption_key: Optional Fernet encryption key for credentials
+                - enable_background_cleanup: Whether to run TTL cleanup thread
+                - cleanup_interval_seconds: Cleanup interval
+
+        Returns:
+            None
+
+        Raises:
+            None - Tier failures are handled gracefully by disabling the tier.
+
+        Example:
+            >>> from proxywhirl.cache.models import CacheConfig, L2BackendType
+            >>> config = CacheConfig(
+            ...     l1_config=L1CacheConfig(max_entries=1000),
+            ...     l2_backend=L2BackendType.JSONL,
+            ...     enable_background_cleanup=True,
+            ...     cleanup_interval_seconds=60
+            ... )
+            >>> manager = CacheManager(config)
+
+        Note:
+            - Uses threading.RLock for thread-safe multi-tier operations
+            - Gracefully disables L3 if initialization fails
+            - TTL manager runs as daemon thread if enabled
+            - All tiers are initialized even if parent fails
         """
         self.config = config
         self.statistics = CacheStatistics()

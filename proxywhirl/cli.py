@@ -225,13 +225,28 @@ def validate_target_url(url: str, allow_private: bool = False) -> None:
 
 
 def get_context() -> CommandContext:
-    """Get the current command context.
+    """
+    Get the current command context.
+
+    Retrieves the global CommandContext instance that was initialized
+    by the main callback. This context is available to all CLI subcommands
+    and contains configuration, output format, verbosity, and file lock settings.
+
+    Args:
+        None
 
     Returns:
-        CommandContext: The active command context
+        CommandContext
+            The active command context with config, format, console, and lock.
 
     Raises:
-        typer.Exit: If context is not initialized
+        typer.Exit
+            With exit code 1 if context is not initialized.
+
+    Example:
+        >>> ctx = get_context()
+        >>> print(ctx.config)
+        >>> print(ctx.format)
     """
     if _context is None:
         typer.secho("Error: Command context not initialized", err=True, fg="red")
@@ -270,14 +285,53 @@ def main(
         help="Disable file locking (use with caution)",
     ),
 ) -> None:
-    """ProxyWhirl CLI - Advanced proxy rotation library.
+    """
+    ProxyWhirl CLI - Advanced proxy rotation library.
 
-    Global options apply to all subcommands.
-    Configuration is auto-discovered from:
+    Main CLI entry point that initializes global context for all subcommands.
+    Handles configuration discovery, output format selection, and file locking.
+    Called automatically before any subcommand.
+
+    Global options apply to all subcommands. Configuration is auto-discovered
+    from multiple sources in order:
 
     1. Project directory: ./.proxywhirl.toml
     2. User directory: ~/.config/proxywhirl/config.toml (Linux/Mac)
-    3. Defaults: In-memory configuration
+    3. System defaults: In-memory fallback configuration
+
+    Args:
+        ctx : typer.Context
+            Typer context for managing cleanup callbacks.
+        config_file : Path | None
+            Path to TOML configuration file. If not provided, auto-discovered.
+        format : FormatterOutputFormat
+            Output format: text (rich formatted), json, csv, or yaml.
+        verbose : bool
+            Enable verbose/debug logging output.
+        no_lock : bool
+            Disable file locking for concurrent operations (use with caution).
+
+    Returns:
+        None
+
+    Raises:
+        typer.Exit
+            With code 1 if config loading fails or lock acquisition fails.
+
+    Example:
+        >>> # Auto-discover config
+        >>> proxywhirl request --url https://example.com
+        >>>
+        >>> # Use custom config
+        >>> proxywhirl --config ./my-config.toml request --url https://example.com
+        >>>
+        >>> # Change output format
+        >>> proxywhirl --format json pool list
+
+    Note:
+        - File lock is auto-released via Typer context cleanup callback
+        - Console output adapts to TTY capabilities (color, tables)
+        - Context is stored globally and accessed by all subcommands
     """
     global _context
 
@@ -443,13 +497,58 @@ def request(
         help="Allow requests to localhost/private IPs (use with caution)",
     ),
 ) -> None:
-    """Make an HTTP request through a rotating proxy.
+    """
+    Make an HTTP request through a rotating proxy.
+
+    Routes request through proxy pool with automatic rotation, retry logic,
+    and optional health-based selection. Validates target URL to prevent SSRF.
+
+    Args:
+        url : str
+            Target URL to request (required). Must be valid HTTP/HTTPS URL.
+        method : str
+            HTTP method (default: GET). Case-insensitive (GET, POST, PUT, etc).
+        headers : list[str]
+            Custom HTTP headers. Format: 'Key: Value'. Can be repeated.
+        data : str | None
+            Request body data (usually for POST/PUT/PATCH).
+        proxy : str | None
+            Specific proxy URL to use (overrides rotation). Format: http://ip:port
+        max_retries : int | None
+            Max retry attempts (overrides config default).
+        allow_private : bool
+            Allow requests to localhost/private IPs (default: False for safety).
+
+    Returns:
+        None
+
+    Raises:
+        typer.Exit
+            With code 1 on invalid URL, header format, or request failure.
 
     Examples:
-      proxywhirl request https://api.example.com
-      proxywhirl request -X POST -d '{"key":"value"}' https://api.example.com
-      proxywhirl request -H "Authorization: Bearer token" https://api.example.com
-      proxywhirl request http://localhost:8080 --allow-private
+        >>> # Simple GET request
+        >>> proxywhirl request https://api.example.com
+
+        >>> # POST with JSON data
+        >>> proxywhirl request -X POST \\
+        ...   -d '{"key":"value"}' https://api.example.com
+
+        >>> # Custom headers
+        >>> proxywhirl request \\
+        ...   -H "Authorization: Bearer token" https://api.example.com
+
+        >>> # Use specific proxy
+        >>> proxywhirl request --proxy http://1.2.3.4:8080 https://example.com
+
+        >>> # Allow private IP targets
+        >>> proxywhirl request http://localhost:8080 --allow-private
+
+    Note:
+        - Headers are case-insensitive per HTTP spec
+        - SSRF protection prevents requests to private/localhost by default
+        - Retries apply circuit breaker and exponential backoff
+        - Output format controlled by global --format option
     """
     import time
 
@@ -618,15 +717,68 @@ def pool(
         help="Allow testing against localhost/private IPs (use with caution)",
     ),
 ) -> None:
-    """Manage the proxy pool (list/add/remove/test/stats).
+    """
+    Manage the proxy pool with list, add, remove, test, or stats actions.
+
+    Provides pool management commands to view proxies, add new ones, remove
+    existing ones, test connectivity, and view statistics. All changes are
+    persisted to the configuration file.
+
+    Args:
+        action : PoolAction
+            Action to perform:
+            - list: Show all proxies in pool with health status
+            - add: Add proxy to pool (requires --proxy or positional arg)
+            - remove: Remove proxy from pool
+            - test: Test proxy connectivity to target URL
+            - stats: Show pool statistics and performance metrics
+        proxy : str | None
+            Proxy URL (required for add/remove/test). Format: http://ip:port
+        username : str | None
+            Proxy username for authentication (optional).
+        password : str | None
+            Proxy password for authentication (optional).
+        target_url : str
+            Target URL for proxy testing. Default: https://httpbin.org/ip
+        allow_private : bool
+            Allow testing against localhost/private IPs (default: False).
+
+    Returns:
+        None
+
+    Raises:
+        typer.Exit
+            With code 1 on invalid action, proxy format, or command failure.
 
     Examples:
-      proxywhirl pool list
-      proxywhirl pool add http://proxy1.com:8080
-      proxywhirl pool remove http://proxy1.com:8080
-      proxywhirl pool test http://proxy1.com:8080
-      proxywhirl pool test http://proxy1.com:8080 --target-url https://api.example.com
-      proxywhirl pool stats
+        >>> # List all proxies in pool
+        >>> proxywhirl pool list
+
+        >>> # Add HTTP proxy
+        >>> proxywhirl pool add http://proxy1.com:8080
+
+        >>> # Add proxy with credentials
+        >>> proxywhirl pool add http://proxy1.com:8080 \\
+        ...   --username user --password pass
+
+        >>> # Remove proxy from pool
+        >>> proxywhirl pool remove http://proxy1.com:8080
+
+        >>> # Test proxy connectivity
+        >>> proxywhirl pool test http://proxy1.com:8080
+
+        >>> # Test against custom endpoint
+        >>> proxywhirl pool test http://proxy1.com:8080 \\
+        ...   --target-url https://api.example.com
+
+        >>> # Show pool statistics
+        >>> proxywhirl pool stats
+
+    Note:
+        - List shows health status (healthy/degraded/unhealthy/dead)
+        - Test uses TCP pre-check for speed, then HTTP validation
+        - Stats includes response times and success rates
+        - All changes persisted to config file
     """
     import time
 

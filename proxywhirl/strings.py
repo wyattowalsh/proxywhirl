@@ -1,0 +1,135 @@
+"""String constants for error messages, log messages, and configuration keys."""
+
+from __future__ import annotations
+
+# Error messages
+ERROR_POOL_EMPTY = "No proxies available in the pool"
+ERROR_PROXY_VALIDATION = "Proxy validation failed"
+ERROR_PROXY_CONNECTION = "Failed to connect through proxy"
+ERROR_PROXY_TIMEOUT = "Proxy request timed out"
+ERROR_PROXY_AUTH = "Proxy authentication failed"
+ERROR_INVALID_CONFIG = "Invalid configuration provided"
+ERROR_CACHE_CORRUPTED = "Cache data is corrupted"
+ERROR_DATABASE_ERROR = "Database operation failed"
+ERROR_FETCH_FAILED = "Failed to fetch proxies from source"
+ERROR_STORAGE_ERROR = "Storage operation failed"
+ERROR_CIRCUIT_BREAKER_OPEN = "Circuit breaker is open"
+ERROR_RATE_LIMIT_EXCEEDED = "Rate limit exceeded"
+ERROR_MAX_RETRIES_EXHAUSTED = "Maximum retries exhausted"
+ERROR_QUOTA_EXCEEDED = "Usage quota exceeded"
+ERROR_RESOURCE_LIMIT_EXCEEDED = "Resource limit exceeded"
+ERROR_INVALID_PROXY_URL = "Invalid proxy URL format"
+ERROR_UNSUPPORTED_PROTOCOL = "Unsupported proxy protocol"
+ERROR_SOURCE_UNAVAILABLE = "Proxy source is unavailable"
+ERROR_GEO_LOOKUP_FAILED = "Geolocation lookup failed"
+ERROR_BROWSER_ERROR = "Browser automation error"
+ERROR_SCHEMA_MIGRATION = "Database schema migration failed"
+
+# Log messages
+LOG_PROXY_SELECTED = "Selected proxy: {proxy}"
+LOG_POOL_HEALTH_CHECK = "Health check completed for {count} proxies"
+LOG_CACHE_HIT = "Cache hit for {key}"
+LOG_CACHE_MISS = "Cache miss for {key}"
+LOG_CIRCUIT_BREAKER_STATE = "Circuit breaker state changed to {state}"
+LOG_RETRY_ATTEMPT = "Retry attempt {attempt} of {max_attempts}"
+LOG_PROXY_VALIDATION_START = "Starting proxy validation"
+LOG_PROXY_VALIDATION_COMPLETE = "Proxy validation complete: {valid}/{total} proxies valid"
+LOG_FETCHING_PROXIES = "Fetching proxies from {source}"
+LOG_FETCH_SUCCESS = "Successfully fetched {count} proxies from {source}"
+LOG_FETCH_FAILED = "Failed to fetch proxies from {source}: {error}"
+LOG_DATABASE_MIGRATION = "Running database migration: {migration_name}"
+LOG_SOURCE_DISCOVERY_START = "Starting source discovery"
+LOG_SOURCE_DISCOVERY_COMPLETE = "Source discovery complete: found {count} new sources"
+LOG_ROLLOUT_STEP = "Gradual rollout progress: {percentage}%"
+LOG_TELEMETRY_SAMPLED = "Telemetry event sampled (rate: {rate})"
+LOG_SESSION_REUSED = "Session reused from pool"
+LOG_SESSION_CREATED = "New session created"
+
+# Configuration keys
+CONFIG_KEY_TIMEOUT = "timeout"
+CONFIG_KEY_MAX_RETRIES = "max_retries"
+CONFIG_KEY_POOL_SIZE = "pool_size"
+CONFIG_KEY_CACHE_TTL = "cache_ttl"
+CONFIG_KEY_CACHE_ENABLED = "cache_enabled"
+CONFIG_KEY_RATE_LIMIT = "rate_limit"
+CONFIG_KEY_CIRCUIT_BREAKER = "circuit_breaker"
+CONFIG_KEY_HEALTH_CHECK = "health_check"
+CONFIG_KEY_ROTATION_STRATEGY = "rotation_strategy"
+CONFIG_KEY_STORAGE_PATH = "storage_path"
+CONFIG_KEY_LOG_LEVEL = "log_level"
+CONFIG_KEY_ENCRYPTION_KEY = "encryption_key"
+CONFIG_KEY_TLS_VERIFY = "tls_verify"
+CONFIG_KEY_PROXY_PROTOCOL = "protocol"
+CONFIG_KEY_UPSTREAM_PROXY = "upstream_proxy"
+CONFIG_KEY_USER_AGENT = "user_agent"
+CONFIG_KEY_CUSTOM_HEADERS = "custom_headers"
+CONFIG_KEY_QUOTA_ENABLED = "quota_enabled"
+CONFIG_KEY_TELEMETRY_ENABLED = "telemetry_enabled"
+
+# Regex patterns (for safe regex validation)
+REGEX_PROXY_URL = r"^(https?|socks[45]):\/\/([^:\/]+):(\d+)"
+REGEX_IP_ADDRESS = r"^(\d{1,3}\.){3}\d{1,3}$"
+REGEX_PORT_NUMBER = r"^\d{1,5}$"
+REGEX_HOSTNAME = r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
+REGEX_UUID = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+REGEX_EMAIL = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+
+# Status strings
+STATUS_ACTIVE = "active"
+STATUS_INACTIVE = "inactive"
+STATUS_BANNED = "banned"
+STATUS_TIMEOUT = "timeout"
+STATUS_SLOW = "slow"
+STATUS_HEALTHY = "healthy"
+STATUS_UNHEALTHY = "unhealthy"
+STATUS_UNKNOWN = "unknown"
+STATUS_PENDING = "pending"
+STATUS_COMPLETED = "completed"
+STATUS_FAILED = "failed"
+
+# Protocol strings
+PROTOCOL_HTTP = "http"
+PROTOCOL_HTTPS = "https"
+PROTOCOL_SOCKS4 = "socks4"
+PROTOCOL_SOCKS5 = "socks5"
+PROTOCOL_SOCKS5H = "socks5h"
+
+# Anonymity levels
+ANONYMITY_TRANSPARENT = "transparent"
+ANONYMITY_ANONYMOUS = "anonymous"
+ANONYMITY_ELITE = "elite"
+
+# Strategy names
+STRATEGY_ROUND_ROBIN = "round_robin"
+STRATEGY_WEIGHTED = "weighted"
+STRATEGY_RANDOM = "random"
+STRATEGY_PERFORMANCE_BASED = "performance_based"
+STRATEGY_LEAST_CONNECTIONS = "least_connections"
+STRATEGY_IP_HASH = "ip_hash"
+STRATEGY_WEIGHTED_RESPONSE_TIME = "weighted_response_time"
+STRATEGY_STICKY = "sticky"
+STRATEGY_GEOGRAPHIC = "geographic"
+
+# Source names
+SOURCE_NAME_PREFIX = "source_"
+SOURCE_TYPE_API = "api"
+SOURCE_TYPE_LIST = "list"
+SOURCE_TYPE_SCRAPE = "scrape"
+SOURCE_TYPE_CUSTOM = "custom"
+
+# Cache keys
+CACHE_KEY_PROXY_LIST = "proxies:all"
+CACHE_KEY_HEALTH_STATUS = "health:status:{proxy_id}"
+CACHE_KEY_SOURCE_METADATA = "source:metadata:{source_name}"
+
+# Header keys
+HEADER_USER_AGENT = "User-Agent"
+HEADER_AUTHORIZATION = "Authorization"
+HEADER_PROXY_AUTHORIZATION = "Proxy-Authorization"
+HEADER_CACHE_CONTROL = "Cache-Control"
+HEADER_ETAG = "ETag"
+HEADER_LAST_MODIFIED = "Last-Modified"
+
+# Time format strings
+TIME_FORMAT_ISO = "%Y-%m-%dT%H:%M:%SZ"
+TIME_FORMAT_LOG = "%Y-%m-%d %H:%M:%S"
