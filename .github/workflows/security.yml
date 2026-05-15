@@ -58,7 +58,6 @@ jobs:
         with:
           path: |
             ~/.cache/uv
-            .venv
           key: uv-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
           restore-keys: |
             uv-${{ runner.os }}-py${{ matrix.python-version }}-
@@ -66,7 +65,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv venv
+          uv venv --clear --python 3.11
           uv pip install -e ".[dev]"
 
       - name: Run pip-audit
@@ -112,7 +111,6 @@ jobs:
         with:
           path: |
             ~/.cache/uv
-            .venv
           key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: |
             uv-${{ runner.os }}-
@@ -163,14 +161,13 @@ jobs:
         with:
           path: |
             ~/.cache/uv
-            .venv
           key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
           restore-keys: |
             uv-${{ runner.os }}-
 
       - name: Install dependencies
         run: |
-          uv venv
+          uv venv --clear --python 3.11
           uv pip install -e ".[dev]"
 
       - name: Run Safety check
