@@ -12,7 +12,7 @@ class ProxyListConfig:
     """Configuration for proxy list serving."""
 
     format: str = "text"  # text, json, csv, m3u8
-    host: str = "0.0.0.0"
+    host: str = "0.0.0.0"  # nosec B104
     port: int = 8080
     auth_enabled: bool = False
     auth_token: str | None = None

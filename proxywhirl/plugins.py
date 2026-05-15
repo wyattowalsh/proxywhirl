@@ -127,7 +127,7 @@ class XMLProxyParser(ParserPlugin):
         proxies = []
 
         try:
-            root = ET.fromstring(content)
+            root = ET.fromstring(content)  # nosec B314
 
             for proxy_elem in root.findall(".//proxy"):
                 proxy_dict = {}

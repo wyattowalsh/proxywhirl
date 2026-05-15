@@ -11,6 +11,13 @@ from typing import Any
 from loguru import logger
 
 
+def _quote_sqlite_identifier(identifier: str) -> str:
+    """Quote a SQLite identifier after rejecting malformed names."""
+    if "\x00" in identifier:
+        raise ValueError("SQLite identifiers cannot contain null bytes")
+    return f'"{identifier.replace(chr(34), chr(34) * 2)}"'
+
+
 @dataclass
 class TableStats:
     """Statistics for a database table."""
@@ -85,16 +92,22 @@ class DatabaseMonitor:
                     continue
 
                 try:
+                    quoted_table_name = _quote_sqlite_identifier(table_name)
+
                     # Count rows
-                    cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+                    cursor.execute(f"SELECT COUNT(*) FROM {quoted_table_name}")  # nosec B608
                     row_count = cursor.fetchone()[0]
 
                     # Get table size
-                    cursor.execute(
-                        f"SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size() WHERE tbl_name='{table_name}'"
-                    )
-                    result = cursor.fetchone()
-                    size_bytes = result[0] if result else 0
+                    try:
+                        cursor.execute(
+                            "SELECT COALESCE(SUM(pgsize), 0) FROM dbstat WHERE name=?",
+                            (table_name,),
+                        )
+                        result = cursor.fetchone()
+                        size_bytes = result[0] if result else 0
+                    except sqlite3.OperationalError:
+                        size_bytes = 0
 
                     # Count indexes
                     cursor.execute(
@@ -104,11 +117,11 @@ class DatabaseMonitor:
                     index_count = cursor.fetchone()[0]
 
                     # Get primary key
-                    cursor.execute(f"PRAGMA table_info({table_name})")
+                    cursor.execute("SELECT name, pk FROM pragma_table_info(?)", (table_name,))
                     primary_key = None
                     for row in cursor.fetchall():
-                        if row[5]:  # pk column
-                            primary_key = row[1]
+                        if row[1]:  # pk column
+                            primary_key = row[0]
                             break
 
                     stats.append(

@@ -134,14 +134,14 @@ class DualWriteStorage:
             self.primary.delete(key)
             logger.debug(f"Deleted {key} from primary")
         except Exception as e:
-            logger.error(f"Failed to delete {key} from primary: {e}")
+            logger.error(f"Failed to delete {key} from primary: {e}")  # nosec B608
             errors.append(("primary", e))
 
         try:
             self.secondary.delete(key)
             logger.debug(f"Deleted {key} from secondary")
         except Exception as e:
-            logger.error(f"Failed to delete {key} from secondary: {e}")
+            logger.error(f"Failed to delete {key} from secondary: {e}")  # nosec B608
             errors.append(("secondary", e))
 
         if errors and len(errors) == 2:

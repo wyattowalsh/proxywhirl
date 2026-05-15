@@ -82,7 +82,13 @@ class FeatureFlag:
         if self.rollout_percentage >= 100:
             return True
 
-        hash_val = int(hashlib.md5(f"{self.name}:{user_id}".encode()).hexdigest(), 16)
+        hash_val = int(
+            hashlib.md5(
+                f"{self.name}:{user_id}".encode(),
+                usedforsecurity=False,
+            ).hexdigest(),
+            16,
+        )
         bucket = (hash_val % 100) + 1
         return bucket <= self.rollout_percentage
 

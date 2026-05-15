@@ -926,7 +926,7 @@ class ProxyValidator:
             Cache key string (hash of proxy URL)
         """
         proxy_url = proxy.get("url", "")
-        return hashlib.md5(proxy_url.encode()).hexdigest()
+        return hashlib.md5(proxy_url.encode(), usedforsecurity=False).hexdigest()
 
     def _get_cached_result(self, proxy: dict[str, Any]) -> ValidationResult | None:
         """Get validation result from cache if not expired.
@@ -1728,7 +1728,7 @@ class ProxyFetcher:
         Returns:
             Cache key string (hash of URL)
         """
-        return hashlib.md5(url.encode()).hexdigest()
+        return hashlib.md5(url.encode(), usedforsecurity=False).hexdigest()
 
     def _get_cached_response(self, url: str) -> str | None:
         """Get cached response if not expired.

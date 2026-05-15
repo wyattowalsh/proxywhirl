@@ -136,7 +136,7 @@ class S3StorageBackend:
             logger.debug(f"Deleted from S3: {self.config.bucket_name}/{key}")
             return True
         except Exception as e:
-            logger.error(f"Failed to delete from S3: {e}")
+            logger.error(f"Failed to delete from S3: {e}")  # nosec B608
             return False
 
     async def list_objects(self, prefix: str = "") -> list[str]:

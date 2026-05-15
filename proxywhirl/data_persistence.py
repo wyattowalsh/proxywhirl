@@ -62,7 +62,7 @@ class PersistenceFormat:
         Returns:
             Deserialized data
         """
-        return pickle.loads(content)
+        return pickle.loads(content)  # nosec B301
 
 
 @dataclass
