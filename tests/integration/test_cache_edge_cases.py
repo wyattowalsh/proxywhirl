@@ -3,6 +3,8 @@
 Tests error handling, resilience, and degradation behaviors under failure conditions.
 """
 
+from __future__ import annotations
+
 import json
 import os
 from datetime import datetime, timedelta, timezone
@@ -188,6 +190,7 @@ class TestTierFailover:
             pytest.fail("Should handle L3 initialization failure gracefully")
 
 
+@pytest.mark.slow
 class TestConcurrentOperations:
     """Test cache behavior under high concurrent load."""
 

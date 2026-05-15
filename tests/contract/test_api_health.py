@@ -1,10 +1,10 @@
 """Contract tests for health/monitoring endpoints (US3).
 
 Tests API contracts for:
-- GET /api/v1/health - Health check
-- GET /api/v1/ready - Readiness probe
-- GET /api/v1/status - Status information
-- GET /api/v1/stats - Performance statistics (renamed from /api/v1/metrics)
+- GET /api/health - Health check
+- GET /api/ready - Readiness probe
+- GET /api/status - Status information
+- GET /api/stats - Performance statistics (renamed from /api/metrics)
 """
 
 from datetime import datetime, timezone
@@ -23,7 +23,7 @@ from proxywhirl.api.models import (
 )
 
 
-# T042: Contract test for GET /api/v1/health
+# T042: Contract test for GET /api/health
 class TestHealthResponseContract:
     """Test HealthResponse schema for health check endpoint."""
 
@@ -92,7 +92,7 @@ class TestHealthResponseContract:
         assert isinstance(response.timestamp, datetime)
 
 
-# T043: Contract test for GET /api/v1/ready
+# T043: Contract test for GET /api/ready
 class TestReadinessResponseContract:
     """Test ReadinessResponse schema for readiness probe endpoint."""
 
@@ -158,7 +158,7 @@ class TestReadinessResponseContract:
         assert all(response.checks.values())
 
 
-# T044: Contract test for GET /api/v1/status
+# T044: Contract test for GET /api/status
 class TestStatusResponseContract:
     """Test StatusResponse schema for system status endpoint."""
 
@@ -249,7 +249,7 @@ class TestStatusResponseContract:
         assert stats.healthy_percentage == 90.0
 
 
-# T045: Contract test for GET /api/v1/stats
+# T045: Contract test for GET /api/stats
 class TestMetricsResponseContract:
     """Test MetricsResponse schema for performance statistics endpoint."""
 

@@ -103,7 +103,7 @@ To prepare your code now:
 
 ### `quality-dead-code-deprecated-endpoints`
 
-All `/api/v0/*` API endpoints have been removed. Use `/api/v1/*` exclusively:
+All `/api/v0/*` API endpoints have been removed. Use `/api/*` exclusively:
 
 **Removed:**
 - `GET /api/v0/proxies`
@@ -111,7 +111,7 @@ All `/api/v0/*` API endpoints have been removed. Use `/api/v1/*` exclusively:
 - All other v0 endpoints
 
 **Migration:**  
-Update all API client code to use `/api/v1/` routes instead.
+Update all API client code to use `/api/` routes instead.
 
 ---
 
@@ -139,6 +139,6 @@ Update all API client code to use `/api/v1/` routes instead.
 - [ ] Audit code for `proxy.ema_alpha` usage
 - [ ] Replace `total_requests` with `requests_completed`
 - [ ] Move EMA config to `StrategyConfig`
-- [ ] Update all `/api/v0/` calls to `/api/v1/`
+- [ ] Update all `/api/v0/` calls to `/api/`
 - [ ] Run test suite to verify compatibility
 - [ ] Deploy to staging and verify behavior

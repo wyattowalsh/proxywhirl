@@ -320,4 +320,4 @@ config = DataStorageConfig(
 )
 ```
 
-See also: [Storage & Persistence](../concepts/storage.md), [Migrations](./migrations.md)
+See also: [Data Storage Configuration](configuration.md#datastorageconfig), [Migrations](./migrations.md)

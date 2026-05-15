@@ -16,7 +16,7 @@ async def api_client():
 # T061-T065: Integration tests for US4 - All skipped (implementation pending)
 @pytest.mark.skip(reason="Integration tests pending implementation")
 async def test_get_configuration(api_client: AsyncClient):
-    """T061: Test GET /api/v1/config."""
+    """T061: Test GET /api/config."""
 
 
 @pytest.mark.skip(reason="Integration tests pending implementation")

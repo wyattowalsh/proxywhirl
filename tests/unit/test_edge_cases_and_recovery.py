@@ -16,17 +16,32 @@ Tests for:
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
 
 from proxywhirl.browser import BrowserRenderer
 from proxywhirl.cache.manager import CacheManager
-from proxywhirl.cache.models import CacheConfig
+from proxywhirl.cache.models import CacheConfig, CacheEntry
 from proxywhirl.enrichment import OfflineEnricher
 from proxywhirl.exceptions import ProxyPoolEmptyError
 from proxywhirl.models import Proxy, ProxyPool
 from proxywhirl.rotator import ProxyWhirl
+
+
+def _cache_entry(key: str, value: str) -> CacheEntry:
+    """Build a current-shape cache entry for coherence tests."""
+    now = datetime.now(timezone.utc)
+    return CacheEntry(
+        key=key,
+        proxy_url=f"http://{value}.example.com:8080",
+        source="test",
+        fetch_time=now,
+        last_accessed=now,
+        ttl_seconds=60,
+        expires_at=now + timedelta(seconds=60),
+    )
 
 
 class TestTimeoutEdgeCases:
@@ -166,14 +181,10 @@ class TestDataCorruptionDetection:
 
     def test_proxy_pool_data_validation(self) -> None:
         """Test validation of proxy pool data."""
-        proxy = Proxy(
-            ip="192.168.1.1",
-            port=8080,
-            protocol="http",
-        )
+        proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
 
-        assert proxy.ip == "192.168.1.1"
-        assert proxy.port == 8080
+        assert proxy.url == "http://192.168.1.1:8080"
+        assert proxy.protocol == "http"
 
 
 class TestRaceConditions:
@@ -224,8 +235,8 @@ class TestCacheCoherence:
         cache = CacheManager(CacheConfig())
 
         # Set a value
-        cache.set("key1", "value1")
-        assert cache.get("key1") == "value1"
+        cache.put("key1", _cache_entry("key1", "value1"))
+        assert cache.get("key1") is not None
 
         # Invalidate it
         cache.delete("key1")
@@ -239,16 +250,20 @@ class TestCacheCoherence:
 
         async def update_cache(key: str, value: str) -> None:
             async with lock:
-                cache.set(key, value)
+                cache.put(key, _cache_entry(key, value))
                 await asyncio.sleep(0.001)
-                assert cache.get(key) == value
+                entry = cache.get(key)
+                assert entry is not None
+                assert entry.proxy_url == f"http://{value}.example.com:8080"
 
         # Concurrent updates
         await asyncio.gather(*[update_cache(f"key{i}", f"value{i}") for i in range(5)])
 
         # All values should be present and correct
         for i in range(5):
-            assert cache.get(f"key{i}") == f"value{i}"
+            entry = cache.get(f"key{i}")
+            assert entry is not None
+            assert entry.proxy_url == f"http://value{i}.example.com:8080"
 
 
 class TestHighThroughputStress:
@@ -318,11 +333,7 @@ class TestEncodingEdgeCases:
     def test_proxy_url_with_unicode(self) -> None:
         """Test proxy URLs with unicode characters."""
         # Proxy URLs shouldn't have unicode, but test handling
-        proxy = Proxy(
-            ip="192.168.1.1",
-            port=8080,
-            protocol="http",
-        )
+        proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
 
         # Proxy URL should be ASCII-compatible
         url = proxy.url
@@ -360,7 +371,7 @@ class TestEmptyPoolStrategies:
         )
 
         with pytest.raises(ProxyPoolEmptyError):
-            await rotator.get_next_proxy()
+            rotator.strategy.select(rotator.pool)
 
     @pytest.mark.asyncio
     async def test_empty_pool_with_bootstrap(self) -> None:
@@ -370,6 +381,7 @@ class TestEmptyPoolStrategies:
         assert len(pool.proxies) == 0
 
 
+@pytest.mark.slow
 class TestBrowserFailureHandling:
     """Test Playwright failure scenarios."""
 

@@ -17,6 +17,7 @@ from pydantic import SecretStr
 from proxywhirl.cache.models import CacheConfig, CacheEntry
 
 
+@pytest.mark.slow
 class TestConcurrentCacheAccess:
     """Test concurrent cache operations to verify race condition fixes (TASK-202)."""
 

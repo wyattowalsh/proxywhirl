@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Callable
 
@@ -30,8 +30,8 @@ class FeatureFlag:
     rollout_percentage: float = 0.0
     enabled_users: set[str] = field(default_factory=set)
     disabled_users: set[str] = field(default_factory=set)
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
@@ -43,7 +43,7 @@ class FeatureFlag:
     def enabled(self, value: bool) -> None:
         """Set enabled state."""
         self.status = FeatureFlagStatus.ENABLED if value else FeatureFlagStatus.DISABLED
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def is_enabled_for_user(self, user_id: str) -> bool:
         """Check if feature is enabled for user.
@@ -90,31 +90,31 @@ class FeatureFlag:
         """Enable for specific user."""
         self.enabled_users.add(user_id)
         self.disabled_users.discard(user_id)
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def disable_for_user(self, user_id: str) -> None:
         """Disable for specific user."""
         self.disabled_users.add(user_id)
         self.enabled_users.discard(user_id)
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def set_rollout(self, percentage: float) -> None:
         """Set rollout percentage (0-100)."""
         self.rollout_percentage = max(0, min(100, percentage))
         self.status = FeatureFlagStatus.ROLLOUT if percentage > 0 else FeatureFlagStatus.DISABLED
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def enable(self) -> None:
         """Enable feature for all users."""
         self.status = FeatureFlagStatus.ENABLED
         self.rollout_percentage = 100
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def disable(self) -> None:
         """Disable feature for all users."""
         self.status = FeatureFlagStatus.DISABLED
         self.rollout_percentage = 0
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
 
     def toggle(self) -> None:
         """Toggle feature."""

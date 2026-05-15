@@ -2,7 +2,7 @@
 
 ## Exception Hierarchy
 
-```python
+```text
 ProxyWhirlError (base)
 ├─ ProxyPoolEmptyError
 ├─ ProxyValidationError
@@ -300,4 +300,3 @@ class BulkheadProxy:
         )
         return future.result(timeout=30)
 ```
-

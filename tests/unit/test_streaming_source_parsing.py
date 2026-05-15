@@ -35,7 +35,7 @@ class StreamingParser:
         """Parse CSV-like data from stream."""
         for line in stream:
             if line.strip():
-                parts = line.split(delimiter)
+                parts = line.rstrip("\n\r").split(delimiter)
                 yield parts
 
     def parse_json_lines(self, stream: Iterator[str]) -> Iterator[dict]:

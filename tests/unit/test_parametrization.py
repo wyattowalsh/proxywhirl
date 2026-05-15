@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+from proxywhirl.utils import is_valid_proxy_url
+
 
 @pytest.mark.parametrize(
     "value,expected",
@@ -65,10 +67,7 @@ def test_positive_integers(value) -> None:
 )
 def test_proxy_url_validation(proxy_url, is_valid) -> None:
     """Test proxy URL validation."""
-    # Basic validation
-    result = bool(proxy_url and ("://" in proxy_url or "://" not in proxy_url))
-    # For this test, just check non-empty
-    assert (len(proxy_url) > 0) == is_valid
+    assert is_valid_proxy_url(proxy_url) == is_valid
 
 
 @pytest.mark.parametrize(

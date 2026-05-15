@@ -1962,7 +1962,7 @@ class TestProxyFetcherClientPool:
 
     async def test_fetch_from_source_uses_shared_client(self) -> None:
         """Test fetch_from_source uses shared client instead of creating new one."""
-        from unittest.mock import AsyncMock, MagicMock, call, patch
+        from unittest.mock import AsyncMock, MagicMock, patch
 
         from proxywhirl.fetchers import ProxyFetcher, ProxySourceConfig
 
@@ -1984,10 +1984,9 @@ class TestProxyFetcherClientPool:
             await fetcher.fetch_from_source(source)
             await fetcher.fetch_from_source(source)
 
-            # _get_client should be called twice (once per fetch)
-            assert mock_get_client.call_count == 2
-            # The same client instance should be reused
-            assert all(call_args == call() for call_args in mock_get_client.call_args_list)
+            # The second fetch is served from the request cache.
+            assert mock_get_client.call_count == 1
+            assert mock_client.get.call_count == 1
 
         await fetcher.close()
 

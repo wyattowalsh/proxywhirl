@@ -304,6 +304,13 @@ class TestCreateProxyRequestValidation:
         )
         assert "socks5" in str(request.url).lower()
 
+    def test_create_proxy_accepts_socks5h_scheme(self):
+        """Test CreateProxyRequest accepts SOCKS5H proxy URLs."""
+        request = CreateProxyRequest(
+            url="socks5h://proxy.example.com:1080"  # type: ignore[arg-type]
+        )
+        assert "socks5h" in str(request.url).lower()
+
     def test_create_proxy_rejects_ftp_scheme(self):
         """Test CreateProxyRequest rejects FTP URLs."""
         with pytest.raises(ValidationError) as exc_info:

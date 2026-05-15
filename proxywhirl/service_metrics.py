@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -184,9 +185,9 @@ class AlertManager:
     def __init__(self):
         """Initialize alert manager."""
         self._alerts: list[dict[str, Any]] = []
-        self._alert_handlers: list[callable] = []
+        self._alert_handlers: list[Callable[[dict[str, Any]], None]] = []
 
-    def add_alert_handler(self, handler: callable) -> None:
+    def add_alert_handler(self, handler: Callable[[dict[str, Any]], None]) -> None:
         """Add alert handler.
 
         Args:

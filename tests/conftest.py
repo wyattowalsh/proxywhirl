@@ -9,6 +9,8 @@ This module provides:
 - httpx client fixtures for sync/async testing
 """
 
+from __future__ import annotations
+
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -44,8 +46,8 @@ class ProxyFactory(ModelFactory[Proxy]):
 
     # Override specific fields with sensible defaults
     id = lambda: uuid4()  # noqa: E731
-    url = (
-        lambda: f"http://proxy{Faker().random_int(1, 999)}.example.com:{Faker().random_int(1024, 65535)}"
+    url = lambda: (
+        f"http://proxy{Faker().random_int(1, 999)}.example.com:{Faker().random_int(1024, 65535)}"
     )  # noqa: E731
     protocol = lambda: Faker().random_element(["http", "https", "socks5"])  # noqa: E731
     health_status = lambda: HealthStatus.UNKNOWN  # noqa: E731

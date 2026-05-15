@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import json
+from collections.abc import Callable
 from dataclasses import asdict, is_dataclass
 from enum import Enum
 from io import StringIO
@@ -36,7 +37,7 @@ class DataExporter:
     """Exports data in various formats."""
 
     @staticmethod
-    def to_json(data: Any, indent: int = 2, default: callable | None = None) -> str:
+    def to_json(data: Any, indent: int = 2, default: Callable[[Any], Any] | None = None) -> str:
         """Export to JSON.
 
         Args:

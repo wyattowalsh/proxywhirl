@@ -185,10 +185,10 @@ Model Context Protocol server for AI assistant integration.
 
 Diagnose and resolve common issues with error codes, debugging tips, and FAQ.
 
-- [Error codes reference](troubleshooting.md#error-codes-reference) -- all ProxyWhirl error codes
-- [Common issues](troubleshooting.md#common-issues) -- proxies unhealthy, rate limiting, SSL errors
-- [Debugging tips](troubleshooting.md#debugging-tips) -- logging, metrics, health monitoring
-- [FAQ](troubleshooting.md#faq) -- custom sources, strategies, persistence, async
+- [Error codes reference](../reference/error-codes.md) -- all ProxyWhirl error codes
+- [Common issues](troubleshooting.md) -- proxies unhealthy, rate limiting, SSL errors
+- [Debugging tips](troubleshooting.md) -- logging, metrics, health monitoring
+- [FAQ](../project/faq.md) -- custom sources, strategies, persistence, async
 
 +++
 {bdg-warning}`troubleshooting` {bdg-info}`debugging`

@@ -12,7 +12,7 @@ Video tutorials are available on YouTube and our documentation site. Each tutori
 
 ### 1. Installation & Setup (5 min)
 **Topics**: Installation, first proxy, basic usage
-**URL**: https://youtube.com/proxywhirl-install
+**Status**: Planned recording
 **Code Example**:
 ```python
 from proxywhirl import ProxyWhirl
@@ -24,7 +24,7 @@ print(proxy)
 
 ### 2. Understanding Rotation Strategies (10 min)
 **Topics**: RoundRobin, Random, Weighted, PerformanceBased
-**URL**: https://youtube.com/proxywhirl-strategies
+**Status**: Planned recording
 **Key Takeaways**:
 - Strategy choice depends on your use case
 - PerformanceBased for speed-sensitive apps
@@ -33,7 +33,7 @@ print(proxy)
 
 ### 3. Async Integration (8 min)
 **Topics**: AsyncProxyWhirl, concurrent requests, performance
-**URL**: https://youtube.com/proxywhirl-async
+**Status**: Planned recording
 **Code Example**:
 ```python
 import asyncio
@@ -48,14 +48,14 @@ asyncio.run(main())
 
 ### 4. HTTP Integration with httpx (7 min)
 **Topics**: httpx client, proxy usage, error handling
-**URL**: https://youtube.com/proxywhirl-httpx
+**Status**: Planned recording
 **Libraries**: httpx, respx for testing
 
 ## Intermediate Level
 
 ### 5. Custom Proxy Sources (12 min)
 **Topics**: Adding sources, source formats, validation
-**URL**: https://youtube.com/proxywhirl-sources
+**Status**: Planned recording
 **Code Example**:
 ```python
 from proxywhirl import ProxySource, ProxyWhirl
@@ -69,7 +69,7 @@ whirl = ProxyWhirl(sources=[source])
 
 ### 6. Caching & Performance (10 min)
 **Topics**: L1/L2/L3 caching, Redis integration, benchmarking
-**URL**: https://youtube.com/proxywhirl-caching
+**Status**: Planned recording
 **Performance Metrics**:
 - Without cache: ~10ms per selection
 - With L1 cache: <1ms per selection
@@ -77,7 +77,7 @@ whirl = ProxyWhirl(sources=[source])
 
 ### 7. Circuit Breakers & Resilience (11 min)
 **Topics**: Circuit breaker pattern, recovery, configuration
-**URL**: https://youtube.com/proxywhirl-breakers
+**Status**: Planned recording
 **States**:
 - CLOSED: Normal operation
 - OPEN: Automatic failover
@@ -85,22 +85,22 @@ whirl = ProxyWhirl(sources=[source])
 
 ### 8. REST API Server (9 min)
 **Topics**: Starting REST API, endpoints, OpenAPI docs
-**URL**: https://youtube.com/proxywhirl-rest-api
+**Status**: Planned recording
 **Endpoints**:
-- GET `/api/v1/proxy` - Get proxy
-- POST `/api/v1/proxy` - Validate proxy
-- GET `/api/v1/health` - Check health
+- GET `/api/proxies` - List proxies
+- POST `/api/proxies/health-check` - Validate proxies
+- GET `/api/health` - Check health
 
 ## Advanced Level
 
 ### 9. Production Deployment (15 min)
 **Topics**: Docker, Kubernetes, monitoring, scaling
-**URL**: https://youtube.com/proxywhirl-deployment
+**Status**: Planned recording
 **Technologies**: Docker, K8s, Prometheus, Grafana
 
 ### 10. Multi-Tier Caching with Redis (12 min)
 **Topics**: Redis setup, L3 cache, distributed caching
-**URL**: https://youtube.com/proxywhirl-redis
+**Status**: Planned recording
 **Code Example**:
 ```python
 from proxywhirl import CacheConfig
@@ -116,19 +116,19 @@ cache = CacheConfig(
 
 ### 11. MCP Server for AI Assistants (10 min)
 **Topics**: MCP protocol, Claude integration, API design
-**URL**: https://youtube.com/proxywhirl-mcp
+**Status**: Planned recording
 **Usage**: Enable AI assistants to use ProxyWhirl
 
 ### 12. Performance Profiling & Optimization (14 min)
 **Topics**: Benchmarking, profiling, bottleneck identification
-**URL**: https://youtube.com/proxywhirl-performance
+**Status**: Planned recording
 **Tools**: cProfile, memory_profiler, pytest-benchmark
 
 ## Real-World Tutorials
 
 ### 13. Web Scraping with ProxyWhirl (20 min)
 **Topics**: BeautifulSoup, rotation, error handling
-**URL**: https://youtube.com/proxywhirl-scraping
+**Status**: Planned recording
 **Project**: Scrape 1,000 pages with rotation
 **Code Structure**:
 1. Setup ProxyWhirl
@@ -139,34 +139,34 @@ cache = CacheConfig(
 
 ### 14. Selenium + ProxyWhirl (15 min)
 **Topics**: Browser automation, JavaScript rendering, proxy integration
-**URL**: https://youtube.com/proxywhirl-selenium
+**Status**: Planned recording
 **Setup**: Selenium with Chrome options
 
 ### 15. Playwright + ProxyWhirl (12 min)
 **Topics**: Modern browser automation, async patterns
-**URL**: https://youtube.com/proxywhirl-playwright
+**Status**: Planned recording
 **Advantage**: Native async support
 
 ### 16. FastAPI Integration (13 min)
 **Topics**: Dependency injection, middleware, scaling
-**URL**: https://youtube.com/proxywhirl-fastapi
+**Status**: Planned recording
 **Architecture**: FastAPI + ProxyWhirl + async
 
 ### 17. Django Integration (11 min)
 **Topics**: Middleware, views, configuration
-**URL**: https://youtube.com/proxywhirl-django
+**Status**: Planned recording
 **Pattern**: Middleware for automatic proxy rotation
 
 ### 18. Load Testing with ProxyWhirl (14 min)
 **Topics**: Locust integration, distributed load, geo-routing
-**URL**: https://youtube.com/proxywhirl-loadtest
+**Status**: Planned recording
 **Use Case**: Test API with geographic distribution
 
 ## Expert-Level Series
 
 ### 19. Architecture Deep-Dive (25 min)
 **Topics**: Core design, strategy abstraction, component interaction
-**URL**: https://youtube.com/proxywhirl-architecture
+**Status**: Planned recording
 **Modules**:
 - Rotator (core)
 - Strategies (pluggable)
@@ -175,24 +175,24 @@ cache = CacheConfig(
 
 ### 20. Contributing to ProxyWhirl (15 min)
 **Topics**: Development setup, testing, contribution workflow
-**URL**: https://youtube.com/proxywhirl-contributing
+**Status**: Planned recording
 **Tools**: uv, pytest, ruff, pre-commit
 
 ## Tutorial Series (Playlist)
 
 ### Complete Beginner to Expert
-**Playlist**: https://youtube.com/playlist/proxywhirl-complete
+**Playlist**: Planned recording
 **Duration**: ~3 hours total
 **Topics**: All of above in order
 **Prerequisite**: Python 3.9+
 
 ### Fast-Track (30 min)
-**Playlist**: https://youtube.com/playlist/proxywhirl-fast
+**Playlist**: Planned recording
 **Content**: Videos 1-4, 8, 13
 **Goal**: Working scraper in 30 minutes
 
 ### Production Ready (60 min)
-**Playlist**: https://youtube.com/playlist/proxywhirl-production
+**Playlist**: Planned recording
 **Content**: Videos 5-12
 **Goal**: Production deployment knowledge
 
@@ -201,33 +201,33 @@ cache = CacheConfig(
 ### Live Coding Session 1: Async Web Scraper
 **Duration**: 30 min
 **Topics**: AsyncProxyWhirl, httpx, error handling
-**Code**: https://github.com/wyattowalsh/proxywhirl/tree/demo/async-scraper
+**Code**: Planned demo branch
 **Outcome**: Full working scraper
 
 ### Live Coding Session 2: REST API + Dashboard
 **Duration**: 45 min
 **Topics**: FastAPI, frontend, monitoring
-**Code**: https://github.com/wyattowalsh/proxywhirl/tree/demo/rest-dashboard
+**Code**: Planned demo branch
 **Outcome**: Web dashboard for proxy management
 
 ### Live Coding Session 3: Kubernetes Deployment
 **Duration**: 60 min
 **Topics**: Docker, K8s manifests, monitoring
-**Code**: https://github.com/wyattowalsh/proxywhirl/tree/demo/k8s-deployment
+**Code**: Planned demo branch
 **Outcome**: Production K8s setup
 
 ## Troubleshooting Videos
 
 ### Q: ProxyPoolEmptyError
-**Video**: https://youtube.com/proxywhirl-faq-empty
+**Video**: Planned recording
 **Solutions**: Shown in 3 minutes
 
 ### Q: Circuit Breaker Open
-**Video**: https://youtube.com/proxywhirl-faq-breaker
+**Video**: Planned recording
 **Solutions**: Recovery strategies
 
 ### Q: Slow Performance
-**Video**: https://youtube.com/proxywhirl-faq-slow
+**Video**: Planned recording
 **Solutions**: Caching, strategy optimization
 
 ## Recording Setup
@@ -264,4 +264,4 @@ Have a great use case or tutorial idea?
 - Share in [GitHub Discussions](https://github.com/wyattowalsh/proxywhirl/discussions)
 - Submit a pull request with video links
 
-See also: [Quickstart Tutorials](./quickstart.md), [Documentation](../index.md)
+See also: [Quickstart Tutorials](../guides/quickstart.md), [Documentation](../index.md)

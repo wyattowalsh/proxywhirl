@@ -1,5 +1,7 @@
 """Latency monitoring and analysis."""
 
+from __future__ import annotations
+
 import statistics
 from collections import deque
 from dataclasses import dataclass

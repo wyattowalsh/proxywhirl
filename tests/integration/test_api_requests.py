@@ -1,4 +1,4 @@
-"""Integration tests for POST /api/v1/request endpoint (US1).
+"""Integration tests for POST /api/request endpoint (US1).
 
 These tests verify the proxied request functionality works end-to-end with real
 ProxyWhirl integration, failover behavior, and proxy rotation.
@@ -26,14 +26,8 @@ def setup_test_proxies():
     """Set up test proxies in the global rotator."""
     from proxywhirl import ProxyWhirl
 
-    # Initialize rotator if not exists
-    if api_core._rotator is None:
-        api_core._rotator = ProxyWhirl()
-
+    api_core._rotator = ProxyWhirl()
     rotator = api_core._rotator
-
-    # Clear existing proxies
-    rotator.pool.proxies.clear()
 
     # Add test proxies
     rotator.add_proxy(Proxy(url="http://proxy1.example.com:8080"))
@@ -43,7 +37,7 @@ def setup_test_proxies():
     yield
 
     # Cleanup
-    rotator.pool.proxies.clear()
+    api_core._rotator = None
 
 
 # T012: Integration test for proxied GET request
@@ -70,7 +64,7 @@ async def test_proxied_get_request_success(api_client: AsyncClient, setup_test_p
 
     # Make request through API
     response = await api_client.post(
-        "/api/v1/request",
+        "/api/request",
         json={
             "url": "https://httpbin.org/get",
             "method": "GET",
@@ -117,7 +111,7 @@ async def test_proxied_post_request_with_body(api_client: AsyncClient, setup_tes
 
     # Make request through API
     response = await api_client.post(
-        "/api/v1/request",
+        "/api/request",
         json={
             "url": "https://httpbin.org/post",
             "method": "POST",
@@ -159,7 +153,7 @@ async def test_proxy_rotation_multiple_requests(api_client: AsyncClient, setup_t
     # Make 3 sequential requests
     for _ in range(3):
         response = await api_client.post(
-            "/api/v1/request",
+            "/api/request",
             json={"url": "https://httpbin.org/get", "method": "GET", "timeout": 30},
         )
 
@@ -186,10 +180,11 @@ async def test_proxy_failover_with_dead_proxy(api_client: AsyncClient):
     - Retry logic is triggered when first proxy fails
     """
     # Set up proxies with one that will fail
-    if api_core._rotator:
-        api_core._rotator.pool.proxies.clear()
-        api_core._rotator.add_proxy(Proxy(url="http://dead-proxy.example.com:9999"))
-        api_core._rotator.add_proxy(Proxy(url="http://working-proxy.example.com:8080"))
+    from proxywhirl import ProxyWhirl
+
+    api_core._rotator = ProxyWhirl()
+    api_core._rotator.add_proxy(Proxy(url="http://dead-proxy.example.com:9999"))
+    api_core._rotator.add_proxy(Proxy(url="http://working-proxy.example.com:8080"))
 
     # Mock the target URL response
     respx.get("https://httpbin.org/get").mock(
@@ -198,7 +193,7 @@ async def test_proxy_failover_with_dead_proxy(api_client: AsyncClient):
 
     # Make request through API
     response = await api_client.post(
-        "/api/v1/request",
+        "/api/request",
         json={"url": "https://httpbin.org/get", "method": "GET", "timeout": 30},
     )
 
@@ -215,5 +210,4 @@ async def test_proxy_failover_with_dead_proxy(api_client: AsyncClient):
         assert "detail" in body
 
     # Cleanup
-    if api_core._rotator:
-        api_core._rotator.pool.proxies.clear()
+    api_core._rotator = None

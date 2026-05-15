@@ -2,13 +2,15 @@
 
 import uuid
 from datetime import datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
 from proxywhirl.api import app
 from proxywhirl.circuit_breaker import CircuitBreaker, CircuitBreakerState
+from proxywhirl.models import Proxy
 from proxywhirl.retry import (
     CircuitBreakerEvent,
     RetryAttempt,
@@ -98,17 +100,20 @@ def mock_rotator():
         "proxy0.example.com:8080": cb1,
         "proxy1.example.com:8080": cb2,
     }
+    rotator.pool = MagicMock()
+    rotator.strategy = MagicMock()
+    rotator.strategy.select.return_value = Proxy(url="http://proxy.example.com:8080")
 
     return rotator
 
 
 class TestRetryMetricsEndpoint:
-    """Tests for GET /metrics/retry endpoint."""
+    """Tests for canonical retry metrics endpoints."""
 
     def test_get_retry_metrics_json_format(self, client, mock_rotator):
         """Test retry metrics endpoint with JSON format (default)."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
-            response = client.get("/metrics/retry")
+            response = client.get("/api/metrics/retries")
 
             assert response.status_code == 200
             data = response.json()
@@ -118,81 +123,54 @@ class TestRetryMetricsEndpoint:
             assert "data" in data
             assert "meta" in data
 
-            # Check summary data
-            assert "summary" in data["data"]
-            summary = data["data"]["summary"]
-            assert "total_retries" in summary
-            assert "success_by_attempt" in summary
-            assert "circuit_breaker_events_count" in summary
-            assert summary["circuit_breaker_events_count"] == 3
-
-            # Check timeseries data
-            assert "timeseries" in data["data"]
-
-            # Check per-proxy data
-            assert "by_proxy" in data["data"]
+            assert data["data"]["total_retries"] == 5
+            assert "success_by_attempt" in data["data"]
+            assert data["data"]["circuit_breaker_events_count"] == 3
+            assert data["data"]["retention_hours"] == 24
 
     def test_get_retry_metrics_json_with_hours_param(self, client, mock_rotator):
         """Test retry metrics endpoint with hours parameter."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
-            response = client.get("/metrics/retry?hours=12")
+            response = client.get("/api/metrics/retries/timeseries?hours=12")
 
             assert response.status_code == 200
             data = response.json()
             assert data["status"] == "success"
+            assert "data_points" in data["data"]
 
     def test_get_retry_metrics_prometheus_format(self, client, mock_rotator):
-        """Test retry metrics endpoint with Prometheus format."""
+        """Test canonical Prometheus metrics endpoint."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
-            response = client.get("/metrics/retry?format=prometheus")
+            response = client.get("/api/metrics")
 
             assert response.status_code == 200
             assert response.headers["content-type"] == "text/plain; version=0.0.4; charset=utf-8"
 
             content = response.text
-
-            # Check for expected Prometheus metrics
-            assert "# HELP proxywhirl_retry_total" in content
-            assert "# TYPE proxywhirl_retry_total counter" in content
-            assert "proxywhirl_retry_total" in content
-
-            assert "# HELP proxywhirl_retry_success_by_attempt" in content
-            assert "# TYPE proxywhirl_retry_success_by_attempt gauge" in content
-
-            assert "# HELP proxywhirl_circuit_breaker_events_total" in content
-            assert "proxywhirl_circuit_breaker_events_total 3" in content
-
-            # Check per-proxy metrics
-            assert "# HELP proxywhirl_retry_proxy_attempts" in content
-            assert "# HELP proxywhirl_retry_proxy_success" in content
-            assert "# HELP proxywhirl_retry_proxy_failure" in content
-            assert "# HELP proxywhirl_retry_proxy_avg_latency" in content
-            assert 'proxy_id="proxy0.example.com:8080"' in content
-            assert 'proxy_id="proxy1.example.com:8080"' in content
+            assert "# HELP" in content
+            assert "proxywhirl" in content
 
     def test_get_retry_metrics_prometheus_case_insensitive(self, client, mock_rotator):
-        """Test that format parameter is case-insensitive."""
+        """Retry metrics remain JSON when obsolete format parameters are supplied."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
-            # Try uppercase
-            response = client.get("/metrics/retry?format=PROMETHEUS")
+            response = client.get("/api/metrics/retries?format=PROMETHEUS")
             assert response.status_code == 200
-            assert "text/plain" in response.headers["content-type"]
+            assert response.headers["content-type"] == "application/json"
 
-            # Try mixed case
-            response = client.get("/metrics/retry?format=Prometheus")
+            response = client.get("/api/metrics/retries?format=Prometheus")
             assert response.status_code == 200
-            assert "text/plain" in response.headers["content-type"]
+            assert response.headers["content-type"] == "application/json"
 
     def test_get_retry_metrics_no_rotator(self, client):
         """Test retry metrics endpoint when rotator is not initialized."""
         with patch("proxywhirl.api.core._rotator", None):
-            response = client.get("/metrics/retry")
+            response = client.get("/api/metrics/retries")
 
             assert response.status_code == 503
             assert "Rotator not initialized" in response.json()["detail"]
 
-    def test_get_retry_metrics_escapes_special_chars_in_prometheus(self, client):
-        """Test that special characters in proxy_id are escaped in Prometheus format."""
+    def test_get_retry_metrics_preserves_special_chars_in_json(self, client):
+        """Test per-proxy retry metrics preserve proxy IDs in JSON output."""
         rotator = MagicMock()
         metrics = RetryMetrics()
 
@@ -213,20 +191,19 @@ class TestRetryMetricsEndpoint:
         rotator.get_circuit_breaker_states.return_value = {}
 
         with patch("proxywhirl.api.core._rotator", rotator):
-            response = client.get("/metrics/retry?format=prometheus")
+            response = client.get("/api/metrics/retries/by-proxy")
 
             assert response.status_code == 200
-            # Check that quotes are escaped
-            assert 'proxy_id="proxy\\"test\\".com:8080"' in response.text
+            assert 'proxy"test".com:8080' in response.json()["data"]["proxies"]
 
 
 class TestCircuitBreakerMetricsEndpoint:
-    """Tests for GET /metrics/circuit-breaker endpoint."""
+    """Tests for canonical circuit breaker metrics endpoints."""
 
     def test_get_circuit_breaker_metrics_json_format(self, client, mock_rotator):
         """Test circuit breaker metrics endpoint with JSON format (default)."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
-            response = client.get("/metrics/circuit-breaker")
+            response = client.get("/api/metrics/circuit-breakers")
 
             assert response.status_code == 200
             data = response.json()
@@ -235,27 +212,11 @@ class TestCircuitBreakerMetricsEndpoint:
             assert data["status"] == "success"
             assert "data" in data
 
-            # Check states
-            assert "states" in data["data"]
-            states = data["data"]["states"]
-            assert len(states) == 2
-
-            # Check first state
-            state0 = next(s for s in states if s["proxy_id"] == "proxy0.example.com:8080")
-            assert state0["state"] == "closed"
-            assert state0["failure_count"] == 2
-            assert state0["failure_threshold"] == 5
-
-            # Check second state
-            state1 = next(s for s in states if s["proxy_id"] == "proxy1.example.com:8080")
-            assert state1["state"] == "open"
-            assert state1["failure_count"] == 5
-            assert state1["next_test_time"] is not None
-
-            # Check events
-            assert "events" in data["data"]
-            assert "total_events" in data["data"]
-            assert data["data"]["total_events"] == 3
+            assert len(data["data"]) == 3
+            assert data["data"][0]["proxy_id"] == "proxy0.example.com:8080"
+            assert data["data"][0]["from_state"] == "closed"
+            assert data["data"][0]["to_state"] == "open"
+            assert data["data"][0]["failure_count"] == 5
 
     def test_get_circuit_breaker_metrics_with_hours_param(self, client, mock_rotator):
         """Test circuit breaker metrics with hours parameter."""
@@ -263,67 +224,31 @@ class TestCircuitBreakerMetricsEndpoint:
             # Request only last 1 hour
             # Event 1 is 1 hour ago (exactly), so may be excluded based on cutoff
             # Events 2 and 3 are within 30 and 15 minutes
-            response = client.get("/metrics/circuit-breaker?hours=1")
+            response = client.get("/api/metrics/circuit-breakers?hours=1")
 
             assert response.status_code == 200
             data = response.json()
 
-            # Should include events within 1 hour (2 events: 30 min and 15 min ago)
-            # The 1 hour event is right on the boundary and excluded
-            assert data["data"]["total_events"] == 2
-            assert data["data"]["hours"] == 1
+            # Should include events within 1 hour (2 events: 30 min and 15 min ago).
+            # The 1 hour event is right on the boundary and excluded.
+            assert len(data["data"]) == 2
 
     def test_get_circuit_breaker_metrics_prometheus_format(self, client, mock_rotator):
-        """Test circuit breaker metrics endpoint with Prometheus format."""
+        """Test canonical Prometheus endpoint for circuit breaker metrics."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
-            response = client.get("/metrics/circuit-breaker?format=prometheus")
+            response = client.get("/api/metrics")
 
             assert response.status_code == 200
             assert response.headers["content-type"] == "text/plain; version=0.0.4; charset=utf-8"
 
             content = response.text
-
-            # Check for circuit breaker state metric
             assert "# HELP proxywhirl_circuit_breaker_state" in content
             assert "# TYPE proxywhirl_circuit_breaker_state gauge" in content
-            assert (
-                'proxywhirl_circuit_breaker_state{proxy_id="proxy0.example.com:8080"} 0' in content
-            )
-            assert (
-                'proxywhirl_circuit_breaker_state{proxy_id="proxy1.example.com:8080"} 1' in content
-            )
-
-            # Check for failure count metric
-            assert "# HELP proxywhirl_circuit_breaker_failure_count" in content
-            assert "# TYPE proxywhirl_circuit_breaker_failure_count gauge" in content
-            assert (
-                'proxywhirl_circuit_breaker_failure_count{proxy_id="proxy0.example.com:8080"} 2'
-                in content
-            )
-            assert (
-                'proxywhirl_circuit_breaker_failure_count{proxy_id="proxy1.example.com:8080"} 5'
-                in content
-            )
-
-            # Check for failure threshold metric
-            assert "# HELP proxywhirl_circuit_breaker_failure_threshold" in content
-            assert "# TYPE proxywhirl_circuit_breaker_failure_threshold gauge" in content
-
-            # Check for state changes total
-            assert "# HELP proxywhirl_circuit_breaker_state_changes_total" in content
-            assert "proxywhirl_circuit_breaker_state_changes_total 3" in content
-
-            # Check for opens total
-            assert "# HELP proxywhirl_circuit_breaker_opens_total" in content
-            assert (
-                'proxywhirl_circuit_breaker_opens_total{proxy_id="proxy0.example.com:8080"} 1'
-                in content
-            )
 
     def test_get_circuit_breaker_metrics_no_rotator(self, client):
         """Test circuit breaker metrics endpoint when rotator is not initialized."""
         with patch("proxywhirl.api.core._rotator", None):
-            response = client.get("/metrics/circuit-breaker")
+            response = client.get("/api/metrics/circuit-breakers")
 
             assert response.status_code == 503
             assert "Rotator not initialized" in response.json()["detail"]
@@ -356,15 +281,12 @@ class TestCircuitBreakerMetricsEndpoint:
         rotator.get_retry_metrics.return_value = RetryMetrics()
 
         with patch("proxywhirl.api.core._rotator", rotator):
-            response = client.get("/metrics/circuit-breaker?format=prometheus")
+            response = client.get("/api/circuit-breakers")
 
             assert response.status_code == 200
-            content = response.text
+            states = response.json()["data"]
 
-            # Verify state mappings: 0=closed, 1=open, 2=half_open
-            assert 'proxywhirl_circuit_breaker_state{proxy_id="closed.proxy:8080"} 0' in content
-            assert 'proxywhirl_circuit_breaker_state{proxy_id="open.proxy:8080"} 1' in content
-            assert 'proxywhirl_circuit_breaker_state{proxy_id="halfopen.proxy:8080"} 2' in content
+            assert {state["state"] for state in states} == {"closed", "open", "half_open"}
 
 
 class TestAPIAuthentication:
@@ -376,7 +298,7 @@ class TestAPIAuthentication:
             patch("proxywhirl.api.core._rotator", mock_rotator),
             patch.dict("os.environ", {"PROXYWHIRL_REQUIRE_AUTH": "false"}),
         ):
-            response = client.get("/metrics/retry")
+            response = client.get("/api/metrics/retries")
             assert response.status_code == 200
 
     def test_retry_metrics_with_valid_api_key(self, client, mock_rotator):
@@ -392,7 +314,7 @@ class TestAPIAuthentication:
             ),
         ):
             response = client.get(
-                "/metrics/retry",
+                "/api/metrics/retries",
                 headers={"X-API-Key": "test-key-123"},
             )
             assert response.status_code == 200
@@ -410,7 +332,7 @@ class TestAPIAuthentication:
             ),
         ):
             response = client.get(
-                "/metrics/retry",
+                "/api/metrics/retries",
                 headers={"X-API-Key": "wrong-key"},
             )
             assert response.status_code == 401
@@ -428,12 +350,12 @@ class TestAPIAuthentication:
             ),
         ):
             # Without API key
-            response = client.get("/metrics/circuit-breaker")
+            response = client.get("/api/metrics/circuit-breakers")
             assert response.status_code == 401
 
             # With valid API key
             response = client.get(
-                "/metrics/circuit-breaker",
+                "/api/metrics/circuit-breakers",
                 headers={"X-API-Key": "test-key-123"},
             )
             assert response.status_code == 200
@@ -449,13 +371,13 @@ class TestAPIAuthentication:
             ),
         ):
             # Request should be rejected with 503 when auth required but key not configured
-            response = client.get("/metrics/retry")
+            response = client.get("/api/metrics/retries")
             assert response.status_code == 503
             assert "authentication not configured" in response.json()["detail"].lower()
 
             # Same behavior even with an API key header (since expected key is not configured)
             response = client.get(
-                "/metrics/retry",
+                "/api/metrics/retries",
                 headers={"X-API-Key": "any-key"},
             )
             assert response.status_code == 503
@@ -598,15 +520,15 @@ class TestEdgeCases:
 
         with patch("proxywhirl.api.core._rotator", rotator):
             # JSON format
-            response = client.get("/metrics/retry")
+            response = client.get("/api/metrics/retries")
             assert response.status_code == 200
             data = response.json()
-            assert data["data"]["summary"]["total_retries"] == 0
+            assert data["data"]["total_retries"] == 0
 
-            # Prometheus format
-            response = client.get("/metrics/retry?format=prometheus")
+            # Canonical Prometheus endpoint
+            response = client.get("/api/metrics")
             assert response.status_code == 200
-            assert "proxywhirl_retry_total 0" in response.text
+            assert "# HELP" in response.text
 
     def test_circuit_breaker_metrics_with_no_events(self, client):
         """Test circuit breaker metrics with no events."""
@@ -622,24 +544,23 @@ class TestEdgeCases:
         }
 
         with patch("proxywhirl.api.core._rotator", rotator):
-            response = client.get("/metrics/circuit-breaker")
+            response = client.get("/api/metrics/circuit-breakers")
             assert response.status_code == 200
             data = response.json()
-            assert data["data"]["total_events"] == 0
-            assert len(data["data"]["states"]) == 1
+            assert data["data"] == []
 
     def test_invalid_hours_parameter(self, client, mock_rotator):
         """Test that negative hours parameter is handled."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
             # Negative hours should still work (metrics layer handles it)
-            response = client.get("/metrics/retry?hours=-1")
+            response = client.get("/api/metrics/retries?hours=-1")
             # FastAPI will convert -1 to int, metrics layer returns empty data
             assert response.status_code == 200
 
     def test_large_hours_parameter(self, client, mock_rotator):
         """Test that very large hours parameter is handled."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
-            response = client.get("/metrics/retry?hours=10000")
+            response = client.get("/api/metrics/retries?hours=10000")
             assert response.status_code == 200
 
 
@@ -807,9 +728,9 @@ class TestPerAPIKeyRateLimiting:
         # Request without API key but with X-Forwarded-For (potential bypass attempt)
         request = Mock()
         request.headers.get = Mock(
-            side_effect=lambda key: "203.0.113.50, 192.168.1.1"
-            if key == "X-Forwarded-For"
-            else None
+            side_effect=lambda key: (
+                "203.0.113.50, 192.168.1.1" if key == "X-Forwarded-For" else None
+            )
         )
         request.client = Mock()
         request.client.host = "192.168.1.100"
@@ -969,7 +890,7 @@ class TestRequestIDMiddleware:
     def test_request_id_generated_when_not_provided(self, client, mock_rotator):
         """Test that X-Request-ID header is generated when not provided."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
-            response = client.get("/metrics/retry")
+            response = client.get("/api/metrics/retries")
 
             assert response.status_code == 200
 
@@ -994,7 +915,7 @@ class TestRequestIDMiddleware:
             custom_request_id = str(uuid.uuid4())
 
             response = client.get(
-                "/metrics/retry",
+                "/api/metrics/retries",
                 headers={"X-Request-ID": custom_request_id},
             )
 
@@ -1008,7 +929,7 @@ class TestRequestIDMiddleware:
         """Test that X-Request-ID appears in all response headers."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
             # Test on different endpoints
-            endpoints = ["/metrics/retry", "/metrics/circuit-breaker"]
+            endpoints = ["/api/metrics/retries", "/api/metrics/circuit-breakers"]
 
             for endpoint in endpoints:
                 response = client.get(endpoint)
@@ -1022,7 +943,7 @@ class TestRequestIDMiddleware:
         with patch("proxywhirl.api.core._rotator", mock_rotator):
             # Make multiple requests and verify each has valid UUID
             for _ in range(5):
-                response = client.get("/metrics/retry")
+                response = client.get("/api/metrics/retries")
                 assert response.status_code == 200
 
                 request_id = response.headers.get("X-Request-ID")
@@ -1043,7 +964,7 @@ class TestRequestIDMiddleware:
 
             # Make multiple requests
             for _ in range(10):
-                response = client.get("/metrics/retry")
+                response = client.get("/api/metrics/retries")
                 assert response.status_code == 200
                 request_ids.add(response.headers["X-Request-ID"])
 
@@ -1057,7 +978,7 @@ class TestRequestIDMiddleware:
             custom_id = "my-custom-request-id-12345"
 
             response = client.get(
-                "/metrics/retry",
+                "/api/metrics/retries",
                 headers={"X-Request-ID": custom_id},
             )
 
@@ -1071,7 +992,7 @@ class TestRequestIDMiddleware:
             custom_id = str(uuid.uuid4())
 
             response = client.get(
-                "/metrics/retry",
+                "/api/metrics/retries",
                 headers={"X-Request-ID": custom_id},
             )
 
@@ -1091,7 +1012,7 @@ class TestRequestIDMiddleware:
         rotator.pool.unhealthy_count = 2
 
         with patch("proxywhirl.api.core._rotator", rotator):
-            response = client.get("/api/v1/health")
+            response = client.get("/api/health")
 
             # Should have request ID regardless of health status
             assert "X-Request-ID" in response.headers
@@ -1105,7 +1026,7 @@ class TestRequestIDMiddleware:
         with patch("proxywhirl.api.core._rotator", mock_rotator):
             # Send empty string as request ID
             response = client.get(
-                "/metrics/retry",
+                "/api/metrics/retries",
                 headers={"X-Request-ID": ""},
             )
 
@@ -1129,7 +1050,7 @@ class TestSecurityHeaders:
     def test_security_headers_present_on_success_response(self, client, mock_rotator):
         """Test that all security headers are present on successful responses."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
-            response = client.get("/metrics/retry")
+            response = client.get("/api/metrics/retries")
 
             assert response.status_code == 200
 
@@ -1162,7 +1083,7 @@ class TestSecurityHeaders:
     def test_security_headers_present_on_error_response(self, client):
         """Test that security headers are present even on error responses."""
         with patch("proxywhirl.api.core._rotator", None):
-            response = client.get("/metrics/retry")
+            response = client.get("/api/metrics/retries")
 
             # Should be a 503 error
             assert response.status_code == 503
@@ -1194,7 +1115,7 @@ class TestSecurityHeaders:
         rotator.pool.unhealthy_count = 2
 
         with patch("proxywhirl.api.core._rotator", rotator):
-            response = client.get("/api/v1/health")
+            response = client.get("/api/health")
 
             # Security headers should be present regardless of endpoint
             assert response.headers.get("X-Content-Type-Options") == "nosniff"
@@ -1207,7 +1128,7 @@ class TestSecurityHeaders:
     def test_security_headers_on_circuit_breaker_endpoint(self, client, mock_rotator):
         """Test security headers on circuit breaker metrics endpoint."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
-            response = client.get("/metrics/circuit-breaker")
+            response = client.get("/api/metrics/circuit-breakers")
 
             assert response.status_code == 200
 
@@ -1232,7 +1153,7 @@ class TestSecurityHeaders:
     def test_hsts_prevents_downgrade_attacks(self, client, mock_rotator):
         """Test that HSTS header has proper configuration for security."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
-            response = client.get("/metrics/retry")
+            response = client.get("/api/metrics/retries")
 
             hsts = response.headers.get("Strict-Transport-Security")
             assert hsts is not None
@@ -1246,7 +1167,7 @@ class TestSecurityHeaders:
     def test_csp_prevents_xss_and_clickjacking(self, client, mock_rotator):
         """Test that CSP header properly restricts resource loading."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
-            response = client.get("/metrics/retry")
+            response = client.get("/api/metrics/retries")
 
             csp = response.headers.get("Content-Security-Policy")
             assert csp is not None
@@ -1260,7 +1181,7 @@ class TestSecurityHeaders:
     def test_permissions_policy_disables_sensitive_features(self, client, mock_rotator):
         """Test that Permissions-Policy disables sensitive browser features."""
         with patch("proxywhirl.api.core._rotator", mock_rotator):
-            response = client.get("/metrics/retry")
+            response = client.get("/api/metrics/retries")
 
             permissions = response.headers.get("Permissions-Policy")
             assert permissions is not None
@@ -1508,7 +1429,7 @@ class TestAuditLoggingMiddleware:
             with patch("proxywhirl.api.core._rotator", mock_rotator):
                 # This should not audit because PROXYWHIRL_AUDIT_LOG=false
                 response = client.post(
-                    "/api/v1/proxies",
+                    "/api/proxies",
                     json={"url": "http://proxy.example.com:8080"},
                 )
                 # Just verify the request went through
@@ -1518,7 +1439,7 @@ class TestAuditLoggingMiddleware:
             with patch("proxywhirl.api.core._rotator", mock_rotator):
                 # This should audit because PROXYWHIRL_AUDIT_LOG=true
                 response = client.post(
-                    "/api/v1/proxies",
+                    "/api/proxies",
                     json={"url": "http://proxy.example.com:8080"},
                 )
                 # Just verify the request went through
@@ -1621,17 +1542,17 @@ class TestAuditLoggingMiddleware:
         middleware = AuditLoggingMiddleware(None)
 
         # Test write operations
-        assert middleware._get_operation_type("POST", "/api/v1/proxies") == "write"
-        assert middleware._get_operation_type("PUT", "/api/v1/proxies/1") == "write"
-        assert middleware._get_operation_type("DELETE", "/api/v1/proxies/1") == "write"
+        assert middleware._get_operation_type("POST", "/api/proxies") == "write"
+        assert middleware._get_operation_type("PUT", "/api/proxies/1") == "write"
+        assert middleware._get_operation_type("DELETE", "/api/proxies/1") == "write"
 
         # Test admin operations
-        assert middleware._get_operation_type("POST", "/api/v1/config") == "admin"
-        assert middleware._get_operation_type("PUT", "/api/v1/config") == "admin"
+        assert middleware._get_operation_type("POST", "/api/config") == "admin"
+        assert middleware._get_operation_type("PUT", "/api/config") == "admin"
 
         # Test read operations (GET on write endpoints)
-        assert middleware._get_operation_type("GET", "/api/v1/proxies") == "read"
-        assert middleware._get_operation_type("GET", "/api/v1/config") == "read"
+        assert middleware._get_operation_type("GET", "/api/proxies") == "read"
+        assert middleware._get_operation_type("GET", "/api/config") == "read"
 
     def test_audit_middleware_logs_write_operations(self, client, mock_rotator, caplog):
         """Test that write operations are logged with structured audit information."""
@@ -1650,11 +1571,12 @@ class TestAuditLoggingMiddleware:
         with (
             patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}),
             patch("proxywhirl.api.core._rotator", mock_rotator),
+            patch("httpx.AsyncClient.request", AsyncMock(return_value=httpx.Response(200))),
             caplog.at_level(logging.INFO),
         ):
             # Make a write operation
             response = client.post(
-                "/api/v1/request",
+                "/api/request",
                 json={
                     "url": "http://example.com",
                     "method": "GET",
@@ -1763,7 +1685,7 @@ class TestAuditLoggingMiddleware:
         ):
             # Make a request that will fail
             response = client.post(
-                "/api/v1/request",
+                "/api/request",
                 json={"url": "http://example.com"},
             )
 
@@ -1788,13 +1710,14 @@ class TestAuditLoggingMiddleware:
         with (
             patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}),
             patch("proxywhirl.api.core._rotator", mock_rotator),
+            patch("httpx.AsyncClient.request", AsyncMock(return_value=httpx.Response(200))),
             caplog.at_level(logging.INFO),
         ):
             # Clear any existing logs
             caplog.clear()
 
             # Make a read operation (GET)
-            response = client.get("/metrics/retry")
+            response = client.get("/api/metrics/retries")
 
             # Should succeed
             assert response.status_code == 200
@@ -1824,7 +1747,7 @@ class TestAuditLoggingMiddleware:
         ):
             # Make a write operation with custom request ID
             response = client.post(
-                "/api/v1/request",
+                "/api/request",
                 json={"url": "http://example.com"},
                 headers={"X-Request-ID": custom_request_id},
             )
@@ -1851,7 +1774,7 @@ class TestAuditLoggingMiddleware:
         ):
             # Send invalid JSON
             response = client.post(
-                "/api/v1/request",
+                "/api/request",
                 data="not valid json",
                 headers={"Content-Type": "application/json"},
             )

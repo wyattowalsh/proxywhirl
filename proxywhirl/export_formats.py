@@ -1,5 +1,7 @@
 """Multiple export format support for proxy data."""
 
+from __future__ import annotations
+
 import csv
 import io
 import json

@@ -1,17 +1,15 @@
 """Contract tests for retry/failover API endpoints (Retry & Failover).
 
 Tests the API contract for all 13 retry/failover endpoints:
-1. GET /api/v1/retry/policy - Get global retry policy
-2. PUT /api/v1/retry/policy - Update global retry policy
-3. GET /api/v1/circuit-breakers - List all circuit breaker states
-4. GET /api/v1/circuit-breakers/metrics - Get circuit breaker metrics
-5. GET /api/v1/circuit-breakers/{proxy_id} - Get circuit breaker state for specific proxy
-6. POST /api/v1/circuit-breakers/{proxy_id}/reset - Manually reset circuit breaker
-7. GET /api/v1/metrics/retries - Get retry metrics summary
-8. GET /api/v1/metrics/retries/timeseries - Get time-series retry data
-9. GET /api/v1/metrics/retries/by-proxy - Get per-proxy retry statistics
-10. GET /metrics/retry - Get retry statistics (JSON/Prometheus)
-11. GET /metrics/circuit-breaker - Get circuit breaker metrics (JSON/Prometheus)
+1. GET /api/retry/policy - Get global retry policy
+2. PUT /api/retry/policy - Update global retry policy
+3. GET /api/circuit-breakers - List all circuit breaker states
+4. GET /api/metrics/circuit-breakers - Get circuit breaker metrics
+5. GET /api/circuit-breakers/{proxy_id} - Get circuit breaker state for specific proxy
+6. POST /api/circuit-breakers/{proxy_id}/reset - Manually reset circuit breaker
+7. GET /api/metrics/retries - Get retry metrics summary
+8. GET /api/metrics/retries/timeseries - Get time-series retry data
+9. GET /api/metrics/retries/by-proxy - Get per-proxy retry statistics
 """
 
 from datetime import datetime, timezone
@@ -32,7 +30,7 @@ from proxywhirl.api.models import (
 )
 
 
-# T301: Contract test for GET /api/v1/retry/policy
+# T301: Contract test for GET /api/retry/policy
 class TestGetRetryPolicyContract:
     """Test RetryPolicyResponse schema for getting retry policy."""
 
@@ -82,7 +80,7 @@ class TestGetRetryPolicyContract:
         assert response.timeout is None
 
 
-# T302: Contract test for PUT /api/v1/retry/policy
+# T302: Contract test for PUT /api/retry/policy
 class TestUpdateRetryPolicyContract:
     """Test RetryPolicyRequest schema for updating retry policy."""
 
@@ -175,7 +173,7 @@ class TestUpdateRetryPolicyContract:
         assert any("greater_than" in str(e["type"]) for e in errors)
 
 
-# T303: Contract test for GET /api/v1/circuit-breakers
+# T303: Contract test for GET /api/circuit-breakers
 class TestListCircuitBreakersContract:
     """Test CircuitBreakerResponse schema for listing circuit breakers."""
 
@@ -244,7 +242,7 @@ class TestListCircuitBreakersContract:
         assert response.failure_count == 0
 
 
-# T304: Contract test for GET /api/v1/circuit-breakers/metrics
+# T304: Contract test for GET /api/metrics/circuit-breakers
 class TestCircuitBreakerMetricsContract:
     """Test CircuitBreakerEventResponse schema for circuit breaker events."""
 
@@ -283,21 +281,21 @@ class TestCircuitBreakerMetricsContract:
         assert response.failure_count == 0
 
 
-# T305: Contract test for GET /api/v1/circuit-breakers/{proxy_id}
+# T305: Contract test for GET /api/circuit-breakers/{proxy_id}
 @pytest.mark.skip(reason="Covered by T303 CircuitBreakerResponse schema test")
 def test_get_circuit_breaker_by_id_contract():
-    """Test GET /api/v1/circuit-breakers/{proxy_id} response schema."""
+    """Test GET /api/circuit-breakers/{proxy_id} response schema."""
     pass
 
 
-# T306: Contract test for POST /api/v1/circuit-breakers/{proxy_id}/reset
+# T306: Contract test for POST /api/circuit-breakers/{proxy_id}/reset
 @pytest.mark.skip(reason="Covered by T303 CircuitBreakerResponse schema test")
 def test_reset_circuit_breaker_contract():
-    """Test POST /api/v1/circuit-breakers/{proxy_id}/reset response schema."""
+    """Test POST /api/circuit-breakers/{proxy_id}/reset response schema."""
     pass
 
 
-# T307: Contract test for GET /api/v1/metrics/retries
+# T307: Contract test for GET /api/metrics/retries
 class TestGetRetryMetricsContract:
     """Test RetryMetricsResponse schema for retry metrics summary."""
 
@@ -339,7 +337,7 @@ class TestGetRetryMetricsContract:
         assert response.circuit_breaker_events_count == 0
 
 
-# T308: Contract test for GET /api/v1/metrics/retries/timeseries
+# T308: Contract test for GET /api/metrics/retries/timeseries
 class TestGetRetryTimeseriesContract:
     """Test TimeSeriesResponse schema for time-series retry data."""
 
@@ -403,7 +401,7 @@ class TestGetRetryTimeseriesContract:
         assert any("less_than_equal" in str(e["type"]) for e in errors)
 
 
-# T309: Contract test for GET /api/v1/metrics/retries/by-proxy
+# T309: Contract test for GET /api/metrics/retries/by-proxy
 class TestGetRetryStatsByProxyContract:
     """Test ProxyRetryStatsResponse schema for per-proxy retry statistics."""
 
@@ -479,40 +477,6 @@ class TestGetRetryStatsByProxyContract:
         assert stats.success_count == 0
         assert stats.failure_count == 0
         assert stats.avg_latency == 0.0
-
-
-# T310: Contract test for GET /metrics/retry (JSON format)
-@pytest.mark.skip(reason="GET /metrics/retry returns dynamic JSON - covered by integration tests")
-def test_retry_metrics_endpoint_json_contract():
-    """Test GET /metrics/retry JSON response format."""
-    pass
-
-
-# T311: Contract test for GET /metrics/retry?format=prometheus
-@pytest.mark.skip(
-    reason="GET /metrics/retry?format=prometheus returns Prometheus text - covered by integration tests"
-)
-def test_retry_metrics_endpoint_prometheus_contract():
-    """Test GET /metrics/retry?format=prometheus response format."""
-    pass
-
-
-# T312: Contract test for GET /metrics/circuit-breaker (JSON format)
-@pytest.mark.skip(
-    reason="GET /metrics/circuit-breaker returns dynamic JSON - covered by integration tests"
-)
-def test_circuit_breaker_metrics_endpoint_json_contract():
-    """Test GET /metrics/circuit-breaker JSON response format."""
-    pass
-
-
-# T313: Contract test for GET /metrics/circuit-breaker?format=prometheus
-@pytest.mark.skip(
-    reason="GET /metrics/circuit-breaker?format=prometheus returns Prometheus text - covered by integration tests"
-)
-def test_circuit_breaker_metrics_endpoint_prometheus_contract():
-    """Test GET /metrics/circuit-breaker?format=prometheus response format."""
-    pass
 
 
 # ============================================================================

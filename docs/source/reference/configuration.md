@@ -629,7 +629,7 @@ uvicorn proxywhirl.api:app --host 0.0.0.0 --port 8000
 Clients must include the API key:
 
 ```bash
-curl -H "X-API-Key: $PROXYWHIRL_API_KEY" http://localhost:8000/api/v1/rotate
+curl -H "X-API-Key: $PROXYWHIRL_API_KEY" http://localhost:8000/api/proxies
 ```
 
 ## Configuration Examples

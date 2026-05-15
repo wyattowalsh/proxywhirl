@@ -39,10 +39,10 @@ cd docs && uv run sphinx-build -b linkcheck source build/linkcheck && cd ..
 ```
 
 ```{tip}
-The ``Makefile`` wraps all of these into a single command: ``make quality-gates`` runs lint, type-check, tests, and coverage in sequence. Use ``make format`` for auto-fixing style issues before you lint.
+The tracked ``Taskfile.yml`` wraps these checks into ``task quality-gates``, which runs lint, type-check, tests, and coverage in sequence. Use ``task format`` for auto-fixing style issues before you lint.
 ```
 
-### Makefile Targets Quick Reference
+### Taskfile Targets Quick Reference
 
 ```{list-table}
 :header-rows: 1
@@ -50,27 +50,25 @@ The ``Makefile`` wraps all of these into a single command: ``make quality-gates`
 
 * - Target
   - Description
-* - ``make test``
+* - ``task test``
   - Run all tests with pretty output
-* - ``make test-unit``
+* - ``task test-unit``
   - Run unit tests only
-* - ``make test-integration``
+* - ``task test-integration``
   - Run integration tests only
-* - ``make test-parallel``
-  - Run tests in parallel with ``pytest-xdist``
-* - ``make test-fast``
+* - ``task test-fast``
   - Run tests excluding ``@pytest.mark.slow``
-* - ``make lint``
+* - ``task lint``
   - Run Ruff linter
-* - ``make format``
+* - ``task format``
   - Auto-format with Ruff
-* - ``make type-check``
+* - ``task type-check``
   - Run ``ty`` type checker
-* - ``make quality-gates``
+* - ``task quality-gates``
   - Run lint + type-check + test + coverage
-* - ``make docs-html``
+* - ``task docs-html``
   - Build HTML documentation
-* - ``make docs-linkcheck``
+* - ``task docs-linkcheck``
   - Check documentation links
 ```
 
@@ -389,7 +387,7 @@ services:
       - proxywhirl-data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
       interval: 30s
       timeout: 10s
       start_period: 5s
@@ -410,7 +408,7 @@ volumes:
 docker compose up -d
 
 # Check health
-curl http://localhost:8000/api/v1/health
+curl http://localhost:8000/api/health
 
 # View logs
 docker compose logs -f proxywhirl-api
@@ -513,13 +511,13 @@ Validate that all proxy sources are reachable as part of your CI pipeline:
 uv run proxywhirl sources --validate
 
 # CI mode: exit with error code if any sources are unhealthy
-uv run proxywhirl sources --validate --fail-on-unhealthy
+uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
 ```
 
-Or use the Makefile target:
+Or use the Taskfile target:
 
 ```bash
-make validate-sources-ci
+task validate-sources-ci
 ```
 
 ---
@@ -541,15 +539,15 @@ Document new verification scripts in the docs and reference them from pull reque
 1. Bump the version using conventional commits:
    ```bash
    # Dry-run to preview the version bump
-   make bump-dry
+   uv run cz bump --dry-run
 
    # Apply the bump
-   make bump
+   uv run cz bump
    ```
 
 2. Generate the changelog:
    ```bash
-   make changelog
+   uv run cz changelog
    ```
 
 3. Export proxy data for the release:
@@ -592,7 +590,7 @@ Without these variables, Sphinx builds cleanly but omits DocSearch assets to avo
   - Commands
   - Purpose
 * - ``lint``
-  - ``make lint`` / ``uv run ruff check .``
+  - ``task lint`` / ``uv run ruff check .``
   - Style enforcement and static analysis
 * - ``typecheck``
   - ``uv run ty check proxywhirl/``

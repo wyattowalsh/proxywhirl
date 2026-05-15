@@ -338,7 +338,7 @@ class ProxyWhirlMetrics:
 from fastapi.responses import Response
 from prometheus_client import REGISTRY
 
-@app.get("/metrics")
+@app.get("/api/metrics")
 async def metrics():
     """Export Prometheus metrics."""
     return Response(

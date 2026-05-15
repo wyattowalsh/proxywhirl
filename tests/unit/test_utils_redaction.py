@@ -1,5 +1,7 @@
 """Tests for utils.py edge cases to push coverage to 90%."""
 
+import pytest
+
 from proxywhirl.models import Proxy
 from proxywhirl.utils import create_proxy_from_url, validate_proxy_model
 
@@ -42,9 +44,18 @@ class TestValidationEdgeCases:
         assert "proxy.example.com" in str(proxy2.url)
 
     def test_create_proxy_from_url_with_empty_username(self):
-        """Test that URL with empty username is handled."""
-        # This tests the edge case where username is empty string
-        proxy = create_proxy_from_url("http://:password@proxy.example.com:8080")
-        # Password should be set, username might be None or empty
-        if proxy.password:
-            assert proxy.password.get_secret_value() == "password"
+        """Test that malformed URL credentials with empty username are rejected."""
+        with pytest.raises(ValueError):
+            create_proxy_from_url("http://:password@proxy.example.com:8080")
+
+    def test_proxy_model_allows_explicit_empty_credential_fields(self):
+        """Explicit model credentials may be empty; URL-embedded empty creds are invalid."""
+        proxy = Proxy(url="http://proxy.example.com:8080", username="", password="password")
+
+        assert proxy.username is not None
+        assert proxy.username.get_secret_value() == ""
+        assert proxy.password is not None
+        assert proxy.password.get_secret_value() == "password"
+        assert proxy.credentials is not None
+        assert proxy.credentials.username.get_secret_value() == ""
+        assert proxy.credentials.password.get_secret_value() == "password"

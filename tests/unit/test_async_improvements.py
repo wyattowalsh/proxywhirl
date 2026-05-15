@@ -70,6 +70,7 @@ class TestAsyncStreaming:
         assert sum(results) == sum(items)
 
 
+@pytest.mark.slow
 class TestBrowserContextManager:
     """Test browser async context manager."""
 
@@ -218,6 +219,7 @@ class TestAsyncNoBlocking:
         assert elapsed >= 0.04  # Allow some slack
 
     @pytest.mark.asyncio
+    @pytest.mark.slow
     async def test_gather_vs_sequential(self) -> None:
         """Verify that gather is faster than sequential."""
 

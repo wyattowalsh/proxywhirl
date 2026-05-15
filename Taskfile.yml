@@ -1,0 +1,112 @@
+version: "3"
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  test:
+    desc: Run all tests
+    cmds:
+      - uv run pytest tests/ -q
+
+  test-unit:
+    desc: Run unit tests
+    cmds:
+      - uv run pytest tests/unit/ -v
+
+  test-integration:
+    desc: Run integration tests
+    cmds:
+      - uv run pytest tests/integration/ -v
+
+  test-fast:
+    desc: Run fast unit and integration tests
+    cmds:
+      - uv run pytest tests/unit/ tests/integration/ -m "not slow" --timeout=120 -q
+
+  test-parallel:
+    desc: Run fast unit and integration tests with pytest-xdist
+    cmds:
+      - uv run pytest tests/unit/ tests/integration/ -m "not slow" --timeout=120 -n 4 -q
+
+  lint:
+    desc: Run ruff linter
+    cmds:
+      - uv run ruff check proxywhirl/ tests/
+
+  format:
+    desc: Format code with ruff
+    cmds:
+      - uv run ruff format proxywhirl/ tests/
+
+  type-check:
+    desc: Run ty type checking
+    cmds:
+      - uv run ty check proxywhirl/
+
+  quality-gates:
+    desc: Run lint, type check, fast tests, and coverage
+    cmds:
+      - task lint
+      - task type-check
+      - task test-fast
+      - task coverage
+
+  coverage:
+    desc: Run core library coverage measurement
+    cmds:
+      - |
+        uv run pytest \
+          tests/unit/ \
+          tests/integration/ \
+          -m "not slow" \
+          --cov=proxywhirl.models \
+          --cov=proxywhirl.strategies \
+          --cov=proxywhirl.rotator \
+          --cov=proxywhirl.storage \
+          --cov=proxywhirl.utils \
+          --cov=proxywhirl.fetchers \
+          --cov=proxywhirl.sources \
+          --cov=proxywhirl.exceptions \
+          --cov-report=term-missing \
+          --cov-report=html:logs/htmlcov \
+          --cov-report=xml \
+          --cov-report=json:coverage.json \
+          --cov-fail-under=85 \
+          --timeout=120 \
+          -q \
+          --tb=line
+
+  validate-sources:
+    desc: Validate proxy source URLs
+    cmds:
+      - uv run proxywhirl sources --validate
+
+  validate-sources-ci:
+    desc: Strict source validation for CI
+    cmds:
+      - uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
+
+  sources-list:
+    desc: List configured proxy sources
+    cmds:
+      - uv run proxywhirl sources
+
+  docs-html:
+    desc: Build HTML documentation
+    dir: docs
+    cmds:
+      - uv run --extra docs sphinx-build -M html source build
+
+  docs-linkcheck:
+    desc: Check documentation links
+    dir: docs
+    cmds:
+      - uv run --extra docs sphinx-build -b linkcheck source build/linkcheck
+
+  docs-clean:
+    desc: Clean documentation build artifacts
+    cmds:
+      - uv run python -c "import shutil; shutil.rmtree('docs/build', ignore_errors=True)"

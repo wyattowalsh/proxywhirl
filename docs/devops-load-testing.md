@@ -20,11 +20,11 @@ from locust import HttpUser, task
 class ProxyWhirlUser(HttpUser):
     @task
     def get_proxies(self):
-        self.client.get("/api/v1/proxies")
+        self.client.get("/api/proxies")
     
     @task
     def select_proxy(self):
-        self.client.post("/api/v1/select")
+        self.client.post("/api/request", json={"url": "https://example.com"})
 ```
 
 ### k6

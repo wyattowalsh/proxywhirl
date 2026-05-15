@@ -6,6 +6,7 @@ Tests the `proxywhirl sources audit` command for auditing proxy sources.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -14,14 +15,16 @@ from typer.testing import CliRunner
 
 from proxywhirl.cli import app
 
+_xdist_worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
+
 # Test fixtures - set explicit width to avoid CI terminal width issues
 runner = CliRunner(
     env={
         "COLUMNS": "120",
         "TERM": "dumb",
-        "XDG_DATA_HOME": str(Path.cwd() / ".cli-test-data"),
-        "XDG_CONFIG_HOME": str(Path.cwd() / ".cli-test-config"),
-        "HOME": str(Path.cwd() / ".cli-test-home"),
+        "XDG_DATA_HOME": str(Path.cwd() / f".cli-test-data-sources-{_xdist_worker}"),
+        "XDG_CONFIG_HOME": str(Path.cwd() / f".cli-test-config-sources-{_xdist_worker}"),
+        "HOME": str(Path.cwd() / f".cli-test-home-sources-{_xdist_worker}"),
     }
 )
 

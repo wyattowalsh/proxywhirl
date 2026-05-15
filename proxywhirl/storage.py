@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlparse
 
 import aiofiles
@@ -445,13 +445,12 @@ class SQLiteStorage:
         # and future enhancements but currently always uses async driver
         db_url = f"sqlite+aiosqlite:///{self.filepath}"
 
-        # Note: SQLite with aiosqlite uses StaticPool by default which doesn't support
-        # pool_size, max_overflow, pool_timeout parameters. These are stored as instance
-        # attributes for API compatibility and future enhancement with other backends.
+        # Apply the explicit base pool size where supported. The other pool knobs
+        # remain stored as instance attributes for backend/API compatibility.
         self.engine: AsyncEngine = create_async_engine(
             db_url,
             echo=False,
-            pool_size=10,
+            pool_size=pool_size,
         )
 
         # Slow query logging threshold (milliseconds)
@@ -735,8 +734,8 @@ class SQLiteStorage:
             # Batch check existing proxies
             urls = [p.url for p in proxies]
             existing_stmt = select(ProxyIdentityTable.url).where(ProxyIdentityTable.url.in_(urls))
-            existing_results = await session.execute(existing_stmt)
-            existing_urls = {row[0] for row in existing_results}
+            existing_results = await session.exec(existing_stmt)
+            existing_urls = set(existing_results.all())
 
             # Separate new and existing
             new_proxies = [p for p in proxies if p.url not in existing_urls]
@@ -1070,7 +1069,7 @@ class SQLiteStorage:
             select(ProxyIdentityTable, ProxyStatusTable)
             .join(ProxyStatusTable, ProxyIdentityTable.url == ProxyStatusTable.proxy_url)
             .where(ProxyStatusTable.health_status == "healthy")
-            .where(ProxyStatusTable.last_success_at >= cutoff)  # type: ignore[operator]
+            .where(cast(Any, ProxyStatusTable.last_success_at) >= cutoff)
         )
 
         if protocol:
@@ -1258,7 +1257,7 @@ class SQLiteStorage:
             select(ProxyIdentityTable, ProxyStatusTable)
             .join(ProxyStatusTable, ProxyIdentityTable.url == ProxyStatusTable.proxy_url)
             .where(ProxyStatusTable.last_success_at.isnot(None))  # type: ignore[union-attr]
-            .where(ProxyStatusTable.last_success_at >= cutoff)  # type: ignore[operator]
+            .where(cast(Any, ProxyStatusTable.last_success_at) >= cutoff)
             .where(ProxyStatusTable.health_status == "healthy")
         )
 
@@ -1345,7 +1344,7 @@ class SQLiteStorage:
             if remove_stale_days > 0:
                 cutoff = datetime.now(timezone.utc) - timedelta(days=remove_stale_days)
                 stale_stmt = select(ProxyStatusTable.proxy_url).where(
-                    (ProxyStatusTable.last_check_at < cutoff)  # type: ignore[operator]
+                    (cast(Any, ProxyStatusTable.last_check_at) < cutoff)
                     | ProxyStatusTable.last_check_at.is_(None)  # type: ignore[union-attr]
                 )
                 stale_result = await session.exec(stale_stmt)
@@ -1579,7 +1578,7 @@ class SQLiteStorage:
             select(ProxyIdentityTable, ProxyStatusTable)
             .join(ProxyStatusTable, ProxyIdentityTable.url == ProxyStatusTable.proxy_url)
             .where(ProxyStatusTable.health_status == "healthy")
-            .where(ProxyStatusTable.last_success_at >= cutoff)  # type: ignore[operator]
+            .where(cast(Any, ProxyStatusTable.last_success_at) >= cutoff)
         )
 
         if protocols:

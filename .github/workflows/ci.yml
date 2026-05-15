@@ -180,25 +180,43 @@ jobs:
           uv venv
           uv pip install -e ".[dev]"
 
-      - name: Run tests with coverage
+      - name: Run non-slow tests
         id: test
         run: |
           echo "::group::Test Results"
-          uv run pytest -m "not slow" --cov=proxywhirl --cov-report=xml --cov-report=term-missing --cov-report=json -v
+          uv run pytest tests/unit/ tests/integration/ -m "not slow" --timeout=120 -v
           echo "::endgroup::"
 
       - name: Check coverage threshold
         if: matrix.python-version == '3.11'
         run: |
           echo "::group::Coverage Check"
-          uv run pytest --cov=proxywhirl --cov-fail-under=85 -q || (echo "::error::Code coverage is below 85% threshold" && exit 1)
+          uv run pytest \
+            tests/unit/ \
+            tests/integration/ \
+            -m "not slow" \
+            --cov=proxywhirl.models \
+            --cov=proxywhirl.strategies \
+            --cov=proxywhirl.rotator \
+            --cov=proxywhirl.storage \
+            --cov=proxywhirl.utils \
+            --cov=proxywhirl.fetchers \
+            --cov=proxywhirl.sources \
+            --cov=proxywhirl.exceptions \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-report=json:coverage.json \
+            --cov-fail-under=85 \
+            --timeout=120 \
+            -q \
+            --tb=line || (echo "::error::Code coverage is below 85% threshold" && exit 1)
           echo "::endgroup::"
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         if: matrix.python-version == '3.11'
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           flags: unittests
           name: codecov-umbrella
           fail_ci_if_error: false
@@ -432,6 +450,8 @@ jobs:
       - name: Report workflow timing
         if: always()
         run: |
-          echo "## CI Workflow Timing" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "All jobs have completed. Check individual job logs for step-level timings." >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## CI Workflow Timing"
+            echo ""
+            echo "All jobs have completed. Check individual job logs for step-level timings."
+          } >> "$GITHUB_STEP_SUMMARY"

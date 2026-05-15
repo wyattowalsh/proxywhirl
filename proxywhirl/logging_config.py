@@ -15,7 +15,6 @@ Example:
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 from typing import Literal
@@ -128,41 +127,6 @@ class LoggingConfig(BaseModel):
     )
 
 
-def _json_formatter(record) -> str:
-    """Format a log record as JSON with standard fields.
-
-    Args:
-        record: The loguru log record.
-
-    Returns:
-        JSON string representation of the log record.
-    """
-    log_data = {
-        "timestamp": record["time"].isoformat(),
-        "level": record["level"].name,
-        "message": record["message"],
-        "logger": record["name"],
-        "function": record["function"],
-        "line": record["line"],
-        "thread": record["thread"].id,
-        "process": record["process"].id,
-    }
-
-    # Add exception info if present
-    if record["exception"] is not None:
-        log_data["exception"] = {
-            "type": record["exception"].type,
-            "value": str(record["exception"].value),
-        }
-
-    # Add extra context fields
-    extra = {k: v for k, v in record["extra"].items() if not k.startswith("_")}
-    if extra:
-        log_data["extra"] = extra
-
-    return json.dumps(log_data, default=str) + "\n"
-
-
 # Format templates for different output styles
 FORMAT_TEMPLATES = {
     "default": (
@@ -171,7 +135,7 @@ FORMAT_TEMPLATES = {
         "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
         "<level>{message}</level>"
     ),
-    "json": "{message}",  # JSON serialization handled by custom formatter
+    "json": ("{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}"),
     "logfmt": (
         "time={time:YYYY-MM-DD HH:mm:ss.SSS} "
         "level={level} "
@@ -242,35 +206,23 @@ def configure_logging(
     if format in ("json", "logfmt"):
         colorize = False
 
-    # Create a redacting sink if requested
+    patcher = None
     if redact_secrets:
-        original_sink = sink
+        import re
 
-        def redacting_sink(message):
-            # Redact sensitive data from the message
-            record = message.record
+        def redact_record(record) -> None:
             msg_str = record["message"]
-
-            # Redact common credential patterns
-            import re
-
             msg_str = re.sub(
                 r'(?i)(password|token|api_?key|secret|credential)["\']?\s*[:=]\s*["\']([^"\']*)["\']',
                 r'\1: "***"',
                 msg_str,
             )
-            # Redact URLs with credentials
             msg_str = re.sub(r"://[^/@?#]*@", "://***:***@", msg_str)
-
             record["message"] = msg_str
 
-            # Write to original sink
-            if hasattr(original_sink, "write"):
-                original_sink.write(message)
-            else:
-                print(message, end="")
+        patcher = redact_record
 
-        sink = redacting_sink
+    logger.configure(patcher=patcher)
 
     # Build handler config
     handler_config = {
@@ -284,8 +236,8 @@ def configure_logging(
 
     # Add format configuration
     if format == "json":
-        # Use custom JSON formatter for standard fields
-        handler_config["format"] = _json_formatter
+        handler_config["format"] = FORMAT_TEMPLATES[format]
+        handler_config["serialize"] = True
     else:
         handler_config["format"] = FORMAT_TEMPLATES[format]
 

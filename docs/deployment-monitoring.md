@@ -8,7 +8,7 @@ scrape_configs:
   - job_name: 'proxywhirl'
     static_configs:
       - targets: ['localhost:8000']
-    metrics_path: '/metrics'
+    metrics_path: '/api/metrics'
     scrape_interval: 15s
 
   - job_name: 'proxywhirl-database'

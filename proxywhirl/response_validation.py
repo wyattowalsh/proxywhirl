@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
@@ -25,7 +26,7 @@ class ValidationRule:
     """Rule for validating response."""
 
     name: str
-    check_fn: callable  # Function that returns bool
+    check_fn: Callable[[Any], bool]
     message: str
 
 

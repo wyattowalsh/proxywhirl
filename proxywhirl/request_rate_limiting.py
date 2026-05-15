@@ -239,7 +239,7 @@ class RequestRateLimiter:
         if len(self.request_log) > 10000:
             self.request_log = self.request_log[-5000:]
 
-    def get_global_stats(self) -> dict[str, int | float]:
+    def get_global_stats(self) -> dict[str, int | float | str]:
         """
         Get global rate limiter statistics.
 

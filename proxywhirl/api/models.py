@@ -419,9 +419,9 @@ class CreateProxyRequest(BaseModel):
         except Exception as e:
             raise ValueError(f"Invalid proxy URL format: {e}") from e
 
-        # Check scheme (http/https/socks4/socks5 allowed for proxies)
+        # Check scheme (http/https/socks4/socks5/socks5h allowed for proxies)
         scheme = parsed.scheme
-        allowed_schemes = ("http", "https", "socks4", "socks5")
+        allowed_schemes = ("http", "https", "socks4", "socks5", "socks5h")
         if scheme.lower() not in allowed_schemes:
             raise ValueError(
                 f"Invalid proxy URL scheme '{scheme}'. "
@@ -488,7 +488,7 @@ class ProxyResource(BaseModel):
 
     id: str = Field(description="Unique proxy identifier")
     url: str = Field(description="Proxy URL")
-    protocol: str = Field(description="Proxy protocol (http/https/socks5)")
+    protocol: str = Field(description="Proxy protocol (http/https/socks4/socks5/socks5h)")
     status: str = Field(description="Current proxy status")
     health: str = Field(description="Health check status")
     stats: dict[str, Any] = Field(description="Proxy statistics")

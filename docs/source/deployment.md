@@ -14,7 +14,7 @@ pre-commit install
 
 ### Run Tests
 ```bash
-make test
+task test
 ```
 
 ### Run Locally
@@ -51,7 +51,7 @@ docker run -d \
 docker compose up -d
 ```
 
-**Access:** http://localhost:8000/api/v1/health
+**Access:** http://localhost:8000/api/health
 
 ### Environment Variables
 ```bash
@@ -203,7 +203,7 @@ heroku container:release web -a proxywhirl-api
 
 ### Prometheus Metrics
 
-**Endpoint:** `/metrics`
+**Endpoint:** `/api/metrics`
 
 **Key Metrics:**
 - `proxywhirl_pool_size` - Total proxies in pool
@@ -302,7 +302,7 @@ import httpx
 
 headers = {"Authorization": f"Bearer {API_KEY}"}
 response = httpx.get(
-    "http://localhost:8000/api/v1/health",
+    "http://localhost:8000/api/health",
     headers=headers
 )
 ```
@@ -442,4 +442,4 @@ export PROXYWHIRL_TIMEOUT=60
 export PROXYWHIRL_VALIDATION_INTERVAL=3600
 ```
 
-See [Troubleshooting Guide](troubleshooting.md) for more.
+See [Troubleshooting Guide](guides/troubleshooting.md) for more.

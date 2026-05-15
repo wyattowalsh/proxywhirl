@@ -72,7 +72,7 @@ class APIKeyManager:
         key_hash = bcrypt.hashpw(secret.encode(), bcrypt.gensalt()).decode()
 
         expires_at = None
-        if expires_in_days:
+        if expires_in_days is not None:
             expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
 
         api_key = APIKey(

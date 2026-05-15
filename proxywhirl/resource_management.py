@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Generic, TypeVar
 
@@ -27,7 +28,7 @@ class ResourcePool(Generic[T]):
 
     def __init__(
         self,
-        factory: callable,
+        factory: Callable[[], T],
         min_size: int = 5,
         max_size: int = 20,
         timeout: float = 30.0,

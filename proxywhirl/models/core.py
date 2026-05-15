@@ -26,6 +26,8 @@ from pydantic import (
 )
 from pydantic_settings import BaseSettings
 
+from proxywhirl.exceptions import ProxyPoolEmptyError
+
 if TYPE_CHECKING:
     import httpx
 
@@ -352,7 +354,7 @@ class Proxy(BaseModel):
 
     id: UUID = Field(default_factory=uuid4)
     url: str  # Changed from HttpUrl to allow socks:// URLs
-    protocol: Literal["http", "https", "socks4", "socks5"] | None = None
+    protocol: Literal["http", "https", "socks4", "socks5", "socks5h"] | None = None
     username: SecretStr | None = None
     password: SecretStr | None = None
     allow_local: bool = Field(
@@ -423,11 +425,11 @@ class Proxy(BaseModel):
         scheme_match = re.match(r"^([a-z0-9]+)://", v.lower())
         if not scheme_match:
             raise ValueError(
-                f"URL must have a scheme (http://, https://, socks4://, or socks5://): {v}"
+                f"URL must have a scheme (http://, https://, socks4://, socks5://, or socks5h://): {v}"
             )
 
         scheme = scheme_match.group(1)
-        allowed_schemes = {"http", "https", "socks4", "socks5"}
+        allowed_schemes = {"http", "https", "socks4", "socks5", "socks5h"}
 
         if scheme not in allowed_schemes:
             raise ValueError(
@@ -543,6 +545,8 @@ class Proxy(BaseModel):
                 self.protocol = "socks4"
             elif url_str.startswith("socks5://"):
                 self.protocol = "socks5"
+            elif url_str.startswith("socks5h://"):
+                self.protocol = "socks5h"
         return self
 
     @model_validator(mode="after")
@@ -625,7 +629,7 @@ class Proxy(BaseModel):
     @property
     def credentials(self) -> ProxyCredentials | None:
         """Get credentials if present."""
-        if self.username and self.password:
+        if self.username is not None and self.password is not None:
             return ProxyCredentials(
                 username=self.username,
                 password=self.password,
@@ -923,7 +927,7 @@ class ProxyConfiguration(BaseSettings):
     pool_timeout: int = 30
     health_check_enabled: bool = True
     health_check_interval_seconds: int = 300
-    health_check_url: HttpUrl = Field(default="http://httpbin.org/ip")  # type: ignore
+    health_check_url: HttpUrl = Field(default="http://httpbin.org/ip")
     health_check_timeout: int = 10
     log_level: str = "WARNING"
     log_format: Literal["auto", "json", "text"] = "auto"
@@ -1038,7 +1042,7 @@ class ProxyPool(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     id: UUID = Field(default_factory=uuid4)
-    name: str
+    name: str = "default"
     proxies: list[Proxy] = Field(default_factory=list)
     max_pool_size: int = 100
     auto_remove_dead: bool = False
@@ -1352,6 +1356,13 @@ class ProxyPool(BaseModel):
                 in (HealthStatus.HEALTHY, HealthStatus.UNKNOWN, HealthStatus.DEGRADED)
                 and not p.is_expired  # Filter out expired proxies
             ]
+
+    def select(self) -> Proxy:
+        """Select the next available proxy from the pool."""
+        healthy_proxies = self.get_healthy_proxies()
+        if not healthy_proxies:
+            raise ProxyPoolEmptyError("No healthy proxies available in pool")
+        return healthy_proxies[0]
 
     def clear_unhealthy(self) -> int:
         """

@@ -340,7 +340,7 @@ While using the TUI, the REST API remains fully functional:
 
 ```bash
 # In another terminal:
-curl http://localhost:8000/api/v1/proxy
+curl http://localhost:8000/api/proxies
 ```
 
 TUI changes are immediately reflected in API responses, and API changes appear in TUI on next refresh.
@@ -362,7 +362,7 @@ Export metrics while TUI runs:
 ```bash
 # In another terminal:
 while true; do
-  curl http://localhost:8000/metrics | tee -a metrics.log
+  curl http://localhost:8000/api/metrics | tee -a metrics.log
   sleep 60
 done
 ```

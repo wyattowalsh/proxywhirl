@@ -8,7 +8,7 @@
 
 ## Endpoints
 
-`GET /api/v1/proxies` (list), `POST /api/v1/proxies` (add), `GET /api/v1/rotate`, `GET /api/v1/health`, `GET /api/v1/stats`
+`GET /api/proxies` (list), `POST /api/proxies` (add), `GET /api/rotate`, `GET /api/health`, `GET /api/stats`
 
 ## Environment Variables
 

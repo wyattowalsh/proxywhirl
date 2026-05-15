@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -216,7 +217,7 @@ class CacheWarmup:
 
     def warmup_from_callable(
         self,
-        loader: callable,
+        loader: Callable[[str], Any],
         keys: list[str],
         ttl_seconds: int | None = None,
     ) -> None:

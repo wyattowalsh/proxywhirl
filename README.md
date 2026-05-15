@@ -183,7 +183,7 @@ proxywhirl health
 **REST API**
 ```bash
 docker-compose up -d
-curl localhost:8000/api/v1/proxies
+curl localhost:8000/api/proxies
 ```
 
 </td>

@@ -14,10 +14,12 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+import click
 import httpx
 import typer
 from rich.console import Console
 from rich.table import Table
+from typer.core import TyperGroup
 
 from proxywhirl.config import CLIConfig, discover_config, load_config
 from proxywhirl.formatters import OutputFormat as FormatterOutputFormat
@@ -31,6 +33,30 @@ app = typer.Typer(
     help="Advanced proxy rotation library with CLI interface",
     add_completion=True,
     no_args_is_help=True,
+)
+
+
+class _InvalidActionGroup(TyperGroup):
+    """Click group that prints 'Invalid action' for unknown subcommands."""
+
+    def get_command(self, ctx, cmd_name):
+        rv = super().get_command(ctx, cmd_name)
+        if rv is not None:
+            return rv
+        click.echo("Invalid action")
+        ctx.exit(1)
+
+
+pool_app = typer.Typer(
+    cls=_InvalidActionGroup,
+    name="pool",
+    help="Manage the proxy pool",
+)
+
+config_app = typer.Typer(
+    cls=_InvalidActionGroup,
+    name="config",
+    help="Manage CLI configuration",
 )
 
 
@@ -700,7 +726,6 @@ def request(
     raise typer.Exit(code=1)
 
 
-@app.command()
 def pool(
     action: PoolAction = typer.Argument(..., help="Action: list, add, remove, test, stats"),
     proxy: str | None = typer.Argument(None, help="Proxy URL (for add/remove/test actions)"),
@@ -840,7 +865,6 @@ def pool(
         elif command_ctx.format == FormatterOutputFormat.CSV:
             # For CSV, output each proxy as a row
             import csv
-            import sys
 
             writer = csv.DictWriter(
                 sys.stdout, fieldnames=["url", "health", "response_time_ms", "success_rate"]
@@ -1011,7 +1035,6 @@ def pool(
             command_ctx.console.print(f"Strategy: {stats_data['rotation_strategy']}\n")
 
 
-@app.command()
 def config(
     action: ConfigAction = typer.Argument(..., help="Action: show, set, get, init"),
     key: str | None = typer.Argument(None, help="Config key (for get/set)"),
@@ -1126,6 +1149,78 @@ def config(
         except ValueError as e:
             command_ctx.console.print(f"[red]Invalid value for {key}: {e}[/red]")
             raise typer.Exit(code=1) from e
+
+
+@pool_app.command("list")
+def _pool_list() -> None:
+    pool("list")
+
+
+@pool_app.command("add")
+def _pool_add(
+    proxy: str = typer.Argument(..., help="Proxy URL"),
+    username: str | None = typer.Option(None, "--username", "-u", help="Proxy username"),
+    password: str | None = typer.Option(None, "--password", "-p", help="Proxy password"),
+) -> None:
+    pool("add", proxy=proxy, username=username, password=password)
+
+
+@pool_app.command("remove")
+def _pool_remove(
+    proxy: str = typer.Argument(..., help="Proxy URL"),
+) -> None:
+    pool("remove", proxy=proxy)
+
+
+@pool_app.command("test")
+def _pool_test(
+    proxy: str = typer.Argument(..., help="Proxy URL"),
+    target_url: str = typer.Option(
+        "https://httpbin.org/ip",
+        "--target-url",
+        help="Target URL for proxy testing (http/https only)",
+    ),
+    allow_private: bool = typer.Option(
+        False,
+        "--allow-private",
+        help="Allow testing against localhost/private IPs (use with caution)",
+    ),
+) -> None:
+    pool("test", proxy=proxy, target_url=target_url, allow_private=allow_private)
+
+
+@pool_app.command("stats")
+def _pool_stats() -> None:
+    pool("stats")
+
+
+@config_app.command("init")
+def _config_init() -> None:
+    config("init")
+
+
+@config_app.command("show")
+def _config_show() -> None:
+    config("show")
+
+
+@config_app.command("get")
+def _config_get(
+    key: str = typer.Argument(..., help="Config key"),
+) -> None:
+    config("get", key=key)
+
+
+@config_app.command("set")
+def _config_set(
+    key: str = typer.Argument(..., help="Config key"),
+    value: str = typer.Argument(..., help="Config value"),
+) -> None:
+    config("set", key=key, value=value)
+
+
+app.add_typer(pool_app, name="pool")
+app.add_typer(config_app, name="config")
 
 
 @app.command()
@@ -2182,14 +2277,6 @@ sources_app = typer.Typer(
     no_args_is_help=False,  # Allow running without args for backward compatibility
 )
 app.add_typer(sources_app, name="sources")
-
-# Create pool command group
-pool_app = typer.Typer(
-    name="pool",
-    help="Manage proxy pools",
-    no_args_is_help=False,
-)
-app.add_typer(pool_app, name="pool")
 
 
 @sources_app.callback(invoke_without_command=True)
@@ -3360,10 +3447,11 @@ def sources_discover(
             table.add_column("Type", style="green")
             table.add_column("URL", style="blue")
             for s in filtered_sources:
+                source_url = str(s.url)
                 table.add_row(
                     s.name,
                     s.proxy_type.name,
-                    s.url[:50] + "..." if len(s.url) > 50 else s.url,
+                    source_url[:50] + "..." if len(source_url) > 50 else source_url,
                 )
             command_ctx.console.print(table)
 
@@ -4193,12 +4281,12 @@ Type [bold]help[/bold] for commands. Type [bold]exit[/bold] or [bold]quit[/bold]
             command_ctx.console.print(f"[blue]Validating proxy against {arg}...[/blue]")
             command_ctx.console.print("[green]✓ Validation would run here[/green]")
 
-        def do_exit(self, _arg: str) -> None:
+        def do_exit(self, _arg: str) -> bool:
             """Exit the shell."""
             command_ctx.console.print("[cyan]Goodbye![/cyan]")
             return True
 
-        def do_quit(self, _arg: str) -> None:
+        def do_quit(self, _arg: str) -> bool:
             """Exit the shell."""
             return self.do_exit(_arg)
 

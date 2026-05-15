@@ -530,7 +530,7 @@ class MetricsCollector:
 ## Integration Points
 
 ### API Server
-- FastAPI routes at `/api/v1/*`
+- FastAPI routes at `/api/*`
 - Authentication via API key
 - Rate limiting per client
 - Prometheus metrics export

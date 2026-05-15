@@ -8,7 +8,7 @@ indexes, and improving database performance.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 
 
@@ -31,7 +31,7 @@ class QueryMetrics:
     query_type: QueryType
     execution_time_ms: float
     rows_affected: int = 0
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     is_slow: bool = False
     index_used: str | None = None
 
@@ -102,7 +102,7 @@ class QueryOptimizer:
         time_range_minutes: int = 60,
     ) -> dict:
         """Get query statistics."""
-        cutoff = datetime.utcnow() - timedelta(minutes=time_range_minutes)
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=time_range_minutes)
         recent = [q for q in self.queries if q.timestamp > cutoff]
 
         if not recent:

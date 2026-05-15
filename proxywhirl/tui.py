@@ -57,6 +57,7 @@ from __future__ import annotations
 
 import csv
 import json
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 
@@ -64,6 +65,7 @@ from rich.text import Text
 from textual import on, work
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.css.query import NoMatches
 from textual.reactive import reactive
 from textual.screen import ModalScreen, ScreenResultType
 from textual.widgets import (
@@ -1145,25 +1147,32 @@ class ProxyWhirlTUI(App):
         except Exception:
             pass
 
+    def _refresh_if_mounted(self, refresh: Callable[[], None]) -> None:
+        """Run a refresh callback when its target widget is mounted."""
+        try:
+            refresh()
+        except NoMatches:
+            pass
+
     def auto_refresh(self) -> None:
         """Auto-refresh data every 5 seconds (if enabled)."""
         if not self._auto_refresh_enabled:
             return
 
-        self.refresh_table()
-        self.refresh_metrics()
-        self.refresh_retry_metrics()
-        self.refresh_circuit_breakers()
-        self.refresh_status_bar()
+        self._refresh_if_mounted(self.refresh_table)
+        self._refresh_if_mounted(self.refresh_metrics)
+        self._refresh_if_mounted(self.refresh_retry_metrics)
+        self._refresh_if_mounted(self.refresh_circuit_breakers)
+        self._refresh_if_mounted(self.refresh_status_bar)
 
     def refresh_all_data(self) -> None:
         """Refresh all data displays."""
-        self.refresh_table()
-        self.refresh_metrics()
-        self.refresh_retry_metrics()
-        self.refresh_analytics()
-        self.refresh_circuit_breakers()
-        self.refresh_status_bar()
+        self._refresh_if_mounted(self.refresh_table)
+        self._refresh_if_mounted(self.refresh_metrics)
+        self._refresh_if_mounted(self.refresh_retry_metrics)
+        self._refresh_if_mounted(self.refresh_analytics)
+        self._refresh_if_mounted(self.refresh_circuit_breakers)
+        self._refresh_if_mounted(self.refresh_status_bar)
 
     def refresh_status_bar(self) -> None:
         """Refresh the status bar."""

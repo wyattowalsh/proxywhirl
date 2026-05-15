@@ -66,7 +66,7 @@ class PrewarmSource(ABC):
     """Abstract base for cache prewarming sources."""
 
     @abstractmethod
-    async def fetch_items(self) -> AsyncIterator[tuple[str, Any]]:
+    def fetch_items(self) -> AsyncIterator[tuple[str, Any]]:
         """Fetch items to preload into cache.
 
         Yields:

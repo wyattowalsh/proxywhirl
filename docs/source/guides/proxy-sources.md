@@ -110,7 +110,7 @@ whirl = ProxyWhirl(sources=custom_sources)
 
 ### CSV Format
 
-```csv
+```text
 ip,port,protocol,country
 192.168.1.1,8080,http,US
 192.168.1.2,8080,https,GB
@@ -154,7 +154,7 @@ print(f"Valid Rate: {health['valid_rate']}%")
 
 ```bash
 # CLI audit
-proxywhirl sources audit https://example.com/proxies.json
+uv run proxywhirl sources audit https://example.com/proxies.json
 
 # Output:
 # Source: https://example.com/proxies.json
@@ -166,6 +166,19 @@ proxywhirl sources audit https://example.com/proxies.json
 ```
 
 ## Source Status
+
+### Strict Built-in Source Validation
+
+ProxyWhirl treats the `ALL_HTTP_SOURCES`, `ALL_SOCKS4_SOURCES`, and `ALL_SOCKS5_SOURCES` collections as the enabled built-in source set. Disabled sources stay out of those collections and include inline rationale in `proxywhirl/sources.py`.
+
+```bash
+task validate-sources-ci
+
+# Direct equivalent
+uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
+```
+
+CI fails when any enabled source is unhealthy. Upstream flakiness is handled by fixing the source URL/parser metadata or disabling/removing the source with rationale, not by soft-failing validation.
 
 ### Check Source Health
 
@@ -185,8 +198,7 @@ for source in whirl.sources:
 ### Diagnose Dead Sources
 
 ```python
-# Check which sources are failing
-proxywhirl sources audit --verbose
+uv run proxywhirl sources audit --verbose
 
 # Output details on failures
 ```
@@ -389,5 +401,5 @@ validation_level="strict"  # Skips low-quality proxies
 ## See Also
 
 - [Proxy Lifecycle](../concepts/proxy-lifecycle.md)
-- [Health Monitoring](../guides/health-monitoring.md)
-- [API Reference - Sources](../reference/python-api.md#sources)
+- [Health Monitoring](troubleshooting.md)
+- [API Reference - Sources](../reference/python-api.md#built-in-sources)

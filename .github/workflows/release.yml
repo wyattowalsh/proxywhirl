@@ -54,7 +54,7 @@ jobs:
         id: current_version
         run: |
           CURRENT=$(grep -m1 '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-          echo "version=$CURRENT" >> $GITHUB_OUTPUT
+          echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
           echo "Current version: $CURRENT"
 
       - name: Calculate new version
@@ -81,7 +81,7 @@ jobs:
             esac
           fi
           
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "New version: $NEW_VERSION"
 
       - name: Update version in pyproject.toml

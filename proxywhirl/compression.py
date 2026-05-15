@@ -13,7 +13,7 @@ from enum import Enum
 try:
     import brotli
 except ImportError:
-    brotli = None  # type: ignore
+    brotli = None
 
 from loguru import logger
 

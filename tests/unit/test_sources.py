@@ -1,5 +1,6 @@
 """Unit tests for proxy sources module."""
 
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -12,6 +13,7 @@ from proxywhirl.sources import (
     ALL_SOURCES,
     GITHUB_ROOSTERKID_SOCKS4,
     GITHUB_ROOSTERKID_SOCKS5,
+    SOURCE_VALIDATION_PARSERS,
     ProxySourceConfig,
     SourceValidationReport,
     SourceValidationResult,
@@ -535,6 +537,50 @@ class TestSourceCollectionIntegrity:
             assert source.enabled, f"Disabled source in ALL_SOCKS4_SOURCES: {source.url}"
         for source in ALL_SOCKS5_SOURCES:
             assert source.enabled, f"Disabled source in ALL_SOCKS5_SOURCES: {source.url}"
+
+    def test_enabled_sources_have_validation_shape(self):
+        """Every enabled source needs a URL, supported format, and protocol shape."""
+        seen_urls: set[str] = set()
+
+        for source in ALL_SOURCES:
+            assert str(source.url).startswith(("http://", "https://"))
+            assert source.format in SOURCE_VALIDATION_PARSERS, (
+                f"Unsupported source format {source.format!r}: {source.url}"
+            )
+            assert source.protocol in {None, "http", "https", "socks4", "socks5"}
+            assert str(source.url) not in seen_urls, f"Duplicate source URL: {source.url}"
+            seen_urls.add(str(source.url))
+
+    def test_custom_parser_sources_have_parser_metadata(self):
+        """Custom-parser sources must also declare a validation parser format."""
+        custom_sources = [source for source in ALL_SOURCES if source.custom_parser is not None]
+
+        assert custom_sources, "Expected at least one custom-parser source"
+        for source in custom_sources:
+            assert source.format in SOURCE_VALIDATION_PARSERS
+            assert hasattr(source.custom_parser, "parse"), (
+                f"Custom parser does not expose parse(): {source.url}"
+            )
+
+    def test_disabled_sources_have_inline_rationale(self):
+        """Every disabled registry source should document why it is disabled."""
+        source_text = Path("proxywhirl/sources.py").read_text()
+        lines = source_text.splitlines()
+
+        for index, line in enumerate(lines):
+            if "enabled=False" not in line:
+                continue
+            nearby = " ".join(lines[max(0, index - 3) : index + 1])
+            assert any(marker in nearby for marker in ("DISABLED", "Disabled", "disabled")), (
+                f"Disabled source at line {index + 1} lacks a nearby rationale"
+            )
+
+    def test_validate_sources_workflow_is_strict(self):
+        """Source validation workflow must fail when enabled sources are unhealthy."""
+        workflow = Path(".github/workflows/validate-sources.yml").read_text()
+
+        assert "uv run proxywhirl sources --validate --fail-on-unhealthy" in workflow
+        assert "--concurrency 5" in workflow
 
     async def test_validate_sources_filters_disabled(self):
         """Verify validate_sources skips disabled sources when using defaults."""

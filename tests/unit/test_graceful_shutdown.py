@@ -62,8 +62,12 @@ class GracefulShutdownManager:
         # Cancel remaining tasks
         with self._lock:
             pending = list(self._pending_tasks)
+        current_task = asyncio.current_task()
+        pending = [task for task in pending if task is not current_task]
         for task in pending:
             task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
 
     def has_pending_work(self) -> bool:
         """Check if there's pending work."""

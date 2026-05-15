@@ -23,6 +23,7 @@ Environment Variables:
     PROXYWHIRL_CORS_ORIGINS: Comma-separated CORS origins
 """
 
+from proxywhirl.api.auth import APIKeyAuth, WebhookSignature, WebhookSigner, create_api_key
 from proxywhirl.api.core import (
     app,
     get_config,
@@ -32,9 +33,13 @@ from proxywhirl.api.core import (
 )
 
 __all__ = [
+    "APIKeyAuth",
+    "WebhookSignature",
+    "WebhookSigner",
     "app",
+    "create_api_key",
+    "get_config",
     "get_rotator",
     "get_storage",
-    "get_config",
     "lifespan",
 ]

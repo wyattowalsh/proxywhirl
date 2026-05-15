@@ -239,7 +239,10 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         # Start periodic metrics aggregation thread (every 5 minutes)
         self._stop_event = threading.Event()
         self._aggregation_thread = threading.Thread(
-            target=self._aggregation_loop, daemon=True, name="proxywhirl-metrics-aggregation"
+            target=type(self)._aggregation_loop,
+            args=(self._stop_event, self.retry_metrics),
+            daemon=True,
+            name="proxywhirl-metrics-aggregation",
         )
         self._aggregation_thread.start()
 
@@ -896,16 +899,17 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         """Make async OPTIONS request."""
         return await self._make_request("OPTIONS", url, **kwargs)
 
-    def _aggregation_loop(self) -> None:
+    @staticmethod
+    def _aggregation_loop(stop_event: threading.Event, retry_metrics: RetryMetrics) -> None:
         """
         Persistent thread loop for periodic metrics aggregation.
 
         Runs every 5 minutes until stop event is set.
         Uses threading.Event.wait() for interruptible sleep.
         """
-        while not self._stop_event.wait(timeout=300.0):  # 5 minutes
+        while not stop_event.wait(timeout=300.0):  # 5 minutes
             try:
-                self.retry_metrics.aggregate_hourly()
+                retry_metrics.aggregate_hourly()
             except Exception as e:
                 logger.warning(f"Metrics aggregation failed: {e}")
 

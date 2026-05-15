@@ -87,11 +87,11 @@ def get_rate_limit_key(request: Request) -> str:
 
 ```bash
 # Request from IP 192.168.1.100
-curl -H "X-API-Key: my-secret-key" http://api.example.com/api/v1/proxies
+curl -H "X-API-Key: my-secret-key" http://api.example.com/api/proxies
 # Rate limit key: apikey:f4e5d6c7b8a90123
 
 # Request from IP 10.0.0.50 (different IP, same API key)
-curl -H "X-API-Key: my-secret-key" http://api.example.com/api/v1/proxies
+curl -H "X-API-Key: my-secret-key" http://api.example.com/api/proxies
 # Rate limit key: apikey:f4e5d6c7b8a90123 (SAME BUCKET!)
 
 # Result: Both requests share the same rate limit bucket
@@ -101,11 +101,11 @@ curl -H "X-API-Key: my-secret-key" http://api.example.com/api/v1/proxies
 
 ```bash
 # Alice's request from 192.168.1.100
-curl -H "X-API-Key: alice-key" http://api.example.com/api/v1/proxies
+curl -H "X-API-Key: alice-key" http://api.example.com/api/proxies
 # Rate limit key: apikey:a1b2c3d4e5f67890
 
 # Bob's request from 192.168.1.100 (same IP, different key)
-curl -H "X-API-Key: bob-key" http://api.example.com/api/v1/proxies
+curl -H "X-API-Key: bob-key" http://api.example.com/api/proxies
 # Rate limit key: apikey:9f8e7d6c5b4a3210 (DIFFERENT BUCKET!)
 
 # Result: Alice and Bob have separate rate limit buckets
@@ -117,13 +117,13 @@ curl -H "X-API-Key: bob-key" http://api.example.com/api/v1/proxies
 # Attempt 1: Legitimate request
 curl -H "X-API-Key: my-key" \
      -H "X-Forwarded-For: 1.2.3.4" \
-     http://api.example.com/api/v1/proxies
+     http://api.example.com/api/proxies
 # Rate limit key: apikey:f4e5d6c7b8a90123
 
 # Attempt 2: Try to bypass by changing X-Forwarded-For
 curl -H "X-API-Key: my-key" \
      -H "X-Forwarded-For: 5.6.7.8" \
-     http://api.example.com/api/v1/proxies
+     http://api.example.com/api/proxies
 # Rate limit key: apikey:f4e5d6c7b8a90123 (SAME BUCKET!)
 
 # Result: X-Forwarded-For is ignored when API key is present
@@ -134,13 +134,13 @@ curl -H "X-API-Key: my-key" \
 
 ```bash
 # Request without API key
-curl http://api.example.com/api/v1/proxies
+curl http://api.example.com/api/proxies
 # Rate limit key: ip:192.168.1.100 (direct client IP)
 
 # SECURITY: X-Forwarded-For is IGNORED for rate limiting
 # Attacker attempts to bypass by spoofing X-Forwarded-For
 curl -H "X-Forwarded-For: 203.0.113.50" \
-     http://api.example.com/api/v1/proxies
+     http://api.example.com/api/proxies
 # Rate limit key: ip:192.168.1.100 (still uses direct client IP!)
 
 # Result: X-Forwarded-For spoofing attack is prevented
@@ -200,7 +200,7 @@ No action required! The new implementation is backward compatible:
 3. **Update client applications** to include API key:
    ```python
    headers = {"X-API-Key": "your-secret-key"}
-   response = requests.get("http://api/v1/proxies", headers=headers)
+   response = requests.get("http://api/proxies", headers=headers)
    ```
 
 ## Monitoring

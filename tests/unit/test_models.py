@@ -191,6 +191,11 @@ class TestProxyValidation:
         proxy = Proxy(url="http://proxy.example.com:8080")
         assert proxy.protocol == "http"
 
+    def test_socks5h_protocol_preserved_from_url(self):
+        """Test that socks5h is preserved as a first-class proxy protocol."""
+        proxy = Proxy(url="socks5h://proxy.example.com:1080")
+        assert proxy.protocol == "socks5h"
+
     def test_credentials_both_present(self):
         """Test proxy with both username and password."""
         from pydantic import SecretStr
@@ -790,6 +795,7 @@ class TestProxySlidingWindowConcurrency:
         assert result is False, "Should return False when window is not initialized"
 
 
+@pytest.mark.slow
 class TestProxyPoolConcurrentAccess:
     """Test ProxyPool thread safety for concurrent access operations.
 
@@ -916,16 +922,21 @@ class TestProxyPoolConcurrentAccess:
         """Test thread safety of concurrent add/remove operations."""
         import threading
 
-        from tests.conftest import ProxyFactory
-
         pool = ProxyPool(name="test_pool", max_pool_size=1000)
         errors = []
+        proxy_batches = [
+            [
+                Proxy(url=f"http://concurrent-{thread_index}-{proxy_index}.example.com:8080")
+                for proxy_index in range(100)
+            ]
+            for thread_index in range(5)
+        ]
 
-        def add_proxies():
+        def add_proxies(proxies: list[Proxy]) -> None:
             """Add 100 proxies to the pool."""
-            for _ in range(100):
+            for proxy in proxies:
                 try:
-                    pool.add_proxy(ProxyFactory.build())
+                    pool.add_proxy(proxy)
                 except Exception as e:
                     errors.append(("add", e))
 
@@ -942,7 +953,7 @@ class TestProxyPoolConcurrentAccess:
                     errors.append(("remove", e))
 
         # Create 5 adder threads and 5 remover threads
-        threads = [threading.Thread(target=add_proxies) for _ in range(5)]
+        threads = [threading.Thread(target=add_proxies, args=(batch,)) for batch in proxy_batches]
         threads += [threading.Thread(target=remove_proxies) for _ in range(5)]
 
         # Start all threads

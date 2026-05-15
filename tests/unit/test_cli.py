@@ -6,6 +6,7 @@ Tests the command-line interface functionality in isolation using Typer's testin
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
@@ -14,15 +15,17 @@ from typer.testing import CliRunner
 
 from proxywhirl.cli import app
 
+_xdist_worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
+
 # Test fixtures - set explicit width to avoid CI terminal width issues
-# Pin XDG paths to the repo to avoid sandbox write restrictions.
+# Pin XDG paths per xdist worker to avoid sandbox writes and cross-worker lock contention.
 runner = CliRunner(
     env={
         "COLUMNS": "120",
         "TERM": "dumb",
-        "XDG_DATA_HOME": str(Path.cwd() / ".cli-test-data"),
-        "XDG_CONFIG_HOME": str(Path.cwd() / ".cli-test-config"),
-        "HOME": str(Path.cwd() / ".cli-test-home"),
+        "XDG_DATA_HOME": str(Path.cwd() / f".cli-test-data-{_xdist_worker}"),
+        "XDG_CONFIG_HOME": str(Path.cwd() / f".cli-test-config-{_xdist_worker}"),
+        "HOME": str(Path.cwd() / f".cli-test-home-{_xdist_worker}"),
     }
 )
 

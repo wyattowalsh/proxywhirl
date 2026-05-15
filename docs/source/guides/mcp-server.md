@@ -272,7 +272,7 @@ The `criteria` parameter supports:
 ```
 
 :::{note}
-Pool status values match those in the {doc}`/reference/rest-api` `/api/v1/health` endpoint:
+Pool status values match those in the {doc}`/reference/rest-api` `/api/health` endpoint:
 :::
 
 - `empty`: No proxies in pool

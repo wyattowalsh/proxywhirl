@@ -26,8 +26,10 @@ class ProxyFactory(Factory):
         model = Proxy
 
     url = LazyFunction(
-        lambda: f"{random.choice(['http', 'https', 'socks4', 'socks5'])}://"
-        f"{fake.domain_name()}:{random.randint(1024, 65535)}"
+        lambda: (
+            f"{random.choice(['http', 'https', 'socks4', 'socks5'])}://"
+            f"{fake.domain_name()}:{random.randint(1024, 65535)}"
+        )
     )
     health_status = fuzzy.FuzzyChoice(
         [

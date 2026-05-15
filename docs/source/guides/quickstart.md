@@ -215,13 +215,13 @@ proxywhirl sources audit
 proxywhirl api --port 8000
 
 # Get a proxy
-curl http://localhost:8000/api/v1/proxy
+curl http://localhost:8000/api/proxies
 
 # Get filtered proxy
-curl "http://localhost:8000/api/v1/proxy?country=US&protocol=https"
+curl "http://localhost:8000/api/proxies?protocol=https"
 
 # Health check
-curl http://localhost:8000/api/v1/health
+curl http://localhost:8000/api/health
 ```
 
 ## Integration with Popular Libraries
@@ -330,7 +330,7 @@ for result in results:
 
 ## Next Steps
 
-- [Configuration Guide](../guides/configuration.md) - Customize behavior
+- [Configuration Guide](../reference/configuration.md) - Customize behavior
 - [Rotation Strategies](../concepts/rotation-strategies.md) - Choose the best strategy
 - [Caching](../guides/caching.md) - Optimize performance
 - [Retry & Failover](../guides/retry-failover.md) - Build resilience

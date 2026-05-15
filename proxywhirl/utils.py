@@ -226,7 +226,7 @@ def scrub_credentials_from_dict(data: dict[str, Any]) -> dict[str, Any]:
 # ============================================================================
 
 
-PROXY_URL_SCHEMES = {"http", "https", "socks4", "socks5"}
+PROXY_URL_SCHEMES = {"http", "https", "socks4", "socks5", "socks5h"}
 PROXY_DNS_LABEL_PATTERN = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$")
 
 

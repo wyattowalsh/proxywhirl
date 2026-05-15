@@ -720,9 +720,13 @@ class WeightedStrategy:
         # Protect cache access with lock
         with self._cache_lock:
             # Check if cache is valid
-            if self._cache_valid and self._cached_proxy_ids == current_proxy_ids:
+            if (
+                self._cache_valid
+                and self._cached_proxy_ids == current_proxy_ids
+                and self._cached_weights is not None
+            ):
                 # Cache hit - return cached weights
-                return self._cached_weights  # type: ignore[return-value]
+                return self._cached_weights
 
             # Cache miss - recalculate weights
             weights = self._calculate_weights(proxies)

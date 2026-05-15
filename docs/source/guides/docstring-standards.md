@@ -131,7 +131,7 @@ grep -r "def " proxywhirl/ --include="*.py" | head -20
 ### Automated Fix (Future)
 - [ ] Add ruff rule for docstring format
 - [ ] Add pre-commit hook for validation
-- [ ] Update CONTRIBUTING.md with docstring requirements
+- [ ] Update `CONTRIBUTING.md` with docstring requirements
 
 ## Compliance Status
 

@@ -1,9 +1,10 @@
-"""Tests for API v2 webhook signing and verification."""
+"""Tests for API webhook signing and verification."""
 
 from datetime import datetime, timezone
 
 import pytest
-from proxywhirl.api.v2.auth import WebhookSignature, WebhookSigner
+
+from proxywhirl.api.auth import WebhookSignature, WebhookSigner
 
 
 class TestWebhookSigner:

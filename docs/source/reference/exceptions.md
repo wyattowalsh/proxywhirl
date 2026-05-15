@@ -1026,7 +1026,7 @@ from proxywhirl.exceptions import (
 app = FastAPI()
 rotator = ProxyWhirl()
 
-@app.post("/api/v1/request")
+@app.post("/api/request")
 async def proxied_request(url: str):
     """Make proxied request with proper error handling."""
     try:

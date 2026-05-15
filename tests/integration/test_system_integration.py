@@ -21,6 +21,8 @@ from proxywhirl.rotator import AsyncProxyWhirl, ProxyWhirl
 from proxywhirl.storage import SQLiteStorage
 from tests.conftest import ProxyFactory, ProxyPoolFactory
 
+pytestmark = [pytest.mark.slow, pytest.mark.integration]
+
 # ============================================================================
 # SCHEMA MIGRATION TESTS
 # ============================================================================

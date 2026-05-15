@@ -15,7 +15,7 @@ Authoritative resources for the runtime APIs, configuration knobs, and public da
 |-----------|------------|------|
 | Python sync | `ProxyWhirl` | {doc}`Python API <python-api>` |
 | Python async | `AsyncProxyWhirl` | {doc}`Python API <python-api>` |
-| REST API | `GET/POST /api/v1/*` | {doc}`REST API <rest-api>` |
+| REST API | `GET/POST /api/*` | {doc}`REST API <rest-api>` |
 | CLI | `proxywhirl <command>` | {doc}`CLI Reference <../guides/cli-reference>` |
 | MCP | `proxywhirl mcp` | {doc}`MCP Server <../guides/mcp-server>` |
 :::

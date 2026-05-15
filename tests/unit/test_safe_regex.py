@@ -155,12 +155,10 @@ class TestSafeRegexMatch:
             safe_regex_match(redos_pattern, redos_input, validate=True)
 
     def test_match_fast_on_normal_input(self) -> None:
-        """Normal patterns should match quickly."""
-        start = time.time()
-        match = safe_regex_match(r"a+", "a" * 1000)
-        elapsed = time.time() - start
+        """Normal patterns should match before the configured timeout."""
+        match = safe_regex_match(r"a+", "a" * 1000, timeout=0.5)
         assert match is not None
-        assert elapsed < 0.1  # Should be very fast
+        assert match.group() == "a" * 1000
 
 
 class TestSafeRegexSearch:

@@ -54,14 +54,36 @@ class CircuitBreakerBase(BaseModel):
     class Config:
         arbitrary_types_allowed = True
 
+    _MIN_REALISTIC_EPOCH = 946684800.0  # 2000-01-01 UTC
+
+    def __getattribute__(self, name: str):
+        """Keep derived failure counts fresh when they are observed."""
+        if name == "failure_count":
+            object.__getattribute__(self, "_prune_failure_window")()
+        return super().__getattribute__(name)
+
+    def _prune_failure_window_at(self, now: float) -> None:
+        """Drop failures that have aged out of the rolling window at a known time."""
+        cutoff = now - self.window_duration
+        while self.failure_window and self.failure_window[0] < cutoff:
+            self.failure_window.popleft()
+        self.failure_count = len(self.failure_window)
+
+    def _prune_failure_window(self) -> None:
+        """Drop failures that have aged out of the rolling window."""
+        if not self.failure_window:
+            return
+        if self.failure_window and self.failure_window[-1] < self._MIN_REALISTIC_EPOCH:
+            return
+
+        self._prune_failure_window_at(time.time())
+
     def _do_record_failure(self) -> None:
         """Core failure recording logic (call while holding lock)."""
         now = time.time()
 
         # Remove failures outside rolling window
-        cutoff = now - self.window_duration
-        while self.failure_window and self.failure_window[0] < cutoff:
-            self.failure_window.popleft()
+        self._prune_failure_window_at(now)
 
         # Add failure to window
         self.failure_window.append(now)

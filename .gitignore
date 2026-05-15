@@ -10,12 +10,12 @@ CMakeCache.txt
 CMakeFiles
 CMakeScripts
 Testing
-Makefile
 cmake_install.cmake
 install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 _deps
+docs/Makefile
 
 ### CMake Patch ###
 CMakeUserPresets.json
@@ -448,6 +448,7 @@ logs/
 *-COMPLETION.md
 *_COMPLETION.md
 TASK*.md
+!openspec/**/tasks.md
 ASYNC-*.md
 CMPLX*.md
 PERF*.md
@@ -461,4 +462,6 @@ node_modules/
 
 .claude/settings.local.json
 docs/source/autoapi/
-.cli-test-home/
+.cli-test-data*/
+.cli-test-config*/
+.cli-test-home*/

@@ -14,14 +14,6 @@ from proxywhirl.advanced_logging import (
     PerformanceMonitor,
     StructuredLogger,
 )
-from proxywhirl.api_versioning import (
-    APICompatibility,
-    APIVersion,
-    MigrationGuide,
-    VersionedEndpoint,
-    VersionedResponse,
-    VersionRouter,
-)
 from proxywhirl.audit_trail import AuditAction, AuditEntry, AuditTrail
 from proxywhirl.blue_green_deployment import (
     BlueGreenDeployment,
@@ -493,13 +485,6 @@ __all__: list[str] = [
     "ResourceQuota",
     "ResourcePool",
     "ResourceMonitor",
-    # API Versioning
-    "APIVersion",
-    "VersionedEndpoint",
-    "VersionRouter",
-    "APICompatibility",
-    "VersionedResponse",
-    "MigrationGuide",
     # Data Export
     "ExportFormat",
     "DataExporter",

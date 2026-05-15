@@ -485,12 +485,12 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
     # Paths that require audit logging
     AUDIT_PATHS = {
         # Admin/config operations
-        "/api/v1/config": "admin",
+        "/api/config": "admin",
         # Write operations
-        "/api/v1/proxies": "write",
-        "/api/v1/request": "write",
+        "/api/proxies": "write",
+        "/api/request": "write",
         # Auth-related
-        "/api/v1/auth": "auth",
+        "/api/auth": "auth",
     }
 
     # Sensitive fields to redact in request bodies
@@ -683,8 +683,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             duration_ms = int((time.time() - start_time) * 1000)
             duration_seconds = time.time() - start_time
 
-            # Record Prometheus metrics (skip /metrics endpoint to avoid recursion)
-            if path != "/metrics":
+            # Record Prometheus metrics (skip exposition endpoint to avoid recursion)
+            if path != "/api/metrics":
                 proxywhirl_requests_total.labels(
                     endpoint=path,
                     method=request.method,
@@ -712,8 +712,8 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             duration_ms = int((time.time() - start_time) * 1000)
             duration_seconds = time.time() - start_time
 
-            # Record Prometheus metrics for failed requests (skip /metrics endpoint)
-            if path != "/metrics":
+            # Record Prometheus metrics for failed requests (skip exposition endpoint)
+            if path != "/api/metrics":
                 # Use 5xx for uncaught exceptions
                 proxywhirl_requests_total.labels(
                     endpoint=path,
@@ -933,9 +933,9 @@ def update_prometheus_metrics() -> None:
             # Map circuit breaker state to numeric value
             # 0=CLOSED, 1=OPEN, 2=HALF_OPEN
             state_value = 0
-            if cb.state.value == "OPEN":
+            if cb.state.value == "open":
                 state_value = 1
-            elif cb.state.value == "HALF_OPEN":
+            elif cb.state.value == "half_open":
                 state_value = 2
 
             proxywhirl_circuit_breaker_state.labels(proxy_id=proxy_id).set(state_value)

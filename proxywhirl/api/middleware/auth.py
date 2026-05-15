@@ -17,7 +17,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 class APIKeyMiddleware(BaseHTTPMiddleware):
     """Middleware to enforce API key authentication on protected routes.
 
-    Skips authentication for public paths (health, docs, root, metrics).
+    Skips authentication for public paths (health, docs, root, Prometheus metrics).
     When PROXYWHIRL_REQUIRE_AUTH is enabled, validates the X-API-Key header
     against the PROXYWHIRL_API_KEY environment variable.
     """
@@ -29,11 +29,11 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             "/docs",
             "/redoc",
             "/openapi.json",
-            "/api/v1/health",
-            "/api/v1/ready",
-            "/api/v1/status",
-            "/api/v1/stats",
-            "/metrics",
+            "/api/health",
+            "/api/ready",
+            "/api/status",
+            "/api/stats",
+            "/api/metrics",
         }
     )
 

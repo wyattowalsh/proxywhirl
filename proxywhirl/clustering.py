@@ -15,7 +15,7 @@ Features:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from uuid import uuid4
 
@@ -49,13 +49,16 @@ class ClusterNode:
     port: int = 5000
     status: NodeStatus = NodeStatus.JOINING
     role: ClusterRole = ClusterRole.REPLICA
-    last_heartbeat: datetime = field(default_factory=datetime.utcnow)
+    last_heartbeat: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metrics: dict = field(default_factory=dict)
 
     def is_healthy(self) -> bool:
         """Check if node is healthy based on heartbeat."""
         timeout = timedelta(seconds=30)
-        return datetime.utcnow() - self.last_heartbeat < timeout
+        last_heartbeat = self.last_heartbeat
+        if last_heartbeat.tzinfo is None:
+            last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
+        return datetime.now(timezone.utc) - last_heartbeat < timeout
 
     def to_dict(self) -> dict:
         """Serialize node to dictionary."""
@@ -170,13 +173,13 @@ class ClusterManager:
     def heartbeat(self, node_id: str) -> None:
         """Process heartbeat from a node."""
         if node_id in self.nodes:
-            self.nodes[node_id].last_heartbeat = datetime.utcnow()
+            self.nodes[node_id].last_heartbeat = datetime.now(timezone.utc)
             logger.debug(f"Heartbeat received from {node_id}")
 
     def sync_proxy_state(self, proxies: list[dict]) -> bool:
         """Synchronize proxy state across cluster."""
         state = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "proxies": proxies,
             "source_node": self.local_node.node_id,
         }

@@ -16,19 +16,19 @@ async def api_client():
 # T046-T049: Integration tests for US3 - All skipped (implementation pending)
 @pytest.mark.skip(reason="Integration tests pending implementation")
 async def test_health_endpoint(api_client: AsyncClient):
-    """T046: Test /api/v1/health endpoint."""
+    """T046: Test /api/health endpoint."""
 
 
 @pytest.mark.skip(reason="Integration tests pending implementation")
 async def test_readiness_endpoint(api_client: AsyncClient):
-    """T047: Test /api/v1/ready endpoint."""
+    """T047: Test /api/ready endpoint."""
 
 
 @pytest.mark.skip(reason="Integration tests pending implementation")
 async def test_status_endpoint(api_client: AsyncClient):
-    """T048: Test /api/v1/status endpoint."""
+    """T048: Test /api/status endpoint."""
 
 
 @pytest.mark.skip(reason="Integration tests pending implementation")
 async def test_stats_endpoint(api_client: AsyncClient):
-    """T049: Test /api/v1/stats endpoint (renamed from /api/v1/metrics)."""
+    """T049: Test /api/stats endpoint (renamed from /api/metrics)."""

@@ -579,6 +579,7 @@ class TestPerformanceBasedIntegration:
         assert "http://established.example.com:8080" in selections
 
 
+@pytest.mark.slow
 class TestStrategyPerformance:
     """Integration tests for strategy performance requirements."""
 
@@ -755,6 +756,7 @@ class TestStrategyComposition:
         counts = list(selections.values())
         assert max(counts) - min(counts) <= 2, f"Distribution too uneven: {dict(selections)}"
 
+    @pytest.mark.slow
     @pytest.mark.flaky(reruns=2)
     def test_composition_performance_overhead(self):
         """

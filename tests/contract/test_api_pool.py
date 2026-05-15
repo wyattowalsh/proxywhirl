@@ -1,12 +1,12 @@
 """Contract tests for pool management endpoints (US2).
 
-Tests the API contract for /api/v1/proxies endpoints:
-- GET /api/v1/proxies - List proxies with pagination
-- POST /api/v1/proxies - Add new proxy
-- GET /api/v1/proxies/{id} - Get specific proxy
-- DELETE /api/v1/proxies/{id} - Remove proxy
-- POST /api/v1/proxies/health-check - Health check proxies
-- POST /api/v1/proxies/test - Health check proxies (deprecated)
+Tests the API contract for /api/proxies endpoints:
+- GET /api/proxies - List proxies with pagination
+- POST /api/proxies - Add new proxy
+- GET /api/proxies/{id} - Get specific proxy
+- DELETE /api/proxies/{id} - Remove proxy
+- POST /api/proxies/health-check - Health check proxies
+- POST /api/proxies/test - Health check proxies (deprecated)
 """
 
 import pytest
@@ -20,7 +20,7 @@ from proxywhirl.api.models import (
 )
 
 
-# T022: Contract test for GET /api/v1/proxies
+# T022: Contract test for GET /api/proxies
 class TestListProxiesContract:
     """Test PaginatedResponse[ProxyResource] schema for listing proxies."""
 
@@ -84,7 +84,7 @@ class TestListProxiesContract:
         assert proxy.protocol == "http"
 
 
-# T023: Contract test for POST /api/v1/proxies
+# T023: Contract test for POST /api/proxies
 class TestCreateProxyContract:
     """Test CreateProxyRequest schema."""
 
@@ -111,21 +111,21 @@ class TestCreateProxyContract:
             )
 
 
-# T024: Contract test for GET /api/v1/proxies/{id}
+# T024: Contract test for GET /api/proxies/{id}
 @pytest.mark.skip(reason="Covered by T022 ProxyResource schema test")
 def test_get_proxy_by_id_contract():
-    """Test GET /api/v1/proxies/{id} response schema."""
+    """Test GET /api/proxies/{id} response schema."""
     pass
 
 
-# T025: Contract test for DELETE /api/v1/proxies/{id}
+# T025: Contract test for DELETE /api/proxies/{id}
 @pytest.mark.skip(reason="No response body for 204 - nothing to validate")
 def test_delete_proxy_contract():
-    """Test DELETE /api/v1/proxies/{id} returns 204 No Content."""
+    """Test DELETE /api/proxies/{id} returns 204 No Content."""
     pass
 
 
-# T026: Contract test for POST /api/v1/proxies/health-check (and deprecated /test)
+# T026: Contract test for POST /api/proxies/health-check (and deprecated /test)
 class TestHealthCheckContract:
     """Test HealthCheckRequest/Result schemas."""
 

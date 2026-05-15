@@ -11,6 +11,7 @@ import pytest
 from proxywhirl.models import Proxy
 
 
+@pytest.mark.slow
 class TestHighThroughput:
     """Test high-request-volume scenarios."""
 

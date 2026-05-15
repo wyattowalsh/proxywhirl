@@ -1,10 +1,11 @@
 """Sphinx configuration for ProxyWhirl documentation."""
+
 from __future__ import annotations
 
-from datetime import datetime
-from importlib import metadata
 import os
 import sys
+from datetime import datetime
+from importlib import metadata
 
 # -- Path setup ----------------------------------------------------------------
 
@@ -41,23 +42,34 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_design",
     "sphinxcontrib.mermaid",
-    "autoapi.extension",
 ]
 
 # -- AutoAPI configuration (static AST parsing, no import required) --------
 
-autoapi_dirs = ["../../proxywhirl"]
-autoapi_type = "python"
-autoapi_options = [
-    "members",
-    "show-inheritance",
-    "show-module-summary",
+AUTOAPI_ENABLED = os.getenv("PROXYWHIRL_DOCS_ENABLE_AUTOAPI", "false").lower() == "true"
+
+if AUTOAPI_ENABLED:
+    extensions.append("autoapi.extension")
+    autoapi_dirs = ["../../proxywhirl"]
+    autoapi_type = "python"
+    autoapi_options = [
+        "members",
+        "show-inheritance",
+        "show-module-summary",
+    ]
+    autoapi_ignore = ["*/tests/*", "*/_version*"]
+    autoapi_keep_files = False
+    autoapi_add_toctree_entry = False
+    autoapi_python_class_content = "both"
+    autoapi_member_order = "groupwise"
+
+suppress_warnings = [
+    "autoapi.python_import_resolution",
+    "ref.class",
+    "ref.exc",
+    "ref.obj",
+    "toc.not_included",
 ]
-autoapi_ignore = ["*/tests/*", "*/_version*"]
-autoapi_keep_files = True
-autoapi_add_toctree_entry = True
-autoapi_python_class_content = "both"
-autoapi_member_order = "groupwise"
 
 autosummary_generate = True
 napoleon_google_docstring = True
@@ -87,6 +99,9 @@ exclude_patterns: list[str] = [
     "autoapi/index",
 ]
 
+if not AUTOAPI_ENABLED:
+    exclude_patterns.append("autoapi/**")
+
 templates_path = ["_templates"]
 
 # -- Options for HTML output ---------------------------------------------------
@@ -101,9 +116,7 @@ docsearch_app_id = os.getenv("DOCSEARCH_APP_ID")
 docsearch_api_key = os.getenv("DOCSEARCH_API_KEY")
 docsearch_index_name = os.getenv("DOCSEARCH_INDEX_NAME")
 
-DOCSEARCH_ENABLED = all(
-    [docsearch_app_id, docsearch_api_key, docsearch_index_name]
-)
+DOCSEARCH_ENABLED = all([docsearch_app_id, docsearch_api_key, docsearch_index_name])
 
 if DOCSEARCH_ENABLED:
     extensions.append("sphinx_docsearch")
@@ -221,6 +234,7 @@ autodoc_default_options = {
     "undoc-members": False,
     "show-inheritance": True,
 }
+
 
 def setup(app):  # type: ignore[override]
     """Inject project-wide substitutions and CSS."""

@@ -37,7 +37,7 @@ curl -X POST http://localhost:8000/admin/maintenance \
 ```bash
 # Health checks
 curl -s http://localhost:8000/health | jq .
-curl -s http://localhost:8000/metrics | grep up
+curl -s http://localhost:8000/api/metrics | grep up
 
 # Smoke tests
 proxywhirl test smoke --environment production

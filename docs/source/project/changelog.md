@@ -117,7 +117,7 @@ Initial release.
 - Circuit breakers with three-state machine (CLOSED/OPEN/HALF_OPEN)
 - `RetryExecutor` with exponential and linear backoff strategies
 - `RateLimiter` with token bucket algorithm
-- FastAPI REST API (`/api/v1/*`) with OpenAPI docs
+- FastAPI REST API (`/api/*`) with OpenAPI docs
 - Typer CLI with 9+ commands
 - MCP server for AI assistant integration
 - SQLite persistence with Fernet encryption

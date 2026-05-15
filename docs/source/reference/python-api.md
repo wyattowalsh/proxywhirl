@@ -1,8 +1,7 @@
 # Python API
 
-This page provides a guided tour of ProxyWhirl's Python API. For complete
-auto-generated reference documentation with all parameters, return types, and
-source links, see the {doc}`full API reference <../autoapi/proxywhirl/index>`.
+This page provides a guided tour of ProxyWhirl's Python API, including the
+primary public classes, functions, and configuration surfaces.
 
 :::{tip}
 For hands-on tutorials, see the {doc}`../guides/index` section. For
@@ -52,7 +51,6 @@ async with AsyncProxyWhirl() as rotator:
 AsyncProxyWhirl mirrors the synchronous API but all methods are coroutines.
 
 :::{seealso}
-- {doc}`../autoapi/proxywhirl/rotator/index` -- full parameter reference
 - {doc}`../guides/async-client` -- async usage patterns and best practices
 :::
 
@@ -113,10 +111,9 @@ Per-strategy mutable metrics including EMA response times, success rates, and
 sliding windows. Each strategy maintains its own `StrategyState` instance for
 adaptive selection decisions.
 
-See {doc}`../autoapi/proxywhirl/strategies/core/index` for the full API reference.
+See {doc}`../guides/advanced-strategies` for strategy configuration examples.
 
 :::{seealso}
-- {doc}`../autoapi/proxywhirl/strategies/index` -- full strategy API reference
 - {doc}`../guides/advanced-strategies` -- strategy selection guide with real-world patterns
 :::
 
@@ -125,8 +122,7 @@ See {doc}`../autoapi/proxywhirl/strategies/core/index` for the full API referenc
 ## Models
 
 ProxyWhirl's data layer is built on Pydantic models with strict validation
-(`frozen=True`, `extra="forbid"`). Below are the key models; each links to its
-full auto-generated documentation.
+(`frozen=True`, `extra="forbid"`). Below are the key models.
 
 | Model | Purpose |
 |-------|---------|
@@ -183,7 +179,7 @@ Continuous background health monitoring with automatic eviction of unhealthy
 proxies. Runs periodic checks against a configurable target URL and updates
 proxy health status.
 
-See {doc}`../autoapi/proxywhirl/models/index` for the full API reference.
+See {doc}`../reference/configuration` for related configuration models.
 
 (sourcestats)=
 ### SourceStats
@@ -191,10 +187,10 @@ See {doc}`../autoapi/proxywhirl/models/index` for the full API reference.
 Per-source fetch statistics and error tracking. Records success/failure counts,
 latency, and last-fetched timestamps for each configured proxy source.
 
-See {doc}`../autoapi/proxywhirl/models/index` for the full API reference.
+See {doc}`../guides/proxy-sources` for source configuration patterns.
 
 :::{seealso}
-{doc}`../autoapi/proxywhirl/models/index` -- full model and enum reference
+{doc}`../reference/configuration` -- configuration model reference
 :::
 
 ---
@@ -255,8 +251,7 @@ Source collections: `ALL_SOURCES`, `RECOMMENDED_SOURCES`, `ALL_HTTP_SOURCES`,
 `ALL_SOCKS4_SOURCES`, `ALL_SOCKS5_SOURCES`, `API_SOURCES`.
 
 :::{seealso}
-- {doc}`../autoapi/proxywhirl/fetchers/index` -- full fetcher/parser API reference
-- {doc}`../autoapi/proxywhirl/sources/index` -- source definitions
+- {doc}`../guides/proxy-sources` -- source definitions and validation workflow
 - {doc}`../guides/automation` -- automated fetching with scheduling
 :::
 
@@ -290,7 +285,6 @@ See {doc}`cache-api` for the full cache API reference.
 
 :::{seealso}
 - {doc}`cache-api` -- dedicated cache system reference
-- {doc}`../autoapi/proxywhirl/cache/index` -- auto-generated cache API
 - {doc}`../guides/caching` -- caching configuration patterns
 :::
 
@@ -334,7 +328,7 @@ for observability.
 Hourly aggregated retry and circuit breaker statistics. Used by `RetryMetrics`
 for time-series monitoring and trend analysis.
 
-See {doc}`../autoapi/proxywhirl/retry/index` for the full API reference.
+See {doc}`../guides/retry-failover` for retry metrics and failover patterns.
 
 (circuitbreakerevent)=
 ### CircuitBreakerEvent
@@ -342,11 +336,9 @@ See {doc}`../autoapi/proxywhirl/retry/index` for the full API reference.
 Records individual circuit breaker state transitions (CLOSED, OPEN, HALF_OPEN)
 with timestamps and trigger context. Used for observability and debugging.
 
-See {doc}`../autoapi/proxywhirl/retry/index` for the full API reference.
+See {doc}`../guides/retry-failover` for retry metrics and failover patterns.
 
 :::{seealso}
-- {doc}`../autoapi/proxywhirl/circuit_breaker/index` -- circuit breaker API reference
-- {doc}`../autoapi/proxywhirl/retry/index` -- retry API reference
 - {doc}`../guides/retry-failover` -- retry and failover patterns
 :::
 
@@ -373,7 +365,7 @@ Supports Chromium, Firefox, and WebKit engines with configurable viewport, user
 agent, and navigation wait conditions.
 
 :::{seealso}
-{doc}`../autoapi/proxywhirl/browser/index` -- full BrowserRenderer API reference
+{doc}`../guides/proxy-sources` -- source rendering and validation patterns
 :::
 
 ---
@@ -401,7 +393,7 @@ or the auto-generated key file at `~/.config/proxywhirl/key.enc`.
 :::
 
 :::{seealso}
-{doc}`../autoapi/proxywhirl/utils/index` -- full utility function reference
+{doc}`exceptions` -- exception and redaction reference
 :::
 
 ---

@@ -36,9 +36,9 @@ uv run ruff check proxywhirl/ tests/
 uv run ty check proxywhirl/
 ```
 
-### Make Commands
+### Task Commands
 
-All common operations are available via `make`:
+All common operations are available via `task`:
 
 ```{list-table}
 :header-rows: 1
@@ -47,24 +47,21 @@ All common operations are available via `make`:
 * - Command
   - Equivalent
   - Purpose
-* - `make test`
+* - `task test`
   - `uv run pytest tests/ -q`
   - Run all tests
-* - `make lint`
+* - `task lint`
   - `uv run ruff check proxywhirl/ tests/`
   - Lint with ruff
-* - `make format`
+* - `task format`
   - `uv run ruff format proxywhirl/ tests/`
   - Auto-format code
-* - `make type-check`
+* - `task type-check`
   - `uv run ty check proxywhirl/`
   - Type check with ty (Astral)
-* - `make quality-gates`
+* - `task quality-gates`
   - all of the above
   - Full pre-merge validation
-* - `make commit`
-  - conventional commit
-  - Commitizen-guided commit
 ```
 
 ```{admonition} Always use uv run
@@ -80,7 +77,7 @@ Never run bare `pytest`, `python`, or `pip`. Always prefix with `uv run` to use 
 2. **Create a branch** from `main`: `git checkout -b feature/my-feature` or `fix/my-fix`
 3. **Write tests first** -- every new feature needs test coverage
 4. **Implement** your changes
-5. **Run quality gates**: `make quality-gates`
+5. **Run quality gates**: `task quality-gates`
 6. **Commit** using conventional commits: `<type>(<scope>): <description>`
 7. **Open a PR** against `main`
 
@@ -189,20 +186,14 @@ All workflows live in `.github/workflows/`:
   - push / schedule
   - Dependency audit, secret scanning
 * - `generate-proxies.yml`
-  - cron (every 6h)
-  - Fetch proxies from all built-in sources, update `proxywhirl.db`
+  - cron (every 3h)
+  - Fetch proxies, export public lists, build docs, and update `proxywhirl.db`
 * - `validate-sources.yml`
-  - push / PR
-  - Verify proxy source URLs are reachable
-* - `update-readme-stats.yml`
-  - after proxy generation
-  - Update README badge counts
+  - schedule / manual
+  - Verify proxy source URLs are reachable with `--fail-on-unhealthy`
 * - `release.yml`
-  - tag push
+  - manual
   - Build and publish to PyPI
-* - `cd.yml`
-  - release
-  - Deploy docs and dashboard
 ```
 
 ### Quality Gate Pipeline
@@ -250,7 +241,7 @@ Level 3: coverage + build  (depends on all tests)
 * - `rate_limiting/`
   - `RateLimiter` (token bucket), sync and async variants
 * - `api/`
-  - FastAPI REST API (`/api/v1/*` routes) with OpenAPI
+  - FastAPI REST API (`/api/*` routes) with OpenAPI
 * - `mcp/`
   - MCP server for AI assistant integration (Claude, GPT)
 * - `cli.py`

@@ -4,10 +4,13 @@ import asyncio
 import time
 from unittest.mock import patch
 
+import pytest
+
 from proxywhirl.fetchers import ProxyValidator, ValidationResult
 from proxywhirl.models import ValidationLevel
 
 
+@pytest.mark.slow
 class TestValidationPerformance:
     """Test validation performance benchmarks."""
 

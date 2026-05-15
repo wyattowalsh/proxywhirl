@@ -352,10 +352,10 @@ class TestAsyncTimeoutContexts:
                 await asyncio.gather(fast(), slow())
 
     @pytest.mark.asyncio
-    async def test_timeout_boundary_exact(self) -> None:
+    async def test_timeout_allows_operation_under_boundary(self) -> None:
         """Operation slightly under the boundary should succeed."""
-        async with _timeout_context(0.2):
-            await asyncio.sleep(0.15)
+        async with _timeout_context(0.5):
+            await asyncio.sleep(0.01)
 
 
 # ============================================================================

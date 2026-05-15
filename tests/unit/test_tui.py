@@ -1973,6 +1973,7 @@ class TestProxyDetailsScreenCopy:
         assert callable(screen.copy_url_to_clipboard)
 
 
+@pytest.mark.slow
 class TestTUIE2E:
     """End-to-end tests using Textual's Pilot testing framework."""
 

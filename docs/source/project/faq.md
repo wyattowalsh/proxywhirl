@@ -189,7 +189,7 @@ print(f"Cache hit rate: {metrics.cache_hit_rate}")
 ### Q: What are the four interfaces?
 **A:** 
 1. **Python API**: `ProxyWhirl` class for scripts/applications
-2. **REST API**: FastAPI server at `http://localhost:8000/api/v1`
+2. **REST API**: FastAPI server at `http://localhost:8000/api`
 3. **CLI**: `proxywhirl` command with 9 subcommands
 4. **MCP**: Anthropic MCP server for AI assistants
 
@@ -211,7 +211,7 @@ print(f"Cache hit rate: {metrics.cache_hit_rate}")
 **A:** Encrypted using Fernet (AES-128). Set `PROXYWHIRL_KEY` environment variable.
 
 ### Q: Can I audit what's logged?
-**A:** Yes, all logging uses Loguru. Configure via [Logging Configuration](../guides/logging.md).
+**A:** Yes, all logging uses Loguru. Configure via [Configuration](../reference/configuration.md).
 
 ## Troubleshooting
 
@@ -246,13 +246,13 @@ configure_logging(level="DEBUG")
 ## Development
 
 ### Q: How do I contribute?
-**A:** See [CONTRIBUTING.md](../../CONTRIBUTING.md). Run tests with `make test`.
+**A:** See [CONTRIBUTING.md](https://github.com/wyattowalsh/proxywhirl/blob/main/CONTRIBUTING.md). Run tests with `task test`.
 
 ### Q: How do I run tests locally?
-**A:** `uv run pytest tests/ -v` or `make test`
+**A:** `uv run pytest tests/ -v` or `task test`
 
 ### Q: How do I build documentation?
-**A:** `make docs-html` or `cd docs && uv run sphinx-build -M html source build`
+**A:** `task docs-html` or `cd docs && uv run --extra docs sphinx-build -M html source build`
 
 ### Q: Can I add a new rotation strategy?
 **A:** Yes, implement the `RotationStrategy` protocol and register it. See [Architecture](../architecture.md).
@@ -282,4 +282,4 @@ configure_logging(level="DEBUG")
 ### Q: Can I request features?
 **A:** Yes, via [GitHub Discussions](https://github.com/wyattowalsh/proxywhirl/discussions) with use cases.
 
-See also: [Troubleshooting Guide](../guides/troubleshooting.md), [Error Codes](./error-codes-reference.md)
+See also: [Troubleshooting Guide](../guides/troubleshooting.md), [Error Codes](../reference/error-codes.md)

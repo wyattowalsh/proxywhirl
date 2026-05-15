@@ -38,7 +38,7 @@ jobs:
 
     - name: Validate proxy sources
       run: |
-        uv run proxywhirl sources --validate --fail-on-unhealthy
+        uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
 
     - name: Close resolved issue if sources are healthy
       if: success()
@@ -80,19 +80,19 @@ jobs:
 
           ### Action Required
           1. Review the workflow logs to identify unhealthy sources
-          2. Run \`make validate-sources\` locally to see details
+          2. Run \`task validate-sources-ci\` locally to see details
           3. Remove or update stale sources in \`proxywhirl/sources.py\`
 
           ### Quick Commands
           \`\`\`bash
           # List all sources
-          make sources-list
+          task sources-list
 
           # Validate sources locally
-          make validate-sources
+          task validate-sources-ci
 
           # Run with verbose output
-          uv run proxywhirl sources --validate
+          uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
           \`\`\`
           `;
 

@@ -3,12 +3,13 @@
 Ensures all strategy implementations fulfill the RotationStrategy contract:
 - Must have a select method
 - select method must accept SelectionContext
-- select method must return Optional[Proxy]
+- select method must return Proxy or raise ProxyPoolEmptyError when unavailable
 - Must be stateful (track requests)
 """
 
 import pytest
 
+from proxywhirl.exceptions import ProxyPoolEmptyError
 from proxywhirl.models import HealthStatus, Proxy, ProxyPool, SelectionContext
 from proxywhirl.strategies import (
     CompositeStrategy,
@@ -40,9 +41,9 @@ class TestRotationStrategyContract:
         return pool
 
     @pytest.fixture
-    def sample_context(self, sample_pool: ProxyPool) -> SelectionContext:
+    def sample_context(self) -> SelectionContext:
         """Create a sample selection context."""
-        return SelectionContext(pool=sample_pool)
+        return SelectionContext(session_id="contract-session")
 
     @pytest.mark.parametrize(
         "strategy_class",
@@ -78,11 +79,11 @@ class TestRotationStrategyContract:
     def test_strategy_select_returns_optional_proxy(
         self, strategy_class, sample_pool: ProxyPool, sample_context: SelectionContext
     ) -> None:
-        """Verify select method returns Proxy or None."""
+        """Verify select method returns a Proxy."""
         strategy = strategy_class()
-        result = strategy.select(sample_context)
-        assert result is None or isinstance(result, Proxy), (
-            f"{strategy_class.__name__}.select returned {type(result)}, expected Proxy or None"
+        result = strategy.select(sample_pool, sample_context)
+        assert isinstance(result, Proxy), (
+            f"{strategy_class.__name__}.select returned {type(result)}, expected Proxy"
         )
 
     @pytest.mark.parametrize(
@@ -101,13 +102,12 @@ class TestRotationStrategyContract:
     def test_strategy_handles_empty_pool(
         self, strategy_class, sample_context: SelectionContext
     ) -> None:
-        """Verify strategies handle empty pools gracefully."""
+        """Verify strategies reject empty pools consistently."""
         empty_pool = ProxyPool(name="empty-pool")
-        context = SelectionContext(pool=empty_pool)
 
         strategy = strategy_class()
-        result = strategy.select(context)
-        assert result is None, f"{strategy_class.__name__} should return None for empty pool"
+        with pytest.raises((ProxyPoolEmptyError, ValueError)):
+            strategy.select(empty_pool, SelectionContext(session_id="empty-session"))
 
     @pytest.mark.parametrize(
         "strategy_class",
@@ -129,13 +129,12 @@ class TestRotationStrategyContract:
         pool = ProxyPool(name="single-pool")
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         pool.add_proxy(proxy)
-        context = SelectionContext(pool=pool)
+        context = SelectionContext(session_id="single-session")
 
         strategy = strategy_class()
-        result = strategy.select(context)
+        result = strategy.select(pool, context)
 
-        # Should either return the proxy or None (depending on health checks)
-        assert result is None or result.url == "http://proxy.example.com:8080"
+        assert result.url == "http://proxy.example.com:8080"
 
     @pytest.mark.parametrize(
         "strategy_class",
@@ -156,51 +155,43 @@ class TestRotationStrategyContract:
         for proxy in proxies[1:]:
             proxy.health_status = HealthStatus.UNHEALTHY
 
-        context = SelectionContext(pool=sample_pool)
+        context = SelectionContext()
         strategy = strategy_class()
 
-        # Multiple selections should mostly return the healthy proxy (or None)
-        selections = [strategy.select(context) for _ in range(10)]
-        healthy_count = sum(1 for p in selections if p is not None and p.url == healthy_proxy.url)
+        selections = [strategy.select(sample_pool, context) for _ in range(10)]
+        healthy_count = sum(1 for p in selections if p.url == healthy_proxy.url)
 
-        # At least some selections should return healthy proxy (allows some None)
-        assert healthy_count >= 0, f"{strategy_class.__name__} not respecting health status"
+        assert healthy_count >= 1, f"{strategy_class.__name__} not respecting health status"
 
     def test_round_robin_rotation(self, sample_pool: ProxyPool) -> None:
         """Verify RoundRobinStrategy cycles through proxies."""
-        context = SelectionContext(pool=sample_pool)
+        context = SelectionContext()
         strategy = RoundRobinStrategy()
 
-        # Get selections and track unique proxies
-        selections = [strategy.select(context) for _ in range(15)]
-        selected_urls = [p.url for p in selections if p is not None]
+        selections = [strategy.select(sample_pool, context) for _ in range(15)]
+        selected_urls = [p.url for p in selections]
 
         # Should have at least 2 different proxies (not always same)
         assert len(set(selected_urls)) >= 2, "RoundRobinStrategy should rotate through proxies"
 
     def test_random_strategy_distribution(self, sample_pool: ProxyPool) -> None:
         """Verify RandomStrategy doesn't always return same proxy."""
-        context = SelectionContext(pool=sample_pool)
+        context = SelectionContext()
         strategy = RandomStrategy()
 
-        selections = [strategy.select(context) for _ in range(30)]
-        selected_urls = [p.url for p in selections if p is not None]
+        selections = [strategy.select(sample_pool, context) for _ in range(30)]
+        selected_urls = [p.url for p in selections]
 
         # Should have at least 2 different proxies
         assert len(set(selected_urls)) >= 2, "RandomStrategy should select from multiple proxies"
 
     def test_composite_strategy_works(self, sample_pool: ProxyPool) -> None:
         """Verify CompositeStrategy delegates to child strategies."""
-        strategies = [
-            RoundRobinStrategy(),
-            RandomStrategy(),
-        ]
-        composite = CompositeStrategy(strategies=strategies)
-        context = SelectionContext(pool=sample_pool)
+        composite = CompositeStrategy(selector=RandomStrategy())
+        context = SelectionContext()
 
-        result = composite.select(context)
-        # Should return Proxy or None
-        assert result is None or isinstance(result, Proxy)
+        result = composite.select(sample_pool, context)
+        assert isinstance(result, Proxy)
 
     def test_strategy_registry_has_all_strategies(self) -> None:
         """Verify StrategyRegistry contains all defined strategies."""
@@ -218,7 +209,10 @@ class TestRotationStrategyContract:
         }
 
         for name, strategy_class in expected_strategies.items():
-            assert registry.get(name) is not None, f"Registry missing strategy: {name}"
+            registry.register_strategy(name, strategy_class, validate=False)
+            assert registry.get_strategy(name) is strategy_class, (
+                f"Registry missing strategy: {name}"
+            )
 
 
 class TestStrategyProtocolCompliance:

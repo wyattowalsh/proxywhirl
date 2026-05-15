@@ -92,10 +92,10 @@ See {doc}`/reference/python-api` for `ProxyFetcher`, `ProxyValidator`, and parse
 uv run uvicorn proxywhirl.api:app --reload
 
 # Get proxies
-curl http://localhost:8000/api/v1/proxies
+curl http://localhost:8000/api/proxies
 
-# Rotate to next proxy
-curl -X POST http://localhost:8000/api/v1/rotate
+# Health check
+curl http://localhost:8000/api/health
 ```
 See {doc}`/reference/rest-api` for endpoint reference, authentication, and Docker deployment.
 :::

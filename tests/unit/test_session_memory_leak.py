@@ -409,9 +409,10 @@ class TestProxyWhirlMemoryManagement:
         assert len(rotator.circuit_breakers) == 50
         assert rotator.pool.size == 50
 
-    def test_circuit_breaker_failure_window_cleanup(self):
+    def test_circuit_breaker_failure_window_cleanup(self, monkeypatch):
         """Test that circuit breaker failure windows don't grow unbounded."""
         from proxywhirl.circuit_breaker import CircuitBreaker
+        from proxywhirl.circuit_breaker import base as circuit_breaker_base
 
         # Create circuit breaker with short window for testing
         cb = CircuitBreaker(
@@ -420,19 +421,19 @@ class TestProxyWhirlMemoryManagement:
             failure_threshold=1000,  # High threshold to prevent state transitions during test
         )
 
-        # Record some failures
-        import time
+        now = 1_700_000_000.0
+        monkeypatch.setattr(circuit_breaker_base.time, "time", lambda: now)
 
         for i in range(10):
             cb.record_failure()
-            time.sleep(0.01)  # 10ms between failures
+            now += 0.01
 
         # Should have all 10 failures in window
         initial_count = len(cb.failure_window)
         assert initial_count == 10, f"Expected 10 failures, got {initial_count}"
 
-        # Wait for window to expire
-        time.sleep(0.25)  # Wait longer than window_duration
+        # Advance beyond the rolling window.
+        now += 0.25
 
         # Record a new failure - this should trigger cleanup of old failures
         cb.record_failure()

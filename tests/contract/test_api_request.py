@@ -1,4 +1,4 @@
-"""Contract tests for POST /api/v1/request endpoint (US1)."""
+"""Contract tests for POST /api/request endpoint (US1)."""
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -111,13 +111,13 @@ async def test_api_response_envelope_error():
 
 
 async def test_post_request_endpoint_contract():
-    """T011: Contract test for POST /api/v1/request endpoint response structure."""
+    """T011: Contract test for POST /api/request endpoint response structure."""
     # Note: This test will fail until proxies are added to the pool
     # It tests the response structure when no proxies are available
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
-            "/api/v1/request",
+            "/api/request",
             json={
                 "url": "https://httpbin.org/get",
                 "method": "GET",

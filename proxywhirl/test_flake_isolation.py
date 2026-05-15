@@ -127,8 +127,9 @@ class TestFlakeIsolationManager:
                 return False
 
             context = self._contexts[context_id]
-            if resource_key in context.resources:
-                del context.resources[resource_key]
+            resources = context.resources
+            if resources is not None and resource_key in resources:
+                del resources[resource_key]
                 logger.debug(f"Resource released: {context_id}/{resource_key}")
                 return True
 

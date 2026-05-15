@@ -95,7 +95,7 @@ This prevents a malicious or poorly-written regex from hanging the application.
 The REST API uses API key authentication via the `X-API-Key` header:
 
 ```bash
-curl -H "X-API-Key: $PROXYWHIRL_API_KEY" http://localhost:8000/api/v1/proxies
+curl -H "X-API-Key: $PROXYWHIRL_API_KEY" http://localhost:8000/api/proxies
 ```
 
 The MCP server has its own key (`PROXYWHIRL_MCP_API_KEY`) to isolate AI assistant access from direct API access.

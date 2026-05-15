@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, TypeAlias
 
 from loguru import logger
 
@@ -17,7 +17,7 @@ class MiddlewareContext:
     metadata: dict[str, Any] | None = None
 
 
-MiddlewareFunc = Callable[[MiddlewareContext], MiddlewareContext | None]
+MiddlewareFunc: TypeAlias = Callable[[MiddlewareContext], "MiddlewareContext | None"]
 
 
 class MiddlewarePipeline:

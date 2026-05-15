@@ -1,5 +1,7 @@
 """Property-based tests for safe_regex using Hypothesis."""
 
+from __future__ import annotations
+
 import re
 from typing import Any
 

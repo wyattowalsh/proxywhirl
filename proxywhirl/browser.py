@@ -143,27 +143,21 @@ class BrowserRenderer:
                 Default: 30000 (30 seconds). Applies to goto(), wait_for_selector(), etc.
                 Raises TimeoutError if exceeded.
             wait_until: When to consider page navigation complete.
-                Default: "load" (full page load).
-                Options:
-                  - "domcontentloaded": DOM ready (faster, ~2x speedup)
-                  - "networkidle": All network activity ceased (slower, more reliable)
+                Default: "load" for full page load. Other options are
+                "domcontentloaded" for faster DOM readiness and "networkidle"
+                for slower, more reliable network quiescence.
             user_agent: Custom user agent string to send in HTTP headers.
                 Default: None (uses Playwright default).
                 Tip: Use modern user agents to avoid being blocked by scrapers.
                 Example: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
             viewport: Custom viewport size as dict with "width" and "height".
-                Default: {"width": 1280, "height": 720} (1280x720 desktop).
-                Tips:
-                  - {"width": 375, "height": 667} for mobile
-                  - {"width": 1920, "height": 1080} for larger displays
-                  - Pass None to use default
+                Default: {"width": 1280, "height": 720} for desktop. Use
+                {"width": 375, "height": 667} for mobile, {"width": 1920,
+                "height": 1080} for larger displays, or None for the default.
             max_contexts: Maximum number of pooled browser contexts.
-                Default: 3. Higher values enable more concurrent renders:
-                  - 3: Balanced for light use
-                  - 5-10: Recommended for moderate concurrency
-                  - 20+: Only for high-throughput scenarios (requires ~1GB+ RAM)
-                Memory impact: ~50-100MB per context.
-                Choose based on: concurrency needs * expected render time.
+                Default: 3 for light use. Use 5-10 for moderate concurrency
+                and 20+ only for high-throughput scenarios with enough memory.
+                Memory impact is approximately 50-100MB per context.
             extra_args: Additional command-line arguments for the browser.
                 Dangerous arguments (e.g., --no-sandbox, --remote-debugging-port)
                 are rejected to prevent security risks.

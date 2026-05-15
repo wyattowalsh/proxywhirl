@@ -16,13 +16,12 @@
 | Task | Command |
 |------|---------|
 | Install | `uv sync` |
-| Test | `make test` / `uv run pytest tests/ -q` |
-| Lint | `make lint` / `uv run ruff check proxywhirl/ tests/` |
-| Format | `make format` / `uv run ruff format proxywhirl/ tests/` |
-| Type check | `make type-check` / `uv run ty check proxywhirl/` |
-| Quality gates | `make quality-gates` |
-| Commit | `make commit` (conventional) |
-| Docs build | `make docs-html` / `cd docs && uv run sphinx-build -M html source build` |
+| Test | `task test` / `uv run pytest tests/ -q` |
+| Lint | `task lint` / `uv run ruff check proxywhirl/ tests/` |
+| Format | `task format` / `uv run ruff format proxywhirl/ tests/` |
+| Type check | `task type-check` / `uv run ty check proxywhirl/` |
+| Quality gates | `task quality-gates` |
+| Docs build | `task docs-html` / `cd docs && uv run --extra docs sphinx-build -M html source build` |
 
 **Always prefix with `uv run`** — never bare `pytest`, `python`, or `pip`.
 
@@ -51,7 +50,7 @@
 | `circuit_breaker/` | `CircuitBreaker`, `AsyncCircuitBreaker` |
 | `retry/` | `RetryExecutor`, `RetryPolicy`, backoff logic |
 | `rate_limiting/` | `RateLimiter` (token bucket) |
-| `api/` | FastAPI `/api/v1/*` routes |
+| `api/` | FastAPI canonical `/api/*` routes |
 | `mcp/` | MCP server for AI assistants |
 | `cli.py` | Typer CLI (`proxywhirl` command) |
 | `tui.py` | Textual TUI dashboard |
@@ -105,7 +104,7 @@
 ## Boundaries
 
 **Always:**
-- Run `make lint` before commit
+- Run `task lint` before commit
 - Add tests for new features (test-first)
 - Use type hints on public functions
 - Use `loguru` for logging (never `print`)
@@ -148,7 +147,7 @@ See subsystem AGENTS.md files for complete environment variable lists.
 | Category | Forbidden | Allowed |
 |----------|-----------|---------|
 | **Files** | `*.env*`, `*.pem`, `*.key`, `*secret*`, `*credential*`, `*.bak` | `proxywhirl/`, `tests/`, `docs/`, `examples/` |
-| **Commands** | `rm -rf`, `curl \| sh`, `eval`, `chmod 777`, `sudo *` | `uv run *`, `make *`, `git *` |
+| **Commands** | `rm -rf`, `curl \| sh`, `eval`, `chmod 777`, `sudo *` | `uv run *`, `task *`, `git *` |
 | **Network** | Raw sockets, production APIs, external URLs not in codebase | httpx client, localhost, mocked fixtures |
 | **Secrets** | Hardcoded creds, logging passwords, base64-encoded keys | `os.environ.get()`, `cryptography` lib |
 | **Regex** | User-provided patterns without validation | `safe_regex.py` utilities only (ReDoS) |
@@ -200,7 +199,7 @@ Lint command: uv run ruff check proxywhirl/<module>.py
 |----------|--------|
 | Sync vs Async | `ProxyWhirl` for scripts/CLI; `AsyncProxyWhirl` for web/high-concurrency |
 | Tests fail | 1) `uv run pytest path::test -v` 2) Check `conftest.py` 3) `uv sync` |
-| Lint fails | 1) `make format` auto-fix 2) Manual fix remaining 3) Check ruff codes |
+| Lint fails | 1) `task format` auto-fix 2) Manual fix remaining 3) Check ruff codes |
 | Type errors | `uv run ty check` (not mypy) — check `ty.rules` in pyproject.toml |
 | New strategy | Implement `RotationStrategy` protocol, register in `StrategyRegistry` |
 | New exception | Inherit from `ProxyWhirlError`, add error code to `ProxyErrorCode` |

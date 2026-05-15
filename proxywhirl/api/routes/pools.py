@@ -1,7 +1,7 @@
 """Configuration, retry, and circuit breaker endpoints for ProxyWhirl API.
 
-Includes all /api/v1/config/*, /api/v1/retry/*, /api/v1/circuit-breakers/*,
-and /api/v1/metrics/retries/* endpoints.
+Includes all /api/config/*, /api/retry/*, /api/circuit-breakers/*,
+and /api/metrics/* endpoints.
 """
 
 # ruff: noqa: B008
@@ -26,6 +26,7 @@ from proxywhirl.api.models import (
     CircuitBreakerEventResponse,
     CircuitBreakerResponse,
     ConfigurationSettings,
+    ProxyRetryStatsResponse,
     RetryMetricsResponse,
     RetryPolicyRequest,
     RetryPolicyResponse,
@@ -38,7 +39,7 @@ router = APIRouter()
 
 
 @router.get(
-    "/api/v1/config",
+    "/api/config",
     response_model=APIResponse[ConfigurationSettings],
     tags=["Configuration"],
     summary="Get current configuration",
@@ -71,7 +72,7 @@ async def get_configuration(
 
 
 @router.put(
-    "/api/v1/config",
+    "/api/config",
     response_model=APIResponse[ConfigurationSettings],
     tags=["Configuration"],
     summary="Update configuration",
@@ -136,7 +137,7 @@ async def update_configuration(
 
 
 @router.get(
-    "/api/v1/retry/policy",
+    "/api/retry/policy",
     response_model=APIResponse[RetryPolicyResponse],
     tags=["Retry & Failover"],
     summary="Get global retry policy",
@@ -175,7 +176,7 @@ async def get_retry_policy(
 
 
 @router.put(
-    "/api/v1/retry/policy",
+    "/api/retry/policy",
     response_model=APIResponse[RetryPolicyResponse],
     tags=["Retry & Failover"],
     summary="Update global retry policy",
@@ -261,7 +262,7 @@ async def update_retry_policy(
 
 
 @router.get(
-    "/api/v1/circuit-breakers",
+    "/api/circuit-breakers",
     response_model=APIResponse[list[CircuitBreakerResponse]],
     tags=["Retry & Failover"],
     summary="List all circuit breaker states",
@@ -305,7 +306,7 @@ async def list_circuit_breakers(
 
 
 @router.get(
-    "/api/v1/circuit-breakers/metrics",
+    "/api/metrics/circuit-breakers",
     response_model=APIResponse[list[CircuitBreakerEventResponse]],
     tags=["Retry & Failover"],
     summary="Get circuit breaker metrics",
@@ -349,7 +350,7 @@ async def get_circuit_breaker_metrics(
 
 
 @router.get(
-    "/api/v1/circuit-breakers/{proxy_id}",
+    "/api/circuit-breakers/{proxy_id}",
     response_model=APIResponse[CircuitBreakerResponse],
     tags=["Retry & Failover"],
     summary="Get circuit breaker state for specific proxy",
@@ -401,7 +402,7 @@ async def get_circuit_breaker(
 
 
 @router.post(
-    "/api/v1/circuit-breakers/{proxy_id}/reset",
+    "/api/circuit-breakers/{proxy_id}/reset",
     response_model=APIResponse[CircuitBreakerResponse],
     tags=["Retry & Failover"],
     summary="Manually reset circuit breaker",
@@ -458,7 +459,7 @@ async def reset_circuit_breaker(
 
 
 @router.get(
-    "/api/v1/metrics/retries",
+    "/api/metrics/retries",
     response_model=APIResponse[RetryMetricsResponse],
     tags=["Retry & Failover"],
     summary="Get retry metrics summary",
@@ -494,7 +495,7 @@ async def get_retry_metrics(
 
 
 @router.get(
-    "/api/v1/metrics/retries/timeseries",
+    "/api/metrics/retries/timeseries",
     response_model=APIResponse[TimeSeriesResponse],
     tags=["Retry & Failover"],
     summary="Get time-series retry data",
@@ -540,15 +541,15 @@ async def get_retry_timeseries(
 
 
 @router.get(
-    "/api/v1/metrics/retries/by-proxy",
-    response_model=APIResponse[dict],
+    "/api/metrics/retries/by-proxy",
+    response_model=APIResponse[ProxyRetryStatsResponse],
     tags=["Retry & Failover"],
     summary="Get per-proxy retry statistics",
 )
 async def get_retry_stats_by_proxy(
     hours: int = 24,
     api_key: None = Depends(verify_api_key),
-) -> APIResponse[dict]:
+) -> APIResponse[ProxyRetryStatsResponse]:
     """Get retry statistics grouped by proxy.
 
     Args:
@@ -573,4 +574,4 @@ async def get_retry_stats_by_proxy(
 
     response = ProxyRetryStatsResponse(proxies=proxies)
 
-    return APIResponse.success(data=response)
+    return APIResponse.success(data=response.model_dump(mode="json"))

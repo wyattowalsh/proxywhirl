@@ -23,8 +23,6 @@ from proxywhirl.api.models import (
     UpdateConfigRequest,
 )
 from proxywhirl.api.routes.health import (
-    get_circuit_breaker_metrics_endpoint,
-    get_retry_metrics_endpoint,
     get_stats,
     get_status,
     health_check,
@@ -181,8 +179,8 @@ def test_update_prometheus_metrics_updates_states() -> None:
             self.state = SimpleNamespace(value=value)
 
     rotator.get_circuit_breaker_states.return_value = {
-        "proxy1": DummyCB("OPEN"),
-        "proxy2": DummyCB("HALF_OPEN"),
+        "proxy1": DummyCB("open"),
+        "proxy2": DummyCB("half_open"),
     }
     api_core._rotator = rotator
     api_core.update_prometheus_metrics()
@@ -214,7 +212,7 @@ def test_request_endpoint_success(client: TestClient) -> None:
     with patch("proxywhirl.api.core._rotator", rotator):
         with patch("httpx.AsyncClient.request", AsyncMock(return_value=response)):
             result = client.post(
-                "/api/v1/request",
+                "/api/request",
                 json={"url": "https://example.com", "method": "GET"},
             )
 
@@ -231,7 +229,7 @@ def test_request_endpoint_no_proxies(client: TestClient) -> None:
 
     with patch("proxywhirl.api.core._rotator", rotator):
         result = client.post(
-            "/api/v1/request",
+            "/api/request",
             json={"url": "https://example.com", "method": "GET"},
         )
 
@@ -248,7 +246,7 @@ def test_request_endpoint_proxy_error_retries(client: TestClient) -> None:
             AsyncMock(side_effect=httpx.ProxyError("boom")),
         ):
             result = client.post(
-                "/api/v1/request",
+                "/api/request",
                 json={"url": "https://example.com", "method": "GET"},
             )
 
@@ -265,7 +263,7 @@ def test_request_endpoint_unexpected_error(client: TestClient) -> None:
             AsyncMock(side_effect=RuntimeError("boom")),
         ):
             result = client.post(
-                "/api/v1/request",
+                "/api/request",
                 json={"url": "https://example.com", "method": "GET"},
             )
 
@@ -286,11 +284,11 @@ def test_list_proxies_filters(client: TestClient) -> None:
             self.state = SimpleNamespace(value=value)
 
     rotator.get_circuit_breaker_states.return_value = {
-        api_core._get_proxy_id(proxy_unhealthy): DummyCB("OPEN")
+        api_core._get_proxy_id(proxy_unhealthy): DummyCB("open")
     }
 
     with patch("proxywhirl.api.core._rotator", rotator):
-        result = client.get("/api/v1/proxies", params={"status_filter": "active", "page": 1})
+        result = client.get("/api/proxies", params={"status_filter": "active", "page": 1})
 
     assert result.status_code == 200
     body = result.json()
@@ -306,8 +304,8 @@ def test_list_proxies_invalid_pagination(client: TestClient) -> None:
     rotator.get_circuit_breaker_states.return_value = {}
 
     with patch("proxywhirl.api.core._rotator", rotator):
-        bad_page = client.get("/api/v1/proxies", params={"page": 0})
-        bad_size = client.get("/api/v1/proxies", params={"page_size": 101})
+        bad_page = client.get("/api/proxies", params={"page": 0})
+        bad_size = client.get("/api/proxies", params={"page_size": 101})
 
     assert bad_page.status_code == 400
     assert bad_size.status_code == 400
@@ -407,7 +405,7 @@ async def test_not_found_handler_returns_error() -> None:
 @pytest.mark.asyncio
 async def test_validation_error_handler_formats_details() -> None:
     """Validation handler should convert errors to readable messages."""
-    request = _make_request(path="/api/v1/request")
+    request = _make_request(path="/api/request")
 
     class DummyValidationError:
         def errors(self) -> list[dict[str, object]]:
@@ -428,7 +426,7 @@ async def test_validation_error_handler_formats_details() -> None:
 @pytest.mark.asyncio
 async def test_internal_error_handler() -> None:
     """Internal error handler should return 500 response."""
-    request = _make_request(path="/api/v1/request")
+    request = _make_request(path="/api/request")
     response = await api_core.internal_error_handler(request, RuntimeError("boom"))
     assert response.status_code == 500
 
@@ -436,7 +434,7 @@ async def test_internal_error_handler() -> None:
 @pytest.mark.asyncio
 async def test_proxy_error_handler_maps_status() -> None:
     """Proxy error handler should map known error types to status codes."""
-    request = _make_request(path="/api/v1/request")
+    request = _make_request(path="/api/request")
     exc = ProxyValidationError("Bad proxy URL", proxy_url="http://user:pass@proxy:8080")
     response = await api_core.proxy_error_handler(request, exc)
     payload = json.loads(response.body.decode())
@@ -618,7 +616,7 @@ async def test_get_status_and_stats() -> None:
     rotator.pool.healthy_count = 1
     rotator.pool.get_all_proxies.return_value = [proxy]
     rotator.get_circuit_breaker_states.return_value = {
-        api_core._get_proxy_id(proxy): SimpleNamespace(state=SimpleNamespace(value="OPEN"))
+        api_core._get_proxy_id(proxy): SimpleNamespace(state=SimpleNamespace(value="open"))
     }
 
     status_response = await get_status(rotator, None, {"rotation_strategy": "random"})
@@ -781,16 +779,10 @@ async def test_retry_metrics_endpoints() -> None:
     by_proxy_response = await get_retry_stats_by_proxy(24, None)
     assert by_proxy_response.status == "success"
 
-    json_response = await get_retry_metrics_endpoint(None, 24, None)
-    assert json_response.status_code == 200
-
-    prometheus_response = await get_retry_metrics_endpoint("prometheus", 24, None)
-    assert prometheus_response.status_code == 200
-
 
 @pytest.mark.asyncio
-async def test_circuit_breaker_metrics_endpoint_formats() -> None:
-    """Circuit breaker metrics endpoint should support JSON and Prometheus."""
+async def test_circuit_breaker_metrics_endpoint() -> None:
+    """Circuit breaker metrics endpoint returns JSON event data."""
     cb = SimpleNamespace(
         state=SimpleNamespace(value="open"),
         failure_count=2,
@@ -823,8 +815,6 @@ async def test_circuit_breaker_metrics_endpoint_formats() -> None:
     api_core._rotator.get_circuit_breaker_states.return_value = {"proxy-1": cb}
     api_core._rotator.get_retry_metrics.return_value = metrics
 
-    json_response = await get_circuit_breaker_metrics_endpoint(None, 24, None)
-    assert json_response.status_code == 200
-
-    prometheus_response = await get_circuit_breaker_metrics_endpoint("prometheus", 24, None)
-    assert prometheus_response.status_code == 200
+    response = await get_circuit_breaker_metrics(24, None)
+    assert response.status == "success"
+    assert response.data is not None

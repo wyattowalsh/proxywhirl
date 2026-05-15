@@ -1,8 +1,8 @@
 """Contract tests for configuration endpoints (US4).
 
 Tests API contracts for:
-- GET /api/v1/config - Get current configuration
-- PUT /api/v1/config - Update configuration
+- GET /api/config - Get current configuration
+- PUT /api/config - Update configuration
 """
 
 import pytest

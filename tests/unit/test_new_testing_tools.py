@@ -245,6 +245,8 @@ class TestSnapshotTesting:
         assert summary == snapshot
 
 
+@pytest.mark.slow
+@pytest.mark.property
 class TestHypothesisPropertyBased:
     """Tests demonstrating Hypothesis for property-based testing."""
 

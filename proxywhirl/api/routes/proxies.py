@@ -1,6 +1,6 @@
 """Proxy endpoints for ProxyWhirl API.
 
-Includes all /api/v1/proxies/* endpoints and the /api/v1/request
+Includes all /api/proxies/* endpoints and the /api/request
 proxied request endpoint.
 """
 
@@ -12,6 +12,7 @@ import asyncio
 import time
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
+from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -38,13 +39,56 @@ from proxywhirl.api.models import (
     ProxyResource,
 )
 from proxywhirl.exceptions import ProxyWhirlError
+from proxywhirl.models import Proxy
 from proxywhirl.rotator import ProxyWhirl
 
 router = APIRouter()
 
 
+def _public_proxy_url(proxy_url: str) -> str:
+    """Return a proxy URL without userinfo credentials."""
+    parsed = urlsplit(proxy_url)
+    netloc = parsed.netloc.rsplit("@", 1)[-1]
+    return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
+
+
+def _proxy_resource(
+    proxy: Proxy,
+    rotator: ProxyWhirl,
+    proxy_id: str | None = None,
+) -> ProxyResource:
+    """Build the shared public proxy representation."""
+    resource_id = proxy_id or _get_proxy_id(proxy)
+    circuit_breaker = rotator.get_circuit_breaker_states().get(resource_id)
+
+    if circuit_breaker and circuit_breaker.state.value == "open":
+        proxy_status = "failed"
+    elif circuit_breaker and circuit_breaker.state.value == "half_open":
+        proxy_status = "degraded"
+    else:
+        proxy_status = "active"
+
+    health_value = proxy.health_status.value if proxy.health_status else "unknown"
+
+    return ProxyResource(
+        id=resource_id,
+        url=_public_proxy_url(str(proxy.url)),
+        protocol=proxy.protocol or "http",
+        status=proxy_status,
+        health=health_value,
+        stats={
+            "total_requests": proxy.requests_started,
+            "successful_requests": proxy.requests_completed,
+            "failed_requests": proxy.total_failures,
+            "avg_latency_ms": int(proxy.average_response_time_ms or 0),
+        },
+        created_at=proxy.created_at,
+        updated_at=proxy.updated_at,
+    )
+
+
 @router.post(
-    "/api/v1/request",
+    "/api/request",
     response_model=APIResponse[ProxiedResponse],
     tags=["Proxied Requests"],
     summary="Make proxied HTTP request",
@@ -116,7 +160,7 @@ async def make_proxied_request(
                 status_code=response.status_code,
                 headers=dict(response.headers),
                 body=response.text,
-                proxy_used=proxy_url,
+                proxy_used=_public_proxy_url(proxy_url),
                 elapsed_ms=elapsed_ms,
             )
 
@@ -150,7 +194,7 @@ async def make_proxied_request(
 
 
 @router.get(
-    "/api/v1/proxies",
+    "/api/proxies",
     response_model=APIResponse[PaginatedResponse[ProxyResource]],
     tags=["Pool Management"],
     summary="List all proxies",
@@ -197,7 +241,7 @@ async def list_proxies(
                 p
                 for p in all_proxies
                 if _get_proxy_id(p) not in circuit_breakers
-                or circuit_breakers[_get_proxy_id(p)].state.value != "OPEN"
+                or circuit_breakers[_get_proxy_id(p)].state.value != "open"
             ]
 
     # Calculate pagination
@@ -206,40 +250,7 @@ async def list_proxies(
     end_idx = start_idx + page_size
     page_proxies = all_proxies[start_idx:end_idx]
 
-    # Convert to ProxyResource models
-    proxy_resources = []
-    circuit_breakers = rotator.get_circuit_breaker_states()
-    for proxy in page_proxies:
-        proxy_id = _get_proxy_id(proxy)
-        cb = circuit_breakers.get(proxy_id)
-
-        # Determine status based on circuit breaker state
-        if cb and cb.state.value == "OPEN":
-            proxy_status = "failed"
-        elif cb and cb.state.value == "HALF_OPEN":
-            proxy_status = "degraded"
-        else:
-            proxy_status = "active"
-
-        # Map health status to string
-        health_value = proxy.health_status.value if proxy.health_status else "unknown"
-
-        resource = ProxyResource(
-            id=proxy_id,
-            url=str(proxy.url),
-            protocol=proxy.protocol or "http",
-            status=proxy_status,
-            health=health_value,
-            stats={
-                "total_requests": proxy.requests_started,
-                "successful_requests": proxy.requests_completed,
-                "failed_requests": proxy.total_failures,
-                "avg_latency_ms": int(proxy.average_response_time_ms or 0),
-            },
-            created_at=proxy.created_at,
-            updated_at=proxy.updated_at,
-        )
-        proxy_resources.append(resource)
+    proxy_resources = [_proxy_resource(proxy, rotator) for proxy in page_proxies]
 
     # Build paginated response
     paginated = PaginatedResponse[ProxyResource](
@@ -252,6 +263,35 @@ async def list_proxies(
     )
 
     return APIResponse.success(data=paginated)
+
+
+@router.get(
+    "/api/rotate",
+    response_model=APIResponse[ProxyResource],
+    tags=["Pool Management"],
+    summary="Select next proxy",
+)
+async def rotate_proxy(
+    rotator: ProxyWhirl = Depends(get_rotator),
+    api_key: None = Depends(verify_api_key),
+) -> APIResponse[ProxyResource]:
+    """Select the next proxy without making an outbound target request."""
+    try:
+        proxy = rotator.strategy.select(rotator.pool)
+    except ProxyWhirlError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No proxies available in the pool",
+        ) from exc
+
+    if not proxy:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No proxies available in the pool",
+        )
+
+    _api_core._last_rotation_time = datetime.now(timezone.utc)
+    return APIResponse.success(data=_proxy_resource(proxy, rotator))
 
 
 async def _stream_proxies_async(
@@ -269,39 +309,9 @@ async def _stream_proxies_async(
     """
     import json
 
-    circuit_breakers = rotator.get_circuit_breaker_states()
-
     for proxy in all_proxies:
         try:
-            proxy_id = _get_proxy_id(proxy)
-            cb = circuit_breakers.get(proxy_id)
-
-            # Determine status based on circuit breaker state
-            if cb and cb.state.value == "OPEN":
-                proxy_status = "failed"
-            elif cb and cb.state.value == "HALF_OPEN":
-                proxy_status = "degraded"
-            else:
-                proxy_status = "active"
-
-            # Map health status to string
-            health_value = proxy.health_status.value if proxy.health_status else "unknown"
-
-            resource_dict = {
-                "id": proxy_id,
-                "url": str(proxy.url),
-                "protocol": proxy.protocol or "http",
-                "status": proxy_status,
-                "health": health_value,
-                "stats": {
-                    "total_requests": proxy.requests_started,
-                    "successful_requests": proxy.requests_completed,
-                    "failed_requests": proxy.total_failures,
-                    "avg_latency_ms": int(proxy.average_response_time_ms or 0),
-                },
-                "created_at": proxy.created_at.isoformat() if proxy.created_at else None,
-                "updated_at": proxy.updated_at.isoformat() if proxy.updated_at else None,
-            }
+            resource_dict = _proxy_resource(proxy, rotator).model_dump(mode="json")
             yield json.dumps(resource_dict) + "\n"
         except Exception as e:
             logger.warning(f"Failed to stream proxy: {e}")
@@ -309,7 +319,7 @@ async def _stream_proxies_async(
 
 
 @router.get(
-    "/api/v1/proxies/stream",
+    "/api/proxies/stream",
     tags=["Pool Management"],
     summary="Stream all proxies as NDJSON",
 )
@@ -348,7 +358,7 @@ async def stream_proxies(
                 p
                 for p in all_proxies
                 if _get_proxy_id(p) not in circuit_breakers
-                or circuit_breakers[_get_proxy_id(p)].state.value != "OPEN"
+                or circuit_breakers[_get_proxy_id(p)].state.value != "open"
             ]
 
     return StreamingResponse(
@@ -362,7 +372,7 @@ async def stream_proxies(
 
 
 @router.get(
-    "/api/v1/proxies/export",
+    "/api/proxies/export",
     tags=["Pool Management"],
     summary="Export all proxies as streaming JSON",
 )
@@ -373,7 +383,7 @@ async def export_proxies(
 ) -> StreamingResponse:
     """Stream all proxies as newline-delimited JSON (NDJSON).
 
-    This endpoint is functionally equivalent to ``/api/v1/proxies/stream``
+    This endpoint is functionally equivalent to ``/api/proxies/stream``
     and is provided for discoverability under the ``/export`` path.
 
     Args:
@@ -399,7 +409,7 @@ async def export_proxies(
                 p
                 for p in all_proxies
                 if _get_proxy_id(p) not in circuit_breakers
-                or circuit_breakers[_get_proxy_id(p)].state.value != "OPEN"
+                or circuit_breakers[_get_proxy_id(p)].state.value != "open"
             ]
 
     return StreamingResponse(
@@ -413,7 +423,7 @@ async def export_proxies(
 
 
 @router.post(
-    "/api/v1/proxies",
+    "/api/proxies",
     response_model=APIResponse[ProxyResource],
     status_code=status.HTTP_201_CREATED,
     tags=["Pool Management"],
@@ -436,8 +446,6 @@ async def add_proxy(
     Returns:
         Created proxy resource
     """
-    from proxywhirl.models import Proxy
-
     # Check for duplicate (thread-safe snapshot)
     proxy_url_str = str(proxy_data.url)
     for existing_proxy in rotator.pool.get_all_proxies():
@@ -460,27 +468,7 @@ async def add_proxy(
         # Add to rotator
         rotator.add_proxy(new_proxy)
 
-        # Build response
-        proxy_id = _get_proxy_id(new_proxy)
-        health_value = new_proxy.health_status.value if new_proxy.health_status else "unknown"
-
-        resource = ProxyResource(
-            id=proxy_id,
-            url=str(new_proxy.url),
-            protocol=new_proxy.protocol or "http",
-            status="active",
-            health=health_value,
-            stats={
-                "total_requests": new_proxy.requests_started,
-                "successful_requests": new_proxy.requests_completed,
-                "failed_requests": new_proxy.total_failures,
-                "avg_latency_ms": int(new_proxy.average_response_time_ms or 0),
-            },
-            created_at=new_proxy.created_at,
-            updated_at=new_proxy.updated_at,
-        )
-
-        return APIResponse.success(data=resource)
+        return APIResponse.success(data=_proxy_resource(new_proxy, rotator))
 
     except Exception as e:
         logger.error(f"Error adding proxy: {e}", exc_info=True)
@@ -540,7 +528,7 @@ async def _check_proxy_health(
 
 
 @router.post(
-    "/api/v1/proxies/health-check",
+    "/api/proxies/health-check",
     response_model=APIResponse[list[HealthCheckResult]],
     tags=["Pool Management"],
     summary="Health check proxies",
@@ -579,7 +567,7 @@ async def health_check_proxies(
 
 # Deprecated - kept for backward compatibility
 @router.post(
-    "/api/v1/proxies/test",
+    "/api/proxies/test",
     response_model=APIResponse[list[HealthCheckResult]],
     tags=["Pool Management"],
     summary="Health check proxies (deprecated)",
@@ -592,7 +580,7 @@ async def health_check_proxies_deprecated(
 ) -> APIResponse[list[HealthCheckResult]]:
     """Run health checks on specified proxies.
 
-    **DEPRECATED:** Use `/api/v1/proxies/health-check` instead.
+    **DEPRECATED:** Use `/api/proxies/health-check` instead.
     This endpoint is kept for backward compatibility and will be removed in a future version.
 
     Args:
@@ -604,14 +592,14 @@ async def health_check_proxies_deprecated(
         List of health check results
     """
     logger.warning(
-        "Deprecated endpoint used: POST /api/v1/proxies/test. "
-        "Please migrate to /api/v1/proxies/health-check"
+        "Deprecated endpoint used: POST /api/proxies/test. "
+        "Please migrate to /api/proxies/health-check"
     )
     return await health_check_proxies(request_data, rotator, api_key)
 
 
 @router.get(
-    "/api/v1/proxies/{proxy_id}",
+    "/api/proxies/{proxy_id}",
     response_model=APIResponse[ProxyResource],
     tags=["Pool Management"],
     summary="Get proxy by ID",
@@ -632,38 +620,9 @@ async def get_proxy(
         Proxy resource
     """
     # Find proxy by ID (thread-safe snapshot)
-    circuit_breakers = rotator.get_circuit_breaker_states()
     for proxy in rotator.pool.get_all_proxies():
         if _get_proxy_id(proxy) == proxy_id:
-            cb = circuit_breakers.get(proxy_id)
-
-            # Determine status based on circuit breaker state
-            if cb and cb.state.value == "OPEN":
-                proxy_status = "failed"
-            elif cb and cb.state.value == "HALF_OPEN":
-                proxy_status = "degraded"
-            else:
-                proxy_status = "active"
-
-            # Map health status to string
-            health_value = proxy.health_status.value if proxy.health_status else "unknown"
-
-            resource = ProxyResource(
-                id=proxy_id,
-                url=str(proxy.url),
-                protocol=proxy.protocol or "http",
-                status=proxy_status,
-                health=health_value,
-                stats={
-                    "total_requests": proxy.requests_started,
-                    "successful_requests": proxy.requests_completed,
-                    "failed_requests": proxy.total_failures,
-                    "avg_latency_ms": int(proxy.average_response_time_ms or 0),
-                },
-                created_at=proxy.created_at,
-                updated_at=proxy.updated_at,
-            )
-            return APIResponse.success(data=resource)
+            return APIResponse.success(data=_proxy_resource(proxy, rotator, proxy_id))
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -672,7 +631,7 @@ async def get_proxy(
 
 
 @router.delete(
-    "/api/v1/proxies/{proxy_id}",
+    "/api/proxies/{proxy_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     tags=["Pool Management"],
     summary="Delete proxy",

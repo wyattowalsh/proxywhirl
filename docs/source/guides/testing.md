@@ -295,7 +295,7 @@ def test_proxy_snapshot(snapshot):
 
 ## Test Organization
 
-### conftest.py
+### `conftest.py`
 
 ```python
 # tests/conftest.py

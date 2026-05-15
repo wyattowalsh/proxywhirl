@@ -127,6 +127,7 @@ def is_valid_proxy_url(url: str) -> TypeGuard[str]:
     - https://host:port
     - socks4://host:port
     - socks5://host:port
+    - socks5h://host:port
 
     Args:
         url: String to validate
@@ -136,7 +137,7 @@ def is_valid_proxy_url(url: str) -> TypeGuard[str]:
     """
     try:
         parsed = urlparse(url)
-        valid_schemes = ("http", "https", "socks4", "socks5")
+        valid_schemes = ("http", "https", "socks4", "socks5", "socks5h")
 
         if parsed.scheme not in valid_schemes:
             return False

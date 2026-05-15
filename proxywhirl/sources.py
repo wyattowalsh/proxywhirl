@@ -70,6 +70,7 @@ GEONODE_SOCKS5 = ProxySourceConfig(
     format="json",
     custom_parser=GeonodeParser(),
     trusted=True,
+    enabled=False,  # Disabled after repeated no-response validation on 2026-05-14.
 )
 
 # ProxyScrape SOCKS4
@@ -77,6 +78,7 @@ PROXY_SCRAPE_SOCKS4 = ProxySourceConfig(
     url="https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks4&timeout=10000&country=all",
     format="plain_text",
     protocol="socks4",
+    enabled=False,  # Disabled after intermittent no-response strict validation on 2026-05-14.
 )
 
 
@@ -94,12 +96,14 @@ PROXYSPACE_SOCKS4 = ProxySourceConfig(
     url="https://proxyspace.pro/socks4.txt",
     format="plain_text",
     protocol="socks4",
+    enabled=False,  # Disabled after intermittent no-response strict validation on 2026-05-14.
 )
 
 PROXYSPACE_SOCKS5 = ProxySourceConfig(
     url="https://proxyspace.pro/socks5.txt",
     format="plain_text",
     protocol="socks5",
+    enabled=False,  # Disabled after repeated no-response validation on 2026-05-14.
 )
 
 # openproxylist.xyz - Large HTTP proxy list
@@ -137,6 +141,7 @@ GITHUB_THESPEEDX_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/socks5.txt",
     format="plain_text",
     protocol="socks5",
+    enabled=False,  # Disabled after repeated no-response validation on 2026-05-14.
 )
 
 # monosans/proxy-list - Validated every 5 minutes
@@ -158,6 +163,7 @@ GITHUB_MONOSANS_SOCKS5 = ProxySourceConfig(
     format="plain_text",
     protocol="socks5",
     trusted=True,
+    enabled=False,  # Disabled after intermittent no-response strict validation on 2026-05-14.
 )
 
 # roosterkid/openproxylist
@@ -220,6 +226,7 @@ GITHUB_MMPX12_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/mmpx12/proxy-list/master/socks4.txt",
     format="plain_text",
     protocol="socks4",
+    enabled=False,  # Disabled after repeated no-response validation on 2026-05-14.
 )
 
 GITHUB_MMPX12_SOCKS5 = ProxySourceConfig(
@@ -288,21 +295,21 @@ GITHUB_OPENPROXY_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/https/https.txt",
     format="plain_text",
     protocol="https",
-    enabled=False,
+    enabled=False,  # Disabled after raw endpoints started returning 404 in Apr 2026 validation.
 )
 
 GITHUB_OPENPROXY_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/socks4/socks4.txt",
     format="plain_text",
     protocol="socks4",
-    enabled=False,
+    enabled=False,  # Disabled after raw endpoints started returning 404 in Apr 2026 validation.
 )
 
 GITHUB_OPENPROXY_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/officialputuid/KangProxy/KangProxy/socks5/socks5.txt",
     format="plain_text",
     protocol="socks5",
-    enabled=False,
+    enabled=False,  # Disabled after raw endpoints started returning 404 in Apr 2026 validation.
 )
 
 # vakhov/fresh-proxy-list - Verified working proxies
@@ -343,6 +350,7 @@ GITHUB_ZAEEM_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Zaeem20/FREE_PROXIES_LIST/master/socks4.txt",
     format="plain_text",
     protocol="socks4",
+    enabled=False,  # Disabled after repeated no-response validation on 2026-05-14.
 )
 
 GITHUB_ZAEEM_HTTPS = ProxySourceConfig(
@@ -355,21 +363,21 @@ GITHUB_ZAEEM_HTTPS = ProxySourceConfig(
 GITHUB_MURONGPIG_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/MuRongPig/Proxy-Master/main/http.txt",
     format="plain_text",
-    enabled=False,
+    enabled=False,  # Disabled because upstream repository has been stale since Aug 2025.
 )
 
 GITHUB_MURONGPIG_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/MuRongPig/Proxy-Master/main/socks4.txt",
     format="plain_text",
     protocol="socks4",
-    enabled=False,
+    enabled=False,  # Disabled because upstream repository has been stale since Aug 2025.
 )
 
 GITHUB_MURONGPIG_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/MuRongPig/Proxy-Master/main/socks5.txt",
     format="plain_text",
     protocol="socks5",
-    enabled=False,
+    enabled=False,  # Disabled because upstream repository has been stale since Aug 2025.
 )
 
 # komutan234/Proxy-List-Free - Updated every 2 minutes via GitHub Actions
@@ -384,6 +392,7 @@ GITHUB_KOMUTAN_SOCKS4 = ProxySourceConfig(
     format="plain_text",
     protocol="socks4",
     trusted=True,
+    enabled=False,  # Disabled after repeated no-response validation on 2026-05-14.
 )
 
 GITHUB_KOMUTAN_SOCKS5 = ProxySourceConfig(
@@ -488,6 +497,7 @@ GITHUB_ZEVTYARDT_SOCKS5 = ProxySourceConfig(
 GITHUB_ERCINDEDEOGLU_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/http.txt",
     format="plain_text",
+    enabled=False,  # Disabled after repeated no-response validation on 2026-05-14.
 )
 
 GITHUB_ERCINDEDEOGLU_HTTPS = ProxySourceConfig(
@@ -500,6 +510,7 @@ GITHUB_ERCINDEDEOGLU_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/socks4.txt",
     format="plain_text",
     protocol="socks4",
+    enabled=False,  # Disabled after repeated no-response validation on 2026-05-14.
 )
 
 GITHUB_ERCINDEDEOGLU_SOCKS5 = ProxySourceConfig(
@@ -546,6 +557,7 @@ GITHUB_IPLOCATE_ALL = ProxySourceConfig(
 GITHUB_PROXYSCRAPER_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ProxyScraper/ProxyScraper/main/http.txt",
     format="plain_text",
+    enabled=False,  # Disabled after intermittent no-response strict validation on 2026-05-14.
 )
 
 GITHUB_PROXYSCRAPER_SOCKS4 = ProxySourceConfig(
@@ -595,6 +607,7 @@ GITHUB_ALIILAPRO_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/socks4.txt",
     format="plain_text",
     protocol="socks4",
+    enabled=False,  # Disabled after repeated no-response validation on 2026-05-14.
 )
 
 # DISABLED: returns empty file (0 bytes)
@@ -602,7 +615,7 @@ GITHUB_ALIILAPRO_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ALIILAPRO/Proxy/main/socks5.txt",
     format="plain_text",
     protocol="socks5",
-    enabled=False,
+    enabled=False,  # Disabled because upstream source returns an empty file.
 )
 
 # Skillter/ProxyGather - Automated every 30 minutes
@@ -630,6 +643,7 @@ GITHUB_SKILLTER_ALL = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Skillter/ProxyGather/master/proxies/working-proxies-all.txt",
     format="plain_text",
     trusted=True,
+    enabled=False,  # Disabled after intermittent strict validation no-response failures on 2026-05-14.
 )
 
 # =============================================================================
@@ -647,6 +661,7 @@ GITHUB_R00TEE_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/r00tee/Proxy-List/main/Socks4.txt",
     format="plain_text",
     protocol="socks4",
+    enabled=False,  # Disabled after repeated no-response validation on 2026-05-14.
 )
 
 GITHUB_R00TEE_SOCKS5 = ProxySourceConfig(
@@ -671,6 +686,7 @@ GITHUB_SEVENWORKS_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/SevenworksDev/proxy-list/main/proxies/socks4.txt",
     format="plain_text",
     protocol="socks4",
+    enabled=False,  # Disabled after repeated no-response validation on 2026-05-14.
 )
 
 GITHUB_SEVENWORKS_SOCKS5 = ProxySourceConfig(
@@ -696,7 +712,7 @@ GITHUB_VANNDEV_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/Vann-Dev/proxy-list/main/proxies/socks5.txt",
     format="plain_text",
     protocol="socks5",
-    enabled=False,
+    enabled=False,  # Disabled because upstream source returns an empty file.
 )
 
 GITHUB_VANNDEV_HTTPS = ProxySourceConfig(
@@ -710,6 +726,7 @@ GITHUB_CLEARPROXY_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ClearProxy/checked-proxy-list/main/http/raw/all.txt",
     format="plain_text",
     trusted=True,
+    enabled=False,  # Disabled after intermittent no-response strict validation on 2026-05-14.
 )
 
 GITHUB_CLEARPROXY_SOCKS4 = ProxySourceConfig(
@@ -797,6 +814,7 @@ GITHUB_THEMIRALAY_HTTP = ProxySourceConfig(
 GITHUB_SOLISPIRIT_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/SoliSpirit/proxy-list/main/http.txt",
     format="plain_text",
+    enabled=False,  # Disabled after repeated no-response validation on 2026-05-14.
 )
 
 GITHUB_SOLISPIRIT_SOCKS4 = ProxySourceConfig(
@@ -857,31 +875,26 @@ ALL_HTTP_SOURCES = [
     GITHUB_TSPRNAY_HTTP,
     GITHUB_TSPRNAY_HTTPS,
     GITHUB_ZEVTYARDT_HTTP,
-    GITHUB_ERCINDEDEOGLU_HTTP,
     GITHUB_ERCINDEDEOGLU_HTTPS,
     # Validated sources
     GITHUB_IPLOCATE_HTTP,
     GITHUB_IPLOCATE_HTTPS,
     GITHUB_IPLOCATE_ALL,
-    GITHUB_PROXYSCRAPER_HTTP,
     GITHUB_ZLOI_HTTP,
     GITHUB_ZLOI_HTTPS,
     GITHUB_ALIILAPRO_HTTP,
     GITHUB_SKILLTER_HTTP,
-    GITHUB_SKILLTER_ALL,
     # New sources (Feb 2026)
     GITHUB_R00TEE_HTTPS,
     GITHUB_SEVENWORKS_HTTP,
     GITHUB_SEVENWORKS_HTTPS,
     GITHUB_VANNDEV_HTTP,
     GITHUB_VANNDEV_HTTPS,
-    GITHUB_CLEARPROXY_HTTP,
     GITHUB_TUANMINPAY_HTTP,
     GITHUB_VMHEAVEN_HTTP,
     GITHUB_VMHEAVEN_HTTPS,
     GITHUB_VADIM287_HTTP,
     GITHUB_THEMIRALAY_HTTP,
-    GITHUB_SOLISPIRIT_HTTP,
     GITHUB_NIKOLAIT_HTTPS,
 ]
 
@@ -889,35 +902,26 @@ ALL_HTTP_SOURCES = [
 ALL_SOCKS4_SOURCES = [
     # API sources
     GEONODE_SOCKS4,
-    PROXY_SCRAPE_SOCKS4,
     # Non-GitHub web sources
-    PROXYSPACE_SOCKS4,
     # GitHub sources
     GITHUB_THESPEEDX_SOCKS4,
     GITHUB_MONOSANS_SOCKS4,
     GITHUB_ROOSTERKID_SOCKS4,
-    GITHUB_MMPX12_SOCKS4,
     GITHUB_PROXIFLY_SOCKS4,
     GITHUB_ELLIOTTOPHELLIA_SOCKS4,
     # High-quality verified sources
     GITHUB_VAKHOV_SOCKS4,
-    GITHUB_ZAEEM_SOCKS4,
-    GITHUB_KOMUTAN_SOCKS4,
     GITHUB_ANONYM0US_SOCKS4,
     GITHUB_DPANGESTUW_SOCKS4,
     # HIGH-YIELD sources
     GITHUB_TSPRNAY_SOCKS4,
     GITHUB_ZEVTYARDT_SOCKS4,
-    GITHUB_ERCINDEDEOGLU_SOCKS4,
     # Validated sources
     GITHUB_IPLOCATE_SOCKS4,
     GITHUB_PROXYSCRAPER_SOCKS4,
     GITHUB_ZLOI_SOCKS4,
-    GITHUB_ALIILAPRO_SOCKS4,
     GITHUB_SKILLTER_SOCKS4,
     # New sources (Feb 2026)
-    GITHUB_R00TEE_SOCKS4,
-    GITHUB_SEVENWORKS_SOCKS4,
     GITHUB_VANNDEV_SOCKS4,
     GITHUB_CLEARPROXY_SOCKS4,
     GITHUB_TUANMINPAY_SOCKS4,
@@ -929,12 +933,8 @@ ALL_SOCKS4_SOURCES = [
 # All SOCKS5 sources
 ALL_SOCKS5_SOURCES = [
     # API sources
-    GEONODE_SOCKS5,
     # Non-GitHub web sources
-    PROXYSPACE_SOCKS5,
     # GitHub sources
-    GITHUB_THESPEEDX_SOCKS5,
-    GITHUB_MONOSANS_SOCKS5,
     GITHUB_ROOSTERKID_SOCKS5,
     GITHUB_MMPX12_SOCKS5,
     GITHUB_PROXIFLY_SOCKS5,
@@ -971,7 +971,6 @@ ALL_SOURCES = ALL_HTTP_SOURCES + ALL_SOCKS4_SOURCES + ALL_SOCKS5_SOURCES
 RECOMMENDED_SOURCES = [
     GEONODE_HTTP,
     GITHUB_MONOSANS_HTTP,
-    GITHUB_MONOSANS_SOCKS5,
     GITHUB_PROXIFLY_HTTP,
     GITHUB_KOMUTAN_HTTP,  # Updated every 2 minutes
 ]
@@ -980,7 +979,6 @@ RECOMMENDED_SOURCES = [
 API_SOURCES = [
     GEONODE_HTTP,
     GEONODE_SOCKS4,
-    GEONODE_SOCKS5,
 ]
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import functools
 import warnings
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar, cast
 
 from loguru import logger
 
@@ -118,7 +118,7 @@ def deprecated(
             return func(*args, **kwargs)
 
         wrapper.__deprecated__ = info
-        return wrapper
+        return cast(F, wrapper)
 
     return decorator
 
@@ -153,7 +153,7 @@ def deprecated_parameter(
                 logger.warning(f"Deprecated parameter used: {full_message}")
             return func(*args, **kwargs)
 
-        return wrapper
+        return cast(F, wrapper)
 
     return decorator
 

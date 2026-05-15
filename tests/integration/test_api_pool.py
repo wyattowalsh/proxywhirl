@@ -1,6 +1,6 @@
 """Integration tests for proxy pool management endpoints (US2).
 
-Tests /api/v1/proxies CRUD operations with actual API interaction.
+Tests /api/proxies CRUD operations with actual API interaction.
 """
 
 import pytest

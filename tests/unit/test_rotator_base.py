@@ -4,6 +4,8 @@ Unit tests for ProxyRotatorBase shared functionality.
 Tests verify the base class methods used by both ProxyWhirl and AsyncProxyWhirl.
 """
 
+from __future__ import annotations
+
 import pytest
 from pydantic import SecretStr
 

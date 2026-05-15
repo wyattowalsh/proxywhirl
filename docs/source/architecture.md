@@ -377,4 +377,4 @@ Runtime Overrides (method parameters)
 5. **Middleware** - Add FastAPI/ASGI middleware
 6. **Webhooks** - Register event handlers
 
-See [Custom Strategies Guide](custom-strategies.md) for details.
+See [Custom Strategies Guide](guides/custom-strategies.md) for details.

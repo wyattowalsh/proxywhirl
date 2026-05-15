@@ -267,6 +267,7 @@ class TestAsyncCircuitBreakerReset:
         assert cb.failure_count == 0
 
 
+@pytest.mark.slow
 class TestAsyncCircuitBreakerConcurrency:
     """Test AsyncCircuitBreaker concurrency and performance."""
 

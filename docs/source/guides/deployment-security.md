@@ -37,7 +37,7 @@ The `X-Forwarded-For` HTTP header is designed to pass the real client IP through
 
 1. **Attacker sends request with forged header:**
    ```
-   GET /api/v1/request HTTP/1.1
+   GET /api/request HTTP/1.1
    Host: api.example.com
    X-Forwarded-For: 192.0.2.1, 198.51.100.2
    ```
@@ -306,7 +306,7 @@ resource "aws_lb_target_group" "proxywhirl" {
 
   # Health check configuration
   health_check {
-    path              = "/api/v1/health"
+    path              = "/api/health"
     port              = "8000"
     protocol          = "HTTP"
     healthy_threshold = 2
@@ -447,7 +447,7 @@ export PROXYWHIRL_TRUSTED_PROXIES="10.0.0.0/8,172.16.0.0/12,203.0.113.50/32"
 
 # Rate limiting per IP
 export PROXYWHIRL_RATE_LIMIT_DEFAULT=100  # requests/minute
-export PROXYWHIRL_RATE_LIMIT_REQUEST=50   # requests/minute for /api/v1/request
+export PROXYWHIRL_RATE_LIMIT_REQUEST=50   # requests/minute for /api/request
 ```
 
 ### Docker Compose Example
@@ -484,7 +484,7 @@ services:
     expose:
       - 8000
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -534,7 +534,7 @@ For credential encryption at the cache layer, see {doc}`caching` which covers Fe
    ```
 3. Test with direct request (no reverse proxy):
    ```bash
-   curl http://localhost:8000/api/v1/proxies \
+   curl http://localhost:8000/api/proxies \
      -H "X-Forwarded-For: 1.2.3.4"
    # Should rate limit based on real connection IP, not header value
    ```
@@ -547,7 +547,7 @@ For credential encryption at the cache layer, see {doc}`caching` which covers Fe
 1. Verify `PROXYWHIRL_CLIENT_IP_HEADER` environment variable
 2. Check reverse proxy is setting the header correctly:
    ```bash
-   curl -v http://localhost/api/v1/metrics
+   curl -v http://localhost/api/metrics
    # Look at response headers from reverse proxy
    ```
 3. Review reverse proxy logs for X-Real-IP values being set
@@ -563,7 +563,7 @@ For credential encryption at the cache layer, see {doc}`caching` which covers Fe
    ```
 2. Test direct connection:
    ```bash
-   curl http://localhost:8000/api/v1/health
+   curl http://localhost:8000/api/health
    ```
 3. Check reverse proxy network connectivity
 4. Review reverse proxy logs for backend errors

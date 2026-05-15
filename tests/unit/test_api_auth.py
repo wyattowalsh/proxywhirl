@@ -22,7 +22,7 @@ def auth_app() -> FastAPI:
     def protected() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/api/v1/health")
+    @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "healthy"}
 
@@ -86,7 +86,7 @@ class TestAPIKeyMiddleware:
             os.environ,
             {"PROXYWHIRL_REQUIRE_AUTH": "true", "PROXYWHIRL_API_KEY": "secret-key-123"},
         ):
-            response = auth_client.get("/api/v1/health")
+            response = auth_client.get("/api/health")
             assert response.status_code == 200
             assert response.json() == {"status": "healthy"}
 
