@@ -37,7 +37,7 @@ jobs:
         python-version: '3.11'
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v5
+      uses: astral-sh/setup-uv@v7
       with:
         version: "latest"
 
@@ -165,14 +165,14 @@ jobs:
         fi
 
     - name: Upload proxy lists as artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: proxy-lists-${{ github.run_number }}
         path: docs/proxy-lists/
         retention-days: 7
 
     - name: Upload database as artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: proxywhirl-db-${{ github.run_number }}
         path: proxywhirl.db

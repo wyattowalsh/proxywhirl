@@ -31,12 +31,12 @@ jobs:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/uv
@@ -76,12 +76,12 @@ jobs:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/uv
@@ -117,7 +117,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
 
@@ -147,12 +147,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/uv
@@ -162,7 +162,7 @@ jobs:
             uv-${{ runner.os }}-
 
       - name: Cache pytest
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             .pytest_cache
@@ -210,7 +210,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         if: matrix.python-version == '3.11'
         with:
           files: ./coverage.xml
@@ -220,7 +220,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: matrix.python-version == '3.11'
         with:
           name: coverage-data
@@ -242,12 +242,12 @@ jobs:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/uv
@@ -256,7 +256,7 @@ jobs:
             uv-${{ runner.os }}-
 
       - name: Cache pytest
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             .pytest_cache
@@ -291,12 +291,12 @@ jobs:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/uv
@@ -305,7 +305,7 @@ jobs:
             uv-${{ runner.os }}-
 
       - name: Cache benchmark results
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .benchmarks
           key: benchmarks-${{ runner.os }}-${{ github.sha }}
@@ -344,7 +344,7 @@ jobs:
 
       - name: Upload benchmark results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-results
           path: |
@@ -365,12 +365,12 @@ jobs:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/uv
@@ -387,7 +387,7 @@ jobs:
         run: .venv/bin/python -m build
 
       - name: Store distribution packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: python-package-distributions
           path: dist/
@@ -405,12 +405,12 @@ jobs:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v7
         with:
           version: "latest"
 
       - name: Cache uv dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cache/uv
@@ -430,7 +430,7 @@ jobs:
 
       - name: Upload linkcheck report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linkcheck-report
           path: docs/build/linkcheck/output.*
