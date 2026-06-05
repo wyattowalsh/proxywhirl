@@ -411,8 +411,8 @@ class TestProxyWhirlMemoryManagement:
 
     def test_circuit_breaker_failure_window_cleanup(self, monkeypatch):
         """Test that circuit breaker failure windows don't grow unbounded."""
+        import proxywhirl.circuit_breaker as circuit_breaker_base
         from proxywhirl.circuit_breaker import CircuitBreaker
-        from proxywhirl.circuit_breaker import base as circuit_breaker_base
 
         # Create circuit breaker with short window for testing
         cb = CircuitBreaker(

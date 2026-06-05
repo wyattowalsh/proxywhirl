@@ -7,9 +7,9 @@ import pytest
 from proxywhirl.models import (
     HealthStatus,
     Proxy,
-    ProxyConfiguration,
     ProxyCredentials,
 )
+from proxywhirl.settings import ProxyConfiguration
 
 
 class TestProxyValidators:

@@ -9,7 +9,7 @@ import respx
 from httpx import ASGITransport, AsyncClient, Response
 
 from proxywhirl.api import app
-from proxywhirl.api import core as api_core
+from proxywhirl.api import runtime as api_runtime
 from proxywhirl.models import Proxy
 
 
@@ -26,8 +26,8 @@ def setup_test_proxies():
     """Set up test proxies in the global rotator."""
     from proxywhirl import ProxyWhirl
 
-    api_core._rotator = ProxyWhirl()
-    rotator = api_core._rotator
+    rotator = ProxyWhirl()
+    api_runtime.set_rotator(rotator)
 
     # Add test proxies
     rotator.add_proxy(Proxy(url="http://proxy1.example.com:8080"))
@@ -37,7 +37,7 @@ def setup_test_proxies():
     yield
 
     # Cleanup
-    api_core._rotator = None
+    api_runtime.set_rotator(None)
 
 
 # T012: Integration test for proxied GET request
@@ -182,9 +182,10 @@ async def test_proxy_failover_with_dead_proxy(api_client: AsyncClient):
     # Set up proxies with one that will fail
     from proxywhirl import ProxyWhirl
 
-    api_core._rotator = ProxyWhirl()
-    api_core._rotator.add_proxy(Proxy(url="http://dead-proxy.example.com:9999"))
-    api_core._rotator.add_proxy(Proxy(url="http://working-proxy.example.com:8080"))
+    rotator = ProxyWhirl()
+    rotator.add_proxy(Proxy(url="http://dead-proxy.example.com:9999"))
+    rotator.add_proxy(Proxy(url="http://working-proxy.example.com:8080"))
+    api_runtime.set_rotator(rotator)
 
     # Mock the target URL response
     respx.get("https://httpbin.org/get").mock(
@@ -210,4 +211,4 @@ async def test_proxy_failover_with_dead_proxy(api_client: AsyncClient):
         assert "detail" in body
 
     # Cleanup
-    api_core._rotator = None
+    api_runtime.set_rotator(None)

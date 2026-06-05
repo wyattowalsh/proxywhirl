@@ -3,6 +3,10 @@
 Tests cover MCPAuth class for authentication and session management.
 """
 
+from __future__ import annotations
+
+from types import SimpleNamespace
+
 from proxywhirl.mcp.auth import MCPAuth
 
 
@@ -34,6 +38,20 @@ class TestMCPAuthAuthenticate:
         auth = MCPAuth(api_key="secret-key")
         assert auth.authenticate({"api_key": "secret-key"}) is True
 
+    def test_authenticate_header_key(self) -> None:
+        """Test successful authentication from HTTP-style headers."""
+        auth = MCPAuth(api_key="secret-key")
+        credentials = {"headers": {"X-API-Key": "secret-key"}}
+
+        assert auth.authenticate(credentials) is True
+
+    def test_authenticate_bearer_token(self) -> None:
+        """Test successful authentication from Authorization bearer metadata."""
+        auth = MCPAuth(api_key="secret-key")
+        credentials = {"metadata": {"Authorization": "Bearer secret-key"}}
+
+        assert auth.authenticate(credentials) is True
+
     def test_authenticate_wrong_key(self) -> None:
         """Test failed authentication with wrong key."""
         auth = MCPAuth(api_key="secret-key")
@@ -48,6 +66,30 @@ class TestMCPAuthAuthenticate:
         """Test failed authentication with None key."""
         auth = MCPAuth(api_key="secret-key")
         assert auth.authenticate({"api_key": None}) is False
+
+
+class TestMCPAuthContextCredentials:
+    """Test credential extraction from MCP context carriers."""
+
+    def test_extract_context_credentials_from_metadata(self) -> None:
+        """Metadata credentials are normalized for middleware auth."""
+        auth = MCPAuth(api_key="secret-key")
+        context = SimpleNamespace(
+            message=SimpleNamespace(params=SimpleNamespace(metadata={"api_key": "secret-key"}))
+        )
+
+        assert auth.extract_context_credentials(context) == {"api_key": "secret-key"}
+
+    def test_extract_context_credentials_from_headers(self) -> None:
+        """Header credentials are normalized for middleware auth."""
+        auth = MCPAuth(api_key="secret-key")
+        context = SimpleNamespace(
+            message=SimpleNamespace(
+                params=SimpleNamespace(metadata={"headers": {"Authorization": "Bearer secret-key"}})
+            )
+        )
+
+        assert auth.extract_context_credentials(context) == {"api_key": "secret-key"}
 
 
 class TestMCPAuthCreateSession:

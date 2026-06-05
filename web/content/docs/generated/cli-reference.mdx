@@ -1,0 +1,62 @@
+---
+title: CLI Reference
+description: Typer command inventory parsed from proxywhirl.cli.
+---
+
+# CLI Reference
+
+<div className="rounded-xl border border-fd-border bg-fd-muted/40 p-4 text-sm">
+<strong>Generated reference.</strong> This page is derived from Typer command declarations and docstrings in `proxywhirl/cli.py` during <code>pnpm --dir web run docs:generate</code>. Edit <code>web/scripts/generate-docs.mjs</code>, not this MDX file.
+</div>
+
+<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">16</div>
+  <div className="mt-1 text-sm font-medium">Commands</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Typer command declarations</div>
+</div>
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">3</div>
+  <div className="mt-1 text-sm font-medium">Groups</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Top-level plus nested apps</div>
+</div>
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">fetch</div>
+  <div className="mt-1 text-sm font-medium">Primary flow</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Hydrate and validate proxy data</div>
+</div>
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">export</div>
+  <div className="mt-1 text-sm font-medium">Data flow</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Write dashboard-ready proxy lists</div>
+</div>
+</div>
+
+## Command Groups
+
+| Group | Commands |
+| --- | --- |
+| Top-level | 7 |
+| Pool | 5 |
+| Config | 4 |
+
+## Command Inventory
+
+| Command | Summary | Function |
+| --- | --- | --- |
+| `proxywhirl request` | Make an HTTP request through a rotating proxy. | `request` |
+| `proxywhirl pool list` | List proxies in the active pool. | `_pool_list` |
+| `proxywhirl pool add` | Add a proxy URL to the pool. | `_pool_add` |
+| `proxywhirl pool remove` | Remove a proxy URL from the pool. | `_pool_remove` |
+| `proxywhirl pool test` | Test one proxy against a target URL. | `_pool_test` |
+| `proxywhirl pool stats` | Show active pool statistics. | `_pool_stats` |
+| `proxywhirl config init` | Create a local configuration file. | `_config_init` |
+| `proxywhirl config show` | Print the current configuration. | `_config_show` |
+| `proxywhirl config get` | Read one configuration value. | `_config_get` |
+| `proxywhirl config set` | Write one configuration value. | `_config_set` |
+| `proxywhirl export` | Export validated proxies for files, docs, and dashboards. | `export` |
+| `proxywhirl fetch` | Fetch and validate proxies from configured sources. | `fetch` |
+| `proxywhirl sources` | - | `sources` |
+| `proxywhirl health` | Check health of all proxies in the pool. | `health` |
+| `proxywhirl validate-proxy` | Validate proxy health with optional target URL test. | `validate_proxy` |
+| `proxywhirl import-proxies` | Import proxy records into storage. | `import_proxies` |

@@ -1,0 +1,17 @@
+---
+title: Proxy Lifecycle
+description: How proxies move from source catalogs into usable rotation pools.
+---
+
+# Proxy Lifecycle
+
+Proxy entries should move through a bounded lifecycle:
+
+1. Source metadata defines where proxy candidates come from.
+2. Fetchers download and parse source payloads.
+3. Validators check protocol behavior and latency.
+4. Storage keeps accepted entries and metadata.
+5. Strategies select proxies for requests.
+6. Circuit breakers and health checks remove unhealthy entries from hot paths.
+
+The generated [Proxy Sources](/docs/generated/proxy-sources) page shows the active source catalog.

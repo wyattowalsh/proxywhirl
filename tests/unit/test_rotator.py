@@ -761,7 +761,7 @@ class TestSyncQueueImplementation:
         """
         import queue
 
-        from proxywhirl.models import ProxyConfiguration
+        from proxywhirl.settings import ProxyConfiguration
 
         # Create config with queue enabled
         config = ProxyConfiguration(queue_enabled=True, queue_size=10)
@@ -781,7 +781,7 @@ class TestSyncQueueImplementation:
         """Test that queue operations work synchronously."""
         import queue
 
-        from proxywhirl.models import ProxyConfiguration
+        from proxywhirl.settings import ProxyConfiguration
 
         config = ProxyConfiguration(queue_enabled=True, queue_size=5)
         rotator = ProxyWhirl(config=config)
@@ -814,7 +814,7 @@ class TestSyncQueueImplementation:
         """Test that the queue is properly typed as queue.Queue."""
         import queue as queue_module
 
-        from proxywhirl.models import ProxyConfiguration
+        from proxywhirl.settings import ProxyConfiguration
 
         config = ProxyConfiguration(queue_enabled=True, queue_size=10)
         rotator = ProxyWhirl(config=config)
@@ -843,7 +843,7 @@ class TestSyncQueueImplementation:
 
     def test_get_queue_stats_with_sync_queue(self) -> None:
         """Test get_queue_stats works correctly with sync queue."""
-        from proxywhirl.models import ProxyConfiguration
+        from proxywhirl.settings import ProxyConfiguration
 
         config = ProxyConfiguration(queue_enabled=True, queue_size=10)
         rotator = ProxyWhirl(config=config)

@@ -9,6 +9,7 @@ ProxyWhirl's REST API now implements per-API-key rate limiting to prevent rate l
 ## Security Problem Solved
 
 ### Before (Vulnerable)
+
 ```
 Rate limit key: IP address from X-Forwarded-For or client IP
 
@@ -19,6 +20,7 @@ Attack vector:
 ```
 
 ### After (Secure)
+
 ```
 Rate limit key priority:
 1. API key hash (if X-API-Key header present)
@@ -149,17 +151,20 @@ curl -H "X-Forwarded-For: 203.0.113.50" \
 ## Security Features
 
 ### 1. API Key Hashing
+
 - Original API keys are never stored in rate limit keys
 - SHA256 hash truncated to 16 characters
 - Prevents API key exposure in logs or monitoring systems
 
 ### 2. X-Forwarded-For Handling
+
 - **SECURITY**: X-Forwarded-For is **NEVER** used for rate limiting
 - **With API key**: Uses hashed API key as rate limit key
 - **Without API key**: Uses direct client IP (`request.client.host`) only
 - **Attack prevention**: Attackers cannot bypass rate limits by spoofing X-Forwarded-For headers
 
 ### 3. Graceful Degradation
+
 - Missing API key → Falls back to IP-based rate limiting
 - Missing client IP → Uses "unknown" as fallback
 
@@ -187,12 +192,14 @@ No action required! The new implementation is backward compatible:
 ### Recommended Steps
 
 1. **Enable authentication** (optional but recommended):
+
    ```bash
    export PROXYWHIRL_REQUIRE_AUTH="true"
    export PROXYWHIRL_API_KEY="your-secret-key"
    ```
 
 2. **Configure rate limits**:
+
    ```bash
    export PROXYWHIRL_RATE_LIMIT="100/minute"
    ```
@@ -215,6 +222,6 @@ Rate limit keys are visible in logs for debugging:
 ## References
 
 - **Task**: TASK-054: Add Per-API-Key Rate Limiting
-- **Implementation**: `/Users/ww/dev/projects/proxywhirl/proxywhirl/api.py`
-- **Tests**: `/Users/ww/dev/projects/proxywhirl/tests/unit/test_api.py`
+- **Implementation**: `/Users/ww/dev/projects/proxywhirl/proxywhirl/api/core.py`
+- **Tests**: `/Users/ww/dev/projects/proxywhirl/tests/api/test_core.py`
 - **Config**: `/Users/ww/dev/projects/proxywhirl/proxywhirl/config.py`

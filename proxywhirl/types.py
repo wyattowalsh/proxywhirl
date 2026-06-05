@@ -26,9 +26,6 @@ PoolAction: TypeAlias = Literal["list", "add", "remove", "test", "stats"]
 ConfigAction: TypeAlias = Literal["show", "get", "set", "init"]
 """Configuration management actions in CLI."""
 
-BatchAction: TypeAlias = Literal["add", "remove", "update"]
-"""Batch operation actions in CLI."""
-
 ProxywhirlAction: TypeAlias = Literal[
     "list",
     "rotate",

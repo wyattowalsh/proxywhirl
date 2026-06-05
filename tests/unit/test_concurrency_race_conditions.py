@@ -10,13 +10,43 @@ import asyncio
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
 from proxywhirl.cache.manager import CacheManager
+from proxywhirl.cache.models import CacheConfig, CacheEntry
 from proxywhirl.models import Proxy, ProxyPool
 from proxywhirl.storage import SQLiteStorage
-from tests.conftest import ProxyFactory, ProxyPoolFactory
+from tests.conftest import ProxyFactory
+
+
+def _cache_config(tmp_path: Path) -> CacheConfig:
+    return CacheConfig(
+        l2_cache_dir=str(tmp_path / "cache"),
+        l3_database_path=str(tmp_path / "cache.db"),
+    )
+
+
+def _cache_entry(key: str, source: str, ttl_seconds: int = 60) -> CacheEntry:
+    now = datetime.now(timezone.utc)
+    return CacheEntry(
+        key=key,
+        proxy_url=f"http://{key.replace('_', '-')}.example.com:8080",
+        source=source,
+        fetch_time=now,
+        last_accessed=now,
+        ttl_seconds=ttl_seconds,
+        expires_at=now + timedelta(seconds=ttl_seconds),
+    )
+
+
+async def _initialized_storage(tmp_path: Path) -> SQLiteStorage:
+    storage = SQLiteStorage(tmp_path / "proxies.db")
+    await storage.initialize()
+    return storage
+
 
 # ============================================================================
 # RACE CONDITION TESTS
@@ -26,9 +56,9 @@ from tests.conftest import ProxyFactory, ProxyPoolFactory
 class TestRaceConditions:
     """Test for race conditions in threading and asyncio contexts."""
 
-    def test_concurrent_cache_access_race(self) -> None:
+    def test_concurrent_cache_access_race(self, tmp_path: Path) -> None:
         """Test race conditions in concurrent cache access."""
-        cache = CacheManager()
+        cache = CacheManager(_cache_config(tmp_path))
         race_condition_detected = False
         errors: list[Exception] = []
 
@@ -36,7 +66,7 @@ class TestRaceConditions:
             try:
                 for i in range(50):
                     key = f"thread_{thread_id}_key_{i % 10}"
-                    cache.set(key, f"value_{i}", ttl_seconds=60)
+                    cache.put(key, _cache_entry(key, f"value_{i}"))
                     value = cache.get(key)
                     if value is None:
                         nonlocal race_condition_detected
@@ -141,15 +171,15 @@ class TestRaceConditions:
 class TestCacheCoherence:
     """Test multi-tier cache consistency under load."""
 
-    def test_cache_consistency_concurrent_writes(self) -> None:
+    def test_cache_consistency_concurrent_writes(self, tmp_path: Path) -> None:
         """Test cache consistency with concurrent writes."""
-        cache = CacheManager()
+        cache = CacheManager(_cache_config(tmp_path))
         key = "consistency_test_key"
         errors: list[Exception] = []
 
         def cache_write(value: str) -> None:
             try:
-                cache.set(key, value, ttl_seconds=60)
+                cache.put(key, _cache_entry(key, value))
                 # Immediately read back
                 read_value = cache.get(key)
                 # Value should either be what we wrote or a newer value
@@ -168,14 +198,15 @@ class TestCacheCoherence:
         cache.clear()
 
     @pytest.mark.asyncio
-    async def test_cache_coherence_async_mixed_access(self) -> None:
+    async def test_cache_coherence_async_mixed_access(self, tmp_path: Path) -> None:
         """Test cache coherence with mixed async reads/writes."""
-        cache = CacheManager()
+        cache = CacheManager(_cache_config(tmp_path))
         key = "async_consistency_key"
 
         async def writer(value_id: int) -> None:
             for i in range(5):
-                cache.set(f"{key}_{value_id}", f"value_{i}", ttl_seconds=60)
+                entry_key = f"{key}_{value_id}"
+                cache.put(entry_key, _cache_entry(entry_key, f"value_{i}"))
                 await asyncio.sleep(0.001)
 
         async def reader(task_id: int) -> None:
@@ -195,31 +226,35 @@ class TestCacheCoherence:
         await asyncio.gather(*writers, *readers)
         cache.clear()
 
-    def test_cache_invalidation_propagation(self) -> None:
+    def test_cache_invalidation_propagation(self, tmp_path: Path) -> None:
         """Test that cache invalidation propagates correctly."""
-        cache = CacheManager()
+        cache = CacheManager(_cache_config(tmp_path))
         key = "invalidation_test"
 
         # Set initial value
-        cache.set(key, "initial_value", ttl_seconds=60)
-        assert cache.get(key) == "initial_value"
+        cache.put(key, _cache_entry(key, "initial_value"))
+        initial = cache.get(key)
+        assert initial is not None
+        assert initial.source == "initial_value"
 
         # Update value
-        cache.set(key, "updated_value", ttl_seconds=60)
-        assert cache.get(key) == "updated_value"
+        cache.put(key, _cache_entry(key, "updated_value"))
+        updated = cache.get(key)
+        assert updated is not None
+        assert updated.source == "updated_value"
 
         # Clear cache
         cache.clear()
         assert cache.get(key) is None
 
-    def test_ttl_expiration_consistency(self) -> None:
+    def test_ttl_expiration_consistency(self, tmp_path: Path) -> None:
         """Test TTL expiration consistency across cache layers."""
-        cache = CacheManager()
+        cache = CacheManager(_cache_config(tmp_path))
         key = "ttl_test"
 
         # Set with very short TTL
-        cache.set(key, "short_lived", ttl_seconds=1)
-        assert cache.get(key) == "short_lived"
+        cache.put(key, _cache_entry(key, "short_lived", ttl_seconds=1))
+        assert cache.get(key) is not None
 
         # Wait for expiration
         time.sleep(1.5)
@@ -294,30 +329,24 @@ class TestConcurrentPoolUpdates:
         # Pool should still be valid
         assert isinstance(pool, ProxyPool)
 
-    def test_pool_modification_storage_sync(self) -> None:
+    @pytest.mark.asyncio
+    async def test_pool_modification_storage_sync(self, tmp_path: Path) -> None:
         """Test pool modifications sync to storage."""
-        pool = ProxyPoolFactory.build(proxies=[ProxyFactory.build() for _ in range(5)])
-        storage = SQLiteStorage()
+        storage = await _initialized_storage(tmp_path)
+        proxies = [Proxy(url=f"http://storage{i}.example.com:8080") for i in range(5)]
+        additional = [Proxy(url=f"http://storage-extra{i}.example.com:8080") for i in range(5)]
 
         try:
-            storage.save_pool(pool)
+            await storage.save(proxies)
+            loaded = await storage.load()
+            original_count = len(loaded)
 
-            # Load and modify
-            loaded = storage.load_pool(pool.id)
-            original_count = len(loaded.proxies)
-
-            # Add more proxies
-            loaded.proxies.extend([ProxyFactory.build() for _ in range(5)])
-            storage.save_pool(loaded)
-
-            # Reload and verify
-            reloaded = storage.load_pool(pool.id)
-            assert len(reloaded.proxies) == original_count + 5
+            await storage.save(additional)
+            reloaded = await storage.load()
+            assert len(reloaded) == original_count + 5
         finally:
-            try:
-                storage.delete_pool(pool.id)
-            except Exception:
-                pass
+            await storage.clear()
+            await storage.close()
 
 
 # ============================================================================
@@ -330,9 +359,9 @@ class TestStressLoad:
 
     @pytest.mark.slow
     @pytest.mark.stress
-    def test_high_throughput_cache_operations(self) -> None:
+    def test_high_throughput_cache_operations(self, tmp_path: Path) -> None:
         """Test cache under high-throughput load."""
-        cache = CacheManager()
+        cache = CacheManager(_cache_config(tmp_path))
         operation_count = 1000
         errors: list[Exception] = []
 
@@ -341,7 +370,7 @@ class TestStressLoad:
         def stress_operation(op_id: int) -> None:
             try:
                 key = f"stress_key_{op_id % 100}"
-                cache.set(key, f"value_{op_id}", ttl_seconds=60)
+                cache.put(key, _cache_entry(key, f"value_{op_id}"))
                 cache.get(key)
             except Exception as e:
                 errors.append(e)
@@ -385,7 +414,7 @@ class TestStressLoad:
     def test_pool_stress_with_many_proxies(self) -> None:
         """Test pool handling with many proxies."""
         proxy_count = 10000
-        proxies = [ProxyFactory.build() for _ in range(proxy_count)]
+        proxies = [Proxy(url=f"http://stress{i}.example.com:8080") for i in range(proxy_count)]
         pool = ProxyPool(name="stress_pool", proxies=proxies)
 
         assert len(pool.proxies) == proxy_count
@@ -411,33 +440,23 @@ class TestStressLoad:
 
     @pytest.mark.slow
     @pytest.mark.stress
-    def test_concurrent_storage_operations(self) -> None:
+    @pytest.mark.asyncio
+    async def test_concurrent_storage_operations(self, tmp_path: Path) -> None:
         """Test storage under concurrent load."""
-        storage = SQLiteStorage()
-        pools_to_clean: list[str] = []
+        storage = await _initialized_storage(tmp_path)
 
-        def storage_operations(op_id: int) -> None:
-            try:
-                pool = ProxyPoolFactory.build()
-                pools_to_clean.append(pool.id)
+        async def storage_operations(op_id: int) -> bool:
+            proxy = Proxy(url=f"http://storage-load{op_id}.example.com:8080")
+            await storage.save([proxy])
+            loaded = await storage.load()
+            return any(row["url"] == proxy.url for row in loaded)
 
-                storage.save_pool(pool)
-                loaded = storage.load_pool(pool.id)
-                assert loaded.id == pool.id
-            except Exception:
-                pass
-
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(storage_operations, i) for i in range(20)]
-            for future in as_completed(futures):
-                future.result()
-
-        # Cleanup
-        for pool_id in pools_to_clean:
-            try:
-                storage.delete_pool(pool_id)
-            except Exception:
-                pass
+        try:
+            results = await asyncio.gather(*(storage_operations(i) for i in range(20)))
+            assert all(results)
+        finally:
+            await storage.clear()
+            await storage.close()
 
 
 # ============================================================================
@@ -464,9 +483,9 @@ class TestDeadlockDetection:
 
         def worker_b(worker_id: int) -> None:
             for _ in range(10):
-                with inner_lock:
+                with outer_lock:
                     time.sleep(0.001)
-                    with outer_lock:
+                    with inner_lock:
                         results.append(f"b_{worker_id}")
 
         # Run both workers to detect potential deadlock

@@ -13,11 +13,44 @@ from proxywhirl.api.core import get_rotator
 from proxywhirl.models import Proxy
 from proxywhirl.rotator import ProxyWhirl
 
+EXPECTED_OPENAPI_ROUTE_METHODS = {
+    "/api/circuit-breakers": ["GET"],
+    "/api/circuit-breakers/{proxy_id}": ["GET"],
+    "/api/circuit-breakers/{proxy_id}/reset": ["POST"],
+    "/api/config": ["GET", "PUT"],
+    "/api/health": ["GET"],
+    "/api/metrics/circuit-breakers": ["GET"],
+    "/api/metrics/retries": ["GET"],
+    "/api/metrics/retries/by-proxy": ["GET"],
+    "/api/metrics/retries/timeseries": ["GET"],
+    "/api/proxies": ["GET", "POST"],
+    "/api/proxies/export": ["GET"],
+    "/api/proxies/health-check": ["POST"],
+    "/api/proxies/stream": ["GET"],
+    "/api/proxies/test": ["POST"],
+    "/api/proxies/{proxy_id}": ["DELETE", "GET"],
+    "/api/ready": ["GET"],
+    "/api/request": ["POST"],
+    "/api/retry/policy": ["GET", "PUT"],
+    "/api/rotate": ["GET"],
+    "/api/stats": ["GET"],
+    "/api/status": ["GET"],
+}
+
 
 def test_openapi_uses_unversioned_api_paths() -> None:
     """The generated schema exposes only canonical unversioned REST paths."""
     paths = app.openapi()["paths"]
+    route_methods = {
+        path: sorted(
+            method.upper()
+            for method in route
+            if method in {"get", "post", "put", "patch", "delete"}
+        )
+        for path, route in paths.items()
+    }
 
+    assert route_methods == EXPECTED_OPENAPI_ROUTE_METHODS
     assert "/api/health" in paths
     assert "/api/rotate" in paths
     assert "/api/proxies" in paths

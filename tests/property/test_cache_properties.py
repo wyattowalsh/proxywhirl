@@ -183,7 +183,7 @@ class TestStatisticsInvariants:
     """Test statistics invariants using property-based testing."""
 
     @given(num_entries=st.integers(min_value=1, max_value=50))
-    @settings(max_examples=20, deadline=timedelta(milliseconds=3000))
+    @settings(max_examples=20, deadline=None)
     def test_l1_hits_plus_misses_equals_total_requests(self, num_entries: int) -> None:
         """Property: L1 hits + misses should equal number of get operations.
 

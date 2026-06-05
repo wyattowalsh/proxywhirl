@@ -103,7 +103,7 @@ class TestCacheLogging:
         log_buffer = io.StringIO()
         # Remove default handler and add our custom one
         logger.remove()
-        logger.add(log_buffer, format="{message}", level="DEBUG")
+        logger.add(log_buffer, format="{message}", level="TRACE")
 
         config = CacheConfig(
             l2_cache_dir=str(tmp_path / "cache"),

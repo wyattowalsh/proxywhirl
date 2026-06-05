@@ -2,19 +2,27 @@
 
 from __future__ import annotations
 
-import pytest
-
-pytestmark = pytest.mark.slow
-
+import asyncio
 import json
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from proxywhirl.exceptions import ProxyPoolEmptyError
-from proxywhirl.models import HealthStatus, ProxyPool
+from proxywhirl.models import HealthStatus, Proxy, ProxyPool
 from proxywhirl.storage import SQLiteStorage
-from tests.conftest import ProxyFactory, ProxyPoolFactory
+from tests.conftest import ProxyFactory
+
+pytestmark = pytest.mark.slow
+
+
+def _proxy(index: int, *, health_status: HealthStatus = HealthStatus.UNKNOWN) -> Proxy:
+    return Proxy(
+        url=f"http://proxy{index:05d}.example.com:{8000 + (index % 1000)}",
+        health_status=health_status,
+    )
+
 
 # ============================================================================
 # EMPTY POOL STRATEGY TESTS
@@ -173,7 +181,7 @@ class TestLargeProxyLists:
         """Test memory efficiency with large proxy count."""
         # Create a moderately large pool (not full 100k in tests)
         proxy_count = 10000
-        proxies = [ProxyFactory.build() for _ in range(proxy_count)]
+        proxies = [_proxy(i) for i in range(proxy_count)]
 
         pool = ProxyPool(name="large_pool", proxies=proxies)
 
@@ -183,7 +191,7 @@ class TestLargeProxyLists:
     def test_large_pool_iteration_performance(self) -> None:
         """Test iteration performance over large pool."""
         proxy_count = 5000
-        proxies = [ProxyFactory.healthy() for _ in range(proxy_count)]
+        proxies = [_proxy(i, health_status=HealthStatus.HEALTHY) for i in range(proxy_count)]
         pool = ProxyPool(name="iterate_pool", proxies=proxies)
 
         # Iterate and count healthy proxies
@@ -192,33 +200,32 @@ class TestLargeProxyLists:
         assert healthy_count == proxy_count
 
     @pytest.mark.slow
-    def test_large_pool_storage(self) -> None:
+    async def test_large_pool_storage(self, tmp_path: Path) -> None:
         """Test storing and loading large pools."""
         proxy_count = 1000  # Reduced for test performance
-        proxies = [ProxyFactory.build() for _ in range(proxy_count)]
-        pool = ProxyPoolFactory.build(proxies=proxies)
-
-        storage = SQLiteStorage()
+        proxies = [_proxy(i) for i in range(proxy_count)]
+        storage = SQLiteStorage(tmp_path / "large_pool.db")
+        await storage.initialize()
 
         try:
             # Save large pool
-            storage.save_pool(pool)
+            await storage.save(proxies)
 
             # Load back
-            loaded = storage.load_pool(pool.id)
-            assert len(loaded.proxies) == proxy_count
+            loaded = await storage.load()
+            assert len(loaded) == proxy_count
         finally:
-            try:
-                storage.delete_pool(pool.id)
-            except Exception:
-                pass
+            await storage.clear()
+            await storage.close()
 
     @pytest.mark.slow
     def test_large_pool_filtering(self) -> None:
         """Test filtering large proxy lists."""
         proxy_count = 2000
         proxies = [
-            ProxyFactory.healthy() if i % 3 == 0 else ProxyFactory.unhealthy()
+            _proxy(i, health_status=HealthStatus.HEALTHY)
+            if i % 3 == 0
+            else _proxy(i, health_status=HealthStatus.UNHEALTHY)
             for i in range(proxy_count)
         ]
         pool = ProxyPool(name="filter_pool", proxies=proxies)
@@ -234,7 +241,7 @@ class TestLargeProxyLists:
     def test_large_pool_json_serialization(self) -> None:
         """Test JSON serialization of large pool."""
         proxy_count = 500
-        proxies = [ProxyFactory.build() for _ in range(proxy_count)]
+        proxies = [_proxy(i) for i in range(proxy_count)]
         pool = ProxyPool(name="json_pool", proxies=proxies)
 
         # Serialize
@@ -293,17 +300,18 @@ class TestUnicodeProxyData:
             name="unicode_pool",
             proxies=[ProxyFactory.build()],
         )
-        pool.metadata = {
-            "region": "欧洲",
-            "country": "中国",
-            "description": "多语言代理",
-        }
+        with pytest.raises(ValueError, match='object has no field "metadata"'):
+            pool.metadata = {
+                "region": "欧洲",
+                "country": "中国",
+                "description": "多语言代理",
+            }
 
-        # Should be serializable
+        # The strict current pool model should still be serializable.
         json_str = pool.model_dump_json()
         assert len(json_str) > 0
 
-        # Should be deserializable
+        # Should be deserializable.
         parsed = json.loads(json_str)
         assert parsed is not None
 
@@ -333,63 +341,50 @@ class TestFileDescriptorLimits:
         # Create several pools without closing resources
         pools = []
         for i in range(10):
-            proxies = [ProxyFactory.build() for _ in range(100)]
+            proxies = [_proxy((i * 100) + j) for j in range(100)]
             pool = ProxyPool(name=f"fd_pool_{i}", proxies=proxies)
             pools.append(pool)
 
         assert len(pools) == 10
         assert all(len(p.proxies) == 100 for p in pools)
 
-    def test_storage_connection_reuse(self) -> None:
+    async def test_storage_connection_reuse(self, tmp_path: Path) -> None:
         """Test that storage reuses connections efficiently."""
-        storage = SQLiteStorage()
-        pools_created = []
+        storage = SQLiteStorage(tmp_path / "reuse.db")
+        await storage.initialize()
 
-        # Create and save multiple pools
-        for i in range(20):
-            pool = ProxyPoolFactory.build()
-            pools_created.append(pool.id)
-            storage.save_pool(pool)
+        try:
+            proxies = [_proxy(i) for i in range(20)]
 
-        # Load them back - should reuse connection
-        for pool_id in pools_created:
-            loaded = storage.load_pool(pool_id)
-            assert loaded.id == pool_id
+            # Create and save multiple proxies
+            for proxy in proxies:
+                added = await storage.add_proxy(proxy)
+                assert added is True
 
-        # Cleanup
-        for pool_id in pools_created:
-            try:
-                storage.delete_pool(pool_id)
-            except Exception:
-                pass
+            # Load them back - should reuse connection
+            loaded = await storage.load()
+            assert {row["url"] for row in loaded} == {proxy.url for proxy in proxies}
+        finally:
+            await storage.clear()
+            await storage.close()
 
-    def test_concurrent_storage_no_fd_exhaustion(self) -> None:
+    async def test_concurrent_storage_no_fd_exhaustion(self, tmp_path: Path) -> None:
         """Test concurrent storage operations don't exhaust FDs."""
-        from concurrent.futures import ThreadPoolExecutor
+        storage = SQLiteStorage(tmp_path / "concurrent.db")
+        await storage.initialize()
 
-        storage = SQLiteStorage()
-        pools_to_clean = []
+        try:
+            # Run multiple concurrent write operations.
+            results = await asyncio.gather(
+                *(storage.add_proxies_batch([_proxy(i)], validated=False) for i in range(20))
+            )
 
-        def create_and_store(pool_id: int) -> None:
-            pool = ProxyPoolFactory.build()
-            pools_to_clean.append(pool.id)
-            try:
-                storage.save_pool(pool)
-            except Exception:
-                pass
-
-        # Run multiple concurrent operations
-        with ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [executor.submit(create_and_store, i) for i in range(20)]
-            for future in futures:
-                future.result()
-
-        # Cleanup
-        for pool_id in pools_to_clean:
-            try:
-                storage.delete_pool(pool_id)
-            except Exception:
-                pass
+            assert sum(added for added, _ in results) == 20
+            loaded = await storage.load()
+            assert len(loaded) == 20
+        finally:
+            await storage.clear()
+            await storage.close()
 
 
 # ============================================================================
@@ -415,8 +410,16 @@ class TestBoundaryValues:
     )
     def test_proxy_success_rate_boundaries(self, success_rate: float) -> None:
         """Test success rate at boundary values."""
-        proxy = ProxyFactory.build(success_rate=success_rate)
-        assert proxy.success_rate == success_rate
+        total_requests = 1000 if 0 < success_rate < 1 else 1
+        total_successes = int(success_rate * total_requests)
+        proxy = _proxy(
+            total_successes,
+            health_status=HealthStatus.HEALTHY,
+        )
+        proxy.total_requests = total_requests
+        proxy.total_successes = total_successes
+
+        assert proxy.success_rate == pytest.approx(success_rate)
 
     @pytest.mark.parametrize(
         "request_count",
@@ -440,7 +443,7 @@ class TestBoundaryValues:
 
     def test_pool_with_max_proxies(self) -> None:
         """Test pool with large number of proxies."""
-        proxies = [ProxyFactory.build() for _ in range(100000 // 100)]  # Use 1000 instead
+        proxies = [_proxy(i) for i in range(100000 // 100)]  # Use 1000 instead
         pool = ProxyPool(name="max_pool", proxies=proxies)
         assert len(pool.proxies) == 1000
 
@@ -472,10 +475,10 @@ class TestNullAndOptionalValues:
     def test_pool_with_null_values_in_metadata(self) -> None:
         """Test pool metadata with null values."""
         pool = ProxyPool(name="null_metadata_pool", proxies=[])
-        pool.metadata = {"key_with_null": None}
 
-        # Should handle gracefully
-        assert "key_with_null" in pool.metadata
+        # ProxyPool is intentionally strict and has no pool-level metadata field.
+        with pytest.raises(ValueError, match='object has no field "metadata"'):
+            pool.metadata = {"key_with_null": None}
 
 
 if __name__ == "__main__":

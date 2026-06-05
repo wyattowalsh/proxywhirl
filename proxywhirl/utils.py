@@ -12,7 +12,7 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlsplit, urlunsplit
 
 from loguru import logger
 
@@ -147,6 +147,20 @@ def mask_proxy_url(url: str) -> str:
         "http://***:***@proxy.com:8080"
     """
     return _redact_url_credentials(url)
+
+
+def public_proxy_url(url: str) -> str:
+    """Return a proxy URL safe for public API, CLI, TUI, and MCP output.
+
+    Unlike :func:`mask_proxy_url`, this strips userinfo entirely so public
+    representations cannot reveal that credentials exist.
+    """
+    try:
+        parsed = urlsplit(url)
+        netloc = parsed.netloc.rsplit("@", 1)[-1]
+        return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
+    except Exception:
+        return re.sub(r"://[^/@?#]*@", "://", url)
 
 
 def mask_secret_str(secret: Any) -> str:

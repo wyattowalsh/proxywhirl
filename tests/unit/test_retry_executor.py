@@ -400,7 +400,7 @@ class TestExecuteWithRetryFailures:
 
         with (
             patch("time.sleep"),
-            patch("proxywhirl.retry.executor.time.time", side_effect=mock_time),
+            patch("proxywhirl.retry.time.time", side_effect=mock_time),
             pytest.raises(ProxyConnectionError, match="Request timeout"),
         ):
             executor.execute_with_retry(request_fn, proxy, "GET", "https://example.com")
@@ -884,7 +884,7 @@ class TestAsyncExecuteWithRetry:
             raise httpx.ConnectError("Connection failed")
 
         with (
-            patch("proxywhirl.retry.executor.time.time", side_effect=mock_time),
+            patch("proxywhirl.retry.time.time", side_effect=mock_time),
             pytest.raises(ProxyConnectionError, match="Request timeout"),
         ):
             await executor.execute_with_retry_async(request_fn, proxy, "GET", "https://example.com")

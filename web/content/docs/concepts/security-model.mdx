@@ -1,0 +1,18 @@
+---
+title: Security Model
+description: Security boundaries for proxy use, credentials, logging, and target validation.
+---
+
+# Security Model
+
+ProxyWhirl treats proxy usage as a network boundary problem.
+
+| Boundary         | Rule                                                                     |
+| ---------------- | ------------------------------------------------------------------------ |
+| Target URLs      | Validate user-provided targets before making requests.                   |
+| Credentials      | Use environment-backed secrets and redacted logging.                     |
+| Private networks | Do not proxy to private or loopback addresses unless explicitly allowed. |
+| Logs             | Avoid recording raw credentials, keys, or full sensitive URLs.           |
+| Sources          | Treat upstream proxy lists as untrusted input.                           |
+
+Review generated API and CLI surfaces after security-sensitive changes to make sure documentation matches the exposed controls.

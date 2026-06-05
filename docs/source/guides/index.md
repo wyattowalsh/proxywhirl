@@ -115,21 +115,20 @@ Reverse proxy configuration, X-Forwarded-For security, and production hardening.
 {bdg-danger}`security` {bdg-warning}`production`
 :::
 
-:::{grid-item-card} CLI & TUI Reference
+:::{grid-item-card} CLI Reference
 :link: cli-reference
 :link-type: doc
 :class-card: sd-shadow-sm
 
-Complete command-line and terminal user interface documentation.
+Complete command-line documentation for proxy fetching, rotation, validation, and export.
 
 - [Global options](cli-reference.md#global-options) -- config path, verbosity, output format
 - [`request` command](cli-reference.md#request) -- GET/POST with proxy rotation
 - [`pool` command](cli-reference.md#pool) -- list, add, remove, test proxies
-- [`fetch`, `export`, `cleanup`](cli-reference.md#fetch) -- manage proxy data
-- [TUI dashboard guide](tui-user-guide.md) -- interactive terminal monitoring and management
+- [`fetch`, `export`, `import-proxies`](cli-reference.md#fetch) -- manage proxy data
 
 +++
-{bdg-success}`CLI` {bdg-secondary}`typer` {bdg-info}`TUI`
+{bdg-success}`CLI` {bdg-secondary}`typer`
 :::
 
 ::::
@@ -210,7 +209,6 @@ caching
 retry-failover
 deployment-security
 cli-reference
-tui-user-guide
 automation
 mcp-server
 troubleshooting

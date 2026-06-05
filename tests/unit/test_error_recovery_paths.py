@@ -17,10 +17,7 @@ from proxywhirl.cache.models import CacheConfig, CacheEntry
 from proxywhirl.circuit_breaker import AsyncCircuitBreaker, CircuitBreaker, CircuitBreakerState
 from proxywhirl.exceptions import ProxyConnectionError, ProxyPoolEmptyError
 from proxywhirl.models import Proxy, ProxyPool
-from proxywhirl.retry import RetryableError
-from proxywhirl.retry.executor import RetryExecutor
-from proxywhirl.retry.metrics import RetryMetrics
-from proxywhirl.retry.policy import RetryPolicy
+from proxywhirl.retry import RetryableError, RetryExecutor, RetryMetrics, RetryPolicy
 from proxywhirl.storage import FileStorage
 from tests.conftest import ProxyFactory
 

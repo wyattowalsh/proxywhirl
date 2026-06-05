@@ -76,7 +76,7 @@ The tracked ``Taskfile.yml`` wraps these checks into ``task quality-gates``, whi
 
 ## GitHub Actions CI Pipeline
 
-ProxyWhirl's CI is defined in ``.github/workflows/ci.yml``. It runs on every push to ``main``, ``develop``, and ``feature/**`` / ``fix/**`` branches, as well as on pull requests.
+ProxyWhirl's CI is defined in `.github/workflows/ci.yml`. It runs on every push to `main`, `develop`, and `feature/**` / `fix/**` branches, as well as on pull requests.
 
 ### Pipeline Architecture
 
@@ -90,7 +90,7 @@ ProxyWhirl's CI is defined in ``.github/workflows/ci.yml``. It runs on every pus
     v                     v                     v
 ┌──────────┐    ┌──────────────────┐    ┌──────────────────┐
 │ typecheck │    │    commitlint    │    │   test (matrix)  │
-│ (ty)     │    │ (PRs only)       │    │ 3.9-3.13         │
+│ (ty)     │    │ (PRs only)       │    │ 3.10-3.13        │
 └────┬─────┘    └──────────────────┘    └────────┬─────────┘
      │                                           │
      └────────────────┬──────────────────────────┘
@@ -131,7 +131,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
-      - run: uv venv && uv pip install -e ".[dev]"
+      - run: uv sync --extra dev
       - run: uv run ruff check .
       - run: uv run ruff format --check .
 
@@ -146,7 +146,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
-      - run: uv venv && uv pip install -e ".[dev]"
+      - run: uv sync --extra dev
       - run: uv run ty check proxywhirl
 
   test:
@@ -155,7 +155,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -164,7 +164,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
-      - run: uv venv && uv pip install -e ".[dev]"
+      - run: uv sync --extra dev
       - run: |
           uv run pytest -m "not slow" \
             --cov=proxywhirl \
@@ -189,7 +189,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
-      - run: uv venv && uv pip install build
+      - run: uv sync --extra dev
       - run: uv run python -m build
       - uses: actions/upload-artifact@v4
         with:
@@ -207,7 +207,7 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           version: "latest"
-      - run: uv venv && uv pip install -e ".[docs]"
+      - run: uv sync --extra docs
       - run: cd docs && uv run sphinx-build -W --keep-going -b html source build/html
       - run: cd docs && uv run sphinx-build -b linkcheck source build/linkcheck
 ```
@@ -220,11 +220,11 @@ The ``astral-sh/setup-uv@v5`` action installs ``uv`` for fast, reproducible depe
 
 ## Cron-Based Proxy Fetching
 
-ProxyWhirl's proxy lists are refreshed automatically every 2 hours via ``.github/workflows/generate-proxies.yml``. The workflow:
+ProxyWhirl's proxy lists are refreshed automatically every 2 hours via `.github/workflows/generate-proxies.yml`. The workflow:
 
 1. Re-validates existing proxies in the database
 2. Fetches new proxies from 60+ sources
-3. Cleans up dead (failed validation) proxies
+3. Prunes failed proxies during revalidation when requested
 4. Compacts the SQLite database (VACUUM)
 5. Exports proxy lists for the web dashboard
 6. Commits and pushes changes
@@ -237,7 +237,7 @@ name: Generate Proxy Lists
 
 on:
   schedule:
-    - cron: '0 */2 * * *'  # Every 2 hours
+    - cron: "0 */2 * * *" # Every 2 hours
   workflow_dispatch:
 
 concurrency:
@@ -262,21 +262,18 @@ jobs:
         with:
           version: "latest"
 
-      - run: uv venv && uv pip install -e .
+      - run: uv sync
 
       # Install Playwright for JS-rendered sources
       - run: uv run python -m playwright install chromium
 
-      # Re-validate existing proxies
-      - run: uv run proxywhirl fetch --revalidate --timeout 5 --concurrency 2000 --no-export
+      # Re-validate existing proxies and prune failures before export
+      - run: uv run proxywhirl fetch --revalidate --prune-failed --timeout 5 --concurrency 2000 --no-export
         timeout-minutes: 60
 
       # Fetch new proxies from all sources
       - run: uv run proxywhirl fetch --timeout 5 --concurrency 2000 --no-export
         timeout-minutes: 60
-
-      # Remove dead proxies before export
-      - run: uv run proxywhirl cleanup --stale-days 0 --execute
 
       # Compact the database
       - run: sqlite3 proxywhirl.db "VACUUM;"
@@ -320,7 +317,7 @@ uv run proxywhirl fetch --concurrency 2000
 uv run proxywhirl export
 ```
 
-See {doc}`cli-reference` for the full ``fetch`` and ``export`` command reference.
+See {doc}`cli-reference` for the full `fetch` and `export` command reference.
 
 ### Setting Up a Local Cron Job
 
@@ -342,7 +339,7 @@ On macOS, use ``launchd`` instead of cron for more reliable scheduling. Create a
 
 ## Docker Deployment
 
-ProxyWhirl ships with a multi-stage ``Dockerfile`` and a ``docker-compose.yml`` for the REST API server.
+ProxyWhirl ships with a multi-stage `Dockerfile` and a `docker-compose.yml` for the REST API server.
 
 ### Building the Image
 
@@ -361,10 +358,10 @@ docker run -d \
 
 ### docker-compose.yml
 
-The included ``docker-compose.yml`` runs the API server with persistent storage, health checks, and resource limits:
+The included `docker-compose.yml` runs the API server with persistent storage, health checks, and resource limits:
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   proxywhirl-api:
@@ -387,7 +384,13 @@ services:
       - proxywhirl-data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')",
+        ]
       interval: 30s
       timeout: 10s
       start_period: 5s
@@ -395,7 +398,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: "1.0"
           memory: 512M
 
 volumes:
@@ -423,7 +426,7 @@ For production deployments, place ProxyWhirl behind a reverse proxy (Nginx, Cadd
 
 ```yaml
 # docker-compose.prod.yml
-version: '3.8'
+version: "3.8"
 
 services:
   nginx:
@@ -465,7 +468,7 @@ Never expose port 8000 directly to the internet without a reverse proxy. The API
 
 ### Testing with Mocked Proxies
 
-ProxyWhirl uses ``respx`` (not ``responses``) for HTTP mocking in tests. Use the ``respx_mock`` fixture provided by ``conftest.py``:
+ProxyWhirl uses `respx` (not `responses`) for HTTP mocking in tests. Use the `respx_mock` fixture provided by `conftest.py`:
 
 ```python
 import pytest
@@ -490,7 +493,7 @@ def test_rotator_basic_request():
 
 ### Async Test Patterns
 
-ProxyWhirl's test suite uses ``asyncio_mode = "auto"`` so async tests do not need explicit event loop management:
+ProxyWhirl's test suite uses `asyncio_mode = "auto"` so async tests do not need explicit event loop management:
 
 ```python
 import pytest
@@ -504,21 +507,14 @@ async def test_async_rotator():
 
 ### Source Validation in CI
 
-Validate that all proxy sources are reachable as part of your CI pipeline:
+The CLI no longer exposes a dedicated `sources` command group. For CI, validate the proxy ingestion path by running a bounded fetch with validation enabled:
 
 ```bash
-# Validate all sources (informational)
-uv run proxywhirl sources --validate
-
-# CI mode: exit with error code if any sources are unhealthy
-uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
+# Fetch and validate through the same path used by production refreshes
+uv run proxywhirl fetch --timeout 5 --concurrency 100 --no-export
 ```
 
-Or use the Taskfile target:
-
-```bash
-task validate-sources-ci
-```
+For source-list maintenance work, use the Python API helpers in `proxywhirl.sources` or the source-curation workflow documented in {doc}`proxy-sources`.
 
 ---
 
@@ -537,6 +533,7 @@ Document new verification scripts in the docs and reference them from pull reque
 ## Automating Releases
 
 1. Bump the version using conventional commits:
+
    ```bash
    # Dry-run to preview the version bump
    uv run cz bump --dry-run
@@ -546,23 +543,26 @@ Document new verification scripts in the docs and reference them from pull reque
    ```
 
 2. Generate the changelog:
+
    ```bash
    uv run cz changelog
    ```
 
 3. Export proxy data for the release:
+
    ```bash
    uv run proxywhirl export --output-dir export/release-$(date -u +%Y%m%d)
    ```
 
 4. Build distribution packages:
+
    ```bash
    uv run python -m build
    ```
 
 5. Publish and deploy:
-   - Upload to PyPI (via ``twine`` or CI workflow)
-   - Deploy ``docs/build/html`` to your hosting target (GitHub Pages, S3, Vercel)
+   - Upload to PyPI (via `twine` or CI workflow)
+   - Deploy `docs/build/html` to your hosting target (GitHub Pages, S3, Vercel)
 
 ---
 
@@ -597,7 +597,7 @@ Without these variables, Sphinx builds cleanly but omits DocSearch assets to avo
   - Type safety with Pydantic + SQLModel
 * - ``test``
   - ``uv run pytest -m "not slow" --cov``
-  - Test suite with coverage gates (Python 3.9--3.13 matrix)
+  - Test suite with coverage gates (Python 3.10--3.13 matrix)
 * - ``build``
   - ``uv run python -m build``
   - Verify distribution packages build cleanly
@@ -610,7 +610,7 @@ Without these variables, Sphinx builds cleanly but omits DocSearch assets to avo
 ```
 
 ```{tip}
-Cache the ``uv`` virtual environment per job to keep CI runtimes low. Pin to Python 3.11+ for the primary job, but test against the full 3.9--3.13 matrix.
+Cache the ``uv`` virtual environment per job to keep CI runtimes low. Pin to Python 3.11+ for the primary job, but test against the full 3.10--3.13 matrix.
 ```
 
 ---
@@ -624,7 +624,7 @@ Cache the ``uv`` virtual environment per job to keep CI runtimes low. Pin to Pyt
 :link: /guides/cli-reference
 :link-type: doc
 
-Full CLI command reference for all ProxyWhirl commands including `fetch`, `export`, `cleanup`, and `sources`.
+Full CLI command reference for the focused ProxyWhirl commands including `fetch`, `export`, `health`, `pool`, and `config`.
 :::
 
 :::{grid-item-card} Deployment Security

@@ -17,20 +17,20 @@ import pytest
 from proxywhirl import ProxyWhirl, Proxy, ProxyPoolEmptyError
 
 class TestProxySelection:
-    
+
     @pytest.fixture
     def whirl(self):
         """Create test instance."""
         config = ProxyWhirl.ProxyConfiguration()
         return ProxyWhirl(config)
-    
+
     def test_get_returns_proxy(self, whirl):
         """Test proxy retrieval."""
         proxy = whirl.get()
         assert proxy is not None
         assert proxy.host is not None
         assert 1 <= proxy.port <= 65535
-    
+
     def test_empty_pool_raises_error(self, whirl):
         """Test error on empty pool."""
         whirl.pool.proxies.clear()
@@ -91,16 +91,16 @@ async def test_async_get():
 async def test_concurrent_access():
     """Test concurrent proxy access."""
     whirl = AsyncProxyWhirl()
-    
+
     async def get_proxies(n):
         return [whirl.get() for _ in range(n)]
-    
+
     results = await asyncio.gather(
         get_proxies(10),
         get_proxies(10),
         get_proxies(10)
     )
-    
+
     all_proxies = [p for proxies in results for p in proxies]
     assert len(all_proxies) == 30
 ```
@@ -125,12 +125,12 @@ def test_proxy_request_with_mocking(respx_mock):
     """Test with mocked HTTP responses."""
     whirl = ProxyWhirl()
     proxy = whirl.get()
-    
+
     # Mock proxy validation endpoint
     respx_mock.get("http://httpbin.org/ip").mock(
         return_value=httpx.Response(200, json={"origin": "1.2.3.4"})
     )
-    
+
     with httpx.Client() as client:
         response = client.get(
             "http://httpbin.org/ip",
@@ -170,7 +170,7 @@ from hypothesis import given, strategies as st
 from proxywhirl import Proxy, ProxyPool
 
 class TestProxyValidation:
-    
+
     @given(
         host=st.text(min_size=1),
         port=st.integers(min_value=1, max_value=65535)
@@ -212,7 +212,7 @@ def whirl_with_db(tmp_path):
 def test_persistence(whirl_with_db):
     """Test proxy persistence."""
     proxy = whirl_with_db.get()
-    
+
     # Verify it's in storage
     stored = whirl_with_db.storage.get_by_url(proxy.url)
     assert stored.host == proxy.host
@@ -228,26 +228,26 @@ import timeit
 from proxywhirl import ProxyWhirl
 
 class TestPerformance:
-    
+
     def test_selection_speed(self, benchmark):
         """Benchmark proxy selection."""
         whirl = ProxyWhirl()
-        
+
         def select():
             return whirl.get()
-        
+
         result = benchmark(select)
         assert result is not None
-    
+
     def test_throughput(self):
         """Test throughput of selections."""
         whirl = ProxyWhirl()
-        
+
         start = timeit.default_timer()
         for _ in range(10000):
             whirl.get()
         duration = timeit.default_timer() - start
-        
+
         throughput = 10000 / duration
         assert throughput > 5000  # 5k ops/sec minimum
 ```
@@ -264,10 +264,10 @@ def test_memory_usage():
     """Check memory usage during operation."""
     whirl = ProxyWhirl()
     proxies = []
-    
+
     for _ in range(1000):
         proxies.append(whirl.get())
-    
+
     # Memory snapshot here
     return proxies
 ```
@@ -284,7 +284,7 @@ def test_proxy_snapshot(snapshot):
     """Test proxy structure matches snapshot."""
     whirl = ProxyWhirl()
     proxy = whirl.get()
-    
+
     assert snapshot == {
         "host": proxy.host,
         "port": proxy.port,
@@ -371,20 +371,20 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
-    
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-      
+
       - name: Install dependencies
-        run: uv pip install -e ".[dev]"
-      
+        run: uv sync --extra dev
+
       - name: Run tests
         run: uv run pytest tests/ -v
-      
+
       - name: Upload coverage
         run: uv run pytest tests/ --cov=proxywhirl
 ```
@@ -392,6 +392,7 @@ jobs:
 ## Best Practices
 
 ### Do's ✓
+
 - Use fixtures for reusable setup
 - Mock external dependencies (HTTP, databases)
 - Test both happy path and error cases
@@ -400,6 +401,7 @@ jobs:
 - Isolate unit tests from integration tests
 
 ### Don'ts ✗
+
 - Don't test external APIs (mock them)
 - Don't share mutable fixtures across tests
 - Don't use sleep() for timing (use mocks)

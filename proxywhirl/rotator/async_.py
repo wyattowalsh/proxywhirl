@@ -19,14 +19,16 @@ from proxywhirl.exceptions import (
     ProxyConnectionError,
     ProxyPoolEmptyError,
 )
-from proxywhirl.models import BootstrapConfig, Proxy, ProxyConfiguration, ProxyPool
+from proxywhirl.logging_config import configure_logging
+from proxywhirl.models import BootstrapConfig, Proxy, ProxyPool
 from proxywhirl.retry import RetryExecutor, RetryMetrics, RetryPolicy
 from proxywhirl.rotator._bootstrap import bootstrap_pool_if_empty_async
 from proxywhirl.rotator.base import ProxyRotatorBase
+from proxywhirl.settings import ProxyConfiguration
 from proxywhirl.strategies import (
     RotationStrategy,
+    resolve_builtin_strategy,
 )
-from proxywhirl.strategies.core import resolve_builtin_strategy
 from proxywhirl.utils import mask_proxy_url
 
 
@@ -248,12 +250,10 @@ class AsyncProxyWhirl(ProxyRotatorBase):
 
         # Configure logging
         if hasattr(logger, "_core") and not logger._core.handlers:
-            from proxywhirl.utils import configure_logging
-
             configure_logging(
                 level=self.config.log_level,
-                format_type=self.config.log_format,
-                redact_credentials=self.config.log_redact_credentials,
+                format=self.config.log_format,
+                redact_secrets=self.config.log_redact_credentials,
             )
 
     async def __aenter__(self) -> AsyncProxyWhirl:

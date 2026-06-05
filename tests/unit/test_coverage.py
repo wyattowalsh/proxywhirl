@@ -10,7 +10,6 @@ from pydantic import SecretStr, ValidationError
 from proxywhirl.models import (
     HealthStatus,
     Proxy,
-    ProxyConfiguration,
     ProxyCredentials,
     ProxyFormat,
     ProxyPool,
@@ -19,6 +18,7 @@ from proxywhirl.models import (
     RenderMode,
     SourceStats,
 )
+from proxywhirl.settings import ProxyConfiguration
 
 
 class TestProxyCredentialsEdgeCases:

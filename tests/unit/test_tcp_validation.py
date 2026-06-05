@@ -33,7 +33,7 @@ class TestTCPConnectivity:
 
         # Mock timeout exception
         with patch("socket.create_connection") as mock_connect:
-            mock_connect.side_effect = socket.timeout("Connection timed out")
+            mock_connect.side_effect = TimeoutError("Connection timed out")
 
             result = await validator._validate_tcp_connectivity("slow.proxy.com", 8080)
 

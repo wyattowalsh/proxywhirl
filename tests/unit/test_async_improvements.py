@@ -158,7 +158,7 @@ class TestConcurrentAsyncOperations:
             await asyncio.sleep(0.01)
             return "task3"
 
-        # Use gather for Python 3.9+ compatibility
+        # Use gather for supported Python runtimes
         results = await asyncio.gather(task1(), task2(), task3())
         assert results == ["task1", "task2", "task3"]
 

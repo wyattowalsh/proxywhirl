@@ -14,13 +14,6 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from loguru import logger
 
-import proxywhirl.api.core as _api_core
-from proxywhirl.api.core import (
-    get_config,
-    get_rotator,
-    limiter,
-    verify_api_key,
-)
 from proxywhirl.api.models import (
     APIResponse,
     CircuitBreakerEventResponse,
@@ -32,6 +25,13 @@ from proxywhirl.api.models import (
     RetryPolicyResponse,
     TimeSeriesResponse,
     UpdateConfigRequest,
+)
+from proxywhirl.api.runtime import (
+    get_config,
+    get_current_rotator,
+    get_rotator,
+    limiter,
+    verify_api_key,
 )
 from proxywhirl.rotator import ProxyWhirl
 
@@ -152,13 +152,14 @@ async def get_retry_policy(
     """
     from proxywhirl.api.models import RetryPolicyResponse
 
-    if not _api_core._rotator:
+    rotator = get_current_rotator()
+    if not rotator:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Rotator not initialized",
         )
 
-    policy = _api_core._rotator.retry_policy
+    policy = rotator.retry_policy
 
     response = RetryPolicyResponse(
         max_attempts=policy.max_attempts,
@@ -196,14 +197,15 @@ async def update_retry_policy(
     from proxywhirl.api.models import RetryPolicyResponse
     from proxywhirl.retry import BackoffStrategy, RetryPolicy
 
-    if not _api_core._rotator:
+    rotator = get_current_rotator()
+    if not rotator:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Rotator not initialized",
         )
 
     # Build new policy from request (only update provided fields)
-    current_policy = _api_core._rotator.retry_policy
+    current_policy = rotator.retry_policy
 
     policy_dict = current_policy.model_dump()
 
@@ -237,8 +239,8 @@ async def update_retry_policy(
     # Create new policy
     try:
         new_policy = RetryPolicy(**policy_dict)
-        _api_core._rotator.retry_policy = new_policy
-        _api_core._rotator.retry_executor.retry_policy = new_policy
+        rotator.retry_policy = new_policy
+        rotator.retry_executor.retry_policy = new_policy
 
         response = RetryPolicyResponse(
             max_attempts=new_policy.max_attempts,
@@ -277,13 +279,14 @@ async def list_circuit_breakers(
     """
     from proxywhirl.api.models import CircuitBreakerResponse
 
-    if not _api_core._rotator:
+    rotator = get_current_rotator()
+    if not rotator:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Rotator not initialized",
         )
 
-    circuit_breakers = _api_core._rotator.get_circuit_breaker_states()
+    circuit_breakers = rotator.get_circuit_breaker_states()
 
     responses = []
     for proxy_id, cb in circuit_breakers.items():
@@ -325,13 +328,14 @@ async def get_circuit_breaker_metrics(
     """
     from proxywhirl.api.models import CircuitBreakerEventResponse
 
-    if not _api_core._rotator:
+    rotator = get_current_rotator()
+    if not rotator:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Rotator not initialized",
         )
 
-    metrics = _api_core._rotator.get_retry_metrics()
+    metrics = rotator.get_retry_metrics()
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     events = [
@@ -369,13 +373,14 @@ async def get_circuit_breaker(
     """
     from proxywhirl.api.models import CircuitBreakerResponse
 
-    if not _api_core._rotator:
+    rotator = get_current_rotator()
+    if not rotator:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Rotator not initialized",
         )
 
-    circuit_breakers = _api_core._rotator.get_circuit_breaker_states()
+    circuit_breakers = rotator.get_circuit_breaker_states()
 
     if proxy_id not in circuit_breakers:
         raise HTTPException(
@@ -423,17 +428,18 @@ async def reset_circuit_breaker(
     """
     from proxywhirl.api.models import CircuitBreakerResponse
 
-    if not _api_core._rotator:
+    rotator = get_current_rotator()
+    if not rotator:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Rotator not initialized",
         )
 
     try:
-        _api_core._rotator.reset_circuit_breaker(proxy_id)
+        rotator.reset_circuit_breaker(proxy_id)
 
         # Get updated state
-        circuit_breakers = _api_core._rotator.get_circuit_breaker_states()
+        circuit_breakers = rotator.get_circuit_breaker_states()
         cb = circuit_breakers[proxy_id]
 
         response = CircuitBreakerResponse(
@@ -474,13 +480,14 @@ async def get_retry_metrics(
     """
     from proxywhirl.api.models import RetryMetricsResponse
 
-    if not _api_core._rotator:
+    rotator = get_current_rotator()
+    if not rotator:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Rotator not initialized",
         )
 
-    metrics = _api_core._rotator.get_retry_metrics()
+    metrics = rotator.get_retry_metrics()
     # Use asyncio.to_thread to avoid blocking event loop with threading.Lock
     summary = await asyncio.to_thread(metrics.get_summary)
 
@@ -514,13 +521,14 @@ async def get_retry_timeseries(
     """
     from proxywhirl.api.models import TimeSeriesDataPoint, TimeSeriesResponse
 
-    if not _api_core._rotator:
+    rotator = get_current_rotator()
+    if not rotator:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Rotator not initialized",
         )
 
-    metrics = _api_core._rotator.get_retry_metrics()
+    metrics = rotator.get_retry_metrics()
     # Use asyncio.to_thread to avoid blocking event loop with threading.Lock
     timeseries_data = await asyncio.to_thread(metrics.get_timeseries, hours=hours)
 
@@ -560,13 +568,14 @@ async def get_retry_stats_by_proxy(
     """
     from proxywhirl.api.models import ProxyRetryStats, ProxyRetryStatsResponse
 
-    if not _api_core._rotator:
+    rotator = get_current_rotator()
+    if not rotator:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Rotator not initialized",
         )
 
-    metrics = _api_core._rotator.get_retry_metrics()
+    metrics = rotator.get_retry_metrics()
     # Use asyncio.to_thread to avoid blocking event loop with threading.Lock
     stats_by_proxy = await asyncio.to_thread(metrics.get_by_proxy, hours=hours)
 

@@ -49,10 +49,11 @@ ProxyWhirl is a sophisticated Python proxy rotation library designed for high-pe
 ### 1. Rotators (Entry Points)
 
 #### ProxyWhirl (Synchronous)
+
 ```python
 class ProxyWhirl:
     """Synchronous proxy rotator for blocking I/O workloads."""
-    
+
     def __init__(self, config: ProxyConfiguration, storage_provider=None)
     def get_proxy(self, context: Optional[SelectionContext] = None) -> Proxy
     def get_pool(self) -> ProxyPool
@@ -62,16 +63,18 @@ class ProxyWhirl:
 ```
 
 **Use Cases:**
+
 - CLI tools and scripts
 - Batch processing
 - Traditional web scraping
 - Simple server applications
 
 #### AsyncProxyWhirl (Asynchronous)
+
 ```python
 class AsyncProxyWhirl:
     """Asynchronous proxy rotator for high-concurrency workloads."""
-    
+
     async def __init__(self, config: ProxyConfiguration, storage_provider=None)
     async def get_proxy(self, context: Optional[SelectionContext] = None) -> Proxy
     async def get_pool(self) -> ProxyPool
@@ -81,6 +84,7 @@ class AsyncProxyWhirl:
 ```
 
 **Use Cases:**
+
 - FastAPI/Starlette applications
 - High-concurrency web scrapers
 - Real-time data pipelines
@@ -89,6 +93,7 @@ class AsyncProxyWhirl:
 ### 2. Proxy Models
 
 #### Proxy Model
+
 Core data model representing a single proxy with metadata.
 
 ```python
@@ -111,6 +116,7 @@ class Proxy:
 ```
 
 #### ProxyPool
+
 Container for managing multiple proxies with statistical tracking.
 
 ```python
@@ -137,6 +143,7 @@ class ProxyPool:
 9. **SessionAwareStrategy**: Persistent sessions per proxy
 
 **Strategy Interface:**
+
 ```python
 class RotationStrategy(Protocol):
     def select(self, pool: ProxyPool, context: Optional[SelectionContext]) -> Proxy
@@ -159,6 +166,7 @@ class HealthMonitor:
 ```
 
 **HealthStatus Levels:**
+
 - `UNKNOWN`: Not yet tested
 - `HEALTHY`: Recent successful connections
 - `DEGRADED`: Intermittent failures
@@ -204,9 +212,10 @@ class RetryExecutor:
 ```
 
 **Flow:**
+
 1. Execute function
 2. Catch retryable exception
-3. Wait (initial_delay * exponential_base^attempt + random jitter)
+3. Wait (initial_delay \* exponential_base^attempt + random jitter)
 4. Retry up to max_retries times
 
 ### 7. Rate Limiting
@@ -221,6 +230,7 @@ class RateLimiter:
 ```
 
 **Use Cases:**
+
 - Respect proxy provider rate limits
 - Prevent overwhelming target servers
 - Fair resource sharing across requests
@@ -242,6 +252,7 @@ L3 SQLite Cache (distributed, slower, durable)
 ### 9. Proxy Fetchers & Validators
 
 **ProxyFetcher**: Retrieves proxies from external sources
+
 ```python
 class ProxyFetcher:
     async def fetch(self, source: ProxySource) -> List[Proxy]
@@ -249,6 +260,7 @@ class ProxyFetcher:
 ```
 
 **Parsers** (Pluggable):
+
 - JSONParser: Parse JSON proxy arrays
 - CSVParser: Parse CSV format
 - PlainTextParser: One proxy per line
@@ -257,6 +269,7 @@ class ProxyFetcher:
 ### 10. Data Persistence
 
 **Storage Interface:**
+
 ```python
 class Storage(Protocol):
     def save(self, pool: ProxyPool) -> None
@@ -267,6 +280,7 @@ class Storage(Protocol):
 ```
 
 **Implementations:**
+
 - **SQLiteStorage**: Full-featured, local persistence
 - **FileStorage**: Simple JSON-based, lightweight
 - **SQLModel ORM**: Alembic migrations, relational queries
@@ -387,25 +401,25 @@ class ProxyConfiguration:
     rotation_strategy: str
     health_check_interval: int
     max_pool_size: int
-    
+
     # Retry policy
     max_retries: int
     retry_delay_ms: int
     exponential_backoff: bool
-    
+
     # Circuit breaker
     failure_threshold: int
     recovery_timeout: int
-    
+
     # Rate limiting
     requests_per_second: float
     burst_size: int
-    
+
     # Caching
     cache_ttl: int
     cache_max_size: int
     cache_encryption: bool
-    
+
     # Storage
     storage_path: str
     storage_backend: str
@@ -414,6 +428,7 @@ class ProxyConfiguration:
 ## Extension Points
 
 ### 1. Custom Rotation Strategy
+
 ```python
 class CustomStrategy(RotationStrategy):
     def select(self, pool, context):
@@ -422,6 +437,7 @@ class CustomStrategy(RotationStrategy):
 ```
 
 ### 2. Custom Parser
+
 ```python
 class CustomParser(ProxyParser):
     def parse(self, data: str) -> List[Proxy]:
@@ -430,6 +446,7 @@ class CustomParser(ProxyParser):
 ```
 
 ### 3. Custom Storage
+
 ```python
 class CustomStorage(Storage):
     def save(self, pool): pass
@@ -438,6 +455,7 @@ class CustomStorage(Storage):
 ```
 
 ### 4. Custom Health Check
+
 ```python
 def custom_health_check(proxy: Proxy) -> HealthStatus:
     # Your health check logic
@@ -447,11 +465,13 @@ def custom_health_check(proxy: Proxy) -> HealthStatus:
 ## Performance Considerations
 
 ### Concurrency Model
+
 - **Sync**: Blocking operations, GIL-bound
 - **Async**: Non-blocking operations, CPU-efficient
 - **Thread Pool**: For blocking I/O in async context
 
 ### Optimization Strategies
+
 1. **Caching**: Reduce health checks
 2. **Connection Pooling**: Reuse HTTP connections
 3. **Rate Limiting**: Prevent overwhelming proxies
@@ -460,6 +480,7 @@ def custom_health_check(proxy: Proxy) -> HealthStatus:
 6. **Batch Operations**: Process multiple proxies at once
 
 ### Scaling Guidelines
+
 - **Single Server**: Up to 10k requests/sec
 - **Multi-threaded**: 50k requests/sec
 - **Async (Asyncio)**: 100k+ requests/sec
@@ -468,6 +489,7 @@ def custom_health_check(proxy: Proxy) -> HealthStatus:
 ## Security Architecture
 
 ### Credential Management
+
 ```
 Raw Credentials
       │
@@ -485,12 +507,14 @@ Clear after use (SecretStr)
 ```
 
 ### Input Validation
+
 - URL parsing (no injection)
 - Regex validation (ReDoS prevention)
 - Type checking (Pydantic)
 - Range validation (bounds checking)
 
 ### Network Security
+
 - TLS/SSL for API endpoints
 - HTTPS only for proxy fetching
 - Authentication tokens (API key)
@@ -499,12 +523,14 @@ Clear after use (SecretStr)
 ## Observability
 
 ### Logging Levels
+
 - `DEBUG`: Detailed flow information
 - `INFO`: Notable events (health changes)
 - `WARNING`: Degraded performance
 - `ERROR`: Failures and exceptions
 
 ### Metrics Collection
+
 ```python
 class MetricsCollector:
     - request_count
@@ -516,6 +542,7 @@ class MetricsCollector:
 ```
 
 ### Health Dashboard (TUI)
+
 ```
 ┌─ ProxyWhirl Status ──────────────────┐
 │ Pool: 1,250 proxies                  │
@@ -530,20 +557,23 @@ class MetricsCollector:
 ## Integration Points
 
 ### API Server
+
 - FastAPI routes at `/api/*`
 - Authentication via API key
 - Rate limiting per client
 - Prometheus metrics export
 
 ### CLI
+
 ```bash
-proxywhirl list      # Show pool
-proxywhirl fetch     # Add sources
-proxywhirl validate  # Test proxies
-proxywhirl stats     # Show metrics
+proxywhirl pool list                 # Show pool
+proxywhirl fetch                     # Fetch source data
+proxywhirl validate-proxy PROXY_URL  # Test one proxy
+proxywhirl pool stats                # Show pool metrics
 ```
 
 ### MCP Server
+
 - Claude integration
 - Model context protocol
 - Tool-based interface
@@ -572,6 +602,7 @@ proxywhirl stats     # Show metrics
 ## Deployment Architecture
 
 ### Single Instance
+
 ```
 ┌─────────────────┐
 │  Application    │
@@ -583,6 +614,7 @@ proxywhirl stats     # Show metrics
 ```
 
 ### Multi-Instance
+
 ```
 ┌──────────────┐
 │   Load       │  Distributes traffic
@@ -604,6 +636,7 @@ proxywhirl stats     # Show metrics
 ```
 
 ### Kubernetes Deployment
+
 ```
 ┌─────────────────────────────────┐
 │  Kubernetes Cluster             │
@@ -632,4 +665,3 @@ proxywhirl stats     # Show metrics
 6. **gRPC Interface**: High-performance RPC
 7. **Plugin System**: Dynamic strategy loading
 8. **Multi-tenancy**: Isolated pools per tenant
-

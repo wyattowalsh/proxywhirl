@@ -1,0 +1,16 @@
+---
+title: API Reference
+description: Generated Python, REST/OpenAPI, and CLI reference surfaces.
+---
+
+# API Reference
+
+ProxyWhirl’s API references are generated before the web build:
+
+| Reference                                      | Source                                                         |
+| ---------------------------------------------- | -------------------------------------------------------------- |
+| [Python API](/docs/generated/python-api)       | `proxywhirl.__all__`, package metadata, and object docstrings. |
+| [REST/OpenAPI](/docs/generated/rest-api)       | `proxywhirl.api.app.openapi()`.                                |
+| [CLI Reference](/docs/generated/cli-reference) | Typer command declarations in `proxywhirl/cli.py`.             |
+
+The generated pages intentionally avoid copying historical Sphinx HTML. They are rebuilt from source metadata through `pnpm run docs:generate`.

@@ -109,7 +109,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0  # Required for commit history
+          fetch-depth: 0 # Required for commit history
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -135,7 +135,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
 
     steps:
       - name: Checkout code
@@ -203,10 +203,10 @@ jobs:
             --cov-report=term-missing \
             --cov-report=xml \
             --cov-report=json:coverage.json \
-            --cov-fail-under=85 \
+            --cov-fail-under=90 \
             --timeout=120 \
             -q \
-            --tb=line || (echo "::error::Code coverage is below 85% threshold" && exit 1)
+            --tb=line || (echo "::error::Code coverage is below 90% threshold" && exit 1)
           echo "::endgroup::"
 
       - name: Upload coverage to Codecov
@@ -283,7 +283,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0  # Required to access baseline from git
+          fetch-depth: 0 # Required to access baseline from git
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -393,7 +393,7 @@ jobs:
           path: dist/
 
   docs:
-    name: Documentation Build & Linkcheck
+    name: Documentation Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -409,6 +409,18 @@ jobs:
         with:
           version: "latest"
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
       - name: Cache uv dependencies
         uses: actions/cache@v4
         with:
@@ -419,21 +431,22 @@ jobs:
             uv-docs-${{ runner.os }}-
 
       - name: Install dependencies
-        run: |
-          uv sync --extra docs --locked --python 3.11
+        run: uv sync --locked --python 3.11
 
-      - name: Build documentation
-        run: uv run --extra docs --locked --python 3.11 sphinx-build -W --keep-going -b html docs/source docs/build/html
+      - name: Install web dependencies
+        run: pnpm --dir web install --frozen-lockfile
 
-      - name: Check links
-        run: uv run --extra docs --locked --python 3.11 sphinx-build -b linkcheck docs/source docs/build/linkcheck
+      - name: Generate documentation references
+        run: pnpm --dir web run docs:generate
 
-      - name: Upload linkcheck report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: linkcheck-report
-          path: docs/build/linkcheck/output.*
+      - name: Lint web documentation app
+        run: pnpm --dir web run lint
+
+      - name: Test web documentation app
+        run: pnpm --dir web run test:run
+
+      - name: Build documentation site
+        run: pnpm --dir web run build
 
       - name: Report workflow timing
         if: always()

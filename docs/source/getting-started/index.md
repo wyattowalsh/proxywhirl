@@ -26,47 +26,57 @@ If you just need a quick proxy list to get started, ProxyWhirl publishes **free,
 ::::{tab-set}
 
 :::{tab-item} uv (recommended)
+
 ```bash
+# Install uv first if needed
+brew install uv
+# Other platforms: https://docs.astral.sh/uv/getting-started/installation/
+
 # Add to an existing project
 uv add proxywhirl
 
-# Or install globally
-uv pip install proxywhirl
-```
-:::
+# Run the CLI once without adding it to the project
+uvx proxywhirl --help
 
-:::{tab-item} pip
-```bash
-pip install proxywhirl
+# Or install the CLI as a persistent user tool
+uv tool install proxywhirl
+
+# Run project-local commands through uv
+uv run proxywhirl --help
 ```
+
 :::
 
 :::{tab-item} Extras
+
 ```bash
 # Install with specific extras
-pip install "proxywhirl[storage]"     # SQLite persistence (sqlmodel)
-pip install "proxywhirl[security]"    # Credential encryption (cryptography)
-pip install "proxywhirl[js]"          # JS-rendered proxy sources (playwright)
-pip install "proxywhirl[analytics]"   # Analytics & ML (pandas, numpy, scikit-learn)
-pip install "proxywhirl[mcp]"         # MCP server for AI assistants (Python 3.10+)
+uv add "proxywhirl[storage]"     # SQLite persistence (sqlmodel)
+uv add "proxywhirl[security]"    # Credential encryption (cryptography)
+uv add "proxywhirl[js]"          # JS-rendered proxy sources (playwright)
+uv add "proxywhirl[analytics]"   # Analytics & ML (pandas, numpy, scikit-learn)
+uv add "proxywhirl[mcp]"         # MCP server for AI assistants (Python 3.10+)
 
 # Install everything
-pip install "proxywhirl[all]"
+uv add "proxywhirl[all]"
 ```
+
 :::
 
 :::{tab-item} From source
+
 ```bash
 git clone https://github.com/wyattowalsh/proxywhirl.git
 cd proxywhirl
 uv sync
 ```
+
 :::
 
 ::::
 
 ```{note}
-ProxyWhirl requires **Python 3.9+**. SOCKS proxy support uses `httpx-socks`, which is included in the core dependencies. The `[mcp]` extra requires Python 3.10+.
+ProxyWhirl requires **Python 3.10+**. SOCKS proxy support uses `httpx-socks`, which is included in the core dependencies. The `[mcp]` extra also requires Python 3.10+.
 ```
 
 ---
@@ -76,16 +86,12 @@ ProxyWhirl requires **Python 3.9+**. SOCKS proxy support uses `httpx-socks`, whi
 ### Basic Usage (sync)
 
 ```python
-from proxywhirl import ProxyWhirl, Proxy
+from proxywhirl import ProxyWhirl
 
-# Create Proxy objects and pass them to the rotator
-proxies = [
-    Proxy(url="http://proxy1.example.com:8080"),
-    Proxy(url="http://proxy2.example.com:8080"),
-    Proxy(url="socks5://proxy3.example.com:1080"),
-]
-
-rotator = ProxyWhirl(proxies=proxies)
+# Drop it in as your rotator. If the pool is empty, ProxyWhirl lazily fetches
+# across all enabled built-in public sources, validates the results, and keeps
+# the hydrated pool in memory.
+rotator = ProxyWhirl()
 
 # Make requests -- proxies rotate automatically
 response = rotator.get("https://httpbin.org/ip")
@@ -93,6 +99,21 @@ print(response.json())  # {"origin": "185.x.x.47"}
 
 # Dead proxies are ejected, slow ones deprioritized
 response = rotator.get("https://api.example.com/data")
+```
+
+Pass explicit proxies only when you want to bring your own pool:
+
+```python
+from proxywhirl import Proxy, ProxyWhirl
+
+proxies = [
+    Proxy(url="http://proxy1.example.com:8080"),
+    Proxy(url="http://proxy2.example.com:8080"),
+    Proxy(url="socks5://proxy3.example.com:1080"),
+]
+
+rotator = ProxyWhirl(proxies=proxies)
+response = rotator.get("https://httpbin.org/ip")
 ```
 
 You can also add proxies from URL strings after construction:
@@ -338,7 +359,7 @@ See {doc}`/guides/cli-reference` for the full command reference.
 * - Symptom
   - Fix
 * - ``ModuleNotFoundError: proxywhirl``
-  - Run ``uv sync`` (or ``pip install proxywhirl``) to install dependencies.
+  - Run ``uv sync`` in this repository, or ``uv add proxywhirl`` in your project.
 * - ``ProxyPoolEmptyError``
   - All proxies failed health checks. Add more proxies or check network connectivity.
 * - SOCKS proxies not working

@@ -1,7 +1,6 @@
 """Unit tests for rate_limiting.limiter module."""
 
-from proxywhirl.rate_limiting.limiter import AsyncRateLimiter, RateLimiter, SyncRateLimiter
-from proxywhirl.rate_limiting.models import RateLimit
+from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit, RateLimiter, SyncRateLimiter
 
 
 class TestRateLimiter:

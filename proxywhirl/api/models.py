@@ -25,7 +25,7 @@ from pydantic import (
     field_validator,
 )
 
-from proxywhirl.strategies.core import BUILTIN_STRATEGY_CLASSES
+from proxywhirl.strategies import BUILTIN_STRATEGY_CLASSES
 
 # Generic type variable for response data
 T = TypeVar("T")

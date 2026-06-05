@@ -1,0 +1,73 @@
+---
+title: Python API Reference
+description: Source-grounded public exports from proxywhirl.__all__.
+---
+
+# Python API Reference
+
+<div className="rounded-xl border border-fd-border bg-fd-muted/40 p-4 text-sm">
+<strong>Generated reference.</strong> This page is derived from `proxywhirl.__all__`, package metadata, and object docstrings during <code>pnpm --dir web run docs:generate</code>. Edit <code>web/scripts/generate-docs.mjs</code>, not this MDX file.
+</div>
+
+<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">proxywhirl</div>
+  <div className="mt-1 text-sm font-medium">Package</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Version 0.3.3</div>
+</div>
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">>=3.10</div>
+  <div className="mt-1 text-sm font-medium">Python</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Supported runtime range</div>
+</div>
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">113</div>
+  <div className="mt-1 text-sm font-medium">Public exports</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Entries in `proxywhirl.__all__`</div>
+</div>
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">12</div>
+  <div className="mt-1 text-sm font-medium">Modules</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Top namespaces shown below</div>
+</div>
+</div>
+
+## Core Surface
+
+| Export | Kind | Module | Use |
+| --- | --- | --- | --- |
+| `ProxyWhirl` | class | `proxywhirl.rotator.sync` | Main class for proxy rotation with automatic failover. |
+| `AsyncProxyWhirl` | class | `proxywhirl.rotator.async_` | Async proxy rotator with automatic failover and intelligent rotation. |
+| `Proxy` | class | `proxywhirl.models` | Represents a single proxy server with connection details and metadata. |
+| `ProxyPool` | class | `proxywhirl.models` | Collection of proxies with management capabilities. |
+| `BootstrapConfig` | class | `proxywhirl.models` | Configuration for the lazy bootstrap that runs on first request when the pool is empty. |
+| `ProxyFetcher` | class | `proxywhirl.fetchers` | Fetch and parse proxies from multiple sources with validation and deduplication. |
+| `ProxyValidator` | class | `proxywhirl.fetchers` | Validate proxy connectivity with detailed metrics and multiple test endpoints. |
+| `StrategyRegistry` | class | `proxywhirl.strategies` | Singleton registry for custom rotation strategies. |
+| `ALL_SOURCES` | value | `proxywhirl` | Built-in mutable sequence. |
+| `RECOMMENDED_SOURCES` | value | `proxywhirl` | Built-in mutable sequence. |
+
+## Export Shape
+
+| Kind | Count |
+| --- | --- |
+| class | 83 |
+| function | 23 |
+| value | 7 |
+
+## Top Namespaces
+
+| Module | Exports |
+| --- | --- |
+| `proxywhirl.models` | 21 |
+| `proxywhirl.exceptions` | 18 |
+| `proxywhirl.strategies` | 14 |
+| `proxywhirl.utils` | 14 |
+| `proxywhirl.fetchers` | 8 |
+| `proxywhirl` | 7 |
+| `proxywhirl.safe_regex` | 7 |
+| `proxywhirl.retry` | 6 |
+| `proxywhirl.rate_limiting` | 4 |
+| `proxywhirl.circuit_breaker` | 3 |
+| `proxywhirl.sources` | 2 |
+| `proxywhirl.storage` | 2 |

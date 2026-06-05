@@ -232,19 +232,20 @@ curate-sources:
 
 # Build HTML documentation
 docs-html:
-	@echo "Building HTML documentation..."
-	cd docs && uv run sphinx-build -M html source build
+	@echo "Building Next.js/Fumadocs documentation..."
+	pnpm --dir web run build
 	@echo ""
-	@echo "Documentation built at docs/build/html/index.html"
+	@echo "Documentation built by Next.js in web/.next"
 
 # Check documentation links
 docs-linkcheck:
-	@echo "Checking documentation links..."
-	cd docs && uv run sphinx-build -b linkcheck source build/linkcheck
+	@echo "Verifying generated documentation pipeline..."
+	pnpm --dir web run docs:generate
+	pnpm --dir web run lint
 	@echo ""
-	@echo "Linkcheck results at docs/build/linkcheck/output.txt"
+	@echo "Docs generation and lint completed"
 
 # Clean documentation build artifacts
 docs-clean:
 	@echo "Cleaning documentation build..."
-	rm -rf docs/build
+	uv run python -c "import shutil; shutil.rmtree('web/.next', ignore_errors=True); shutil.rmtree('web/.source', ignore_errors=True); shutil.rmtree('docs/build', ignore_errors=True)"

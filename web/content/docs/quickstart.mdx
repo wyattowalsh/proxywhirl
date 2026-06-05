@@ -1,0 +1,89 @@
+---
+title: Quickstart
+description: Install ProxyWhirl, drop in a rotator, auto-fetch proxies, and make the first request.
+---
+
+# Quickstart
+
+Install ProxyWhirl with uv first:
+
+```bash
+# Install uv first if needed
+brew install uv
+# Other platforms: https://docs.astral.sh/uv/getting-started/installation/
+
+# Add ProxyWhirl to the current project
+uv add proxywhirl
+
+# Run the CLI once without adding it to the project
+uvx proxywhirl --help
+
+# Install the CLI as a persistent user tool
+uv tool install proxywhirl
+```
+
+Use `uv run proxywhirl --help` inside a uv-managed project. Use `uv tool install proxywhirl`
+when you want the CLI available from any shell.
+
+Install optional features with uv extras:
+
+```bash
+uv add "proxywhirl[storage]"   # SQLite persistence
+uv add "proxywhirl[security]"  # Credential encryption
+uv add "proxywhirl[js]"        # JS-rendered proxy sources
+uv add "proxywhirl[mcp]"       # MCP server for AI assistants
+```
+
+Drop in a rotator and let ProxyWhirl fetch its own proxies on first use:
+
+```python
+from proxywhirl import ProxyWhirl
+
+# The empty pool is lazily hydrated from every enabled built-in public source.
+rotator = ProxyWhirl()
+response = rotator.get("https://httpbin.org/ip")
+print(response.json())
+```
+
+Pass explicit proxies only when you want to bring your own pool:
+
+```python
+from proxywhirl import ProxyWhirl
+
+rotator = ProxyWhirl(proxies=["http://p1:8080", "http://p2:8080"])
+response = rotator.get("https://httpbin.org/ip")
+```
+
+Check the CLI from the same environment:
+
+```bash
+uv run proxywhirl fetch
+uv run proxywhirl pool list
+uv run proxywhirl health
+```
+
+Use the async client when your application is already async or needs high concurrency:
+
+```python
+import asyncio
+
+from proxywhirl import AsyncProxyWhirl
+
+
+async def main() -> None:
+    async with AsyncProxyWhirl() as rotator:
+        response = await rotator.get("https://httpbin.org/ip")
+        print(response.json())
+
+
+asyncio.run(main())
+```
+
+## What To Read Next
+
+| Need                          | Destination                                    |
+| ----------------------------- | ---------------------------------------------- |
+| Choose a rotation policy      | [Strategy Matrix](/docs/generated/strategies)  |
+| Configure API or service mode | [REST/OpenAPI](/docs/generated/rest-api)       |
+| Use the terminal              | [CLI Reference](/docs/generated/cli-reference) |
+| Connect AI assistants         | [MCP Server](/docs/mcp)                        |

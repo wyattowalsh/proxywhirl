@@ -1,4 +1,4 @@
-import { test, expect, devices } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 
 test.describe('Home Page', () => {
   test.beforeEach(async ({ page }) => {
@@ -16,50 +16,42 @@ test.describe('Home Page', () => {
   });
 
   test('should display proxy table and test button', async ({ page }) => {
-    await expect(page.getByPlaceholder('Search proxies...')).toBeVisible();
-    
-    // Check for table rows. Wait for data loading.
-    const table = page.locator('table');
-    await expect(table).toBeVisible();
-    
-    // Hover over a row to see the Test button (Terminal Icon)
-    const firstRow = page.locator('table tbody tr').first();
-    await expect(firstRow).toBeVisible({ timeout: 10000 });
-    
-    await firstRow.hover();
-    
-    const testButton = firstRow.locator('button[title="Copy test command"]');
-    await expect(testButton).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Search IP, port... (/)' })).toBeVisible({
+      timeout: 10000,
+    });
+    await expect(page.getByRole('button', { name: 'Copy test command' }).first()).toBeVisible({
+      timeout: 10000,
+    });
   });
 
   test('should show scroll-to-top button', async ({ page }) => {
     // Scroll down
-    await page.evaluate(() => window.scrollTo(0, 1000));
-    
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect.poll(async () => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
+
     // Check for Scroll to Top button.
     const scrollBtn = page.getByLabel('Scroll to top');
     await expect(scrollBtn).toBeVisible();
-    
+
     // Click it
     await scrollBtn.click();
-    
+
     // Verify we are back at top
-    await expect(page.evaluate(() => window.scrollY)).resolves.toBeLessThan(10);
+    await expect.poll(async () => page.evaluate(() => window.scrollY)).toBeLessThan(10);
   });
 });
 
 test.describe('Mobile Navigation', () => {
-  test.use({ ...devices['Pixel 5'] });
+  test('should toggle mobile menu', async ({ page, isMobile }) => {
+    test.skip(!isMobile, 'Mobile-only navigation');
 
-  test('should toggle mobile menu', async ({ page }) => {
     await page.goto('/');
-    
-    // Check menu button exists (md:hidden)
-    const menuBtn = page.locator('button').filter({ has: page.locator('svg.lucide-menu') }).first();
+
+    const menuBtn = page.getByRole('button', { name: 'Toggle menu' });
     await expect(menuBtn).toBeVisible();
     await menuBtn.click();
-    
-    // Check if menu content appears
-    await expect(page.getByRole('menuitem', { name: 'Raw List' })).toBeVisible();
+
+    await expect(page.getByRole('menuitem', { name: 'Docs' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'GitHub' })).toBeVisible();
   });
 });

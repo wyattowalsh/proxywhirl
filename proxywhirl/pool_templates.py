@@ -11,7 +11,7 @@ from typing import Any
 
 from loguru import logger
 
-from proxywhirl.models import ProxyConfiguration
+from proxywhirl.settings import ProxyConfiguration
 
 
 @dataclass

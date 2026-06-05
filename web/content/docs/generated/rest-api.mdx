@@ -1,0 +1,79 @@
+---
+title: REST/OpenAPI Reference
+description: FastAPI OpenAPI summary generated from proxywhirl.api.app.
+---
+
+# REST/OpenAPI Reference
+
+<div className="rounded-xl border border-fd-border bg-fd-muted/40 p-4 text-sm">
+<strong>Generated reference.</strong> This page is derived from `proxywhirl.api.app.openapi()` during <code>pnpm --dir web run docs:generate</code>. Edit <code>web/scripts/generate-docs.mjs</code>, not this MDX file.
+</div>
+
+<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">ProxyWhirl API</div>
+  <div className="mt-1 text-sm font-medium">API</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Version 1.0.0</div>
+</div>
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">21</div>
+  <div className="mt-1 text-sm font-medium">Paths</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">OpenAPI path entries</div>
+</div>
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">25</div>
+  <div className="mt-1 text-sm font-medium">Operations</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">HTTP method + path pairs</div>
+</div>
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">46</div>
+  <div className="mt-1 text-sm font-medium">Schemas</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Request/response models</div>
+</div>
+</div>
+
+## Route Areas
+
+| Area | Operations |
+| --- | --- |
+| proxies | 8 |
+| metrics | 4 |
+| circuit-breakers | 3 |
+| config | 2 |
+| retry | 2 |
+| health | 1 |
+| ready | 1 |
+| request | 1 |
+| rotate | 1 |
+| stats | 1 |
+| status | 1 |
+
+## Operation Inventory
+
+| Method | Path | Operation |
+| --- | --- | --- |
+| POST | `/api/request` | Make proxied HTTP request |
+| GET | `/api/proxies` | List all proxies |
+| POST | `/api/proxies` | Add new proxy |
+| GET | `/api/rotate` | Select next proxy |
+| GET | `/api/proxies/stream` | Stream all proxies as NDJSON |
+| GET | `/api/proxies/export` | Export all proxies as streaming JSON |
+| POST | `/api/proxies/health-check` | Health check proxies |
+| POST | `/api/proxies/test` | Health check proxies (deprecated) |
+| GET | `/api/proxies/{proxy_id}` | Get proxy by ID |
+| DELETE | `/api/proxies/{proxy_id}` | Delete proxy |
+| GET | `/api/health` | API health check |
+| GET | `/api/ready` | API readiness check |
+| GET | `/api/status` | Get system status |
+| GET | `/api/stats` | Get performance statistics |
+| GET | `/api/config` | Get current configuration |
+| PUT | `/api/config` | Update configuration |
+| GET | `/api/retry/policy` | Get global retry policy |
+| PUT | `/api/retry/policy` | Update global retry policy |
+| GET | `/api/circuit-breakers` | List all circuit breaker states |
+| GET | `/api/metrics/circuit-breakers` | Get circuit breaker metrics |
+| GET | `/api/circuit-breakers/{proxy_id}` | Get circuit breaker state for specific proxy |
+| POST | `/api/circuit-breakers/{proxy_id}/reset` | Manually reset circuit breaker |
+| GET | `/api/metrics/retries` | Get retry metrics summary |
+| GET | `/api/metrics/retries/timeseries` | Get time-series retry data |
+| GET | `/api/metrics/retries/by-proxy` | Get per-proxy retry statistics |

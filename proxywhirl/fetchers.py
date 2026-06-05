@@ -11,7 +11,6 @@ import asyncio
 import csv
 import hashlib
 import json
-import os
 import re
 import time
 from datetime import datetime, timezone
@@ -34,6 +33,7 @@ from tenacity import (
 
 from proxywhirl.exceptions import ProxyFetchError, ProxyValidationError
 from proxywhirl.models import ProxySourceConfig, RenderMode
+from proxywhirl.settings import TLSSettings
 from proxywhirl.utils import parse_proxy_url
 
 # Check for httpx-socks availability (optional dependency for SOCKS proxy support)
@@ -255,7 +255,7 @@ class CSVParser:
                     raise ProxyFetchError(
                         f"Malformed CSV row: expected {len(headers)} columns, got {len(row)}"
                     )
-                proxies.append(dict(zip(headers, row)))
+                proxies.append(dict(zip(headers, row, strict=True)))
         else:
             # Use provided column names
             if not self.columns:
@@ -268,7 +268,7 @@ class CSVParser:
                     raise ProxyFetchError(
                         f"Malformed CSV row: expected {len(self.columns)} columns, got {len(row)}"
                     )
-                proxies.append(dict(zip(self.columns, row)))
+                proxies.append(dict(zip(self.columns, row, strict=True)))
 
         return proxies
 
@@ -719,11 +719,11 @@ class ValidationResult(NamedTuple):
 def _get_tls_verify() -> bool | str:
     """Return TLS verification setting for httpx clients.
 
-    Reads ``PROXYWHIRL_CA_BUNDLE`` environment variable. If set, uses
-    the specified CA bundle path. Otherwise defaults to ``True``.
+    Reads ``TLSSettings.ca_bundle``. If set, uses the specified CA bundle path.
+    Otherwise defaults to ``True``.
     """
-    ca_bundle = os.environ.get("PROXYWHIRL_CA_BUNDLE")
-    return ca_bundle if ca_bundle else True
+    ca_bundle = TLSSettings().ca_bundle
+    return str(ca_bundle) if ca_bundle else True
 
 
 class ProxyValidator:
@@ -976,7 +976,7 @@ class ProxyValidator:
             sock = socket.create_connection((host, port), timeout=self.timeout)
             sock.close()
             return True
-        except (socket.timeout, ConnectionRefusedError, socket.gaierror, OSError):
+        except (TimeoutError, ConnectionRefusedError, socket.gaierror, OSError):
             # Connection failed - timeout, refused, DNS error, or network unreachable
             return False
 

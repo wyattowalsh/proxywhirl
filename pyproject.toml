@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools>=77.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,130 +7,121 @@ name = "proxywhirl"
 version = "0.3.3"
 description = "Advanced Python proxy rotation library with auto-fetching, validation, and persistence"
 readme = "README.md"
-requires-python = ">=3.9"
-license = {text = "MIT"}
-authors = [
-    {name = "Wyatt Walsh", email = "wyattowalsh@gmail.com"}
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Wyatt Walsh", email = "wyattowalsh@gmail.com" }]
+keywords = [
+  "proxy",
+  "rotation",
+  "http",
+  "socks",
+  "async",
+  "fetcher",
+  "validator",
 ]
-keywords = ["proxy", "rotation", "http", "socks", "async", "fetcher", "validator"]
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: Internet :: Proxy Servers",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Typing :: Typed",
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Internet :: Proxy Servers",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Typing :: Typed",
 ]
 
 dependencies = [
-    "httpx[socks]>=0.25.0",
-    "pydantic>=2.0.0",
-    "pydantic-settings>=2.0.0",
-    "tenacity>=8.2.0",
-    "loguru>=0.7.0",
-    "beautifulsoup4>=4.14.2",
-    "cryptography>=44.0.1",
-    "sqlmodel>=0.0.27",
-    "aiosqlite>=0.21.0",
-    "greenlet>=3.2.4",
-    "typer>=0.9.0",
-    "rich>=13.0.0",
-    "filelock>=3.12.0",
-    "platformdirs>=3.0.0",
-    "tomli-w>=1.0.0",
-    "tomli>=2.3.0",
-    "fastapi>=0.100.0",
-    "uvicorn[standard]>=0.24.0",
-    "slowapi>=0.1.9",
-    "python-multipart>=0.0.18",
-    "portalocker>=2.8.0",
-    "pyyaml>=6.0.0",
-    "prometheus-client>=0.19.0",
-    "httpx-socks>=0.11.0",
-    "playwright>=1.55.0",
-    "geoip2>=5.1.0",
-    "aiofiles>=25.1.0",
-    "pyrate-limiter>=3.9.0,<4.0",
-    "alembic>=1.16.5",
-    "starlette>=0.49.1",
-    "aiorwlock>=1.4.0",
-    "readerwriterlock>=1.0.9",
-    "aiobreaker>=1.2.0",
-    "psutil>=5.9.0",
+  "httpx[socks]>=0.25.0",
+  "pydantic>=2.0.0",
+  "pydantic-settings>=2.0.0",
+  "tenacity>=8.2.0",
+  "loguru>=0.7.0",
+  "beautifulsoup4>=4.14.2",
+  "cryptography>=44.0.1",
+  "sqlmodel>=0.0.27",
+  "aiosqlite>=0.21.0",
+  "greenlet>=3.2.4",
+  "typer>=0.9.0",
+  "rich>=13.0.0",
+  "filelock>=3.20.3",
+  "platformdirs>=3.0.0",
+  "tomli-w>=1.0.0",
+  "tomli>=2.3.0",
+  "fastapi>=0.100.0",
+  "uvicorn[standard]>=0.24.0",
+  "slowapi>=0.1.9",
+  "python-multipart>=0.0.26",
+  "portalocker>=2.8.0",
+  "pyyaml>=6.0.0",
+  "prometheus-client>=0.19.0",
+  "httpx-socks>=0.11.0",
+  "playwright>=1.55.0",
+  "geoip2>=5.1.0",
+  "aiofiles>=25.1.0",
+  "pyrate-limiter>=3.9.0,<4.0",
+  "alembic>=1.16.5",
+  "starlette>=0.49.1",
+  "aiobreaker>=1.2.0",
+  "psutil>=5.9.0",
 ]
 
 [project.optional-dependencies]
-storage = [
-    "sqlmodel>=0.0.14",
-]
-security = [
-    "cryptography>=41.0.0",
-]
-js = [
-    "playwright>=1.40.0",
-]
-analytics = [
-    "pandas>=2.0.0",
-    "numpy>=1.24.0",
-    "scikit-learn>=1.3.0",
-]
-mcp = [
-    "fastmcp>=0.1.0; python_version>='3.10'",
-]
+storage = ["sqlmodel>=0.0.14"]
+security = ["cryptography>=41.0.0"]
+js = ["playwright>=1.40.0"]
+analytics = ["pandas>=2.0.0", "numpy>=1.24.0", "scikit-learn>=1.3.0"]
+mcp = ["fastmcp>=0.1.0; python_version>='3.10'"]
 all = [
-    "sqlmodel>=0.0.14",
-    "cryptography>=41.0.0",
-    "playwright>=1.40.0",
-    "pandas>=2.0.0",
-    "numpy>=1.24.0",
-    "scikit-learn>=1.3.0",
-    "fastmcp>=0.1.0; python_version>='3.10'",
+  "sqlmodel>=0.0.14",
+  "cryptography>=41.0.0",
+  "playwright>=1.40.0",
+  "pandas>=2.0.0",
+  "numpy>=1.24.0",
+  "scikit-learn>=1.3.0",
+  "fastmcp>=0.1.0; python_version>='3.10'",
 ]
 docs = [
-    "sphinx>=7.4.0",
-    "myst-parser>=2.0.0",
-    "shibuya>=2024.4.0",
-    "sphinx-copybutton>=0.5.2",
-    "sphinx-design>=0.6.0",
-    "sphinxcontrib-mermaid>=0.9.2",
-    "sphinx-docsearch>=0.2.0b3",
-    "linkify-it-py>=2.0.2",
-    "sphinx-autoapi>=3.6.1",
+  "sphinx>=7.4.0",
+  "myst-parser>=2.0.0",
+  "shibuya>=2024.4.0",
+  "sphinx-copybutton>=0.5.2",
+  "sphinx-design>=0.6.0",
+  "sphinxcontrib-mermaid>=0.9.2",
+  "sphinx-docsearch>=0.2.0b3",
+  "linkify-it-py>=2.0.2",
+  "sphinx-autoapi>=3.6.1",
 ]
 dev = [
-    # Core testing framework
-    "pytest>=8.0.0",
-    "pytest-cov>=4.1.0",
-    "pytest-xdist>=3.5.0",
-    "pytest-mock>=3.12.0",
-    "pytest-timeout>=2.2.0",
-    "pytest-benchmark>=4.0.0",
-    "pytest-asyncio>=0.23.0",
-    "pytest-rerunfailures>=13.0",
-    "pytest-watcher>=0.4.0",
-    # Output and reporting
-    "pytest-sugar>=1.0.0",
-    "pytest-pretty>=1.2.0",
-    "pytest-html>=4.1.0",
-    "pytest-icdiff>=0.9",
-    # Memory profiling
-    "pytest-memray>=1.6.0",
-    # Property-based and snapshot testing
-    "hypothesis>=6.100.0",
-    "syrupy>=4.6.0",
-    # HTTP mocking and factories
-    "respx>=0.22.0",
-    "polyfactory>=2.15.0",
-    "faker>=24.0.0",
-    # Code quality
-    "ruff>=0.3.0",
-    "ty>=0.0.7",
+  # Core testing framework
+  "pytest>=8.0.0",
+  "pytest-cov>=4.1.0",
+  "pytest-xdist>=3.5.0",
+  "pytest-mock>=3.12.0",
+  "pytest-timeout>=2.2.0",
+  "pytest-benchmark>=4.0.0",
+  "pytest-asyncio>=0.23.0",
+  "pytest-rerunfailures>=13.0",
+  "pytest-watcher>=0.4.0",
+  # Output and reporting
+  "pytest-sugar>=1.0.0",
+  "pytest-pretty>=1.2.0",
+  "pytest-html>=4.1.0",
+  "pytest-icdiff>=0.9",
+  # Memory profiling
+  "pytest-memray>=1.6.0",
+  # Property-based and snapshot testing
+  "hypothesis>=6.100.0",
+  "syrupy>=4.6.0",
+  # HTTP mocking and factories
+  "respx>=0.22.0",
+  "polyfactory>=2.15.0",
+  "faker>=24.0.0",
+  # Code quality
+  "ruff>=0.3.0",
+  "ty>=0.0.7",
 ]
 
 [project.scripts]
@@ -155,136 +146,103 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = [
-    "--strict-markers",
-    "--strict-config",
-    "-ra",
-    "--tb=short",
-]
+addopts = ["--strict-markers", "--strict-config", "-ra", "--tb=short"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 timeout = "30"
 timeout_method = "thread"
 filterwarnings = [
-    "ignore::DeprecationWarning",
-    "ignore::PendingDeprecationWarning",
-    "ignore:unclosed database:ResourceWarning",
-    "ignore::pytest.PytestConfigWarning",
+  "ignore::DeprecationWarning",
+  "ignore::PendingDeprecationWarning",
+  "ignore:unclosed database:ResourceWarning",
 ]
 markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
-    "benchmark: marks tests as benchmarks",
-    "snapshot: marks tests using snapshot testing",
-    "property: marks property-based tests",
-    "flaky: marks tests that may be flaky and need reruns",
-    "network: marks tests requiring network access (skip in CI with '-m \"not network\"')",
-    "stress: marks tests as stress tests (skip in CI with '-m \"not stress\"')",
+  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+  "integration: marks tests as integration tests",
+  "unit: marks tests as unit tests",
+  "benchmark: marks tests as benchmarks",
+  "snapshot: marks tests using snapshot testing",
+  "property: marks property-based tests",
+  "flaky: marks tests that may be flaky and need reruns",
+  "network: marks tests requiring network access (skip in CI with '-m \"not network\"')",
+  "stress: marks tests as stress tests (skip in CI with '-m \"not stress\"')",
 ]
-
-[tool.pytest.benchmark]
-# Benchmark configuration for performance regression testing
-min_rounds = 5
-max_time = 1.0
-min_time = 0.000005
-warmup = true
-warmup_iterations = 100000
-calibration_precision = 10
-disable_gc = true
-# Store results in .benchmarks/ directory
-save = true
-autosave = true
-# Compare against baseline stored in git (tracking only, no failure threshold for v0.1.0)
-compare = "0001"
-# compare_fail = "min:10%"  # Disabled for v0.1.0 - baselines not yet stable
-# Histogram output for analysis
-histogram = "benchmark-histogram"
-# JSON output for CI parsing
-json = true
-# Group benchmarks by function name
-group-by = "func"
 
 [tool.coverage.run]
 source = ["proxywhirl"]
-omit = [
-    "proxywhirl/cli.py",
-    "proxywhirl/api.py",
-    "proxywhirl/api_models.py",
-]
+omit = ["proxywhirl/cli.py"]
 
 [tool.coverage.report]
 precision = 2
 show_missing = true
 skip_covered = false
 exclude_lines = [
-    "pragma: no cover",
-    "def __repr__",
-    "raise AssertionError",
-    "raise NotImplementedError",
-    "if __name__ == .__main__.:",
-    "if TYPE_CHECKING:",
-    "^\\s*@(abc\\.)?abstractmethod",
+  "pragma: no cover",
+  "def __repr__",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  "^\\s*@(abc\\.)?abstractmethod",
 ]
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 extend-exclude = [
-    ".codex",
-    ".cursor",
-    ".github",
-    ".specify",
-    ".amazonq",
-    ".playwright-mcp",
-    ".benchmarks",
-    "alembic",
-    "docs",
-    "examples",
-    "web",
-    "audit-reports",
-    "specs",
-    # Verification scripts and temporary files in root
-    "verify_*.py",
-    "cli_broken.py",
-    "*-COMPLETION.md",
-    "*_COMPLETION.md",
-    "*_IMPLEMENTATION*.md",
-    "TASK*.md",
-    "ASYNC*.md",
-    "CMPLX*.md",
-    "PERF*.md",
-    "DEAD*.md",
-    "REGEX*.md",
-    "VULNERABILITY*.md",
+  ".codex",
+  ".cursor",
+  ".github",
+  ".specify",
+  ".amazonq",
+  ".playwright-mcp",
+  ".benchmarks",
+  "alembic",
+  "docs",
+  "examples",
+  "web",
+  "audit-reports",
+  "specs",
+  # Verification scripts and temporary files in root
+  "verify_*.py",
+  "cli_broken.py",
+  "*-COMPLETION.md",
+  "*_COMPLETION.md",
+  "*_IMPLEMENTATION*.md",
+  "TASK*.md",
+  "ASYNC*.md",
+  "CMPLX*.md",
+  "PERF*.md",
+  "DEAD*.md",
+  "REGEX*.md",
+  "VULNERABILITY*.md",
 ]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
 ignore = [
-    "E501",   # Line too long (handled by formatter)
-    "B904",   # Within except clause, raise from
-    "SIM105", # Use contextlib.suppress
-    "B007",   # Loop variable not used
-    "SIM116", # Dictionary instead of if/elif chains (not always clearer)
-    "SIM117", # Nested with statements (sometimes clearer)
+  "E501",   # Line too long (handled by formatter)
+  "B904",   # Within except clause, raise from
+  "SIM105", # Use contextlib.suppress
+  "B007",   # Loop variable not used
+  "SIM116", # Dictionary instead of if/elif chains (not always clearer)
+  "SIM117", # Nested with statements (sometimes clearer)
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"proxywhirl/api.py" = ["B008"]  # FastAPI Depends() pattern is intentional
-"proxywhirl/cli.py" = ["B008"]  # Typer Option() pattern is intentional
+"proxywhirl/cli.py" = ["B008"] # Typer Option() pattern is intentional
 "tests/**/*.py" = [
-    "E731",   # Lambda assignments (common in test factories)
-    "E402",   # Module level import not at top (pytest/hypothesis setup)
-    "F841",   # Unused variable (intentional in some test patterns)
-    "B017",   # Blind exception catching (pytest.raises(Exception) pattern)
-    "B023",   # Loop variable binding (mock patterns)
-    "N806",   # Uppercase variable names (MockClass pattern)
-    "UP006",  # Deprecated typing (Python 3.9 compat)
-    "UP035",  # Deprecated typing imports (Python 3.9 compat)
-    "SIM115", # Context manager for files (tempfile patterns)
-    "SIM118", # Use key in dict (sometimes explicit .keys() is clearer)
-    "C401",   # Unnecessary generator (set comprehension style)
+  "E731",   # Lambda assignments (common in test factories)
+  "E402",   # Module level import not at top (pytest/hypothesis setup)
+  "F841",   # Unused variable (intentional in some test patterns)
+  "B017",   # Blind exception catching (pytest.raises(Exception) pattern)
+  "B023",   # Loop variable binding (mock patterns)
+  "N806",   # Uppercase variable names (MockClass pattern)
+  "UP006",  # Legacy typing style remains acceptable in tests
+  "UP035",  # Legacy typing imports remain acceptable in tests
+  "SIM115", # Context manager for files (tempfile patterns)
+  "SIM118", # Use key in dict (sometimes explicit .keys() is clearer)
+  "C401",   # Unnecessary generator (set comprehension style)
 ]
 
 [tool.ruff.format]
@@ -298,15 +256,15 @@ line-ending = "auto"
 # https://github.com/astral-sh/ty
 
 [tool.ty.environment]
-python-version = "3.9"
+python-version = "3.10"
 
 [tool.ty.rules]
 # FastAPI/Starlette middleware uses complex generics that ty can't fully resolve
 # These work correctly at runtime due to Starlette's middleware registration
 invalid-argument-type = "ignore"
 
-# Textual TUI uses reactive descriptors with custom __set__ methods
-# These are valid assignments that work correctly at runtime
+# Some model and framework descriptors use custom __set__ methods that ty cannot fully resolve.
+# These assignments are covered by runtime tests.
 invalid-assignment = "ignore"
 
 # hasattr() patterns with dynamic attribute access are common Python idioms
@@ -336,52 +294,52 @@ no-matching-overload = "ignore"
 
 [dependency-groups]
 dev = [
-    # Core testing framework
-    "pytest>=8.4.2",
-    "pytest-cov>=7.0.0",
-    "pytest-xdist>=3.5.0",
-    "pytest-mock>=3.15.1",
-    "pytest-timeout>=2.3.0",
-    "pytest-benchmark>=5.1.0",
-    "pytest-asyncio>=1.2.0",
-    "pytest-rerunfailures>=15.0",
-    "pytest-watcher>=0.4.3",
-    # Output and reporting
-    "pytest-sugar>=1.0.0",
-    "pytest-pretty>=1.3.0",
-    "pytest-html>=4.1.1",
-    "pytest-icdiff>=0.9",
-    # Memory profiling
-    "pytest-memray>=1.7.0",
-    # Property-based and snapshot testing
-    "hypothesis>=6.141.1",
-    "syrupy>=4.8.0",
-    # HTTP mocking and factories
-    "respx>=0.22.0",
-    "polyfactory>=2.18.0",
-    "faker>=33.0.0",
-    # Code quality and tooling
-    "ruff>=0.14.1",
-    "ty>=0.0.7",
-    "commitizen>=4.10.1",
-    "nbformat>=5.10.4",
-    "types-requests>=2.32.4.20250913",
-    "nbclient>=0.10.2",
-    "ipykernel>=6.31.0",
-    "pre-commit>=4.3.0",
-    "h2>=4.3.0",
-    "bcrypt>=5.0.0",
+  # Core testing framework
+  "pytest>=8.4.2",
+  "pytest-cov>=7.0.0",
+  "pytest-xdist>=3.5.0",
+  "pytest-mock>=3.15.1",
+  "pytest-timeout>=2.3.0",
+  "pytest-benchmark>=5.1.0",
+  "pytest-asyncio>=1.2.0",
+  "pytest-rerunfailures>=15.0",
+  "pytest-watcher>=0.4.3",
+  # Output and reporting
+  "pytest-sugar>=1.0.0",
+  "pytest-pretty>=1.3.0",
+  "pytest-html>=4.1.1",
+  "pytest-icdiff>=0.9",
+  # Memory profiling
+  "pytest-memray>=1.7.0",
+  # Property-based and snapshot testing
+  "hypothesis>=6.141.1",
+  "syrupy>=4.8.0",
+  # HTTP mocking and factories
+  "respx>=0.22.0",
+  "polyfactory>=2.18.0",
+  "faker>=33.0.0",
+  # Code quality and tooling
+  "ruff>=0.14.1",
+  "ty>=0.0.7",
+  "commitizen>=4.10.1",
+  "nbformat>=5.10.4",
+  "types-requests>=2.32.4.20250913",
+  "nbclient>=0.10.2",
+  "ipykernel>=6.31.0",
+  "pre-commit>=4.3.0",
+  "h2>=4.3.0",
+  "bcrypt>=5.0.0",
 ]
 docs = [
-    "sphinx>=7.4.0",
-    "myst-parser>=2.0.0",
-    "shibuya>=2024.4.0",
-    "sphinx-copybutton>=0.5.2",
-    "sphinx-design>=0.6.0",
-    "sphinxcontrib-mermaid>=0.9.2",
-    "sphinx-docsearch>=0.2.0b3",
-    "linkify-it-py>=2.0.2",
-    "sphinx-autoapi>=3.6.1",
+  "sphinx>=7.4.0",
+  "myst-parser>=2.0.0",
+  "shibuya>=2024.4.0",
+  "sphinx-copybutton>=0.5.2",
+  "sphinx-design>=0.6.0",
+  "sphinxcontrib-mermaid>=0.9.2",
+  "sphinx-docsearch>=0.2.0b3",
+  "linkify-it-py>=2.0.2",
+  "sphinx-autoapi>=3.6.1",
 ]
 
 # Commitizen configuration for conventional commits and semantic versioning
@@ -390,8 +348,8 @@ name = "cz_conventional_commits"
 version = "0.3.3"
 tag_format = "v$version"
 version_files = [
-    "pyproject.toml:^version",
-    "proxywhirl/__init__.py:^__version__"
+  "pyproject.toml:^version",
+  "proxywhirl/__init__.py:^__version__",
 ]
 update_changelog_on_bump = true
 changelog_file = "CHANGELOG.md"

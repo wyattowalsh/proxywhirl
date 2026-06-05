@@ -1,335 +1,166 @@
-# ProxyWhirl CLI: Comprehensive Examples
+# ProxyWhirl CLI Examples
+
+ProxyWhirl exposes a focused CLI for HTTP requests, pool management, source fetching,
+health checks, imports, exports, and configuration inspection.
 
 ## Installation
 
 ```bash
-pip install proxywhirl
-# or with uv
-uv pip install proxywhirl
+# Install uv first if needed
+brew install uv
+
+# Add ProxyWhirl to a uv-managed project
+uv add proxywhirl
+
+# Run the project-local CLI
+uv run proxywhirl --help
+
+# Or install the CLI as a persistent user tool
+uv tool install proxywhirl
 ```
 
-## Basic Usage
-
-### Get a Single Proxy
-
-```bash
-proxywhirl get --count 1
-```
-
-Output:
-```
-http://192.168.1.1:8080
-```
-
-### Get Multiple Proxies
-
-```bash
-proxywhirl get --count 5
-```
-
-### Get Proxies by Country
-
-```bash
-proxywhirl get --country US --count 3
-proxywhirl get --country FR,DE --count 5
-```
-
-### Get Specific Proxy Type
-
-```bash
-proxywhirl get --type http --count 3
-proxywhirl get --type socks5 --count 5
-```
-
-## Advanced Options
-
-### Validation Levels
-
-```bash
-# Strict validation (slowest, most reliable)
-proxywhirl get --validation strict
-
-# Moderate validation (balanced)
-proxywhirl get --validation moderate
-
-# Light validation (fastest)
-proxywhirl get --validation light
-```
-
-### Export Formats
+## Global Options
 
 ```bash
 # JSON output
-proxywhirl get --format json --output proxies.json
+proxywhirl --format json pool list
 
-# CSV output
-proxywhirl get --format csv --output proxies.csv
+# Custom config path
+proxywhirl --config ./proxywhirl.toml pool list
 
-# YAML output
-proxywhirl get --format yaml --output proxies.yaml
+# Verbose logging
+proxywhirl --verbose health
+
+# Disable the process lock for read-only help/probing
+proxywhirl --no-lock --help
 ```
 
-### Performance Filtering
+## Requests
 
 ```bash
-# Get fast proxies only
-proxywhirl get --performance fast --count 5
+# Simple GET through the configured pool
+proxywhirl request https://httpbin.org/ip
 
-# Get high-quality residential proxies
-proxywhirl get --residential --performance high
+# Use a specific proxy instead of pool rotation
+proxywhirl request --proxy http://proxy.example.com:8080 https://httpbin.org/ip
+
+# POST with JSON data
+proxywhirl request --method POST --data '{"status":"ok"}' https://api.example.com/events
+
+# Add headers
+proxywhirl request --header "Authorization: Bearer token" https://api.example.com/me
+```
+
+## Pool Management
+
+```bash
+# List configured proxies
+proxywhirl pool list
+
+# Add a proxy
+proxywhirl pool add http://proxy.example.com:8080
+
+# Add a proxy with credentials
+proxywhirl pool add http://proxy.example.com:8080 --username user --password pass
+
+# Test one proxy against the default target
+proxywhirl pool test http://proxy.example.com:8080
+
+# Test one proxy against a custom target
+proxywhirl pool test http://proxy.example.com:8080 --target-url https://httpbin.org/ip
+
+# Remove a proxy
+proxywhirl pool remove http://proxy.example.com:8080
+
+# Show pool statistics
+proxywhirl pool stats
+```
+
+## Fetching Sources
+
+```bash
+# Fetch, validate, save to database, and export files
+proxywhirl fetch
+
+# Faster source smoke test without export files
+proxywhirl fetch --timeout 5 --concurrency 100 --no-export
+
+# Revalidate existing database entries
+proxywhirl fetch --revalidate --timeout 5 --concurrency 2000 --no-export
+
+# Revalidate and prune failed proxies
+proxywhirl fetch --revalidate --prune-failed --timeout 5 --concurrency 2000 --no-export
+
+# Fetch without validation
+proxywhirl fetch --no-validate
+```
+
+## Validation
+
+```bash
+# Validate a single HTTP proxy
+proxywhirl validate-proxy http://proxy.example.com:8080
+
+# Validate against a custom target
+proxywhirl validate-proxy http://proxy.example.com:8080 --target https://httpbin.org/status/200
+
+# Validate SOCKS with a shorter timeout
+proxywhirl validate-proxy socks5://proxy.example.com:1080 --timeout 5
+```
+
+## Import And Export
+
+```bash
+# Import proxies from JSON, CSV, or plain text
+proxywhirl import-proxies proxies.json
+proxywhirl import-proxies proxies.csv --format csv --pool backup
+proxywhirl import-proxies proxies.txt --format text --no-dedup
+
+# Export proxy data and statistics for the web dashboard
+proxywhirl export --output docs/proxy-lists
+
+# Export only stats or only proxy lists
+proxywhirl export --stats-only
+proxywhirl export --proxies-only --db proxywhirl.db
 ```
 
 ## Health Checks
 
-### Check Proxy Health
-
 ```bash
-proxywhirl health check http://192.168.1.1:8080
-```
+# One-shot health check
+proxywhirl health
 
-### Batch Health Check
+# Continuous health check every 60 seconds
+proxywhirl health --continuous --interval 60
 
-```bash
-proxywhirl health check --file proxies.txt --timeout 30
-```
-
-### Health Statistics
-
-```bash
-proxywhirl health stats
-```
-
-## Source Management
-
-### List Available Sources
-
-```bash
-proxywhirl source list
-```
-
-### Refresh Specific Source
-
-```bash
-proxywhirl source refresh --name free-proxy-list
-```
-
-### Refresh All Sources
-
-```bash
-proxywhirl source refresh --all
-```
-
-### Add Custom Source
-
-```bash
-proxywhirl source add \
-  --name my-source \
-  --url https://example.com/proxies \
-  --format json
-```
-
-## Cache Management
-
-### Clear Cache
-
-```bash
-proxywhirl cache clear
-```
-
-### Cache Statistics
-
-```bash
-proxywhirl cache stats
-```
-
-### Warm Cache
-
-```bash
-proxywhirl cache warm --file proxies.json
+# Use a custom target URL
+proxywhirl health --target-url https://httpbin.org/ip
 ```
 
 ## Configuration
 
-### Show Current Config
-
 ```bash
+# Create a starter config file
+proxywhirl config init --output proxywhirl.toml
+
+# Show effective configuration
 proxywhirl config show
+
+# Read or write a config key
+proxywhirl config get timeout
+proxywhirl config set timeout 30
 ```
 
-### Set Configuration
+## Shell Scripting
 
 ```bash
-proxywhirl config set \
-  --validation strict \
-  --cache-ttl 3600 \
-  --max-retries 3
+# Capture the response body from a proxied request
+proxywhirl request https://httpbin.org/ip > response.txt
+
+# Fail CI if configured proxies are unhealthy
+proxywhirl health --target-url https://httpbin.org/ip
+
+# Refresh export artifacts after a source fetch
+proxywhirl fetch --timeout 5 --concurrency 100
+proxywhirl export --output docs/proxy-lists
 ```
-
-### Export Configuration
-
-```bash
-proxywhirl config export --output config.yaml
-```
-
-### Import Configuration
-
-```bash
-proxywhirl config import --file config.yaml
-```
-
-## Database Operations
-
-### Export Database
-
-```bash
-proxywhirl db export --output backup.db
-```
-
-### Import Database
-
-```bash
-proxywhirl db import --file backup.db
-```
-
-### Database Statistics
-
-```bash
-proxywhirl db stats
-```
-
-## Batch Operations
-
-### Validate Proxy List
-
-```bash
-proxywhirl validate --file proxies.txt \
-  --timeout 30 \
-  --output validated.txt
-```
-
-### Deduplicate Proxies
-
-```bash
-proxywhirl deduplicate --file proxies.txt \
-  --output unique.txt
-```
-
-### Filter Proxies
-
-```bash
-proxywhirl filter --file proxies.txt \
-  --country US \
-  --type http \
-  --output filtered.txt
-```
-
-## Performance Analysis
-
-### Benchmark Sources
-
-```bash
-proxywhirl benchmark --timeout 60
-```
-
-### Profile Cache Performance
-
-```bash
-proxywhirl profile --duration 3600
-```
-
-## TUI Dashboard
-
-### Launch Interactive Dashboard
-
-```bash
-proxywhirl tui
-```
-
-Dashboard includes:
-- Live proxy list
-- Health status
-- Performance metrics
-- Cache statistics
-- Source status
-
-## Common Workflows
-
-### Fetch and Validate High-Quality Proxies
-
-```bash
-# Get fresh proxies
-proxywhirl source refresh --all
-
-# Fetch high-performance proxies
-proxywhirl get --count 50 \
-  --validation strict \
-  --format json \
-  --output proxies.json
-
-# Export for use
-proxywhirl export --file proxies.json --format csv
-```
-
-### Setup with Custom Sources
-
-```bash
-# Add custom source
-proxywhirl source add --name api-source \
-  --url https://api.example.com/proxies \
-  --format json
-
-# Configure validation
-proxywhirl config set --validation strict
-
-# Get proxies
-proxywhirl get --count 10 --format json
-```
-
-### Monitor Proxy Quality
-
-```bash
-# Get statistics
-proxywhirl health stats
-
-# Check cache performance
-proxywhirl cache stats
-
-# Profile performance
-proxywhirl profile
-```
-
-## Environment Variables
-
-```bash
-export PROXYWHIRL_VALIDATION=strict
-export PROXYWHIRL_CACHE_TTL=3600
-export PROXYWHIRL_LOG_LEVEL=DEBUG
-proxywhirl get
-```
-
-## Piping and Scripting
-
-### Use with wget
-
-```bash
-PROXY=$(proxywhirl get --count 1)
-wget --proxy http://$PROXY https://example.com
-```
-
-### Use with curl
-
-```bash
-PROXY=$(proxywhirl get --count 1)
-curl -x http://$PROXY https://example.com
-```
-
-### Batch Processing
-
-```bash
-for i in {1..5}; do
-  PROXY=$(proxywhirl get --count 1)
-  echo "Request $i with proxy: $PROXY"
-  curl -x http://$PROXY https://example.com
-done
-```
-

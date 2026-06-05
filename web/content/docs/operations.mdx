@@ -1,0 +1,31 @@
+---
+title: Operations
+description: Production-minded checks for docs, sources, API health, and runtime validation.
+---
+
+# Operations
+
+Operational checks should validate runtime surfaces and docs generation independently.
+
+## Docs Pipeline
+
+```bash
+pnpm --dir web run docs:generate
+pnpm --dir web run build
+```
+
+## Python Quality Gates
+
+```bash
+uv run ruff check proxywhirl/ tests/
+uv run ty check proxywhirl/
+uv run pytest tests/ -q
+```
+
+## Source Health
+
+```bash
+uv run proxywhirl sources --validate
+```
+
+Keep documentation generation read-only with respect to proxy runtime behavior and database schema.

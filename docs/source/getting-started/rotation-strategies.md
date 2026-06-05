@@ -142,7 +142,7 @@ Not sure which strategy to use? Follow this decision tree:
 
 ### 1. Round-Robin
 
-**Class:** {class}`~proxywhirl.RoundRobinStrategy` | **Name:** ``"round-robin"``
+**Class:** {class}`~proxywhirl.RoundRobinStrategy` | **Name:** `"round-robin"`
 
 Cycles through healthy proxies sequentially: A -> B -> C -> A. The default strategy.
 
@@ -172,7 +172,7 @@ rotator = ProxyWhirl(proxies=proxies, strategy=RoundRobinStrategy())
 
 ### 2. Random
 
-**Class:** {class}`~proxywhirl.RandomStrategy` | **Name:** ``"random"``
+**Class:** {class}`~proxywhirl.RandomStrategy` | **Name:** `"random"`
 
 Picks a random healthy proxy for each request. No state to track.
 
@@ -189,7 +189,7 @@ rotator.get("https://api.example.com/data")
 
 ### 3. Weighted
 
-**Class:** {class}`~proxywhirl.WeightedStrategy` | **Name:** ``"weighted"``
+**Class:** {class}`~proxywhirl.WeightedStrategy` | **Name:** `"weighted"`
 
 Selects proxies using weighted random sampling. Weights can be set explicitly or are auto-derived from each proxy's success rate. Every proxy gets a minimum weight of `0.1` to prevent starvation.
 
@@ -200,13 +200,16 @@ Selects proxies using weighted random sampling. Weights can be set explicitly or
 ::::{tab-set}
 
 :::{tab-item} Auto weights (success rate)
+
 ```python
 # Weights are automatically derived from proxy success rates
 rotator = ProxyWhirl(proxies=proxies, strategy="weighted")
 ```
+
 :::
 
 :::{tab-item} Custom weights
+
 ```python
 from proxywhirl import WeightedStrategy, StrategyConfig
 
@@ -222,6 +225,7 @@ strategy.configure(config)
 
 rotator = ProxyWhirl(proxies=proxies, strategy=strategy)
 ```
+
 :::
 
 ::::
@@ -230,7 +234,7 @@ rotator = ProxyWhirl(proxies=proxies, strategy=strategy)
 
 ### 4. Least-Used
 
-**Class:** {class}`~proxywhirl.LeastUsedStrategy` | **Name:** ``"least-used"``
+**Class:** {class}`~proxywhirl.LeastUsedStrategy` | **Name:** `"least-used"`
 
 Selects the proxy with the fewest total requests using a min-heap for O(log n) selection. The heap is lazily rebuilt when the pool changes.
 
@@ -247,15 +251,15 @@ rotator.get("https://httpbin.org/ip")
 
 ### 5. Performance-Based
 
-**Class:** {class}`~proxywhirl.PerformanceBasedStrategy` | **Name:** ``"performance-based"``
+**Class:** {class}`~proxywhirl.PerformanceBasedStrategy` | **Name:** `"performance-based"`
 
 Ranks proxies by inverse EMA (Exponential Moving Average) of response times -- faster proxies get higher selection probability. New proxies without enough data receive "exploration trials" before performance scoring kicks in.
 
 **Constructor parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `exploration_count` | `int` | `5` | Minimum trials for new proxies before performance-based selection applies. Set to `0` to disable exploration. |
+| Parameter           | Type  | Default | Description                                                                                                   |
+| ------------------- | ----- | ------- | ------------------------------------------------------------------------------------------------------------- |
+| `exploration_count` | `int` | `5`     | Minimum trials for new proxies before performance-based selection applies. Set to `0` to disable exploration. |
 
 **When to use:** Speed-critical scraping or API calls where latency matters.
 
@@ -281,16 +285,16 @@ The ``ema_alpha`` parameter controls how quickly the strategy adapts to performa
 
 ### 6. Session Persistence
 
-**Class:** {class}`~proxywhirl.SessionPersistenceStrategy` | **Name:** ``"session-persistence"``
+**Class:** {class}`~proxywhirl.SessionPersistenceStrategy` | **Name:** `"session-persistence"`
 
 Maps session IDs to specific proxies so that repeated requests with the same `session_id` always route through the same proxy. If the assigned proxy becomes unhealthy, the session automatically fails over to a new proxy.
 
 **Constructor parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `max_sessions` | `int` | `10000` | Maximum concurrent sessions before LRU eviction |
-| `auto_cleanup_threshold` | `int` | `100` | Operations between automatic expired-session cleanup |
+| Parameter                | Type  | Default | Description                                          |
+| ------------------------ | ----- | ------- | ---------------------------------------------------- |
+| `max_sessions`           | `int` | `10000` | Maximum concurrent sessions before LRU eviction      |
+| `auto_cleanup_threshold` | `int` | `100`   | Operations between automatic expired-session cleanup |
 
 **When to use:** Stateful APIs, cookie-dependent flows, or any workflow where a user/session must consistently use the same proxy.
 
@@ -321,7 +325,7 @@ Sessions expire after 1 hour by default. Configure via {class}`~proxywhirl.Strat
 
 ### 7. Geo-Targeted
 
-**Class:** {class}`~proxywhirl.GeoTargetedStrategy` | **Name:** ``"geo-targeted"``
+**Class:** {class}`~proxywhirl.GeoTargetedStrategy` | **Name:** `"geo-targeted"`
 
 Filters the proxy pool by geographic location (country or region) specified in the `SelectionContext`. Falls back to any healthy proxy when no match is found (configurable).
 
@@ -357,29 +361,29 @@ print(f"Selected European proxy: {proxy.url}")
 ```
 
 ```{tip}
-Country codes use ISO 3166-1 alpha-2 format (e.g., ``"US"``, ``"GB"``, ``"DE"``). Enrich proxies with geo data using ``proxywhirl setup-geoip`` or set ``country_code`` directly on the {class}`~proxywhirl.Proxy` model.
+Country codes use ISO 3166-1 alpha-2 format (e.g., ``"US"``, ``"GB"``, ``"DE"``). Set ``country_code`` directly on the {class}`~proxywhirl.Proxy` model when loading enriched proxy data.
 ```
 
 **Configuration options** via {class}`~proxywhirl.StrategyConfig`:
 
-| Config Field | Default | Description |
-|--------------|---------|-------------|
-| `geo_fallback_enabled` | `True` | Fall back to any proxy when no geo match found |
+| Config Field             | Default         | Description                                                                                    |
+| ------------------------ | --------------- | ---------------------------------------------------------------------------------------------- |
+| `geo_fallback_enabled`   | `True`          | Fall back to any proxy when no geo match found                                                 |
 | `geo_secondary_strategy` | `"round_robin"` | Strategy for selecting from geo-filtered proxies (`"round_robin"`, `"random"`, `"least_used"`) |
 
 ---
 
 ### 8. Cost-Aware
 
-**Class:** {class}`~proxywhirl.CostAwareStrategy` | **Name:** ``"cost-aware"``
+**Class:** {class}`~proxywhirl.CostAwareStrategy` | **Name:** `"cost-aware"`
 
 Prioritizes free proxies over paid ones using inverse-cost weighted random selection. Free proxies receive a configurable boost multiplier (default 10x).
 
 **Constructor parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `max_cost_per_request` | `float \| None` | `None` | Maximum acceptable cost per request. Proxies exceeding this cost are filtered out. `None` means no limit. |
+| Parameter              | Type            | Default | Description                                                                                               |
+| ---------------------- | --------------- | ------- | --------------------------------------------------------------------------------------------------------- |
+| `max_cost_per_request` | `float \| None` | `None`  | Maximum acceptable cost per request. Proxies exceeding this cost are filtered out. `None` means no limit. |
 
 **When to use:** Budget-constrained environments where you mix free and paid proxies.
 
@@ -403,10 +407,10 @@ rotator = ProxyWhirl(proxies=proxies, strategy=strategy)
 
 **Configuration options** via {class}`~proxywhirl.StrategyConfig` metadata:
 
-| Metadata Key | Default | Description |
-|--------------|---------|-------------|
-| `max_cost_per_request` | `None` | Maximum cost threshold (overrides constructor) |
-| `free_proxy_boost` | `10.0` | Weight multiplier for free proxies |
+| Metadata Key           | Default | Description                                    |
+| ---------------------- | ------- | ---------------------------------------------- |
+| `max_cost_per_request` | `None`  | Maximum cost threshold (overrides constructor) |
+| `free_proxy_boost`     | `10.0`  | Weight multiplier for free proxies             |
 
 ```python
 config = StrategyConfig(metadata={
@@ -421,16 +425,16 @@ strategy.configure(config)
 
 ### 9. Composite
 
-**Class:** {class}`~proxywhirl.CompositeStrategy` | **Name:** ``"composite"``
+**Class:** {class}`~proxywhirl.CompositeStrategy` | **Name:** `"composite"`
 
 Chains multiple strategies into a pipeline: **filter** strategies narrow the pool, then a **selector** strategy makes the final pick.
 
 **Constructor parameters:**
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `filters` | `list[RotationStrategy] \| None` | `[]` | Strategies that filter the proxy pool sequentially |
-| `selector` | `RotationStrategy \| None` | `RoundRobinStrategy()` | Strategy that selects from the filtered pool |
+| Parameter  | Type                             | Default                | Description                                        |
+| ---------- | -------------------------------- | ---------------------- | -------------------------------------------------- |
+| `filters`  | `list[RotationStrategy] \| None` | `[]`                   | Strategies that filter the proxy pool sequentially |
+| `selector` | `RotationStrategy \| None`       | `RoundRobinStrategy()` | Strategy that selects from the filtered pool       |
 
 **When to use:** Complex selection criteria that require multiple stages (e.g., "from US proxies, pick the fastest").
 
@@ -589,8 +593,8 @@ uv run proxywhirl health
 # Continuous monitoring every 60 seconds
 uv run proxywhirl health --continuous --interval 60
 
-# Retry and circuit breaker statistics
-uv run proxywhirl stats --retry --circuit-breaker
+# Pool statistics
+uv run proxywhirl pool stats
 ```
 
 See {doc}`/guides/cli-reference` for the full CLI reference.

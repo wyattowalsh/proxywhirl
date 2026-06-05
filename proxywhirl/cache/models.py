@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from enum import Enum
 
-from pydantic import BaseModel, Field, SecretStr, computed_field, field_validator
+from pydantic import BaseModel, Field, SecretStr, computed_field, field_serializer, field_validator
 
 # Import canonical HealthStatus from main models
 from proxywhirl.models import HealthStatus
@@ -117,13 +117,17 @@ class CacheEntry(BaseModel):
         """Check if proxy is healthy enough to use."""
         return self.health_status == HealthStatus.HEALTHY
 
-    class Config:
-        """Pydantic config."""
-
-        json_encoders = {
-            SecretStr: lambda v: "***",  # Never expose credentials in JSON
-            datetime: lambda v: v.isoformat(),
-        }
+    @field_serializer(
+        "fetch_time",
+        "last_accessed",
+        "expires_at",
+        "last_health_check",
+        "next_check_time",
+        when_used="json",
+    )
+    def serialize_datetime(self, value: datetime | None) -> str | None:
+        """Serialize datetimes with explicit UTC offsets for contract stability."""
+        return value.isoformat() if value is not None else None
 
 
 class CacheTierConfig(BaseModel):
@@ -238,13 +242,6 @@ class CacheConfig(BaseModel):
     statistics_interval: int = Field(
         default=5, ge=1, description="Stats aggregation interval (seconds)"
     )
-
-    class Config:
-        """Pydantic config."""
-
-        json_encoders = {
-            SecretStr: lambda v: "***",
-        }
 
 
 class TierStatistics(BaseModel):

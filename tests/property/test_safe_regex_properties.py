@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import warnings
 from typing import Any
 
 from hypothesis import HealthCheck, assume, example, given, settings
@@ -85,7 +86,13 @@ def compile_safe_no_exit(pattern: str, timeout: float = 1.0) -> re.Pattern[str] 
     This is needed for property tests since typer.Exit breaks hypothesis.
     """
     try:
-        return _compile_with_timeout(pattern, 0, timeout)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore",
+                message="Possible nested set at position",
+                category=FutureWarning,
+            )
+            return _compile_with_timeout(pattern, 0, timeout)
     except (RegexTimeoutError, re.error, ValueError):
         return None
 

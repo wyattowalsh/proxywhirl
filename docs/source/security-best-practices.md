@@ -203,8 +203,7 @@ async def get_proxies(credentials = Depends(security)):
 
 ```bash
 # Check for vulnerable dependencies
-pip install safety
-safety check
+uvx safety check
 ```
 
 ### Secret Detection
@@ -242,4 +241,3 @@ securityContext:
     drop:
       - ALL
 ```
-

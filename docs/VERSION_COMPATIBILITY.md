@@ -3,47 +3,46 @@
 ## Supported Python Versions
 
 | Version | Status | Support Until | Notes |
-|---------|--------|---|---|
+|---------|--------|---------------|-------|
 | 3.13 | ✅ Full Support | 2029-10 | Latest, recommended |
 | 3.12 | ✅ Full Support | 2028-10 | Stable |
 | 3.11 | ✅ Full Support | 2027-10 | Stable |
-| 3.10 | ✅ Full Support | 2026-10 | Stable |
-| 3.9  | ⚠️ Minimal Support | 2025-10 | Security fixes only |
-| 3.8  | ❌ Unsupported | EOL | Use v1.x |
+| 3.10 | ✅ Full Support | 2026-10 | Minimum supported runtime |
+| 3.9  | ❌ Unsupported | 2025-10 | Use ProxyWhirl releases that still advertise Python 3.9 support |
+| 3.8  | ❌ Unsupported | EOL | Use legacy ProxyWhirl releases |
 
 ## Feature Compatibility
 
 ### Async Features
-- Python 3.9+: Full async/await support
-- Python 3.10+: `match` statement in strategies (performance)
+- Python 3.10+: Full async/await support
+- Python 3.10+: `match` statement available for strategy implementations
 
 ### Type Hints
-- Python 3.10+: `|` union syntax preferred
-- Python 3.9: Use `Union[]` from typing
+- Python 3.10+: `|` union syntax is supported and preferred
+- Python 3.10+: `TypeAlias` is available from `typing`
 
 ### Protocols & Generics
-- Python 3.9+: `Protocol`, `Generic` from typing
-- Python 3.10+: `TypeAlias` available
+- Python 3.10+: `Protocol`, `Generic`, and modern typing features are supported
 
 ### Performance Features
 - Python 3.10+: Optimized dict operations
-- Python 3.11+: Tomllib built-in (no toml dependency)
-- Python 3.13+: No GIL (experimental)
+- Python 3.11+: Built-in `tomllib`
+- Python 3.13+: Latest CPython performance improvements
 
 ## Dependency Compatibility
 
 ### Core Dependencies
-| Package | Py3.9 | Py3.10 | Py3.11 | Py3.12 | Py3.13 |
-|---------|-------|--------|--------|--------|--------|
-| httpx | ✅ | ✅ | ✅ | ✅ | ✅ |
-| pydantic | ✅ | ✅ | ✅ | ✅ | ✅ |
-| sqlmodel | ✅ | ✅ | ✅ | ✅ | ⚠️ |
-| loguru | ✅ | ✅ | ✅ | ✅ | ✅ |
-| tenacity | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Package | Py3.10 | Py3.11 | Py3.12 | Py3.13 |
+|---------|--------|--------|--------|--------|
+| httpx | ✅ | ✅ | ✅ | ✅ |
+| pydantic | ✅ | ✅ | ✅ | ✅ |
+| sqlmodel | ✅ | ✅ | ✅ | ⚠️ |
+| loguru | ✅ | ✅ | ✅ | ✅ |
+| tenacity | ✅ | ✅ | ✅ | ✅ |
 
 ### Optional Dependencies
-| Package | Purpose | Py3.9 | Py3.13 |
-|---------|---------|-------|--------|
+| Package | Purpose | Py3.10 | Py3.13 |
+|---------|---------|--------|--------|
 | playwright | Browser rendering | ✅ | ✅ |
 | fastapi | REST API | ✅ | ✅ |
 | redis | Distributed cache | ✅ | ✅ |
@@ -51,22 +50,15 @@
 
 ## Feature Availability by Version
 
-### Python 3.9
+### Python 3.10
 ✅ Basic proxy rotation
 ✅ HTTP/HTTPS proxies
 ✅ CSV/JSON parsing
 ✅ SQLite storage
 ✅ Circuit breaker
 ✅ Basic caching
-
-❌ Advanced type generics
-❌ Match expressions
-❌ Native tomllib
-
-### Python 3.10
-All 3.9 features plus:
 ✅ Union syntax improvements
-✅ Structural pattern matching (strategies)
+✅ Structural pattern matching
 ✅ TypeAlias for protocol definitions
 
 ### Python 3.11+
@@ -78,15 +70,14 @@ All previous features plus:
 
 ### Python 3.13
 All features plus:
-✅ No-GIL support (experimental)
-✅ JIT compilation benefits
-✅ Performance optimizations
+✅ Latest CPython performance optimizations
+✅ Experimental no-GIL build support where available
 
 ## Migration Path
 
-1. **Currently on Python 3.8**: Migrate to 3.9 first, use ProxyWhirl v1
-2. **On Python 3.9**: Upgrade to 3.10+ for best experience
-3. **On 3.10+**: You're good! All features available
+1. **Currently on Python 3.8 or 3.9**: Upgrade to Python 3.10+ before adopting current ProxyWhirl releases.
+2. **On Python 3.10+**: You're good. All supported features are available.
+3. **Production recommendation**: Use Python 3.12+ where possible for longer upstream support.
 
 ## Recommended Setup
 
@@ -102,9 +93,7 @@ pyenv local 3.13.latest
 ## CI/CD Testing
 
 ProxyWhirl CI tests against:
-- Python 3.9 (minimum)
-- Python 3.10
+- Python 3.10 (minimum)
 - Python 3.11
 - Python 3.12
 - Python 3.13 (latest)
-

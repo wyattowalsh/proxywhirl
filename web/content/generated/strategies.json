@@ -1,0 +1,59 @@
+{
+  "total": 9,
+  "items": [
+    {
+      "class": "RoundRobinStrategy",
+      "module": "proxywhirl.strategies",
+      "summary": "Round-robin proxy selection strategy with SelectionContext support.",
+      "line": 450
+    },
+    {
+      "class": "RandomStrategy",
+      "module": "proxywhirl.strategies",
+      "summary": "Random proxy selection strategy with SelectionContext support.",
+      "line": 550
+    },
+    {
+      "class": "WeightedStrategy",
+      "module": "proxywhirl.strategies",
+      "summary": "Weighted proxy selection strategy with SelectionContext support.",
+      "line": 617
+    },
+    {
+      "class": "LeastUsedStrategy",
+      "module": "proxywhirl.strategies",
+      "summary": "Least-used proxy selection strategy with SelectionContext support.",
+      "line": 858
+    },
+    {
+      "class": "PerformanceBasedStrategy",
+      "module": "proxywhirl.strategies",
+      "summary": "Performance-based proxy selection using EMA response times.",
+      "line": 1022
+    },
+    {
+      "class": "SessionPersistenceStrategy",
+      "module": "proxywhirl.strategies",
+      "summary": "Session persistence strategy (sticky sessions).",
+      "line": 1383
+    },
+    {
+      "class": "GeoTargetedStrategy",
+      "module": "proxywhirl.strategies",
+      "summary": "Geo-targeted proxy selection strategy.",
+      "line": 1581
+    },
+    {
+      "class": "CostAwareStrategy",
+      "module": "proxywhirl.strategies",
+      "summary": "Cost-aware proxy selection strategy.",
+      "line": 1754
+    },
+    {
+      "class": "CompositeStrategy",
+      "module": "proxywhirl.strategies",
+      "summary": "Composite strategy that applies filtering and selection strategies in sequence.",
+      "line": 1914
+    }
+  ]
+}

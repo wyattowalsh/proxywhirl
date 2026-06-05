@@ -6,7 +6,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
+  reporter: process.env.CI ? 'html' : 'list',
   use: {
     baseURL: 'http://localhost:4177',
     trace: 'on-first-retry',
@@ -22,7 +22,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run preview -- --port 4177',
+    command: 'pnpm run build && pnpm exec next start -p 4177',
     port: 4177,
     reuseExistingServer: !process.env.CI,
   },

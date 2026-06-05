@@ -1,7 +1,9 @@
 """Unit tests for MCP server module."""
 
 import asyncio
+import inspect
 import json
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
@@ -11,22 +13,52 @@ from proxywhirl.circuit_breaker import CircuitBreaker
 from proxywhirl.mcp.auth import MCPAuth
 from proxywhirl.mcp.server import (
     ProxyWhirlMCPServer,
+    _authorize_tool_call,
+    _get_proxy_config_impl,
+    _get_proxy_health_impl,
+    _proxywhirl_mcp_tool,
     _proxywhirl_tool,
     cleanup_rotator,
     get_auth,
-    get_proxy_config,
-    get_proxy_health,
-    get_rate_limit_status,
     get_rotator,
-    list_proxies,
-    proxy_status,
-    recommend_proxy,
-    rotate_proxy,
     set_auth,
     set_rotator,
 )
 from proxywhirl.models import HealthStatus, Proxy, ProxyPool, ProxySource
 from proxywhirl.rotator import AsyncProxyWhirl
+
+
+async def list_proxies(api_key: str | None = None) -> dict[str, object]:
+    return await _proxywhirl_tool(action="list", api_key=api_key)
+
+
+async def rotate_proxy(api_key: str | None = None) -> dict[str, object]:
+    return await _proxywhirl_tool(action="rotate", api_key=api_key)
+
+
+async def proxy_status(proxy_id: str, api_key: str | None = None) -> dict[str, object]:
+    return await _proxywhirl_tool(action="status", proxy_id=proxy_id, api_key=api_key)
+
+
+async def recommend_proxy(
+    region: str | None = None,
+    performance: str | None = "medium",
+    api_key: str | None = None,
+) -> dict[str, object]:
+    criteria: dict[str, object] = {}
+    if region is not None:
+        criteria["region"] = region
+    if performance is not None:
+        criteria["performance"] = performance
+    return await _proxywhirl_tool(action="recommend", criteria=criteria or None, api_key=api_key)
+
+
+async def get_proxy_health() -> str:
+    return await _get_proxy_health_impl()
+
+
+async def get_proxy_config() -> str:
+    return await _get_proxy_config_impl()
 
 
 @pytest.fixture
@@ -120,8 +152,9 @@ def mock_rotator():
 
 
 @pytest.fixture(autouse=True)
-async def setup_test_rotator(mock_rotator):
+async def setup_test_rotator(mock_rotator, monkeypatch):
     """Setup mock rotator for all tests."""
+    monkeypatch.setenv("PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES", "1")
     await set_rotator(mock_rotator)
     # Reset auth to default (no authentication required)
     set_auth(MCPAuth())
@@ -260,6 +293,23 @@ class TestListProxiesTool:
         assert "total_successes" in proxy
         assert "total_failures" in proxy
 
+    async def test_list_proxies_strips_credentials_from_urls(self, mock_rotator) -> None:
+        """MCP list output must not expose proxy URL credentials."""
+        proxy = Proxy(
+            id=uuid4(),
+            url="http://user:pass@credentialed.example.com:8080",
+            protocol="http",
+            health_status=HealthStatus.HEALTHY,
+            source=ProxySource.USER,
+        )
+        mock_rotator.pool.add_proxy(proxy)
+
+        result = await list_proxies()
+
+        urls = {item["url"] for item in result["proxies"]}
+        assert "http://credentialed.example.com:8080" in urls
+        assert all("user:pass" not in url for url in urls)
+
     async def test_list_proxies_empty_pool(self) -> None:
         """Test list_proxies with empty pool."""
         empty_rotator = AsyncProxyWhirl()
@@ -347,7 +397,7 @@ class TestProxyStatusTool:
         result = await proxy_status("")
 
         assert "error" in result
-        assert result["error"] == "proxy_id is required"
+        assert result["error"] == "proxy_id required for status action"
 
     async def test_proxy_status_invalid_uuid_format(self) -> None:
         """Test proxy_status with invalid UUID format."""
@@ -473,48 +523,6 @@ class TestRecommendProxyTool:
         score = result["recommendation"]["score"]
         assert isinstance(score, (int, float))
         assert 0.0 <= score <= 1.0
-
-
-class TestGetRateLimitStatusTool:
-    """Test get_rate_limit_status tool."""
-
-    async def test_get_rate_limit_status_valid_id(self, mock_rotator) -> None:
-        """Test get_rate_limit_status with valid proxy ID."""
-        proxy_id = str(mock_rotator.pool.proxies[0].id)
-        result = await get_rate_limit_status(proxy_id)
-
-        assert result["proxy_id"] == proxy_id
-        assert "rate_limit" in result
-        assert "enabled" in result["rate_limit"]
-        assert "note" in result
-
-    async def test_get_rate_limit_status_invalid_uuid(self) -> None:
-        """Test get_rate_limit_status with invalid UUID format."""
-        result = await get_rate_limit_status("not-a-uuid")
-
-        assert "error" in result
-        assert "Invalid proxy_id format" in result["error"]
-
-    async def test_get_rate_limit_status_nonexistent_proxy(self, mock_rotator) -> None:
-        """Test get_rate_limit_status with non-existent proxy."""
-        fake_id = str(uuid4())
-        result = await get_rate_limit_status(fake_id)
-
-        assert "error" in result
-        assert f"Proxy not found: {fake_id}" in result["error"]
-
-    async def test_get_rate_limit_status_structure(self, mock_rotator) -> None:
-        """Test rate limit status response structure."""
-        proxy_id = str(mock_rotator.pool.proxies[0].id)
-        result = await get_rate_limit_status(proxy_id)
-
-        rate_limit = result["rate_limit"]
-        assert "enabled" in rate_limit
-        assert "message" in rate_limit
-        assert "max_requests" in rate_limit
-        assert "time_window_seconds" in rate_limit
-        assert "current_usage" in rate_limit
-        assert "remaining" in rate_limit
 
 
 class TestGetProxyHealthResource:
@@ -781,26 +789,6 @@ class TestToolAuthentication:
         assert "error" in result
         assert "Authentication failed" in result["error"]
 
-    async def test_get_rate_limit_status_with_valid_auth(self, mock_rotator) -> None:
-        """Test get_rate_limit_status succeeds with valid API key."""
-        set_auth(MCPAuth(api_key="valid-key"))
-        proxy_id = str(mock_rotator.pool.proxies[0].id)
-
-        result = await get_rate_limit_status(proxy_id, api_key="valid-key")
-
-        assert "proxy_id" in result
-        assert "error" not in result or "Authentication" not in result.get("error", "")
-
-    async def test_get_rate_limit_status_with_invalid_auth(self, mock_rotator) -> None:
-        """Test get_rate_limit_status fails with invalid API key."""
-        set_auth(MCPAuth(api_key="valid-key"))
-        proxy_id = str(mock_rotator.pool.proxies[0].id)
-
-        result = await get_rate_limit_status(proxy_id, api_key="invalid-key")
-
-        assert "error" in result
-        assert "Authentication failed" in result["error"]
-
     async def test_auth_bypass_with_no_api_key_configured(self, mock_rotator) -> None:
         """Test that when no API key is configured, all requests pass."""
         set_auth(MCPAuth())  # No API key
@@ -813,6 +801,74 @@ class TestToolAuthentication:
         assert "error" not in result1
         assert "error" not in result2
         assert "error" not in result3
+
+    async def test_mutating_action_requires_auth_by_default(
+        self, mock_rotator, monkeypatch
+    ) -> None:
+        """Write-capable MCP actions must fail closed when auth is not configured."""
+        set_auth(MCPAuth())
+        monkeypatch.delenv("PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES", raising=False)
+
+        result = await _proxywhirl_tool(
+            action="add",
+            proxy_url="http://newproxy.example.com:8080",
+        )
+
+        assert result["code"] == 401
+        assert "Authentication required" in result["error"]
+
+    async def test_mutating_action_allows_explicit_local_dev_override(
+        self,
+        mock_rotator,
+        monkeypatch,
+    ) -> None:
+        """Unauthenticated writes require an explicit local-development override."""
+        set_auth(MCPAuth())
+        monkeypatch.setenv("PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES", "1")
+
+        result = await _proxywhirl_tool(
+            action="add",
+            proxy_url="http://newproxy.example.com:8080",
+        )
+
+        assert result["success"] is True
+
+    async def test_mutating_tool_call_with_ctx_still_fails_closed(
+        self,
+        mock_rotator,
+        monkeypatch,
+    ) -> None:
+        """Write actions with MCP context still require auth or explicit local override."""
+        set_auth(MCPAuth())
+        monkeypatch.delenv("PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES", raising=False)
+
+        result = await _proxywhirl_tool(
+            action="add",
+            proxy_url="http://newproxy.example.com:8080",
+            ctx=SimpleNamespace(),
+        )
+
+        assert result["code"] == 401
+        assert "Authentication required" in result["error"]
+
+    def test_authorize_tool_call_accepts_header_credentials(self) -> None:
+        """Middleware auth accepts credentials supplied outside tool arguments."""
+        set_auth(MCPAuth(api_key="valid-key"))
+
+        result = _authorize_tool_call(
+            "list",
+            credentials={"headers": {"Authorization": "Bearer valid-key"}},
+        )
+
+        assert result is None
+
+    def test_authorize_tool_call_rejects_missing_context_credentials(self) -> None:
+        """Configured auth still fails closed when context credentials are absent."""
+        set_auth(MCPAuth(api_key="valid-key"))
+
+        result = _authorize_tool_call("list", credentials={})
+
+        assert result == {"error": "Authentication failed: Invalid API key", "code": 401}
 
 
 class TestConcurrentRotatorAccess:
@@ -980,6 +1036,48 @@ class TestUnifiedProxywhirlTool:
         result = await _proxywhirl_tool(action="list", api_key="test-key")
         assert "proxies" in result
         assert "error" not in result
+
+    def test_model_visible_tool_schema_omits_api_key(self) -> None:
+        """The registered MCP wrapper must not expose api_key in its signature."""
+        mcp_parameters = inspect.signature(_proxywhirl_mcp_tool).parameters
+        internal_parameters = inspect.signature(_proxywhirl_tool).parameters
+
+        assert "api_key" not in mcp_parameters
+        assert "api_key" in internal_parameters
+
+    def test_server_omits_compatibility_tool_wrappers(self) -> None:
+        """The MCP server exposes one curated tool plus resources, not legacy wrappers."""
+        import proxywhirl.mcp.server as mcp_server
+
+        removed_wrappers = {
+            "list_proxies",
+            "rotate_proxy",
+            "proxy_status",
+            "recommend_proxy",
+            "get_proxy_health",
+            "get_proxy_config",
+            "get_rate_limit_status",
+        }
+
+        assert all(not hasattr(mcp_server, name) for name in removed_wrappers)
+
+    async def test_exception_response_sanitizes_credentialed_proxy_urls(
+        self,
+        mock_rotator,
+        monkeypatch,
+    ) -> None:
+        """Returned exception strings must not leak URL credentials."""
+        leaked_url = "http://user:pass@leaky.example.com:8080"
+
+        def raise_leaky_error(*args, **kwargs):
+            raise RuntimeError(f"failed through {leaked_url}")
+
+        monkeypatch.setattr(mock_rotator.strategy, "select", raise_leaky_error)
+
+        result = await _proxywhirl_tool(action="rotate")
+
+        assert "user:pass" not in result["error"]
+        assert "http://leaky.example.com:8080" in result["error"]
 
     async def test_proxywhirl_reset_cb_no_circuit_breaker(self, mock_rotator) -> None:
         """Test reset_cb when no circuit breaker exists for proxy."""
@@ -1241,11 +1339,15 @@ class TestRemoveProxyAction:
             proxy_id = str(proxies[0].id)
             initial_size = mock_rotator.pool.size
 
-            result = await _proxywhirl_tool(action="remove", proxy_id=proxy_id)
+            with patch.object(
+                mock_rotator, "remove_proxy", wraps=mock_rotator.remove_proxy
+            ) as remove_proxy:
+                result = await _proxywhirl_tool(action="remove", proxy_id=proxy_id)
 
             assert result.get("success") is True
             assert result["proxy_id"] == proxy_id
             assert result["pool_size"] == initial_size - 1
+            remove_proxy.assert_awaited_once_with(proxy_id)
         finally:
             await cleanup_rotator()
 
@@ -1533,7 +1635,9 @@ class TestMainCLI:
     def test_main_with_env_vars(self) -> None:
         """Test main() reads environment variables."""
         import os
+        from pathlib import Path
 
+        from proxywhirl.mcp import server as mcp_server
         from proxywhirl.mcp.server import main, set_auth
 
         set_auth(None)
@@ -1555,47 +1659,9 @@ class TestMainCLI:
 
                     auth = get_auth()
                     assert auth.api_key == "env-key"
-                    assert os.environ.get("PROXYWHIRL_MCP_DB") == "/tmp/test.db"
+                    assert mcp_server._mcp_db_path == Path("/tmp/test.db")
 
         set_auth(None)
-
-
-class TestPythonVersionCheck:
-    """Test Python version checking for MCP server."""
-
-    def test_check_python_version_passes_on_310_plus(self) -> None:
-        """Test that _check_python_version passes on Python 3.10+."""
-        import sys
-
-        from proxywhirl.mcp.server import _check_python_version
-
-        # Only run this test if we're actually on Python 3.10+
-        if sys.version_info >= (3, 10):
-            # Should not raise
-            _check_python_version()
-
-    def test_check_python_version_raises_on_older(self) -> None:
-        """Test that _check_python_version raises on Python < 3.10."""
-        import sys
-        from collections import namedtuple
-
-        from proxywhirl.mcp.server import _check_python_version
-
-        # Create a proper version_info-like named tuple
-        VersionInfo = namedtuple(
-            "version_info", ["major", "minor", "micro", "releaselevel", "serial"]
-        )
-        mock_version = VersionInfo(3, 9, 0, "final", 0)
-
-        # Mock version_info to be 3.9
-        with (
-            patch.object(sys, "version_info", mock_version),
-            pytest.raises(RuntimeError) as exc_info,
-        ):
-            _check_python_version()
-
-        assert "Python 3.10 or higher" in str(exc_info.value)
-        assert "3.9" in str(exc_info.value)
 
 
 class TestEdgeCases:
@@ -2081,7 +2147,7 @@ class TestDirectToolCallAuth:
     """Test authentication for direct _proxywhirl_tool calls."""
 
     async def test_tool_with_ctx_skips_auth(self, mock_rotator) -> None:
-        """Test that ctx presence skips direct auth check."""
+        """Read-only calls with ctx rely on middleware auth."""
         await set_rotator(mock_rotator)
         set_auth(MCPAuth(api_key="required-key"))
 

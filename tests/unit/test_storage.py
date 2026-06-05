@@ -550,6 +550,56 @@ class TestSQLiteStorage:
 
             await storage.close()
 
+    async def test_sqlite_storage_initialize_adds_missing_identity_expires_at(self) -> None:
+        """initialize() upgrades existing normalized databases in place."""
+        from proxywhirl.storage import SQLiteStorage
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+
+            async with storage.engine.begin() as conn:
+                await conn.execute(
+                    sa.text(
+                        """
+                        CREATE TABLE proxy_identities (
+                            url VARCHAR NOT NULL PRIMARY KEY,
+                            protocol VARCHAR NOT NULL,
+                            host VARCHAR NOT NULL,
+                            port INTEGER NOT NULL,
+                            username VARCHAR,
+                            password VARCHAR,
+                            country_code VARCHAR,
+                            country_name VARCHAR,
+                            region VARCHAR,
+                            city VARCHAR,
+                            latitude FLOAT,
+                            longitude FLOAT,
+                            asn INTEGER,
+                            isp_name VARCHAR,
+                            is_residential BOOLEAN NOT NULL,
+                            is_datacenter BOOLEAN NOT NULL,
+                            source VARCHAR NOT NULL,
+                            source_url VARCHAR,
+                            discovered_at DATETIME NOT NULL
+                        )
+                        """
+                    )
+                )
+
+            await storage.initialize()
+
+            async with storage.engine.connect() as conn:
+                result = await conn.execute(sa.text("PRAGMA table_info(proxy_identities)"))
+                columns = {row[1] for row in result}
+                indexes = await conn.execute(sa.text("PRAGMA index_list(proxy_identities)"))
+                index_names = {row[1] for row in indexes}
+
+            assert "expires_at" in columns
+            assert "ix_proxy_identities_expires_at" in index_names
+
+            await storage.close()
+
     async def test_sqlite_storage_save_and_load(self) -> None:
         """Test save and load roundtrip."""
         from proxywhirl.models import HealthStatus

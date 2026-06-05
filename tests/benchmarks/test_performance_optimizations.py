@@ -11,8 +11,8 @@ import pytest
 
 from proxywhirl import AsyncProxyWhirl, Proxy, ProxyConfiguration, ProxyPool
 from proxywhirl.cache.manager import CacheManager
-from proxywhirl.cache.models import CacheConfig
-from proxywhirl.models.core import HealthStatus
+from proxywhirl.cache.models import CacheConfig, CacheTierConfig
+from proxywhirl.models import HealthStatus
 from proxywhirl.storage import SQLiteStorage
 
 
@@ -39,12 +39,22 @@ class TestDatabaseIndexPerformance:
 
         added, _ = await storage.add_proxies_batch(proxies)
         assert added > 0
+        await storage.record_validations_batch(
+            [
+                (proxy.url, True, proxy.average_response_time_ms or 50.0, None)
+                for proxy in proxies
+                if proxy.health_status == HealthStatus.HEALTHY
+            ]
+        )
 
         async def run_query() -> list[dict[str, Any]]:
             return await storage.get_healthy_proxies(max_age_hours=48, limit=100)
 
         # Benchmark the query
-        result = await asyncio.to_thread(benchmark, asyncio.run, run_query())
+        def benchmark_query() -> list[dict[str, Any]]:
+            return asyncio.run(run_query())
+
+        result = await asyncio.to_thread(benchmark, benchmark_query)
         assert len(result) > 0
 
         await storage.close()
@@ -133,7 +143,10 @@ class TestCachePerformance:
     @pytest.mark.benchmark(group="cache-warmup")
     async def test_cache_prewarming_performance(self, tmp_path: Path) -> None:
         """Benchmark cache prewarming from file."""
-        config = CacheConfig()
+        config = CacheConfig(
+            l2_config=CacheTierConfig(enabled=False),
+            l3_config=CacheTierConfig(enabled=False),
+        )
         manager = CacheManager(config)
 
         # Create a test JSON file with 500 proxy entries
@@ -165,7 +178,7 @@ class TestPoolMembershipPerformance:
 
     def test_pool_membership_check_performance(self) -> None:
         """Benchmark O(1) URL-based pool membership checking."""
-        pool = ProxyPool(name="test_pool")
+        pool = ProxyPool(name="test_pool", max_pool_size=1000)
 
         # Add 1000 proxies
         for i in range(1000):
@@ -195,7 +208,7 @@ class TestBatchValidationPerformance:
 
         # Add 100 proxies
         for i in range(100):
-            rotator.add_proxy(Proxy(url=f"http://proxy{i}.example.com:8000", protocol="http"))
+            await rotator.add_proxy(Proxy(url=f"http://proxy{i}.example.com:8000", protocol="http"))
 
         # Verify pool can be batch queried
         pool = rotator.pool

@@ -5,7 +5,7 @@ title: ProxyWhirl Docs
 ```{raw} html
 <section class="sy-hero">
   <h1>ProxyWhirl</h1>
-  <p>Production-grade proxy rotation for Python. 9 intelligent strategies, 100+ built-in sources, circuit breakers, multi-tier caching, and four interfaces -- all in one library.</p>
+  <p>Production-grade proxy rotation for Python. 9 intelligent strategies, 88 built-in sources, circuit breakers, multi-tier caching, and four interfaces -- all in one library.</p>
   <div class="sd-btn-group">
     <a class="sd-btn sd-btn-primary sd-shadow-sm" href="getting-started/index.html">Get Started</a>
     <a class="sd-btn sd-btn-secondary" href="https://proxywhirl.com/" rel="noopener" target="_blank">Free Proxy Lists</a>
@@ -20,30 +20,36 @@ title: ProxyWhirl Docs
 :gutter: 2
 
 ::: {grid-item}
+
 ```{card} 9 Rotation Strategies
 :class-card: sd-shadow-lg
 Round-robin, random, weighted, least-used, performance-based (EMA), session-persistence, geo-targeted, cost-aware, and composite pipelines.
 +++
 {bdg-primary}`strategies` | {doc}`Quickstart </getting-started/rotation-strategies>` | {doc}`Deep dive </guides/advanced-strategies>`
 ```
+
 :::
 
 ::: {grid-item}
+
 ```{card} Runtime Resilience
 :class-card: sd-shadow-lg
 Circuit breakers with auto-recovery, retry policies with exponential backoff, EMA latency scoring, multi-tier caching (L1/L2/L3), and proxy lifecycle analytics.
 +++
 {bdg-info}`resilience` | {doc}`Caching </guides/caching>` | {doc}`Retry & Failover </guides/retry-failover>`
 ```
+
 :::
 
 ::: {grid-item}
+
 ```{card} Four Interfaces
 :class-card: sd-shadow-lg
-Python sync/async API, REST service (FastAPI + OpenAPI), CLI with 9 commands (Typer), and MCP server for AI assistants.
+Python sync/async API, REST service (FastAPI + OpenAPI), focused Typer CLI, and MCP server for AI assistants.
 +++
 {bdg-success}`interfaces` | {doc}`REST </reference/rest-api>` | {doc}`CLI </guides/cli-reference>` | {doc}`MCP </guides/mcp-server>`
 ```
+
 :::
 
 ::::
@@ -53,6 +59,7 @@ Python sync/async API, REST service (FastAPI + OpenAPI), CLI with 9 commands (Ty
 ::::{tab-set}
 
 :::{tab-item} Python (sync)
+
 ```python
 from proxywhirl import ProxyWhirl
 
@@ -60,10 +67,12 @@ rotator = ProxyWhirl(proxies=["http://proxy1:8080", "http://proxy2:8080"])
 response = rotator.get("https://httpbin.org/ip")
 print(response.json())  # {"origin": "185.x.x.47"}
 ```
+
 See {doc}`/getting-started/index` for full installation and setup.
 :::
 
 :::{tab-item} Python (async)
+
 ```python
 from proxywhirl import AsyncProxyWhirl
 
@@ -71,10 +80,12 @@ async with AsyncProxyWhirl(proxies=proxies) as rotator:
     response = await rotator.get("https://httpbin.org/ip")
     print(response.json())
 ```
+
 See {doc}`/guides/async-client` for connection pooling, error handling, and concurrency patterns.
 :::
 
 :::{tab-item} Auto-Fetch Proxies
+
 ```python
 from proxywhirl import ProxyFetcher
 
@@ -83,10 +94,12 @@ fetcher = ProxyFetcher()
 proxies = await fetcher.fetch_all(validate=True)
 print(f"Found {len(proxies)} working proxies")
 ```
+
 See {doc}`/reference/python-api` for `ProxyFetcher`, `ProxyValidator`, and parser classes.
 :::
 
 :::{tab-item} REST API
+
 ```bash
 # Start the API server
 uv run uvicorn proxywhirl.api:app --reload
@@ -97,24 +110,28 @@ curl http://localhost:8000/api/proxies
 # Health check
 curl http://localhost:8000/api/health
 ```
+
 See {doc}`/reference/rest-api` for endpoint reference, authentication, and Docker deployment.
 :::
 
 :::{tab-item} CLI
+
 ```bash
 # Fetch fresh proxies from all built-in sources
 proxywhirl fetch --timeout 5
 
 # Validate proxies
-proxywhirl validate --protocol http
+proxywhirl validate-proxy http://proxy.example.com:8080
 
 # Export stats
 proxywhirl export --stats-only
 ```
-See {doc}`/guides/cli-reference` for all 9 commands, global options, and output formats.
+
+See {doc}`/guides/cli-reference` for focused commands, global options, and output formats.
 :::
 
 :::{tab-item} MCP Server
+
 ```bash
 # Run the MCP server for AI assistants
 uv run proxywhirl mcp --transport stdio
@@ -122,6 +139,7 @@ uv run proxywhirl mcp --transport stdio
 # Or with uvx (no install needed)
 uvx proxywhirl mcp
 ```
+
 See {doc}`/guides/mcp-server` for tool definitions, auto-loading, and Claude/GPT integration.
 :::
 
@@ -196,7 +214,7 @@ Installation, quickstart examples, and your first rotating proxy setup.
 - {doc}`Rotation strategies overview </getting-started/rotation-strategies>`
 - [Sync vs async decision guide](getting-started/index.md#quick-start)
 - [Using free proxy lists](getting-started/index.md#using-free-proxy-lists)
-:::
+  :::
 
 :::{grid-item-card} Guides
 :link: guides/index
@@ -209,7 +227,7 @@ Deep dives: async patterns, advanced strategies, caching, retry/failover, CLI, a
 - {doc}`Advanced strategies </guides/advanced-strategies>` -- EMA scoring, geo-routing, composites
 - {doc}`Retry & failover </guides/retry-failover>` -- circuit breakers, backoff policies
 - {doc}`Deployment security </guides/deployment-security>` -- Nginx, Caddy, HAProxy configs
-:::
+  :::
 
 :::{grid-item-card} Concepts
 :link: concepts/index
@@ -222,7 +240,7 @@ Design philosophy: why things work the way they do.
 - {doc}`Cache architecture </concepts/cache-architecture>` -- L1/L2/L3 tiers, promotion/demotion
 - {doc}`Circuit breakers </concepts/circuit-breakers>` -- failure isolation, automatic recovery
 - {doc}`Security model </concepts/security-model>` -- encryption, redaction, SSRF protection
-:::
+  :::
 
 :::{grid-item-card} API Reference
 :link: reference/index
@@ -235,7 +253,7 @@ REST API, Python API, configuration, exceptions, caching, and rate limiting.
 - {doc}`Python API </reference/python-api>` -- rotators, strategies, fetchers, validators
 - {doc}`Configuration reference </reference/configuration>` -- TOML, env vars, discovery
 - {doc}`Exception hierarchy </reference/exceptions>` -- error codes, URL redaction
-:::
+  :::
 
 :::{grid-item-card} Project
 :link: project/index
@@ -248,7 +266,7 @@ Contributing, development setup, CI/CD, changelog, and project status.
 - [Contributing guidelines](project/index.md#contributing)
 - [CI/CD pipelines](project/index.md#cicd-pipelines)
 - [Architecture overview](project/index.md#architecture)
-:::
+  :::
 
 ::::
 
@@ -257,7 +275,7 @@ Contributing, development setup, CI/CD, changelog, and project status.
 - **Composite Strategies** -- chain filters and selectors with <5 us overhead via `CompositeStrategy`
 - **Cost-Aware Strategy** -- budget-optimize proxy selection with `CostAwareStrategy`
 - **MCP Server** -- Model Context Protocol integration for Claude, GPT, and more
-- **Free Proxy Lists** -- updated every 6 hours from hundreds of sources at [proxywhirl.com](https://proxywhirl.com/)
+- **Free Proxy Lists** -- updated every 6 hours from 88 built-in sources at [proxywhirl.com](https://proxywhirl.com/)
 - **Rate Limiting** -- token bucket algorithm with per-proxy and global limits via {doc}`/reference/rate-limiting-api`
 
 ```{admonition} Looking for proxy lists?

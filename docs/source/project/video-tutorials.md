@@ -184,7 +184,7 @@ cache = CacheConfig(
 **Playlist**: Planned recording
 **Duration**: ~3 hours total
 **Topics**: All of above in order
-**Prerequisite**: Python 3.9+
+**Prerequisite**: Python 3.10+
 
 ### Fast-Track (30 min)
 **Playlist**: Planned recording

@@ -2,7 +2,7 @@
 
 Tests cover:
 - BootstrapConfig model validation, defaults, and frozen behavior
-- _sample_sources() random sampling logic
+- _sample_sources() source selection logic
 - _should_show_progress() TTY auto-detection
 - Constructor acceptance in ProxyWhirl and AsyncProxyWhirl (including bool shortcut)
 - enabled=False skips bootstrap entirely
@@ -38,7 +38,7 @@ class TestBootstrapConfigModel:
         config = BootstrapConfig()
         assert config.enabled is True
         assert config.sources is None
-        assert config.sample_size == 10
+        assert config.sample_size is None
         assert config.validate_proxies is True
         assert config.timeout == 10
         assert config.max_concurrent == 100
@@ -101,11 +101,19 @@ class TestSampleSources:
         result = _sample_sources(sources, sample_size=10)
         assert result == sources
 
-    def test_none_sources_samples_from_all(self):
-        """When sources is None, randomly sample from ALL_SOURCES."""
+    def test_none_sources_returns_all_enabled_sources_by_default(self):
+        """When sources and sample_size are None, return all enabled built-in sources."""
+        result = _sample_sources(None, sample_size=None)
+        enabled_count = sum(1 for s in ALL_SOURCES if s.enabled)
+        assert len(result) == enabled_count
+        all_urls = {str(s.url) for s in ALL_SOURCES}
+        for s in result:
+            assert str(s.url) in all_urls
+
+    def test_sample_size_opt_in_samples_from_all(self):
+        """When sample_size is set, randomly sample from ALL_SOURCES."""
         result = _sample_sources(None, sample_size=5)
         assert len(result) == 5
-        # All results should be from ALL_SOURCES
         all_urls = {str(s.url) for s in ALL_SOURCES}
         for s in result:
             assert str(s.url) in all_urls

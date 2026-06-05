@@ -28,11 +28,11 @@ The MCP server requires Python 3.10 or higher due to FastMCP dependencies.
 ### Installation
 
 ```bash
-# Install ProxyWhirl with MCP support
-pip install "proxywhirl[mcp]"
+# Add ProxyWhirl with MCP support to the current project
+uv add "proxywhirl[mcp]"
 
-# Or with uv
-uv pip install "proxywhirl[mcp]"
+# Or run without adding it to the project
+uvx "proxywhirl[mcp]" proxywhirl-mcp --help
 ```
 
 ### Running the Server
@@ -81,9 +81,10 @@ Options:
   --log-level {debug,info,warning,error}  Log level (default: info)
 
 Environment Variables:
-  PROXYWHIRL_MCP_API_KEY    API key for authentication
-  PROXYWHIRL_MCP_DB         Path to proxy database file
-  PROXYWHIRL_MCP_LOG_LEVEL  Log level
+  PROXYWHIRL_MCP_API_KEY                       API key for authentication
+  PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES  Local-dev override for write actions
+  PROXYWHIRL_MCP_DB                            Path to proxy database file
+  PROXYWHIRL_MCP_LOG_LEVEL                     Log level
 ```
 
 ## The `proxywhirl` Tool
@@ -92,19 +93,21 @@ The MCP server exposes a single unified tool called `proxywhirl` that handles al
 
 ### Available Actions
 
-| Action | Description | Required Parameters | Optional Parameters |
-|--------|-------------|---------------------|---------------------|
-| `list` | List all proxies in the pool | - | `api_key` |
-| `rotate` | Get next proxy using rotation strategy | - | `api_key` |
-| `status` | Get detailed status for a specific proxy | `proxy_id` | `api_key` |
-| `recommend` | Get best proxy based on criteria | - | `criteria`, `api_key` |
-| `health` | Get pool health overview | - | `api_key` |
-| `reset_cb` | Reset circuit breaker for a proxy | `proxy_id` | `api_key` |
-| `add` | Add a new proxy to the pool | `proxy_url` | `api_key` |
-| `remove` | Remove a proxy from the pool | `proxy_id` | `api_key` |
-| `fetch` | Fetch proxies from public sources | - | `criteria.max_proxies`, `api_key` |
-| `validate` | Validate proxy connectivity | - | `proxy_id`, `criteria.timeout`, `api_key` |
-| `set_strategy` | Change rotation strategy | `strategy` | `api_key` |
+| Action         | Description                              | Required Parameters | Optional Parameters            |
+| -------------- | ---------------------------------------- | ------------------- | ------------------------------ |
+| `list`         | List all proxies in the pool             | -                   | -                              |
+| `rotate`       | Get next proxy using rotation strategy   | -                   | -                              |
+| `status`       | Get detailed status for a specific proxy | `proxy_id`          | -                              |
+| `recommend`    | Get best proxy based on criteria         | -                   | `criteria`                     |
+| `health`       | Get pool health overview                 | -                   | -                              |
+| `reset_cb`     | Reset circuit breaker for a proxy        | `proxy_id`          | -                              |
+| `add`          | Add a new proxy to the pool              | `proxy_url`         | -                              |
+| `remove`       | Remove a proxy from the pool             | `proxy_id`          | -                              |
+| `fetch`        | Fetch proxies from public sources        | -                   | `criteria.max_proxies`         |
+| `validate`     | Validate proxy connectivity              | -                   | `proxy_id`, `criteria.timeout` |
+| `set_strategy` | Change rotation strategy                 | `strategy`          | -                              |
+
+API keys are not tool parameters and are intentionally hidden from the model-visible schema. When authentication is enabled, pass credentials via MCP metadata or transport headers instead.
 
 ### Action Examples
 
@@ -117,6 +120,7 @@ The MCP server exposes a single unified tool called `proxywhirl` that handles al
 ```
 
 **Response:**
+
 ```json
 {
   "proxies": [
@@ -150,6 +154,7 @@ The MCP server exposes a single unified tool called `proxywhirl` that handles al
 ```
 
 **Response:**
+
 ```json
 {
   "proxy": {
@@ -173,6 +178,7 @@ The MCP server exposes a single unified tool called `proxywhirl` that handles al
 ```
 
 **Response:**
+
 ```json
 {
   "proxy_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -212,6 +218,7 @@ The MCP server exposes a single unified tool called `proxywhirl` that handles al
 ```
 
 **Response:**
+
 ```json
 {
   "recommendation": {
@@ -239,6 +246,7 @@ The MCP server exposes a single unified tool called `proxywhirl` that handles al
 ```
 
 The `criteria` parameter supports:
+
 - `region`: Country code filter (e.g., "US", "DE", "JP")
 - `performance`: Performance tier (`"high"`, `"medium"`, `"low"`)
 
@@ -251,6 +259,7 @@ The `criteria` parameter supports:
 ```
 
 **Response:**
+
 ```json
 {
   "pool_status": "healthy",
@@ -290,6 +299,7 @@ Pool status values match those in the {doc}`/reference/rest-api` `/api/health` e
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -310,6 +320,7 @@ Pool status values match those in the {doc}`/reference/rest-api` `/api/health` e
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -333,6 +344,7 @@ Pool status values match those in the {doc}`/reference/rest-api` `/api/health` e
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -347,11 +359,12 @@ Pool status values match those in the {doc}`/reference/rest-api` `/api/health` e
 ```json
 {
   "action": "fetch",
-  "criteria": {"max_proxies": 50}
+  "criteria": { "max_proxies": 50 }
 }
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -371,6 +384,7 @@ Pool status values match those in the {doc}`/reference/rest-api` `/api/health` e
 ```
 
 **Response:**
+
 ```json
 {
   "validated": 1,
@@ -405,6 +419,7 @@ When validating all proxies, the `results` array in the response is truncated to
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -502,7 +517,7 @@ A diagnostic workflow for debugging proxy issues:
 
 ## Authentication
 
-Authentication is optional. When not configured, all requests are allowed. The MCP server uses FastMCP v2 middleware for authentication.
+Authentication is optional for read-only actions. Mutating actions (`add`, `remove`, `reset_cb`, `fetch`, `validate`, and `set_strategy`) fail closed unless an MCP API key is configured and supplied, or the explicit local-development override is enabled.
 
 ### Enabling Authentication
 
@@ -517,12 +532,11 @@ set_auth(auth)
 
 ### Authenticated Tool Calls
 
-When authentication is enabled, include `api_key` in tool calls:
+When authentication is enabled, do not include `api_key` in tool calls. The model-visible tool schema omits credentials. Supply the key through MCP client metadata or transport headers, for example `Authorization: Bearer <key>` or `X-API-Key: <key>`.
 
 ```json
 {
-  "action": "list",
-  "api_key": "your-secret-api-key"
+  "action": "list"
 }
 ```
 
@@ -532,7 +546,7 @@ The server uses FastMCP v2's middleware system to validate API keys on every too
 
 ```python
 # Middleware is automatically registered with the MCP server
-# It validates api_key from tool arguments or context
+# It validates API keys from context metadata or transport headers
 ```
 
 ### Disabling Authentication
@@ -540,9 +554,12 @@ The server uses FastMCP v2's middleware system to validate API keys on every too
 ```python
 from proxywhirl.mcp.server import set_auth
 
-# Disable authentication
+# Disable configured API-key authentication. Read-only actions remain open,
+# but mutating actions still require auth unless the local override is set.
 set_auth(None)
 ```
+
+For local development and tests only, set `PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES=1` to permit mutating actions without an API key. Accepted truthy values are `1`, `true`, `yes`, and `local`.
 
 ```{warning}
 Store API keys securely using environment variables or a secrets manager. Never hardcode keys in source code. See {doc}`deployment-security` for production security best practices and {doc}`/reference/configuration` for all environment variables.
@@ -781,12 +798,12 @@ The MCP server returns errors in a consistent format:
 
 ### Common Error Codes
 
-| Code | Meaning | Example |
-|------|---------|---------|
-| 400 | Bad Request | Missing required parameter |
-| 401 | Unauthorized | Invalid API key |
-| 404 | Not Found | Proxy ID not found |
-| 500 | Internal Error | Server-side failure |
+| Code | Meaning        | Example                    |
+| ---- | -------------- | -------------------------- |
+| 400  | Bad Request    | Missing required parameter |
+| 401  | Unauthorized   | Invalid API key            |
+| 404  | Not Found      | Proxy ID not found         |
+| 500  | Internal Error | Server-side failure        |
 
 ### Example Error Responses
 
@@ -817,7 +834,7 @@ The MCP server returns errors in a consistent format:
 Before making proxy selections, verify the pool is healthy:
 
 ```json
-{"action": "health"}
+{ "action": "health" }
 ```
 
 If `pool_status` is `"critical"` or `"empty"`, fetch new proxies before proceeding.
@@ -829,7 +846,7 @@ For important requests, use the `recommend` action instead of `rotate`:
 ```json
 {
   "action": "recommend",
-  "criteria": {"performance": "high"}
+  "criteria": { "performance": "high" }
 }
 ```
 
@@ -873,31 +890,39 @@ await cleanup_rotator()
 ### Server Won't Start
 
 **Python version too low:**
+
 ```
 RuntimeError: MCP server requires Python 3.10 or higher
 ```
+
 Solution: Upgrade to Python 3.10+.
 
 **FastMCP not installed:**
+
 ```
 FastMCP is not installed. MCP server cannot run.
 ```
-Solution: `pip install fastmcp` or `pip install "proxywhirl[mcp]"`
+
+Solution: run `uv add "proxywhirl[mcp]"` in the project, or use `uvx "proxywhirl[mcp]" proxywhirl-mcp`.
 
 ### No Proxies Available
 
 **Database not found:**
+
 ```
 MCP: No database at proxywhirl.db, starting with empty pool
 ```
+
 Solution: Run `proxywhirl fetch --output proxywhirl.db` first.
 
 ### Authentication Failures
 
 **Invalid API key:**
+
 ```json
-{"error": "Authentication failed: Invalid API key", "code": 401}
+{ "error": "Authentication failed: Invalid API key", "code": 401 }
 ```
+
 Solution: Verify the API key matches what was configured with `set_auth()`.
 
 ## See Also

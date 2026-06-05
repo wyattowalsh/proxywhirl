@@ -17,263 +17,65 @@ The API uses:
 
 from __future__ import annotations
 
-import asyncio
-import hashlib
-import os
-import secrets
 import time
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.security import APIKeyHeader
 from loguru import logger
-from prometheus_client import Counter, Gauge, Histogram
-from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from proxywhirl.api.middleware.auth import APIKeyMiddleware
-from proxywhirl.api.models import APIResponse, ErrorCode, ProxiedRequest
+from proxywhirl.api.models import APIResponse, ErrorCode
+from proxywhirl.api.runtime import (
+    _get_proxy_id,
+    get_config,
+    get_current_rotator,
+    get_rate_limit_key,
+    get_rotator,
+    get_storage,
+    limiter,
+    proxywhirl_request_duration_seconds,
+    proxywhirl_requests_total,
+    record_rotation,
+    reset_api_state,
+    set_config,
+    set_rotator,
+    set_storage,
+    update_prometheus_metrics,
+    validate_proxied_request_url,
+    verify_api_key,
+)
 from proxywhirl.exceptions import ProxyWhirlError
 from proxywhirl.rotator import ProxyWhirl
+from proxywhirl.settings import APISettings
 from proxywhirl.storage import SQLiteStorage
-from proxywhirl.utils import validate_target_url_safe
 
-
-def _parse_int_env(name: str, default: int) -> int:
-    """Parse an integer environment variable with validation.
-
-    Args:
-        name: Environment variable name
-        default: Default value if not set
-
-    Returns:
-        Parsed integer value
-
-    Raises:
-        ValueError: If value is set but not a valid integer
-    """
-    value = os.getenv(name)
-    if value is None:
-        return default
-
-    try:
-        return int(value)
-    except ValueError as e:
-        raise ValueError(f"Environment variable {name} must be an integer, got '{value}'") from e
-
-
-def _parse_float_env(name: str, default: float) -> float:
-    """Parse a float environment variable with validation.
-
-    Args:
-        name: Environment variable name
-        default: Default value if not set
-
-    Returns:
-        Parsed float value
-
-    Raises:
-        ValueError: If value is set but not a valid float
-    """
-    value = os.getenv(name)
-    if value is None:
-        return default
-
-    try:
-        return float(value)
-    except ValueError as e:
-        raise ValueError(f"Environment variable {name} must be a number, got '{value}'") from e
-
-
-# Global singleton instances
-_rotator: ProxyWhirl | None = None
-_storage: SQLiteStorage | None = None
-_config: dict[str, Any] = {}
-
-# Track app start time for uptime calculation
-_app_start_time = datetime.now(timezone.utc)
-
-# Track last rotation time (updated on each proxy selection)
-_last_rotation_time: datetime | None = None
-_last_rotation_lock = asyncio.Lock()
-
-
-# =============================================================================
-# Helper Functions
-# =============================================================================
-
-
-def _get_proxy_id(proxy: Any) -> str:
-    """Get stable identifier for a proxy.
-
-    Uses proxy.id if available, otherwise generates a hash from the URL.
-    This ensures IDs remain stable across application restarts.
-
-    Args:
-        proxy: Proxy instance
-
-    Returns:
-        Stable string identifier for the proxy
-    """
-    # Try to get proxy.id safely using getattr
-    proxy_id = getattr(proxy, "id", None)
-    if proxy_id:
-        return str(proxy_id)
-    # Fallback: hash of URL for stability
-    return hashlib.sha256(str(proxy.url).encode()).hexdigest()[:16]
-
-
-# =============================================================================
-# Prometheus Metrics
-# =============================================================================
-
-# Request metrics
-proxywhirl_requests_total = Counter(
-    "proxywhirl_requests_total",
-    "Total number of HTTP requests",
-    ["endpoint", "method", "status"],
-)
-
-proxywhirl_request_duration_seconds = Histogram(
-    "proxywhirl_request_duration_seconds",
-    "HTTP request duration in seconds",
-    ["endpoint", "method"],
-    buckets=(0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0),
-)
-
-# Proxy pool metrics
-proxywhirl_proxies_total = Gauge(
-    "proxywhirl_proxies_total",
-    "Total number of proxies in the pool",
-)
-
-proxywhirl_proxies_healthy = Gauge(
-    "proxywhirl_proxies_healthy",
-    "Number of healthy proxies in the pool",
-)
-
-# Circuit breaker metrics
-proxywhirl_circuit_breaker_state = Gauge(
-    "proxywhirl_circuit_breaker_state",
-    "Circuit breaker state (0=closed, 1=open, 2=half-open)",
-    ["proxy_id"],
-)
-
-
-# =============================================================================
-# Rate Limiting - Per-API-Key Strategy
-# =============================================================================
-
-
-def get_rate_limit_key(request: Request) -> str:
-    """Extract rate limit key from request.
-
-    SECURITY: This function is designed to prevent rate limit bypass attacks.
-
-    For authenticated requests (with API key):
-        - Uses hashed API key as rate limit key
-        - This ensures rate limiting is per-API-key, not per-IP
-
-    For unauthenticated requests:
-        - Uses ONLY direct client IP (request.client.host)
-        - NEVER trusts X-Forwarded-For header to prevent spoofing attacks
-        - Attackers cannot bypass rate limits by sending fake X-Forwarded-For headers
-
-    Note: If you need to trust X-Forwarded-For (e.g., behind a reverse proxy),
-    configure your reverse proxy to set the real client IP in request.client,
-    or use a trusted proxy middleware that validates the header chain.
-
-    Args:
-        request: FastAPI Request object
-
-    Returns:
-        str: Rate limit key in the form ``apikey:{hash}`` or ``ip:{address}``.
-    """
-    # Check for API key first (primary identifier for authenticated requests)
-    api_key = request.headers.get("X-API-Key")
-    if api_key:
-        # Hash the API key to avoid exposing it in logs
-        key_hash = hashlib.sha256(api_key.encode()).hexdigest()[:16]
-        return f"apikey:{key_hash}"
-
-    # SECURITY: For unauthenticated requests, use direct client IP only.
-    # NEVER trust X-Forwarded-For header as it can be spoofed by attackers
-    # to bypass rate limits.
-    client_ip = request.client.host if request.client else "unknown"
-    return f"ip:{client_ip}"
-
-
-# Rate limiter configuration
-# Use per-API-key rate limiting to prevent X-Forwarded-For bypass
-# Default limit can be overridden via environment variables
-_default_rate_limit = os.getenv("PROXYWHIRL_RATE_LIMIT", "100/minute")
-_api_key_rate_limit = os.getenv("PROXYWHIRL_API_KEY_RATE_LIMIT", _default_rate_limit)
-
-limiter = Limiter(key_func=get_rate_limit_key, default_limits=[_default_rate_limit])
-
-
-# API key authentication (optional)
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
-
-
-def verify_api_key(api_key: str | None = Depends(api_key_header)) -> None:
-    """Verify API key if authentication is required.
-
-    Args:
-        api_key: API key from X-API-Key header
-
-    Raises:
-        HTTPException: If auth is required and key is invalid
-    """
-    require_auth = os.getenv("PROXYWHIRL_REQUIRE_AUTH", "false").lower() == "true"
-
-    if not require_auth:
-        return
-
-    expected_key = os.getenv("PROXYWHIRL_API_KEY")
-    if not expected_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="API authentication not configured",
-        )
-
-    if not api_key or not secrets.compare_digest(api_key, expected_key):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API key",
-        )
-
-
-def validate_proxied_request_url(request_data: ProxiedRequest) -> ProxiedRequest:
-    """Dependency to validate target URL for SSRF protection.
-
-    This dependency runs BEFORE other dependencies to ensure SSRF validation
-    happens first, preventing malicious URLs from being processed.
-
-    Args:
-        request_data: The proxied request data
-
-    Returns:
-        The validated request data
-
-    Raises:
-        HTTPException: If URL is invalid or blocked for security reasons
-    """
-    try:
-        validate_target_url_safe(str(request_data.url), allow_private=False)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="URL is blocked by security policy (SSRF protection)",
-        )
-    return request_data
+__all__ = [
+    "_get_proxy_id",
+    "app",
+    "get_config",
+    "get_current_rotator",
+    "get_rate_limit_key",
+    "get_rotator",
+    "get_storage",
+    "lifespan",
+    "limiter",
+    "record_rotation",
+    "reset_api_state",
+    "set_config",
+    "set_rotator",
+    "set_storage",
+    "update_prometheus_metrics",
+    "validate_proxied_request_url",
+    "verify_api_key",
+]
 
 
 @asynccontextmanager
@@ -285,49 +87,47 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     - Optional SQLiteStorage initialization
     - Graceful cleanup on shutdown
     """
-    global _rotator, _storage, _config
-
     # Startup
     logger.info("Initializing ProxyWhirl API...")
 
+    api_settings = APISettings()
+    storage = None
+
     # Initialize storage if configured
-    storage_path = os.getenv("PROXYWHIRL_STORAGE_PATH")
-    if storage_path:
-        logger.info(f"Initializing SQLiteStorage: {storage_path}")
-        _storage = SQLiteStorage(storage_path)
+    if api_settings.storage_path:
+        logger.info(f"Initializing SQLiteStorage: {api_settings.storage_path}")
+        storage = SQLiteStorage(str(api_settings.storage_path))
+    set_storage(storage)
 
     # Initialize rotator
     logger.info("Initializing ProxyWhirl...")
-    _rotator = ProxyWhirl()
+    rotator = ProxyWhirl()
+    set_rotator(rotator)
 
     # Load proxies from storage if available
-    if _storage:
+    if storage:
         try:
-            stored_proxies = await _storage.load()
+            stored_proxies = await storage.load()
             for proxy in stored_proxies:
-                _rotator.add_proxy(proxy)
+                rotator.add_proxy(proxy)
             logger.info(f"Loaded {len(stored_proxies)} proxies from storage")
         except Exception as e:
             logger.warning(f"Failed to load proxies from storage: {e}")
 
     # Load initial configuration
-    cors_origins_raw = os.getenv("PROXYWHIRL_CORS_ORIGINS", "")
-    cors_origins_config = [
-        origin.strip()
-        for origin in cors_origins_raw.split(",")
-        if origin.strip()  # Filter empty strings from trailing commas or double commas
-    ]
-    _config = {
-        "rotation_strategy": os.getenv("PROXYWHIRL_STRATEGY", "round-robin"),
-        "timeout": _parse_int_env("PROXYWHIRL_TIMEOUT", 30),
-        "max_retries": _parse_int_env("PROXYWHIRL_MAX_RETRIES", 3),
-        "rate_limits": {
-            "default_limit": 100,
-            "request_endpoint_limit": 50,
-        },
-        "auth_enabled": os.getenv("PROXYWHIRL_REQUIRE_AUTH", "false").lower() == "true",
-        "cors_origins": cors_origins_config,
-    }
+    set_config(
+        {
+            "rotation_strategy": api_settings.strategy,
+            "timeout": api_settings.timeout,
+            "max_retries": api_settings.max_retries,
+            "rate_limits": {
+                "default_limit": 100,
+                "request_endpoint_limit": 50,
+            },
+            "auth_enabled": api_settings.require_auth,
+            "cors_origins": api_settings.cors_origins,
+        }
+    )
 
     logger.info("ProxyWhirl API initialized successfully")
 
@@ -337,10 +137,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Shutting down ProxyWhirl API...")
 
     # Save state if storage configured
-    if _storage and _rotator:
+    storage = get_storage()
+    rotator = get_current_rotator()
+    if storage and rotator:
         logger.info("Saving proxy pool state...")
         # Use thread-safe snapshot for saving
-        await _storage.save(_rotator.pool.get_all_proxies())
+        await storage.save(rotator.pool.get_all_proxies())
 
     logger.info("ProxyWhirl API shutdown complete")
 
@@ -366,21 +168,18 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 
+api_settings = APISettings()
+
 # CORS middleware
 # Security: Default to no CORS (empty list = CORS disabled)
-# Only enable CORS if explicitly configured via PROXYWHIRL_CORS_ORIGINS environment variable
-cors_origins_raw = os.getenv("PROXYWHIRL_CORS_ORIGINS", "")
-cors_origins = [
-    origin.strip()
-    for origin in cors_origins_raw.split(",")
-    if origin.strip()  # Filter empty strings from trailing commas or double commas
-]
+# Only enable CORS if explicitly configured via APISettings.
+cors_origins = api_settings.cors_origins
 
 # Security: Validate CORS configuration
 # SEC-003: Wildcard CORS with credentials is a security vulnerability (CVE-like)
 # The browser will reject `Access-Control-Allow-Origin: *` with credentials anyway,
 # but we enforce safe defaults at the application level.
-allow_credentials = True
+allow_credentials = api_settings.cors_allow_credentials
 
 # Validate: wildcard origins + credentials = error
 if "*" in cors_origins and allow_credentials:
@@ -547,9 +346,7 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Any) -> Any:
         """Process request and emit audit log for sensitive operations."""
-        # Check if audit logging is enabled via environment variable
-        audit_enabled = os.getenv("PROXYWHIRL_AUDIT_LOG", "true").lower() == "true"
-        if not audit_enabled:
+        if not APISettings().audit_log:
             return await call_next(request)
 
         path = str(request.url.path)
@@ -875,72 +672,6 @@ async def proxy_error_handler(request: Request, exc: ProxyWhirlError) -> JSONRes
         status_code=http_status,
         content=response.model_dump(mode="json"),
     )
-
-
-# Dependency injection
-def get_rotator() -> ProxyWhirl:
-    """Get the singleton ProxyWhirl instance.
-
-    Returns:
-        ProxyWhirl instance
-
-    Raises:
-        HTTPException: If rotator not initialized
-    """
-    if _rotator is None:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="ProxyWhirl not initialized",
-        )
-    return _rotator
-
-
-def get_storage() -> SQLiteStorage | None:
-    """Get the optional SQLiteStorage instance.
-
-    Returns:
-        SQLiteStorage instance or None if not configured
-    """
-    return _storage
-
-
-def get_config() -> dict[str, Any]:
-    """Get current API configuration.
-
-    Returns:
-        Configuration dictionary
-    """
-    return _config
-
-
-def update_prometheus_metrics() -> None:
-    """Update Prometheus metrics for proxy pool and circuit breakers."""
-    if not _rotator:
-        return
-
-    # Update proxy pool metrics (use thread-safe method)
-    total_proxies = _rotator.pool.size
-    proxywhirl_proxies_total.set(total_proxies)
-
-    # Calculate healthy proxies based on actual health status
-    healthy_proxies = _rotator.pool.healthy_count
-    proxywhirl_proxies_healthy.set(healthy_proxies)
-
-    # Update circuit breaker metrics
-    try:
-        circuit_breakers = _rotator.get_circuit_breaker_states()
-        for proxy_id, cb in circuit_breakers.items():
-            # Map circuit breaker state to numeric value
-            # 0=CLOSED, 1=OPEN, 2=HALF_OPEN
-            state_value = 0
-            if cb.state.value == "open":
-                state_value = 1
-            elif cb.state.value == "half_open":
-                state_value = 2
-
-            proxywhirl_circuit_breaker_state.labels(proxy_id=proxy_id).set(state_value)
-    except Exception as e:
-        logger.warning(f"Failed to update circuit breaker metrics: {e}")
 
 
 # OpenAPI customization

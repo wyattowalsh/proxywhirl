@@ -7,46 +7,39 @@ proper lifecycle management, FastMCP v2 Context support, and middleware-based au
 from __future__ import annotations
 
 import asyncio
-import sys
-from collections.abc import AsyncIterator, Awaitable
+import re
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import Callable, Literal
+from pathlib import Path
+from typing import Literal
 
 from loguru import logger
 
+from proxywhirl._proxy_views import (
+    ProxyListQuery,
+    ProxyView,
+    add_proxy_to_rotator_async,
+    find_proxy,
+    find_proxy_view,
+    list_proxy_result,
+    list_proxy_views,
+    proxy_to_view,
+    remove_proxy_from_rotator_async,
+    select_proxy_view_async,
+)
 from proxywhirl.mcp.auth import MCPAuth
 from proxywhirl.models import HealthStatus, Proxy, ProxySource
 from proxywhirl.rotator import AsyncProxyWhirl
-from proxywhirl.strategies.core import BUILTIN_STRATEGY_CLASSES
+from proxywhirl.settings import MCPSettings
+from proxywhirl.strategies import BUILTIN_STRATEGY_CLASSES
+from proxywhirl.utils import public_proxy_url
 
-
-def _check_python_version() -> None:
-    """Check that Python version is 3.10+ for MCP server functionality.
-
-    Raises:
-        RuntimeError: If Python version is below 3.10
-    """
-    if sys.version_info < (3, 10):
-        raise RuntimeError(
-            f"MCP server requires Python 3.10 or higher. "
-            f"Current version: {sys.version_info.major}.{sys.version_info.minor}. "
-            f"Please upgrade Python or use proxywhirl without MCP functionality."
-        )
-
-
-# Import FastMCP with graceful fallback and Python version check
+# Import FastMCP with graceful fallback
 try:
-    _check_python_version()
     from fastmcp import Context, FastMCP
     from fastmcp.server.middleware import Middleware, MiddlewareContext
 
     _FASTMCP_AVAILABLE = True
-except RuntimeError as e:
-    logger.warning(str(e))
-    _FASTMCP_AVAILABLE = False
-    Context = None  # type: ignore[assignment, misc]
-    Middleware = None  # type: ignore[assignment, misc]
-    MiddlewareContext = None  # type: ignore[assignment, misc]
 except ImportError:
     logger.warning(
         "FastMCP is not installed. MCP server functionality will be limited. "
@@ -61,10 +54,62 @@ except ImportError:
 # This will be lazily initialized on first use (thread-safe)
 _rotator_lock = asyncio.Lock()
 _rotator: AsyncProxyWhirl | None = None
+_mcp_db_path: Path | None = None
 
 # Global MCPAuth instance for authentication
 # This can be configured via set_auth() or will use default (no auth)
 _auth: MCPAuth | None = None
+
+_WRITE_ACTIONS = {"add", "remove", "reset_cb", "fetch", "validate", "set_strategy"}
+_URL_PATTERN = re.compile(r"\b(?:https?|socks[45])://[^\s'\"<>)]*")
+
+
+def _allow_unauthenticated_writes() -> bool:
+    """Return whether local development explicitly permits unauthenticated writes."""
+    return MCPSettings().allow_unauthenticated_writes
+
+
+def _sanitize_error_text(error: object) -> str:
+    """Return an exception/error string safe for model-visible MCP responses."""
+    return _URL_PATTERN.sub(lambda match: public_proxy_url(match.group(0)), str(error))
+
+
+def _proxy_summary(view: ProxyView) -> dict[str, object]:
+    """Return the canonical MCP proxy summary shape."""
+    return {
+        "id": view.id,
+        "url": view.url,
+        "status": view.health,
+        "success_rate": view.success_rate,
+        "avg_latency_ms": view.avg_latency_ms,
+        "region": view.country_code or "UNKNOWN",
+        "total_requests": view.total_requests,
+        "total_successes": view.total_successes,
+        "total_failures": view.total_failures,
+    }
+
+
+def _authorize_tool_call(
+    action: str | None,
+    credentials: object | None = None,
+    api_key: str | None = None,
+) -> dict[str, object] | None:
+    """Authorize an MCP tool call without exposing credentials in tool output."""
+    auth = get_auth()
+    if credentials is None and api_key is not None:
+        credentials = {"api_key": api_key}
+    if auth.api_key:
+        if not auth.authenticate(credentials):
+            return {"error": "Authentication failed: Invalid API key", "code": 401}
+        return None
+
+    if action in _WRITE_ACTIONS and not _allow_unauthenticated_writes():
+        return {
+            "error": f"Authentication required for mutating MCP action: {action}",
+            "code": 401,
+        }
+
+    return None
 
 
 # ============================================================================
@@ -92,21 +137,18 @@ def _create_auth_middleware_class() -> type | None:
         ) -> dict[str, object]:
             """Validate API key on tool calls.
 
-            Extracts api_key from tool arguments and validates against configured auth.
+            Extracts credentials from context metadata/headers and validates auth.
             """
-            auth = get_auth()
-
-            # Extract api_key from tool arguments if present
-            api_key = None
+            action = None
             if hasattr(context, "message") and hasattr(context.message, "params"):
                 params = context.message.params
                 if hasattr(params, "arguments") and params.arguments:
-                    api_key = params.arguments.get("api_key")
+                    action = params.arguments.get("action")
 
-            # Validate authentication
-            if not auth.authenticate({"api_key": api_key}):
-                # Return error response for failed auth
-                return {"error": "Authentication failed: Invalid API key", "code": 401}
+            credentials = get_auth().extract_context_credentials(context)
+            auth_error = _authorize_tool_call(action, credentials=credentials)
+            if auth_error is not None:
+                return auth_error
 
             return await call_next(context)
 
@@ -168,18 +210,13 @@ async def get_rotator() -> AsyncProxyWhirl:
     Returns:
         AsyncProxyWhirl instance
     """
-    import os
-
     global _rotator
     async with _rotator_lock:
         if _rotator is None:
             _rotator = AsyncProxyWhirl()
 
             # Auto-load from database if it exists
-            from pathlib import Path
-
-            db_path_str = os.environ.get("PROXYWHIRL_MCP_DB", "proxywhirl.db")
-            db_path = Path(db_path_str)
+            db_path = _mcp_db_path or MCPSettings().db
             if db_path.exists():
                 try:
                     from proxywhirl.storage import SQLiteStorage
@@ -200,7 +237,9 @@ async def get_rotator() -> AsyncProxyWhirl:
                     await storage.close()
                     logger.info(f"MCP: Auto-loaded {len(proxy_dicts)} proxies from {db_path}")
                 except Exception as e:
-                    logger.warning(f"MCP: Failed to auto-load proxies from {db_path}: {e}")
+                    logger.warning(
+                        f"MCP: Failed to auto-load proxies from {db_path}: {_sanitize_error_text(e)}"
+                    )
             else:
                 logger.debug(f"MCP: No database at {db_path}, starting with empty pool")
 
@@ -233,7 +272,9 @@ async def _auto_fetch_proxies(rotator: AsyncProxyWhirl, max_proxies: int = 100) 
         candidates = await _fetch_bootstrap_candidates(config=config)
         candidates = candidates[:max_proxies]
     except Exception as e:
-        logger.warning(f"MCP: Failed to auto-fetch from built-in public sources: {e}")
+        logger.warning(
+            f"MCP: Failed to auto-fetch from built-in public sources: {_sanitize_error_text(e)}"
+        )
         return
 
     fetched_count = 0
@@ -242,12 +283,23 @@ async def _auto_fetch_proxies(rotator: AsyncProxyWhirl, max_proxies: int = 100) 
             await rotator.add_proxy(proxy)
             fetched_count += 1
         except Exception as e:
-            logger.debug("MCP: Skipping auto-fetched proxy during pool load", error=str(e))
+            logger.debug(
+                "MCP: Skipping auto-fetched proxy during pool load",
+                error=_sanitize_error_text(e),
+            )
 
     logger.info(f"MCP: Auto-fetched {fetched_count} proxies from built-in public sources")
 
 
-async def set_rotator(rotator: AsyncProxyWhirl) -> None:
+async def _close_rotator_resources(rotator: AsyncProxyWhirl) -> None:
+    """Close resources held by an AsyncProxyWhirl instance."""
+    await rotator._close_all_clients()
+    rotator._stop_event.set()
+    if rotator._aggregation_thread and rotator._aggregation_thread.is_alive():
+        rotator._aggregation_thread.join(timeout=5.0)
+
+
+async def set_rotator(rotator: AsyncProxyWhirl | None) -> None:
     """Set the global AsyncProxyWhirl instance (thread-safe).
 
     Args:
@@ -255,6 +307,8 @@ async def set_rotator(rotator: AsyncProxyWhirl) -> None:
     """
     global _rotator
     async with _rotator_lock:
+        if _rotator is not None and _rotator is not rotator:
+            await _close_rotator_resources(_rotator)
         _rotator = rotator
         logger.info("Set custom AsyncProxyWhirl for MCP server")
 
@@ -268,12 +322,7 @@ async def cleanup_rotator() -> None:
     global _rotator
     async with _rotator_lock:
         if _rotator is not None:
-            # Close all pooled clients
-            await _rotator._close_all_clients()
-            # Stop aggregation thread
-            _rotator._stop_event.set()
-            if _rotator._aggregation_thread and _rotator._aggregation_thread.is_alive():
-                _rotator._aggregation_thread.join(timeout=5.0)
+            await _close_rotator_resources(_rotator)
             _rotator = None
             logger.info("MCP: Cleaned up AsyncProxyWhirl")
 
@@ -385,7 +434,9 @@ def main() -> None:
         PROXYWHIRL_MCP_LOG_LEVEL: Log level (debug, info, warning, error)
     """
     import argparse
-    import os
+
+    global _mcp_db_path
+    settings = MCPSettings()
 
     parser = argparse.ArgumentParser(
         description="ProxyWhirl MCP Server",
@@ -411,18 +462,18 @@ Examples:
     )
     parser.add_argument(
         "--api-key",
-        default=os.environ.get("PROXYWHIRL_MCP_API_KEY"),
+        default=settings.api_key.get_secret_value() if settings.api_key else None,
         help="API key for authentication (or set PROXYWHIRL_MCP_API_KEY)",
     )
     parser.add_argument(
         "--db",
-        default=os.environ.get("PROXYWHIRL_MCP_DB", "proxywhirl.db"),
+        default=str(settings.db),
         help="Path to proxy database file (default: proxywhirl.db)",
     )
     parser.add_argument(
         "--log-level",
         choices=["debug", "info", "warning", "error"],
-        default=os.environ.get("PROXYWHIRL_MCP_LOG_LEVEL", "info"),
+        default=settings.log_level,
         help="Log level (default: info)",
     )
     args = parser.parse_args()
@@ -441,8 +492,8 @@ Examples:
         set_auth(auth)
         logger.info("Authentication enabled")
 
-    # Store DB path for get_rotator to use
-    os.environ["PROXYWHIRL_MCP_DB"] = args.db
+    # Store DB path for get_rotator to use without mutating process environment.
+    _mcp_db_path = Path(args.db)
 
     server = ProxyWhirlMCPServer()
     server.run(transport=args.transport)
@@ -463,37 +514,21 @@ async def _list_proxies_impl(ctx: object | None = None) -> dict[str, object]:
         dict[str, object]: Proxy list and pool statistics.
     """
     rotator = await get_rotator()
+    result = list_proxy_result(rotator, ProxyListQuery(limit=1000))
+    proxies = [_proxy_summary(view) for view in result.items]
 
-    # Get all proxies from the pool (thread-safe snapshot)
-    proxies = []
-    for proxy in rotator.pool.get_all_proxies():
-        proxies.append(
-            {
-                "id": str(proxy.id),
-                "url": str(proxy.url),
-                "status": proxy.health_status.value,
-                "success_rate": proxy.success_rate,
-                "avg_latency_ms": proxy.average_response_time_ms or 0.0,
-                "region": proxy.country_code or "UNKNOWN",
-                "total_requests": proxy.total_requests,
-                "total_successes": proxy.total_successes,
-                "total_failures": proxy.total_failures,
-            }
-        )
-
-    # Count by status (use same snapshot for consistency)
-    proxies_snapshot = rotator.pool.get_all_proxies()
+    # Count by status (use same service result for consistency)
     status_counts = {
-        "healthy": sum(1 for p in proxies_snapshot if p.health_status == HealthStatus.HEALTHY),
-        "degraded": sum(1 for p in proxies_snapshot if p.health_status == HealthStatus.DEGRADED),
-        "unhealthy": sum(1 for p in proxies_snapshot if p.health_status == HealthStatus.UNHEALTHY),
-        "dead": sum(1 for p in proxies_snapshot if p.health_status == HealthStatus.DEAD),
-        "unknown": sum(1 for p in proxies_snapshot if p.health_status == HealthStatus.UNKNOWN),
+        "healthy": sum(1 for view in result.items if view.health == HealthStatus.HEALTHY.value),
+        "degraded": sum(1 for view in result.items if view.health == HealthStatus.DEGRADED.value),
+        "unhealthy": sum(1 for view in result.items if view.health == HealthStatus.UNHEALTHY.value),
+        "dead": sum(1 for view in result.items if view.health == HealthStatus.DEAD.value),
+        "unknown": sum(1 for view in result.items if view.health == HealthStatus.UNKNOWN.value),
     }
 
     return {
         "proxies": proxies,
-        "total": rotator.pool.size,
+        "total": result.total,
         **status_counts,
     }
 
@@ -510,22 +545,13 @@ async def _rotate_proxy_impl(ctx: object | None = None) -> dict[str, object]:
     rotator = await get_rotator()
 
     try:
-        # Select a proxy using the current strategy
-        proxy = rotator.strategy.select(rotator.pool)
+        view = await select_proxy_view_async(rotator)
 
-        return {
-            "proxy": {
-                "id": str(proxy.id),
-                "url": str(proxy.url),
-                "status": proxy.health_status.value,
-                "success_rate": proxy.success_rate,
-                "avg_latency_ms": proxy.average_response_time_ms or 0.0,
-                "region": proxy.country_code or "UNKNOWN",
-            }
-        }
+        return {"proxy": _proxy_summary(view)}
     except Exception as e:
-        logger.error(f"Failed to rotate proxy: {e}")
-        return {"error": f"Failed to select proxy: {str(e)}", "code": 500}
+        safe_error = _sanitize_error_text(e)
+        logger.error(f"Failed to rotate proxy: {safe_error}")
+        return {"error": f"Failed to select proxy: {safe_error}", "code": 500}
 
 
 async def _proxy_status_impl(proxy_id: str, ctx: object | None = None) -> dict[str, object]:
@@ -551,15 +577,12 @@ async def _proxy_status_impl(proxy_id: str, ctx: object | None = None) -> dict[s
     except ValueError:
         return {"error": f"Invalid proxy_id format: {proxy_id}", "code": 400}
 
-    # Use thread-safe snapshot to find proxy
-    proxy = None
-    for p in rotator.pool.get_all_proxies():
-        if p.id == proxy_uuid:
-            proxy = p
-            break
+    proxy = find_proxy(rotator, str(proxy_uuid))
 
     if proxy is None:
         return {"error": f"Proxy not found: {proxy_id}", "code": 404}
+
+    view = proxy_to_view(rotator, proxy)
 
     # Get circuit breaker state
     circuit_breaker = rotator.circuit_breakers.get(proxy_id)
@@ -568,15 +591,15 @@ async def _proxy_status_impl(proxy_id: str, ctx: object | None = None) -> dict[s
         cb_state = circuit_breaker.state.value
 
     return {
-        "proxy_id": proxy_id,
-        "url": str(proxy.url),
-        "status": proxy.health_status.value,
+        "proxy_id": view.id,
+        "url": view.url,
+        "status": view.health,
         "metrics": {
-            "success_rate": proxy.success_rate,
-            "avg_latency_ms": proxy.average_response_time_ms or 0.0,
-            "total_requests": proxy.total_requests,
-            "successful_requests": proxy.total_successes,
-            "failed_requests": proxy.total_failures,
+            "success_rate": view.success_rate,
+            "avg_latency_ms": view.avg_latency_ms,
+            "total_requests": view.total_requests,
+            "successful_requests": view.successful_requests,
+            "failed_requests": view.failed_requests,
             "ema_response_time_ms": proxy.ema_response_time_ms or 0.0,
         },
         "health": {
@@ -587,8 +610,8 @@ async def _proxy_status_impl(proxy_id: str, ctx: object | None = None) -> dict[s
             "consecutive_failures": proxy.consecutive_failures,
             "consecutive_successes": proxy.consecutive_successes,
         },
-        "region": proxy.country_code or "UNKNOWN",
-        "protocol": proxy.protocol,
+        "region": view.country_code or "UNKNOWN",
+        "protocol": view.protocol,
     }
 
 
@@ -615,12 +638,13 @@ async def _recommend_proxy_impl(
 
     rotator = await get_rotator()
 
-    # Filter proxies by region if specified (thread-safe snapshot)
-    candidates = rotator.pool.get_all_proxies()
+    candidates = list_proxy_views(rotator)
     if region:
         region_upper = region.upper()
         candidates = [
-            p for p in candidates if p.country_code and p.country_code.upper() == region_upper
+            view
+            for view in candidates
+            if view.country_code and view.country_code.upper() == region_upper
         ]
         if not candidates:
             return {"error": f"No proxies found for region: {region}", "code": 404}
@@ -629,67 +653,67 @@ async def _recommend_proxy_impl(
     if performance == "high":
         # High performance: prioritize low latency and high success rate
         candidates.sort(
-            key=lambda p: (-(p.success_rate or 0.0), p.average_response_time_ms or float("inf"))
+            key=lambda view: (-(view.success_rate or 0.0), view.avg_latency_ms or float("inf"))
         )
     elif performance == "medium":
         # Medium performance: balance between success rate and latency
         candidates.sort(
-            key=lambda p: (
-                -(p.success_rate or 0.0) * 0.7
-                - (1.0 / max(p.average_response_time_ms or 1000, 1)) * 0.3,
+            key=lambda view: (
+                -(view.success_rate or 0.0) * 0.7
+                - (1.0 / max(view.avg_latency_ms or 1000, 1)) * 0.3,
             )
         )
     else:  # low
         # Low performance: just ensure it's working
-        candidates.sort(key=lambda p: -(p.success_rate or 0.0))
+        candidates.sort(key=lambda view: -(view.success_rate or 0.0))
 
     if not candidates:
         return {"error": "No proxies available", "code": 404}
 
-    best_proxy = candidates[0]
+    best_view = candidates[0]
 
     # Calculate a score (0-1) based on success rate and response time
-    score = best_proxy.success_rate or 0.0
-    if best_proxy.average_response_time_ms and best_proxy.average_response_time_ms > 0:
+    score = best_view.success_rate or 0.0
+    if best_view.avg_latency_ms and best_view.avg_latency_ms > 0:
         # Penalize high latency (normalize to 0-1, where 100ms = 1.0, 1000ms = 0.1)
-        latency_score = max(0.0, 1.0 - (best_proxy.average_response_time_ms / 1000.0))
+        latency_score = max(0.0, 1.0 - (best_view.avg_latency_ms / 1000.0))
         score = (score + latency_score) / 2.0
 
     reason_parts = [f"Best {performance} performance proxy"]
     if region:
         reason_parts.append(f"in {region.upper()} region")
-    if best_proxy.success_rate and best_proxy.success_rate > 0.9:
+    if best_view.success_rate and best_view.success_rate > 0.9:
         reason_parts.append("with high reliability")
 
     # Get alternatives (top 3 excluding the best)
     alternatives = []
-    for alt_proxy in candidates[1:4]:
-        alt_score = alt_proxy.success_rate or 0.0
-        if alt_proxy.average_response_time_ms and alt_proxy.average_response_time_ms > 0:
-            alt_latency_score = max(0.0, 1.0 - (alt_proxy.average_response_time_ms / 1000.0))
+    for alt_view in candidates[1:4]:
+        alt_score = alt_view.success_rate or 0.0
+        if alt_view.avg_latency_ms and alt_view.avg_latency_ms > 0:
+            alt_latency_score = max(0.0, 1.0 - (alt_view.avg_latency_ms / 1000.0))
             alt_score = (alt_score + alt_latency_score) / 2.0
 
         alternatives.append(
             {
-                "id": str(alt_proxy.id),
-                "url": str(alt_proxy.url),
+                "id": alt_view.id,
+                "url": alt_view.url,
                 "score": round(alt_score, 2),
-                "reason": f"Alternative with {alt_proxy.success_rate:.1%} success rate",
+                "reason": f"Alternative with {alt_view.success_rate:.1%} success rate",
             }
         )
 
     return {
         "recommendation": {
-            "id": str(best_proxy.id),
-            "url": str(best_proxy.url),
+            "id": best_view.id,
+            "url": best_view.url,
             "score": round(score, 2),
             "reason": " ".join(reason_parts),
             "metrics": {
-                "success_rate": best_proxy.success_rate,
-                "avg_latency_ms": best_proxy.average_response_time_ms or 0.0,
-                "region": best_proxy.country_code or "UNKNOWN",
+                "success_rate": best_view.success_rate,
+                "avg_latency_ms": best_view.avg_latency_ms,
+                "region": best_view.country_code or "UNKNOWN",
                 "performance_tier": performance,
-                "total_requests": best_proxy.total_requests,
+                "total_requests": best_view.total_requests,
             },
             "alternatives": alternatives,
         }
@@ -712,12 +736,8 @@ async def _get_health_impl(ctx: object | None = None) -> dict[str, object]:
     # Get pool statistics
     stats = rotator.get_pool_stats()
 
-    # Calculate average latency (thread-safe snapshot)
-    proxies_snapshot = rotator.pool.get_all_proxies()
     latencies = [
-        p.average_response_time_ms
-        for p in proxies_snapshot
-        if p.average_response_time_ms is not None and p.average_response_time_ms > 0
+        view.avg_latency_ms for view in list_proxy_views(rotator) if view.avg_latency_ms > 0
     ]
     avg_latency = sum(latencies) / len(latencies) if latencies else 0.0
 
@@ -800,8 +820,9 @@ async def _reset_circuit_breaker_impl(
             "message": f"Circuit breaker reset successfully for proxy {proxy_id}",
         }
     except Exception as e:
-        logger.error(f"Failed to reset circuit breaker for {proxy_id}: {e}")
-        return {"error": f"Failed to reset circuit breaker: {str(e)}", "code": 500}
+        safe_error = _sanitize_error_text(e)
+        logger.error(f"Failed to reset circuit breaker for {proxy_id}: {safe_error}")
+        return {"error": f"Failed to reset circuit breaker: {safe_error}", "code": 500}
 
 
 async def _add_proxy_impl(proxy_url: str, ctx: object | None = None) -> dict[str, object]:
@@ -843,25 +864,26 @@ async def _add_proxy_impl(proxy_url: str, ctx: object | None = None) -> dict[str
             health_status=HealthStatus.UNKNOWN,
         )
     except Exception as e:
-        return {"error": f"Invalid proxy URL: {str(e)}", "code": 400}
+        return {"error": f"Invalid proxy URL: {_sanitize_error_text(e)}", "code": 400}
 
     rotator = await get_rotator()
 
     try:
-        await rotator.add_proxy(proxy)
+        view = await add_proxy_to_rotator_async(rotator, proxy)
         return {
             "success": True,
             "proxy": {
-                "id": str(proxy.id),
-                "url": str(proxy.url),
-                "protocol": proxy.protocol,
-                "status": proxy.health_status.value,
+                "id": view.id,
+                "url": view.url,
+                "protocol": view.protocol,
+                "status": view.health,
             },
             "pool_size": rotator.pool.size,
         }
     except Exception as e:
-        logger.error(f"Failed to add proxy: {e}")
-        return {"error": f"Failed to add proxy: {str(e)}", "code": 500}
+        safe_error = _sanitize_error_text(e)
+        logger.error(f"Failed to add proxy: {safe_error}")
+        return {"error": f"Failed to add proxy: {safe_error}", "code": 500}
 
 
 async def _remove_proxy_impl(proxy_id: str, ctx: object | None = None) -> dict[str, object]:
@@ -887,20 +909,11 @@ async def _remove_proxy_impl(proxy_id: str, ctx: object | None = None) -> dict[s
     rotator = await get_rotator()
 
     # Find and remove the proxy
-    proxy = None
-    for p in rotator.pool.get_all_proxies():
-        if p.id == proxy_uuid:
-            proxy = p
-            break
-
-    if proxy is None:
+    if find_proxy_view(rotator, proxy_uuid) is None:
         return {"error": f"Proxy not found: {proxy_id}", "code": 404}
 
     try:
-        rotator.pool.remove_proxy(proxy_uuid)
-        # Also remove circuit breaker if exists
-        if proxy_id in rotator.circuit_breakers:
-            del rotator.circuit_breakers[proxy_id]
+        await remove_proxy_from_rotator_async(rotator, proxy_id)
         return {
             "success": True,
             "proxy_id": proxy_id,
@@ -908,8 +921,9 @@ async def _remove_proxy_impl(proxy_id: str, ctx: object | None = None) -> dict[s
             "pool_size": rotator.pool.size,
         }
     except Exception as e:
-        logger.error(f"Failed to remove proxy: {e}")
-        return {"error": f"Failed to remove proxy: {str(e)}", "code": 500}
+        safe_error = _sanitize_error_text(e)
+        logger.error(f"Failed to remove proxy: {safe_error}")
+        return {"error": f"Failed to remove proxy: {safe_error}", "code": 500}
 
 
 async def _fetch_proxies_impl(
@@ -955,8 +969,9 @@ async def _fetch_proxies_impl(
             "message": f"Fetched {fetched_count} proxies from public sources",
         }
     except Exception as e:
-        logger.error(f"Failed to fetch proxies: {e}")
-        return {"error": f"Failed to fetch proxies: {str(e)}", "code": 500}
+        safe_error = _sanitize_error_text(e)
+        logger.error(f"Failed to fetch proxies: {safe_error}")
+        return {"error": f"Failed to fetch proxies: {safe_error}", "code": 500}
 
 
 async def _validate_proxy_impl(
@@ -1020,7 +1035,8 @@ async def _validate_proxy_impl(
             async with httpx.AsyncClient(
                 proxy=str(proxy.url),
                 timeout=timeout,
-                verify=False,  # nosec B501 - Intentional for proxy validation
+                # Intentional for proxy validation.
+                verify=False,  # nosec B501
             ) as client:
                 start = asyncio.get_event_loop().time()
                 resp = await client.get(test_url)
@@ -1033,7 +1049,7 @@ async def _validate_proxy_impl(
                 results.append(
                     {
                         "proxy_id": str(proxy.id),
-                        "url": str(proxy.url),
+                        "url": public_proxy_url(str(proxy.url)),
                         "valid": is_valid,
                         "latency_ms": round(latency, 2) if is_valid else None,
                         "status_code": resp.status_code,
@@ -1045,9 +1061,9 @@ async def _validate_proxy_impl(
             results.append(
                 {
                     "proxy_id": str(proxy.id),
-                    "url": str(proxy.url),
+                    "url": public_proxy_url(str(proxy.url)),
                     "valid": False,
-                    "error": str(e),
+                    "error": _sanitize_error_text(e),
                 }
             )
 
@@ -1104,8 +1120,9 @@ async def _set_strategy_impl(strategy: str, ctx: object | None = None) -> dict[s
             "message": f"Strategy changed from {old_strategy} to {new_strategy}",
         }
     except Exception as e:
-        logger.error(f"Failed to set strategy: {e}")
-        return {"error": f"Failed to set strategy: {str(e)}", "code": 500}
+        safe_error = _sanitize_error_text(e)
+        logger.error(f"Failed to set strategy: {safe_error}")
+        return {"error": f"Failed to set strategy: {safe_error}", "code": 500}
 
 
 # ============================================================================
@@ -1151,12 +1168,15 @@ async def _proxywhirl_tool(
     Returns:
         dict[str, object]: Operation result.
     """
-    # Auth check for direct calls (middleware handles MCP calls)
-    # Only check auth if ctx is None (direct call, not via MCP)
     if ctx is None:
-        auth = get_auth()
-        if not auth.authenticate({"api_key": api_key}):
-            return {"error": "Authentication failed: Invalid API key", "code": 401}
+        auth_error = _authorize_tool_call(action, api_key=api_key)
+        if auth_error is not None:
+            return auth_error
+    elif action in _WRITE_ACTIONS:
+        credentials = get_auth().extract_context_credentials(ctx)
+        auth_error = _authorize_tool_call(action, credentials=credentials)
+        if auth_error is not None:
+            return auth_error
 
     # Use context for logging if available, otherwise fall back to loguru
     def log_info(msg: str) -> None:
@@ -1223,9 +1243,33 @@ async def _async_log(ctx: object, level: str, msg: str) -> None:
         getattr(logger, level)(msg)
 
 
-# Register unified tool with FastMCP when available
-# Use conditional to wrap with FastMCP decorator or provide standalone function for testing
-proxywhirl = mcp.tool()(_proxywhirl_tool) if mcp is not None else _proxywhirl_tool
+async def _proxywhirl_mcp_tool(
+    action: ProxywhirlAction,
+    proxy_id: str | None = None,
+    proxy_url: str | None = None,
+    strategy: str | None = None,
+    criteria: dict[str, object] | None = None,
+    ctx: object | None = None,
+) -> dict[str, object]:
+    """Model-visible MCP tool wrapper.
+
+    API keys intentionally are not accepted as tool arguments. FastMCP requests
+    must supply credentials through metadata or transport headers; direct tests
+    can keep using ``_proxywhirl_tool(..., api_key=...)``.
+    """
+    return await _proxywhirl_tool(
+        action=action,
+        proxy_id=proxy_id,
+        proxy_url=proxy_url,
+        strategy=strategy,
+        criteria=criteria,
+        ctx=ctx,
+    )
+
+
+# Register unified tool with FastMCP when available. The registered wrapper omits
+# api_key so credentials stay out of the model-visible schema.
+proxywhirl = mcp.tool()(_proxywhirl_mcp_tool) if mcp is not None else _proxywhirl_mcp_tool
 
 
 # ============================================================================
@@ -1401,159 +1445,3 @@ if mcp is not None:
     async def troubleshooting_workflow() -> str:
         """Workflow prompt for debugging proxy issues."""
         return await _troubleshooting_workflow_prompt()
-
-
-# ============================================================================
-# Public API Wrappers (for backward compatibility and testing)
-# ============================================================================
-
-
-async def list_proxies(api_key: str | None = None) -> dict[str, object]:
-    """Wrapper to call shared list_proxies implementation.
-
-    Args:
-        api_key: Optional API key for authentication
-
-    Returns:
-        dict[str, object]: Proxy list and pool statistics.
-    """
-    # Auth check for direct API calls (not via MCP middleware)
-    auth = get_auth()
-    if not auth.authenticate({"api_key": api_key}):
-        return {"error": "Authentication failed: Invalid API key", "code": 401}
-    return await _list_proxies_impl()
-
-
-async def rotate_proxy(api_key: str | None = None) -> dict[str, object]:
-    """Wrapper to call shared rotate_proxy implementation.
-
-    Args:
-        api_key: Optional API key for authentication
-
-    Returns:
-        dict[str, object]: Selected proxy information.
-    """
-    auth = get_auth()
-    if not auth.authenticate({"api_key": api_key}):
-        return {"error": "Authentication failed: Invalid API key", "code": 401}
-    return await _rotate_proxy_impl()
-
-
-async def proxy_status(proxy_id: str, api_key: str | None = None) -> dict[str, object]:
-    """Wrapper to call shared proxy_status implementation.
-
-    Args:
-        proxy_id: UUID of the proxy to check
-        api_key: Optional API key for authentication
-
-    Returns:
-        dict[str, object]: Proxy status and metrics.
-    """
-    auth = get_auth()
-    if not auth.authenticate({"api_key": api_key}):
-        return {"error": "Authentication failed: Invalid API key", "code": 401}
-    return await _proxy_status_impl(proxy_id)
-
-
-async def recommend_proxy(
-    region: str | None = None,
-    performance: str | None = "medium",
-    api_key: str | None = None,
-) -> dict[str, object]:
-    """Wrapper to call shared recommend_proxy implementation.
-
-    Args:
-        region: Optional region filter (country code)
-        performance: Performance tier (high, medium, low)
-        api_key: Optional API key for authentication
-
-    Returns:
-        dict[str, object]: Recommendation and alternatives.
-    """
-    auth = get_auth()
-    if not auth.authenticate({"api_key": api_key}):
-        return {"error": "Authentication failed: Invalid API key", "code": 401}
-    return await _recommend_proxy_impl(region=region, performance=performance)
-
-
-async def get_proxy_health() -> str:
-    """Wrapper to call shared get_proxy_health implementation."""
-    return await _get_proxy_health_impl()
-
-
-async def get_proxy_config() -> str:
-    """Wrapper to call shared get_proxy_config implementation."""
-    return await _get_proxy_config_impl()
-
-
-async def get_rate_limit_status(proxy_id: str, api_key: str | None = None) -> dict[str, object]:
-    """Get rate limiting status for a specific proxy (backward compatibility wrapper).
-
-    Note: Rate limiting info is now included in the health action response.
-    This wrapper is kept for backward compatibility.
-
-    Args:
-        proxy_id: UUID of the proxy to check
-        api_key: Optional API key for authentication
-
-    Returns:
-        dict[str, object]: Rate limit information.
-    """
-    from uuid import UUID
-
-    logger.info(f"Tool called: get_rate_limit_status for {proxy_id}")
-
-    # Authenticate request
-    auth = get_auth()
-    if not auth.authenticate({"api_key": api_key}):
-        logger.warning("Authentication failed for get_rate_limit_status")
-        return {"error": "Authentication failed: Invalid API key", "code": 401}
-
-    rotator = await get_rotator()
-
-    # Check if the proxy exists
-    try:
-        proxy_uuid = UUID(proxy_id)
-    except ValueError:
-        return {"error": f"Invalid proxy_id format: {proxy_id}", "code": 400}
-
-    # Use thread-safe snapshot to find proxy
-    proxy = None
-    for p in rotator.pool.get_all_proxies():
-        if p.id == proxy_uuid:
-            proxy = p
-            break
-
-    if proxy is None:
-        return {"error": f"Proxy not found: {proxy_id}", "code": 404}
-
-    # Check if rate limiter is configured
-    if hasattr(rotator, "rate_limiter") and rotator.rate_limiter is not None:
-        try:
-            return {
-                "proxy_id": proxy_id,
-                "rate_limit": {
-                    "enabled": True,
-                    "message": "Rate limiting is configured",
-                    "max_requests": getattr(rotator.rate_limiter, "max_requests", None),
-                    "time_window_seconds": getattr(rotator.rate_limiter, "time_window", None),
-                    "current_usage": 0,  # Would need actual tracking
-                    "remaining": None,
-                },
-            }
-        except Exception:
-            pass
-
-    # Rate limiting not configured (placeholder implementation)
-    return {
-        "proxy_id": proxy_id,
-        "rate_limit": {
-            "enabled": False,
-            "message": "Rate limiting is not configured for this proxy",
-            "max_requests": None,
-            "time_window_seconds": None,
-            "current_usage": 0,
-            "remaining": None,
-        },
-        "note": "Rate limiting can be configured via the RateLimiter class",
-    }

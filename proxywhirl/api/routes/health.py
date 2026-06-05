@@ -14,15 +14,7 @@ from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from prometheus_client import REGISTRY, generate_latest
 
-from proxywhirl.api.core import (
-    _app_start_time,
-    _get_proxy_id,
-    _last_rotation_time,
-    get_config,
-    get_rotator,
-    get_storage,
-    update_prometheus_metrics,
-)
+from proxywhirl._proxy_views import list_proxy_views
 from proxywhirl.api.models import (
     APIResponse,
     HealthResponse,
@@ -30,6 +22,15 @@ from proxywhirl.api.models import (
     ReadinessResponse,
     StatusResponse,
 )
+from proxywhirl.api.runtime import (
+    get_app_start_time,
+    get_config,
+    get_last_rotation_time,
+    get_rotator,
+    get_storage,
+    update_prometheus_metrics,
+)
+from proxywhirl.models import HealthStatus
 from proxywhirl.rotator import ProxyWhirl
 
 router = APIRouter()
@@ -54,7 +55,7 @@ async def health_check(
     Returns:
         Health status response
     """
-    uptime_seconds = int((datetime.now(timezone.utc) - _app_start_time).total_seconds())
+    uptime_seconds = int((datetime.now(timezone.utc) - get_app_start_time()).total_seconds())
 
     # Determine health based on proxy pool (use thread-safe property)
     total_proxies = rotator.pool.size
@@ -152,12 +153,10 @@ async def get_status(
     """
     from proxywhirl.api.models import ProxyPoolStats
 
-    # Use thread-safe property
-    total = rotator.pool.size
-    # Calculate active/failed based on circuit breaker states and health checks
-    circuit_breakers = rotator.get_circuit_breaker_states()
-    failed = sum(1 for cb in circuit_breakers.values() if cb.state.value == "open")
-    healthy = rotator.pool.healthy_count
+    proxy_views = list_proxy_views(rotator)
+    total = len(proxy_views)
+    failed = sum(1 for view in proxy_views if view.status == "failed")
+    healthy = sum(1 for view in proxy_views if view.health == HealthStatus.HEALTHY.value)
     active = total - failed
     healthy_percentage = (healthy / total * 100) if total > 0 else 0.0
 
@@ -166,7 +165,7 @@ async def get_status(
         active=active,
         failed=failed,
         healthy_percentage=healthy_percentage,
-        last_rotation=_last_rotation_time,
+        last_rotation=get_last_rotation_time(),
     )
 
     storage_backend = "memory"
@@ -210,37 +209,36 @@ async def get_stats(
     """
     from proxywhirl.api.models import ProxyStats
 
-    # Calculate aggregate metrics from all proxies (thread-safe snapshot)
-    all_proxies = rotator.pool.get_all_proxies()
-    total_requests = sum(p.requests_started for p in all_proxies)
-    total_completed = sum(p.requests_completed for p in all_proxies)
-    total_failed = sum(p.total_failures for p in all_proxies)
+    proxy_views = list_proxy_views(rotator)
+    total_requests = sum(view.total_requests for view in proxy_views)
+    total_completed = sum(view.successful_requests for view in proxy_views)
+    total_failed = sum(view.failed_requests for view in proxy_views)
 
     # Calculate overall error rate
     error_rate = (total_failed / total_requests * 100) if total_requests > 0 else 0.0
 
     # Calculate weighted average latency (average_response_time_ms is already in ms)
     total_latency_weighted = sum(
-        (p.average_response_time_ms or 0) * p.requests_completed
-        for p in all_proxies
-        if p.average_response_time_ms
+        view.avg_latency_ms * view.successful_requests
+        for view in proxy_views
+        if view.avg_latency_ms
     )
     avg_latency_ms = total_latency_weighted / total_completed if total_completed > 0 else 0.0
 
     # Calculate requests per second based on uptime
-    uptime_seconds = (datetime.now(timezone.utc) - _app_start_time).total_seconds()
+    uptime_seconds = (datetime.now(timezone.utc) - get_app_start_time()).total_seconds()
     requests_per_second = total_requests / uptime_seconds if uptime_seconds > 0 else 0.0
 
     # Build per-proxy stats
     proxy_stats_list = []
-    for proxy in all_proxies:
+    for view in proxy_views:
         proxy_stats_list.append(
             ProxyStats(
-                proxy_id=_get_proxy_id(proxy),
-                requests=proxy.requests_started,
-                successes=proxy.requests_completed,
-                failures=proxy.total_failures,
-                avg_latency_ms=int(proxy.average_response_time_ms or 0),
+                proxy_id=view.id,
+                requests=view.total_requests,
+                successes=view.successful_requests,
+                failures=view.failed_requests,
+                avg_latency_ms=view.avg_latency_ms,
             )
         )
 

@@ -5,27 +5,27 @@
 ### Local Installation
 
 ```bash
-pip install proxywhirl
-# or
-uv pip install proxywhirl
+uv add proxywhirl
+uv run uvicorn proxywhirl.api:app --host 0.0.0.0 --port 8000
 ```
 
 ### Docker Deployment
 
 ```dockerfile
-FROM python:3.11-slim
+FROM ghcr.io/astral-sh/uv:python3.11-bookworm-slim
 
 WORKDIR /app
 
-RUN pip install proxywhirl
+RUN uv tool install proxywhirl
+ENV PATH="/root/.local/bin:${PATH}"
 
-CMD ["proxywhirl", "api", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "proxywhirl.api:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 ### Docker Compose
 
 ```yaml
-version: '3.8'
+version: "3.8"
 services:
   proxywhirl:
     image: proxywhirl:latest
@@ -66,21 +66,21 @@ spec:
         app: proxywhirl
     spec:
       containers:
-      - name: proxywhirl
-        image: proxywhirl:latest
-        ports:
-        - containerPort: 8000
-        volumeMounts:
-        - name: data
-          mountPath: /data
+        - name: proxywhirl
+          image: proxywhirl:latest
+          ports:
+            - containerPort: 8000
+          volumeMounts:
+            - name: data
+              mountPath: /data
   volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 10Gi
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
 ```
 
 ## Configuration Management
@@ -128,7 +128,7 @@ strategy:
 scrape_configs:
   - job_name: proxywhirl
     static_configs:
-      - targets: ['localhost:8000']
+      - targets: ["localhost:8000"]
 ```
 
 ### Key Metrics
@@ -149,7 +149,7 @@ scrape_configs:
       {
         "title": "Proxy Health",
         "targets": [
-          {"expr": "proxywhirl_proxy_healthy_count / proxywhirl_proxy_count"}
+          { "expr": "proxywhirl_proxy_healthy_count / proxywhirl_proxy_count" }
         ]
       }
     ]
@@ -177,10 +177,10 @@ configure_logging(
 ```yaml
 # filebeat.yml
 filebeat.inputs:
-- type: log
-  enabled: true
-  paths:
-    - /var/log/proxywhirl/*.log
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/proxywhirl/*.log
 output.elasticsearch:
   hosts: ["localhost:9200"]
 ```
@@ -190,17 +190,17 @@ output.elasticsearch:
 ### Database Backup
 
 ```bash
-# Automatic backup
-proxywhirl db export --output backup.db
+# Automatic SQLite backup
+uv run python -c "import sqlite3; src = sqlite3.connect('proxywhirl.db'); dst = sqlite3.connect('backup.db'); src.backup(dst); dst.close(); src.close()"
 
 # Schedule with cron
-0 2 * * * proxywhirl db export --output /backups/proxywhirl-$(date +%Y%m%d).db
+0 2 * * * sqlite3 proxywhirl.db ".backup /backups/proxywhirl-$(date +\%Y\%m\%d).db"
 ```
 
 ### Recovery
 
 ```bash
-proxywhirl db import --file backup.db
+cp backup.db proxywhirl.db
 ```
 
 ## Health Checks
@@ -208,10 +208,11 @@ proxywhirl db import --file backup.db
 ### API Health Endpoint
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8000/api/health
 ```
 
 Response:
+
 ```json
 {
   "status": "healthy",
@@ -227,13 +228,13 @@ Response:
 ```yaml
 livenessProbe:
   httpGet:
-    path: /health
+    path: /api/health
     port: 8000
   initialDelaySeconds: 30
   periodSeconds: 10
 readinessProbe:
   httpGet:
-    path: /ready
+    path: /api/health
     port: 8000
   initialDelaySeconds: 10
   periodSeconds: 5
@@ -245,9 +246,9 @@ readinessProbe:
 
 ```bash
 # Multiple instances with shared database
-Instance 1: proxywhirl api --port 8000
-Instance 2: proxywhirl api --port 8001
-Instance 3: proxywhirl api --port 8002
+Instance 1: uv run uvicorn proxywhirl.api:app --port 8000
+Instance 2: uv run uvicorn proxywhirl.api:app --port 8001
+Instance 3: uv run uvicorn proxywhirl.api:app --port 8002
 
 # Load balancer
 nginx upstream proxywhirl {
@@ -260,6 +261,7 @@ nginx upstream proxywhirl {
 ### Vertical Scaling
 
 Increase resources:
+
 - Cache size
 - Max retries
 - Validation timeout
@@ -321,4 +323,3 @@ proxywhirl source refresh --all
 # Increase validation timeout
 proxywhirl config set --validation-timeout 60
 ```
-

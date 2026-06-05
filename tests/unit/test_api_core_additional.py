@@ -14,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from proxywhirl.api import app
 from proxywhirl.api import core as api_core
+from proxywhirl.api import runtime as api_runtime
 from proxywhirl.api.models import (
     CreateProxyRequest,
     HealthCheckRequest,
@@ -63,13 +64,9 @@ def client() -> TestClient:
 @pytest.fixture(autouse=True)
 def reset_api_state() -> None:
     """Reset API globals between tests to avoid cross-test pollution."""
-    api_core._rotator = None
-    api_core._storage = None
-    api_core._config = {}
+    api_runtime.reset_api_state()
     yield
-    api_core._rotator = None
-    api_core._storage = None
-    api_core._config = {}
+    api_runtime.reset_api_state()
 
 
 class DummyRetryMetrics:
@@ -143,10 +140,11 @@ async def test_lifespan_initializes_and_saves(tmp_path, monkeypatch) -> None:
     with patch.object(api_core.SQLiteStorage, "load", AsyncMock(return_value=[proxy])) as load_mock:
         with patch.object(api_core.SQLiteStorage, "save", AsyncMock()) as save_mock:
             async with api_core.lifespan(app):
-                assert api_core._rotator is not None
-                assert api_core._storage is not None
-                assert api_core._rotator.pool.size == 1
-                assert api_core._config["cors_origins"] == ["http://example.com"]
+                rotator = api_runtime.get_current_rotator()
+                assert rotator is not None
+                assert api_runtime.get_storage() is not None
+                assert rotator.pool.size == 1
+                assert api_runtime.get_config()["cors_origins"] == ["http://example.com"]
             load_mock.assert_awaited_once()
             save_mock.assert_awaited_once()
 
@@ -159,12 +157,12 @@ async def test_lifespan_handles_load_failure(tmp_path, monkeypatch) -> None:
 
     with patch.object(api_core.SQLiteStorage, "load", AsyncMock(side_effect=RuntimeError("boom"))):
         async with api_core.lifespan(app):
-            assert api_core._rotator is not None
+            assert api_runtime.get_current_rotator() is not None
 
 
 def test_update_prometheus_metrics_no_rotator() -> None:
     """No rotator should cause metrics update to no-op."""
-    api_core._rotator = None
+    api_runtime.set_rotator(None)
     api_core.update_prometheus_metrics()
 
 
@@ -182,7 +180,7 @@ def test_update_prometheus_metrics_updates_states() -> None:
         "proxy1": DummyCB("open"),
         "proxy2": DummyCB("half_open"),
     }
-    api_core._rotator = rotator
+    api_runtime.set_rotator(rotator)
     api_core.update_prometheus_metrics()
 
 
@@ -192,7 +190,7 @@ def test_update_prometheus_metrics_handles_exception() -> None:
     rotator.pool.size = 1
     rotator.pool.healthy_count = 1
     rotator.get_circuit_breaker_states.side_effect = RuntimeError("boom")
-    api_core._rotator = rotator
+    api_runtime.set_rotator(rotator)
     api_core.update_prometheus_metrics()
 
 
@@ -209,7 +207,7 @@ def test_request_endpoint_success(client: TestClient) -> None:
     rotator = _mock_rotator_with_proxy()
     response = httpx.Response(200, text="ok", headers={"X-Test": "1"})
 
-    with patch("proxywhirl.api.core._rotator", rotator):
+    with patch("proxywhirl.api.runtime._rotator", rotator):
         with patch("httpx.AsyncClient.request", AsyncMock(return_value=response)):
             result = client.post(
                 "/api/request",
@@ -227,7 +225,7 @@ def test_request_endpoint_no_proxies(client: TestClient) -> None:
     rotator = _mock_rotator_with_proxy()
     rotator.strategy.select.return_value = None
 
-    with patch("proxywhirl.api.core._rotator", rotator):
+    with patch("proxywhirl.api.runtime._rotator", rotator):
         result = client.post(
             "/api/request",
             json={"url": "https://example.com", "method": "GET"},
@@ -240,7 +238,7 @@ def test_request_endpoint_proxy_error_retries(client: TestClient) -> None:
     """Proxy errors should retry and eventually return 502."""
     rotator = _mock_rotator_with_proxy()
 
-    with patch("proxywhirl.api.core._rotator", rotator):
+    with patch("proxywhirl.api.runtime._rotator", rotator):
         with patch(
             "httpx.AsyncClient.request",
             AsyncMock(side_effect=httpx.ProxyError("boom")),
@@ -257,7 +255,7 @@ def test_request_endpoint_unexpected_error(client: TestClient) -> None:
     """Unexpected errors should return 500."""
     rotator = _mock_rotator_with_proxy()
 
-    with patch("proxywhirl.api.core._rotator", rotator):
+    with patch("proxywhirl.api.runtime._rotator", rotator):
         with patch(
             "httpx.AsyncClient.request",
             AsyncMock(side_effect=RuntimeError("boom")),
@@ -287,7 +285,7 @@ def test_list_proxies_filters(client: TestClient) -> None:
         api_core._get_proxy_id(proxy_unhealthy): DummyCB("open")
     }
 
-    with patch("proxywhirl.api.core._rotator", rotator):
+    with patch("proxywhirl.api.runtime._rotator", rotator):
         result = client.get("/api/proxies", params={"status_filter": "active", "page": 1})
 
     assert result.status_code == 200
@@ -303,7 +301,7 @@ def test_list_proxies_invalid_pagination(client: TestClient) -> None:
     rotator.pool.get_all_proxies.return_value = []
     rotator.get_circuit_breaker_states.return_value = {}
 
-    with patch("proxywhirl.api.core._rotator", rotator):
+    with patch("proxywhirl.api.runtime._rotator", rotator):
         bad_page = client.get("/api/proxies", params={"page": 0})
         bad_size = client.get("/api/proxies", params={"page_size": 101})
 
@@ -327,6 +325,16 @@ async def test_add_proxy_success_and_duplicate() -> None:
     with pytest.raises(HTTPException) as exc_info:
         await add_proxy.__wrapped__(request, proxy_data, rotator, None)
     assert exc_info.value.status_code == 409
+
+    credentialed_url = "http://user:pass@proxy.example.com:8080"
+    rotator.pool.get_all_proxies.return_value = [Proxy(url=credentialed_url)]
+    with pytest.raises(HTTPException) as credentialed_exc_info:
+        await add_proxy.__wrapped__(
+            request, CreateProxyRequest(url=credentialed_url), rotator, None
+        )
+    assert credentialed_exc_info.value.status_code == 409
+    assert "user:pass" not in credentialed_exc_info.value.detail
+    assert "http://proxy.example.com:8080" in credentialed_exc_info.value.detail
 
 
 @pytest.mark.asyncio
@@ -558,7 +566,7 @@ async def test_delete_proxy_success_and_missing() -> None:
     storage.save = AsyncMock()
 
     await delete_proxy(api_core._get_proxy_id(proxy), rotator, storage, None)
-    rotator.pool.remove_proxy.assert_called_once_with(proxy.id)
+    rotator.remove_proxy.assert_called_once_with(api_core._get_proxy_id(proxy))
     storage.save.assert_awaited_once()
 
     rotator.pool.get_all_proxies.return_value = []
@@ -661,14 +669,15 @@ async def test_get_and_update_configuration() -> None:
 @pytest.mark.asyncio
 async def test_retry_policy_endpoints() -> None:
     """Retry policy endpoints should get and update policies."""
-    api_core._rotator = None
+    api_runtime.set_rotator(None)
     with pytest.raises(HTTPException):
         await get_retry_policy(None)
 
     retry_policy = RetryPolicy()
-    api_core._rotator = MagicMock()
-    api_core._rotator.retry_policy = retry_policy
-    api_core._rotator.retry_executor = SimpleNamespace(retry_policy=retry_policy)
+    rotator = MagicMock()
+    rotator.retry_policy = retry_policy
+    rotator.retry_executor = SimpleNamespace(retry_policy=retry_policy)
+    api_runtime.set_rotator(rotator)
 
     response = await get_retry_policy(None)
     assert response.status == "success"
@@ -714,10 +723,11 @@ async def test_circuit_breaker_endpoints() -> None:
             )
         ],
     )
-    api_core._rotator = MagicMock()
-    api_core._rotator.get_circuit_breaker_states.return_value = {"proxy-1": cb}
-    api_core._rotator.get_retry_metrics.return_value = metrics
-    api_core._rotator.reset_circuit_breaker = MagicMock()
+    rotator = MagicMock()
+    rotator.get_circuit_breaker_states.return_value = {"proxy-1": cb}
+    rotator.get_retry_metrics.return_value = metrics
+    rotator.reset_circuit_breaker = MagicMock()
+    api_runtime.set_rotator(rotator)
 
     list_response = await list_circuit_breakers(None)
     assert list_response.status == "success"
@@ -731,7 +741,7 @@ async def test_circuit_breaker_endpoints() -> None:
     reset_response = await reset_circuit_breaker.__wrapped__(_make_request(), "proxy-1", None)
     assert reset_response.status == "success"
 
-    api_core._rotator.reset_circuit_breaker.side_effect = KeyError("missing")
+    rotator.reset_circuit_breaker.side_effect = KeyError("missing")
     with pytest.raises(HTTPException) as exc_info:
         await reset_circuit_breaker.__wrapped__(_make_request(), "missing", None)
     assert exc_info.value.status_code == 404
@@ -767,8 +777,9 @@ async def test_retry_metrics_endpoints() -> None:
     }
     metrics = DummyRetryMetrics(summary=summary, timeseries=timeseries, by_proxy=by_proxy)
 
-    api_core._rotator = MagicMock()
-    api_core._rotator.get_retry_metrics.return_value = metrics
+    rotator = MagicMock()
+    rotator.get_retry_metrics.return_value = metrics
+    api_runtime.set_rotator(rotator)
 
     summary_response = await get_retry_metrics(None)
     assert summary_response.status == "success"
@@ -811,9 +822,10 @@ async def test_circuit_breaker_metrics_endpoint() -> None:
             )
         ],
     )
-    api_core._rotator = MagicMock()
-    api_core._rotator.get_circuit_breaker_states.return_value = {"proxy-1": cb}
-    api_core._rotator.get_retry_metrics.return_value = metrics
+    rotator = MagicMock()
+    rotator.get_circuit_breaker_states.return_value = {"proxy-1": cb}
+    rotator.get_retry_metrics.return_value = metrics
+    api_runtime.set_rotator(rotator)
 
     response = await get_circuit_breaker_metrics(24, None)
     assert response.status == "success"

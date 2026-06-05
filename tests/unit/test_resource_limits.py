@@ -825,10 +825,10 @@ class TestConcurrentStressScenarios:
                 # Add proxies
                 for i in range(10):
                     proxy = ProxyFactory.healthy(
-                        url=f"http://worker{worker_id}_{i}.example.com:8080"
+                        url=f"http://worker{worker_id}-{i}.example.com:8080"
                     )
                     pool.add_proxy(proxy)
-                    proxy_ids.append(str(proxy.id))
+                    proxy_ids.append(proxy.id)
 
                 # Remove some
                 for proxy_id in proxy_ids[:5]:

@@ -13,12 +13,19 @@ import os
 from cryptography.fernet import Fernet, MultiFernet
 from pydantic import SecretStr
 
+from proxywhirl.settings import CacheSettings
+
 __all__ = [
     "CredentialEncryptor",
     "get_encryption_keys",
     "create_multi_fernet",
     "rotate_key",
 ]
+
+
+def _secret_value(secret: SecretStr | None) -> str | None:
+    """Return the raw secret string without exposing it in logs or reprs."""
+    return secret.get_secret_value() if secret is not None else None
 
 
 def get_encryption_keys() -> list[bytes]:
@@ -41,9 +48,10 @@ def get_encryption_keys() -> list[bytes]:
         1
     """
     keys: list[bytes] = []
+    cache_settings = CacheSettings()
 
     # Get current key
-    current_key_str = os.environ.get("PROXYWHIRL_CACHE_ENCRYPTION_KEY")
+    current_key_str = _secret_value(cache_settings.encryption_key)
     if current_key_str:
         current_key = (
             current_key_str.encode("utf-8") if isinstance(current_key_str, str) else current_key_str
@@ -63,7 +71,7 @@ def get_encryption_keys() -> list[bytes]:
         keys.append(Fernet.generate_key())
 
     # Get previous key if exists
-    previous_key_str = os.environ.get("PROXYWHIRL_CACHE_KEY_PREVIOUS")
+    previous_key_str = _secret_value(cache_settings.key_previous)
     if previous_key_str:
         previous_key = (
             previous_key_str.encode("utf-8")

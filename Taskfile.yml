@@ -74,7 +74,7 @@ tasks:
           --cov-report=html:logs/htmlcov \
           --cov-report=xml \
           --cov-report=json:coverage.json \
-          --cov-fail-under=85 \
+          --cov-fail-under=90 \
           --timeout=120 \
           -q \
           --tb=line
@@ -82,31 +82,30 @@ tasks:
   validate-sources:
     desc: Validate proxy source URLs
     cmds:
-      - uv run proxywhirl sources --validate
+      - uv run python -c "from proxywhirl.sources import validate_sources_sync; report = validate_sources_sync(timeout=5, concurrency=20); print(f'{report.healthy_sources}/{report.total_sources} sources healthy')"
 
   validate-sources-ci:
     desc: Strict source validation for CI
     cmds:
-      - uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
+      - uv run python -c "from proxywhirl.sources import validate_sources_sync; report = validate_sources_sync(timeout=5, concurrency=5); print(f'{report.healthy_sources}/{report.total_sources} sources healthy'); raise SystemExit(0 if report.all_healthy else 1)"
 
   sources-list:
     desc: List configured proxy sources
     cmds:
-      - uv run proxywhirl sources
+      - uv run python -c "from proxywhirl.sources import ALL_SOURCES; [print(source.url) for source in ALL_SOURCES]"
 
   docs-html:
-    desc: Build HTML documentation
-    dir: docs
+    desc: Build Next.js/Fumadocs documentation
     cmds:
-      - uv run --extra docs sphinx-build -M html source build
+      - pnpm --dir web run build
 
   docs-linkcheck:
-    desc: Check documentation links
-    dir: docs
+    desc: Verify generated documentation pipeline
     cmds:
-      - uv run --extra docs sphinx-build -b linkcheck source build/linkcheck
+      - pnpm --dir web run docs:generate
+      - pnpm --dir web run lint
 
   docs-clean:
     desc: Clean documentation build artifacts
     cmds:
-      - uv run python -c "import shutil; shutil.rmtree('docs/build', ignore_errors=True)"
+      - uv run python -c "import shutil; shutil.rmtree('web/.next', ignore_errors=True); shutil.rmtree('web/.source', ignore_errors=True); shutil.rmtree('docs/build', ignore_errors=True)"

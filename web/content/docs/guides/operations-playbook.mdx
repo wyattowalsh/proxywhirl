@@ -1,0 +1,33 @@
+---
+title: Operations Playbook
+description: Operational guidance for validation, retries, source health, and deployment checks.
+---
+
+# Operations Playbook
+
+ProxyWhirl is designed for unreliable network inputs. Treat proxy lists as volatile, validate boundaries, and prefer automated checks before promotion.
+
+## Recommended Loop
+
+1. Fetch from the configured source catalog.
+2. Validate proxies with bounded timeout and concurrency.
+3. Persist only validated entries.
+4. Rotate with a strategy that matches your workload.
+5. Monitor failures, latency, and source quality.
+
+## Local Checks
+
+```bash
+uv run proxywhirl sources --validate
+uv run proxywhirl fetch
+uv run proxywhirl stats
+```
+
+## Deployment Checks
+
+| Check             | Purpose                                                 |
+| ----------------- | ------------------------------------------------------- |
+| Source validation | Detect broken or stale upstream proxy feeds.            |
+| REST health path  | Confirm the API process and storage path are reachable. |
+| CLI smoke test    | Confirm package entry points and configuration load.    |
+| Docs generation   | Confirm docs references still match source code.        |

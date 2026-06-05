@@ -30,13 +30,13 @@ T = TypeVar("T")
 
 def _sample_sources(
     sources: list[ProxySourceConfig] | None,
-    sample_size: int,
+    sample_size: int | None,
 ) -> list[ProxySourceConfig]:
     """Select sources for bootstrap.
 
     If *sources* is an explicit list, return it as-is.
-    Otherwise randomly sample *sample_size* **enabled** sources from ALL_SOURCES
-    so each user hits a different subset, distributing load.
+    Otherwise return every enabled source by default. Set *sample_size* to opt into
+    a lighter random sample for latency-sensitive use cases.
     """
     if sources is not None:
         return sources
@@ -44,6 +44,9 @@ def _sample_sources(
     enabled = [s for s in ALL_SOURCES if s.enabled]
     if not enabled:
         return []
+
+    if sample_size is None:
+        return enabled
 
     k = min(sample_size, len(enabled))
     return random.sample(enabled, k)
@@ -222,9 +225,8 @@ def _raise_bootstrap_empty_error(
     else:
         msg = (
             f"Bootstrap fetched 0 usable proxies from {sources_count} sources. "
-            "Sources may be temporarily unavailable \u2014 try again (random sampling "
-            "hits different sources each time), increase sample_size, or provide "
-            "working sources explicitly."
+            "Sources may be temporarily unavailable \u2014 try again, set sample_size "
+            "for a lighter source subset, or provide working sources explicitly."
         )
     raise ProxyPoolEmptyError(msg)
 
@@ -289,7 +291,7 @@ async def bootstrap_pool_if_empty_async(
     if config is None:
         config = BootstrapConfig(
             sources=sources,
-            sample_size=10,
+            sample_size=None,
             validate_proxies=validate,
             timeout=timeout,
             max_concurrent=max_concurrent,
@@ -354,7 +356,7 @@ def bootstrap_pool_if_empty_sync(
     if config is None:
         config = BootstrapConfig(
             sources=sources,
-            sample_size=10,
+            sample_size=None,
             validate_proxies=validate,
             timeout=timeout,
             max_concurrent=max_concurrent,

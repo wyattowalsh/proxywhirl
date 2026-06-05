@@ -7,6 +7,7 @@ Accepted
 ## Context
 
 Proxy servers frequently become unavailable due to:
+
 - Network failures (connection refused, timeouts)
 - Proxy server crashes or restarts
 - Rate limiting or IP bans
@@ -14,12 +15,14 @@ Proxy servers frequently become unavailable due to:
 - ISP-level blocking
 
 Without intelligent failure handling, ProxyWhirl would:
+
 - Repeatedly attempt to use failed proxies
 - Waste time and resources on known-bad proxies
 - Degrade user experience with cascading failures
 - Fail to detect proxy recovery after temporary issues
 
 The system needs a mechanism to:
+
 1. **Detect failures**: Track proxy health across multiple requests
 2. **Isolate failures**: Stop using failed proxies temporarily
 3. **Test recovery**: Periodically check if failed proxies have recovered
@@ -27,6 +30,7 @@ The system needs a mechanism to:
 5. **Scale efficiently**: Handle thousands of proxies without overhead
 
 Traditional approaches have limitations:
+
 - Simple retry logic doesn't prevent repeated failures
 - Manual proxy blacklisting requires user intervention
 - Stateless systems can't learn from historical failures
@@ -38,17 +42,20 @@ We implemented the **Circuit Breaker pattern** with three states and persistence
 ### Circuit States
 
 **CLOSED** (Normal Operation):
+
 - Proxy available for all requests
 - Failures tracked in rolling time window
 - Transitions to OPEN when failure threshold exceeded
 
 **OPEN** (Proxy Excluded):
+
 - Proxy excluded from rotation
 - No requests attempted (fail-fast)
 - Automatic timeout triggers transition to HALF_OPEN
 - Duration: Configurable timeout (default: 30 seconds)
 
 **HALF_OPEN** (Testing Recovery):
+
 - Single test request allowed
 - Success → Transition to CLOSED (proxy recovered)
 - Failure → Transition back to OPEN (reset timeout)
@@ -66,12 +73,14 @@ HALF_OPEN --[test failure]--> OPEN
 ### Key Design Choices
 
 **Rolling Time Window**:
+
 - Use `collections.deque` to track failure timestamps
 - Default window: 60 seconds
 - Failures outside window automatically pruned
 - Prevents permanent exclusion from transient failures
 
 **Configuration** (per-proxy `CircuitBreaker`):
+
 ```python
 failure_threshold: int = 5        # Failures before opening
 window_duration: float = 60.0     # Rolling window (seconds)
@@ -80,6 +89,7 @@ persist_state: bool = False       # Enable state persistence
 ```
 
 **State Persistence** (optional):
+
 - Store state to SQLite via `SQLiteStorage`
 - Table: `circuit_breaker_states`
 - Serialized fields: state, failure_count, failure_window, timestamps
@@ -87,12 +97,14 @@ persist_state: bool = False       # Enable state persistence
 - Asynchronous saves to avoid blocking requests
 
 **Thread Safety**:
+
 - Each `CircuitBreaker` has a `threading.Lock`
+- Each `AsyncCircuitBreaker` has an `asyncio.Lock`
 - Protects state transitions and failure_window updates
 - Lock-free `should_attempt_request()` for read-heavy workloads
-- `AsyncRWLock` for high-concurrency scenarios (optional)
 
 **Half-Open Gating**:
+
 - `_half_open_pending` flag prevents concurrent test requests
 - Only one thread can test recovery at a time
 - Prevents thundering herd on timeout expiration
@@ -161,30 +173,35 @@ persist_state: bool = False       # Enable state persistence
 ### Alternatives Considered
 
 **Simple Retry with Backoff**:
+
 - Simpler implementation
 - No state machine complexity
 - Doesn't prevent repeated failures across requests
 - Rejected: Insufficient isolation
 
 **Health Check Background Thread**:
+
 - Active health monitoring
 - Detects failures before user requests
 - Adds complexity and resource overhead
 - Rejected: Prefer reactive failure handling
 
 **Proxy Blacklisting**:
+
 - Manual exclusion by user
 - No automatic recovery
 - Requires external coordination
 - Rejected: Lacks automation
 
 **Leaky Bucket Rate Limiting**:
+
 - Gradual recovery instead of half-open state
 - More complex implementation
 - Doesn't provide hard exclusion
 - Rejected: Circuit breaker better fits use case
 
 **Hystrix-Style Circuit Breaker**:
+
 - Request volume threshold
 - Sliding window statistics
 - More complex than needed
@@ -195,6 +212,7 @@ persist_state: bool = False       # Enable state persistence
 ### Key Components
 
 **`CircuitBreaker` Class** (`proxywhirl/circuit_breaker.py`):
+
 ```python
 class CircuitBreaker(BaseModel):
     proxy_id: str
@@ -210,12 +228,14 @@ class CircuitBreaker(BaseModel):
 ```
 
 **Core Methods**:
+
 - `record_failure()`: Add failure to window, check threshold
 - `record_success()`: Clear failures, close circuit
 - `should_attempt_request()`: Check if proxy available
 - `save_state()` / `load_state()`: Persistence operations
 
 **Storage Schema** (`CircuitBreakerStateTable`):
+
 ```sql
 CREATE TABLE circuit_breaker_states (
     proxy_id TEXT PRIMARY KEY,
@@ -234,6 +254,7 @@ CREATE TABLE circuit_breaker_states (
 ```
 
 **Integration with `ProxyWhirl`**:
+
 ```python
 # Before making request
 if not circuit_breaker.should_attempt_request():
@@ -250,6 +271,7 @@ except ProxyError:
 ### Thread Safety Patterns
 
 **Lock-Free Read Path**:
+
 ```python
 def should_attempt_request(self) -> bool:
     with self._lock:  # Brief lock
@@ -260,6 +282,7 @@ def should_attempt_request(self) -> bool:
 ```
 
 **Async Persistence** (non-blocking):
+
 ```python
 def _schedule_persist(self) -> None:
     if not self.persist_state:
@@ -268,11 +291,11 @@ def _schedule_persist(self) -> None:
     loop.create_task(self.save_state())  # Fire and forget
 ```
 
-**RWLock for High Concurrency** (optional):
+**Async Locking**:
+
 ```python
-class AsyncRWLock:
-    async def acquire_read(self): ...   # Shared reads
-    async def acquire_write(self): ...  # Exclusive writes
+async with self._lock:
+    self.record_failure()
 ```
 
 ## References
@@ -304,6 +327,7 @@ class AsyncRWLock:
 ### Design Rationale
 
 The circuit breaker pattern was chosen over alternatives because:
+
 - **Proven Pattern**: Well-understood failure isolation mechanism
 - **Automatic**: No manual intervention required
 - **Efficient**: Minimal overhead in steady state

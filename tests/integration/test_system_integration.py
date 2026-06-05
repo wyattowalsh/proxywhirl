@@ -4,24 +4,73 @@ from __future__ import annotations
 
 import asyncio
 import json
-import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from unittest.mock import patch
 
-import httpx
 import pytest
-from sqlalchemy.exc import SQLAlchemyError
 
 from proxywhirl.cache.manager import CacheManager
-from proxywhirl.exceptions import ProxyFetchError, ProxyStorageError
+from proxywhirl.cache.models import CacheConfig, CacheEntry
+from proxywhirl.exceptions import ProxyFetchError
 from proxywhirl.fetchers import ProxyFetcher, ProxyValidator
-from proxywhirl.models import ProxyPool
+from proxywhirl.models import (
+    HealthStatus,
+    Proxy,
+    ProxyFormat,
+    ProxyPool,
+    ProxySourceConfig,
+    RenderMode,
+)
 from proxywhirl.rotator import AsyncProxyWhirl, ProxyWhirl
 from proxywhirl.storage import SQLiteStorage
-from tests.conftest import ProxyFactory, ProxyPoolFactory
 
 pytestmark = [pytest.mark.slow, pytest.mark.integration]
+
+
+async def _initialized_storage(tmp_path: Path, name: str = "proxies.db") -> SQLiteStorage:
+    storage = SQLiteStorage(tmp_path / name)
+    await storage.initialize()
+    return storage
+
+
+def _cache_config(tmp_path: Path) -> CacheConfig:
+    return CacheConfig(
+        l2_cache_dir=str(tmp_path / "cache"),
+        l3_database_path=str(tmp_path / "cache.db"),
+    )
+
+
+def _cache_entry(key: str, proxy_url: str) -> CacheEntry:
+    now = datetime.now(timezone.utc)
+    return CacheEntry(
+        key=key,
+        proxy_url=proxy_url,
+        source="integration-test",
+        fetch_time=now,
+        last_accessed=now,
+        ttl_seconds=3600,
+        expires_at=now + timedelta(seconds=3600),
+    )
+
+
+def _healthy_proxy(index: int) -> Proxy:
+    return Proxy(
+        url=f"http://healthy{index}.example.com:8080",
+        health_status=HealthStatus.HEALTHY,
+        expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+    )
+
+
+def _browser_source() -> ProxySourceConfig:
+    return ProxySourceConfig(
+        url="https://example.com/proxies.json",
+        format=ProxyFormat.JSON,
+        render_mode=RenderMode.BROWSER,
+    )
+
 
 # ============================================================================
 # SCHEMA MIGRATION TESTS
@@ -31,87 +80,69 @@ pytestmark = [pytest.mark.slow, pytest.mark.integration]
 class TestSchemaMigrations:
     """Test schema migration success and failure paths."""
 
-    def test_storage_initialization(self) -> None:
+    @pytest.mark.asyncio
+    async def test_storage_initialization(self, tmp_path: Path) -> None:
         """Test storage initializes correctly."""
-        storage = SQLiteStorage()
-        assert storage is not None
+        storage = await _initialized_storage(tmp_path)
+        try:
+            assert storage.filepath == tmp_path / "proxies.db"
+            assert (tmp_path / "proxies.db").exists()
+        finally:
+            await storage.close()
 
-    def test_pool_save_and_load_roundtrip(self) -> None:
-        """Test saving and loading pool preserves data."""
-        storage = SQLiteStorage()
-        pool = ProxyPoolFactory.build(proxies=[ProxyFactory.build() for _ in range(5)])
+    @pytest.mark.asyncio
+    async def test_pool_save_and_load_roundtrip(self, tmp_path: Path) -> None:
+        """Test saving and loading proxies preserves data."""
+        storage = await _initialized_storage(tmp_path)
+        proxies = [Proxy(url=f"http://proxy{i}.example.com:8080") for i in range(5)]
 
         try:
-            storage.save_pool(pool)
-
-            loaded = storage.load_pool(pool.id)
-            assert loaded.id == pool.id
-            assert loaded.name == pool.name
-            assert len(loaded.proxies) == len(pool.proxies)
+            await storage.save(proxies, validated=True)
+            loaded = await storage.load()
+            assert {proxy["url"] for proxy in loaded} == {proxy.url for proxy in proxies}
         finally:
-            try:
-                storage.delete_pool(pool.id)
-            except Exception:
-                pass
+            await storage.clear()
+            await storage.close()
 
-    def test_storage_handles_corrupt_data(self) -> None:
-        """Test storage handles corrupted data gracefully."""
-        storage = SQLiteStorage()
-        pool = ProxyPoolFactory.build()
+    @pytest.mark.asyncio
+    async def test_storage_handles_empty_save(self, tmp_path: Path) -> None:
+        """Test storage handles empty saves gracefully."""
+        storage = await _initialized_storage(tmp_path)
 
         try:
-            storage.save_pool(pool)
-
-            # Simulate corruption by patching decompress
-            with patch.object(storage, "_decompress_pool", side_effect=ValueError("Corrupted")):
-                with pytest.raises((ValueError, ProxyStorageError)):
-                    storage.load_pool(pool.id)
+            await storage.save([])
+            assert await storage.load() == []
         finally:
-            try:
-                storage.delete_pool(pool.id)
-            except Exception:
-                pass
+            await storage.close()
 
-    def test_storage_transaction_rollback(self) -> None:
-        """Test storage transaction rollback on error."""
-        storage = SQLiteStorage()
-        pool = ProxyPoolFactory.build()
+    @pytest.mark.asyncio
+    async def test_storage_clear_removes_saved_proxies(self, tmp_path: Path) -> None:
+        """Test storage clear removes saved proxies."""
+        storage = await _initialized_storage(tmp_path)
+        proxies = [Proxy(url="http://clear.example.com:8080")]
 
         try:
-            storage.save_pool(pool)
-
-            # Attempt to save with invalid data
-            pool.proxies = [None] * 10  # Invalid proxy data
-
-            with pytest.raises((ValueError, ProxyStorageError, SQLAlchemyError)):
-                storage.save_pool(pool)
+            await storage.save(proxies)
+            assert len(await storage.load()) == 1
+            await storage.clear()
+            assert await storage.load() == []
         finally:
-            try:
-                storage.delete_pool(pool.id)
-            except Exception:
-                pass
+            await storage.close()
 
-    def test_multiple_pools_storage_consistency(self) -> None:
-        """Test consistency when storing multiple pools."""
-        storage = SQLiteStorage()
-        pools = [ProxyPoolFactory.build() for _ in range(3)]
+    @pytest.mark.asyncio
+    async def test_multiple_proxy_storage_consistency(self, tmp_path: Path) -> None:
+        """Test consistency when storing multiple proxies."""
+        storage = await _initialized_storage(tmp_path)
+        proxies = [Proxy(url=f"http://multi{i}.example.com:8080") for i in range(3)]
 
         try:
-            for pool in pools:
-                storage.save_pool(pool)
-
-            for pool in pools:
-                loaded = storage.load_pool(pool.id)
-                assert loaded.id == pool.id
-
-            # Verify all pools are independent
-            assert len(pools) == 3
+            await storage.save(proxies)
+            loaded = await storage.load()
+            assert len(loaded) == 3
+            assert {proxy["url"] for proxy in loaded} == {proxy.url for proxy in proxies}
         finally:
-            for pool in pools:
-                try:
-                    storage.delete_pool(pool.id)
-                except Exception:
-                    pass
+            await storage.clear()
+            await storage.close()
 
 
 # ============================================================================
@@ -122,29 +153,31 @@ class TestSchemaMigrations:
 class TestBrowserFailures:
     """Test Playwright failure handling and recovery."""
 
-    def test_browser_fetch_timeout_handling(self) -> None:
+    @pytest.mark.asyncio
+    async def test_browser_fetch_timeout_handling(self) -> None:
         """Test browser fetch timeout handling."""
-        fetcher = ProxyFetcher(cache_ttl_seconds=300)
+        fetcher = ProxyFetcher(dedup_cache_ttl=300)
 
-        # Mock browser render timeout
-        with patch.object(fetcher, "_fetch_with_browser", side_effect=asyncio.TimeoutError()):
-            with pytest.raises((ProxyFetchError, asyncio.TimeoutError)):
-                asyncio.run(fetcher.fetch("http://example.com/proxies"))
+        with patch("proxywhirl.browser.BrowserRenderer.render", side_effect=TimeoutError()):
+            with pytest.raises(ProxyFetchError):
+                await fetcher.fetch_from_source(_browser_source())
 
-    def test_browser_connection_failure(self) -> None:
+    @pytest.mark.asyncio
+    async def test_browser_connection_failure(self) -> None:
         """Test browser connection failure handling."""
-        fetcher = ProxyFetcher(cache_ttl_seconds=300)
+        fetcher = ProxyFetcher(dedup_cache_ttl=300)
 
-        with patch.object(
-            fetcher, "_fetch_with_browser", side_effect=ConnectionError("Browser unavailable")
+        with patch(
+            "proxywhirl.browser.BrowserRenderer.render",
+            side_effect=RuntimeError("Browser unavailable"),
         ):
-            with pytest.raises((ProxyFetchError, ConnectionError)):
-                asyncio.run(fetcher.fetch("http://example.com/proxies"))
+            with pytest.raises(ProxyFetchError):
+                await fetcher.fetch_from_source(_browser_source())
 
     @pytest.mark.asyncio
     async def test_browser_recovery_after_failure(self) -> None:
         """Test browser recovery after failure."""
-        fetcher = ProxyFetcher(cache_ttl_seconds=300)
+        fetcher = ProxyFetcher(dedup_cache_ttl=300)
 
         call_count = 0
 
@@ -152,33 +185,26 @@ class TestBrowserFailures:
             nonlocal call_count
             call_count += 1
             if call_count < 2:
-                raise ConnectionError("Browser unavailable")
-            return json.dumps({"proxies": [{"url": "http://proxy1.com:8080"}]})
+                raise RuntimeError("Browser unavailable")
+            return json.dumps([{"url": "http://proxy1.com:8080"}])
 
-        with patch.object(fetcher, "_fetch_with_browser", side_effect=flaky_browser_fetch):
+        with patch("proxywhirl.browser.BrowserRenderer.render", side_effect=flaky_browser_fetch):
             # First call fails
-            with pytest.raises((ProxyFetchError, ConnectionError)):
-                await fetcher.fetch("http://example.com/proxies")
+            with pytest.raises(ProxyFetchError):
+                await fetcher.fetch_from_source(_browser_source())
 
             # Second call should succeed
-            with patch.object(
-                fetcher, "_fetch_with_browser", return_value=json.dumps({"proxies": []})
-            ):
-                try:
-                    await fetcher.fetch("http://example.com/proxies")
-                except Exception:
-                    pass
+            proxies = await fetcher.fetch_from_source(_browser_source())
+            assert proxies == [{"url": "http://proxy1.com:8080"}]
 
-    def test_proxy_validator_browser_failure(self) -> None:
-        """Test proxy validator handles browser fetch failures."""
+    @pytest.mark.asyncio
+    async def test_proxy_validator_network_failure(self) -> None:
+        """Test proxy validator handles network failures."""
         validator = ProxyValidator()
 
-        # Mock browser fetch to fail
-        with patch("httpx.Client.get", side_effect=httpx.ConnectError("Browser unavailable")):
-            # Should handle gracefully
-            result = validator.validate_async(ProxyFactory.build())
-            # Result depends on implementation
-            assert result is not None or result is None
+        with patch("asyncio.open_connection", side_effect=OSError("network unavailable")):
+            result = await validator.validate({"url": "http://proxy.example.com:8080"})
+            assert result.is_valid is False
 
 
 # ============================================================================
@@ -191,59 +217,54 @@ class TestHighConcurrencyAPI:
 
     @pytest.mark.slow
     @pytest.mark.integration
-    def test_api_concurrent_pool_requests(self) -> None:
+    @pytest.mark.asyncio
+    async def test_api_concurrent_pool_requests(self, tmp_path: Path) -> None:
         """Test API handling concurrent pool requests."""
-        # Test concurrent storage operations as API proxy
-        storage = SQLiteStorage()
+        storage = await _initialized_storage(tmp_path)
 
-        # Simulate concurrent requests
-        request_count = 0
-        error_count = 0
-        lock = threading.Lock()
+        async def make_request(req_id: int) -> bool:
+            proxy = Proxy(url=f"http://concurrent{req_id}.example.com:8080")
+            await storage.save([proxy])
+            loaded = await storage.load()
+            await storage.delete(proxy.url)
+            return any(row["url"] == proxy.url for row in loaded)
 
-        def make_request(req_id: int) -> None:
-            nonlocal request_count, error_count
-            try:
-                pool = ProxyPoolFactory.build()
-                storage.save_pool(pool)
-                storage.load_pool(pool.id)
-                storage.delete_pool(pool.id)
-                with lock:
-                    request_count += 1
-            except Exception:
-                with lock:
-                    error_count += 1
-
-        with ThreadPoolExecutor(max_workers=20) as executor:
-            futures = [executor.submit(make_request, i) for i in range(100)]
-            for future in as_completed(futures):
-                future.result()
-
-        assert request_count >= 80
-        assert error_count <= 20
+        try:
+            results = await asyncio.gather(
+                *(make_request(i) for i in range(100)),
+                return_exceptions=True,
+            )
+            successful = sum(result is True for result in results)
+            assert successful >= 80
+        finally:
+            await storage.clear()
+            await storage.close()
 
     @pytest.mark.slow
     @pytest.mark.integration
     @pytest.mark.asyncio
-    async def test_api_concurrent_async_requests(self) -> None:
+    async def test_api_concurrent_async_requests(self, tmp_path: Path) -> None:
         """Test API concurrent async requests."""
-        storage = SQLiteStorage()
+        storage = await _initialized_storage(tmp_path)
 
         async def make_async_request(req_id: int) -> str:
             # Simulate async pool operation
-            pool = ProxyPoolFactory.build()
-            storage.save_pool(pool)
+            proxy = Proxy(url=f"http://async{req_id}.example.com:8080")
+            await storage.save([proxy])
             await asyncio.sleep(0.001)
-            loaded = storage.load_pool(pool.id)
-            storage.delete_pool(pool.id)
+            loaded = await storage.load()
+            await storage.delete(proxy.url)
+            assert any(row["url"] == proxy.url for row in loaded)
             return f"response_{req_id}"
 
-        # Simulate 100 concurrent requests
-        tasks = [make_async_request(i) for i in range(100)]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        successful = sum(1 for r in results if isinstance(r, str))
-        assert successful >= 80
+        try:
+            tasks = [make_async_request(i) for i in range(100)]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            successful = sum(isinstance(result, str) for result in results)
+            assert successful >= 80
+        finally:
+            await storage.clear()
+            await storage.close()
 
     @pytest.mark.slow
     @pytest.mark.stress
@@ -291,38 +312,24 @@ class TestHighConcurrencyAPI:
 
     @pytest.mark.slow
     @pytest.mark.integration
-    def test_api_pool_endpoint_under_load(self) -> None:
+    @pytest.mark.asyncio
+    async def test_api_pool_endpoint_under_load(self, tmp_path: Path) -> None:
         """Test pool endpoint handles concurrent requests."""
-        storage = SQLiteStorage()
-        pool = ProxyPoolFactory.build(proxies=[ProxyFactory.build() for _ in range(10)])
+        storage = await _initialized_storage(tmp_path)
+        proxies = [Proxy(url=f"http://load{i}.example.com:8080") for i in range(10)]
 
         try:
-            storage.save_pool(pool)
+            await storage.save(proxies)
 
-            load_count = 0
-            load_lock = threading.Lock()
+            async def load_proxies() -> bool:
+                loaded = await storage.load()
+                return len(loaded) == len(proxies)
 
-            def load_pool(worker_id: int) -> None:
-                nonlocal load_count
-                try:
-                    loaded = storage.load_pool(pool.id)
-                    if loaded.id == pool.id:
-                        with load_lock:
-                            load_count += 1
-                except Exception:
-                    pass
-
-            with ThreadPoolExecutor(max_workers=10) as executor:
-                futures = [executor.submit(load_pool, i) for i in range(50)]
-                for future in as_completed(futures):
-                    future.result()
-
-            assert load_count >= 40  # At least 80% success rate
+            results = await asyncio.gather(*(load_proxies() for _ in range(50)))
+            assert sum(results) >= 40
         finally:
-            try:
-                storage.delete_pool(pool.id)
-            except Exception:
-                pass
+            await storage.clear()
+            await storage.close()
 
 
 # ============================================================================
@@ -336,108 +343,97 @@ class TestEndToEndIntegration:
     @pytest.mark.integration
     def test_proxy_rotation_integration(self) -> None:
         """Test complete proxy rotation workflow."""
-        rotator = ProxyWhirl(
-            pools=[ProxyPoolFactory.build(proxies=[ProxyFactory.healthy() for _ in range(5)])]
-        )
+        rotator = ProxyWhirl(proxies=[_healthy_proxy(i) for i in range(5)], bootstrap=False)
 
         # Test rotation workflow
         for _ in range(10):
-            try:
-                proxy = rotator.select()
-                assert proxy is not None
-                assert proxy.url is not None
-            except Exception:
-                pass
+            proxy = rotator.strategy.select(rotator.pool)
+            assert proxy is not None
+            assert proxy.url is not None
 
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_async_proxy_rotation_integration(self) -> None:
         """Test async proxy rotation workflow."""
         rotator = AsyncProxyWhirl(
-            pools=[ProxyPoolFactory.build(proxies=[ProxyFactory.healthy() for _ in range(5)])]
+            proxies=[_healthy_proxy(i) for i in range(5)],
+            bootstrap=False,
         )
 
         for _ in range(5):
-            try:
-                proxy = await rotator.select()
-                assert proxy is not None
-            except Exception:
-                pass
+            proxy = await rotator.get_proxy()
+            assert proxy is not None
 
     @pytest.mark.integration
-    def test_cache_storage_integration(self) -> None:
+    @pytest.mark.asyncio
+    async def test_cache_storage_integration(self, tmp_path: Path) -> None:
         """Test cache and storage integration."""
-        cache = CacheManager()
-        storage = SQLiteStorage()
-        pool = ProxyPoolFactory.build()
+        cache = CacheManager(_cache_config(tmp_path))
+        storage = await _initialized_storage(tmp_path, "storage.db")
+        proxy = Proxy(url="http://cache-storage.example.com:8080")
+        cache_key = "cache-storage"
 
         try:
             # Store in cache
-            cache_key = f"pool:{pool.id}"
-            cache.set(cache_key, pool.model_dump_json(), ttl_seconds=60)
+            cache.put(cache_key, _cache_entry(cache_key, proxy.url))
 
             # Also store in persistent storage
-            storage.save_pool(pool)
+            await storage.save([proxy])
 
             # Verify both accessible
             cached = cache.get(cache_key)
             assert cached is not None
 
-            persisted = storage.load_pool(pool.id)
-            assert persisted.id == pool.id
+            persisted = await storage.load()
+            assert any(row["url"] == proxy.url for row in persisted)
         finally:
-            try:
-                storage.delete_pool(pool.id)
-            except Exception:
-                pass
+            await storage.clear()
+            await storage.close()
             cache.clear()
 
     @pytest.mark.integration
     @pytest.mark.asyncio
     async def test_validation_and_rotation_integration(self) -> None:
         """Test proxy validation integrated with rotation."""
-        proxies = [ProxyFactory.healthy() for _ in range(5)]
+        proxies = [_healthy_proxy(i) for i in range(5)]
         pool = ProxyPool(name="validation_pool", proxies=proxies)
         validator = ProxyValidator()
 
         # Validate proxies
         for proxy in pool.proxies:
-            try:
-                result = validator.validate_async(proxy)
-                assert result is not None or result is None
-            except Exception:
-                pass
+            with patch("asyncio.open_connection", side_effect=OSError("network unavailable")):
+                result = await validator.validate({"url": proxy.url})
+                assert result.is_valid is False
 
     @pytest.mark.integration
-    def test_full_pipeline_fetch_store_rotate(self) -> None:
+    @pytest.mark.asyncio
+    async def test_full_pipeline_fetch_store_rotate(self, tmp_path: Path) -> None:
         """Test full pipeline: fetch -> store -> rotate."""
-        storage = SQLiteStorage()
-        cache = CacheManager()
+        storage = await _initialized_storage(tmp_path, "pipeline.db")
+        cache = CacheManager(_cache_config(tmp_path))
 
         # Create pool
-        proxies = [ProxyFactory.healthy() for _ in range(5)]
+        proxies = [_healthy_proxy(i) for i in range(5)]
         pool = ProxyPool(name="pipeline_pool", proxies=proxies)
 
         try:
             # Store
-            storage.save_pool(pool)
-            cache.set(f"pool:{pool.id}", pool.model_dump_json(), ttl_seconds=60)
+            await storage.save(pool.proxies, validated=True)
+            cache.put(str(pool.id), _cache_entry(str(pool.id), pool.proxies[0].url))
 
             # Load
-            loaded = storage.load_pool(pool.id)
-            assert loaded.id == pool.id
+            loaded = await storage.load()
+            assert {row["url"] for row in loaded} == {proxy.url for proxy in pool.proxies}
 
             # Create rotator with loaded pool
-            rotator = ProxyWhirl(pools=[loaded])
+            rotator = ProxyWhirl(proxies=pool.proxies, bootstrap=False)
 
             # Rotate
-            selected = rotator.select()
+            selected = rotator.strategy.select(rotator.pool)
             assert selected is not None
         finally:
-            try:
-                storage.delete_pool(pool.id)
-            except Exception:
-                pass
+            await storage.clear()
+            await storage.close()
             cache.clear()
 
 

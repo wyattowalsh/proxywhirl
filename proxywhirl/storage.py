@@ -16,7 +16,7 @@ import aiofiles
 from cryptography.fernet import Fernet
 from loguru import logger
 from pydantic import SecretStr
-from sqlalchemy import delete, text
+from sqlalchemy import delete, event, text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlmodel import Field, SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -453,6 +453,14 @@ class SQLiteStorage:
             pool_size=pool_size,
         )
 
+        @event.listens_for(self.engine.sync_engine, "connect")
+        def _enable_sqlite_foreign_keys(dbapi_connection: Any, connection_record: Any) -> None:
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute("PRAGMA foreign_keys=ON")
+            finally:
+                cursor.close()
+
         # Slow query logging threshold (milliseconds)
         self._slow_query_threshold_ms: float = 100.0
 
@@ -600,6 +608,9 @@ class SQLiteStorage:
             # Create all tables
             await conn.run_sync(SQLModel.metadata.create_all)
 
+            # SQLModel creates missing tables but does not alter existing ones.
+            await self._migrate_normalized_schema(conn)
+
             # Create composite and specialized indexes for hot queries
             # Index on (proxy_id, timestamp) for metrics queries
             await self._timed_conn_execute(
@@ -659,6 +670,25 @@ class SQLiteStorage:
             )
 
             logger.info("Database initialized with WAL mode and optimized indexes")
+
+    async def _migrate_normalized_schema(self, conn: Any) -> None:
+        """Apply idempotent migrations for existing normalized SQLite databases."""
+        result = await self._timed_conn_execute(conn, text("PRAGMA table_info(proxy_identities)"))
+        columns = {row[1] for row in result}
+        if "expires_at" not in columns:
+            await self._timed_conn_execute(
+                conn,
+                text("ALTER TABLE proxy_identities ADD COLUMN expires_at DATETIME"),
+            )
+            logger.info("Migrated proxy_identities schema: added expires_at column")
+
+        await self._timed_conn_execute(
+            conn,
+            text(
+                "CREATE INDEX IF NOT EXISTS ix_proxy_identities_expires_at "
+                "ON proxy_identities(expires_at)"
+            ),
+        )
 
     async def close(self) -> None:
         """Close database connection and release resources.
@@ -772,7 +802,9 @@ class SQLiteStorage:
                         password=self._encrypt_credential(
                             proxy.password.get_secret_value() if proxy.password else None
                         ),
+                        country_code=proxy.country_code,
                         source=proxy.source.value if proxy.source else "fetched",
+                        source_url=str(proxy.source_url) if proxy.source_url else None,
                     )
                 )
 
@@ -898,6 +930,7 @@ class SQLiteStorage:
                         "password": self._decrypt_credential(identity.password),
                         "country_code": identity.country_code,
                         "source": identity.source,
+                        "source_url": identity.source_url,
                         "discovered_at": identity.discovered_at,
                         "health_status": status.health_status,
                         "last_success_at": status.last_success_at,
@@ -1098,6 +1131,7 @@ class SQLiteStorage:
                         "password": self._decrypt_credential(identity.password),
                         "country_code": identity.country_code,
                         "source": identity.source,
+                        "source_url": identity.source_url,
                         "health_status": status.health_status,
                         "last_success_at": status.last_success_at,
                         "avg_response_time_ms": status.avg_response_time_ms,
@@ -1140,6 +1174,9 @@ class SQLiteStorage:
                         "username": self._decrypt_credential(identity.username),
                         "password": self._decrypt_credential(identity.password),
                         "health_status": status.health_status,
+                        "country_code": identity.country_code,
+                        "source": identity.source,
+                        "source_url": identity.source_url,
                         "last_success_at": status.last_success_at,
                         "total_checks": status.total_checks,
                     }
@@ -1172,6 +1209,7 @@ class SQLiteStorage:
                         "password": self._decrypt_credential(identity.password),
                         "country_code": identity.country_code,
                         "source": identity.source,
+                        "source_url": identity.source_url,
                         "discovered_at": identity.discovered_at,
                         "health_status": status.health_status,
                         "last_success_at": status.last_success_at,
@@ -1228,6 +1266,7 @@ class SQLiteStorage:
                         "password": self._decrypt_credential(identity.password),
                         "country_code": identity.country_code,
                         "source": identity.source,
+                        "source_url": identity.source_url,
                         "discovered_at": identity.discovered_at,
                         "health_status": status.health_status,
                         "last_check_at": status.last_check_at,
@@ -1277,6 +1316,7 @@ class SQLiteStorage:
                         "password": self._decrypt_credential(identity.password),
                         "country_code": identity.country_code,
                         "source": identity.source,
+                        "source_url": identity.source_url,
                         "discovered_at": identity.discovered_at,
                         "health_status": status.health_status,
                         "last_success_at": status.last_success_at,
@@ -1543,6 +1583,7 @@ class SQLiteStorage:
                     "password": self._decrypt_credential(identity.password),
                     "country_code": identity.country_code,
                     "source": identity.source,
+                    "source_url": identity.source_url,
                     "health_status": status.health_status,
                     "last_success_at": status.last_success_at,
                     "avg_response_time_ms": status.avg_response_time_ms,
@@ -1607,6 +1648,7 @@ class SQLiteStorage:
                         "password": self._decrypt_credential(identity.password),
                         "country_code": identity.country_code,
                         "source": identity.source,
+                        "source_url": identity.source_url,
                         "health_status": status.health_status,
                         "last_success_at": status.last_success_at,
                         "avg_response_time_ms": status.avg_response_time_ms,

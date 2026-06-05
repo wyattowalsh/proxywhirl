@@ -15,11 +15,12 @@
 <br/>
 
 <!-- Badges row 1: Key stats -->
+
 [![PyPI](https://img.shields.io/pypi/v/proxywhirl?style=for-the-badge&logo=pypi&logoColor=white&color=3b82f6&labelColor=1e293b)](https://pypi.org/project/proxywhirl/)
 &nbsp;
 [![Downloads](https://img.shields.io/pypi/dm/proxywhirl?style=for-the-badge&logo=download&logoColor=white&color=22c55e&labelColor=1e293b)](https://pypi.org/project/proxywhirl/)
 &nbsp;
-[![Python](https://img.shields.io/badge/3.9+-a855f7?style=for-the-badge&logo=python&logoColor=white&labelColor=1e293b)](https://python.org)
+[![Python](https://img.shields.io/badge/3.10%2B-a855f7?style=for-the-badge&logo=python&logoColor=white&labelColor=1e293b)](https://python.org)
 
 <!-- Live stats dashboard -->
 <br/>
@@ -27,6 +28,7 @@
 <br/><br/>
 
 <!-- Navigation pills -->
+
 [<kbd> <br> 📖 Docs <br> </kbd>](https://www.proxywhirl.com/docs/)&nbsp;&nbsp;
 [<kbd> <br> 🚀 Examples <br> </kbd>](examples.ipynb)&nbsp;&nbsp;
 [<kbd> <br> 💬 Discussions <br> </kbd>](https://github.com/wyattowalsh/proxywhirl/discussions)
@@ -42,13 +44,25 @@
 ## ⚡ 30-Second Setup
 
 ```bash
-pip install proxywhirl
+# Install uv first if needed
+brew install uv
+# Other platforms: https://docs.astral.sh/uv/getting-started/installation/
+
+# Add ProxyWhirl to a uv-managed project
+uv add proxywhirl
+
+# Or try the CLI without installing it first
+uvx proxywhirl --help
 ```
+
+Prefer `uv tool install proxywhirl` when you want the `proxywhirl` CLI available globally.
 
 ```python
 from proxywhirl import ProxyWhirl
 
-rotator = ProxyWhirl(proxies=["http://p1:8080", "http://p2:8080"])
+# Drop it in as your HTTP client; the first request fetches across all enabled
+# built-in public sources, validates the results, and keeps the pool in memory.
+rotator = ProxyWhirl()
 response = rotator.get("https://api.example.com/data")
 # Dead proxies auto-ejected ✓ | Slow ones deprioritized ✓ | Fast ones favored ✓
 ```
@@ -78,7 +92,7 @@ response = rotator.get("https://api.example.com/data")
 <br/>
 <img src="https://api.iconify.design/carbon:cloud-download.svg?color=%238b5cf6" width="48"/>
 <br/><br/>
-<strong>100+ Sources</strong>
+<strong>88 Sources</strong>
 <br/>
 <sub>Auto-fetch from built-in providers with validation</sub>
 <br/><br/>
@@ -120,17 +134,17 @@ rotator = ProxyWhirl(strategy="performance-based")
 rotator.set_strategy("geo-targeted", preferences={"US": [...], "EU": [...]})
 ```
 
-| Strategy | Best For |
-|:---------|:---------|
-| `round-robin` | Even distribution |
-| `random` | Unpredictable patterns |
-| `weighted` | Favor reliable proxies |
-| `least-used` | Even load balance |
-| `performance-based` | Lowest latency |
-| `geo-targeted` | Regional routing |
-| `session-persistence` | Sticky sessions |
-| `cost-aware` | Budget optimization |
-| `composite` | Custom pipelines |
+| Strategy              | Best For               |
+| :-------------------- | :--------------------- |
+| `round-robin`         | Even distribution      |
+| `random`              | Unpredictable patterns |
+| `weighted`            | Favor reliable proxies |
+| `least-used`          | Even load balance      |
+| `performance-based`   | Lowest latency         |
+| `geo-targeted`        | Regional routing       |
+| `session-persistence` | Sticky sessions        |
+| `cost-aware`          | Budget optimization    |
+| `composite`           | Custom pipelines       |
 
 <br/>
 
@@ -141,10 +155,14 @@ rotator.set_strategy("geo-targeted", preferences={"US": [...], "EU": [...]})
 ## 🎣 Auto-Fetch Proxies
 
 ```python
-from proxywhirl import ProxyFetcher
+from proxywhirl import BootstrapConfig, ProxyWhirl
 
-# Grab 300+ validated proxies in seconds
-proxies = await ProxyFetcher().fetch_all(validate=True)
+# Default: lazy auto-fetch from every enabled built-in source when the pool is empty.
+rotator = ProxyWhirl()
+response = rotator.get("https://api.example.com/data")
+
+# Tune bootstrap behavior when you want lighter startup or tighter caps.
+rotator = ProxyWhirl(bootstrap=BootstrapConfig(sample_size=20, max_proxies=200))
 ```
 
 <br/>
@@ -160,6 +178,7 @@ proxies = await ProxyFetcher().fetch_all(validate=True)
 <td width="33%">
 
 **Python API**
+
 ```python
 rotator.get(url)
 rotator.post(url, json=data)
@@ -171,16 +190,18 @@ async with AsyncProxyWhirl() as async_rotator:
 <td width="33%">
 
 **CLI**
+
 ```bash
-proxywhirl fetch
-proxywhirl pool list
-proxywhirl health
+uvx proxywhirl fetch
+uv run proxywhirl pool list
+proxywhirl health  # after `uv tool install proxywhirl`
 ```
 
 </td>
 <td width="33%">
 
 **REST API**
+
 ```bash
 docker-compose up -d
 curl localhost:8000/api/proxies

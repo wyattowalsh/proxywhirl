@@ -440,11 +440,23 @@ benchmark-histogram*
 # =========================================
 coverage.json
 audit-reports/
+goals/
 logs/
 
 # =========================================
 # STALE COMPLETION/TASK FILES: Ignore pattern
 # =========================================
+BATCH_EXECUTION_PLAN.md
+ERROR_HANDLING_SUMMARY.md
+IMPLEMENTATION_CHECKLIST.md
+OPTIMIZATION_SUMMARY.md
+SECURITY_AUDIT_REPORT.md
+SECURITY_DELIVERABLES.txt
+SECURITY_IMPLEMENTATION_SUMMARY.md
+WAVE4_*.md
+WAVE4_*.txt
+FINAL_WAVE4_SUMMARY.txt
+WAVE6F_*_COMPLETION.txt
 *-COMPLETION.md
 *_COMPLETION.md
 TASK*.md
@@ -460,9 +472,16 @@ verify_*.py
 
 # Node.js
 node_modules/
+web/.next/
+web/.source/
 
 .claude/settings.local.json
+.claude/session-state/
 docs/source/autoapi/
+web/playwright-report/
+web/test-results/
+web/public/README.md
+web/public/docs/
 .cli-test-data*/
 .cli-test-config*/
 .cli-test-home*/

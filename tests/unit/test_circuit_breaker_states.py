@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import time
 
-from proxywhirl.circuit_breaker.base import CircuitBreakerBase, CircuitBreakerState
+from proxywhirl.circuit_breaker import CircuitBreakerBase, CircuitBreakerState
 
 
 class TestCircuitBreakerStateMachine:

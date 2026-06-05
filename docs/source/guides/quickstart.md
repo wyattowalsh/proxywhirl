@@ -9,9 +9,8 @@ title: Quickstart Tutorials
 ### Installation
 
 ```bash
-pip install proxywhirl
-# or with uv
-uv pip install proxywhirl
+uv add proxywhirl
+uvx proxywhirl --help
 ```
 
 ### Basic Usage
@@ -45,7 +44,7 @@ from proxywhirl import AsyncProxyWhirl
 
 async def main():
     whirl = AsyncProxyWhirl()
-    
+
     # Fetch multiple URLs concurrently
     async with httpx.AsyncClient() as client:
         for i in range(5):
@@ -193,26 +192,26 @@ print(f"Loaded {len(proxies)} proxies")
 
 ```bash
 # List available proxies
-proxywhirl list --count 10
+proxywhirl pool list
 
 # Test a proxy
-proxywhirl validate http://proxy.example.com:8080
+proxywhirl validate-proxy http://proxy.example.com:8080
 
-# Export to file
-proxywhirl export --format json --output proxies.json
+# Export proxy list and stats files
+proxywhirl export --output docs/proxy-lists
 
 # View health status
 proxywhirl health
 
-# Audit sources
-proxywhirl sources audit
+# Fetch and validate fresh proxies
+proxywhirl fetch --timeout 5 --concurrency 100
 ```
 
 ## REST API
 
 ```bash
 # Start server
-proxywhirl api --port 8000
+uv run uvicorn proxywhirl.api:app --host 127.0.0.1 --port 8000
 
 # Get a proxy
 curl http://localhost:8000/api/proxies
@@ -263,7 +262,7 @@ from proxywhirl import AsyncProxyWhirl
 async def main():
     whirl = AsyncProxyWhirl()
     proxy = whirl.get()
-    
+
     async with aiohttp.ClientSession() as session:
         async with session.get(
             "https://example.com",
@@ -283,14 +282,14 @@ from proxywhirl import AsyncProxyWhirl
 async def scrape_urls(urls: list[str]):
     """Scrape multiple URLs with proxy rotation."""
     whirl = AsyncProxyWhirl()
-    
+
     async with httpx.AsyncClient(timeout=15) as client:
         tasks = []
         for url in urls:
             proxy = whirl.get()
             task = scrape_single(client, url, proxy)
             tasks.append(task)
-        
+
         results = await asyncio.gather(*tasks, return_exceptions=True)
         return results
 
@@ -303,7 +302,7 @@ async def scrape_single(client, url, proxy):
             headers={"User-Agent": "Mozilla/5.0"}
         )
         soup = BeautifulSoup(response.text, "html.parser")
-        
+
         return {
             "url": url,
             "title": soup.title.string if soup.title else None,

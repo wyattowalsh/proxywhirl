@@ -6,42 +6,45 @@ title: Proxy Sources Catalog
 
 ## Overview
 
-ProxyWhirl includes 100+ built-in proxy sources covering HTTP, HTTPS, SOCKS4, SOCKS5, and free/premium options. This catalog documents available sources and how to add custom ones.
+ProxyWhirl includes 88 built-in proxy sources covering HTTP, HTTPS, SOCKS4, SOCKS5, and free/premium options. This catalog documents available sources and how to add custom ones.
 
 ## Source Categories
 
 ### Free HTTP/HTTPS Sources
 
-| Source | Format | Country | Speed | Quality | Notes |
-|--------|--------|---------|-------|---------|-------|
-| `free-proxy-list` | HTML | Mixed | Slow | Low | Large but unstable |
-| `proxy-list` | Plain Text | Mixed | Slow | Low | Free tier, many dead |
-| `open-proxy` | JSON | Mixed | Medium | Medium | Community maintained |
-| `proxy-daily` | Plain Text | Mixed | Medium | Medium | Updated daily |
-| `github-proxies` | Raw HTML | Mixed | Medium | Low | GitHub-hosted, variable quality |
+| Source            | Format     | Country | Speed  | Quality | Notes                           |
+| ----------------- | ---------- | ------- | ------ | ------- | ------------------------------- |
+| `free-proxy-list` | HTML       | Mixed   | Slow   | Low     | Large but unstable              |
+| `proxy-list`      | Plain Text | Mixed   | Slow   | Low     | Free tier, many dead            |
+| `open-proxy`      | JSON       | Mixed   | Medium | Medium  | Community maintained            |
+| `proxy-daily`     | Plain Text | Mixed   | Medium | Medium  | Updated daily                   |
+| `github-proxies`  | Raw HTML   | Mixed   | Medium | Low     | GitHub-hosted, variable quality |
 
 ### Premium/Fast Sources
 
-| Source | Format | Country | Speed | Quality | Cost |
-|--------|--------|---------|-------|---------|------|
-| `bright-data` | API | Global | Fast | High | $$ |
-| `luminati` | API | Global | Very Fast | Very High | $$$ |
-| `oxylabs` | API | Global | Very Fast | Very High | $$$ |
-| `smartproxy` | API | Global | Fast | High | $$ |
-| `zyte` | API | Global | Fast | High | $$ |
+| Source        | Format | Country | Speed     | Quality   | Cost |
+| ------------- | ------ | ------- | --------- | --------- | ---- |
+| `bright-data` | API    | Global  | Fast      | High      | $$   |
+| `luminati`    | API    | Global  | Very Fast | Very High | $$$  |
+| `oxylabs`     | API    | Global  | Very Fast | Very High | $$$  |
+| `smartproxy`  | API    | Global  | Fast      | High      | $$   |
+| `zyte`        | API    | Global  | Fast      | High      | $$   |
 
 ### Regional Sources
 
 #### United States
+
 - `us-proxy-list` - Free US proxies
 - `american-proxies` - US-focused source
 
 #### Europe
+
 - `eu-proxy` - European sources
 - `german-proxies` - Germany-specific
 - `uk-proxies` - UK-specific
 
 #### Asia
+
 - `asian-proxies` - Asia-Pacific region
 - `japan-proxies` - Japan-specific
 - `chinese-proxies` - China-specific (SOCKS5)
@@ -129,8 +132,14 @@ username:password@host:port
 
 ```html
 <table>
-  <tr><td>192.168.1.1</td><td>8080</td></tr>
-  <tr><td>192.168.1.2</td><td>8080</td></tr>
+  <tr>
+    <td>192.168.1.1</td>
+    <td>8080</td>
+  </tr>
+  <tr>
+    <td>192.168.1.2</td>
+    <td>8080</td>
+  </tr>
 </table>
 ```
 
@@ -139,30 +148,32 @@ username:password@host:port
 ### Health Checks
 
 ```python
-from proxywhirl import ProxyFetcher
+import asyncio
 
-fetcher = ProxyFetcher()
-health = fetcher.validate_source(source_url)
+from proxywhirl.sources import ALL_HTTP_SOURCES, validate_source
 
-print(f"Online: {health['online']}")
-print(f"Response Time: {health['response_time_ms']}ms")
-print(f"Proxy Count: {health['proxy_count']}")
-print(f"Valid Rate: {health['valid_rate']}%")
+async def main() -> None:
+    source = ALL_HTTP_SOURCES[0]
+    result = await validate_source(source, timeout=5)
+
+    print(f"Status: {result.status_code}")
+    print(f"Response Time: {result.response_time_ms:.0f}ms")
+    print(f"Has proxies: {result.has_proxies}")
+    print(f"Error: {result.error}")
+
+asyncio.run(main())
 ```
 
-### Audit Source
+### Validate Built-in Sources
 
-```bash
-# CLI audit
-uv run proxywhirl sources audit https://example.com/proxies.json
+```python
+from proxywhirl.sources import validate_sources_sync
 
-# Output:
-# Source: https://example.com/proxies.json
-# Status: ✓ Online
-# Response Time: 245ms
-# Proxy Count: 1250
-# Valid: 987 (78.9%)
-# Protocols: HTTP, HTTPS, SOCKS5
+report = validate_sources_sync(timeout=5, concurrency=20)
+print(f"Healthy: {report.healthy_sources}/{report.total_sources}")
+
+for result in report.unhealthy:
+    print(f"{result.name}: {result.error or result.status_code}")
 ```
 
 ## Source Status
@@ -172,13 +183,10 @@ uv run proxywhirl sources audit https://example.com/proxies.json
 ProxyWhirl treats the `ALL_HTTP_SOURCES`, `ALL_SOCKS4_SOURCES`, and `ALL_SOCKS5_SOURCES` collections as the enabled built-in source set. Disabled sources stay out of those collections and include inline rationale in `proxywhirl/sources.py`.
 
 ```bash
-task validate-sources-ci
-
-# Direct equivalent
-uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
+uv run proxywhirl fetch --timeout 5 --concurrency 100 --no-export
 ```
 
-CI fails when any enabled source is unhealthy. Upstream flakiness is handled by fixing the source URL/parser metadata or disabling/removing the source with rationale, not by soft-failing validation.
+CI should exercise the same source-fetching path used by production refreshes. Upstream flakiness is handled by fixing the source URL/parser metadata or disabling/removing the source with rationale, not by soft-failing validation.
 
 ### Check Source Health
 
@@ -197,11 +205,7 @@ for source in whirl.sources:
 
 ### Diagnose Dead Sources
 
-```python
-uv run proxywhirl sources audit --verbose
-
-# Output details on failures
-```
+Use `validate_sources_sync()` for a source-health summary, then inspect the matching source definition in `proxywhirl/sources.py`. For content-level debugging, fetch the upstream URL directly and compare it against the configured parser.
 
 ## Adding Premium Sources
 
@@ -263,21 +267,25 @@ cache = CacheConfig(
 ## Source Selection Strategy
 
 ### For Web Scraping
+
 - Use fast, reliable sources (premium if budget allows)
 - Enable circuit breakers for auto-failover
 - Use PerformanceBased strategy
 
 ### For API Testing
+
 - Use stable, long-lived sources
 - Higher success rate threshold
 - More frequent validation
 
 ### For Development
+
 - Use free sources
 - Smaller pool (10-20 proxies)
 - More tolerant failure thresholds
 
 ### For Production
+
 - Multiple sources (redundancy)
 - Mix free + premium for cost efficiency
 - Strict health monitoring
@@ -348,16 +356,17 @@ for source_stats in metrics.source_stats:
 
 ### Alert Conditions
 
-| Condition | Alert | Action |
-|-----------|-------|--------|
-| Success rate < 50% | Warning | Reduce weight or disable |
-| Response time > 5s | Warning | Increase timeout |
-| Offline (3 failures) | Critical | Remove or fix URL |
-| 0 proxies returned | Critical | Investigate source |
+| Condition            | Alert    | Action                   |
+| -------------------- | -------- | ------------------------ |
+| Success rate < 50%   | Warning  | Reduce weight or disable |
+| Response time > 5s   | Warning  | Increase timeout         |
+| Offline (3 failures) | Critical | Remove or fix URL        |
+| 0 proxies returned   | Critical | Investigate source       |
 
 ## Best Practices
 
 ### Selection Principles
+
 - ✓ Use multiple sources for redundancy
 - ✓ Mix free and premium for cost efficiency
 - ✓ Monitor source health continuously
@@ -365,6 +374,7 @@ for source_stats in metrics.source_stats:
 - ✓ Cache proxies to reduce fetching
 
 ### Avoid
+
 - ✗ Single source dependency
 - ✗ Using sources with <50% success rate
 - ✗ Ignoring source health metrics
@@ -374,15 +384,14 @@ for source_stats in metrics.source_stats:
 ## Troubleshooting
 
 ### No proxies from source
+
 ```bash
 # Check source validity
 curl https://example.com/proxies.json | head -20
-
-# Validate format
-proxywhirl sources audit https://example.com/proxies.json
 ```
 
 ### Slow source response
+
 ```python
 # Increase timeout and add retry
 ProxySourceConfig(
@@ -393,6 +402,7 @@ ProxySourceConfig(
 ```
 
 ### Many invalid proxies
+
 ```python
 # Increase validation strictness
 validation_level="strict"  # Skips low-quality proxies

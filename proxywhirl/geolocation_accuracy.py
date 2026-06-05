@@ -1,7 +1,6 @@
 """Enhanced geolocation accuracy support."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 import httpx
 from loguru import logger
@@ -14,12 +13,12 @@ class GeolocationData:
     ip: str
     country: str
     country_code: str
-    region: Optional[str] = None
-    city: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-    isp: Optional[str] = None
-    asn: Optional[str] = None
+    region: str | None = None
+    city: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    isp: str | None = None
+    asn: str | None = None
     accuracy: float = 0.0
 
 
@@ -33,7 +32,7 @@ class GeolocationEnricher:
             "https://ip-api.com/json/{ip}",
         ]
 
-    async def enrich_proxy(self, ip: str) -> Optional[GeolocationData]:
+    async def enrich_proxy(self, ip: str) -> GeolocationData | None:
         """Enrich proxy with geolocation data."""
         if ip in self.cache:
             return self.cache[ip]
@@ -65,6 +64,6 @@ class GeolocationEnricher:
         logger.warning(f"Could not enrich geolocation for {ip}")
         return None
 
-    def batch_enrich(self, ips: list[str]) -> dict[str, Optional[GeolocationData]]:
+    def batch_enrich(self, ips: list[str]) -> dict[str, GeolocationData | None]:
         """Batch enrich multiple IPs."""
         return {ip: self.cache.get(ip) for ip in ips}

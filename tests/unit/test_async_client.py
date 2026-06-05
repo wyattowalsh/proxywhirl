@@ -10,9 +10,10 @@ import pytest
 from pydantic import SecretStr
 
 from proxywhirl.exceptions import ProxyPoolEmptyError
-from proxywhirl.models import HealthStatus, Proxy, ProxyConfiguration
+from proxywhirl.models import HealthStatus, Proxy
 from proxywhirl.retry import RetryPolicy
 from proxywhirl.rotator import AsyncProxyWhirl
+from proxywhirl.settings import ProxyConfiguration
 from proxywhirl.strategies import (
     LeastUsedStrategy,
     RandomStrategy,

@@ -626,7 +626,7 @@ class TestWeightedStrategyDistribution:
         # Create strategy with custom weights
         from proxywhirl.models import StrategyConfig
 
-        weight_dict = {proxy.url: weight for proxy, weight in zip(proxies, weights)}
+        weight_dict = {proxy.url: weight for proxy, weight in zip(proxies, weights, strict=True)}
         config = StrategyConfig(weights=weight_dict)
 
         strategy = WeightedStrategy()

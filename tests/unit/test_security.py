@@ -407,22 +407,22 @@ class TestTLSVerification:
 
     def test_verify_ssl_enabled_by_default(self):
         """Test verify_ssl is True by default in configuration."""
-        from proxywhirl.models import ProxyConfiguration
+        from proxywhirl.settings import ProxyConfiguration
 
         config = ProxyConfiguration()
         assert config.verify_ssl is True
 
     def test_verify_ssl_can_be_disabled(self):
         """Test verify_ssl can be explicitly disabled."""
-        from proxywhirl.models import ProxyConfiguration
+        from proxywhirl.settings import ProxyConfiguration
 
         config = ProxyConfiguration(verify_ssl=False)
         assert config.verify_ssl is False
 
     def test_verify_ssl_respected_in_rotator(self):
         """Test verify_ssl setting is respected in proxy rotator."""
-        from proxywhirl.models import ProxyConfiguration
         from proxywhirl.rotator import ProxyWhirl
+        from proxywhirl.settings import ProxyConfiguration
 
         config = ProxyConfiguration(verify_ssl=True)
         rotator = ProxyWhirl(config=config)

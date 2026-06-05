@@ -6,12 +6,13 @@ layer to the existing dependency-based authentication.
 
 from __future__ import annotations
 
-import os
 import secrets
 
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+
+from proxywhirl.settings import APISettings
 
 
 class APIKeyMiddleware(BaseHTTPMiddleware):
@@ -39,9 +40,9 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         """Validate API key for protected requests."""
-        require_auth = os.getenv("PROXYWHIRL_REQUIRE_AUTH", "false").lower() == "true"
+        api_settings = APISettings()
 
-        if not require_auth:
+        if not api_settings.require_auth:
             return await call_next(request)
 
         path = request.url.path
@@ -50,7 +51,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if path in self.PUBLIC_PATHS:
             return await call_next(request)
 
-        expected_key = os.getenv("PROXYWHIRL_API_KEY")
+        expected_key = api_settings.api_key.get_secret_value() if api_settings.api_key else None
         if not expected_key:
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

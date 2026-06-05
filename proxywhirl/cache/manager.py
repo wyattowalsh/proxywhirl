@@ -503,7 +503,7 @@ class CacheManager:
             if entry.username or entry.password:
                 log_entry += ", credentials=***"
 
-            logger.debug(f"Cache put: {log_entry}")
+            logger.trace(f"Cache put: {log_entry}")
 
             # Store in L1
             if self.l1_tier.enabled:

@@ -14,6 +14,7 @@ This guide documents all MCP server endpoints, tool actions, resources, and prom
 ## Overview
 
 ProxyWhirl's MCP server provides:
+
 - **Unified Tool**: Single `proxywhirl` tool with action-based operations
 - **Resources**: Real-time proxy pool health and configuration data
 - **Prompts**: Guided workflows for common proxy management tasks
@@ -30,14 +31,15 @@ The primary MCP tool provides all proxy management operations through an `action
 List all proxies in the current pool with detailed metrics.
 
 **Request:**
+
 ```json
 {
-  "action": "list",
-  "api_key": "optional-key"
+  "action": "list"
 }
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -61,6 +63,7 @@ List all proxies in the current pool with detailed metrics.
 ```
 
 **Error Codes:**
+
 - `403`: Authentication failed (invalid or missing API key)
 - `500`: Internal server error during proxy retrieval
 
@@ -71,14 +74,15 @@ List all proxies in the current pool with detailed metrics.
 Get the next proxy from the pool using the configured rotation strategy.
 
 **Request:**
+
 ```json
 {
-  "action": "rotate",
-  "api_key": "optional-key"
+  "action": "rotate"
 }
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -98,6 +102,7 @@ Get the next proxy from the pool using the configured rotation strategy.
 ```
 
 **Error Codes:**
+
 - `400`: No proxies available in pool
 - `403`: Authentication failed
 - `500`: Strategy evaluation error
@@ -109,15 +114,16 @@ Get the next proxy from the pool using the configured rotation strategy.
 Get detailed health and performance metrics for a specific proxy.
 
 **Request:**
+
 ```json
 {
   "action": "status",
-  "proxy_id": "proxy-uuid",
-  "api_key": "optional-key"
+  "proxy_id": "proxy-uuid"
 }
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -150,6 +156,7 @@ Get detailed health and performance metrics for a specific proxy.
 ```
 
 **Error Codes:**
+
 - `404`: Proxy not found
 - `403`: Authentication failed
 - `500`: Status retrieval error
@@ -161,6 +168,7 @@ Get detailed health and performance metrics for a specific proxy.
 Get the best proxy based on specified criteria (performance, location, protocol, etc.).
 
 **Request:**
+
 ```json
 {
   "action": "recommend",
@@ -170,12 +178,12 @@ Get the best proxy based on specified criteria (performance, location, protocol,
     "protocols": ["http", "https"],
     "country": "US",
     "exclude_tags": ["slow"]
-  },
-  "api_key": "optional-key"
+  }
 }
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -191,6 +199,7 @@ Get the best proxy based on specified criteria (performance, location, protocol,
 ```
 
 **Error Codes:**
+
 - `400`: Invalid criteria or no proxies match criteria
 - `403`: Authentication failed
 - `500`: Recommendation engine error
@@ -202,15 +211,16 @@ Get the best proxy based on specified criteria (performance, location, protocol,
 Add a new proxy to the pool.
 
 **Request:**
+
 ```json
 {
   "action": "add",
-  "proxy_url": "http://user:pass@proxy:8080",
-  "api_key": "optional-key"
+  "proxy_url": "http://user:pass@proxy:8080"
 }
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -224,6 +234,7 @@ Add a new proxy to the pool.
 ```
 
 **Error Codes:**
+
 - `400`: Invalid proxy URL format
 - `409`: Proxy already exists in pool
 - `403`: Authentication failed
@@ -236,15 +247,16 @@ Add a new proxy to the pool.
 Remove a proxy from the pool.
 
 **Request:**
+
 ```json
 {
   "action": "remove",
-  "proxy_id": "proxy-uuid",
-  "api_key": "optional-key"
+  "proxy_id": "proxy-uuid"
 }
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -257,6 +269,7 @@ Remove a proxy from the pool.
 ```
 
 **Error Codes:**
+
 - `404`: Proxy not found
 - `403`: Authentication failed
 - `500`: Remove operation failed
@@ -268,17 +281,18 @@ Remove a proxy from the pool.
 Fetch new proxies from specified sources and add them to the pool.
 
 **Request:**
+
 ```json
 {
   "action": "fetch",
   "sources": ["recommended", "source-name-1", "source-name-2"],
   "limit": 50,
-  "validate": true,
-  "api_key": "optional-key"
+  "validate": true
 }
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -299,6 +313,7 @@ Fetch new proxies from specified sources and add them to the pool.
 ```
 
 **Error Codes:**
+
 - `400`: Invalid sources specified
 - `403`: Authentication failed
 - `503`: Fetch operation timeout or all sources failed
@@ -310,16 +325,17 @@ Fetch new proxies from specified sources and add them to the pool.
 Validate a single proxy URL without adding to pool.
 
 **Request:**
+
 ```json
 {
   "action": "validate",
   "proxy_url": "http://proxy:8080",
-  "timeout_seconds": 10,
-  "api_key": "optional-key"
+  "timeout_seconds": 10
 }
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -336,6 +352,7 @@ Validate a single proxy URL without adding to pool.
 ```
 
 **Response (Invalid):**
+
 ```json
 {
   "success": true,
@@ -349,25 +366,27 @@ Validate a single proxy URL without adding to pool.
 ```
 
 **Error Codes:**
+
 - `400`: Invalid proxy URL format
 - `403`: Authentication failed
 - `500`: Validation error
 
 ---
 
-### Action: `get_health`
+### Action: `health`
 
 Get overall pool health and statistics.
 
 **Request:**
+
 ```json
 {
-  "action": "get_health",
-  "api_key": "optional-key"
+  "action": "health"
 }
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -392,20 +411,23 @@ Get overall pool health and statistics.
 
 ---
 
-### Action: `reset_circuit_breaker`
+### Action: `reset_cb`
 
 Reset circuit breaker for a specific proxy (after maintenance or timeout).
 
+`reset_cb` is the canonical MCP action name. `reset_circuit_breaker` is only a descriptive phrase in prose and is not accepted as an action value.
+
 **Request:**
+
 ```json
 {
-  "action": "reset_circuit_breaker",
-  "proxy_id": "proxy-uuid",
-  "api_key": "optional-key"
+  "action": "reset_cb",
+  "proxy_id": "proxy-uuid"
 }
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -419,6 +441,7 @@ Reset circuit breaker for a specific proxy (after maintenance or timeout).
 ```
 
 **Error Codes:**
+
 - `404`: Proxy not found
 - `403`: Authentication failed
 - `500`: Reset operation failed
@@ -430,18 +453,19 @@ Reset circuit breaker for a specific proxy (after maintenance or timeout).
 Change the proxy rotation strategy.
 
 **Request:**
+
 ```json
 {
   "action": "set_strategy",
   "strategy": "round_robin",
   "config": {
     "param1": "value1"
-  },
-  "api_key": "optional-key"
+  }
 }
 ```
 
 **Available Strategies:**
+
 - `round_robin`: Sequential rotation (default)
 - `random`: Random selection
 - `weighted`: Weighted by success rate
@@ -453,6 +477,7 @@ Change the proxy rotation strategy.
 - `cost_optimized`: Best cost/performance ratio
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -465,6 +490,7 @@ Change the proxy rotation strategy.
 ```
 
 **Error Codes:**
+
 - `400`: Invalid strategy name
 - `403`: Authentication failed
 - `500`: Strategy update failed
@@ -480,11 +506,13 @@ Resources provide read-only access to real-time proxy pool state and configurati
 Real-time proxy pool health status with aggregated metrics.
 
 **Fetch Pattern:**
+
 ```
 GET proxy://health
 ```
 
 **Returns:**
+
 - Pool size and health percentage
 - Circuit breaker open count
 - Average success rate and response time
@@ -499,11 +527,13 @@ GET proxy://health
 Current runtime configuration for proxy rotation and validation.
 
 **Fetch Pattern:**
+
 ```
 GET proxy://config
 ```
 
 **Returns:**
+
 - Active rotation strategy
 - Health check configuration
 - Circuit breaker settings
@@ -523,11 +553,13 @@ Prompts guide AI assistants through common proxy management workflows.
 Workflow for selecting the best proxy based on use case.
 
 **Context Variables:**
+
 - `use_case`: "web_scraping", "api_testing", "general_browsing"
 - `location_requirement`: Geographic requirement (optional)
 - `performance_requirement`: "fast", "balanced", "any"
 
 **Includes:**
+
 - Criteria explanation
 - Recommendation steps
 - Fallback strategies
@@ -539,11 +571,13 @@ Workflow for selecting the best proxy based on use case.
 Guided troubleshooting for proxy issues.
 
 **Context Variables:**
+
 - `proxy_id`: Specific proxy to troubleshoot (optional)
 - `error_type`: Type of error encountered
 - `recent_activity`: Log snippet (optional)
 
 **Includes:**
+
 - Health status check
 - Circuit breaker state
 - Recent error analysis
@@ -556,6 +590,7 @@ Guided troubleshooting for proxy issues.
 Workflow for optimizing proxy pool performance.
 
 **Includes:**
+
 - Current pool health assessment
 - Underperforming proxy identification
 - Fetch and validation recommendations
@@ -580,16 +615,16 @@ All endpoints use consistent error response format:
 
 ### Common Error Codes
 
-| Code | HTTP Status | Meaning |
-|------|-------------|---------|
-| `INVALID_REQUEST` | 400 | Request format or parameters invalid |
-| `UNAUTHORIZED` | 401 | Missing authentication |
-| `FORBIDDEN` | 403 | Authentication failed (invalid API key) |
-| `NOT_FOUND` | 404 | Resource not found |
-| `CONFLICT` | 409 | Resource already exists |
-| `TIMEOUT` | 408 | Request timeout |
-| `SERVICE_UNAVAILABLE` | 503 | Service temporarily unavailable |
-| `INTERNAL_ERROR` | 500 | Internal server error |
+| Code                  | HTTP Status | Meaning                                 |
+| --------------------- | ----------- | --------------------------------------- |
+| `INVALID_REQUEST`     | 400         | Request format or parameters invalid    |
+| `UNAUTHORIZED`        | 401         | Missing authentication                  |
+| `FORBIDDEN`           | 403         | Authentication failed (invalid API key) |
+| `NOT_FOUND`           | 404         | Resource not found                      |
+| `CONFLICT`            | 409         | Resource already exists                 |
+| `TIMEOUT`             | 408         | Request timeout                         |
+| `SERVICE_UNAVAILABLE` | 503         | Service temporarily unavailable         |
+| `INTERNAL_ERROR`      | 500         | Internal server error                   |
 
 ---
 
@@ -597,22 +632,24 @@ All endpoints use consistent error response format:
 
 ### API Key Authentication
 
-Pass API key via tool parameter:
+API keys are intentionally excluded from the model-visible tool schema. Configure the server with `PROXYWHIRL_MCP_API_KEY`, then pass the key out-of-band through MCP metadata or transport headers, such as `Authorization: Bearer <key>` or `X-API-Key: <key>`.
+
 ```json
 {
-  "action": "list",
-  "api_key": "your-api-key-here"
+  "action": "list"
 }
 ```
 
 Or set via environment variable:
+
 ```bash
 export PROXYWHIRL_MCP_API_KEY="your-api-key-here"
 ```
 
 ### Disabling Authentication
 
-By default, authentication is optional. To enforce authentication:
+By default, authentication is optional for read-only actions. Mutating actions (`add`, `remove`, `reset_cb`, `fetch`, `validate`, and `set_strategy`) require an API key unless the explicit local-development override is enabled. To enforce an API key for every MCP tool call:
+
 ```python
 from proxywhirl.mcp.auth import MCPAuth
 from proxywhirl.mcp.server import set_auth
@@ -620,6 +657,8 @@ from proxywhirl.mcp.server import set_auth
 auth = MCPAuth(api_key="required-key")
 set_auth(auth)
 ```
+
+For local development and tests only, set `PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES=1` to permit mutating actions without an API key. Do not set this override in production.
 
 ---
 
@@ -654,11 +693,12 @@ set_auth(auth)
 
 ```json
 {
-  "action": "get_health"
+  "action": "health"
 }
 ```
 
 Then check individual proxy status:
+
 ```json
 {
   "action": "status",
@@ -680,11 +720,13 @@ Then check individual proxy status:
 ## Rate Limiting
 
 The MCP server respects configured rate limits:
+
 - Per-tool rate limits: Configurable per action
 - Authentication rate limits: Failed attempts tracked
 - Resource-intensive operations: Fetch, validate, health checks may have longer limits
 
 Rate limit status included in response headers:
+
 ```
 RateLimit-Limit: 100
 RateLimit-Remaining: 95
@@ -698,6 +740,7 @@ RateLimit-Reset: 1698067200
 API version: `v1`
 
 Current MCP server version can be retrieved via:
+
 ```json
 {
   "action": "get_info"
@@ -705,6 +748,7 @@ Current MCP server version can be retrieved via:
 ```
 
 Response:
+
 ```json
 {
   "version": "1.x.x",
@@ -718,7 +762,7 @@ Response:
 ## Best Practices
 
 1. **Pool Warmth**: Fetch proxies on startup or periodically to keep pool fresh
-2. **Health Checks**: Monitor pool health with `get_health` before critical operations
+2. **Health Checks**: Monitor pool health with `health` before critical operations
 3. **Strategy Selection**: Choose strategy based on use case:
    - `round_robin`: Balanced, default choice
    - `performance_based`: Latency-sensitive operations

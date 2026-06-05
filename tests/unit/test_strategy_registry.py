@@ -10,13 +10,16 @@ Covers:
 """
 
 import threading
-from typing import Optional
 
 import pytest
 
 from proxywhirl.models import Proxy, ProxyPool, SelectionContext
-from proxywhirl.strategies import CostAwareStrategy, RoundRobinStrategy, StrategyRegistry
-from proxywhirl.strategies.core import resolve_builtin_strategy
+from proxywhirl.strategies import (
+    CostAwareStrategy,
+    RoundRobinStrategy,
+    StrategyRegistry,
+    resolve_builtin_strategy,
+)
 
 
 class TestStrategyRegistry:
@@ -70,7 +73,7 @@ class TestStrategyRegistry:
         """Test registering a valid strategy."""
 
         class ValidStrategy:
-            def select(self, pool: ProxyPool, context: Optional[SelectionContext] = None) -> Proxy:
+            def select(self, pool: ProxyPool, context: SelectionContext | None = None) -> Proxy:
                 return pool.get_all_proxies()[0]
 
             def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:

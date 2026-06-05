@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 import pytest
 
 from proxywhirl.models import Proxy, ProxyPool, SelectionContext
-from proxywhirl.strategies.core import (
+from proxywhirl.strategies import (
     PerformanceBasedStrategy,
     RoundRobinStrategy,
     WeightedStrategy,

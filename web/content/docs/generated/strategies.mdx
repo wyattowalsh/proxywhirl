@@ -1,0 +1,53 @@
+---
+title: Strategy Matrix
+description: Rotation strategy matrix generated from proxywhirl.strategies.
+---
+
+# Strategy Matrix
+
+<div className="rounded-xl border border-fd-border bg-fd-muted/40 p-4 text-sm">
+<strong>Generated reference.</strong> This page is derived from exported strategy classes in `proxywhirl.strategies` during <code>pnpm --dir web run docs:generate</code>. Edit <code>web/scripts/generate-docs.mjs</code>, not this MDX file.
+</div>
+
+<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">9</div>
+  <div className="mt-1 text-sm font-medium">Strategies</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Concrete rotation classes</div>
+</div>
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">RoundRobin</div>
+  <div className="mt-1 text-sm font-medium">Default</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Balanced first choice</div>
+</div>
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">PerformanceBased</div>
+  <div className="mt-1 text-sm font-medium">Fastest</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">EMA latency preference</div>
+</div>
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">Composite</div>
+  <div className="mt-1 text-sm font-medium">Composable</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Filter and select pipeline</div>
+</div>
+</div>
+
+## Strategy Selection
+
+| Strategy | Use When | Source Summary |
+| --- | --- | --- |
+| `RoundRobinStrategy` | Even traffic spread with predictable ordering. | Round-robin proxy selection strategy with SelectionContext support. |
+| `RandomStrategy` | Low-state routing where unpredictability matters. | Random proxy selection strategy with SelectionContext support. |
+| `WeightedStrategy` | Prefer known-good proxies while keeping fallback diversity. | Weighted proxy selection strategy with SelectionContext support. |
+| `LeastUsedStrategy` | Avoid hot-spotting individual proxies. | Least-used proxy selection strategy with SelectionContext support. |
+| `PerformanceBasedStrategy` | Favor lowest observed latency using recent performance. | Performance-based proxy selection using EMA response times. |
+| `SessionPersistenceStrategy` | Keep sticky sessions bound to stable proxy choices. | Session persistence strategy (sticky sessions). |
+| `GeoTargetedStrategy` | Route by country or region preference. | Geo-targeted proxy selection strategy. |
+| `CostAwareStrategy` | Balance traffic against proxy cost metadata. | Cost-aware proxy selection strategy. |
+| `CompositeStrategy` | Build a custom filter-then-select rotation pipeline. | Composite strategy that applies filtering and selection strategies in sequence. |
+
+## Source Modules
+
+| Module | Strategies |
+| --- | --- |
+| `proxywhirl.strategies` | 9 |

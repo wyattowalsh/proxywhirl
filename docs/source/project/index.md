@@ -10,7 +10,7 @@ Get a working development environment in under a minute.
 
 ### Prerequisites
 
-- **Python 3.9+** (3.11+ recommended for best performance)
+- **Python 3.10+** (3.11+ recommended for best performance)
 - **[uv](https://docs.astral.sh/uv/)** -- fast Python package manager from Astral
 - **git** with pre-commit support
 
@@ -83,12 +83,12 @@ Never run bare `pytest`, `python`, or `pip`. Always prefix with `uv run` to use 
 
 ### Branch Naming
 
-| Pattern | Use |
-|---------|-----|
-| `feature/*` | New features |
-| `fix/*` | Bug fixes |
-| `claude/*` | AI-assisted changes |
-| `develop` | Integration branch |
+| Pattern     | Use                 |
+| ----------- | ------------------- |
+| `feature/*` | New features        |
+| `fix/*`     | Bug fixes           |
+| `claude/*`  | AI-assisted changes |
+| `develop`   | Integration branch  |
 
 ### Commit Convention
 
@@ -128,12 +128,12 @@ The following hooks run automatically on every commit:
 
 ### Testing Guidelines
 
-| Marker | Purpose | Example |
-|--------|---------|---------|
-| (none) | Unit tests | `tests/unit/test_strategies.py` |
-| `@pytest.mark.slow` | Long-running tests | Large pool simulations |
-| `@pytest.mark.integration` | Integration tests | `tests/integration/` |
-| `@pytest.mark.network` | Requires network | Live proxy validation |
+| Marker                     | Purpose            | Example                         |
+| -------------------------- | ------------------ | ------------------------------- |
+| (none)                     | Unit tests         | `tests/unit/test_strategies.py` |
+| `@pytest.mark.slow`        | Long-running tests | Large pool simulations          |
+| `@pytest.mark.integration` | Integration tests  | `tests/integration/`            |
+| `@pytest.mark.network`     | Requires network   | Live proxy validation           |
 
 HTTP mocking uses `respx` (not `responses`). Async tests run with `asyncio_mode = "auto"`.
 
@@ -181,7 +181,7 @@ All workflows live in `.github/workflows/`:
   - Purpose
 * - `ci.yml`
   - push / PR
-  - Lint, type-check, test matrix (Python 3.9-3.13)
+  - Lint, type-check, test matrix (Python 3.10-3.13)
 * - `security.yml`
   - push / schedule
   - Dependency audit, secret scanning
@@ -245,7 +245,7 @@ Level 3: coverage + build  (depends on all tests)
 * - `mcp/`
   - MCP server for AI assistant integration (Claude, GPT)
 * - `cli.py`
-  - Typer CLI (`proxywhirl` command, 9 subcommands)
+  - Typer CLI (`proxywhirl` command, focused request/pool/config/fetch/import/export workflows)
 * - `config.py`
   - TOML config loader, `CLIConfig`, `DataStorageConfig`
 * - `exceptions.py`
@@ -306,7 +306,7 @@ See {doc}`/reference/configuration` for the full TOML configuration reference an
 - **Tests**: 2700+ passing across unit, integration, property, contract, and benchmark suites
 - **Performance**: All selection strategies operate within 2.8-26 us (<5 ms target)
 - **Proxy sources**: 100+ sources, refreshed every 6 hours via CI
-- **Python**: Tested on 3.9, 3.10, 3.11, 3.12, and 3.13
+- **Python**: Tested on 3.10, 3.11, 3.12, and 3.13
 
 ## Changelog Highlights
 

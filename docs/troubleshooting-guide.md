@@ -7,6 +7,7 @@
 **Symptom:** `ProxyPoolEmptyError` when calling `get_proxy()`
 
 **Causes:**
+
 1. Pool not loaded
 2. All proxies marked unhealthy
 3. All proxies removed/filtered
@@ -22,7 +23,7 @@ if len(pool.proxies) == 0:
     # Add proxies
     from proxywhirl.fetchers import ProxyFetcher
     from proxywhirl.sources import RECOMMENDED_SOURCES
-    
+
     fetcher = ProxyFetcher()
     for source in RECOMMENDED_SOURCES[:5]:
         proxies = fetcher.fetch(source)
@@ -40,6 +41,7 @@ print(f"Healthy proxies: {healthy}")
 **Symptom:** Requests timeout when using proxy
 
 **Causes:**
+
 1. Proxy is down or slow
 2. Firewall blocking connection
 3. Timeout too short
@@ -74,6 +76,7 @@ except:
 **Symptom:** 407 Proxy Authentication Required
 
 **Causes:**
+
 1. Wrong credentials
 2. Credentials not properly formatted
 3. Proxy requires specific auth method
@@ -111,6 +114,7 @@ response = httpx.get("https://httpbin.org/ip", proxies=proxy_url)
 **Symptom:** `ProxyValidationError` when adding proxy
 
 **Causes:**
+
 1. Missing port
 2. Invalid protocol
 3. Malformed URL
@@ -138,6 +142,7 @@ http://192.168.1.1:abc  # Invalid port
 **Symptom:** 429 Too Many Requests errors
 
 **Causes:**
+
 1. Too many requests per second
 2. IP-based rate limit
 3. Account limit reached
@@ -166,6 +171,7 @@ for url in urls:
 **Symptom:** Proxies were working, now they fail
 
 **Causes:**
+
 1. Proxy service down
 2. Proxy credentials expired
 3. IP rotated/changed
@@ -201,6 +207,7 @@ for proxy in rotator.get_pool().proxies:
 **Symptom:** Memory usage grows over time
 
 **Causes:**
+
 1. Cache not clearing
 2. Pool unbounded growth
 3. Circular references
@@ -213,10 +220,10 @@ from proxywhirl import ProxyConfiguration
 config = ProxyConfiguration(
     # Limit pool size
     max_pool_size=5000,
-    
+
     # Limit cache size
     cache_max_size=10000,
-    
+
     # Cache TTL (expire old entries)
     cache_ttl_seconds=300,
 )
@@ -227,7 +234,7 @@ if len(rotator.get_pool().proxies) > 5000:
     # Export healthy proxies
     pool = rotator.get_pool()
     healthy = [p for p in pool.proxies if p.health_status.status == "healthy"]
-    
+
     # Clear and reimport
     rotator.get_pool().proxies = healthy[:5000]
 ```
@@ -237,6 +244,7 @@ if len(rotator.get_pool().proxies) > 5000:
 **Symptom:** Never getting proxies, circuit breaker stuck
 
 **Causes:**
+
 1. Too many failures
 2. Threshold too low
 3. Recovery timeout not elapsed
@@ -264,6 +272,7 @@ if hasattr(rotator, '_circuit_breaker'):
 **Symptom:** Proxy marked healthy then unhealthy randomly
 
 **Causes:**
+
 1. Intermittent connectivity issues
 2. Network flakiness
 3. Test URL unreliable
@@ -276,10 +285,10 @@ from proxywhirl import ProxyConfiguration
 config = ProxyConfiguration(
     # Use more reliable test URL
     validator_test_url="https://httpbin.org/status/200",
-    
+
     # Longer validation timeout
     validator_timeout_seconds=10,
-    
+
     # More samples before marking unhealthy
     health_check_sampling_rate=0.1,
 )
@@ -291,6 +300,7 @@ rotator = ProxyWhirl(config=config)
 **Symptom:** Most proxies in list are dead
 
 **Causes:**
+
 1. Proxy source quality
 2. Proxies age quickly
 3. Not validating fetched proxies
@@ -339,6 +349,7 @@ schedule.every().hours(6).do(refresh_proxies)
 **Symptom:** All proxies are slow
 
 **Causes:**
+
 1. Free proxies are naturally slow
 2. Geographic distance
 3. Proxy congestion
@@ -514,21 +525,25 @@ rotator = ProxyWhirl(config=config)
 When reporting issues, include:
 
 1. **Version Info**
+
    ```bash
    python -c "import proxywhirl; print(proxywhirl.__version__)"
    ```
 
 2. **Configuration**
+
    ```bash
    proxywhirl config show
    ```
 
 3. **Pool Status**
+
    ```bash
-   proxywhirl stats
+   proxywhirl pool stats
    ```
 
 4. **Error Log**
+
    ```bash
    proxywhirl --log-level DEBUG <command> 2>&1 | head -100
    ```
@@ -538,4 +553,3 @@ When reporting issues, include:
    from proxywhirl import ProxyWhirl
    # Minimal code that reproduces the issue
    ```
-

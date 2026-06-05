@@ -9,10 +9,11 @@ Tests:
 
 from __future__ import annotations
 
+import random
 from collections import Counter
 
 from proxywhirl.models import Proxy, ProxyPool, SelectionContext
-from proxywhirl.strategies.core import WeightedStrategy
+from proxywhirl.strategies import WeightedStrategy
 
 
 def create_proxy_with_success_rate(url: str, success_rate: float) -> Proxy:
@@ -233,10 +234,15 @@ class TestWeightedStrategyEdgeCases:
         pool = ProxyPool(name="test_pool", proxies=proxies)
 
         selections = []
-        for _ in range(2_000):
-            context = SelectionContext()
-            selected = strategy.select(pool, context)
-            selections.append(selected.url)
+        random_state = random.getstate()
+        random.seed(0)
+        try:
+            for _ in range(2_000):
+                context = SelectionContext()
+                selected = strategy.select(pool, context)
+                selections.append(selected.url)
+        finally:
+            random.setstate(random_state)
 
         counts = Counter(selections)
         # Roughly 60:40 distribution

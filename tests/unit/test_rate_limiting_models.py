@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from proxywhirl.rate_limiting.models import RateLimit, RateLimitEvent
+from proxywhirl.rate_limiting import RateLimit, RateLimitEvent
 
 
 class TestRateLimit:

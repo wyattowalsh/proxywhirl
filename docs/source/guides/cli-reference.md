@@ -4,7 +4,7 @@ title: CLI Reference
 
 # CLI Reference
 
-ProxyWhirl provides a full-featured command-line interface for proxy rotation, pool management, health monitoring, statistics, and data export. All commands support multiple output formats (text/JSON/CSV) and integrate with the configuration system.
+ProxyWhirl provides a focused command-line interface for proxy rotation, pool management, health checks, proxy fetching, validation, imports, and data export. Commands integrate with the configuration system and use the global output format where structured output is supported.
 
 ```{contents}
 :local:
@@ -14,8 +14,11 @@ ProxyWhirl provides a full-featured command-line interface for proxy rotation, p
 ## Installation
 
 ```bash
-# Install with CLI support
-uv pip install proxywhirl
+# Run the CLI without adding it to the project
+uvx proxywhirl --help
+
+# Or add ProxyWhirl to the current project
+uv add proxywhirl
 
 # Or install from source
 uv sync
@@ -38,7 +41,7 @@ All commands support these global options:
   - Path to TOML configuration file
 * - ``--format, -f FORMAT``
   - ``text``
-  - Output format: ``text``, ``json``, or ``csv``
+  - Output format: ``text``, ``json``, ``csv``, or ``yaml``
 * - ``--verbose, -v``
   - ``false``
   - Enable verbose logging and debug output
@@ -49,10 +52,10 @@ All commands support these global options:
 
 ### Config Auto-Discovery
 
-When ``--config`` is not provided, ProxyWhirl searches for configuration in this order:
+When `--config` is not provided, ProxyWhirl searches for configuration in this order:
 
-1. **Project directory**: ``./pyproject.toml`` (requires ``[tool.proxywhirl]`` section)
-2. **User directory**: ``~/.config/proxywhirl/config.toml`` (Linux/macOS) or ``%APPDATA%\proxywhirl\config.toml`` (Windows)
+1. **Project directory**: `./pyproject.toml` (requires `[tool.proxywhirl]` section)
+2. **User directory**: `~/.config/proxywhirl/config.toml` (Linux/macOS) or `%APPDATA%\proxywhirl\config.toml` (Windows)
 3. **Defaults**: In-memory configuration with sensible defaults
 
 ```{tip}
@@ -66,12 +69,14 @@ Use ``proxywhirl config init`` to create a starter configuration file (``.proxyw
 Make HTTP requests through rotating proxies with automatic retry and failover.
 
 **Usage:**
+
 ```bash
 proxywhirl request [OPTIONS] URL
 ```
 
 **Arguments:**
-- ``URL``: Target URL to request (required)
+
+- `URL`: Target URL to request (required)
 
 **Options:**
 
@@ -124,6 +129,7 @@ proxywhirl --format json request https://api.example.com/data
 ```
 
 **Output (text format):**
+
 ```
 Status: 200
 URL: https://api.example.com/data
@@ -136,6 +142,7 @@ Response:
 ```
 
 **Output (JSON format):**
+
 ```json
 {
   "status_code": 200,
@@ -152,16 +159,18 @@ Response:
 
 ### pool
 
-Manage the proxy pool: list proxies, add new ones, remove proxies, or test connectivity.
+Manage the proxy pool: list proxies, add new ones, remove proxies, test connectivity, or show pool statistics.
 
 **Usage:**
+
 ```bash
-proxywhirl pool [OPTIONS] ACTION [PROXY]
+proxywhirl pool COMMAND [ARGS]...
 ```
 
 **Arguments:**
-- ``ACTION``: Action to perform: ``list``, ``add``, ``remove``, or ``test``
-- ``PROXY``: Proxy URL (required for ``add``, ``remove``, ``test`` actions)
+
+- `COMMAND`: Subcommand to run: `list`, `add`, `remove`, `test`, or `stats`
+- `PROXY`: Proxy URL (required for `add`, `remove`, and `test` subcommands)
 
 **Options:**
 
@@ -212,9 +221,13 @@ proxywhirl pool test http://proxy1.example.com:8080
 # Test proxy with custom target URL
 proxywhirl pool test http://proxy1.example.com:8080 \
   --target-url https://api.example.com
+
+# Show pool statistics
+proxywhirl pool stats
 ```
 
 **Output (list, text format):**
+
 ```
 Proxy Pool Summary
 Total Proxies: 3
@@ -227,6 +240,7 @@ Strategy: round-robin
 ```
 
 **Output (test, text format):**
+
 ```
 Testing proxy: http://proxy1.example.com:8080...
 Target URL: https://httpbin.org/ip
@@ -248,14 +262,16 @@ The ``--allow-private`` flag bypasses SSRF protection. Only use it when testing 
 Manage CLI configuration: show current settings, get/set individual values, or initialize a new config file.
 
 **Usage:**
+
 ```bash
 proxywhirl config ACTION [KEY] [VALUE]
 ```
 
 **Arguments:**
-- ``ACTION``: Action to perform: ``show``, ``get``, ``set``, or ``init``
-- ``KEY``: Configuration key (for ``get``/``set`` actions)
-- ``VALUE``: Configuration value (for ``set`` action)
+
+- `ACTION`: Action to perform: `show`, `get`, `set`, or `init`
+- `KEY`: Configuration key (for `get`/`set` actions)
+- `VALUE`: Configuration value (for `set` action)
 
 **Examples:**
 
@@ -347,6 +363,7 @@ proxywhirl config set verify_ssl false
 ```
 
 **Output (show, text format):**
+
 ```
 Configuration
 Config file: /Users/user/project/pyproject.toml
@@ -371,6 +388,7 @@ storage_path: None
 Check health of all proxies in the pool. Supports continuous monitoring mode for long-running checks.
 
 **Usage:**
+
 ```bash
 proxywhirl health [OPTIONS]
 ```
@@ -418,6 +436,7 @@ proxywhirl --format json health
 ```
 
 **Output (single check, text format):**
+
 ```
 Checking proxy health...
 
@@ -430,6 +449,7 @@ Healthy: 2 | Degraded: 1 | Failed: 0
 ```
 
 **Output (continuous mode):**
+
 ```
 Continuous health monitoring (interval: 60s)
 Press Ctrl+C to stop
@@ -452,6 +472,7 @@ Monitoring stopped
 ```
 
 **Output (JSON format):**
+
 ```json
 {
   "total_proxies": 3,
@@ -494,6 +515,7 @@ The ``--allow-private`` flag bypasses SSRF protection. Only use it when testing 
 Fetch proxies from 100+ free proxy sources, validate them, and save to database and files.
 
 **Usage:**
+
 ```bash
 proxywhirl fetch [OPTIONS]
 ```
@@ -553,6 +575,7 @@ proxywhirl fetch --no-save-db
 ```
 
 **Process:**
+
 1. Fetches proxies from 60+ sources (HTTP, SOCKS4, SOCKS5)
 2. Validates each proxy for connectivity (optional, parallel)
 3. Saves validated proxies to SQLite database (optional)
@@ -560,6 +583,7 @@ proxywhirl fetch --no-save-db
 5. Enriches with GeoIP metadata when available
 
 **Output:**
+
 ```
 ProxyWhirl Fetch - Aggregating proxies from 60+ sources
 
@@ -604,9 +628,10 @@ Use ``--concurrency 2000`` for faster validation on systems with high network ca
 
 ### export
 
-Export proxy data for web dashboards and analytics. Generates ``stats.json`` and ``proxies-rich.json`` files with full metadata.
+Export proxy data for web dashboards and analytics. Generates `stats.json` and `proxies-rich.json` files with full metadata.
 
 **Usage:**
+
 ```bash
 proxywhirl export [OPTIONS]
 ```
@@ -651,6 +676,7 @@ proxywhirl export --db ./custom.db --output ./output
 ```
 
 **Output:**
+
 ```
 Exporting data for web dashboard...
 Output directory: docs/proxy-lists
@@ -664,8 +690,8 @@ Export complete!
 
 **Generated Files:**
 
-- ``stats.json``: Aggregate statistics (total proxies, health distribution, protocol breakdown)
-- ``proxies-rich.json``: Full proxy details with geo data, response times, success rates
+- `stats.json`: Aggregate statistics (total proxies, health distribution, protocol breakdown)
+- `proxies-rich.json`: Full proxy details with geo data, response times, success rates
 
 ```{note}
 The ``export`` command is used by CI/CD workflows to generate data for the web dashboard. It aggregates database content and enriches with metadata.
@@ -673,14 +699,19 @@ The ``export`` command is used by CI/CD workflows to generate data for the web d
 
 ---
 
-### setup-geoip
+### validate-proxy
 
-Set up the MaxMind GeoLite2 database for offline geo enrichment of proxy data.
+Validate a single proxy URL, optionally by making a request through it to a target URL.
 
 **Usage:**
+
 ```bash
-proxywhirl setup-geoip [OPTIONS]
+proxywhirl validate-proxy [OPTIONS] PROXY_URL
 ```
+
+**Arguments:**
+
+- `PROXY_URL`: Proxy URL to validate, such as `http://proxy.example.com:8080` or `socks5://proxy.example.com:1080`.
 
 **Options:**
 
@@ -691,240 +722,43 @@ proxywhirl setup-geoip [OPTIONS]
 * - Option
   - Default
   - Description
-* - ``--check``
-  - ``false``
-  - Only check if GeoIP database exists
+* - ``--target, -t URL``
+  - ``https://httpbin.org/ip``
+  - Target URL to test through the proxy
+* - ``--timeout SECONDS``
+  - ``10.0``
+  - Request timeout in seconds
 ```
 
 **Examples:**
 
 ```bash
-# Show setup instructions
-proxywhirl setup-geoip
+# Validate against the default target
+proxywhirl validate-proxy http://proxy.example.com:8080
 
-# Check if database is installed
-proxywhirl setup-geoip --check
-```
+# Validate against a custom target
+proxywhirl validate-proxy http://proxy.example.com:8080 \
+  --target https://httpbin.org/status/200
 
-**Output (when database is missing):**
-```
-MaxMind GeoLite2 Database Setup
-
-GeoIP database not found.
-
-To enable geo enrichment, download the free GeoLite2-City database:
-
-Option 1: Direct Download (Recommended)
-  1. Go to: https://www.maxmind.com/en/geolite2/signup
-  2. Create a free account
-  3. Download 'GeoLite2-City' in MMDB format
-  4. Place the file at: ~/.config/proxywhirl/GeoLite2-City.mmdb
-
-Option 2: Using geoipupdate tool
-  1. Install: brew install geoipupdate  # or apt-get install geoipupdate
-  2. Configure with your MaxMind license key
-  3. Run: geoipupdate
-  4. Symlink or copy to: ~/.config/proxywhirl/GeoLite2-City.mmdb
-
-Note: GeoLite2 databases are free but require registration.
-Without it, enrichment still provides IP properties and port analysis.
-
-✓ Created config directory: ~/.config/proxywhirl
-```
-
-**Output (when database is installed):**
-```
-✓ GeoIP database is available
-  Location: ~/.config/proxywhirl/GeoLite2-City.mmdb
-
-Proxy enrichment will include:
-  • Country name and code
-  • City and region
-  • Timezone
-  • Geographic coordinates
-```
-
-```{note}
-GeoIP enrichment is optional. Without the database, ``proxywhirl fetch`` still provides IP properties and port analysis.
+# Validate a SOCKS5 proxy with a shorter timeout
+proxywhirl validate-proxy socks5://proxy.example.com:1080 --timeout 5
 ```
 
 ---
 
-### sources
+### import-proxies
 
-Command group for listing, validating, and auditing proxy sources. When invoked without a subcommand, lists or validates all configured sources.
-
-**Usage:**
-```bash
-proxywhirl sources [OPTIONS]
-proxywhirl sources audit [OPTIONS]
-```
-
-#### sources (list/validate)
-
-**Options:**
-
-```{list-table}
-:header-rows: 1
-:widths: 35 15 50
-
-* - Option
-  - Default
-  - Description
-* - ``--validate, -v``
-  - ``false``
-  - Validate all sources and check for broken ones
-* - ``--timeout, -t SECONDS``
-  - ``15.0``
-  - Timeout per source in seconds
-* - ``--concurrency, -j NUM``
-  - ``20``
-  - Maximum concurrent requests
-* - ``--fail-on-unhealthy, -f``
-  - ``false``
-  - Exit with error code if any sources are unhealthy (for CI)
-```
-
-**Examples:**
-
-```bash
-# List all sources
-proxywhirl sources
-
-# Validate all sources
-proxywhirl sources --validate
-
-# Validate with higher concurrency
-proxywhirl sources --validate --concurrency 50
-
-# CI mode: fail if sources are unhealthy
-proxywhirl sources --validate --fail-on-unhealthy
-
-# Get results as JSON
-proxywhirl --format json sources --validate
-```
-
-**Output (list mode):**
-```
-Configured Proxy Sources
-
-HTTP Sources (45):
-  • https://www.proxy-list.download/api/v1/get?type=http
-  • https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http
-  • https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt
-  ...
-
-SOCKS4 Sources (8):
-  • https://www.proxy-list.download/api/v1/get?type=socks4
-  • https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks4
-  ...
-
-SOCKS5 Sources (7):
-  • https://www.proxy-list.download/api/v1/get?type=socks5
-  • https://api.proxyscrape.com/v2/?request=displayproxies&protocol=socks5
-  ...
-
-Total: 60 sources
-
-Use --validate to check source health
-Use 'proxywhirl sources audit' for detailed auditing
-```
-
-**Output (validate mode):**
-```
-Validating 100+ proxy sources...
-
-┏━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┓
-┃ Status  ┃ Source                           ┃ Response ┃ Size   ┃ Time   ┃ Error  ┃
-┡━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━┩
-│ ✓ OK    │ proxy-list.download HTTP         │ 200      │ 12,345 │ 234ms  │        │
-│ ✓ OK    │ proxyscrape HTTP                 │ 200      │ 45,678 │ 456ms  │        │
-│ ✗ FAIL  │ stale-source.example.com         │ -        │ -      │ 0ms    │ Timeout│
-...
-┗━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━┷━━━━━━━━┷━━━━━━━━┷━━━━━━━━┛
-
-Summary:
-  Total: 60 | Healthy: 58 | Unhealthy: 2 | Time: 5678ms
-
-Unhealthy sources:
-  • stale-source.example.com: Timeout
-  • broken-source.example.com: HTTP 404
-```
-
-```{tip}
-Run ``proxywhirl sources --validate --fail-on-unhealthy`` in CI to catch broken sources early.
-```
-
-#### sources audit
-
-Audit proxy sources for broken or stale entries. Tests each source by fetching from it and checking if it returns valid proxies. A source is considered "broken" if it returns a non-200 status, times out after retries, returns fewer proxies than ``--min-proxies``, or returns malformed content.
+Import proxies from a JSON, CSV, or plain-text file into a named pool.
 
 **Usage:**
-```bash
-proxywhirl sources audit [OPTIONS]
-```
-
-**Options:**
-
-```{list-table}
-:header-rows: 1
-:widths: 35 15 50
-
-* - Option
-  - Default
-  - Description
-* - ``--timeout, -t SECONDS``
-  - ``15.0``
-  - Timeout per source in seconds
-* - ``--concurrency, -j NUM``
-  - ``20``
-  - Maximum concurrent requests
-* - ``--retries, -r NUM``
-  - ``3``
-  - Number of retries for each source before marking as broken
-* - ``--fix``
-  - ``false``
-  - Remove broken sources from ``sources.py`` (creates backup)
-* - ``--dry-run, -n``
-  - ``false``
-  - Show what would be removed without making changes (implies ``--fix``)
-* - ``--min-proxies NUM``
-  - ``1``
-  - Minimum proxies required for a source to be considered healthy
-* - ``--protocol, -p PROTOCOL``
-  - None
-  - Only audit sources of specific protocol (``http``, ``socks4``, ``socks5``)
-```
-
-**Examples:**
 
 ```bash
-# Audit all sources
-proxywhirl sources audit
-
-# Only audit HTTP sources
-proxywhirl sources audit --protocol http
-
-# Remove broken sources (creates backup)
-proxywhirl sources audit --fix
-
-# Preview what would be removed
-proxywhirl sources audit --dry-run
-
-# More retries before marking broken
-proxywhirl sources audit --retries 5
+proxywhirl import-proxies [OPTIONS] FILE_PATH
 ```
 
----
+**Arguments:**
 
-### stats
-
-Display retry and circuit breaker statistics for monitoring proxy performance and reliability.
-
-**Usage:**
-```bash
-proxywhirl stats [OPTIONS]
-```
+- `FILE_PATH`: File to import. Format is inferred by default.
 
 **Options:**
 
@@ -935,295 +769,38 @@ proxywhirl stats [OPTIONS]
 * - Option
   - Default
   - Description
-* - ``--retry``
-  - ``false``
-  - Show retry metrics (attempts, success by attempt, etc.)
-* - ``--circuit-breaker``
-  - ``false``
-  - Show circuit breaker state transitions
-* - ``--hours, -r NUM``
-  - ``24``
-  - Time window in hours for statistics
+* - ``--format, -f FORMAT``
+  - ``auto``
+  - Input format: ``auto``, ``json``, ``csv``, or ``text``
+* - ``--pool, -p NAME``
+  - ``imported``
+  - Target pool name
+* - ``--dedup / --no-dedup``
+  - ``--dedup``
+  - Deduplicate proxies before import
 ```
 
 **Examples:**
 
 ```bash
-# Show retry metrics (default if no flags)
-proxywhirl stats --retry
+# Import and auto-detect file format
+proxywhirl import-proxies proxies.json
 
-# Show circuit breaker states
-proxywhirl stats --circuit-breaker
+# Import CSV into the default imported pool
+proxywhirl import-proxies proxies.csv --format csv
 
-# Show both retry and circuit breaker stats
-proxywhirl stats --retry --circuit-breaker
+# Import plain text into a named pool
+proxywhirl import-proxies proxies.txt --format text --pool backup
 
-# Show stats for last 12 hours
-proxywhirl stats --retry --circuit-breaker --hours 12
-
-# Get stats as JSON
-proxywhirl --format json stats --retry
-```
-
-**Output (retry metrics, text format):**
-```
-Retry Metrics Summary
-Total Retries: 1,234
-Retention: 24 hours
-
-Success Rate by Attempt:
-┏━━━━━━━━━┳━━━━━━━━━━━┓
-┃ Attempt ┃ Successes ┃
-┡━━━━━━━━━╇━━━━━━━━━━━┩
-│    1    │    850    │
-│    2    │    234    │
-│    3    │    150    │
-└─────────┴───────────┘
-
-Per-Proxy Statistics:
-┏━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━┓
-┃ Proxy ID             ┃ Attempts ┃ Success ┃ Failures ┃ Avg Latency ┃ CB Opens┃
-┡━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━┩
-│ proxy1.example.com   │   500    │ 475(95%)│    25    │    145ms    │    2    │
-│ proxy2.example.com   │   400    │ 360(90%)│    40    │    230ms    │    5    │
-│ proxy3.example.com   │   334    │ 200(60%)│   134    │   1245ms    │   15    │
-└──────────────────────┴──────────┴─────────┴──────────┴─────────────┴─────────┘
-```
-
-**Output (circuit breaker events, text format):**
-```
-Circuit Breaker Events
-Total Events: 45
-
-Recent Events (last 20):
-┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┓
-┃ Timestamp           ┃ Proxy ID             ┃ Transition         ┃ Failures ┃
-┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━┩
-│ 2025-12-27 18:15:23 │ proxy1.example.com   │ closed → open      │    5     │
-│ 2025-12-27 18:18:45 │ proxy1.example.com   │ open → half_open   │    0     │
-│ 2025-12-27 18:19:12 │ proxy1.example.com   │ half_open → closed │    0     │
-│ 2025-12-27 18:25:30 │ proxy3.example.com   │ closed → open      │    8     │
-...
-└─────────────────────┴──────────────────────┴────────────────────┴──────────┘
-```
-
-**Output (JSON format):**
-```json
-{
-  "summary": {
-    "total_retries": 1234,
-    "retention_hours": 24,
-    "success_by_attempt": {
-      "1": 850,
-      "2": 234,
-      "3": 150
-    }
-  },
-  "by_proxy": {
-    "proxy1.example.com:8080": {
-      "total_attempts": 500,
-      "success_count": 475,
-      "failure_count": 25,
-      "avg_latency": 145.3,
-      "circuit_breaker_opens": 2
-    }
-  }
-}
-```
-
-```{note}
-The ``stats`` command shows both if neither ``--retry`` nor ``--circuit-breaker`` is specified. For programmatic access to retry metrics and circuit breaker state, see {doc}`retry-failover`.
-```
-
----
-
-### tui
-
-Launch the interactive Terminal User Interface (TUI) dashboard for real-time proxy management.
-
-**Usage:**
-```bash
-proxywhirl tui
-```
-
-The TUI provides a full-featured dashboard with:
-
-- **Real-time metrics** and sparkline visualizations
-- **Proxy table** with filtering, sorting, and health status
-- **Manual proxy management** (add/remove)
-- **Health checks** with progress bars
-- **Circuit breaker monitoring** (see {doc}`retry-failover` for circuit breaker details)
-- **Request testing** with multiple HTTP methods
-- **Export functionality** with format preview
-
-**Keyboard Shortcuts:**
-
-```{list-table}
-:header-rows: 1
-:widths: 20 80
-
-* - Key
-  - Action
-* - ``j/k``
-  - Navigate up/down
-* - ``g/G``
-  - Jump to first/last
-* - ``Enter``
-  - View proxy details
-* - ``c``
-  - Copy proxy URL
-* - ``t``
-  - Quick test proxy
-* - ``/``
-  - Focus search
-* - ``?``
-  - Show help modal
-* - ``Ctrl+A``
-  - Toggle auto-refresh
-* - ``Ctrl+R``
-  - Refresh all data
-* - ``Ctrl+F``
-  - Fetch tab
-* - ``Ctrl+E``
-  - Export tab
-* - ``Ctrl+T``
-  - Test tab
-* - ``Ctrl+H``
-  - Health tab
-```
-
-```{tip}
-The TUI is an alternative to the CLI commands for users who prefer a visual interface. It uses the same underlying proxy pool and configuration.
-```
-
----
-
-### db-stats
-
-Show comprehensive database statistics including counts by health status, protocol, and validation metrics.
-
-**Usage:**
-```bash
-proxywhirl db-stats [OPTIONS]
-```
-
-**Options:**
-
-```{list-table}
-:header-rows: 1
-:widths: 30 15 55
-
-* - Option
-  - Default
-  - Description
-* - ``--db PATH``
-  - ``proxywhirl.db``
-  - Path to SQLite database
-```
-
-**Examples:**
-
-```bash
-# Show database statistics
-proxywhirl db-stats
-
-# Use custom database path
-proxywhirl db-stats --db custom.db
-
-# Get stats as JSON
-proxywhirl --format json db-stats
-```
-
-**Output (text format):**
-```
-Proxy Database Statistics
-┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┓
-┃ Metric              ┃     Value ┃
-┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━┩
-│ Total Proxies       │    19,935 │
-│                     │           │
-│ By Health Status    │           │
-│   healthy           │    12,456 │
-│   unknown           │     5,234 │
-│   dead              │     2,245 │
-│                     │           │
-│ By Protocol         │           │
-│   http              │    15,678 │
-│   socks4            │     2,345 │
-│   socks5            │     1,912 │
-│                     │           │
-│ Database Size       │   12.34 MB│
-└─────────────────────┴───────────┘
-```
-
----
-
-### cleanup
-
-Clean up stale and dead proxies from the database. Performs a dry run by default.
-
-**Usage:**
-```bash
-proxywhirl cleanup [OPTIONS]
-```
-
-**Options:**
-
-```{list-table}
-:header-rows: 1
-:widths: 30 15 55
-
-* - Option
-  - Default
-  - Description
-* - ``--db PATH``
-  - ``proxywhirl.db``
-  - Path to SQLite database
-* - ``--stale-days NUM``
-  - ``7``
-  - Remove proxies not validated in N days
-* - ``--execute``
-  - ``false``
-  - Actually perform cleanup (dry run by default)
-```
-
-**Examples:**
-
-```bash
-# Dry run - shows what would be removed
-proxywhirl cleanup
-
-# Actually remove stale proxies
-proxywhirl cleanup --execute
-
-# Remove proxies not validated in 14 days
-proxywhirl cleanup --stale-days 14 --execute
-
-# Get results as JSON
-proxywhirl --format json cleanup --execute
-```
-
-**Output (dry run):**
-```
-Dry run - showing what would be removed:
-  dead: 2,245
-```
-
-**Output (execute):**
-```
-✓ Cleanup completed: removed 2,245 proxies
-  dead: 2,245
-```
-
-```{tip}
-Use ``cleanup`` in CI/CD pipelines before ``export`` to ensure only valid proxies are included. See {doc}`automation` for proxy refresh workflows.
+# Preserve duplicates when importing
+proxywhirl import-proxies data.json --no-dedup
 ```
 
 ---
 
 ## Output Formats
 
-All commands support three output formats via the ``--format`` global option:
+The global `--format` option accepts `text`, `json`, `csv`, or `yaml`. Structured formats are command-dependent; commands that render table-shaped data support `csv`, while other commands are best consumed as `text`, `json`, or `yaml`.
 
 ### Text (default)
 
@@ -1243,7 +820,7 @@ proxywhirl --format json pool list
 
 ### CSV
 
-Tabular output for spreadsheet import or data analysis. Only available for list/table commands.
+Tabular output for spreadsheet import or data analysis. Only available for list/table-shaped commands.
 
 ```bash
 proxywhirl --format csv pool list > proxies.csv
@@ -1251,7 +828,7 @@ proxywhirl --format csv pool list > proxies.csv
 
 ## Configuration File
 
-ProxyWhirl uses TOML configuration files. Example ``~/.config/proxywhirl/config.toml``:
+ProxyWhirl uses TOML configuration files. Example `~/.config/proxywhirl/config.toml`:
 
 ```toml
 # Proxy pool
@@ -1286,7 +863,7 @@ encrypt_credentials = true
 encryption_key_env = "PROXYWHIRL_KEY"
 ```
 
-For project-specific configuration, use ``pyproject.toml``:
+For project-specific configuration, use `pyproject.toml`:
 
 ```toml
 [tool.proxywhirl]
@@ -1299,11 +876,12 @@ url = "http://proxy1.example.com:8080"
 ```
 
 :::{seealso}
+
 - {doc}`/getting-started/index` for the quick start guide
 - {doc}`/guides/advanced-strategies` for rotation strategy details
 - {doc}`/guides/retry-failover` for retry and circuit breaker configuration
 - {doc}`/reference/configuration` for complete configuration reference
-:::
+  :::
 
 ## Advanced Usage
 
@@ -1338,7 +916,7 @@ proxywhirl health --continuous --interval 600 &
 name: Validate Proxy Sources
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours
+    - cron: "0 */6 * * *" # Every 6 hours
 
 jobs:
   validate:
@@ -1346,8 +924,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: uv sync
-      - run: uv run proxywhirl sources --validate --fail-on-unhealthy
-      - run: uv run proxywhirl fetch --concurrency 2000
+      - run: uv run proxywhirl fetch --revalidate --timeout 5 --concurrency 2000 --no-export
+      - run: uv run proxywhirl fetch --timeout 5 --concurrency 2000
       - run: uv run proxywhirl export
 ```
 
@@ -1398,13 +976,7 @@ proxywhirl fetch --no-validate
 
 ### GeoIP Enrichment Not Working
 
-```bash
-# Check database status
-proxywhirl setup-geoip --check
-
-# Follow setup instructions
-proxywhirl setup-geoip
-```
+Place a MaxMind GeoLite2-City MMDB file at the configured GeoIP path, then run `proxywhirl fetch` again so exported proxy metadata can include location data when available.
 
 ### SSRF Protection Blocking Local Tests
 
@@ -1450,12 +1022,13 @@ proxywhirl pool test http://proxy.example.com:8080 \
 ```
 
 **Common Exit Code 1 Scenarios:**
+
 - Invalid URL format or scheme
 - SSRF protection triggered (localhost/private IP access denied)
 - Proxy not found in pool
 - Configuration file not found or invalid
 - Request failed after all retries
-- Source validation failed (with ``--fail-on-unhealthy``)
+- Source validation failed (with `--fail-on-unhealthy`)
 - Lock acquisition timeout
 
 ---
@@ -1487,7 +1060,7 @@ Detailed rotation strategy configuration for use with `config set rotation_strat
 :link: /guides/retry-failover
 :link-type: doc
 
-Retry policies and circuit breaker settings referenced by `stats` command output.
+Retry policies and circuit breaker settings used by proxy rotation.
 :::
 
 :::{grid-item-card} Caching Subsystem

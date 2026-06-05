@@ -1,0 +1,37 @@
+---
+title: Clients
+description: Choose between ProxyWhirl and AsyncProxyWhirl and understand client usage patterns.
+---
+
+# Clients
+
+ProxyWhirl exposes both sync and async client surfaces.
+
+Use `ProxyWhirl` for scripts, CLIs, notebooks, and applications that do not already run an event loop:
+
+```python
+from proxywhirl import ProxyWhirl
+
+rotator = ProxyWhirl(strategy="performance-based")
+response = rotator.get("https://api.example.com/data")
+```
+
+Use `AsyncProxyWhirl` for FastAPI services, crawlers, concurrent validation, and any application already built around `asyncio`:
+
+```python
+from proxywhirl import AsyncProxyWhirl
+
+async with AsyncProxyWhirl(strategy="round-robin") as rotator:
+    response = await rotator.get("https://api.example.com/data")
+```
+
+## Selection Rules
+
+| Scenario                      | Recommended Client      |
+| ----------------------------- | ----------------------- |
+| Small script or CLI task      | `ProxyWhirl`            |
+| Web service or worker pool    | `AsyncProxyWhirl`       |
+| High concurrency validation   | `AsyncProxyWhirl`       |
+| Human-operated local workflow | `ProxyWhirl` or the CLI |
+
+Keep proxy source fetching, validation, and storage decisions outside your hot request path when possible.

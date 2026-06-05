@@ -112,7 +112,7 @@ class TestRetryMetricsEndpoint:
 
     def test_get_retry_metrics_json_format(self, client, mock_rotator):
         """Test retry metrics endpoint with JSON format (default)."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             response = client.get("/api/metrics/retries")
 
             assert response.status_code == 200
@@ -130,7 +130,7 @@ class TestRetryMetricsEndpoint:
 
     def test_get_retry_metrics_json_with_hours_param(self, client, mock_rotator):
         """Test retry metrics endpoint with hours parameter."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             response = client.get("/api/metrics/retries/timeseries?hours=12")
 
             assert response.status_code == 200
@@ -140,7 +140,7 @@ class TestRetryMetricsEndpoint:
 
     def test_get_retry_metrics_prometheus_format(self, client, mock_rotator):
         """Test canonical Prometheus metrics endpoint."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             response = client.get("/api/metrics")
 
             assert response.status_code == 200
@@ -152,7 +152,7 @@ class TestRetryMetricsEndpoint:
 
     def test_get_retry_metrics_prometheus_case_insensitive(self, client, mock_rotator):
         """Retry metrics remain JSON when obsolete format parameters are supplied."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             response = client.get("/api/metrics/retries?format=PROMETHEUS")
             assert response.status_code == 200
             assert response.headers["content-type"] == "application/json"
@@ -163,7 +163,7 @@ class TestRetryMetricsEndpoint:
 
     def test_get_retry_metrics_no_rotator(self, client):
         """Test retry metrics endpoint when rotator is not initialized."""
-        with patch("proxywhirl.api.core._rotator", None):
+        with patch("proxywhirl.api.runtime._rotator", None):
             response = client.get("/api/metrics/retries")
 
             assert response.status_code == 503
@@ -190,7 +190,7 @@ class TestRetryMetricsEndpoint:
         rotator.get_retry_metrics.return_value = metrics
         rotator.get_circuit_breaker_states.return_value = {}
 
-        with patch("proxywhirl.api.core._rotator", rotator):
+        with patch("proxywhirl.api.runtime._rotator", rotator):
             response = client.get("/api/metrics/retries/by-proxy")
 
             assert response.status_code == 200
@@ -202,7 +202,7 @@ class TestCircuitBreakerMetricsEndpoint:
 
     def test_get_circuit_breaker_metrics_json_format(self, client, mock_rotator):
         """Test circuit breaker metrics endpoint with JSON format (default)."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             response = client.get("/api/metrics/circuit-breakers")
 
             assert response.status_code == 200
@@ -220,7 +220,7 @@ class TestCircuitBreakerMetricsEndpoint:
 
     def test_get_circuit_breaker_metrics_with_hours_param(self, client, mock_rotator):
         """Test circuit breaker metrics with hours parameter."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             # Request only last 1 hour
             # Event 1 is 1 hour ago (exactly), so may be excluded based on cutoff
             # Events 2 and 3 are within 30 and 15 minutes
@@ -235,7 +235,7 @@ class TestCircuitBreakerMetricsEndpoint:
 
     def test_get_circuit_breaker_metrics_prometheus_format(self, client, mock_rotator):
         """Test canonical Prometheus endpoint for circuit breaker metrics."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             response = client.get("/api/metrics")
 
             assert response.status_code == 200
@@ -247,7 +247,7 @@ class TestCircuitBreakerMetricsEndpoint:
 
     def test_get_circuit_breaker_metrics_no_rotator(self, client):
         """Test circuit breaker metrics endpoint when rotator is not initialized."""
-        with patch("proxywhirl.api.core._rotator", None):
+        with patch("proxywhirl.api.runtime._rotator", None):
             response = client.get("/api/metrics/circuit-breakers")
 
             assert response.status_code == 503
@@ -280,7 +280,7 @@ class TestCircuitBreakerMetricsEndpoint:
         }
         rotator.get_retry_metrics.return_value = RetryMetrics()
 
-        with patch("proxywhirl.api.core._rotator", rotator):
+        with patch("proxywhirl.api.runtime._rotator", rotator):
             response = client.get("/api/circuit-breakers")
 
             assert response.status_code == 200
@@ -295,7 +295,7 @@ class TestAPIAuthentication:
     def test_retry_metrics_without_auth_when_disabled(self, client, mock_rotator):
         """Test that metrics endpoints work without auth when auth is disabled."""
         with (
-            patch("proxywhirl.api.core._rotator", mock_rotator),
+            patch("proxywhirl.api.runtime._rotator", mock_rotator),
             patch.dict("os.environ", {"PROXYWHIRL_REQUIRE_AUTH": "false"}),
         ):
             response = client.get("/api/metrics/retries")
@@ -304,7 +304,7 @@ class TestAPIAuthentication:
     def test_retry_metrics_with_valid_api_key(self, client, mock_rotator):
         """Test that metrics endpoints work with valid API key."""
         with (
-            patch("proxywhirl.api.core._rotator", mock_rotator),
+            patch("proxywhirl.api.runtime._rotator", mock_rotator),
             patch.dict(
                 "os.environ",
                 {
@@ -322,7 +322,7 @@ class TestAPIAuthentication:
     def test_retry_metrics_with_invalid_api_key(self, client, mock_rotator):
         """Test that metrics endpoints reject invalid API key."""
         with (
-            patch("proxywhirl.api.core._rotator", mock_rotator),
+            patch("proxywhirl.api.runtime._rotator", mock_rotator),
             patch.dict(
                 "os.environ",
                 {
@@ -340,7 +340,7 @@ class TestAPIAuthentication:
     def test_circuit_breaker_metrics_with_auth(self, client, mock_rotator):
         """Test circuit breaker metrics endpoint respects auth."""
         with (
-            patch("proxywhirl.api.core._rotator", mock_rotator),
+            patch("proxywhirl.api.runtime._rotator", mock_rotator),
             patch.dict(
                 "os.environ",
                 {
@@ -363,7 +363,7 @@ class TestAPIAuthentication:
     def test_auth_fails_closed_when_misconfigured(self, client, mock_rotator):
         """Test SEC-004: API fails closed (rejects requests) when auth is required but API key not configured."""
         with (
-            patch("proxywhirl.api.core._rotator", mock_rotator),
+            patch("proxywhirl.api.runtime._rotator", mock_rotator),
             patch.dict(
                 "os.environ",
                 {"PROXYWHIRL_REQUIRE_AUTH": "true"},
@@ -518,7 +518,7 @@ class TestEdgeCases:
         rotator.get_retry_metrics.return_value = RetryMetrics()
         rotator.get_circuit_breaker_states.return_value = {}
 
-        with patch("proxywhirl.api.core._rotator", rotator):
+        with patch("proxywhirl.api.runtime._rotator", rotator):
             # JSON format
             response = client.get("/api/metrics/retries")
             assert response.status_code == 200
@@ -543,7 +543,7 @@ class TestEdgeCases:
             "proxy.example.com:8080": cb,
         }
 
-        with patch("proxywhirl.api.core._rotator", rotator):
+        with patch("proxywhirl.api.runtime._rotator", rotator):
             response = client.get("/api/metrics/circuit-breakers")
             assert response.status_code == 200
             data = response.json()
@@ -551,7 +551,7 @@ class TestEdgeCases:
 
     def test_invalid_hours_parameter(self, client, mock_rotator):
         """Test that negative hours parameter is handled."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             # Negative hours should still work (metrics layer handles it)
             response = client.get("/api/metrics/retries?hours=-1")
             # FastAPI will convert -1 to int, metrics layer returns empty data
@@ -559,7 +559,7 @@ class TestEdgeCases:
 
     def test_large_hours_parameter(self, client, mock_rotator):
         """Test that very large hours parameter is handled."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             response = client.get("/api/metrics/retries?hours=10000")
             assert response.status_code == 200
 
@@ -889,7 +889,7 @@ class TestRequestIDMiddleware:
 
     def test_request_id_generated_when_not_provided(self, client, mock_rotator):
         """Test that X-Request-ID header is generated when not provided."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             response = client.get("/api/metrics/retries")
 
             assert response.status_code == 200
@@ -910,7 +910,7 @@ class TestRequestIDMiddleware:
 
     def test_request_id_preserved_when_provided(self, client, mock_rotator):
         """Test that X-Request-ID header is preserved when provided by client."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             # Provide a custom request ID
             custom_request_id = str(uuid.uuid4())
 
@@ -927,7 +927,7 @@ class TestRequestIDMiddleware:
 
     def test_request_id_appears_in_response_headers(self, client, mock_rotator):
         """Test that X-Request-ID appears in all response headers."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             # Test on different endpoints
             endpoints = ["/api/metrics/retries", "/api/metrics/circuit-breakers"]
 
@@ -940,7 +940,7 @@ class TestRequestIDMiddleware:
 
     def test_request_id_is_valid_uuid_format(self, client, mock_rotator):
         """Test that generated request ID is a valid UUID format."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             # Make multiple requests and verify each has valid UUID
             for _ in range(5):
                 response = client.get("/api/metrics/retries")
@@ -959,7 +959,7 @@ class TestRequestIDMiddleware:
 
     def test_request_id_unique_for_each_request(self, client, mock_rotator):
         """Test that each request gets a unique request ID when not provided."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             request_ids = set()
 
             # Make multiple requests
@@ -973,7 +973,7 @@ class TestRequestIDMiddleware:
 
     def test_request_id_preserved_for_custom_non_uuid_value(self, client, mock_rotator):
         """Test that non-UUID request IDs from clients are also preserved."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             # Clients might send non-UUID request IDs
             custom_id = "my-custom-request-id-12345"
 
@@ -988,7 +988,7 @@ class TestRequestIDMiddleware:
     def test_request_id_on_error_responses(self, client):
         """Test that X-Request-ID is present even on error responses."""
         # Without mock_rotator, this should return 503
-        with patch("proxywhirl.api.core._rotator", None):
+        with patch("proxywhirl.api.runtime._rotator", None):
             custom_id = str(uuid.uuid4())
 
             response = client.get(
@@ -1011,7 +1011,7 @@ class TestRequestIDMiddleware:
         rotator.pool.healthy_count = 8
         rotator.pool.unhealthy_count = 2
 
-        with patch("proxywhirl.api.core._rotator", rotator):
+        with patch("proxywhirl.api.runtime._rotator", rotator):
             response = client.get("/api/health")
 
             # Should have request ID regardless of health status
@@ -1023,7 +1023,7 @@ class TestRequestIDMiddleware:
 
     def test_request_id_empty_header_generates_new_uuid(self, client, mock_rotator):
         """Test that empty X-Request-ID header results in new UUID generation."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             # Send empty string as request ID
             response = client.get(
                 "/api/metrics/retries",
@@ -1049,7 +1049,7 @@ class TestSecurityHeaders:
 
     def test_security_headers_present_on_success_response(self, client, mock_rotator):
         """Test that all security headers are present on successful responses."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             response = client.get("/api/metrics/retries")
 
             assert response.status_code == 200
@@ -1082,7 +1082,7 @@ class TestSecurityHeaders:
 
     def test_security_headers_present_on_error_response(self, client):
         """Test that security headers are present even on error responses."""
-        with patch("proxywhirl.api.core._rotator", None):
+        with patch("proxywhirl.api.runtime._rotator", None):
             response = client.get("/api/metrics/retries")
 
             # Should be a 503 error
@@ -1114,7 +1114,7 @@ class TestSecurityHeaders:
         rotator.pool.healthy_count = 8
         rotator.pool.unhealthy_count = 2
 
-        with patch("proxywhirl.api.core._rotator", rotator):
+        with patch("proxywhirl.api.runtime._rotator", rotator):
             response = client.get("/api/health")
 
             # Security headers should be present regardless of endpoint
@@ -1127,7 +1127,7 @@ class TestSecurityHeaders:
 
     def test_security_headers_on_circuit_breaker_endpoint(self, client, mock_rotator):
         """Test security headers on circuit breaker metrics endpoint."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             response = client.get("/api/metrics/circuit-breakers")
 
             assert response.status_code == 200
@@ -1152,7 +1152,7 @@ class TestSecurityHeaders:
 
     def test_hsts_prevents_downgrade_attacks(self, client, mock_rotator):
         """Test that HSTS header has proper configuration for security."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             response = client.get("/api/metrics/retries")
 
             hsts = response.headers.get("Strict-Transport-Security")
@@ -1166,7 +1166,7 @@ class TestSecurityHeaders:
 
     def test_csp_prevents_xss_and_clickjacking(self, client, mock_rotator):
         """Test that CSP header properly restricts resource loading."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             response = client.get("/api/metrics/retries")
 
             csp = response.headers.get("Content-Security-Policy")
@@ -1180,7 +1180,7 @@ class TestSecurityHeaders:
 
     def test_permissions_policy_disables_sensitive_features(self, client, mock_rotator):
         """Test that Permissions-Policy disables sensitive browser features."""
-        with patch("proxywhirl.api.core._rotator", mock_rotator):
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
             response = client.get("/api/metrics/retries")
 
             permissions = response.headers.get("Permissions-Policy")
@@ -1426,7 +1426,7 @@ class TestAuditLoggingMiddleware:
 
         # Test that middleware respects environment variable
         with patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "false"}):
-            with patch("proxywhirl.api.core._rotator", mock_rotator):
+            with patch("proxywhirl.api.runtime._rotator", mock_rotator):
                 # This should not audit because PROXYWHIRL_AUDIT_LOG=false
                 response = client.post(
                     "/api/proxies",
@@ -1436,7 +1436,7 @@ class TestAuditLoggingMiddleware:
                 assert response.status_code in [200, 201, 422]
 
         with patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}):
-            with patch("proxywhirl.api.core._rotator", mock_rotator):
+            with patch("proxywhirl.api.runtime._rotator", mock_rotator):
                 # This should audit because PROXYWHIRL_AUDIT_LOG=true
                 response = client.post(
                     "/api/proxies",
@@ -1570,7 +1570,7 @@ class TestAuditLoggingMiddleware:
 
         with (
             patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}),
-            patch("proxywhirl.api.core._rotator", mock_rotator),
+            patch("proxywhirl.api.runtime._rotator", mock_rotator),
             patch("httpx.AsyncClient.request", AsyncMock(return_value=httpx.Response(200))),
             caplog.at_level(logging.INFO),
         ):
@@ -1680,7 +1680,7 @@ class TestAuditLoggingMiddleware:
 
         with (
             patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}),
-            patch("proxywhirl.api.core._rotator", None),  # Force error
+            patch("proxywhirl.api.runtime._rotator", None),  # Force error
             caplog.at_level(logging.WARNING),
         ):
             # Make a request that will fail
@@ -1709,7 +1709,7 @@ class TestAuditLoggingMiddleware:
 
         with (
             patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}),
-            patch("proxywhirl.api.core._rotator", mock_rotator),
+            patch("proxywhirl.api.runtime._rotator", mock_rotator),
             patch("httpx.AsyncClient.request", AsyncMock(return_value=httpx.Response(200))),
             caplog.at_level(logging.INFO),
         ):
@@ -1742,7 +1742,7 @@ class TestAuditLoggingMiddleware:
 
         with (
             patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}),
-            patch("proxywhirl.api.core._rotator", mock_rotator),
+            patch("proxywhirl.api.runtime._rotator", mock_rotator),
             caplog.at_level(logging.INFO),
         ):
             # Make a write operation with custom request ID
@@ -1769,7 +1769,7 @@ class TestAuditLoggingMiddleware:
 
         with (
             patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}),
-            patch("proxywhirl.api.core._rotator", mock_rotator),
+            patch("proxywhirl.api.runtime._rotator", mock_rotator),
             caplog.at_level(logging.INFO),
         ):
             # Send invalid JSON
@@ -1811,153 +1811,82 @@ class TestAuditLoggingMiddleware:
         assert redacted["normal_field"] == "not-secret"
 
 
-class TestEnvironmentVariableValidation:
-    """Tests for environment variable parsing and validation.
+class TestAPISettingsValidation:
+    """Tests for settings-backed API environment parsing and validation."""
 
-    Verifies that integer and float environment variables are properly
-    validated with clear error messages.
-    """
+    def test_api_settings_defaults(self):
+        """Default API settings should match the public adapter contract."""
+        from proxywhirl.settings import APISettings
 
-    def test_parse_int_env_valid_value(self):
-        """Test parsing valid integer environment variable."""
-        from proxywhirl.api.core import _parse_int_env
+        settings = APISettings()
 
-        # Using getenv directly for this test
-        result = _parse_int_env("NONEXISTENT_INT_VAR_12345", 42)
-        assert result == 42
+        assert settings.timeout == 30
+        assert settings.max_retries == 3
+        assert settings.cors_origins == []
+        assert settings.rate_limit == "100/minute"
+        assert settings.effective_api_key_rate_limit == "100/minute"
 
-    def test_parse_int_env_with_valid_number(self, monkeypatch):
-        """Test parsing valid integer from environment variable."""
-        from proxywhirl.api.core import _parse_int_env
+    def test_api_settings_parses_int_env_values(self, monkeypatch):
+        """Integer API settings should parse through pydantic-settings."""
+        from proxywhirl.settings import APISettings
 
-        monkeypatch.setenv("TEST_INT_VAR", "100")
-        result = _parse_int_env("TEST_INT_VAR", 42)
-        assert result == 100
+        monkeypatch.setenv("PROXYWHIRL_TIMEOUT", "100")
+        monkeypatch.setenv("PROXYWHIRL_MAX_RETRIES", "7")
 
-    def test_parse_int_env_with_invalid_value_raises_error(self, monkeypatch):
-        """Test that invalid integer raises ValueError with clear message."""
-        from proxywhirl.api.core import _parse_int_env
+        settings = APISettings()
 
-        monkeypatch.setenv("TEST_INT_VAR", "not_a_number")
+        assert settings.timeout == 100
+        assert settings.max_retries == 7
 
-        with pytest.raises(
-            ValueError,
-            match="Environment variable TEST_INT_VAR must be an integer, got 'not_a_number'",
-        ):
-            _parse_int_env("TEST_INT_VAR", 42)
+    def test_api_settings_rejects_invalid_int_env_value(self, monkeypatch):
+        """Invalid integer API env values should fail during settings parsing."""
+        from proxywhirl.settings import APISettings
 
-    def test_parse_int_env_with_float_value_raises_error(self, monkeypatch):
-        """Test that float values in int env var raise ValueError."""
-        from proxywhirl.api.core import _parse_int_env
+        monkeypatch.setenv("PROXYWHIRL_TIMEOUT", "not_a_number")
 
-        monkeypatch.setenv("TEST_INT_VAR", "3.14")
+        with pytest.raises(ValueError, match="timeout"):
+            APISettings()
 
-        with pytest.raises(ValueError, match="must be an integer"):
-            _parse_int_env("TEST_INT_VAR", 42)
+    def test_api_settings_parses_comma_separated_cors_origins(self, monkeypatch):
+        """CORS origins should parse from comma-separated env input."""
+        from proxywhirl.settings import APISettings
 
-    def test_parse_int_env_with_empty_string_raises_error(self, monkeypatch):
-        """Test that empty string raises ValueError (not treated as default)."""
-        from proxywhirl.api.core import _parse_int_env
+        monkeypatch.setenv("PROXYWHIRL_CORS_ORIGINS", "http://a.example, ,http://b.example")
 
-        monkeypatch.setenv("TEST_INT_VAR", "")
+        settings = APISettings()
 
-        # Empty string is set (not None), so it should raise ValueError
-        # os.getenv returns empty string, int("") raises ValueError
-        with pytest.raises(ValueError, match="must be an integer"):
-            _parse_int_env("TEST_INT_VAR", 99)
+        assert settings.cors_origins == ["http://a.example", "http://b.example"]
 
-    def test_parse_float_env_valid_value(self):
-        """Test parsing valid float environment variable."""
-        from proxywhirl.api.core import _parse_float_env
+    def test_api_settings_rejects_wildcard_cors_with_credentials(self, monkeypatch):
+        """Wildcard CORS with credentials should fail through settings validation."""
+        from proxywhirl.settings import APISettings
 
-        result = _parse_float_env("NONEXISTENT_FLOAT_VAR_12345", 3.14)
-        assert result == 3.14
+        monkeypatch.setenv("PROXYWHIRL_CORS_ORIGINS", "*")
+        monkeypatch.setenv("PROXYWHIRL_CORS_ALLOW_CREDENTIALS", "true")
 
-    def test_parse_float_env_with_valid_number(self, monkeypatch):
-        """Test parsing valid float from environment variable."""
-        from proxywhirl.api.core import _parse_float_env
+        with pytest.raises(ValueError, match="wildcard CORS"):
+            APISettings()
 
-        monkeypatch.setenv("TEST_FLOAT_VAR", "2.71")
-        result = _parse_float_env("TEST_FLOAT_VAR", 3.14)
-        assert result == 2.71
+    def test_api_settings_allows_public_wildcard_cors(self, monkeypatch):
+        """Wildcard CORS is allowed only when credentials are disabled."""
+        from proxywhirl.settings import APISettings
 
-    def test_parse_float_env_with_integer_value(self, monkeypatch):
-        """Test that integer strings parse as floats."""
-        from proxywhirl.api.core import _parse_float_env
+        monkeypatch.setenv("PROXYWHIRL_CORS_ORIGINS", "*")
+        monkeypatch.setenv("PROXYWHIRL_CORS_ALLOW_CREDENTIALS", "false")
 
-        monkeypatch.setenv("TEST_FLOAT_VAR", "42")
-        result = _parse_float_env("TEST_FLOAT_VAR", 3.14)
-        assert result == 42.0
+        settings = APISettings()
 
-    def test_parse_float_env_with_invalid_value_raises_error(self, monkeypatch):
-        """Test that invalid float raises ValueError with clear message."""
-        from proxywhirl.api.core import _parse_float_env
+        assert settings.cors_origins == ["*"]
+        assert settings.cors_allow_credentials is False
 
-        monkeypatch.setenv("TEST_FLOAT_VAR", "not_a_number")
+    def test_api_key_rate_limit_override(self, monkeypatch):
+        """API-key rate limits should default to global limit unless explicitly set."""
+        from proxywhirl.settings import APISettings
 
-        with pytest.raises(
-            ValueError,
-            match="Environment variable TEST_FLOAT_VAR must be a number, got 'not_a_number'",
-        ):
-            _parse_float_env("TEST_FLOAT_VAR", 3.14)
+        monkeypatch.setenv("PROXYWHIRL_RATE_LIMIT", "10/minute")
+        settings = APISettings()
+        assert settings.effective_api_key_rate_limit == "10/minute"
 
-    def test_parse_int_env_with_negative_value(self, monkeypatch):
-        """Test that negative integers are accepted."""
-        from proxywhirl.api.core import _parse_int_env
-
-        monkeypatch.setenv("TEST_INT_VAR", "-100")
-        result = _parse_int_env("TEST_INT_VAR", 42)
-        assert result == -100
-
-    def test_parse_int_env_with_large_value(self, monkeypatch):
-        """Test that large integers are accepted."""
-        from proxywhirl.api.core import _parse_int_env
-
-        monkeypatch.setenv("TEST_INT_VAR", "999999999999")
-        result = _parse_int_env("TEST_INT_VAR", 42)
-        assert result == 999999999999
-
-    def test_parse_int_env_error_message_includes_variable_name(self, monkeypatch):
-        """Test that error message includes the environment variable name."""
-        from proxywhirl.api.core import _parse_int_env
-
-        monkeypatch.setenv("MY_CUSTOM_PORT", "invalid_port_number")
-
-        with pytest.raises(ValueError) as exc_info:
-            _parse_int_env("MY_CUSTOM_PORT", 8080)
-
-        error_msg = str(exc_info.value)
-        assert "MY_CUSTOM_PORT" in error_msg
-        assert "invalid_port_number" in error_msg
-
-    def test_parse_float_env_error_message_includes_variable_name(self, monkeypatch):
-        """Test that error message includes the environment variable name."""
-        from proxywhirl.api.core import _parse_float_env
-
-        monkeypatch.setenv("MY_CUSTOM_RATE", "not_a_rate")
-
-        with pytest.raises(ValueError) as exc_info:
-            _parse_float_env("MY_CUSTOM_RATE", 0.5)
-
-        error_msg = str(exc_info.value)
-        assert "MY_CUSTOM_RATE" in error_msg
-        assert "not_a_rate" in error_msg
-
-    def test_parse_int_env_with_whitespace(self, monkeypatch):
-        """Test that integer with leading/trailing whitespace is handled."""
-        from proxywhirl.api.core import _parse_int_env
-
-        # os.getenv preserves whitespace, int() can handle leading/trailing
-        monkeypatch.setenv("TEST_INT_VAR", "  100  ")
-        result = _parse_int_env("TEST_INT_VAR", 42)
-        # int() strips whitespace automatically
-        assert result == 100
-
-    def test_parse_float_env_with_whitespace(self, monkeypatch):
-        """Test that float with leading/trailing whitespace is handled."""
-        from proxywhirl.api.core import _parse_float_env
-
-        monkeypatch.setenv("TEST_FLOAT_VAR", "  3.14  ")
-        result = _parse_float_env("TEST_FLOAT_VAR", 2.71)
-        # float() strips whitespace automatically
-        assert result == 3.14
+        monkeypatch.setenv("PROXYWHIRL_API_KEY_RATE_LIMIT", "5/minute")
+        settings = APISettings()
+        assert settings.effective_api_key_rate_limit == "5/minute"

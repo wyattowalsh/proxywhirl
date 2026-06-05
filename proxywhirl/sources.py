@@ -155,6 +155,7 @@ GITHUB_MONOSANS_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/monosans/proxy-list/main/proxies/socks4.txt",
     format="plain_text",
     protocol="socks4",
+    enabled=False,  # Disabled after upstream SOCKS4 list returned empty in Jun 2026 validation.
     trusted=True,
 )
 
@@ -274,6 +275,7 @@ GITHUB_ELLIOTTOPHELLIA_SOCKS4 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/elliottophellia/yakumo/master/results/socks4/global/socks4_checked.txt",
     format="plain_text",
     protocol="socks4",
+    enabled=False,  # Disabled after upstream SOCKS4 checked endpoint returned 404 in Jun 2026 validation.
     trusted=True,
 )
 
@@ -905,10 +907,8 @@ ALL_SOCKS4_SOURCES = [
     # Non-GitHub web sources
     # GitHub sources
     GITHUB_THESPEEDX_SOCKS4,
-    GITHUB_MONOSANS_SOCKS4,
     GITHUB_ROOSTERKID_SOCKS4,
     GITHUB_PROXIFLY_SOCKS4,
-    GITHUB_ELLIOTTOPHELLIA_SOCKS4,
     # High-quality verified sources
     GITHUB_VAKHOV_SOCKS4,
     GITHUB_ANONYM0US_SOCKS4,

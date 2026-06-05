@@ -10,14 +10,15 @@ from __future__ import annotations
 import os
 import re
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Literal
+from typing import Any, Literal
 
 from cryptography.fernet import Fernet
 from loguru import logger
-from pydantic import BaseModel, Field, SecretStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
-from proxywhirl.strategies.core import BUILTIN_STRATEGY_CLASSES
+from proxywhirl.strategies import BUILTIN_STRATEGY_CLASSES
 from proxywhirl.utils import parse_proxy_url
 
 try:
@@ -273,10 +274,7 @@ class DataStorageConfig(BaseModel):
         default=False, description="Store daily aggregate statistics"
     )
 
-    class Config:
-        """Pydantic config."""
-
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class ProxyConfig(BaseModel):
@@ -392,10 +390,7 @@ class CLIConfig(BaseModel):
             raise ValueError(f"Invalid output format. Must be one of: {valid}")
         return v
 
-    class Config:
-        """Pydantic config."""
-
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 def generate_config_schema() -> dict[str, Any]:

@@ -2,7 +2,7 @@
 
 ## Overview
 
-ProxyWhirl includes a powerful command-line interface for managing proxies, validating sources, and monitoring performance.
+ProxyWhirl exposes a focused Typer-based CLI for proxy requests, pool management, health checks, fetching, imports, and export workflows.
 
 ```bash
 proxywhirl --help
@@ -10,627 +10,262 @@ proxywhirl --help
 
 ## Global Options
 
-These options work with all commands:
+These options apply before the subcommand name:
 
-```
---config FILE           Configuration file path
---log-level LEVEL       Log level (DEBUG, INFO, WARNING, ERROR)
---debug                 Enable debug mode
---help                  Show help message
---version               Show version
+```text
+--config, -c FILE        Path to TOML config file
+--format, -f FORMAT      Output format: text, json, csv, or yaml
+--verbose, -v            Enable verbose logging
+--no-lock                Disable file locking for this invocation
+--help                   Show help
 ```
 
 ## Commands
 
-### list
+```text
+request         Make an HTTP request through a rotating proxy
+export          Export proxy data and statistics for the web dashboard
+fetch           Fetch proxies from configured sources
+health          Check health of all proxies in the pool
+validate-proxy  Validate one proxy URL
+import-proxies  Import proxies from JSON, CSV, or plain text
+pool            Manage configured proxies
+config          Manage CLI configuration
+```
 
-List proxies in the current pool.
+## request
 
 ```bash
-proxywhirl list [OPTIONS]
+proxywhirl request [OPTIONS] URL
 ```
 
-**Options:**
-```
---filter STATUS         Filter by status: healthy, degraded, unhealthy, inactive
---protocol PROTOCOL     Filter by protocol: http, https, socks4, socks5
---limit INTEGER         Maximum proxies to show (default: 20)
---offset INTEGER        Pagination offset (default: 0)
---tags TEXT             Filter by tags (comma-separated)
---sort-by FIELD         Sort by: host, protocol, latency, success_rate
---format FORMAT         Output format: table, json, csv (default: table)
---detailed              Show detailed information
---export FILE           Export results to file
+Common options:
+
+```text
+--method, -X METHOD      HTTP method, default GET
+--header, -H HEADER      Repeatable header in "Key: Value" format
+--data, -d DATA          Request body data
+--proxy, -p URL          Use a specific proxy instead of pool rotation
+--retries INTEGER        Override configured retry count
+--allow-private          Permit localhost/private target URLs
 ```
 
-**Examples:**
+Examples:
 
 ```bash
-# List all healthy proxies
-proxywhirl list --filter healthy
-
-# List HTTPS proxies from US, sorted by latency
-proxywhirl list --protocol https --tags us --sort-by latency
-
-# Export to JSON
-proxywhirl list --format json --export proxies.json
-
-# Show detailed view
-proxywhirl list --detailed --limit 5
+proxywhirl request https://api.example.com/data
+proxywhirl request -X POST -d '{"ok": true}' https://api.example.com/submit
+proxywhirl --format json request https://api.example.com/data
 ```
 
-### add
-
-Add proxies to the pool.
+## pool
 
 ```bash
-proxywhirl add [OPTIONS]
+proxywhirl pool COMMAND [ARGS]...
 ```
 
-**Options:**
-```
---proxy PROXY           Single proxy (protocol://host:port)
---proxies TEXT          Multiple proxies (comma-separated)
---file FILE             Load proxies from file
---source ID             Fetch from proxy source
---format FORMAT         File format: json, csv, plain (default: plain)
---validate              Validate proxies before adding
---skip-duplicates       Skip duplicate proxies
---tags TEXT             Add tags to all proxies
+Subcommands:
+
+```text
+list     List configured proxies
+add      Add a proxy to the active config
+remove   Remove a proxy from the active config
+test     Test proxy connectivity
+stats    Show pool statistics
 ```
 
-**Examples:**
+Examples:
 
 ```bash
-# Add single proxy
-proxywhirl add --proxy http://192.168.1.1:8080
-
-# Add multiple proxies
-proxywhirl add --proxies http://192.168.1.1:8080,http://192.168.1.2:8080
-
-# Load from file
-proxywhirl add --file proxies.txt --format plain
-
-# Fetch from source
-proxywhirl add --source free-proxy-list
-
-# Add and validate
-proxywhirl add --file proxies.json --format json --validate
-
-# Add with tags
-proxywhirl add --proxy http://192.168.1.1:8080 --tags us,fast
+proxywhirl pool list
+proxywhirl pool add http://proxy.example.com:8080
+proxywhirl pool add http://proxy.example.com:8080 --username user --password pass
+proxywhirl pool remove http://proxy.example.com:8080
+proxywhirl pool test http://proxy.example.com:8080 --target-url https://httpbin.org/ip
+proxywhirl pool stats
 ```
 
-### remove
-
-Remove proxies from the pool.
+## config
 
 ```bash
-proxywhirl remove [OPTIONS]
+proxywhirl config COMMAND [ARGS]...
 ```
 
-**Options:**
-```
---proxy PROXY           Proxy to remove (host:port)
---filter STATUS         Remove by status: healthy, degraded, unhealthy, inactive
---tags TEXT             Remove by tags (comma-separated)
---older-than DAYS       Remove not used for N days
---all                   Clear entire pool (with confirmation)
+Subcommands:
+
+```text
+init    Create a starter config file
+show    Print active configuration
+get     Print a single config value
+set     Set a config value
 ```
 
-**Examples:**
+Examples:
 
 ```bash
-# Remove single proxy
-proxywhirl remove --proxy 192.168.1.1:8080
-
-# Remove unhealthy proxies
-proxywhirl remove --filter unhealthy
-
-# Remove proxies not used for 30 days
-proxywhirl remove --older-than 30
-
-# Clear pool
-proxywhirl remove --all
-```
-
-### validate
-
-Test proxies for connectivity and performance.
-
-```bash
-proxywhirl validate [OPTIONS]
-```
-
-**Options:**
-```
---proxy PROXY           Validate single proxy
---all                   Validate all proxies in pool
---sample SIZE           Validate random sample (default: 100)
---url URL               Test URL (default: https://httpbin.org/ip)
---timeout SECONDS       Timeout for each test (default: 5)
---concurrent INTEGER    Concurrent tests (default: 10)
---update                Update health status
---export FILE           Export results
-```
-
-**Examples:**
-
-```bash
-# Validate all proxies
-proxywhirl validate --all --concurrent 20
-
-# Validate single proxy
-proxywhirl validate --proxy 192.168.1.1:8080
-
-# Validate sample and update status
-proxywhirl validate --sample 200 --update
-
-# Export results
-proxywhirl validate --all --export validation.json
-```
-
-### stats
-
-Show pool statistics.
-
-```bash
-proxywhirl stats [OPTIONS]
-```
-
-**Options:**
-```
---by-protocol           Group by protocol
---by-location           Group by location
---by-status             Group by health status
---period DAYS           Show stats for last N days (default: 7)
---export FILE           Export to file
-```
-
-**Examples:**
-
-```bash
-# Show overall stats
-proxywhirl stats
-
-# Stats grouped by protocol
-proxywhirl stats --by-protocol
-
-# Geographic distribution
-proxywhirl stats --by-location
-
-# Weekly performance
-proxywhirl stats --period 7 --export stats.json
-```
-
-### fetch
-
-Fetch proxies from sources.
-
-```bash
-proxywhirl fetch [OPTIONS]
-```
-
-**Options:**
-```
---sources TEXT          Source IDs (comma-separated, default: all recommended)
---all                   Fetch from all sources
---validate              Validate fetched proxies
---replace               Replace entire pool (with confirmation)
---output FILE           Save to file before importing
---limit INTEGER         Max proxies per source
-```
-
-**Examples:**
-
-```bash
-# Fetch from default sources
-proxywhirl fetch
-
-# Fetch from specific sources
-proxywhirl fetch --sources free-proxy-list,proxy-list
-
-# Fetch all and validate
-proxywhirl fetch --all --validate
-
-# Save to file without importing
-proxywhirl fetch --output proxies.json --sources free-proxy-list
-```
-
-### sources
-
-Manage proxy sources.
-
-```bash
-proxywhirl sources [COMMAND] [OPTIONS]
-```
-
-**Subcommands:**
-
-#### sources list
-```bash
-proxywhirl sources list [--enabled-only] [--format json|table]
-```
-
-#### sources info
-```bash
-proxywhirl sources info ID [--detailed]
-```
-
-#### sources enable
-```bash
-proxywhirl sources enable ID [ID2 ...]
-```
-
-#### sources disable
-```bash
-proxywhirl sources disable ID [ID2 ...]
-```
-
-#### sources test
-```bash
-proxywhirl sources test [ID] [--timeout SECONDS]
-```
-
-**Examples:**
-
-```bash
-# List available sources
-proxywhirl sources list
-
-# Show details for a source
-proxywhirl sources info free-proxy-list --detailed
-
-# Enable source
-proxywhirl sources enable proxy-list
-
-# Test source connectivity
-proxywhirl sources test free-proxy-list
-```
-
-### strategies
-
-Manage rotation strategies.
-
-```bash
-proxywhirl strategies [COMMAND]
-```
-
-**Subcommands:**
-
-#### strategies list
-```bash
-proxywhirl strategies list
-```
-
-#### strategies current
-```bash
-proxywhirl strategies current
-```
-
-#### strategies switch
-```bash
-proxywhirl strategies switch STRATEGY_ID [--config JSON]
-```
-
-**Examples:**
-
-```bash
-# List strategies
-proxywhirl strategies list
-
-# Show current strategy
-proxywhirl strategies current
-
-# Switch to weighted strategy
-proxywhirl strategies switch weighted
-
-# Switch with custom config
-proxywhirl strategies switch performance_based --config '{"weight_field": "latency"}'
-```
-
-### config
-
-Manage configuration.
-
-```bash
-proxywhirl config [COMMAND] [OPTIONS]
-```
-
-**Subcommands:**
-
-#### config show
-```bash
-proxywhirl config show [--full]
-```
-
-#### config set
-```bash
-proxywhirl config set KEY VALUE
-```
-
-#### config reset
-```bash
-proxywhirl config reset [--confirm]
-```
-
-**Examples:**
-
-```bash
-# Show current config
+proxywhirl config init
 proxywhirl config show
-
-# Show all settings including defaults
-proxywhirl config show --full
-
-# Set option
-proxywhirl config set rotation_strategy weighted
-
-# Reset to defaults
-proxywhirl config reset --confirm
+proxywhirl config get rotation_strategy
+proxywhirl config set rotation_strategy random
 ```
 
-### health
-
-Check proxy health.
+## health
 
 ```bash
 proxywhirl health [OPTIONS]
 ```
 
-**Options:**
-```
---proxy PROXY           Check single proxy
---all                   Check all proxies
---sample SIZE           Check random sample
---detailed              Show detailed health info
---export FILE           Export results
+Options:
+
+```text
+--continuous, -C         Run continuously
+--interval, -i INTEGER   Check interval in seconds
+--target-url, -t URL     URL to test connectivity against
+--allow-private          Permit localhost/private target URLs
 ```
 
-**Examples:**
+Examples:
 
 ```bash
-# Check all proxies
-proxywhirl health --all
-
-# Detailed health check
-proxywhirl health --detailed
-
-# Check sample
-proxywhirl health --sample 50
+proxywhirl health
+proxywhirl health --continuous --interval 60
+proxywhirl health --target-url https://api.example.com
 ```
 
-### export
-
-Export proxies to file.
+## fetch
 
 ```bash
-proxywhirl export FILE [OPTIONS]
+proxywhirl fetch [OPTIONS]
 ```
 
-**Options:**
-```
---format FORMAT         Format: json, csv, text (default: json)
---filter STATUS         Export by status
---include-metadata      Include metadata
---include-stats         Include statistics
+Options:
+
+```text
+--no-validate            Skip proxy validation
+--no-save-db             Do not save to proxywhirl.db
+--no-export              Do not write docs/proxy-lists outputs
+--timeout INTEGER        Validation timeout in seconds
+--concurrency INTEGER    Concurrent validation requests
+--revalidate, -R         Re-validate existing database proxies
+--revalidate-limit INT   Revalidate oldest N proxies, or 0 for all
+--prune-failed           Delete failed proxies during revalidation
+--https-validate / --no-https-validate
+--https-timeout INTEGER  HTTPS CONNECT validation timeout
+--https-max INTEGER      Maximum HTTPS-capable proxies to collect
 ```
 
-**Examples:**
+Examples:
 
 ```bash
-# Export as JSON
-proxywhirl export proxies.json
-
-# Export as CSV
-proxywhirl export proxies.csv --format csv
-
-# Export with metadata
-proxywhirl export proxies.json --include-metadata --include-stats
-
-# Export only healthy proxies
-proxywhirl export healthy.json --filter healthy
+proxywhirl fetch
+proxywhirl fetch --no-validate
+proxywhirl fetch --timeout 5 --concurrency 50
+proxywhirl fetch --revalidate --prune-failed
 ```
 
-### import
-
-Import proxies from file.
+## export
 
 ```bash
-proxywhirl import FILE [OPTIONS]
+proxywhirl export [OPTIONS]
 ```
 
-**Options:**
-```
---format FORMAT         Format: json, csv, text
---merge                 Merge with existing pool (default: replace)
---validate              Validate before importing
---skip-duplicates       Skip duplicate proxies
+Options:
+
+```text
+--output, -o PATH        Output directory, default docs/proxy-lists
+--db PATH                SQLite database path, default proxywhirl.db
+--stats-only             Export only statistics
+--proxies-only           Export only proxy list
 ```
 
-**Examples:**
+Examples:
 
 ```bash
-# Import proxies
-proxywhirl import proxies.json
-
-# Merge with existing pool
-proxywhirl import new_proxies.json --merge
-
-# Import and validate
-proxywhirl import proxies.csv --format csv --validate
+proxywhirl export
+proxywhirl export --output ./exports
+proxywhirl export --stats-only
+proxywhirl export --proxies-only --db custom.db
 ```
 
-### server
-
-Run API server.
+## validate-proxy
 
 ```bash
-proxywhirl server [OPTIONS]
+proxywhirl validate-proxy [OPTIONS] PROXY_URL
 ```
 
-**Options:**
-```
---host HOST             Host to bind (default: 0.0.0.0)
---port PORT             Port (default: 8000)
---reload                Reload on file changes
---workers INTEGER       Number of workers (default: auto)
---ssl-certfile FILE     SSL certificate file
---ssl-keyfile FILE      SSL key file
+Options:
+
+```text
+--target, -t URL         Target URL, default https://httpbin.org/ip
+--timeout FLOAT          Request timeout in seconds
 ```
 
-**Examples:**
+Examples:
 
 ```bash
-# Run API server
-proxywhirl server
-
-# Custom host and port
-proxywhirl server --host 127.0.0.1 --port 8888
-
-# With SSL
-proxywhirl server --ssl-certfile cert.pem --ssl-keyfile key.pem
+proxywhirl validate-proxy http://proxy.example.com:8080
+proxywhirl validate-proxy socks5://proxy.example.com:1080 --timeout 5
 ```
 
-### dashboard
-
-Run TUI dashboard.
+## import-proxies
 
 ```bash
-proxywhirl dashboard
+proxywhirl import-proxies [OPTIONS] FILE_PATH
 ```
 
-Interactive real-time monitoring dashboard showing:
-- Pool statistics
-- Proxy health
-- Request metrics
-- Circuit breaker status
+Options:
 
-### version
+```text
+--format, -f FORMAT      auto, json, csv, or text
+--pool, -p NAME          Target pool name, default imported
+--dedup / --no-dedup     Deduplicate proxies before import
+```
 
-Show version information.
+Examples:
 
 ```bash
-proxywhirl version [--verbose]
+proxywhirl import-proxies proxies.json
+proxywhirl import-proxies proxies.csv --format csv
+proxywhirl import-proxies proxies.txt --format text --pool backup
 ```
 
 ## Common Workflows
 
-### Setup Fresh Proxy Pool
+### Refresh and Export
 
 ```bash
-# Fetch from all recommended sources
-proxywhirl fetch --all --validate
-
-# Check pool status
-proxywhirl stats
-
-# Export for backup
-proxywhirl export backup.json
+proxywhirl fetch --timeout 5 --concurrency 100
+proxywhirl export
 ```
 
-### Daily Maintenance
+### Revalidate Existing Database
 
 ```bash
-# Validate pool
-proxywhirl validate --all --update
-
-# Remove unhealthy proxies
-proxywhirl remove --filter unhealthy
-
-# Add new proxies
-proxywhirl fetch --all
-
-# Check stats
-proxywhirl stats --period 7
+proxywhirl fetch --revalidate --prune-failed --timeout 5 --concurrency 2000 --no-export
+proxywhirl export
 ```
 
-### Performance Optimization
+### Import a Local Proxy File
 
 ```bash
-# Find fastest proxies
-proxywhirl list --sort-by latency --limit 50
-
-# Switch to performance-based strategy
-proxywhirl strategies switch performance_based
-
-# Monitor with dashboard
-proxywhirl dashboard
-```
-
-### Troubleshooting
-
-```bash
-# Enable debug logging
-proxywhirl --log-level DEBUG list
-
-# Detailed health check
-proxywhirl health --all --detailed
-
-# Export for analysis
-proxywhirl export debug.json --include-metadata --include-stats
-
-# Check config
-proxywhirl config show --full
+proxywhirl import-proxies proxies.txt --format text --pool imported
+proxywhirl pool list
 ```
 
 ## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | General error |
-| 2 | Configuration error |
-| 3 | Validation error |
-| 4 | File not found |
-| 5 | Permission denied |
+| Code | Meaning                                                                      |
+| ---- | ---------------------------------------------------------------------------- |
+| 0    | Success                                                                      |
+| 1    | General error, invalid input, failed validation, or lock acquisition failure |
 
 ## Environment Variables
 
-CLI respects these environment variables:
-
 ```bash
-PROXYWHIRL_CONFIG          Configuration file path
-PROXYWHIRL_LOG_LEVEL       Default log level
-PROXYWHIRL_API_KEY         API key for server mode
-PROXYWHIRL_STORAGE_PATH    Storage database path
+PROXYWHIRL_KEY                   Master encryption key
+PROXYWHIRL_CACHE_ENCRYPTION_KEY  Cache encryption key
+PROXYWHIRL_STORAGE_PATH          SQLite storage path for API workflows
+PROXYWHIRL_API_KEY               API authentication key
 ```
 
-## Tips & Tricks
-
-### Batch Operations
-
-```bash
-# Validate 1000 proxies in parallel
-proxywhirl validate --all --concurrent 100 --update
-
-# Export and reimport to clean up
-proxywhirl export clean.json && proxywhirl import clean.json --merge
-```
-
-### Piping Output
-
-```bash
-# Count proxies
-proxywhirl list --format json | jq '. | length'
-
-# Filter proxies by protocol
-proxywhirl list --format json | jq '.[] | select(.protocol == "socks5")'
-
-# Get only hosts
-proxywhirl list --format json | jq -r '.[].host'
-```
-
-### Scheduling
-
-```bash
-# Cron job to refresh proxies daily
-0 6 * * * proxywhirl fetch --all --validate
-
-# Cron job to validate hourly
-0 * * * * proxywhirl validate --sample 500 --update
-
-# Cron job to clean up
-0 3 * * 0 proxywhirl remove --filter unhealthy
-```
-
+See `docs/source/guides/cli-reference.md` for the Sphinx guide with rendered tables and examples.

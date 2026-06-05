@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from proxywhirl.models.core import ProxyConfiguration
+from proxywhirl.settings import ProxyConfiguration
 from proxywhirl.utils import configure_logging
 
 

@@ -15,7 +15,6 @@ Example:
 
 from __future__ import annotations
 
-import os
 import sys
 from typing import Literal
 
@@ -148,8 +147,26 @@ FORMAT_TEMPLATES = {
 }
 
 
+def _sink_is_tty(sink: object) -> bool:
+    """Return whether the logging sink looks like an interactive terminal."""
+    isatty = getattr(sink, "isatty", None)
+    return bool(isatty()) if callable(isatty) else False
+
+
+def _resolve_log_format(
+    format: Literal["auto", "default", "json", "text", "logfmt"],
+    sink: object,
+) -> Literal["default", "json", "logfmt"]:
+    """Resolve runtime log format aliases into concrete Loguru formats."""
+    if format == "auto":
+        return "default" if _sink_is_tty(sink) else "json"
+    if format == "text":
+        return "default"
+    return format
+
+
 def configure_logging(
-    format: Literal["default", "json", "logfmt"] = "default",
+    format: Literal["auto", "default", "json", "text", "logfmt"] = "default",
     level: str = "INFO",
     rotation: str | None = None,
     retention: str | None = None,
@@ -168,7 +185,7 @@ def configure_logging(
     credential leakage in logs.
 
     Args:
-        format: Output format - 'default' (colored text), 'json', or 'logfmt'
+        format: Output format - 'auto', 'default'/'text', 'json', or 'logfmt'
         level: Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         rotation: Rotation threshold (e.g., '10 MB', '1 day', '00:00')
         retention: Retention policy (e.g., '5 files', '1 week', '7 days')
@@ -198,12 +215,14 @@ def configure_logging(
     # Remove existing handlers
     logger.remove()
 
+    resolved_format = _resolve_log_format(format, sink)
+
     # Auto-detect colorize if not specified
     if colorize is None:
-        colorize = format == "default" and hasattr(sink, "isatty")
+        colorize = resolved_format == "default" and _sink_is_tty(sink)
 
     # Disable colorize for structured formats
-    if format in ("json", "logfmt"):
+    if resolved_format in ("json", "logfmt"):
         colorize = False
 
     patcher = None
@@ -235,11 +254,11 @@ def configure_logging(
     }
 
     # Add format configuration
-    if format == "json":
-        handler_config["format"] = FORMAT_TEMPLATES[format]
+    if resolved_format == "json":
+        handler_config["format"] = FORMAT_TEMPLATES[resolved_format]
         handler_config["serialize"] = True
     else:
-        handler_config["format"] = FORMAT_TEMPLATES[format]
+        handler_config["format"] = FORMAT_TEMPLATES[resolved_format]
 
     # Add rotation if specified
     if rotation:
@@ -287,11 +306,6 @@ def bind_context(**context: str | int | float | bool | None):
         # Log will include request_id and operation in context
     """
     return logger.bind(**context)
-
-
-# Auto-configure from environment variables if present
-if os.environ.get("PROXYWHIRL_LOG_FORMAT", "").lower() == "json":
-    configure_logging(format="json")
 
 
 # Export public API

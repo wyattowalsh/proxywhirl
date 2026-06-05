@@ -23,13 +23,17 @@ The retry system consists of four main components:
 ## When to Use Retry vs Failover
 
 ### Retry (Same Proxy)
+
 Use retry when:
+
 - Network is temporarily unstable (connection timeout, packet loss)
 - Target server returns 502/503/504 (gateway errors, service temporarily unavailable)
 - Request is idempotent (GET, HEAD, OPTIONS, DELETE, PUT)
 
 ### Failover (Different Proxy)
+
 Use failover when:
+
 - Proxy authentication fails (407)
 - Proxy consistently returns errors (circuit breaker opens)
 - Specific geo-targeting or performance requirements exist
@@ -68,6 +72,7 @@ rotator = ProxyWhirl(retry_policy=policy)
 ProxyWhirl supports three backoff strategies:
 
 #### Exponential Backoff (Recommended)
+
 Best for network failures and overloaded servers. Delays increase exponentially to give systems time to recover.
 
 ```python
@@ -86,6 +91,7 @@ policy = RetryPolicy(
 ```
 
 #### Linear Backoff
+
 Best for predictable retry patterns. Delays increase linearly.
 
 ```python
@@ -103,6 +109,7 @@ policy = RetryPolicy(
 ```
 
 #### Fixed Backoff
+
 Best for testing or when delays should be constant.
 
 ```python
@@ -250,6 +257,7 @@ print(cb.timeout_duration)    # Default: 30 seconds (OPEN timeout)
 ### State Transitions
 
 #### CLOSED → OPEN
+
 Circuit opens when failure count exceeds threshold within the rolling window:
 
 ```python
@@ -268,6 +276,7 @@ print(cb.failure_count)  # 5
 ```
 
 #### OPEN → HALF_OPEN
+
 Circuit transitions to HALF_OPEN after timeout duration elapses:
 
 ```python
@@ -285,6 +294,7 @@ if cb.should_attempt_request():
 ```
 
 #### HALF_OPEN → CLOSED
+
 Circuit closes if test request succeeds:
 
 ```python
@@ -296,6 +306,7 @@ print(cb.failure_count)  # 0 (reset)
 ```
 
 #### HALF_OPEN → OPEN
+
 Circuit reopens if test request fails:
 
 ```python
@@ -433,7 +444,7 @@ print(selected)  # None
 ProxyWhirl tracks detailed metrics for monitoring, debugging, and analytics.
 
 :::{tip}
-You can also view retry and circuit breaker statistics from the command line using `proxywhirl stats --retry --circuit-breaker`. See {doc}`cli-reference` for details.
+You can also view current pool statistics from the command line using `proxywhirl pool stats`. See {doc}`cli-reference` for details.
 :::
 
 ### Collecting Metrics
@@ -579,6 +590,7 @@ When you call `rotator.request()`, the following sequence occurs:
 The executor classifies errors into two categories:
 
 **Retryable Errors** (trigger retry with backoff):
+
 - `httpx.ConnectError` - Connection refused, DNS failure
 - `httpx.TimeoutException` - Request/connect timeout
 - `httpx.ReadTimeout` - Response body read timeout
@@ -588,6 +600,7 @@ The executor classifies errors into two categories:
 - HTTP 502, 503, 504 status codes (configurable)
 
 **Non-Retryable Errors** (fail immediately):
+
 - HTTP 4xx errors (client errors - request won't succeed on retry)
 - `NonRetryableError` (custom application errors)
 - Any exception not in the retryable types list
@@ -809,7 +822,6 @@ for i in range(100):
 3. **Failover respects strategy logic** - If weighted strategy fails, next proxy still follows weights
 4. **Geo-targeting bonus in failover** - `RetryExecutor.select_retry_proxy()` gives 10% bonus to matching regions
 
-
 ## Advanced Patterns
 
 ### Adaptive Retry Policy
@@ -998,11 +1010,13 @@ if total_retries > 0:
 **Symptom:** `ProxyConnectionError: Request failed after N attempts`
 
 **Causes:**
+
 1. All proxies have poor connectivity
 2. Target website is blocking proxy IPs
 3. Circuit breakers opened for all proxies
 
 **Solutions:**
+
 ```python
 # Check circuit breaker status
 open_count = sum(
@@ -1027,11 +1041,13 @@ for proxy_id, stats in by_proxy.items():
 **Symptom:** Requests take a long time to complete
 
 **Causes:**
+
 1. Backoff delays too aggressive
 2. Many retries before success
 3. Slow proxies selected
 
 **Solutions:**
+
 ```python
 # Check latency by proxy
 by_proxy = rotator.retry_metrics.get_by_proxy(hours=1)
@@ -1057,10 +1073,12 @@ policy.timeout = 10.0
 **Symptom:** `NonRetryableError` raised immediately
 
 **Causes:**
+
 1. Custom error types not recognized as retryable
 2. Authentication failures (407)
 
 **Solutions:**
+
 ```python
 # Authentication errors are not retryable
 # Fix proxy credentials instead of retrying
@@ -1079,6 +1097,7 @@ Retry logic adds minimal overhead:
 - **Backoff calculation:** O(1) arithmetic
 
 Benchmark results (100k requests):
+
 - No retry: 100ms avg latency
 - With retry (3 attempts): 105ms avg latency (+5%)
 - With retry + metrics: 110ms avg latency (+10%)

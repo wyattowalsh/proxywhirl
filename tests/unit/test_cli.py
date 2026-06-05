@@ -11,11 +11,35 @@ import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+from typer.main import get_command
 from typer.testing import CliRunner
 
-from proxywhirl.cli import app
+from proxywhirl.cli import _proxy_reference_matches, app
 
 _xdist_worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
+EXPECTED_ROOT_COMMANDS = {
+    "request",
+    "export",
+    "fetch",
+    "health",
+    "validate-proxy",
+    "import-proxies",
+    "pool",
+    "config",
+    "sources",
+}
+REMOVED_ROOT_COMMANDS = {
+    "stats",
+    "setup-geoip",
+    "db-stats",
+    "cleanup",
+    "batch",
+    "formats",
+    "list-proxies",
+    "diagnose",
+    "diversity",
+    "shell",
+}
 
 # Test fixtures - set explicit width to avoid CI terminal width issues
 # Pin XDG paths per xdist worker to avoid sandbox writes and cross-worker lock contention.
@@ -30,6 +54,10 @@ runner = CliRunner(
 )
 
 
+def _root_command_names() -> set[str]:
+    return set(get_command(app).commands)
+
+
 class TestCLIHelp:
     """Test CLI help messages and command discovery."""
 
@@ -37,10 +65,16 @@ class TestCLIHelp:
         """Main help should enumerate all available commands."""
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
-        assert "request" in result.stdout
-        assert "pool" in result.stdout
-        assert "config" in result.stdout
-        assert "health" in result.stdout
+        for command in EXPECTED_ROOT_COMMANDS:
+            assert command in result.stdout
+
+    def test_root_command_registry_is_focused(self) -> None:
+        """Root command registry should expose only focused CLI workflows."""
+        assert _root_command_names() == EXPECTED_ROOT_COMMANDS
+
+    def test_removed_root_commands_are_not_registered(self) -> None:
+        """Pruned root commands should stay out of the Typer registry."""
+        assert _root_command_names().isdisjoint(REMOVED_ROOT_COMMANDS)
 
     def test_request_command_help(self) -> None:
         """Request command should show usage and examples."""
@@ -73,6 +107,28 @@ class TestCLIHelp:
         assert result.exit_code == 0
         assert "Check health" in result.stdout
         assert "--continuous" in result.stdout
+
+    def test_validate_proxy_command_help(self) -> None:
+        """Validate-proxy command should show validation options."""
+        result = runner.invoke(app, ["validate-proxy", "--help"])
+        assert result.exit_code == 0
+        assert "Validate proxy" in result.stdout
+        assert "--target" in result.stdout
+
+    def test_import_proxies_command_help(self) -> None:
+        """Import-proxies command should show import options."""
+        result = runner.invoke(app, ["import-proxies", "--help"])
+        assert result.exit_code == 0
+        assert "Import proxies" in result.stdout
+        assert "--pool" in result.stdout
+
+    def test_sources_command_help(self) -> None:
+        """Sources command should show validation options."""
+        result = runner.invoke(app, ["sources", "--help"])
+        assert result.exit_code == 0
+        assert "List and validate" in result.stdout
+        assert "--validate" in result.stdout
+        assert "--fail-on-unhealthy" in result.stdout
 
 
 class TestCLIGlobalOptions:
@@ -490,6 +546,13 @@ class TestPoolCommandAdvanced:
 
         # May fail if proxy doesn't exist, but command should be recognized
         assert result.exit_code in (0, 1)
+
+    def test_proxy_reference_matches_displayed_credentialless_url(self) -> None:
+        """Pool remove can match the public URL shown by pool list."""
+        assert _proxy_reference_matches(
+            "http://user:pass@proxy.com:8080",
+            "http://proxy.com:8080",
+        )
 
     @patch("httpx.Client")
     def test_pool_test_proxy(self, mock_client_class: Mock) -> None:
@@ -983,44 +1046,6 @@ class TestFetchCommand:
         assert "--concurrency" in result.stdout
 
 
-class TestSetupGeoIPCommand:
-    """Test the setup-geoip command."""
-
-    def test_setup_geoip_help(self) -> None:
-        """Setup-geoip command should show help."""
-        result = runner.invoke(app, ["setup-geoip", "--help"])
-        assert result.exit_code == 0
-        assert "geoip" in result.stdout.lower()
-
-    @patch("proxywhirl.enrichment.is_geoip_available")
-    def test_setup_geoip_check_available(self, mock_available: Mock) -> None:
-        """Setup-geoip --check should report if database is available."""
-        mock_available.return_value = True
-
-        result = runner.invoke(app, ["--no-lock", "setup-geoip", "--check"])
-        assert result.exit_code == 0
-        assert "available" in result.stdout.lower()
-
-    @patch("proxywhirl.enrichment.is_geoip_available")
-    def test_setup_geoip_check_not_available(self, mock_available: Mock) -> None:
-        """Setup-geoip --check should report if database is missing."""
-        mock_available.return_value = False
-
-        result = runner.invoke(app, ["--no-lock", "setup-geoip", "--check"])
-        assert result.exit_code == 0
-        assert "not found" in result.stdout.lower()
-
-    @patch("proxywhirl.enrichment.is_geoip_available")
-    def test_setup_geoip_show_instructions(self, mock_available: Mock) -> None:
-        """Setup-geoip should show installation instructions."""
-        mock_available.return_value = False
-
-        result = runner.invoke(app, ["--no-lock", "setup-geoip"])
-        assert result.exit_code == 0
-        assert "maxmind" in result.stdout.lower()
-        assert "download" in result.stdout.lower()
-
-
 class TestCLIErrorHandling:
     """Test CLI error handling and edge cases."""
 
@@ -1266,81 +1291,6 @@ proxies = [
         assert scrubbed["normal_field"] == "normal_value"  # Not masked
         assert scrubbed["nested"]["token"] == "***"
         assert scrubbed["nested"]["data"] == "test"  # Not masked
-
-
-class TestStatsCommand:
-    """Test the stats command."""
-
-    def test_stats_help(self) -> None:
-        """Stats command should show help."""
-        result = runner.invoke(app, ["stats", "--help"])
-        assert result.exit_code == 0
-        assert "stats" in result.stdout.lower()
-        assert "retry" in result.stdout.lower()
-        assert "circuit-breaker" in result.stdout.lower()
-
-    def test_stats_default_shows_both(self) -> None:
-        """Stats without flags should show both retry and circuit breaker metrics."""
-        result = runner.invoke(app, ["--no-lock", "stats"])
-        assert result.exit_code == 0
-        # Should contain both sections (or show "no events" messages)
-        output = result.stdout.lower()
-        assert "retry" in output or "circuit" in output or "no" in output
-
-    def test_stats_retry_flag(self) -> None:
-        """Stats --retry should show retry metrics."""
-        result = runner.invoke(app, ["--no-lock", "stats", "--retry"])
-        assert result.exit_code == 0
-        # Should show retry-related content
-        assert "retry" in result.stdout.lower() or "total" in result.stdout.lower()
-
-    def test_stats_circuit_breaker_flag(self) -> None:
-        """Stats --circuit-breaker should show circuit breaker states."""
-        result = runner.invoke(app, ["--no-lock", "stats", "--circuit-breaker"])
-        assert result.exit_code == 0
-        # Should show circuit breaker content
-        assert "circuit" in result.stdout.lower() or "events" in result.stdout.lower()
-
-    def test_stats_both_flags(self) -> None:
-        """Stats --retry --circuit-breaker should show both."""
-        result = runner.invoke(
-            app,
-            ["--no-lock", "stats", "--retry", "--circuit-breaker"],
-        )
-        assert result.exit_code == 0
-
-    def test_stats_custom_hours(self) -> None:
-        """Stats --hours should accept custom time window."""
-        result = runner.invoke(app, ["--no-lock", "stats", "--hours", "12"])
-        assert result.exit_code == 0
-
-    def test_stats_json_format(self) -> None:
-        """Stats should support JSON output format."""
-        result = runner.invoke(
-            app,
-            ["--no-lock", "--format", "json", "stats", "--retry"],
-        )
-        assert result.exit_code == 0
-        # Should output valid JSON
-        try:
-            import json
-
-            data = json.loads(result.stdout)
-            assert isinstance(data, dict)
-        except json.JSONDecodeError:
-            pass  # Empty metrics might not output JSON
-
-    def test_stats_csv_format(self) -> None:
-        """Stats should support CSV output format."""
-        result = runner.invoke(
-            app,
-            ["--no-lock", "--format", "csv", "stats", "--retry"],
-        )
-        assert result.exit_code == 0
-        # Should output CSV
-        if result.stdout.strip():
-            lines = result.stdout.strip().split("\n")
-            assert len(lines) >= 1  # At least header
 
 
 class TestURLValidation:
@@ -1846,102 +1796,3 @@ class TestURLValidation:
         result = runner.invoke(app, ["request", "--help"])
         assert result.exit_code == 0
         assert "--allow-private" in result.stdout
-
-    def test_sources_validate_rejects_zero_concurrency(self) -> None:
-        """Sources validation should reject invalid concurrency before network work."""
-        result = runner.invoke(
-            app,
-            [
-                "--no-lock",
-                "sources",
-                "--validate",
-                "--concurrency",
-                "0",
-            ],
-        )
-
-        assert result.exit_code != 0
-        output = result.stdout + result.stderr
-        assert "0" in output
-        assert "concurrency" in output.lower() or "greater than or equal" in output.lower()
-
-
-class TestBatchCommand:
-    """Test batch operations command."""
-
-    def test_batch_add_with_csv(self) -> None:
-        """Batch add should process CSV file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".csv", delete=False, dir=Path.cwd()
-        ) as f:
-            f.write("url,username,password\n")
-            f.write("http://proxy1.example.com:8080,user1,pass1\n")
-            f.write("http://proxy2.example.com:8080,user2,pass2\n")
-            csv_file = f.name
-
-        try:
-            result = runner.invoke(
-                app,
-                [
-                    "--no-lock",
-                    "batch",
-                    "add",
-                    "--input",
-                    csv_file,
-                    "--dry-run",
-                ],
-            )
-            assert result.exit_code == 0
-            output = result.stdout + result.stderr
-            assert "Added: 2" in output
-        finally:
-            Path(csv_file).unlink()
-
-    def test_batch_add_with_json(self) -> None:
-        """Batch add should process JSON file."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False, dir=Path.cwd()
-        ) as f:
-            json.dump(
-                [
-                    {"url": "http://proxy1.example.com:8080", "username": "user1"},
-                    {"url": "http://proxy2.example.com:8080"},
-                ],
-                f,
-            )
-            json_file = f.name
-
-        try:
-            result = runner.invoke(
-                app,
-                [
-                    "--no-lock",
-                    "batch",
-                    "add",
-                    "--input",
-                    json_file,
-                    "--dry-run",
-                ],
-            )
-            assert result.exit_code == 0
-            output = result.stdout + result.stderr
-            assert "Added: 2" in output
-        finally:
-            Path(json_file).unlink()
-
-    def test_batch_add_missing_file(self) -> None:
-        """Batch add should error on missing file."""
-        result = runner.invoke(
-            app,
-            [
-                "--no-lock",
-                "batch",
-                "add",
-                "--input",
-                "/nonexistent/file.csv",
-                "--dry-run",
-            ],
-        )
-        assert result.exit_code != 0
-        output = result.stdout + result.stderr
-        assert "not found" in output.lower()

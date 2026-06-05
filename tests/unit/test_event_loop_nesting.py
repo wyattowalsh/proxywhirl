@@ -42,10 +42,12 @@ class TestNestedEventLoopDetection:
         """Creating a new loop and calling ``run_until_complete`` while
         another loop is already running must raise ``RuntimeError``."""
         new_loop = asyncio.new_event_loop()
+        coro = asyncio.sleep(0.01)
         try:
             with pytest.raises(RuntimeError):
-                new_loop.run_until_complete(asyncio.sleep(0.01))
+                new_loop.run_until_complete(coro)
         finally:
+            coro.close()
             new_loop.close()
 
     @pytest.mark.asyncio
@@ -56,10 +58,12 @@ class TestNestedEventLoopDetection:
             pass
 
         new_loop = asyncio.new_event_loop()
+        coro = inner()
         try:
             with pytest.raises(RuntimeError):
-                new_loop.run_until_complete(inner())
+                new_loop.run_until_complete(coro)
         finally:
+            coro.close()
             new_loop.close()
 
     def test_run_in_thread_isolated_loop(self) -> None:
@@ -145,8 +149,10 @@ class TestNestedEventLoopDetection:
     @pytest.mark.asyncio
     async def test_cannot_run_asyncio_run_inside_async(self) -> None:
         """``asyncio.run`` must not be called from inside a running loop."""
+        coro = asyncio.sleep(0.01)
         with pytest.raises(RuntimeError):
-            asyncio.run(asyncio.sleep(0.01))
+            asyncio.run(coro)
+        coro.close()
 
     def test_asyncio_run_in_sync_context_ok(self) -> None:
         """``asyncio.run`` works fine in a sync context."""
@@ -222,8 +228,10 @@ class TestCleanLoopContext:
         """A closed loop must raise when asked to run."""
         loop = asyncio.new_event_loop()
         loop.close()
+        coro = asyncio.sleep(0.01)
         with pytest.raises(RuntimeError):
-            loop.run_until_complete(asyncio.sleep(0.01))
+            loop.run_until_complete(coro)
+        coro.close()
 
     @pytest.mark.asyncio
     async def test_current_task_in_running_loop(self) -> None:

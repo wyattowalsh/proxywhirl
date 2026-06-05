@@ -180,7 +180,7 @@ def validate_proxy_url_safety(url: str) -> tuple[bool, str]:
         ip = ipaddress.ip_address(ip_str)
         blocked, reason = is_ip_blocked(ip)
         return not blocked, reason if blocked else ""
-    except (socket.gaierror, socket.timeout, OSError):
+    except (TimeoutError, socket.gaierror, OSError):
         # DNS resolution failed - assume it's safe (external service)
         # This prevents DoS attacks on invalid hostnames
         return True, ""

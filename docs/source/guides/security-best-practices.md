@@ -78,14 +78,23 @@ components = parse_proxy_url(url)
 
 ProxyWhirl recognizes several environment variables for sensitive configuration. Keep these isolated per deployment:
 
-| Variable | Purpose |
-|----------|---------|
-| `PROXYWHIRL_KEY` | Master encryption key for credentials |
-| `PROXYWHIRL_CACHE_ENCRYPTION_KEY` | L2 cache Fernet key |
-| `PROXYWHIRL_API_KEY` | API authentication key |
-| `PROXYWHIRL_MCP_API_KEY` | MCP server auth key |
+| Variable                                      | Purpose                                                    |
+| --------------------------------------------- | ---------------------------------------------------------- |
+| `PROXYWHIRL_KEY`                              | Master encryption key for credentials                      |
+| `PROXYWHIRL_CACHE_ENCRYPTION_KEY`             | L2 cache Fernet key                                        |
+| `PROXYWHIRL_API_KEY`                          | API authentication key                                     |
+| `PROXYWHIRL_MCP_API_KEY`                      | MCP server auth key                                        |
+| `PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES` | Local-dev/test MCP write override; never set in production |
 
 Use a secrets manager (e.g., AWS Secrets Manager, HashiCorp Vault) rather than `.env` files in production.
+
+## MCP Server Authentication
+
+When `PROXYWHIRL_MCP_API_KEY` is configured, MCP clients should send credentials out-of-band via MCP metadata or transport headers such as `Authorization: Bearer <key>` or `X-API-Key: <key>`. The `proxywhirl` tool schema intentionally does not expose an `api_key` argument to the model.
+
+Mutating MCP actions (`add`, `remove`, `reset_cb`, `fetch`, `validate`, and `set_strategy`) fail closed when no API key is configured unless `PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES=1` is explicitly set for local development or tests. Do not enable that override in production.
+
+MCP responses strip credentials from proxy URLs, including exception text returned to clients. Keep credentialed proxy URLs out of prompts and prefer secret stores or client-side metadata for credentials.
 
 ## Input Validation
 

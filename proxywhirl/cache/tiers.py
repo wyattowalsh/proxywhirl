@@ -14,6 +14,7 @@ import json
 import sqlite3
 from abc import ABC, abstractmethod
 from collections import OrderedDict
+from contextlib import closing
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
@@ -1003,7 +1004,7 @@ class DiskCacheTier(CacheTier):
                 "failure_count",
                 "evicted_from_l1",
             ]
-            data = dict(zip(columns, row))
+            data = dict(zip(columns, row, strict=True))
 
             # Decrypt credentials
             if data["username_encrypted"]:
@@ -1422,7 +1423,7 @@ class SQLiteCacheTier(CacheTier):
             - Creates performance indexes.
             - Commits schema changes.
         """
-        with sqlite3.connect(str(self.db_path)) as conn:
+        with closing(sqlite3.connect(str(self.db_path))) as conn:
             # Create cache_entries table
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS cache_entries (
@@ -1554,7 +1555,7 @@ class SQLiteCacheTier(CacheTier):
 
         """
         try:
-            with sqlite3.connect(str(self.db_path)) as conn:
+            with closing(sqlite3.connect(str(self.db_path))) as conn:
                 cursor = conn.execute("SELECT * FROM cache_entries WHERE key = ?", (key,))
                 row = cursor.fetchone()
 
@@ -1588,7 +1589,7 @@ class SQLiteCacheTier(CacheTier):
                 "total_health_check_failures",
                 "evicted_from_l1",
             ]
-            data = dict(zip(columns, row))
+            data = dict(zip(columns, row, strict=True))
 
             # Decrypt credentials
             if data["username_encrypted"]:
@@ -1661,7 +1662,7 @@ class SQLiteCacheTier(CacheTier):
             def to_timestamp(dt: datetime | None) -> float | None:
                 return dt.timestamp() if dt is not None else None
 
-            with sqlite3.connect(str(self.db_path)) as conn:
+            with closing(sqlite3.connect(str(self.db_path))) as conn:
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO cache_entries (
@@ -1728,7 +1729,7 @@ class SQLiteCacheTier(CacheTier):
 
         """
         try:
-            with sqlite3.connect(str(self.db_path)) as conn:
+            with closing(sqlite3.connect(str(self.db_path))) as conn:
                 cursor = conn.execute("DELETE FROM cache_entries WHERE key = ?", (key,))
                 deleted = cursor.rowcount > 0
                 conn.commit()
@@ -1755,7 +1756,7 @@ class SQLiteCacheTier(CacheTier):
 
         """
         try:
-            with sqlite3.connect(str(self.db_path)) as conn:
+            with closing(sqlite3.connect(str(self.db_path))) as conn:
                 cursor = conn.execute("SELECT COUNT(*) FROM cache_entries")
                 count: int = int(cursor.fetchone()[0])
                 conn.execute("DELETE FROM cache_entries")
@@ -1780,7 +1781,7 @@ class SQLiteCacheTier(CacheTier):
 
         """
         try:
-            with sqlite3.connect(str(self.db_path)) as conn:
+            with closing(sqlite3.connect(str(self.db_path))) as conn:
                 cursor = conn.execute("SELECT COUNT(*) FROM cache_entries")
                 result = cursor.fetchone()
             return int(result[0]) if result else 0
@@ -1803,7 +1804,7 @@ class SQLiteCacheTier(CacheTier):
 
         """
         try:
-            with sqlite3.connect(str(self.db_path)) as conn:
+            with closing(sqlite3.connect(str(self.db_path))) as conn:
                 cursor = conn.execute("SELECT key FROM cache_entries")
                 result = [str(row[0]) for row in cursor.fetchall()]
             return result
@@ -1823,7 +1824,7 @@ class SQLiteCacheTier(CacheTier):
         """
         try:
             now = datetime.now(timezone.utc).timestamp()
-            with sqlite3.connect(str(self.db_path)) as conn:
+            with closing(sqlite3.connect(str(self.db_path))) as conn:
                 cursor = conn.execute(
                     "DELETE FROM cache_entries WHERE expires_at < ?",
                     (now,),

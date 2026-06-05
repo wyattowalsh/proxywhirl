@@ -21,8 +21,10 @@ proxywhirl = _proxywhirl_tool
 
 
 @pytest.fixture
-async def mcp_rotator():
+async def mcp_rotator(monkeypatch):
     """Fixture that provides MCP rotator and cleans up after."""
+    monkeypatch.setenv("PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES", "1")
+
     # Create a fresh rotator with test proxies
     proxy1 = Proxy(
         id=uuid4(),

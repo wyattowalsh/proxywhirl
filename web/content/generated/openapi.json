@@ -1,0 +1,3636 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ProxyWhirl API",
+    "description": "REST API for advanced proxy rotation with auto-fetching, validation, and persistence. Manage proxy pools, make proxied requests, and monitor system health through RESTful endpoints.",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/request": {
+      "post": {
+        "tags": [
+          "Proxied Requests"
+        ],
+        "summary": "Make proxied HTTP request",
+        "description": "Make an HTTP request through a rotating proxy.\n\nThis endpoint routes your HTTP request through the proxy pool, automatically\nhandling rotation and failover.\n\nSECURITY: All target URLs are validated to prevent SSRF attacks. The following\nare blocked by default:\n- Localhost and loopback addresses (127.0.0.0/8, ::1)\n- Private IP ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)\n- Link-local addresses (169.254.0.0/16)\n- Internal domain names (.local, .internal, .lan, .corp)\n- Non-HTTP/HTTPS schemes (file://, data://, etc.)\n\nArgs:\n    request_data: Request details (URL, method, headers, body, timeout) - validated for SSRF\n    rotator: ProxyWhirl dependency injection\n    api_key: API key verification dependency\n\nReturns:\n    APIResponse with proxied response data\n\nRaises:\n    HTTPException: For various error conditions including SSRF protection",
+        "operationId": "make_proxied_request_api_request_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProxiedRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_ProxiedResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/proxies": {
+      "get": {
+        "tags": [
+          "Pool Management"
+        ],
+        "summary": "List all proxies",
+        "description": "List all proxies in the pool with pagination and filtering.\n\nArgs:\n    page: Page number (1-indexed)\n    page_size: Number of items per page (max 100)\n    status_filter: Filter by health status (optional)\n    rotator: ProxyWhirl dependency\n    api_key: API key verification\n\nReturns:\n    Paginated list of proxy resources",
+        "operationId": "list_proxies_api_proxies_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "status_filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_PaginatedResponse_ProxyResource__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Pool Management"
+        ],
+        "summary": "Add new proxy",
+        "description": "Add a new proxy to the pool.\n\nArgs:\n    proxy_data: Proxy URL and optional credentials\n    rotator: ProxyWhirl dependency\n    api_key: API key verification\n\nReturns:\n    Created proxy resource",
+        "operationId": "add_proxy_api_proxies_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProxyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_ProxyResource_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rotate": {
+      "get": {
+        "tags": [
+          "Pool Management"
+        ],
+        "summary": "Select next proxy",
+        "description": "Select the next proxy without making an outbound target request.",
+        "operationId": "rotate_proxy_api_rotate_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_ProxyResource_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/proxies/stream": {
+      "get": {
+        "tags": [
+          "Pool Management"
+        ],
+        "summary": "Stream all proxies as NDJSON",
+        "description": "Stream all proxies in NDJSON format (newline-delimited JSON).\n\nUseful for exporting large proxy lists without buffering entire response.\nEach line is a complete JSON object representing one proxy.\n\nArgs:\n    status_filter: Filter by health status (optional)\n    rotator: ProxyWhirl dependency\n    api_key: API key verification\n\nReturns:\n    StreamingResponse with NDJSON content",
+        "operationId": "stream_proxies_api_proxies_stream_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status_filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/proxies/export": {
+      "get": {
+        "tags": [
+          "Pool Management"
+        ],
+        "summary": "Export all proxies as streaming JSON",
+        "description": "Stream all proxies as newline-delimited JSON (NDJSON).\n\nThis endpoint is functionally equivalent to ``/api/proxies/stream``\nand is provided for discoverability under the ``/export`` path.\n\nArgs:\n    status_filter: Filter by health status (optional)\n    rotator: ProxyWhirl dependency\n    api_key: API key verification\n\nReturns:\n    StreamingResponse with NDJSON content",
+        "operationId": "export_proxies_api_proxies_export_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status_filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status Filter"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/proxies/health-check": {
+      "post": {
+        "tags": [
+          "Pool Management"
+        ],
+        "summary": "Health check proxies",
+        "description": "Run health checks on specified proxies.\n\nArgs:\n    request_data: Optional list of proxy IDs to check\n    rotator: ProxyWhirl dependency\n    api_key: API key verification\n\nReturns:\n    List of health check results",
+        "operationId": "health_check_proxies_api_proxies_health_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HealthCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_list_HealthCheckResult__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/proxies/test": {
+      "post": {
+        "tags": [
+          "Pool Management"
+        ],
+        "summary": "Health check proxies (deprecated)",
+        "description": "Run health checks on specified proxies.\n\n**DEPRECATED:** Use `/api/proxies/health-check` instead.\nThis endpoint is kept for backward compatibility and will be removed in a future version.\n\nArgs:\n    request_data: Optional list of proxy IDs to check\n    rotator: ProxyWhirl dependency\n    api_key: API key verification\n\nReturns:\n    List of health check results",
+        "operationId": "health_check_proxies_deprecated_api_proxies_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HealthCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_list_HealthCheckResult__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "deprecated": true,
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/proxies/{proxy_id}": {
+      "get": {
+        "tags": [
+          "Pool Management"
+        ],
+        "summary": "Get proxy by ID",
+        "description": "Get details of a specific proxy.\n\nArgs:\n    proxy_id: Proxy identifier\n    rotator: ProxyWhirl dependency\n    api_key: API key verification\n\nReturns:\n    Proxy resource",
+        "operationId": "get_proxy_api_proxies__proxy_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "proxy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Proxy Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_ProxyResource_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Pool Management"
+        ],
+        "summary": "Delete proxy",
+        "description": "Remove a proxy from the pool.\n\nArgs:\n    proxy_id: Proxy identifier\n    rotator: ProxyWhirl dependency\n    storage: Optional storage dependency\n    api_key: API key verification",
+        "operationId": "delete_proxy_api_proxies__proxy_id__delete",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "proxy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Proxy Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/health": {
+      "get": {
+        "tags": [
+          "Monitoring"
+        ],
+        "summary": "API health check",
+        "description": "Check API health status.\n\nReturns 200 if healthy, 503 if unhealthy.\n\nArgs:\n    rotator: ProxyWhirl dependency\n\nReturns:\n    Health status response",
+        "operationId": "health_check_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_HealthResponse_"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ready": {
+      "get": {
+        "tags": [
+          "Monitoring"
+        ],
+        "summary": "API readiness check",
+        "description": "Check if API is ready to serve requests.\n\nReturns 200 if ready, 503 if not ready.\n\nArgs:\n    rotator: ProxyWhirl dependency\n    storage: Optional storage dependency\n\nReturns:\n    Readiness status response",
+        "operationId": "readiness_check_api_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_ReadinessResponse_"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/status": {
+      "get": {
+        "tags": [
+          "Monitoring"
+        ],
+        "summary": "Get system status",
+        "description": "Get detailed system status including pool stats.\n\nArgs:\n    rotator: ProxyWhirl dependency\n    storage: Optional storage dependency\n    config: Configuration dependency\n\nReturns:\n    System status response",
+        "operationId": "get_status_api_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_StatusResponse_"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/stats": {
+      "get": {
+        "tags": [
+          "Monitoring"
+        ],
+        "summary": "Get performance statistics",
+        "description": "Get API performance statistics (general aggregate metrics).\n\nThis endpoint provides high-level performance statistics for the API,\ndistinct from the detailed Prometheus metrics available at /api/metrics.\n\nArgs:\n    rotator: ProxyWhirl dependency\n\nReturns:\n    Performance statistics response\n\nNote:\n    This endpoint provides aggregate metrics. For detailed metrics, use:\n    - /api/metrics - Prometheus format metrics\n    - /api/metrics/retries - Retry-specific metrics",
+        "operationId": "get_stats_api_stats_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_MetricsResponse_"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/config": {
+      "get": {
+        "tags": [
+          "Configuration"
+        ],
+        "summary": "Get current configuration",
+        "description": "Get current API configuration.\n\nArgs:\n    config: Configuration dependency\n    api_key: API key verification\n\nReturns:\n    Current configuration settings",
+        "operationId": "get_configuration_api_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_ConfigurationSettings_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Configuration"
+        ],
+        "summary": "Update configuration",
+        "description": "Update API configuration at runtime.\n\nArgs:\n    update_data: Configuration updates (partial)\n    config: Configuration dependency\n    rotator: ProxyWhirl dependency\n    api_key: API key verification\n\nReturns:\n    Updated configuration settings",
+        "operationId": "update_configuration_api_config_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_ConfigurationSettings_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/retry/policy": {
+      "get": {
+        "tags": [
+          "Retry & Failover"
+        ],
+        "summary": "Get global retry policy",
+        "description": "Get the current global retry policy configuration.\n\nReturns:\n    Current retry policy settings",
+        "operationId": "get_retry_policy_api_retry_policy_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_RetryPolicyResponse_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "Retry & Failover"
+        ],
+        "summary": "Update global retry policy",
+        "description": "Update the global retry policy configuration.\n\nArgs:\n    policy_request: New retry policy settings\n\nReturns:\n    Updated retry policy",
+        "operationId": "update_retry_policy_api_retry_policy_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetryPolicyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_RetryPolicyResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/circuit-breakers": {
+      "get": {
+        "tags": [
+          "Retry & Failover"
+        ],
+        "summary": "List all circuit breaker states",
+        "description": "Get circuit breaker states for all proxies.\n\nReturns:\n    List of circuit breaker states",
+        "operationId": "list_circuit_breakers_api_circuit_breakers_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_list_CircuitBreakerResponse__"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/metrics/circuit-breakers": {
+      "get": {
+        "tags": [
+          "Retry & Failover"
+        ],
+        "summary": "Get circuit breaker metrics",
+        "description": "Get circuit breaker state change events.\n\nArgs:\n    hours: Number of hours to retrieve (default: 24)\n\nReturns:\n    List of circuit breaker events",
+        "operationId": "get_circuit_breaker_metrics_api_metrics_circuit_breakers_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 24,
+              "title": "Hours"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_list_CircuitBreakerEventResponse__"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/circuit-breakers/{proxy_id}": {
+      "get": {
+        "tags": [
+          "Retry & Failover"
+        ],
+        "summary": "Get circuit breaker state for specific proxy",
+        "description": "Get circuit breaker state for a specific proxy.\n\nArgs:\n    proxy_id: Proxy ID to get circuit breaker for\n\nReturns:\n    Circuit breaker state",
+        "operationId": "get_circuit_breaker_api_circuit_breakers__proxy_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "proxy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Proxy Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_CircuitBreakerResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/circuit-breakers/{proxy_id}/reset": {
+      "post": {
+        "tags": [
+          "Retry & Failover"
+        ],
+        "summary": "Manually reset circuit breaker",
+        "description": "Manually reset a circuit breaker to CLOSED state.\n\nArgs:\n    proxy_id: Proxy ID whose circuit breaker to reset\n\nReturns:\n    Updated circuit breaker state",
+        "operationId": "reset_circuit_breaker_api_circuit_breakers__proxy_id__reset_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "proxy_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Proxy Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_CircuitBreakerResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metrics/retries": {
+      "get": {
+        "tags": [
+          "Retry & Failover"
+        ],
+        "summary": "Get retry metrics summary",
+        "description": "Get aggregated retry metrics.\n\nReturns:\n    Retry metrics summary",
+        "operationId": "get_retry_metrics_api_metrics_retries_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_RetryMetricsResponse_"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
+      }
+    },
+    "/api/metrics/retries/timeseries": {
+      "get": {
+        "tags": [
+          "Retry & Failover"
+        ],
+        "summary": "Get time-series retry data",
+        "description": "Get hourly retry metrics for the specified time range.\n\nArgs:\n    hours: Number of hours to retrieve (default: 24)\n\nReturns:\n    Time-series retry data",
+        "operationId": "get_retry_timeseries_api_metrics_retries_timeseries_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 24,
+              "title": "Hours"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_TimeSeriesResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metrics/retries/by-proxy": {
+      "get": {
+        "tags": [
+          "Retry & Failover"
+        ],
+        "summary": "Get per-proxy retry statistics",
+        "description": "Get retry statistics grouped by proxy.\n\nArgs:\n    hours: Number of hours to analyze (default: 24)\n\nReturns:\n    Per-proxy retry statistics",
+        "operationId": "get_retry_stats_by_proxy_api_metrics_retries_by_proxy_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 24,
+              "title": "Hours"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIResponse_ProxyRetryStatsResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "APIResponse_CircuitBreakerResponse_": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CircuitBreakerResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[CircuitBreakerResponse]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_ConfigurationSettings_": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConfigurationSettings"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[ConfigurationSettings]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_HealthResponse_": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HealthResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[HealthResponse]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_MetricsResponse_": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetricsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[MetricsResponse]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_PaginatedResponse_ProxyResource__": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PaginatedResponse_ProxyResource_"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[PaginatedResponse[ProxyResource]]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_ProxiedResponse_": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProxiedResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[ProxiedResponse]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_ProxyResource_": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProxyResource"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[ProxyResource]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_ProxyRetryStatsResponse_": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProxyRetryStatsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[ProxyRetryStatsResponse]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_ReadinessResponse_": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReadinessResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[ReadinessResponse]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_RetryMetricsResponse_": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetryMetricsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[RetryMetricsResponse]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_RetryPolicyResponse_": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetryPolicyResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[RetryPolicyResponse]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_StatusResponse_": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StatusResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[StatusResponse]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_TimeSeriesResponse_": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimeSeriesResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[TimeSeriesResponse]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_list_CircuitBreakerEventResponse__": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CircuitBreakerEventResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data",
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[list[CircuitBreakerEventResponse]]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_list_CircuitBreakerResponse__": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CircuitBreakerResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data",
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[list[CircuitBreakerResponse]]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "APIResponse_list_HealthCheckResult__": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Response status: 'success' or 'error'"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/HealthCheckResult"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Data",
+            "description": "Response payload (present on success)"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ErrorDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Error details (present on failure)"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/MetaInfo",
+            "description": "Response metadata (request ID, timestamp, version)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "APIResponse[list[HealthCheckResult]]",
+        "examples": [
+          {
+            "data": {
+              "message": "Operation completed successfully"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440000",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "success"
+          },
+          {
+            "error": {
+              "code": "VALIDATION_ERROR",
+              "details": {
+                "field": "url",
+                "reason": "Invalid URL format"
+              },
+              "message": "Invalid request parameters",
+              "timestamp": "2025-10-27T12:00:00Z"
+            },
+            "meta": {
+              "request_id": "550e8400-e29b-41d4-a716-446655440001",
+              "timestamp": "2025-10-27T12:00:00Z",
+              "version": "1.0.0"
+            },
+            "status": "error"
+          }
+        ]
+      },
+      "CircuitBreakerEventResponse": {
+        "properties": {
+          "proxy_id": {
+            "type": "string",
+            "title": "Proxy Id"
+          },
+          "from_state": {
+            "type": "string",
+            "title": "From State"
+          },
+          "to_state": {
+            "type": "string",
+            "title": "To State"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "failure_count": {
+            "type": "integer",
+            "title": "Failure Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proxy_id",
+          "from_state",
+          "to_state",
+          "timestamp",
+          "failure_count"
+        ],
+        "title": "CircuitBreakerEventResponse",
+        "description": "Response model for circuit breaker state change event.",
+        "example": {
+          "failure_count": 5,
+          "from_state": "closed",
+          "proxy_id": "proxy1.example.com:8080",
+          "timestamp": "2025-11-02T12:00:00Z",
+          "to_state": "open"
+        }
+      },
+      "CircuitBreakerResponse": {
+        "properties": {
+          "proxy_id": {
+            "type": "string",
+            "title": "Proxy Id"
+          },
+          "state": {
+            "type": "string",
+            "title": "State",
+            "description": "Circuit breaker state (closed, open, half_open)"
+          },
+          "failure_count": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "Failure Count"
+          },
+          "failure_threshold": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Failure Threshold"
+          },
+          "window_duration": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "title": "Window Duration",
+            "description": "Failure window duration in seconds"
+          },
+          "timeout_duration": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "title": "Timeout Duration",
+            "description": "Timeout before half-open in seconds"
+          },
+          "next_test_time": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Test Time",
+            "description": "Next recovery test time (ISO 8601)"
+          },
+          "last_state_change": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last State Change"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proxy_id",
+          "state",
+          "failure_count",
+          "failure_threshold",
+          "window_duration",
+          "timeout_duration",
+          "last_state_change"
+        ],
+        "title": "CircuitBreakerResponse",
+        "description": "Response model for circuit breaker state.",
+        "example": {
+          "failure_count": 2,
+          "failure_threshold": 5,
+          "last_state_change": "2025-11-02T12:00:00Z",
+          "proxy_id": "proxy1.example.com:8080",
+          "state": "closed",
+          "timeout_duration": 30,
+          "window_duration": 60
+        }
+      },
+      "ConfigurationSettings": {
+        "properties": {
+          "rotation_strategy": {
+            "type": "string",
+            "title": "Rotation Strategy",
+            "default": "round-robin"
+          },
+          "timeout": {
+            "type": "integer",
+            "maximum": 300,
+            "exclusiveMinimum": 0,
+            "title": "Timeout",
+            "default": 30
+          },
+          "max_retries": {
+            "type": "integer",
+            "maximum": 10,
+            "exclusiveMinimum": 0,
+            "title": "Max Retries",
+            "default": 3
+          },
+          "rate_limits": {
+            "$ref": "#/components/schemas/RateLimitConfig"
+          },
+          "auth_enabled": {
+            "type": "boolean",
+            "title": "Auth Enabled",
+            "default": false
+          },
+          "cors_origins": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Cors Origins"
+          }
+        },
+        "type": "object",
+        "title": "ConfigurationSettings",
+        "description": "API configuration settings.",
+        "example": {
+          "auth_enabled": false,
+          "cors_origins": [
+            "*"
+          ],
+          "max_retries": 3,
+          "rate_limits": {
+            "default_limit": 100,
+            "request_endpoint_limit": 50
+          },
+          "rotation_strategy": "round-robin",
+          "timeout": 30
+        }
+      },
+      "CreateProxyRequest": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "Proxy URL (protocol://host:port)"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username",
+            "description": "Proxy username"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password",
+            "description": "Proxy password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "CreateProxyRequest",
+        "description": "Request to add a new proxy to the pool.",
+        "example": {
+          "password": "secret456",
+          "url": "http://proxy.example.com:8080",
+          "username": "user123"
+        }
+      },
+      "ErrorCode": {
+        "type": "string",
+        "enum": [
+          "VALIDATION_ERROR",
+          "INVALID_URL",
+          "INVALID_PROXY_FORMAT",
+          "INVALID_METHOD",
+          "INVALID_TIMEOUT",
+          "PROXY_ERROR",
+          "PROXY_POOL_EMPTY",
+          "PROXY_FAILOVER_EXHAUSTED",
+          "PROXY_NOT_FOUND",
+          "PROXY_ALREADY_EXISTS",
+          "TARGET_UNREACHABLE",
+          "REQUEST_TIMEOUT",
+          "REQUEST_FAILED",
+          "CONFIGURATION_ERROR",
+          "INVALID_CONFIGURATION",
+          "INTERNAL_ERROR",
+          "SERVICE_UNAVAILABLE"
+        ],
+        "title": "ErrorCode",
+        "description": "Standard error codes for API responses."
+      },
+      "ErrorDetail": {
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode",
+            "description": "Machine-readable error code for client handling"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Human-readable error message"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details",
+            "description": "Additional context about the error (e.g., validation failures)"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp",
+            "description": "When the error occurred (UTC)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorDetail",
+        "description": "Structured error information for API responses.",
+        "example": {
+          "code": "PROXY_POOL_EMPTY",
+          "details": {
+            "available_proxies": 0,
+            "total_proxies": 0
+          },
+          "message": "No proxies available in the pool",
+          "timestamp": "2025-10-27T12:00:00Z"
+        }
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthCheckRequest": {
+        "properties": {
+          "proxy_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proxy Ids",
+            "description": "Specific proxy IDs to check (null = check all)"
+          }
+        },
+        "type": "object",
+        "title": "HealthCheckRequest",
+        "description": "Request to health check specific proxies.",
+        "example": {
+          "proxy_ids": [
+            "550e8400-e29b-41d4-a716-446655440000"
+          ]
+        }
+      },
+      "HealthCheckResult": {
+        "properties": {
+          "proxy_id": {
+            "type": "string",
+            "title": "Proxy Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "working",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "tested_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Tested At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proxy_id",
+          "status"
+        ],
+        "title": "HealthCheckResult",
+        "description": "Result of a proxy health check.",
+        "example": {
+          "latency_ms": 125,
+          "proxy_id": "550e8400-e29b-41d4-a716-446655440000",
+          "status": "working",
+          "tested_at": "2025-10-27T12:00:00Z"
+        }
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "degraded",
+              "unhealthy"
+            ],
+            "title": "Status"
+          },
+          "uptime_seconds": {
+            "type": "integer",
+            "title": "Uptime Seconds"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "uptime_seconds",
+          "version"
+        ],
+        "title": "HealthResponse",
+        "description": "API health status response.",
+        "example": {
+          "status": "healthy",
+          "timestamp": "2025-10-27T12:00:00Z",
+          "uptime_seconds": 3600,
+          "version": "1.0.0"
+        }
+      },
+      "MetaInfo": {
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "title": "Request Id",
+            "description": "Unique ID for request tracing and correlation"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp",
+            "description": "Response generation timestamp (UTC)"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "API version",
+            "default": "1.0.0"
+          }
+        },
+        "type": "object",
+        "title": "MetaInfo",
+        "description": "Metadata included in all API responses.",
+        "example": {
+          "request_id": "550e8400-e29b-41d4-a716-446655440000",
+          "timestamp": "2025-10-27T12:00:00Z",
+          "version": "1.0.0"
+        }
+      },
+      "MetricsResponse": {
+        "properties": {
+          "requests_total": {
+            "type": "integer",
+            "title": "Requests Total"
+          },
+          "requests_per_second": {
+            "type": "number",
+            "title": "Requests Per Second"
+          },
+          "avg_latency_ms": {
+            "type": "number",
+            "title": "Avg Latency Ms"
+          },
+          "error_rate": {
+            "type": "number",
+            "title": "Error Rate"
+          },
+          "proxy_stats": {
+            "items": {
+              "$ref": "#/components/schemas/ProxyStats"
+            },
+            "type": "array",
+            "title": "Proxy Stats"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requests_total",
+          "requests_per_second",
+          "avg_latency_ms",
+          "error_rate",
+          "proxy_stats"
+        ],
+        "title": "MetricsResponse",
+        "description": "API performance metrics response.",
+        "example": {
+          "avg_latency_ms": 250,
+          "error_rate": 0.05,
+          "proxy_stats": [],
+          "requests_per_second": 10.5,
+          "requests_total": 1000
+        }
+      },
+      "PaginatedResponse_ProxyResource_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProxyResource"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "has_next": {
+            "type": "boolean",
+            "title": "Has Next",
+            "default": false
+          },
+          "has_prev": {
+            "type": "boolean",
+            "title": "Has Prev",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "PaginatedResponse[ProxyResource]",
+        "example": {
+          "has_next": true,
+          "has_prev": false,
+          "items": [],
+          "page": 1,
+          "page_size": 20,
+          "total": 42
+        }
+      },
+      "ProxiedRequest": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2083,
+            "minLength": 1,
+            "format": "uri",
+            "title": "Url",
+            "description": "Target URL to fetch through proxy"
+          },
+          "method": {
+            "type": "string",
+            "enum": [
+              "GET",
+              "POST",
+              "PUT",
+              "DELETE",
+              "PATCH",
+              "HEAD",
+              "OPTIONS"
+            ],
+            "title": "Method",
+            "description": "HTTP method",
+            "default": "GET"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Headers",
+            "description": "Request headers to pass through"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body",
+            "description": "Request body (for POST/PUT/PATCH)"
+          },
+          "timeout": {
+            "type": "integer",
+            "maximum": 300,
+            "exclusiveMinimum": 0,
+            "title": "Timeout",
+            "description": "Request timeout in seconds",
+            "default": 30
+          }
+        },
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "title": "ProxiedRequest",
+        "description": "Request to make an HTTP request through a proxy.",
+        "example": {
+          "headers": {
+            "User-Agent": "ProxyWhirl/1.0"
+          },
+          "method": "GET",
+          "timeout": 30,
+          "url": "https://httpbin.org/ip"
+        }
+      },
+      "ProxiedResponse": {
+        "properties": {
+          "status_code": {
+            "type": "integer",
+            "title": "Status Code",
+            "description": "HTTP status code from target"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Headers",
+            "description": "Response headers from target"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body",
+            "description": "Response body from target"
+          },
+          "proxy_used": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proxy Used",
+            "description": "Proxy URL that was used for this request"
+          },
+          "elapsed_ms": {
+            "type": "integer",
+            "title": "Elapsed Ms",
+            "description": "Request duration in milliseconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status_code",
+          "headers",
+          "body",
+          "elapsed_ms"
+        ],
+        "title": "ProxiedResponse",
+        "description": "Response from a proxied HTTP request.",
+        "example": {
+          "body": "{\"origin\": \"1.2.3.4\"}",
+          "elapsed_ms": 1250,
+          "headers": {
+            "content-type": "application/json"
+          },
+          "proxy_used": "http://proxy.example.com:8080",
+          "status_code": 200
+        }
+      },
+      "ProxyPoolStats": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "active": {
+            "type": "integer",
+            "title": "Active"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "healthy_percentage": {
+            "type": "number",
+            "title": "Healthy Percentage"
+          },
+          "last_rotation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Rotation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "active",
+          "failed",
+          "healthy_percentage"
+        ],
+        "title": "ProxyPoolStats",
+        "description": "Statistics about the proxy pool."
+      },
+      "ProxyResource": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "Unique proxy identifier"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "Proxy URL"
+          },
+          "protocol": {
+            "type": "string",
+            "title": "Protocol",
+            "description": "Proxy protocol (http/https/socks4/socks5/socks5h)"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "Current proxy status"
+          },
+          "health": {
+            "type": "string",
+            "title": "Health",
+            "description": "Health check status"
+          },
+          "stats": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Stats",
+            "description": "Proxy statistics"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "When proxy was added"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At",
+            "description": "Last update timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "url",
+          "protocol",
+          "status",
+          "health",
+          "stats",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProxyResource",
+        "description": "RESTful representation of a proxy in the pool.",
+        "example": {
+          "created_at": "2025-10-27T12:00:00Z",
+          "health": "healthy",
+          "id": "550e8400-e29b-41d4-a716-446655440000",
+          "protocol": "http",
+          "stats": {
+            "avg_latency_ms": 250,
+            "failed_requests": 2,
+            "successful_requests": 40,
+            "total_requests": 42
+          },
+          "status": "healthy",
+          "updated_at": "2025-10-27T13:00:00Z",
+          "url": "http://proxy.example.com:8080"
+        }
+      },
+      "ProxyRetryStats": {
+        "properties": {
+          "proxy_id": {
+            "type": "string",
+            "title": "Proxy Id"
+          },
+          "total_attempts": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "Total Attempts"
+          },
+          "success_count": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "Success Count"
+          },
+          "failure_count": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "Failure Count"
+          },
+          "avg_latency": {
+            "type": "number",
+            "minimum": 0,
+            "title": "Avg Latency",
+            "description": "Average latency in seconds"
+          },
+          "circuit_breaker_opens": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "Circuit Breaker Opens",
+            "description": "Number of times circuit opened"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proxy_id",
+          "total_attempts",
+          "success_count",
+          "failure_count",
+          "avg_latency",
+          "circuit_breaker_opens"
+        ],
+        "title": "ProxyRetryStats",
+        "description": "Per-proxy retry statistics.",
+        "example": {
+          "avg_latency": 0.3,
+          "circuit_breaker_opens": 2,
+          "failure_count": 50,
+          "proxy_id": "proxy1.example.com:8080",
+          "success_count": 450,
+          "total_attempts": 500
+        }
+      },
+      "ProxyRetryStatsResponse": {
+        "properties": {
+          "proxies": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ProxyRetryStats"
+            },
+            "type": "object",
+            "title": "Proxies"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proxies"
+        ],
+        "title": "ProxyRetryStatsResponse",
+        "description": "Response model for per-proxy retry statistics.",
+        "example": {
+          "proxies": {
+            "proxy1.example.com:8080": {
+              "avg_latency": 0.3,
+              "circuit_breaker_opens": 2,
+              "failure_count": 50,
+              "proxy_id": "proxy1.example.com:8080",
+              "success_count": 450,
+              "total_attempts": 500
+            }
+          }
+        }
+      },
+      "ProxyStats": {
+        "properties": {
+          "proxy_id": {
+            "type": "string",
+            "title": "Proxy Id"
+          },
+          "requests": {
+            "type": "integer",
+            "title": "Requests"
+          },
+          "successes": {
+            "type": "integer",
+            "title": "Successes"
+          },
+          "failures": {
+            "type": "integer",
+            "title": "Failures"
+          },
+          "avg_latency_ms": {
+            "type": "integer",
+            "title": "Avg Latency Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proxy_id",
+          "requests",
+          "successes",
+          "failures",
+          "avg_latency_ms"
+        ],
+        "title": "ProxyStats",
+        "description": "Per-proxy statistics for metrics endpoints."
+      },
+      "RateLimitConfig": {
+        "properties": {
+          "default_limit": {
+            "type": "integer",
+            "title": "Default Limit",
+            "default": 100
+          },
+          "request_endpoint_limit": {
+            "type": "integer",
+            "title": "Request Endpoint Limit",
+            "default": 50
+          }
+        },
+        "type": "object",
+        "title": "RateLimitConfig",
+        "description": "Rate limiting configuration."
+      },
+      "ReadinessResponse": {
+        "properties": {
+          "ready": {
+            "type": "boolean",
+            "title": "Ready"
+          },
+          "checks": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Checks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ready",
+          "checks"
+        ],
+        "title": "ReadinessResponse",
+        "description": "API readiness status response.",
+        "example": {
+          "checks": {
+            "proxy_pool_initialized": true,
+            "storage_connected": true
+          },
+          "ready": true
+        }
+      },
+      "RetryMetricsResponse": {
+        "properties": {
+          "total_retries": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "Total Retries",
+            "description": "Total retry attempts in retention period"
+          },
+          "success_by_attempt": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Success By Attempt",
+            "description": "Success count by attempt number (0=first try)"
+          },
+          "circuit_breaker_events_count": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "Circuit Breaker Events Count",
+            "description": "Number of circuit breaker state changes"
+          },
+          "retention_hours": {
+            "type": "integer",
+            "minimum": 1,
+            "title": "Retention Hours",
+            "description": "Metrics retention period in hours"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_retries",
+          "success_by_attempt",
+          "circuit_breaker_events_count",
+          "retention_hours"
+        ],
+        "title": "RetryMetricsResponse",
+        "description": "Response model for retry metrics summary.",
+        "example": {
+          "circuit_breaker_events_count": 15,
+          "retention_hours": 24,
+          "success_by_attempt": {
+            "0": 850,
+            "1": 300,
+            "2": 80,
+            "3": 20
+          },
+          "total_retries": 1250
+        }
+      },
+      "RetryPolicyRequest": {
+        "properties": {
+          "max_attempts": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10,
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Attempts",
+            "description": "Maximum retry attempts"
+          },
+          "backoff_strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backoff Strategy",
+            "description": "Backoff strategy (exponential, linear, fixed)"
+          },
+          "base_delay": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 60,
+                "exclusiveMinimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Delay",
+            "description": "Base delay in seconds"
+          },
+          "multiplier": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 10,
+                "exclusiveMinimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Multiplier",
+            "description": "Multiplier for exponential backoff"
+          },
+          "max_backoff_delay": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 300,
+                "exclusiveMinimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Backoff Delay",
+            "description": "Maximum backoff delay in seconds"
+          },
+          "jitter": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Jitter",
+            "description": "Enable random jitter"
+          },
+          "retry_status_codes": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Status Codes",
+            "description": "HTTP status codes that trigger retries"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout",
+            "description": "Total request timeout in seconds"
+          },
+          "retry_non_idempotent": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry Non Idempotent",
+            "description": "Allow retries for non-idempotent requests (POST, PUT)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RetryPolicyRequest",
+        "description": "Request model for updating retry policy.",
+        "example": {
+          "backoff_strategy": "exponential",
+          "base_delay": 1.5,
+          "jitter": true,
+          "max_attempts": 5,
+          "max_backoff_delay": 30,
+          "multiplier": 2,
+          "retry_non_idempotent": false,
+          "retry_status_codes": [
+            502,
+            503,
+            504
+          ]
+        }
+      },
+      "RetryPolicyResponse": {
+        "properties": {
+          "max_attempts": {
+            "type": "integer",
+            "title": "Max Attempts"
+          },
+          "backoff_strategy": {
+            "type": "string",
+            "title": "Backoff Strategy"
+          },
+          "base_delay": {
+            "type": "number",
+            "title": "Base Delay"
+          },
+          "multiplier": {
+            "type": "number",
+            "title": "Multiplier"
+          },
+          "max_backoff_delay": {
+            "type": "number",
+            "title": "Max Backoff Delay"
+          },
+          "jitter": {
+            "type": "boolean",
+            "title": "Jitter"
+          },
+          "retry_status_codes": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Retry Status Codes"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout"
+          },
+          "retry_non_idempotent": {
+            "type": "boolean",
+            "title": "Retry Non Idempotent"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "max_attempts",
+          "backoff_strategy",
+          "base_delay",
+          "multiplier",
+          "max_backoff_delay",
+          "jitter",
+          "retry_status_codes",
+          "timeout",
+          "retry_non_idempotent"
+        ],
+        "title": "RetryPolicyResponse",
+        "description": "Response model for retry policy.",
+        "example": {
+          "backoff_strategy": "exponential",
+          "base_delay": 1,
+          "jitter": false,
+          "max_attempts": 3,
+          "max_backoff_delay": 30,
+          "multiplier": 2,
+          "retry_non_idempotent": false,
+          "retry_status_codes": [
+            502,
+            503,
+            504
+          ],
+          "updated_at": "2025-11-02T12:00:00Z"
+        }
+      },
+      "StatusResponse": {
+        "properties": {
+          "pool_stats": {
+            "$ref": "#/components/schemas/ProxyPoolStats"
+          },
+          "rotation_strategy": {
+            "type": "string",
+            "title": "Rotation Strategy"
+          },
+          "storage_backend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Storage Backend"
+          },
+          "config_source": {
+            "type": "string",
+            "title": "Config Source",
+            "default": "defaults"
+          }
+        },
+        "type": "object",
+        "required": [
+          "pool_stats",
+          "rotation_strategy"
+        ],
+        "title": "StatusResponse",
+        "description": "API and pool status response.",
+        "example": {
+          "config_source": "defaults",
+          "pool_stats": {
+            "active": 8,
+            "failed": 2,
+            "healthy_percentage": 80,
+            "last_rotation": "2025-10-27T12:00:00Z",
+            "total": 10
+          },
+          "rotation_strategy": "round-robin",
+          "storage_backend": "memory"
+        }
+      },
+      "TimeSeriesDataPoint": {
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "total_requests": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "Total Requests"
+          },
+          "total_retries": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "Total Retries"
+          },
+          "success_rate": {
+            "type": "number",
+            "maximum": 1,
+            "minimum": 0,
+            "title": "Success Rate"
+          },
+          "avg_latency": {
+            "type": "number",
+            "minimum": 0,
+            "title": "Avg Latency",
+            "description": "Average latency in seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timestamp",
+          "total_requests",
+          "total_retries",
+          "success_rate",
+          "avg_latency"
+        ],
+        "title": "TimeSeriesDataPoint",
+        "description": "Single data point in time-series metrics."
+      },
+      "TimeSeriesResponse": {
+        "properties": {
+          "data_points": {
+            "items": {
+              "$ref": "#/components/schemas/TimeSeriesDataPoint"
+            },
+            "type": "array",
+            "title": "Data Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data_points"
+        ],
+        "title": "TimeSeriesResponse",
+        "description": "Response model for time-series retry data.",
+        "example": {
+          "data_points": [
+            {
+              "avg_latency": 0.25,
+              "success_rate": 0.95,
+              "timestamp": "2025-11-02T12:00:00Z",
+              "total_requests": 1000,
+              "total_retries": 150
+            }
+          ]
+        }
+      },
+      "UpdateConfigRequest": {
+        "properties": {
+          "rotation_strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rotation Strategy"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 300,
+                "exclusiveMinimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout"
+          },
+          "max_retries": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10,
+                "exclusiveMinimum": 0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Retries"
+          },
+          "rate_limits": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RateLimitConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cors_origins": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cors Origins"
+          }
+        },
+        "type": "object",
+        "title": "UpdateConfigRequest",
+        "description": "Request to update API configuration (partial updates allowed).",
+        "example": {
+          "rotation_strategy": "round-robin",
+          "timeout": 60
+        }
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "APIKeyHeader": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key"
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "Proxied Requests",
+      "description": "Make HTTP requests through rotating proxies"
+    },
+    {
+      "name": "Pool Management",
+      "description": "Manage proxy pool (add, remove, list proxies)"
+    },
+    {
+      "name": "Monitoring",
+      "description": "Health checks, status, and metrics endpoints"
+    },
+    {
+      "name": "Configuration",
+      "description": "Runtime configuration management"
+    }
+  ]
+}

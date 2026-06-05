@@ -10,6 +10,7 @@ from proxywhirl.utils import (
     is_valid_proxy_url,
     parse_proxy_url,
     proxy_to_dict,
+    public_proxy_url,
     validate_proxy_model,
 )
 
@@ -71,6 +72,27 @@ class TestURLValidation:
     def test_is_valid_proxy_url(self, url, expected):
         """Test URL validation with various inputs."""
         assert is_valid_proxy_url(url) is expected
+
+    @pytest.mark.parametrize(
+        "url,expected",
+        [
+            (
+                "http://user:pass@proxy.example.com:8080",
+                "http://proxy.example.com:8080",
+            ),
+            (
+                "socks5://user:p%40ss@[2001:db8::1]:1080",
+                "socks5://[2001:db8::1]:1080",
+            ),
+            (
+                "http://proxy.example.com:8080",
+                "http://proxy.example.com:8080",
+            ),
+        ],
+    )
+    def test_public_proxy_url_strips_credentials(self, url, expected):
+        """Public proxy URLs must not reveal userinfo credentials."""
+        assert public_proxy_url(url) == expected
 
 
 class TestURLParsing:
@@ -366,7 +388,7 @@ class TestProxyConfiguration:
 
     def test_valid_configuration(self):
         """Test creating valid configuration."""
-        from proxywhirl.models import ProxyConfiguration
+        from proxywhirl.settings import ProxyConfiguration
 
         config = ProxyConfiguration()
         assert config.timeout == 30
@@ -375,7 +397,7 @@ class TestProxyConfiguration:
 
     def test_configuration_with_custom_values(self):
         """Test configuration with custom values."""
-        from proxywhirl.models import ProxyConfiguration
+        from proxywhirl.settings import ProxyConfiguration
 
         config = ProxyConfiguration(timeout=60, max_retries=5, verify_ssl=False, log_level="DEBUG")
         assert config.timeout == 60
@@ -387,7 +409,7 @@ class TestProxyConfiguration:
         """Test that negative timeout raises validation error."""
         from pydantic import ValidationError
 
-        from proxywhirl.models import ProxyConfiguration
+        from proxywhirl.settings import ProxyConfiguration
 
         with pytest.raises(ValidationError, match="positive"):
             ProxyConfiguration(timeout=-1)
@@ -396,7 +418,7 @@ class TestProxyConfiguration:
         """Test that sqlite/file storage requires path."""
         from pydantic import ValidationError
 
-        from proxywhirl.models import ProxyConfiguration
+        from proxywhirl.settings import ProxyConfiguration
 
         with pytest.raises(ValidationError, match="storage_path required"):
             ProxyConfiguration(storage_backend="sqlite")

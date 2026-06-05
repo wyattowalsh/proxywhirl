@@ -135,7 +135,7 @@ ttl_seconds = 7200
 - [ ] Migrate YAML configs to TOML
 - [ ] Update async code to use `AsyncProxyWhirl`
 - [ ] Add type hints using new Literal and Protocol types
-- [ ] Test with Python 3.9+ (dropped 3.8 support)
+- [ ] Test with Python 3.10+ (dropped 3.9 support)
 
 ## Backward Compatibility Layer
 
@@ -160,4 +160,3 @@ pool = ProxyPoolCompat(proxies=proxy_list)  # v1-style API
 - Documentation: https://proxywhirl.dev/docs
 - GitHub Issues: https://github.com/wyattowalsh/proxywhirl/issues
 - Discussions: https://github.com/wyattowalsh/proxywhirl/discussions
-

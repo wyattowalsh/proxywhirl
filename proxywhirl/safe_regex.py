@@ -11,7 +11,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
 from re import Pattern
-from typing import Optional, cast
+from typing import cast
 
 import typer
 
@@ -153,7 +153,7 @@ def _match_with_timeout(pattern: Pattern[str], text: str, timeout: float) -> re.
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(pattern.search, text)  # type: ignore[arg-type]
         try:
-            return cast(Optional[re.Match[str]], future.result(timeout=timeout))
+            return cast(re.Match[str] | None, future.result(timeout=timeout))
         except FuturesTimeoutError as e:
             raise RegexTimeoutError(f"Regex matching timed out after {timeout}s") from e
 

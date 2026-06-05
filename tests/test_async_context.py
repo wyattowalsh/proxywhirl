@@ -145,16 +145,19 @@ class TestAsyncContextIsolation:
         async def add_proxy_task(url):
             try:
                 proxy = Proxy(url=url, protocol="http")
-                pw.add_proxy(proxy)
+                await pw.add_proxy(proxy)
                 return True
             except Exception:
                 return False
 
-        results = await asyncio.gather(
-            add_proxy_task("http://proxy1:8080"),
-            add_proxy_task("http://proxy2:8080"),
-            add_proxy_task("http://proxy3:8080"),
-        )
+        try:
+            results = await asyncio.gather(
+                add_proxy_task("http://proxy1:8080"),
+                add_proxy_task("http://proxy2:8080"),
+                add_proxy_task("http://proxy3:8080"),
+            )
+        finally:
+            await pw.__aexit__(None, None, None)
 
         # All should complete
         assert len(results) == 3

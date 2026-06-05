@@ -9,24 +9,25 @@ proxied request endpoint.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import time
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
-from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from loguru import logger
 
-import proxywhirl.api.core as _api_core
-from proxywhirl.api.core import (
-    _get_proxy_id,
-    get_rotator,
-    get_storage,
-    limiter,
-    validate_proxied_request_url,
-    verify_api_key,
+from proxywhirl._proxy_views import (
+    ProxyListQuery,
+    ProxyView,
+    add_proxy_to_rotator,
+    find_proxy_view,
+    list_proxy_views,
+    proxy_to_view,
+    remove_proxy_from_rotator,
+    select_proxy_view,
 )
 from proxywhirl.api.models import (
     APIResponse,
@@ -38,18 +39,28 @@ from proxywhirl.api.models import (
     ProxiedResponse,
     ProxyResource,
 )
+from proxywhirl.api.runtime import (
+    get_rotator,
+    get_storage,
+    limiter,
+    record_rotation,
+    validate_proxied_request_url,
+    verify_api_key,
+)
 from proxywhirl.exceptions import ProxyWhirlError
-from proxywhirl.models import Proxy
+from proxywhirl.models import HealthStatus, Proxy
 from proxywhirl.rotator import ProxyWhirl
+from proxywhirl.utils import public_proxy_url
 
 router = APIRouter()
 
 
-def _public_proxy_url(proxy_url: str) -> str:
-    """Return a proxy URL without userinfo credentials."""
-    parsed = urlsplit(proxy_url)
-    netloc = parsed.netloc.rsplit("@", 1)[-1]
-    return urlunsplit((parsed.scheme, netloc, parsed.path, parsed.query, parsed.fragment))
+def _get_proxy_id(proxy) -> str:
+    """Get stable identifier for a proxy."""
+    proxy_id = getattr(proxy, "id", None)
+    if proxy_id:
+        return str(proxy_id)
+    return hashlib.sha256(str(proxy.url).encode()).hexdigest()[:16]
 
 
 def _proxy_resource(
@@ -58,33 +69,49 @@ def _proxy_resource(
     proxy_id: str | None = None,
 ) -> ProxyResource:
     """Build the shared public proxy representation."""
-    resource_id = proxy_id or _get_proxy_id(proxy)
-    circuit_breaker = rotator.get_circuit_breaker_states().get(resource_id)
+    view = proxy_to_view(rotator, proxy)
+    if proxy_id is not None and proxy_id != view.id:
+        view = view.model_copy(update={"id": proxy_id})
+    return _proxy_resource_from_view(view)
 
-    if circuit_breaker and circuit_breaker.state.value == "open":
-        proxy_status = "failed"
-    elif circuit_breaker and circuit_breaker.state.value == "half_open":
-        proxy_status = "degraded"
-    else:
-        proxy_status = "active"
 
-    health_value = proxy.health_status.value if proxy.health_status else "unknown"
-
+def _proxy_resource_from_view(view: ProxyView) -> ProxyResource:
+    """Adapt the canonical proxy view to the REST response model."""
     return ProxyResource(
-        id=resource_id,
-        url=_public_proxy_url(str(proxy.url)),
-        protocol=proxy.protocol or "http",
-        status=proxy_status,
-        health=health_value,
+        id=view.id,
+        url=view.url,
+        protocol=view.protocol,
+        status=view.status,
+        health=view.health,
         stats={
-            "total_requests": proxy.requests_started,
-            "successful_requests": proxy.requests_completed,
-            "failed_requests": proxy.total_failures,
-            "avg_latency_ms": int(proxy.average_response_time_ms or 0),
+            "total_requests": view.total_requests,
+            "successful_requests": view.successful_requests,
+            "failed_requests": view.failed_requests,
+            "success_rate": view.success_rate,
+            "avg_latency_ms": view.avg_latency_ms,
+            "country_code": view.country_code,
         },
-        created_at=proxy.created_at,
-        updated_at=proxy.updated_at,
+        created_at=view.created_at,
+        updated_at=view.updated_at,
     )
+
+
+def _proxy_views_for_status(rotator: ProxyWhirl, status_filter: str | None) -> list[ProxyView]:
+    """Return credential-safe proxy views for API list/stream/export endpoints."""
+    if not status_filter:
+        return list_proxy_views(rotator)
+
+    status_lower = status_filter.lower()
+    if status_lower == "healthy":
+        return list_proxy_views(rotator, ProxyListQuery(health=HealthStatus.HEALTHY))
+    if status_lower == "active":
+        return [view for view in list_proxy_views(rotator) if view.status != "failed"]
+    if status_lower == "unhealthy":
+        return [
+            view for view in list_proxy_views(rotator) if view.health != HealthStatus.HEALTHY.value
+        ]
+
+    return list_proxy_views(rotator)
 
 
 @router.post(
@@ -138,7 +165,7 @@ async def make_proxied_request(
                 )
 
             # Track last rotation time
-            _api_core._last_rotation_time = datetime.now(timezone.utc)
+            record_rotation()
 
             # Build proxy URL for httpx
             proxy_url = str(proxy.url)
@@ -160,7 +187,7 @@ async def make_proxied_request(
                 status_code=response.status_code,
                 headers=dict(response.headers),
                 body=response.text,
-                proxy_used=_public_proxy_url(proxy_url),
+                proxy_used=public_proxy_url(proxy_url),
                 elapsed_ms=elapsed_ms,
             )
 
@@ -224,33 +251,15 @@ async def list_proxies(
     if page_size < 1 or page_size > 100:
         raise HTTPException(status_code=400, detail="Page size must be between 1 and 100")
 
-    # Get all proxies (thread-safe snapshot)
-    all_proxies = rotator.pool.get_all_proxies()
-
-    # Apply status filter if provided
-    if status_filter:
-        status_lower = status_filter.lower()
-        if status_lower == "healthy":
-            all_proxies = [p for p in all_proxies if p.is_healthy]
-        elif status_lower == "unhealthy":
-            all_proxies = [p for p in all_proxies if not p.is_healthy]
-        elif status_lower == "active":
-            # Active means proxy is available (not in a failed circuit breaker state)
-            circuit_breakers = rotator.get_circuit_breaker_states()
-            all_proxies = [
-                p
-                for p in all_proxies
-                if _get_proxy_id(p) not in circuit_breakers
-                or circuit_breakers[_get_proxy_id(p)].state.value != "open"
-            ]
+    all_views = _proxy_views_for_status(rotator, status_filter)
 
     # Calculate pagination
-    total = len(all_proxies)
+    total = len(all_views)
     start_idx = (page - 1) * page_size
     end_idx = start_idx + page_size
-    page_proxies = all_proxies[start_idx:end_idx]
+    page_views = all_views[start_idx:end_idx]
 
-    proxy_resources = [_proxy_resource(proxy, rotator) for proxy in page_proxies]
+    proxy_resources = [_proxy_resource_from_view(view) for view in page_views]
 
     # Build paginated response
     paginated = PaginatedResponse[ProxyResource](
@@ -277,41 +286,33 @@ async def rotate_proxy(
 ) -> APIResponse[ProxyResource]:
     """Select the next proxy without making an outbound target request."""
     try:
-        proxy = rotator.strategy.select(rotator.pool)
+        view = select_proxy_view(rotator)
     except ProxyWhirlError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="No proxies available in the pool",
         ) from exc
 
-    if not proxy:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="No proxies available in the pool",
-        )
-
-    _api_core._last_rotation_time = datetime.now(timezone.utc)
-    return APIResponse.success(data=_proxy_resource(proxy, rotator))
+    record_rotation()
+    return APIResponse.success(data=_proxy_resource_from_view(view))
 
 
 async def _stream_proxies_async(
-    all_proxies: list,
-    rotator: ProxyWhirl,
+    proxy_views: list[ProxyView],
 ) -> AsyncIterator[str]:
     """Stream proxies as JSON lines asynchronously.
 
     Args:
-        all_proxies: List of all proxies to stream
-        rotator: ProxyWhirl rotator instance for circuit breaker state
+        proxy_views: List of credential-safe proxy views to stream
 
     Yields:
         JSON-formatted proxy resource lines
     """
     import json
 
-    for proxy in all_proxies:
+    for view in proxy_views:
         try:
-            resource_dict = _proxy_resource(proxy, rotator).model_dump(mode="json")
+            resource_dict = _proxy_resource_from_view(view).model_dump(mode="json")
             yield json.dumps(resource_dict) + "\n"
         except Exception as e:
             logger.warning(f"Failed to stream proxy: {e}")
@@ -341,28 +342,10 @@ async def stream_proxies(
     Returns:
         StreamingResponse with NDJSON content
     """
-    # Get all proxies (thread-safe snapshot)
-    all_proxies = rotator.pool.get_all_proxies()
-
-    # Apply status filter if provided
-    if status_filter:
-        status_lower = status_filter.lower()
-        if status_lower == "healthy":
-            all_proxies = [p for p in all_proxies if p.is_healthy]
-        elif status_lower == "unhealthy":
-            all_proxies = [p for p in all_proxies if not p.is_healthy]
-        elif status_lower == "active":
-            # Active means proxy is available (not in a failed circuit breaker state)
-            circuit_breakers = rotator.get_circuit_breaker_states()
-            all_proxies = [
-                p
-                for p in all_proxies
-                if _get_proxy_id(p) not in circuit_breakers
-                or circuit_breakers[_get_proxy_id(p)].state.value != "open"
-            ]
+    proxy_views = _proxy_views_for_status(rotator, status_filter)
 
     return StreamingResponse(
-        _stream_proxies_async(all_proxies, rotator),
+        _stream_proxies_async(proxy_views),
         media_type="application/x-ndjson",
         headers={
             "Cache-Control": "no-cache",
@@ -394,26 +377,10 @@ async def export_proxies(
     Returns:
         StreamingResponse with NDJSON content
     """
-    # Reuse the stream_proxies implementation
-    all_proxies = rotator.pool.get_all_proxies()
-
-    if status_filter:
-        status_lower = status_filter.lower()
-        if status_lower == "healthy":
-            all_proxies = [p for p in all_proxies if p.is_healthy]
-        elif status_lower == "unhealthy":
-            all_proxies = [p for p in all_proxies if not p.is_healthy]
-        elif status_lower == "active":
-            circuit_breakers = rotator.get_circuit_breaker_states()
-            all_proxies = [
-                p
-                for p in all_proxies
-                if _get_proxy_id(p) not in circuit_breakers
-                or circuit_breakers[_get_proxy_id(p)].state.value != "open"
-            ]
+    proxy_views = _proxy_views_for_status(rotator, status_filter)
 
     return StreamingResponse(
-        _stream_proxies_async(all_proxies, rotator),
+        _stream_proxies_async(proxy_views),
         media_type="application/x-ndjson",
         headers={
             "Cache-Control": "no-cache",
@@ -448,12 +415,11 @@ async def add_proxy(
     """
     # Check for duplicate (thread-safe snapshot)
     proxy_url_str = str(proxy_data.url)
-    for existing_proxy in rotator.pool.get_all_proxies():
-        if str(existing_proxy.url) == proxy_url_str:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Proxy already exists: {proxy_url_str}",
-            )
+    if find_proxy_view(rotator, proxy_url_str) is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Proxy already exists: {public_proxy_url(proxy_url_str)}",
+        )
 
     # Create proxy
     try:
@@ -465,10 +431,9 @@ async def add_proxy(
             password=proxy_data.password,
         )
 
-        # Add to rotator
-        rotator.add_proxy(new_proxy)
+        view = add_proxy_to_rotator(rotator, new_proxy)
 
-        return APIResponse.success(data=_proxy_resource(new_proxy, rotator))
+        return APIResponse.success(data=_proxy_resource_from_view(view))
 
     except Exception as e:
         logger.error(f"Error adding proxy: {e}", exc_info=True)
@@ -620,9 +585,11 @@ async def get_proxy(
         Proxy resource
     """
     # Find proxy by ID (thread-safe snapshot)
-    for proxy in rotator.pool.get_all_proxies():
-        if _get_proxy_id(proxy) == proxy_id:
-            return APIResponse.success(data=_proxy_resource(proxy, rotator, proxy_id))
+    view = find_proxy_view(rotator, proxy_id)
+    if view is not None:
+        if proxy_id != view.id:
+            view = view.model_copy(update={"id": proxy_id})
+        return APIResponse.success(data=_proxy_resource_from_view(view))
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -650,22 +617,11 @@ async def delete_proxy(
         storage: Optional storage dependency
         api_key: API key verification
     """
-    # Find and remove proxy (thread-safe)
-    # First find the proxy by ID
-    target_proxy = None
-    for proxy in rotator.pool.get_all_proxies():
-        if _get_proxy_id(proxy) == proxy_id:
-            target_proxy = proxy
-            break
-
-    if target_proxy:
-        # Use thread-safe remove method
-        rotator.pool.remove_proxy(target_proxy.id)
-
+    removed = remove_proxy_from_rotator(rotator, proxy_id)
+    if removed is not None:
         # Persist if storage configured
         if storage:
             await storage.save(rotator.pool.get_all_proxies())
-
         return
 
     raise HTTPException(

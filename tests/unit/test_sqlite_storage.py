@@ -3,6 +3,10 @@
 import tempfile
 from pathlib import Path
 
+import pytest
+from sqlalchemy.exc import IntegrityError
+from sqlmodel.ext.asyncio.session import AsyncSession
+
 from proxywhirl.models import HealthStatus, Proxy, ProxySource
 
 
@@ -105,6 +109,72 @@ class TestSQLiteStorage:
             user_proxies = await storage.query(source="user")
             assert len(user_proxies) == 2
             assert all(p["source"] == "user" for p in user_proxies)
+
+            await storage.close()
+
+    async def test_sqlite_foreign_keys_enforced_for_sessions(self) -> None:
+        """SQLite sessions must enforce FK constraints beyond initialization."""
+        from proxywhirl.storage import ProxyStatusTable, SQLiteStorage
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+
+            async with AsyncSession(storage.engine) as session:
+                session.add(ProxyStatusTable(proxy_url="http://missing.example.com:8080"))
+                with pytest.raises(IntegrityError):
+                    await session.commit()
+
+            await storage.close()
+
+    async def test_sqlite_single_and_batch_metadata_parity(self) -> None:
+        """Single and batch insert paths should persist the same identity metadata."""
+        from proxywhirl.storage import SQLiteStorage
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+
+            single_proxy = Proxy(
+                url="http://single.example.com:8080",
+                source=ProxySource.API,
+                source_url="https://sources.example.com/single.txt",
+                country_code="US",
+            )
+            batch_proxy = Proxy(
+                url="http://batch.example.com:8080",
+                source=ProxySource.API,
+                source_url="https://sources.example.com/batch.txt",
+                country_code="US",
+            )
+
+            assert await storage.add_proxy(single_proxy) is True
+            added, skipped = await storage.add_proxies_batch([batch_proxy])
+
+            assert (added, skipped) == (1, 0)
+
+            loaded = {row["url"]: row for row in await storage.load()}
+            assert loaded[single_proxy.url]["source"] == "api"
+            assert loaded[batch_proxy.url]["source"] == "api"
+            assert loaded[single_proxy.url]["source_url"] == str(single_proxy.source_url)
+            assert loaded[batch_proxy.url]["source_url"] == str(batch_proxy.source_url)
+            assert loaded[single_proxy.url]["country_code"] == "US"
+            assert loaded[batch_proxy.url]["country_code"] == "US"
+
+            batch_loaded = await storage.get_proxies_batch([single_proxy.url, batch_proxy.url])
+            status_loaded = {
+                row["url"]: row for row in await storage.get_proxies_by_status("unknown")
+            }
+            revalidation_loaded = {
+                row["url"]: row for row in await storage.load_revalidation_candidates()
+            }
+
+            for rows in (batch_loaded, status_loaded, revalidation_loaded):
+                for proxy in (single_proxy, batch_proxy):
+                    assert rows[proxy.url]["source_url"] == str(proxy.source_url)
+                    assert rows[proxy.url]["country_code"] == "US"
 
             await storage.close()
 
