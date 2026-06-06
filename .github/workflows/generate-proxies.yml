@@ -60,7 +60,7 @@ jobs:
             echo "Downloaded GeoLite2-Country.mmdb ($(stat --format=%s GeoLite2-Country.mmdb) bytes)"
           else
             rm -f GeoLite2-Country.mmdb
-            echo "::warning::GeoLite2 download failed after retries; continuing without geolocation database"
+            echo "GeoLite2 download failed after retries; continuing without geolocation database"
           fi
 
       - name: Show database stats before
@@ -103,7 +103,7 @@ jobs:
           DB_MB=$((DB_SIZE / 1048576))
           echo "Database size after compact: ${DB_MB} MB"
           if [ "$DB_MB" -ge 95 ]; then
-            echo "::warning::Database is ${DB_MB} MB — approaching GitHub 100 MB limit"
+            echo "Database is ${DB_MB} MB — approaching GitHub 100 MB limit"
           fi
 
       - name: Export proxy lists
@@ -129,7 +129,7 @@ jobs:
           version: 10
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: pnpm
@@ -177,7 +177,7 @@ jobs:
             cp -a "${GENERATED_SNAPSHOT}/proxywhirl.db" proxywhirl.db
             git add proxywhirl.db
           else
-            echo "::warning::Skipping proxywhirl.db commit — ${DB_MB} MB exceeds safe limit"
+            echo "Skipping proxywhirl.db commit — ${DB_MB} MB exceeds safe limit"
           fi
 
           # Only commit if there are staged changes.
@@ -189,14 +189,14 @@ jobs:
           fi
 
       - name: Upload proxy lists as artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: proxy-lists-${{ github.run_number }}
           path: docs/proxy-lists/
           retention-days: 7
 
       - name: Upload database as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: proxywhirl-db-${{ github.run_number }}
           path: proxywhirl.db

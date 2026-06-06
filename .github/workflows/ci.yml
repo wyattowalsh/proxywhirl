@@ -35,15 +35,6 @@ jobs:
         with:
           version: "latest"
 
-      - name: Cache uv dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            uv-${{ runner.os }}-
-
       - name: Install dependencies
         run: |
           uv venv --clear --python 3.11
@@ -79,15 +70,6 @@ jobs:
         uses: astral-sh/setup-uv@v8.2.0
         with:
           version: "latest"
-
-      - name: Cache uv dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            uv-${{ runner.os }}-
 
       - name: Install dependencies
         run: |
@@ -151,18 +133,8 @@ jobs:
         with:
           version: "latest"
 
-      - name: Cache uv dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: uv-${{ runner.os }}-py${{ matrix.python-version }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            uv-${{ runner.os }}-py${{ matrix.python-version }}-
-            uv-${{ runner.os }}-
-
       - name: Cache pytest
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             .pytest_cache
@@ -210,7 +182,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         if: matrix.python-version == '3.11'
         with:
           files: ./coverage.xml
@@ -220,7 +192,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: matrix.python-version == '3.11'
         with:
           name: coverage-data
@@ -246,17 +218,8 @@ jobs:
         with:
           version: "latest"
 
-      - name: Cache uv dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            uv-${{ runner.os }}-
-
       - name: Cache pytest
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             .pytest_cache
@@ -295,17 +258,8 @@ jobs:
         with:
           version: "latest"
 
-      - name: Cache uv dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            uv-${{ runner.os }}-
-
       - name: Cache benchmark results
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .benchmarks
           key: benchmarks-${{ runner.os }}-${{ github.sha }}
@@ -330,7 +284,7 @@ jobs:
         if: always()
         id: parse-benchmarks
         run: |
-          python -c "
+          uv run python -c "
           import json, os
           bench_files = [f for f in os.listdir('.benchmarks') if f.startswith('.benchmarksession') and f.endswith('.json')]
           if bench_files:
@@ -344,12 +298,13 @@ jobs:
 
       - name: Upload benchmark results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-results
           path: |
             .benchmarks/
             benchmark-histogram*
+          if-no-files-found: ignore
 
   build:
     name: Build distribution
@@ -369,15 +324,6 @@ jobs:
         with:
           version: "latest"
 
-      - name: Cache uv dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
-          restore-keys: |
-            uv-${{ runner.os }}-
-
       - name: Install build dependencies
         run: |
           uv venv --clear --python 3.11
@@ -387,7 +333,7 @@ jobs:
         run: .venv/bin/python -m build
 
       - name: Store distribution packages
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: python-package-distributions
           path: dist/
@@ -415,20 +361,11 @@ jobs:
           version: 10
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
-
-      - name: Cache uv dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: uv-docs-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
-          restore-keys: |
-            uv-docs-${{ runner.os }}-
 
       - name: Install dependencies
         run: uv sync --locked --python 3.11
