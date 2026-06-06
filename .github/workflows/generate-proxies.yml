@@ -4,7 +4,7 @@ on:
   schedule:
     # Run every 3 hours. GitHub's schedule jitter can delay starts enough that a
     # 2-hour cadence still overlaps a healthy 80-90 minute generation run when
-    # cancel-in-progress is enabled.
+    # queued generation is serialized below.
     - cron: "0 */3 * * *"
   workflow_dispatch:
     inputs:
@@ -13,11 +13,11 @@ on:
         required: false
         default: "2000"
 
-# Ensure only one instance runs at a time to prevent database conflicts
-# cancel-in-progress: true prevents job stacking if fetch takes > 2h
+# Ensure only one instance runs at a time to prevent database and network contention.
+# Queue scheduled/manual runs rather than overlapping validation-heavy jobs.
 concurrency:
-  group: proxy-generation-${{ github.event_name }}
-  cancel-in-progress: true
+  group: proxy-generation
+  cancel-in-progress: false
 
 jobs:
   generate-proxy-lists:
@@ -37,7 +37,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v8.2.0
         with:
           version: "latest"
 
@@ -47,6 +47,8 @@ jobs:
           uv pip install -e .
 
       - name: Install Playwright browsers
+        env:
+          NODE_OPTIONS: --disable-warning=DEP0169
         run: |
           # Required for JS-rendered sources
           uv run python -m playwright install chromium
@@ -83,7 +85,7 @@ jobs:
           uv run proxywhirl fetch --revalidate --revalidate-limit "${REVALIDATE_LIMIT}" --timeout 10 --concurrency 2000 --prune-failed --no-export
 
       - name: Fetch new proxies from sources
-        timeout-minutes: 120
+        timeout-minutes: 180
         run: |
           # Fetch and validate NEW proxies from all sources, save to database.
           # No export yet - export happens after database compaction.
@@ -134,6 +136,8 @@ jobs:
           cache-dependency-path: web/pnpm-lock.yaml
 
       - name: Generate docs references
+        env:
+          NODE_OPTIONS: --disable-warning=DEP0169
         run: |
           pnpm --dir web install --frozen-lockfile
           pnpm --dir web run docs:generate
