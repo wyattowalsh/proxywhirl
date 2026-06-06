@@ -124,7 +124,7 @@ jobs:
           cp -r docs/proxy-lists/* web/public/proxy-lists/
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6.0.8
         with:
           version: 10
 
@@ -147,26 +147,44 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
 
-          # Add generated proxy list files and source-grounded docs data
+          # Preserve this run's generated outputs before integrating remote changes.
+          GENERATED_SNAPSHOT="$(mktemp -d)"
+          cp -a docs/proxy-lists "${GENERATED_SNAPSHOT}/docs-proxy-lists"
+          cp -a web/public/proxy-lists "${GENERATED_SNAPSHOT}/web-proxy-lists"
+          cp -a web/content/docs/generated "${GENERATED_SNAPSHOT}/web-generated-docs"
+          cp -a web/content/generated "${GENERATED_SNAPSHOT}/web-generated-data"
+          cp -a proxywhirl.db "${GENERATED_SNAPSHOT}/proxywhirl.db"
+
+          # Rebase-prone generated files are last-writer-wins. Re-anchor on the
+          # latest branch head first, then restore this run's generated outputs.
+          git fetch origin main
+          git reset --hard origin/main
+
+          rm -rf docs/proxy-lists web/public/proxy-lists web/content/docs/generated web/content/generated
+          mkdir -p docs web/public web/content/docs web/content
+          cp -a "${GENERATED_SNAPSHOT}/docs-proxy-lists" docs/proxy-lists
+          cp -a "${GENERATED_SNAPSHOT}/web-proxy-lists" web/public/proxy-lists
+          cp -a "${GENERATED_SNAPSHOT}/web-generated-docs" web/content/docs/generated
+          cp -a "${GENERATED_SNAPSHOT}/web-generated-data" web/content/generated
+
+          # Add generated proxy list files and source-grounded docs data.
           git add docs/proxy-lists/ web/public/proxy-lists/ web/content/docs/generated/ web/content/generated/
 
           # Only add database if under 95 MB (GitHub rejects files >= 100 MB)
-          DB_SIZE=$(stat --format=%s proxywhirl.db)
+          DB_SIZE=$(stat --format=%s "${GENERATED_SNAPSHOT}/proxywhirl.db")
           DB_MB=$((DB_SIZE / 1048576))
           if [ "$DB_MB" -lt 95 ]; then
+            cp -a "${GENERATED_SNAPSHOT}/proxywhirl.db" proxywhirl.db
             git add proxywhirl.db
           else
             echo "::warning::Skipping proxywhirl.db commit — ${DB_MB} MB exceeds safe limit"
           fi
 
-          # Only commit if there are staged changes
+          # Only commit if there are staged changes.
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
             git commit -m "chore: Update proxy lists and database - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-
-            # Pull with rebase to handle any concurrent changes, then push
-            git pull --rebase origin main || true
             git push
           fi
 
