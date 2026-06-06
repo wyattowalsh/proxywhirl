@@ -137,16 +137,38 @@ async def test_lifespan_initializes_and_saves(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("PROXYWHIRL_CORS_ORIGINS", "http://example.com, ,")
 
     proxy = Proxy(url="http://proxy.example.com:8080")
-    with patch.object(api_core.SQLiteStorage, "load", AsyncMock(return_value=[proxy])) as load_mock:
-        with patch.object(api_core.SQLiteStorage, "save", AsyncMock()) as save_mock:
-            async with api_core.lifespan(app):
-                rotator = api_runtime.get_current_rotator()
-                assert rotator is not None
-                assert api_runtime.get_storage() is not None
-                assert rotator.pool.size == 1
-                assert api_runtime.get_config()["cors_origins"] == ["http://example.com"]
-            load_mock.assert_awaited_once()
-            save_mock.assert_awaited_once()
+    with patch.object(api_core.SQLiteStorage, "initialize", AsyncMock()) as initialize_mock:
+        with patch.object(
+            api_core.SQLiteStorage, "load", AsyncMock(return_value=[proxy])
+        ) as load_mock:
+            with patch.object(api_core.SQLiteStorage, "save", AsyncMock()) as save_mock:
+                async with api_core.lifespan(app):
+                    rotator = api_runtime.get_current_rotator()
+                    assert rotator is not None
+                    assert api_runtime.get_storage() is not None
+                    assert rotator.pool.size == 1
+                    assert api_runtime.get_config()["cors_origins"] == ["http://example.com"]
+                initialize_mock.assert_awaited_once()
+                load_mock.assert_awaited_once()
+                save_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_lifespan_initializes_empty_storage_without_load_warning(
+    tmp_path, monkeypatch
+) -> None:
+    """A new API storage database should be initialized before load runs."""
+    db_path = tmp_path / "proxywhirl.db"
+    monkeypatch.setenv("PROXYWHIRL_STORAGE_PATH", str(db_path))
+
+    with patch.object(api_core.logger, "warning") as warning_mock:
+        async with api_core.lifespan(app):
+            storage = api_runtime.get_storage()
+            rotator = api_runtime.get_current_rotator()
+            assert storage is not None
+            assert rotator is not None
+            assert rotator.pool.size == 0
+        warning_mock.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -155,9 +177,12 @@ async def test_lifespan_handles_load_failure(tmp_path, monkeypatch) -> None:
     db_path = tmp_path / "proxywhirl.db"
     monkeypatch.setenv("PROXYWHIRL_STORAGE_PATH", str(db_path))
 
-    with patch.object(api_core.SQLiteStorage, "load", AsyncMock(side_effect=RuntimeError("boom"))):
-        async with api_core.lifespan(app):
-            assert api_runtime.get_current_rotator() is not None
+    with patch.object(api_core.SQLiteStorage, "initialize", AsyncMock()):
+        with patch.object(
+            api_core.SQLiteStorage, "load", AsyncMock(side_effect=RuntimeError("boom"))
+        ):
+            async with api_core.lifespan(app):
+                assert api_runtime.get_current_rotator() is not None
 
 
 def test_update_prometheus_metrics_no_rotator() -> None:

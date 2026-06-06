@@ -7,7 +7,7 @@ description: Canonical ProxyWhirl documentation for Python, REST, CLI, MCP, TUI,
 
 ProxyWhirl is a drop-in Python proxy rotator: create a rotator, make requests, and let it hydrate an empty pool from every enabled built-in public source on first use. It also includes sync and async clients, validation, circuit breakers, retry policies, caching, a REST API, a CLI, a TUI, and an MCP server.
 
-This Fumadocs site is the canonical documentation path at `/docs/`. Generated reference pages stay source-grounded through `pnpm run docs:generate`.
+This Fumadocs site is the canonical documentation path at `/docs/`. Generated reference pages stay source-grounded through `pnpm --dir web run docs:generate`.
 
 ## Start Here
 
@@ -27,7 +27,13 @@ This Fumadocs site is the canonical documentation path at `/docs/`. Generated re
 The docs build runs in this order:
 
 1. `pnpm --dir web run docs:generate` derives generated pages and JSON from repository code and metadata.
-2. `pnpm --dir web run build` builds the Next.js App Router site with Fumadocs at `/docs/`.
-3. CI validates the same pipeline before deployment.
+2. `pnpm --dir web run lint` enforces zero ESLint warnings.
+3. `pnpm --dir web run test:run` validates docs/UI behavior.
+4. `pnpm --dir web run build` builds the Next.js App Router site with Fumadocs at `/docs/`.
+5. CI validates the same pipeline before deployment.
+
+## Production Assurance
+
+Use [Operations](/docs/operations) for the zero-warning gate matrix and [Operations Playbook](/docs/guides/operations-playbook) for source, proxy-list, and CI monitoring checks. The public proxy-list bundle is published under `/proxy-lists/` and mirrored from `docs/proxy-lists/` into `web/public/proxy-lists/` during docs generation.
 
 Python runtime behavior, database schema, and public Python APIs are intentionally unchanged by this documentation site.

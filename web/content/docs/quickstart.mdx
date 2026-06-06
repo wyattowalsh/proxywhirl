@@ -57,10 +57,15 @@ response = rotator.get("https://httpbin.org/ip")
 Check the CLI from the same environment:
 
 ```bash
+uv run proxywhirl sources
+uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
+uv run proxywhirl fetch --no-save-db --no-export --timeout 5 --concurrency 20
 uv run proxywhirl fetch
 uv run proxywhirl pool list
 uv run proxywhirl health
 ```
+
+Use `fetch --no-save-db --no-export` for a non-mutating network smoke. Use the strict `sources --validate` command before depending on the built-in public source catalog in production.
 
 Use the async client when your application is already async or needs high concurrency:
 

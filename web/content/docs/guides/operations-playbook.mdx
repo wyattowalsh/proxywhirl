@@ -18,8 +18,13 @@ ProxyWhirl is designed for unreliable network inputs. Treat proxy lists as volat
 ## Local Checks
 
 ```bash
-uv run proxywhirl sources --validate
-uv run proxywhirl fetch
+task quality-gates
+pnpm --dir web run docs:generate
+pnpm --dir web run lint
+pnpm --dir web run test:run
+pnpm --dir web run build
+uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
+uv run proxywhirl fetch --no-save-db --no-export --timeout 5 --concurrency 20
 uv run proxywhirl stats
 ```
 
@@ -31,3 +36,42 @@ uv run proxywhirl stats
 | REST health path  | Confirm the API process and storage path are reachable. |
 | CLI smoke test    | Confirm package entry points and configuration load.    |
 | Docs generation   | Confirm docs references still match source code.        |
+
+For API readiness, start `uv run uvicorn proxywhirl.api:app --host 127.0.0.1 --port <port>` with a temporary `PROXYWHIRL_STORAGE_PATH`, then assert `/api/health` and `/api/ready` return successful JSON responses.
+
+## Proxy-List Publication
+
+The website exposes generated proxy-list files at `/proxy-lists/`. Before treating the public list as healthy, verify both the source bundle and the rendered static assets:
+
+```bash
+pnpm --dir web run docs:generate
+test -s web/public/proxy-lists/metadata.json
+test -s web/public/proxy-lists/http.txt
+uv run python - <<'PY'
+import json
+from pathlib import Path
+
+metadata = json.loads(Path("web/public/proxy-lists/metadata.json").read_text())
+stats = json.loads(Path("web/public/proxy-lists/stats.json").read_text())
+assert metadata.get("generated_at"), "metadata.generated_at missing"
+assert stats.get("proxies", {}).get("total", -1) >= 0, "stats.proxies.total missing"
+PY
+```
+
+When checking a deployed site, fetch at least:
+
+- `/proxy-lists/metadata.json`
+- `/proxy-lists/stats.json`
+- `/proxy-lists/http.txt`
+- `/proxy-lists/proxies-rich.json`
+
+## CI Assurance
+
+Monitor the pushed SHA in GitHub Actions and inspect completed logs for actionable warning/error markers. Required lanes are `CI`, `Security Scan`, and `Validate Proxy Sources` when source health changed or needs re-assurance.
+
+```bash
+gh run list --branch main --commit <sha> --limit 20
+gh run view <run-id> --log | rg '##\[warning\]|##\[error\]|::warning::|::error::|DeprecationWarning|RuntimeWarning|ResourceWarning|Traceback|Token required|not valid tokenless upload'
+```
+
+Codecov upload is optional when no token is configured. Coverage threshold checks and the uploaded coverage artifact are still required.

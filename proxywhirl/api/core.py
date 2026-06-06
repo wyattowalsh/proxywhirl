@@ -97,6 +97,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if api_settings.storage_path:
         logger.info(f"Initializing SQLiteStorage: {api_settings.storage_path}")
         storage = SQLiteStorage(str(api_settings.storage_path))
+        await storage.initialize()
     set_storage(storage)
 
     # Initialize rotator

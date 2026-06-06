@@ -14,13 +14,15 @@
 
 <br/>
 
-<!-- Badges row 1: Key stats -->
+<!-- Badges row: package, quality, and repository status -->
 
-[![PyPI](https://img.shields.io/pypi/v/proxywhirl?style=for-the-badge&logo=pypi&logoColor=white&color=3b82f6&labelColor=1e293b)](https://pypi.org/project/proxywhirl/)
-&nbsp;
-[![Downloads](https://img.shields.io/pypi/dm/proxywhirl?style=for-the-badge&logo=download&logoColor=white&color=22c55e&labelColor=1e293b)](https://pypi.org/project/proxywhirl/)
-&nbsp;
-[![Python](https://img.shields.io/badge/3.10%2B-a855f7?style=for-the-badge&logo=python&logoColor=white&labelColor=1e293b)](https://python.org)
+<p align="center">
+  <a href="https://pypi.org/project/proxywhirl/"><img src="https://shieldcn.dev/pypi/proxywhirl.svg?variant=secondary&split=true" alt="PyPI version" /></a>
+  <a href="https://pypi.org/project/proxywhirl/"><img src="https://shieldcn.dev/pypi/dm/proxywhirl.svg?variant=secondary&split=true" alt="PyPI downloads" /></a>
+  <a href="https://github.com/wyattowalsh/proxywhirl/actions/workflows/ci.yml"><img src="https://shieldcn.dev/github/ci/wyattowalsh/proxywhirl.svg?workflow=CI&branch=main&variant=secondary&split=true" alt="CI status" /></a>
+  <a href="https://github.com/wyattowalsh/proxywhirl/blob/main/LICENSE"><img src="https://shieldcn.dev/github/license/wyattowalsh/proxywhirl.svg?variant=secondary&split=true" alt="License" /></a>
+  <a href="https://www.python.org/downloads/"><img src="https://shieldcn.dev/badge/python-3.10%2B-3776AB.svg?variant=secondary&split=true&logo=python" alt="Python 3.10+" /></a>
+</p>
 
 <!-- Live stats dashboard -->
 <br/>
@@ -193,6 +195,7 @@ async with AsyncProxyWhirl() as async_rotator:
 
 ```bash
 uvx proxywhirl fetch
+uvx proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
 uv run proxywhirl pool list
 proxywhirl health  # after `uv tool install proxywhirl`
 ```

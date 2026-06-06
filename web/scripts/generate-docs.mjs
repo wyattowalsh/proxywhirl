@@ -168,9 +168,19 @@ function extractCommands(source) {
 
     const command = explicitName || functionName.replace(/^_/, "").replaceAll("_", "-")
     let summary = "-"
-    for (let scan = functionLine + 1; scan < Math.min(lines.length, functionLine + 20); scan += 1) {
+    let docSearchStart = functionLine + 1
+    if (!lines[functionLine].trimEnd().endsWith(":")) {
+      for (let scan = functionLine + 1; scan < Math.min(lines.length, functionLine + 120); scan += 1) {
+        if (lines[scan].match(/^\s*\)\s*(?:->[^:]*)?:\s*$/)) {
+          docSearchStart = scan + 1
+          break
+        }
+      }
+    }
+    for (let scan = docSearchStart; scan < Math.min(lines.length, docSearchStart + 8); scan += 1) {
+      if (lines[scan].trim() === "") continue
       const docMatch = lines[scan].match(/^\s+"""(.*)/)
-      if (!docMatch) continue
+      if (!docMatch) break
       const inline = docMatch[1].replace(/"""\s*$/, "")
       if (inline.trim()) summary = firstSentence(inline)
       else summary = firstSentence(lines[scan + 1]?.replace(/^\s*/, ""))
@@ -299,7 +309,19 @@ const commands = extractCommands(cliSource)
 const statsPath = join(repoRoot, "docs", "proxy-lists", "stats.json")
 if (existsSync(statsPath)) {
   mkdirSync(publicProxyDir, { recursive: true })
-  for (const file of ["stats.json", "proxies-rich.json", "all.txt", "http.txt", "socks4.txt", "socks5.txt"]) {
+  const proxyListFiles = [
+    "README.md",
+    "metadata.json",
+    "stats.json",
+    "proxies.json",
+    "proxies-rich.json",
+    "all.txt",
+    "http.txt",
+    "https.txt",
+    "socks4.txt",
+    "socks5.txt",
+  ]
+  for (const file of proxyListFiles) {
     const source = join(repoRoot, "docs", "proxy-lists", file)
     if (existsSync(source)) copyFileSync(source, join(publicProxyDir, file))
   }
