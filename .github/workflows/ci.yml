@@ -178,7 +178,7 @@ jobs:
             --cov-fail-under=90 \
             --timeout=120 \
             -q \
-            --tb=line || (echo "::error::Code coverage is below 90% threshold" && exit 1)
+            --tb=line || (echo "Code coverage is below 90% threshold" && exit 1)
           echo "::endgroup::"
 
       - name: Upload coverage to Codecov
