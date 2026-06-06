@@ -10,14 +10,14 @@ interface ContinentChartProps {
   stats?: Stats | null
 }
 
-const CONTINENT_CONFIG: Record<string, { name: string; color: string; emoji: string }> = {
-  AS: { name: "Asia", color: "#f59e0b", emoji: "🌏" },
-  EU: { name: "Europe", color: "#3b82f6", emoji: "🌍" },
-  NA: { name: "North America", color: "#22c55e", emoji: "🌎" },
-  SA: { name: "South America", color: "#8b5cf6", emoji: "🌎" },
-  AF: { name: "Africa", color: "#ec4899", emoji: "🌍" },
-  OC: { name: "Oceania", color: "#14b8a6", emoji: "🌏" },
-  AN: { name: "Antarctica", color: "#6b7280", emoji: "🧊" },
+const CONTINENT_CONFIG: Record<string, { name: string; color: string }> = {
+  AS: { name: "Asia", color: "#f59e0b" },
+  EU: { name: "Europe", color: "#3b82f6" },
+  NA: { name: "North America", color: "#22c55e" },
+  SA: { name: "South America", color: "#8b5cf6" },
+  AF: { name: "Africa", color: "#ec4899" },
+  OC: { name: "Oceania", color: "#14b8a6" },
+  AN: { name: "Antarctica", color: "#6b7280" },
 }
 
 // Map ISO country codes to continent codes
@@ -74,7 +74,6 @@ export function ContinentChart({ proxies, stats }: ContinentChartProps) {
           name: CONTINENT_CONFIG[code]?.name || code,
           value: count,
           color: CONTINENT_CONFIG[code]?.color || "#6b7280",
-          emoji: CONTINENT_CONFIG[code]?.emoji || "🌐",
         }))
         .sort((a, b) => b.value - a.value)
     }
@@ -97,7 +96,6 @@ export function ContinentChart({ proxies, stats }: ContinentChartProps) {
         name: CONTINENT_CONFIG[code]?.name || code,
         value: count,
         color: CONTINENT_CONFIG[code]?.color || "#6b7280",
-        emoji: CONTINENT_CONFIG[code]?.emoji || "🌐",
       }))
       .sort((a, b) => b.value - a.value)
   }, [proxies, stats])
@@ -167,7 +165,7 @@ export function ContinentChart({ proxies, stats }: ContinentChartProps) {
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: item.color }}
                   />
-                  <span>{item.emoji} {item.name}</span>
+                  <span>{item.code} {item.name}</span>
                 </div>
                 <span className="font-medium tabular-nums">
                   {((item.value / total) * 100).toFixed(0)}%

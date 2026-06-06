@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Proxy, Protocol } from "@/types"
 import { filterProxies, sortProxies, type SortField, type SortDirection, type ProxyFilters } from "@/hooks/useProxies"
 import { PROTOCOLS, PROTOCOL_LABELS } from "@/types"
-import { getFlag } from "@/lib/geo"
 import { copyToClipboard } from "@/lib/clipboard"
 import {
   DropdownMenu,
@@ -242,7 +241,7 @@ export function RichProxyTable({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Loading proxies...</CardTitle>
+          <CardTitle>Loading proxies…</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
@@ -268,7 +267,11 @@ export function RichProxyTable({
               <input
                 ref={actualSearchRef}
                 type="text"
-                placeholder="Search IP, port... (/)"
+                name="proxy-search"
+                aria-label="Search proxies by IP, port, or source"
+                placeholder="Search IP, port… (/)"
+                autoComplete="off"
+                spellCheck={false}
                 value={localSearch}
                 onChange={(e) => setLocalSearch(e.target.value)}
                 className="flex h-10 w-full sm:w-[200px] rounded-md border border-input bg-background px-3 py-2 pl-8 pr-8 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -284,7 +287,7 @@ export function RichProxyTable({
                   className="absolute right-2.5 top-2.5 h-4 w-4 text-muted-foreground hover:text-foreground transition-colors"
                   aria-label="Clear search"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-4 w-4" aria-hidden="true" />
                 </button>
               )}
             </div>
@@ -295,7 +298,7 @@ export function RichProxyTable({
               aria-label="Toggle filters"
               aria-expanded={showFilters}
             >
-              <Filter className="h-4 w-4" />
+              <Filter className="h-4 w-4" aria-hidden="true" />
             </Button>
             <Button
               variant="outline"
@@ -303,12 +306,12 @@ export function RichProxyTable({
               onClick={handleCopyAll}
               aria-label={`Copy all ${sortedProxies.length} proxies to clipboard`}
             >
-              <Clipboard className="h-4 w-4" />
+              <Clipboard className="h-4 w-4" aria-hidden="true" />
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon" aria-label="Export filtered proxies">
-                  <Download className="h-4 w-4" />
+                  <Download className="h-4 w-4" aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -594,7 +597,6 @@ export function RichProxyTable({
                                 ].filter(Boolean).join("\n") || proxy.country_code}
                                 className="cursor-help"
                               >
-                                <span className="mr-1">{getFlag(proxy.country_code)}</span>
                                 {proxy.country_code}
                                 {proxy.city && (
                                   <span className="text-xs ml-1 opacity-70">{proxy.city}</span>
@@ -615,29 +617,32 @@ export function RichProxyTable({
                                 <Button
                                   variant="ghost"
                                   size="icon"
-                                  className={`h-8 w-8 transition-opacity ${isFavorite?.(proxy.ip, proxy.port) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                                  className={`h-8 w-8 transition-opacity focus-visible:opacity-100 ${isFavorite?.(proxy.ip, proxy.port) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                                   onClick={() => onToggleFavorite(proxy.ip, proxy.port, proxy.protocol)}
+                                  aria-label={isFavorite?.(proxy.ip, proxy.port) ? `Remove ${proxy.ip}:${proxy.port} from favorites` : `Add ${proxy.ip}:${proxy.port} to favorites`}
                                 >
-                                  <Star className={`h-4 w-4 ${isFavorite?.(proxy.ip, proxy.port) ? "fill-yellow-500 text-yellow-500" : ""}`} />
+                                  <Star className={`h-4 w-4 ${isFavorite?.(proxy.ip, proxy.port) ? "fill-yellow-500 text-yellow-500" : ""}`} aria-hidden="true" />
                                 </Button>
                               )}
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                                 onClick={() => handleTestProxy(proxy)}
                                 title="Copy test command"
+                                aria-label={`Copy test command for ${proxy.ip}:${proxy.port}`}
                               >
-                                <Terminal className="h-4 w-4" />
+                                <Terminal className="h-4 w-4" aria-hidden="true" />
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                                 onClick={() => handleCopyProxy(proxy)}
                                 title="Copy proxy address"
+                                aria-label={`Copy proxy address ${proxy.ip}:${proxy.port}`}
                               >
-                                <Copy className="h-4 w-4" />
+                                <Copy className="h-4 w-4" aria-hidden="true" />
                               </Button>
                             </div>
                           </td>

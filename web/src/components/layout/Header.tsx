@@ -1,11 +1,19 @@
 "use client";
 
-import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Github, Moon, Sun, BookOpen, Menu } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
 function ProxyWhirlLogo({ className }: { className?: string }) {
 	return (
-		<svg viewBox="0 0 100 100" className={className}>
+		<svg viewBox="0 0 100 100" className={className} aria-hidden="true">
 			<defs>
 				<linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
 					<stop offset="0%" stopColor="#06b6d4" />
@@ -33,25 +41,11 @@ function ProxyWhirlLogo({ className }: { className?: string }) {
 		</svg>
 	);
 }
-import { Button } from "@/components/ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useEffect, useState } from "react";
 
 export function Header() {
-	const [isDark, setIsDark] = useState(() => {
-		if (typeof window !== "undefined") {
-			return document.documentElement.classList.contains("dark");
-		}
-		return true;
-	});
+	const [isDark, setIsDark] = useState(false);
 
 	useEffect(() => {
-		// Check system preference on mount
 		const prefersDark = window.matchMedia(
 			"(prefers-color-scheme: dark)",
 		).matches;
@@ -73,29 +67,31 @@ export function Header() {
 			<div className="container flex h-14 items-center">
 				<Link href="/" className="mr-6 flex items-center space-x-2">
 					<ProxyWhirlLogo className="h-7 w-7" />
-					<span className="font-bold bg-gradient-to-r from-cyan-500 via-blue-500 to-violet-500 bg-clip-text text-transparent">
-						ProxyWhirl
-					</span>
+					<span className="font-bold text-foreground">ProxyWhirl</span>
 				</Link>
 
 				<nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
-					<a
+					<Link
 						href="/docs/"
-						className="flex items-center gap-1 transition-colors hover:text-foreground/80 text-foreground/60"
+						className="flex items-center gap-1 text-foreground/60 transition-colors hover:text-foreground/80"
 					>
-						<BookOpen className="h-4 w-4" />
+						<BookOpen className="h-4 w-4" aria-hidden="true" />
 						Docs
-					</a>
+					</Link>
 				</nav>
 
 				<div className="flex flex-1 items-center justify-end space-x-2">
-					<Button variant="ghost" size="icon" onClick={toggleTheme}>
+					<Button
+						variant="ghost"
+						size="icon"
+						onClick={toggleTheme}
+						aria-label="Toggle theme"
+					>
 						{isDark ? (
-							<Sun className="h-5 w-5" />
+							<Sun className="h-5 w-5" aria-hidden="true" />
 						) : (
-							<Moon className="h-5 w-5" />
+							<Moon className="h-5 w-5" aria-hidden="true" />
 						)}
-						<span className="sr-only">Toggle theme</span>
 					</Button>
 					<Button
 						variant="ghost"
@@ -108,26 +104,24 @@ export function Header() {
 							target="_blank"
 							rel="noopener noreferrer"
 						>
-							<Github className="h-5 w-5" />
+							<Github className="h-5 w-5" aria-hidden="true" />
 							<span className="sr-only">GitHub</span>
 						</a>
 					</Button>
 
-					{/* Mobile Menu */}
 					<div className="md:hidden">
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
-								<Button variant="ghost" size="icon">
-									<Menu className="h-5 w-5" />
-									<span className="sr-only">Toggle menu</span>
+								<Button variant="ghost" size="icon" aria-label="Toggle menu">
+									<Menu className="h-5 w-5" aria-hidden="true" />
 								</Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
 								<DropdownMenuItem asChild>
-									<a href="/docs/" className="cursor-pointer">
-										<BookOpen className="mr-2 h-4 w-4" />
+									<Link href="/docs/" className="cursor-pointer">
+										<BookOpen className="mr-2 h-4 w-4" aria-hidden="true" />
 										Docs
-									</a>
+									</Link>
 								</DropdownMenuItem>
 								<DropdownMenuItem asChild>
 									<a
@@ -136,7 +130,7 @@ export function Header() {
 										rel="noopener noreferrer"
 										className="cursor-pointer"
 									>
-										<Github className="mr-2 h-4 w-4" />
+										<Github className="mr-2 h-4 w-4" aria-hidden="true" />
 										GitHub
 									</a>
 								</DropdownMenuItem>

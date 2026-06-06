@@ -232,9 +232,10 @@ export function GeoMap({ proxies, onCountryClick }: GeoMapProps) {
 							{topCountries.map(([code, count], index) => {
 								const pct = ((count / totalWithGeo) * 100).toFixed(1);
 								return (
-									<div
+									<button
 										key={code}
-										className="flex items-center gap-3 cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 transition-colors"
+										type="button"
+										className="flex w-full items-center gap-3 rounded px-1 -mx-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 										onClick={() => onCountryClick?.(code)}
 										onMouseEnter={() => setHoveredCountry(code)}
 										onMouseLeave={() => setHoveredCountry(null)}
@@ -245,16 +246,16 @@ export function GeoMap({ proxies, onCountryClick }: GeoMapProps) {
 										<span className="text-sm font-medium w-8">{code}</span>
 										<div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
 											<div
-												className="h-full bg-primary transition-all duration-500"
+												className="h-full w-full origin-left bg-primary transition-transform duration-500"
 												style={{
-													width: `${(count / topCountries[0][1]) * 100}%`,
+													transform: `scaleX(${count / topCountries[0][1]})`,
 												}}
 											/>
 										</div>
 										<span className="text-xs text-muted-foreground w-16 text-right">
 											{count.toLocaleString()} ({pct}%)
 										</span>
-									</div>
+									</button>
 								);
 							})}
 						</div>

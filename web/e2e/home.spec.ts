@@ -16,7 +16,7 @@ test.describe('Home Page', () => {
   });
 
   test('should display proxy table and test button', async ({ page }) => {
-    await expect(page.getByRole('textbox', { name: 'Search IP, port... (/)' })).toBeVisible({
+    await expect(page.getByRole('textbox', { name: 'Search proxies by IP, port, or source' })).toBeVisible({
       timeout: 10000,
     });
     await expect(page.getByRole('button', { name: 'Copy test command' }).first()).toBeVisible({

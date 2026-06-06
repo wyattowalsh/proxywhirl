@@ -1,6 +1,5 @@
 import { useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { getFlag } from "@/lib/geo"
 import { PROTOCOL_COLORS } from "@/types"
 import type { SourceFlowEntry } from "@/types"
 
@@ -11,7 +10,7 @@ interface SankeyFlowProps {
 interface FlowData {
   sources: Array<{ name: string; count: number; color: string }>
   protocols: Array<{ name: string; count: number; color: string }>
-  countries: Array<{ code: string; name: string; count: number; flag: string }>
+  countries: Array<{ code: string; name: string; count: number }>
   flows: Array<{ source: string; protocol: string; country: string; count: number }>
 }
 
@@ -37,7 +36,7 @@ export function SankeyFlow({ sourceFlow }: SankeyFlowProps) {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8)
       .map(([name, count], i) => ({
-        name: name.length > 15 ? name.slice(0, 13) + "..." : name,
+        name: name.length > 15 ? name.slice(0, 13) + "…" : name,
         count,
         color: `hsl(${(i * 45) % 360}, 70%, 50%)`,
       }))
@@ -57,7 +56,6 @@ export function SankeyFlow({ sourceFlow }: SankeyFlowProps) {
         code,
         name: code,
         count,
-        flag: getFlag(code),
       }))
 
     return {
@@ -154,7 +152,7 @@ export function SankeyFlow({ sourceFlow }: SankeyFlowProps) {
                     minWidth: "60px",
                   }}
                 >
-                  <span>{country.flag} {country.code}</span>
+                  <span>{country.code}</span>
                 </div>
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
                   {country.count.toLocaleString()}

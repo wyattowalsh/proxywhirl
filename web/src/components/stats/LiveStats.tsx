@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from "react"
-import { motion } from "motion/react"
+import { motion, useReducedMotion } from "motion/react"
 import { Globe, Wifi, Zap, Clock, TrendingUp } from "lucide-react"
 import type { Proxy, Stats } from "@/types"
 import { staggerContainer, slideUp, cardInteraction } from "@/lib/animations"
@@ -10,11 +10,23 @@ interface LiveStatsProps {
   stats?: Stats | null
 }
 
+const statCardClass = "flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm"
+const statIconClass = "rounded-lg bg-primary/10 p-2 text-primary"
+
 function AnimatedNumber({ value, duration = 1500 }: { value: number; duration?: number }) {
   const [displayValue, setDisplayValue] = useState(0)
   const frameRef = useRef<number | null>(null)
 
   useEffect(() => {
+    const shouldReduceMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+    if (shouldReduceMotion) {
+      setDisplayValue(value)
+      return
+    }
+
     const startTime = Date.now()
     const startValue = displayValue
 
@@ -44,6 +56,7 @@ function AnimatedNumber({ value, duration = 1500 }: { value: number; duration?: 
 }
 
 export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
+  const prefersReducedMotion = useReducedMotion()
   const computedStats = useMemo(() => {
     // Use pre-computed stats when available, fall back to client-side computation
     const precomputed = stats?.performance
@@ -93,16 +106,16 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
     <motion.div
       className="grid grid-cols-2 md:grid-cols-5 gap-4"
       variants={staggerContainer}
-      initial="hidden"
+      initial={prefersReducedMotion ? false : "hidden"}
       animate="visible"
     >
       <motion.div
-        className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-600/5 border border-blue-500/20"
+        className={statCardClass}
         variants={slideUp}
         {...cardInteraction}
       >
-        <div className="p-2 rounded-lg bg-blue-500/20">
-          <Wifi className="h-5 w-5 text-blue-500" />
+        <div className={statIconClass}>
+          <Wifi className="h-5 w-5" aria-hidden="true" />
         </div>
         <div>
           <p className="text-2xl font-bold">
@@ -113,12 +126,12 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
       </motion.div>
 
       <motion.div
-        className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-green-500/10 to-green-600/5 border border-green-500/20"
+        className={statCardClass}
         variants={slideUp}
         {...cardInteraction}
       >
-        <div className="p-2 rounded-lg bg-green-500/20">
-          <Globe className="h-5 w-5 text-green-500" />
+        <div className={statIconClass}>
+          <Globe className="h-5 w-5" aria-hidden="true" />
         </div>
         <div>
           <p className="text-2xl font-bold">
@@ -129,12 +142,12 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
       </motion.div>
 
       <motion.div
-        className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-600/5 border border-amber-500/20"
+        className={statCardClass}
         variants={slideUp}
         {...cardInteraction}
       >
-        <div className="p-2 rounded-lg bg-amber-500/20">
-          <Zap className="h-5 w-5 text-amber-500" />
+        <div className={statIconClass}>
+          <Zap className="h-5 w-5" aria-hidden="true" />
         </div>
         <div>
           <p className="text-2xl font-bold">
@@ -149,12 +162,12 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
       </motion.div>
 
       <motion.div
-        className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-600/5 border border-emerald-500/20"
+        className={statCardClass}
         variants={slideUp}
         {...cardInteraction}
       >
-        <div className="p-2 rounded-lg bg-emerald-500/20">
-          <TrendingUp className="h-5 w-5 text-emerald-500" />
+        <div className={statIconClass}>
+          <TrendingUp className="h-5 w-5" aria-hidden="true" />
         </div>
         <div>
           <p className="text-2xl font-bold">
@@ -169,12 +182,12 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
       </motion.div>
 
       <motion.div
-        className="flex items-center gap-3 p-4 rounded-xl bg-gradient-to-br from-purple-500/10 to-purple-600/5 border border-purple-500/20"
+        className={statCardClass}
         variants={slideUp}
         {...cardInteraction}
       >
-        <div className="p-2 rounded-lg bg-purple-500/20">
-          <Clock className="h-5 w-5 text-purple-500" />
+        <div className={statIconClass}>
+          <Clock className="h-5 w-5" aria-hidden="true" />
         </div>
         <div>
           <p className="text-2xl font-bold">{timeSince}</p>

@@ -48,8 +48,9 @@ export function ProxyCard({ proxy, onCopy, onTest, isFavorite, onToggleFavorite 
               size="icon"
               className="h-8 w-8"
               onClick={onToggleFavorite}
+              aria-label={isFavorite ? "Remove proxy from favorites" : "Add proxy to favorites"}
             >
-              <Star className={`h-4 w-4 ${isFavorite ? "fill-yellow-500 text-yellow-500" : ""}`} />
+              <Star className={`h-4 w-4 ${isFavorite ? "fill-yellow-500 text-yellow-500" : ""}`} aria-hidden="true" />
             </Button>
           )}
           {onTest && (
@@ -59,8 +60,9 @@ export function ProxyCard({ proxy, onCopy, onTest, isFavorite, onToggleFavorite 
               className="h-8 w-8"
               onClick={onTest}
               title="Copy test command"
+              aria-label="Copy test command"
             >
-              <Terminal className="h-4 w-4" />
+              <Terminal className="h-4 w-4" aria-hidden="true" />
             </Button>
           )}
           <Button
@@ -68,8 +70,9 @@ export function ProxyCard({ proxy, onCopy, onTest, isFavorite, onToggleFavorite 
             size="icon"
             className="h-8 w-8"
             onClick={onCopy}
+            aria-label="Copy proxy address"
           >
-            <Copy className="h-4 w-4" />
+            <Copy className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
       </div>

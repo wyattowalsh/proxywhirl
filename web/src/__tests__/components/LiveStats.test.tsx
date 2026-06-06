@@ -6,10 +6,21 @@ import type { Proxy } from '@/types'
 // Mock motion to avoid animation issues in tests
 vi.mock('motion/react', () => ({
   motion: {
-    div: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    div: ({
+      children,
+      variants: _variants,
+      initial: _initial,
+      animate: _animate,
+      exit: _exit,
+      whileHover: _whileHover,
+      whileTap: _whileTap,
+      transition: _transition,
+      ...props
+    }: React.HTMLAttributes<HTMLDivElement> & Record<string, unknown>) => (
       <div {...props}>{children}</div>
     ),
   },
+  useReducedMotion: () => false,
 }))
 
 const mockProxies: Proxy[] = [

@@ -8,7 +8,7 @@ import {
   Cell,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { getFlag, getCountryName } from "@/lib/geo"
+import { getCountryName } from "@/lib/geo"
 import type { CountryEntry } from "@/types"
 
 interface CountryRankingProps {
@@ -25,11 +25,10 @@ const COLORS = [
 export function CountryRanking({ countries, totalCountries }: CountryRankingProps) {
   const data = countries.slice(0, 15).map((c, i) => {
     const name = getCountryName(c.code)
-    const flag = getFlag(c.code)
     return {
       code: c.code,
-      name: `${flag} ${name.length > 15 ? name.slice(0, 13) + "..." : name}`,
-      fullName: `${flag} ${name}`,
+      name: `${c.code} ${name.length > 15 ? name.slice(0, 13) + "…" : name}`,
+      fullName: `${c.code} ${name}`,
       count: c.count,
       color: COLORS[i % COLORS.length],
     }

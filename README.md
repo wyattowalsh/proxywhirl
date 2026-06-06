@@ -10,7 +10,7 @@
 <br/><br/>
 
 <!-- One-liner -->
-<h3>🌀 Intelligent proxy rotation that just works</h3>
+<h3>Intelligent proxy rotation that just works</h3>
 
 <br/>
 
@@ -31,9 +31,9 @@
 
 <!-- Navigation pills -->
 
-[<kbd> <br> 📖 Docs <br> </kbd>](https://www.proxywhirl.com/docs/)&nbsp;&nbsp;
-[<kbd> <br> 🚀 Examples <br> </kbd>](examples.ipynb)&nbsp;&nbsp;
-[<kbd> <br> 💬 Discussions <br> </kbd>](https://github.com/wyattowalsh/proxywhirl/discussions)
+[<kbd> <br> Docs <br> </kbd>](https://www.proxywhirl.com/docs/)&nbsp;&nbsp;
+[<kbd> <br> Examples <br> </kbd>](examples.ipynb)&nbsp;&nbsp;
+[<kbd> <br> Discussions <br> </kbd>](https://github.com/wyattowalsh/proxywhirl/discussions)
 
 </div>
 
@@ -43,7 +43,7 @@
 
 <br/>
 
-## ⚡ 30-Second Setup
+## 30-Second Setup
 
 ```bash
 # Install uv first if needed
@@ -66,7 +66,7 @@ from proxywhirl import ProxyWhirl
 # built-in public sources, validates the results, and keeps the pool in memory.
 rotator = ProxyWhirl()
 response = rotator.get("https://api.example.com/data")
-# Dead proxies auto-ejected ✓ | Slow ones deprioritized ✓ | Fast ones favored ✓
+# Dead proxies are ejected, slow ones are deprioritized, and fast ones are favored.
 ```
 
 <br/>
@@ -77,13 +77,13 @@ response = rotator.get("https://api.example.com/data")
 
 <div align="center">
 
-## 🎯 Why ProxyWhirl?
+## Why ProxyWhirl?
 
 <table>
 <tr>
 <td align="center" width="25%">
 <br/>
-<img src="https://api.iconify.design/carbon:rotate-360.svg?color=%2306b6d4" width="48"/>
+<img src="https://api.iconify.design/carbon:rotate-360.svg?color=%230f766e" alt="" width="48"/>
 <br/><br/>
 <strong>9 Strategies</strong>
 <br/>
@@ -92,7 +92,7 @@ response = rotator.get("https://api.example.com/data")
 </td>
 <td align="center" width="25%">
 <br/>
-<img src="https://api.iconify.design/carbon:cloud-download.svg?color=%238b5cf6" width="48"/>
+<img src="https://api.iconify.design/carbon:cloud-download.svg?color=%230f766e" alt="" width="48"/>
 <br/><br/>
 <strong>88 Sources</strong>
 <br/>
@@ -101,7 +101,7 @@ response = rotator.get("https://api.example.com/data")
 </td>
 <td align="center" width="25%">
 <br/>
-<img src="https://api.iconify.design/carbon:health-cross.svg?color=%2322c55e" width="48"/>
+<img src="https://api.iconify.design/carbon:health-cross.svg?color=%230f766e" alt="" width="48"/>
 <br/><br/>
 <strong>Self-Healing</strong>
 <br/>
@@ -110,7 +110,7 @@ response = rotator.get("https://api.example.com/data")
 </td>
 <td align="center" width="25%">
 <br/>
-<img src="https://api.iconify.design/carbon:lightning.svg?color=%23f97316" width="48"/>
+<img src="https://api.iconify.design/carbon:lightning.svg?color=%230f766e" alt="" width="48"/>
 <br/><br/>
 <strong>Blazing Fast</strong>
 <br/>
@@ -128,7 +128,7 @@ response = rotator.get("https://api.example.com/data")
 
 <br/>
 
-## 🔄 Rotation Strategies
+## Rotation Strategies
 
 ```python
 # Switch strategies on the fly
@@ -154,7 +154,7 @@ rotator.set_strategy("geo-targeted", preferences={"US": [...], "EU": [...]})
 
 <br/>
 
-## 🎣 Auto-Fetch Proxies
+## Auto-Fetch Proxies
 
 ```python
 from proxywhirl import BootstrapConfig, ProxyWhirl
@@ -173,7 +173,7 @@ rotator = ProxyWhirl(bootstrap=BootstrapConfig(sample_size=20, max_proxies=200))
 
 <br/>
 
-## 🖥️ Multiple Interfaces
+## Multiple Interfaces
 
 <table>
 <tr>
@@ -222,12 +222,12 @@ curl localhost:8000/api/proxies
 
 <div align="center">
 
-## 📚 Learn More
+## Learn More
 
-[<kbd> <br> &nbsp;&nbsp;📖 Full Documentation&nbsp;&nbsp; <br> </kbd>](https://www.proxywhirl.com/docs/)&nbsp;&nbsp;&nbsp;
-[<kbd> <br> &nbsp;&nbsp;🎯 Strategy Guide&nbsp;&nbsp; <br> </kbd>](docs/source/guides/advanced-strategies.md)&nbsp;&nbsp;&nbsp;
-[<kbd> <br> &nbsp;&nbsp;🤖 MCP Server&nbsp;&nbsp; <br> </kbd>](docs/source/guides/mcp-server.md)&nbsp;&nbsp;&nbsp;
-[<kbd> <br> &nbsp;&nbsp;📓 Examples&nbsp;&nbsp; <br> </kbd>](examples.ipynb)
+[<kbd> <br> &nbsp;&nbsp;Full Documentation&nbsp;&nbsp; <br> </kbd>](https://www.proxywhirl.com/docs/)&nbsp;&nbsp;&nbsp;
+[<kbd> <br> &nbsp;&nbsp;Strategy Matrix&nbsp;&nbsp; <br> </kbd>](https://www.proxywhirl.com/docs/generated/strategies)&nbsp;&nbsp;&nbsp;
+[<kbd> <br> &nbsp;&nbsp;MCP Server&nbsp;&nbsp; <br> </kbd>](https://www.proxywhirl.com/docs/mcp)&nbsp;&nbsp;&nbsp;
+[<kbd> <br> &nbsp;&nbsp;Examples&nbsp;&nbsp; <br> </kbd>](examples.ipynb)
 
 <br/><br/>
 

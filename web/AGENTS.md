@@ -8,6 +8,8 @@
 | ------- | ------- |
 | Framework | Next.js App Router + Fumadocs |
 | Package manager | `pnpm` |
+| Routes | `web/src/app/` |
+| UI components | `web/src/components/`, `web/src/screens/` |
 | Content | `web/content/docs/**/*.mdx` |
 | Generated docs | `web/content/docs/generated/` |
 | Generated data | `web/content/generated/` |
@@ -32,6 +34,12 @@
 - Treat `web/public/proxy-lists/` as mirrored output; edit `docs/proxy-lists/` source files, then run `pnpm --dir web run docs:generate`.
 - Run `pnpm --dir web run docs:generate` after Python API, REST API, CLI, strategy, or source-catalog changes.
 - Keep docs build logs free of actionable warnings and errors before claiming production readiness.
+- Inspect `web/package.json` before adding or importing third-party UI packages.
+- Keep App Router server components as the default; isolate hooks, event handlers, browser APIs, and motion in client leaf components.
+- Use Next `Link` for internal routes and native anchors for external URLs or downloadable static files.
+- Give icon-only controls an accessible name, mark decorative icons/images with `aria-hidden` or empty `alt`, and preserve visible focus states.
+- Honor `prefers-reduced-motion`, avoid `transition-all`, and animate `transform` or `opacity` unless a data bar explicitly requires a scoped property transition.
+- Avoid emoji as UI icons or labels; use installed SVG icon libraries or text labels.
 
 **Never:**
 

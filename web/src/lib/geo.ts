@@ -2,14 +2,10 @@
  * Geographic utilities and constants for proxy visualization
  */
 
-// Country code to flag emoji
+// Country code marker for compact displays
 export function getFlag(countryCode: string): string {
-  if (!countryCode || countryCode.length !== 2 || countryCode === "Unknown") return "🌐"
-  const codePoints = countryCode
-    .toUpperCase()
-    .split("")
-    .map((char) => 127397 + char.charCodeAt(0))
-  return String.fromCodePoint(...codePoints)
+  if (!countryCode || countryCode.length !== 2 || countryCode === "Unknown") return "UN"
+  return countryCode.toUpperCase()
 }
 
 // Country code to name mapping
