@@ -25,9 +25,17 @@ test.describe('Home Page', () => {
   });
 
   test('should show scroll-to-top button', async ({ page }) => {
+    await expect(page.getByRole('textbox', { name: 'Search proxies by IP, port, or source' })).toBeVisible({
+      timeout: 10000,
+    });
+    await expect.poll(async () => page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)).toBeGreaterThan(300);
+
     // Scroll down
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    await expect.poll(async () => page.evaluate(() => window.scrollY)).toBeGreaterThan(300);
+    await page.evaluate(() => {
+      const scrollingElement = document.scrollingElement ?? document.documentElement;
+      scrollingElement.scrollTop = scrollingElement.scrollHeight;
+    });
+    await expect.poll(async () => page.evaluate(() => window.scrollY || document.documentElement.scrollTop)).toBeGreaterThan(300);
 
     // Check for Scroll to Top button.
     const scrollBtn = page.getByLabel('Scroll to top');
