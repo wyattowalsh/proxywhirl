@@ -277,9 +277,13 @@ jobs:
         id: benchmark
         run: |
           echo "::group::Benchmark Results"
-          uv run pytest tests/benchmarks/ \
-            --benchmark-only \
-            --benchmark-compare=0001 || true
+          benchmark_args=(--benchmark-only)
+          if [ -d .benchmarks ] && find .benchmarks -type f -name "*0001*.json" | grep -q .; then
+            benchmark_args+=(--benchmark-compare=0001)
+          else
+            echo "No benchmark baseline matching 0001 found; recording results without comparison."
+          fi
+          uv run pytest tests/benchmarks/ "${benchmark_args[@]}" || true
           echo "::endgroup::"
 
       - name: Parse benchmark results
