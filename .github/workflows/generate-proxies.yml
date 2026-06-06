@@ -124,12 +124,12 @@ jobs:
           cp -r docs/proxy-lists/* web/public/proxy-lists/
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v6
         with:
           version: 10
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: pnpm
@@ -171,14 +171,14 @@ jobs:
           fi
 
       - name: Upload proxy lists as artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: proxy-lists-${{ github.run_number }}
           path: docs/proxy-lists/
           retention-days: 7
 
       - name: Upload database as artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: proxywhirl-db-${{ github.run_number }}
           path: proxywhirl.db
