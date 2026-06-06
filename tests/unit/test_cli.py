@@ -11,10 +11,12 @@ import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
+import httpx
 from typer.main import get_command
 from typer.testing import CliRunner
 
 from proxywhirl.cli import _proxy_reference_matches, app
+from proxywhirl.config import CLIConfig, load_config, save_config
 
 _xdist_worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
 EXPECTED_ROOT_COMMANDS = {
@@ -484,11 +486,11 @@ class TestPoolCommandAdvanced:
         assert result.exit_code != 0
         assert "Invalid action" in result.stdout
 
-    @patch("proxywhirl.config.save_config")
-    def test_pool_add_proxy(self, mock_save: Mock) -> None:
+    def test_pool_add_proxy(self) -> None:
         """Pool add should add proxy to configuration."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / ".proxywhirl.toml"
+            save_config(CLIConfig(encrypt_credentials=False), config_path)
 
             result = runner.invoke(
                 app,
@@ -500,17 +502,17 @@ class TestPoolCommandAdvanced:
                     "add",
                     "http://newproxy.com:8080",
                 ],
-                input="y\n",  # Confirm if needed
             )
 
-            # Should attempt to save config or parse correctly (exit code 0, 1, or 2)
-            assert mock_save.called or result.exit_code in (0, 1, 2)
+            assert result.exit_code == 0
+            updated_config = load_config(config_path)
+            assert [proxy.url for proxy in updated_config.proxies] == ["http://newproxy.com:8080"]
 
-    @patch("proxywhirl.config.save_config")
-    def test_pool_add_with_auth(self, mock_save: Mock) -> None:
+    def test_pool_add_with_auth(self) -> None:
         """Pool add should support username and password."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / ".proxywhirl.toml"
+            save_config(CLIConfig(encrypt_credentials=False), config_path)
 
             result = runner.invoke(
                 app,
@@ -528,24 +530,46 @@ class TestPoolCommandAdvanced:
                 ],
             )
 
-            # Should succeed (may fail on config load but command should parse)
-            assert result.exit_code in (0, 1, 2) or mock_save.called
+            assert result.exit_code == 0
+            [proxy_config] = load_config(config_path).proxies
+            assert proxy_config.url == "http://proxy.com:8080"
+            assert proxy_config.username is not None
+            assert proxy_config.username.get_secret_value() == "user"
+            assert proxy_config.password is not None
+            assert proxy_config.password.get_secret_value() == "pass"
 
-    @patch("proxywhirl.config.save_config")
-    def test_pool_remove_proxy(self, mock_save: Mock) -> None:
+    def test_pool_remove_proxy(self) -> None:
         """Pool remove should remove proxy from configuration."""
-        result = runner.invoke(
-            app,
-            [
-                "--no-lock",
-                "pool",
-                "remove",
-                "http://proxy.com:8080",
-            ],
-        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / ".proxywhirl.toml"
+            save_config(
+                CLIConfig(
+                    encrypt_credentials=False,
+                    proxies=[
+                        {"url": "http://proxy.com:8080"},
+                        {"url": "http://other-proxy.com:8081"},
+                    ],
+                ),
+                config_path,
+            )
 
-        # May fail if proxy doesn't exist, but command should be recognized
-        assert result.exit_code in (0, 1)
+            result = runner.invoke(
+                app,
+                [
+                    "--no-lock",
+                    "--config",
+                    str(config_path),
+                    "pool",
+                    "remove",
+                    "http://proxy.com:8080",
+                ],
+            )
+
+            assert result.exit_code == 0
+            updated_config = load_config(config_path)
+            assert [proxy.url for proxy in updated_config.proxies] == [
+                "http://other-proxy.com:8081"
+            ]
 
     def test_proxy_reference_matches_displayed_credentialless_url(self) -> None:
         """Pool remove can match the public URL shown by pool list."""
@@ -602,30 +626,34 @@ class TestPoolCommandAdvanced:
 
     def test_pool_list_json_format(self) -> None:
         """Pool list should support JSON output format."""
-        result = runner.invoke(
-            app,
-            [
-                "--no-lock",
-                "--format",
-                "json",
-                "pool",
-                "list",
-            ],
-        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / ".proxywhirl.toml"
+            save_config(
+                CLIConfig(
+                    encrypt_credentials=False,
+                    proxies=[{"url": "http://proxy.com:8080"}],
+                ),
+                config_path,
+            )
 
-        # May have exit codes 0-2 depending on config availability
-        assert result.exit_code in (0, 1, 2)
-        # If succeeded, check JSON output
-        if (
-            result.exit_code == 0
-            and result.stdout.strip()
-            and result.stdout.strip() != "No proxies in pool"
-        ):
-            try:
-                data = json.loads(result.stdout)
-                assert isinstance(data, dict)
-            except json.JSONDecodeError:
-                pass  # Empty pool may not output JSON
+            result = runner.invoke(
+                app,
+                [
+                    "--no-lock",
+                    "--format",
+                    "json",
+                    "--config",
+                    str(config_path),
+                    "pool",
+                    "list",
+                ],
+            )
+
+            assert result.exit_code == 0
+            data = json.loads(result.stdout)
+            assert data["total_proxies"] == 1
+            assert len(data["proxies"]) == 1
+            assert data["proxies"][0]["url"] == "http://proxy.com:8080"
 
     def test_pool_list_csv_format(self) -> None:
         """Pool list should support CSV output format."""
@@ -741,11 +769,11 @@ class TestConfigCommandAdvanced:
         data = json.loads(result.stdout)
         assert "timeout" in data
 
-    @patch("proxywhirl.config.save_config")
-    def test_config_set_value(self, mock_save: Mock) -> None:
+    def test_config_set_value(self) -> None:
         """Config set should update configuration value."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / ".proxywhirl.toml"
+            save_config(CLIConfig(encrypt_credentials=False), config_path)
 
             result = runner.invoke(
                 app,
@@ -760,14 +788,14 @@ class TestConfigCommandAdvanced:
                 ],
             )
 
-            # Should succeed or call save_config (may fail on config load)
-            assert result.exit_code in (0, 1, 2) or mock_save.called
+            assert result.exit_code == 0
+            assert load_config(config_path).timeout == 60
 
-    @patch("proxywhirl.config.save_config")
-    def test_config_set_boolean_value(self, mock_save: Mock) -> None:
+    def test_config_set_boolean_value(self) -> None:
         """Config set should handle boolean values."""
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / ".proxywhirl.toml"
+            save_config(CLIConfig(encrypt_credentials=False), config_path)
 
             result = runner.invoke(
                 app,
@@ -782,7 +810,8 @@ class TestConfigCommandAdvanced:
                 ],
             )
 
-            assert result.exit_code in (0, 1, 2) or mock_save.called
+            assert result.exit_code == 0
+            assert load_config(config_path).verify_ssl is False
 
     def test_config_set_invalid_key(self) -> None:
         """Config set should reject unknown keys."""
@@ -902,6 +931,269 @@ class TestHealthCommandAdvanced:
         )
 
         assert result.exit_code == 0
+
+
+class TestValidateProxyCommand:
+    """Regression tests for validate-proxy command execution."""
+
+    @patch("httpx.get")
+    def test_validate_proxy_uses_current_httpx_proxy_argument(self, mock_get: Mock) -> None:
+        """Validate-proxy should use httpx's current single proxy argument."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_get.return_value = mock_response
+
+        result = runner.invoke(
+            app,
+            [
+                "--no-lock",
+                "--format",
+                "json",
+                "validate-proxy",
+                "http://proxy.com:8080",
+                "--target",
+                "https://api.example.com/health",
+                "--timeout",
+                "1",
+            ],
+        )
+
+        assert result.exit_code == 0
+        output_data = json.loads(result.stdout)
+        assert output_data["proxy"] == "http://proxy.com:8080"
+        assert output_data["status"] == "HEALTHY"
+        assert output_data["response_code"] == 200
+        assert output_data["target_url"] == "https://api.example.com/health"
+        mock_get.assert_called_once()
+        call_kwargs = mock_get.call_args.kwargs
+        assert mock_get.call_args.args == ("https://api.example.com/health",)
+        assert call_kwargs["proxy"] == "http://proxy.com:8080"
+        assert call_kwargs["timeout"] == 1.0
+        assert call_kwargs["follow_redirects"] is True
+        assert "proxies" not in call_kwargs
+
+    @patch("httpx.get")
+    def test_validate_proxy_preserves_credentials_without_output_leak(self, mock_get: Mock) -> None:
+        """Validate-proxy should use credentials for httpx without exposing them in output."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_get.return_value = mock_response
+
+        result = runner.invoke(
+            app,
+            [
+                "--no-lock",
+                "--format",
+                "json",
+                "validate-proxy",
+                "http://user:pass@proxy.com:8080",
+                "--target",
+                "https://api.example.com/health",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert mock_get.call_args.kwargs["proxy"] == "http://user:pass@proxy.com:8080"
+        output_data = json.loads(result.stdout)
+        assert output_data["proxy"] == "http://proxy.com:8080"
+        assert "user" not in result.stdout
+        assert "pass" not in result.stdout
+
+    @patch("httpx.get")
+    def test_validate_proxy_connect_error_json(self, mock_get: Mock) -> None:
+        """Validate-proxy should render structured JSON for connection failures."""
+        mock_get.side_effect = httpx.ConnectError("Connection refused")
+
+        result = runner.invoke(
+            app,
+            [
+                "--no-lock",
+                "--format",
+                "json",
+                "validate-proxy",
+                "http://proxy.com:8080",
+                "--target",
+                "https://api.example.com/health",
+            ],
+        )
+
+        assert result.exit_code == 1
+        output_data = json.loads(result.stdout)
+        assert output_data["proxy"] == "http://proxy.com:8080"
+        assert output_data["status"] == "UNHEALTHY"
+        assert output_data["reason"] == "Connection failed"
+        assert "Error validating proxy" not in result.stdout
+
+    @patch("httpx.get")
+    def test_validate_proxy_timeout_text(self, mock_get: Mock) -> None:
+        """Validate-proxy should render the specific timeout message in text mode."""
+        mock_get.side_effect = httpx.TimeoutException("timed out")
+
+        result = runner.invoke(
+            app,
+            [
+                "--no-lock",
+                "validate-proxy",
+                "http://proxy.com:8080",
+                "--target",
+                "https://api.example.com/health",
+                "--timeout",
+                "1",
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "Proxy timeout after 1.0s" in result.stdout
+        assert "Error validating proxy" not in result.stdout
+
+
+class TestImportProxiesCommand:
+    """Regression tests for import-proxies command execution."""
+
+    def test_import_proxies_persists_to_active_config(self) -> None:
+        """Import-proxies should add parsed proxies to the active config file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            config_path = tmp_path / ".proxywhirl.toml"
+            proxy_file = tmp_path / "proxies.txt"
+            save_config(CLIConfig(encrypt_credentials=False), config_path)
+            proxy_file.write_text(
+                "\n".join(
+                    [
+                        "http://proxy-one.com:8080",
+                        "http://proxy-two.com:8081",
+                        "http://proxy-one.com:8080",
+                    ]
+                )
+            )
+
+            result = runner.invoke(
+                app,
+                [
+                    "--no-lock",
+                    "--format",
+                    "json",
+                    "--config",
+                    str(config_path),
+                    "import-proxies",
+                    str(proxy_file),
+                    "--format",
+                    "text",
+                ],
+            )
+
+            assert result.exit_code == 0
+            output_data = json.loads(result.stdout)
+            assert output_data["total_parsed"] == 2
+            assert output_data["imported"] == 2
+            assert output_data["failed"] == 0
+
+            updated_config = load_config(config_path)
+            assert [proxy.url for proxy in updated_config.proxies] == [
+                "http://proxy-one.com:8080",
+                "http://proxy-two.com:8081",
+            ]
+
+    def test_import_proxies_skips_existing_without_counting_imported(self) -> None:
+        """Import-proxies should skip existing proxies and count only new imports."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            config_path = tmp_path / ".proxywhirl.toml"
+            proxy_file = tmp_path / "proxies.txt"
+            save_config(
+                CLIConfig(
+                    encrypt_credentials=False,
+                    proxies=[{"url": "http://proxy-one.com:8080"}],
+                ),
+                config_path,
+            )
+            proxy_file.write_text("http://proxy-one.com:8080\nhttp://proxy-two.com:8081\n")
+
+            result = runner.invoke(
+                app,
+                [
+                    "--no-lock",
+                    "--format",
+                    "json",
+                    "--config",
+                    str(config_path),
+                    "import-proxies",
+                    str(proxy_file),
+                    "--format",
+                    "text",
+                ],
+            )
+
+            assert result.exit_code == 0
+            output_data = json.loads(result.stdout)
+            assert output_data["total_parsed"] == 2
+            assert output_data["imported"] == 1
+            assert output_data["failed"] == 0
+            updated_config = load_config(config_path)
+            assert [proxy.url for proxy in updated_config.proxies] == [
+                "http://proxy-one.com:8080",
+                "http://proxy-two.com:8081",
+            ]
+
+    def test_import_proxies_reports_invalid_entries_verbose_json(self) -> None:
+        """Import-proxies should report invalid entries and persist valid ones."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            config_path = tmp_path / ".proxywhirl.toml"
+            proxy_file = tmp_path / "proxies.txt"
+            save_config(CLIConfig(encrypt_credentials=False), config_path)
+            proxy_file.write_text("http://proxy-one.com:8080\nnot-a-proxy\n")
+
+            result = runner.invoke(
+                app,
+                [
+                    "--no-lock",
+                    "--verbose",
+                    "--format",
+                    "json",
+                    "--config",
+                    str(config_path),
+                    "import-proxies",
+                    str(proxy_file),
+                    "--format",
+                    "text",
+                ],
+            )
+
+            assert result.exit_code == 0
+            output_data = json.loads(result.stdout)
+            assert output_data["total_parsed"] == 2
+            assert output_data["imported"] == 1
+            assert output_data["failed"] == 1
+            assert output_data["errors"][0]["proxy"] == "not-a-proxy"
+            updated_config = load_config(config_path)
+            assert [proxy.url for proxy in updated_config.proxies] == ["http://proxy-one.com:8080"]
+
+    def test_import_proxies_empty_file_reports_specific_message(self) -> None:
+        """Import-proxies should not wrap empty-file exits in a generic error."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            config_path = tmp_path / ".proxywhirl.toml"
+            proxy_file = tmp_path / "proxies.txt"
+            save_config(CLIConfig(encrypt_credentials=False), config_path)
+            proxy_file.write_text("\n# no proxies\n")
+
+            result = runner.invoke(
+                app,
+                [
+                    "--no-lock",
+                    "--config",
+                    str(config_path),
+                    "import-proxies",
+                    str(proxy_file),
+                    "--format",
+                    "text",
+                ],
+            )
+
+            assert result.exit_code == 1
+            assert "No proxies found in file" in result.stdout
+            assert "Error importing proxies" not in result.stdout
 
 
 class TestExportCommand:

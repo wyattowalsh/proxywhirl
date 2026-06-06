@@ -276,6 +276,28 @@ class TestSaveConfig:
         content = config_file.read_text()
         assert "timeout = 45" in content
 
+    def test_save_preserves_secret_values_for_loading(self, tmp_path: Path) -> None:
+        """Saved proxy credentials should load back as their original secret values."""
+        config_file = tmp_path / "config.toml"
+        config = CLIConfig(
+            encrypt_credentials=False,
+            proxies=[
+                ProxyConfig(
+                    url="http://proxy.example.com:8080",
+                    username=SecretStr("testuser"),
+                    password=SecretStr("testpass"),
+                )
+            ],
+        )
+
+        save_config(config, config_file)
+
+        loaded = load_config(config_file)
+        assert loaded.proxies[0].username is not None
+        assert loaded.proxies[0].username.get_secret_value() == "testuser"
+        assert loaded.proxies[0].password is not None
+        assert loaded.proxies[0].password.get_secret_value() == "testpass"
+
     def test_save_to_pyproject_toml(self, tmp_path: Path) -> None:
         """Test saving to pyproject.toml wraps in tool.proxywhirl."""
         pyproject = tmp_path / "pyproject.toml"

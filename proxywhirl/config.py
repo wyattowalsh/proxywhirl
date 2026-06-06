@@ -519,6 +519,14 @@ def save_config(config: CLIConfig, path: Path) -> None:
 
     # Convert to dict
     config_dict = config.model_dump(mode="json", exclude_none=True)
+    for index, proxy in enumerate(config.proxies):
+        if "proxies" not in config_dict or index >= len(config_dict["proxies"]):
+            continue
+        proxy_dict = config_dict["proxies"][index]
+        if proxy.username is not None:
+            proxy_dict["username"] = proxy.username.get_secret_value()
+        if proxy.password is not None:
+            proxy_dict["password"] = proxy.password.get_secret_value()
 
     # Wrap in [tool.proxywhirl] if saving to pyproject.toml
     if path.name == "pyproject.toml":

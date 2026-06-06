@@ -2230,29 +2230,21 @@ def validate_proxy(
             command_ctx.console.print(f"[red]Invalid proxy URL: {proxy_url}[/red]")
             raise typer.Exit(code=1)
 
-        # Prepare proxy string
-        if parsed.port:
-            proxy_string = f"{parsed.scheme}://{parsed.hostname}:{parsed.port}"
-        else:
-            proxy_string = f"{parsed.scheme}://{parsed.hostname}"
+        proxy_string = f"{parsed.scheme}://{parsed.netloc}"
+        display_proxy = public_proxy_url(proxy_string)
 
         # Test proxy
         try:
             import time
 
             start_time = time.time()
-            proxies = {
-                "http://": proxy_string,
-                "https://": proxy_string,
-            }
-
             response = httpx.get(
-                target_url, proxies=proxies, timeout=timeout, follow_redirects=True
+                target_url, proxy=proxy_string, timeout=timeout, follow_redirects=True
             )
             elapsed_ms = (time.time() - start_time) * 1000
 
             result = {
-                "proxy": proxy_string,
+                "proxy": display_proxy,
                 "status": "HEALTHY" if response.status_code < 400 else "DEGRADED",
                 "response_code": response.status_code,
                 "response_time_ms": round(elapsed_ms, 1),
@@ -2271,7 +2263,7 @@ def validate_proxy(
 
         except httpx.ConnectError as e:
             result = {
-                "proxy": proxy_string,
+                "proxy": display_proxy,
                 "status": "UNHEALTHY",
                 "error": str(e),
                 "reason": "Connection failed",
@@ -2283,7 +2275,7 @@ def validate_proxy(
             raise typer.Exit(code=1)
         except httpx.TimeoutException as e:
             result = {
-                "proxy": proxy_string,
+                "proxy": display_proxy,
                 "status": "UNHEALTHY",
                 "error": str(e),
                 "reason": "Timeout",
@@ -2381,20 +2373,27 @@ def import_proxies(
         if dedup:
             proxies = list(dict.fromkeys(proxies))
 
-        # Import proxies
-        rotator = command_ctx.rotator
+        from proxywhirl.config import ProxyConfig, save_config
+        from proxywhirl.models import Proxy
+
         imported = 0
         failed = 0
         errors = []
+        existing_proxy_urls = {proxy_config.url for proxy_config in command_ctx.config.proxies}
 
         for proxy_str in proxies:
             try:
-                # Add to pool (format depends on implementation)
-                rotator.pool.add_proxy_from_string(proxy_str)
+                Proxy(url=proxy_str)
+                if proxy_str in existing_proxy_urls:
+                    continue
+                command_ctx.config.proxies.append(ProxyConfig(url=proxy_str))
+                existing_proxy_urls.add(proxy_str)
                 imported += 1
             except Exception as e:
                 failed += 1
                 errors.append({"proxy": proxy_str, "error": str(e)})
+
+        save_config(command_ctx.config, command_ctx.config_path)
 
         result = {
             "file": str(file_path),
@@ -2416,6 +2415,8 @@ def import_proxies(
             if failed:
                 command_ctx.console.print(f"[yellow]Failed: {failed} proxies[/yellow]")
 
+    except typer.Exit:
+        raise
     except Exception as e:
         command_ctx.console.print(f"[red]Error importing proxies: {e}[/red]")
         raise typer.Exit(code=1)
