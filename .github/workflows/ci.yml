@@ -184,7 +184,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         if: matrix.python-version == '3.11' && env.CODECOV_TOKEN_PRESENT == 'true'
         with:
           files: ./coverage.xml
