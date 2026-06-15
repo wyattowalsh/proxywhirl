@@ -184,7 +184,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         if: matrix.python-version == '3.11' && env.CODECOV_TOKEN_PRESENT == 'true'
         with:
           files: ./coverage.xml
@@ -362,7 +362,7 @@ jobs:
           version: "latest"
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v6.0.8
+        uses: pnpm/action-setup@v6.0.9
         with:
           version: 10
 
