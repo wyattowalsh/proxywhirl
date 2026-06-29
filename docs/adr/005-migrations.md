@@ -1,0 +1,32 @@
+# ADR-005: Schema Migration Strategy
+
+## Status
+
+Accepted
+
+## Context
+
+ProxyWhirl persists proxy pools in SQLite (`SQLiteStorage`), JSON files (`FileStorage`), and
+analytics databases. Schema evolves as we add health metadata, circuit-breaker persistence,
+and normalized identity tables.
+
+## Decision
+
+- **Forward-only migrations**: Apply additive schema changes via SQLModel metadata and explicit
+  migration helpers; avoid destructive rewrites in hot paths.
+- **Version stamp**: Track schema generation in application code; incompatible files raise
+  clear `ValueError` on load rather than silent corruption.
+- **Dual read paths**: Loaders accept both legacy flat JSON rows and normalized SQLite rows
+  via `dict_to_proxy()` so rotator hydration stays stable across backends.
+- **Git-friendly analytics DB**: Analytics SQLite uses DELETE journal mode for repository
+  tracking (see ADR-004).
+
+## Consequences
+
+- **Positive**: Safer upgrades; storage hydration tests guard round-trips.
+- **Negative**: Multiple row shapes must be supported until legacy formats are retired.
+
+## References
+
+- `proxywhirl/storage.py` — `dict_to_proxy`, `SQLiteStorage`
+- `tests/integration/test_storage_hydration.py`

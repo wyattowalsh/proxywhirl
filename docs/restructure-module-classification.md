@@ -154,8 +154,8 @@ Phase 0 audit artifact for the focused package restructuring. Classifications us
 | `proxywhirl/rollout_gradual.py`            | delete         | Deployment rollout code outside product boundary.                                                         |
 | `proxywhirl/workflow_approval.py`          | delete         | Workflow approval code outside product boundary.                                                          |
 | `proxywhirl/feature_flags.py`              | delete         | Feature-flag platform code outside product boundary.                                                      |
-| `proxywhirl/tui.py`                        | delete         | TUI is explicitly outside product boundary once CLI/API/MCP remain.                                       |
-| `proxywhirl/tui_async_queue.py`            | delete         | TUI support code is outside product boundary.                                                             |
+| `proxywhirl/tui.py`                        | deleted        | TUI removed; outside product boundary once CLI/API/MCP remain.                                            |
+| `proxywhirl/tui_async_queue.py`            | deleted        | TUI support code removed; outside product boundary.                                                       |
 | `proxywhirl/web_dashboard.py`              | delete         | Dashboard UI outside product boundary.                                                                    |
 | `proxywhirl/observability_dashboard.py`    | delete         | Dashboard UI outside product boundary.                                                                    |
 | `proxywhirl/advanced_logging.py`           | delete         | Enterprise logging outside simple logging needs.                                                          |

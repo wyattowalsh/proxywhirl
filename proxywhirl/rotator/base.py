@@ -14,7 +14,7 @@ from loguru import logger
 
 from proxywhirl.circuit_breaker import CircuitBreaker
 from proxywhirl.exceptions import ProxyPoolEmptyError
-from proxywhirl.models import Proxy, ProxyPool
+from proxywhirl.models import Proxy, ProxyPool, SelectionContext
 from proxywhirl.retry import RetryMetrics, RetryPolicy
 from proxywhirl.strategies import RotationStrategy
 from proxywhirl.utils import mask_proxy_url
@@ -131,13 +131,19 @@ class ProxyRotatorBase:
         # If no circuit breaker exists, allow the request
         return True
 
-    def _select_proxy_with_circuit_breaker(self) -> Proxy:
+    def _select_proxy_with_circuit_breaker(
+        self,
+        context: SelectionContext | None = None,
+    ) -> Proxy:
         """
         Select a proxy while respecting circuit breaker states.
 
         This method filters the proxy pool to only include proxies
         whose circuit breakers are not open, then uses the rotation
         strategy to select from the available proxies.
+
+        Args:
+            context: Optional selection context for strategy-aware filtering
 
         Returns:
             Selected proxy
@@ -156,17 +162,22 @@ class ProxyRotatorBase:
         else:
             proxies_snapshot = list(self.pool.proxies)
 
+        excluded = set(context.failed_proxy_ids) if context is not None else set()
+
         # Filter proxies by circuit breaker state and expiration
         available_proxies = []
         expired_count = 0
         for proxy in proxies_snapshot:
+            if str(proxy.id) in excluded:
+                continue
+
             # Skip expired proxies
             if proxy.is_expired:
                 expired_count += 1
                 continue
 
             circuit_breaker = self.circuit_breakers.get(str(proxy.id))
-            if circuit_breaker and circuit_breaker.should_attempt_request():
+            if circuit_breaker is None or circuit_breaker.should_attempt_request():
                 available_proxies.append(proxy)
 
         if expired_count > 0:
@@ -183,7 +194,7 @@ class ProxyRotatorBase:
         temp_pool = ProxyPool(name="temp", proxies=available_proxies)
 
         # Select from available proxies using strategy
-        return self.strategy.select(temp_pool)
+        return self.strategy.select(temp_pool, context)
 
     def _init_circuit_breakers_for_proxies(self, proxies: list[Proxy]) -> None:
         """

@@ -103,6 +103,7 @@ class RetryAttempt(BaseModel):
     delay_before: float = Field(ge=0)
     latency: float = Field(ge=0)
     error_message: str | None = None
+    failover_round: int = Field(default=0, ge=0)
 
 
 class CircuitBreakerEvent(BaseModel):
@@ -329,13 +330,14 @@ class RetryExecutor:
         method: str,
         url: str,
         request_id: str | None = None,
+        failover_round: int = 0,
     ) -> httpx.Response:
         """
         Execute a request with retry logic (SYNCHRONOUS).
 
         This method uses time.sleep for backoff delays and should only be called
         from synchronous contexts. For async execution, use
-        AsyncProxyClient._execute_async_with_retry instead.
+        execute_with_retry_async instead.
 
         Args:
             request_fn: Function that executes the request
@@ -361,7 +363,9 @@ class RetryExecutor:
             )
             if not self.retry_policy.retry_non_idempotent:
                 # Execute once without retry
-                return self._execute_single_attempt(request_fn, proxy, request_id, 0, 0.0)
+                return self._execute_single_attempt(
+                    request_fn, proxy, request_id, 0, 0.0, failover_round=failover_round
+                )
 
         # Set up retry with tenacity
         last_exception: Exception | None = None
@@ -385,6 +389,7 @@ class RetryExecutor:
                         0.0,
                         0.0,
                         error_message="Total timeout exceeded",
+                        failover_round=failover_round,
                     )
                     raise ProxyConnectionError(f"Request timeout after {elapsed:.2f}s")
 
@@ -398,8 +403,7 @@ class RetryExecutor:
                     f"after {delay:.2f}s delay"
                 )
                 # SYNCHRONOUS sleep - this is intentional as RetryExecutor is sync-only.
-                # For async contexts, use AsyncProxyClient._execute_async_with_retry
-                # which uses asyncio.sleep instead.
+                # For async contexts, use execute_with_retry_async which uses asyncio.sleep.
                 time.sleep(delay)
                 previous_delay = delay  # Track for decorrelated jitter
             else:
@@ -425,6 +429,7 @@ class RetryExecutor:
                         delay,
                         latency,
                         error_message=f"Status {response.status_code}",
+                        failover_round=failover_round,
                     )
                     self._record_proxy_failure(proxy)
                     last_exception = ProxyConnectionError(f"Status code {response.status_code}")
@@ -439,6 +444,7 @@ class RetryExecutor:
                     delay,
                     latency,
                     status_code=response.status_code,
+                    failover_round=failover_round,
                 )
                 self._record_proxy_success(proxy)
 
@@ -457,6 +463,7 @@ class RetryExecutor:
                     delay,
                     latency,
                     error_message=str(e),
+                    failover_round=failover_round,
                 )
                 self._record_proxy_failure(proxy)
                 last_exception = e
@@ -475,6 +482,7 @@ class RetryExecutor:
                         delay,
                         latency,
                         error_message=str(e),
+                        failover_round=failover_round,
                     )
                     self._record_proxy_failure(proxy)
                     last_exception = e
@@ -489,6 +497,7 @@ class RetryExecutor:
                         delay,
                         latency,
                         error_message=str(e),
+                        failover_round=failover_round,
                     )
                     raise NonRetryableError(str(e)) from e
 
@@ -513,6 +522,7 @@ class RetryExecutor:
         method: str,
         url: str,
         request_id: str | None = None,
+        failover_round: int = 0,
     ) -> httpx.Response:
         """
         Execute a request with retry logic (ASYNCHRONOUS).
@@ -545,7 +555,12 @@ class RetryExecutor:
             if not self.retry_policy.retry_non_idempotent:
                 # Execute once without retry
                 return await self._execute_single_attempt_async(
-                    request_fn, proxy, request_id, 0, 0.0
+                    request_fn,
+                    proxy,
+                    request_id,
+                    0,
+                    0.0,
+                    failover_round=failover_round,
                 )
 
         # Set up retry with tenacity
@@ -570,6 +585,7 @@ class RetryExecutor:
                         0.0,
                         0.0,
                         error_message="Total timeout exceeded",
+                        failover_round=failover_round,
                     )
                     raise ProxyConnectionError(f"Request timeout after {elapsed:.2f}s")
 
@@ -608,6 +624,7 @@ class RetryExecutor:
                         delay,
                         latency,
                         error_message=f"Status {response.status_code}",
+                        failover_round=failover_round,
                     )
                     self._record_proxy_failure(proxy)
                     last_exception = ProxyConnectionError(f"Status code {response.status_code}")
@@ -622,6 +639,7 @@ class RetryExecutor:
                     delay,
                     latency,
                     status_code=response.status_code,
+                    failover_round=failover_round,
                 )
                 self._record_proxy_success(proxy)
 
@@ -640,6 +658,7 @@ class RetryExecutor:
                     delay,
                     latency,
                     error_message=str(e),
+                    failover_round=failover_round,
                 )
                 self._record_proxy_failure(proxy)
                 last_exception = e
@@ -658,6 +677,7 @@ class RetryExecutor:
                         delay,
                         latency,
                         error_message=str(e),
+                        failover_round=failover_round,
                     )
                     self._record_proxy_failure(proxy)
                     last_exception = e
@@ -672,6 +692,7 @@ class RetryExecutor:
                         delay,
                         latency,
                         error_message=str(e),
+                        failover_round=failover_round,
                     )
                     raise NonRetryableError(str(e)) from e
 
@@ -696,6 +717,8 @@ class RetryExecutor:
         request_id: str,
         attempt: int,
         delay: float,
+        *,
+        failover_round: int = 0,
     ) -> httpx.Response:
         """Execute a single request attempt without retry."""
         attempt_start = time.time()
@@ -711,6 +734,7 @@ class RetryExecutor:
                 delay,
                 latency,
                 status_code=response.status_code,
+                failover_round=failover_round,
             )
             self._record_proxy_success(proxy)
             return response
@@ -725,6 +749,7 @@ class RetryExecutor:
                 delay,
                 latency,
                 error_message=str(e),
+                failover_round=failover_round,
             )
             self._record_proxy_failure(proxy)
             raise
@@ -736,6 +761,8 @@ class RetryExecutor:
         request_id: str,
         attempt: int,
         delay: float,
+        *,
+        failover_round: int = 0,
     ) -> httpx.Response:
         """Execute a single async request attempt without retry."""
         attempt_start = time.time()
@@ -751,6 +778,7 @@ class RetryExecutor:
                 delay,
                 latency,
                 status_code=response.status_code,
+                failover_round=failover_round,
             )
             self._record_proxy_success(proxy)
             return response
@@ -765,6 +793,7 @@ class RetryExecutor:
                 delay,
                 latency,
                 error_message=str(e),
+                failover_round=failover_round,
             )
             self._record_proxy_failure(proxy)
             raise
@@ -796,6 +825,7 @@ class RetryExecutor:
         latency: float,
         status_code: int | None = None,
         error_message: str | None = None,
+        failover_round: int = 0,
     ) -> None:
         """Record a retry attempt in metrics."""
         attempt = RetryAttempt(
@@ -808,6 +838,7 @@ class RetryExecutor:
             delay_before=delay_before,
             latency=latency,
             error_message=error_message,
+            failover_round=failover_round,
         )
         self.retry_metrics.record_attempt(attempt)
 

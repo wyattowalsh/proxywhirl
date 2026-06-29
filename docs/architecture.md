@@ -18,7 +18,7 @@ ProxyWhirl is a sophisticated Python proxy rotation library designed for high-pe
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         User Layer                              │
-│  (ProxyWhirl, AsyncProxyWhirl, CLI, TUI, API, MCP Server)     │
+│  (ProxyWhirl, AsyncProxyWhirl, CLI, API, MCP Server)          │
 └────────────────────┬────────────────────────────────────────────┘
                      │
 ┌────────────────────▼────────────────────────────────────────────┐
@@ -541,7 +541,7 @@ class MetricsCollector:
     - circuit_breaker_state_changes
 ```
 
-### Health Dashboard (TUI)
+### Health Dashboard
 
 ```
 ┌─ ProxyWhirl Status ──────────────────┐
@@ -594,7 +594,6 @@ proxywhirl pool stats                # Show pool metrics
 ├── health/           → HealthMonitor
 ├── api/              → FastAPI routes
 ├── cli.py            → Typer CLI
-├── tui.py            → Textual dashboard
 ├── browser.py        → Playwright rendering
 └── utils.py          → Helper functions
 ```

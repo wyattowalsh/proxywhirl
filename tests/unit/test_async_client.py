@@ -9,8 +9,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from pydantic import SecretStr
 
-from proxywhirl.exceptions import ProxyPoolEmptyError
+from proxywhirl.exceptions import ProxyConnectionError, ProxyPoolEmptyError
 from proxywhirl.models import HealthStatus, Proxy
+from proxywhirl.orchestration import OrchestrationResult
 from proxywhirl.retry import RetryPolicy
 from proxywhirl.rotator import AsyncProxyWhirl
 from proxywhirl.settings import ProxyConfiguration
@@ -20,6 +21,16 @@ from proxywhirl.strategies import (
     RoundRobinStrategy,
     WeightedStrategy,
 )
+
+
+def _orchestration_result(
+    response: MagicMock, proxy: Proxy, response_time_ms: float = 1.0
+) -> OrchestrationResult:
+    return OrchestrationResult(
+        response=response,
+        proxy=proxy,
+        response_time_ms=response_time_ms,
+    )
 
 
 class TestAsyncProxyWhirlInit:
@@ -461,9 +472,9 @@ class TestAsyncProxyWhirlHttpMethods:
         mock_response.status_code = 200
 
         with patch.object(
-            rotator, "_execute_async_with_retry", new_callable=AsyncMock
+            rotator.orchestrator, "execute_async", new_callable=AsyncMock
         ) as mock_execute:
-            mock_execute.return_value = mock_response
+            mock_execute.return_value = _orchestration_result(mock_response, proxy)
 
             result = await rotator._make_request("GET", "https://example.com")
 
@@ -472,17 +483,15 @@ class TestAsyncProxyWhirlHttpMethods:
 
     async def test_make_request_failure_raises_connection_error(self) -> None:
         """Test _make_request raises ProxyConnectionError on failure."""
-        from proxywhirl.exceptions import ProxyConnectionError
-
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
         rotator = AsyncProxyWhirl(proxies=[proxy])
 
         with patch.object(
-            rotator, "_execute_async_with_retry", new_callable=AsyncMock
+            rotator.orchestrator, "execute_async", new_callable=AsyncMock
         ) as mock_execute:
-            mock_execute.side_effect = ConnectionError("Connection failed")
+            mock_execute.side_effect = ProxyConnectionError("Connection failed")
 
-            with pytest.raises(ProxyConnectionError, match="Request failed"):
+            with pytest.raises(ProxyConnectionError, match="Connection failed"):
                 await rotator._make_request("GET", "https://example.com")
 
     async def test_get_method(self) -> None:
@@ -828,27 +837,23 @@ class TestAsyncProxyWhirlHttpMethodsProxyRotation:
     """Test HTTP methods with proxy rotation."""
 
     async def test_get_rotates_proxies_on_failure(self) -> None:
-        """Test GET request rotates to next proxy on failure."""
-        from proxywhirl.exceptions import ProxyConnectionError
-
+        """Test GET request surfaces orchestration failures then succeeds on retry."""
         proxy1 = Proxy(url="http://192.168.1.1:8080", allow_local=True)
         proxy2 = Proxy(url="http://192.168.1.2:8080", allow_local=True)
         rotator = AsyncProxyWhirl(proxies=[proxy1, proxy2])
 
-        # First call fails, triggering rotation
+        mock_response = MagicMock(status_code=200)
         with patch.object(
-            rotator, "_execute_async_with_retry", new_callable=AsyncMock
+            rotator.orchestrator, "execute_async", new_callable=AsyncMock
         ) as mock_execute:
             mock_execute.side_effect = [
-                ConnectionError("First proxy failed"),
-                MagicMock(status_code=200),
+                ProxyConnectionError("First proxy failed"),
+                _orchestration_result(mock_response, proxy2),
             ]
 
-            # First request should fail
             with pytest.raises(ProxyConnectionError):
                 await rotator.get("https://example.com")
 
-            # Second request should succeed with rotated proxy
             result = await rotator.get("https://example.com")
             assert result.status_code == 200
 
@@ -863,9 +868,9 @@ class TestAsyncProxyWhirlHttpMethodsProxyRotation:
         mock_response.status_code = 200
 
         with patch.object(
-            rotator, "_execute_async_with_retry", new_callable=AsyncMock
+            rotator.orchestrator, "execute_async", new_callable=AsyncMock
         ) as mock_execute:
-            mock_execute.return_value = mock_response
+            mock_execute.return_value = _orchestration_result(mock_response, proxy1)
 
             # Make multiple requests - should rotate through proxies
             await rotator.post("https://example.com", json={"attempt": 1})
@@ -889,9 +894,9 @@ class TestAsyncProxyWhirlHttpMethodsResponseHandling:
         mock_response.json.return_value = {"ok": True}
 
         with patch.object(
-            rotator, "_execute_async_with_retry", new_callable=AsyncMock
+            rotator.orchestrator, "execute_async", new_callable=AsyncMock
         ) as mock_execute:
-            mock_execute.return_value = mock_response
+            mock_execute.return_value = _orchestration_result(mock_response, proxy)
 
             result = await rotator.get("https://api.example.com/data")
 
@@ -908,9 +913,9 @@ class TestAsyncProxyWhirlHttpMethodsResponseHandling:
         mock_response.headers = {"Location": "https://api.example.com/resource/123"}
 
         with patch.object(
-            rotator, "_execute_async_with_retry", new_callable=AsyncMock
+            rotator.orchestrator, "execute_async", new_callable=AsyncMock
         ) as mock_execute:
-            mock_execute.return_value = mock_response
+            mock_execute.return_value = _orchestration_result(mock_response, proxy)
 
             result = await rotator.post("https://api.example.com/create", json={"name": "test"})
 
@@ -926,9 +931,9 @@ class TestAsyncProxyWhirlHttpMethodsResponseHandling:
         mock_response.status_code = 204
 
         with patch.object(
-            rotator, "_execute_async_with_retry", new_callable=AsyncMock
+            rotator.orchestrator, "execute_async", new_callable=AsyncMock
         ) as mock_execute:
-            mock_execute.return_value = mock_response
+            mock_execute.return_value = _orchestration_result(mock_response, proxy)
 
             result = await rotator.delete("https://api.example.com/resource/123")
 
@@ -943,16 +948,16 @@ class TestAsyncProxyWhirlHttpMethodsResponseHandling:
         mock_response.status_code = 404
 
         with patch.object(
-            rotator, "_execute_async_with_retry", new_callable=AsyncMock
+            rotator.orchestrator, "execute_async", new_callable=AsyncMock
         ) as mock_execute:
-            mock_execute.return_value = mock_response
+            mock_execute.return_value = _orchestration_result(mock_response, proxy)
 
             result = await rotator.get("https://api.example.com/nonexistent")
 
             assert result.status_code == 404
 
-    async def test_execute_async_with_retry_success(self) -> None:
-        """Test _execute_async_with_retry with successful request."""
+    async def test_retry_executor_success(self) -> None:
+        """Test retry executor async path with successful request."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
         rotator = AsyncProxyWhirl(proxies=[proxy])
 
@@ -961,14 +966,14 @@ class TestAsyncProxyWhirlHttpMethodsResponseHandling:
         async def mock_request_fn():
             return mock_response
 
-        result = await rotator._execute_async_with_retry(
+        result = await rotator.retry_executor.execute_with_retry_async(
             mock_request_fn, proxy, "GET", "https://example.com"
         )
 
         assert result is mock_response
 
-    async def test_execute_async_with_retry_records_success(self) -> None:
-        """Test _execute_async_with_retry records success in circuit breaker."""
+    async def test_retry_executor_records_success(self) -> None:
+        """Test retry executor records success in circuit breaker."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
         rotator = AsyncProxyWhirl(proxies=[proxy])
 
@@ -978,20 +983,20 @@ class TestAsyncProxyWhirlHttpMethodsResponseHandling:
             return mock_response
 
         cb = rotator.circuit_breakers[str(proxy.id)]
-        # Circuit breaker should remain closed after success
         from proxywhirl.circuit_breaker import CircuitBreakerState
 
         assert cb.state == CircuitBreakerState.CLOSED
 
-        await rotator._execute_async_with_retry(
+        await rotator.retry_executor.execute_with_retry_async(
             mock_request_fn, proxy, "GET", "https://example.com"
         )
 
-        # Still closed after success
         assert cb.state == CircuitBreakerState.CLOSED
 
-    async def test_execute_async_with_retry_retries_on_failure(self) -> None:
-        """Test _execute_async_with_retry retries on failure."""
+    async def test_retry_executor_retries_on_failure(self) -> None:
+        """Test retry executor retries on retryable failures."""
+        import httpx
+
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
         policy = RetryPolicy(max_attempts=3, base_delay=0.01)
         rotator = AsyncProxyWhirl(proxies=[proxy], retry_policy=policy)
@@ -1003,46 +1008,28 @@ class TestAsyncProxyWhirlHttpMethodsResponseHandling:
             nonlocal call_count
             call_count += 1
             if call_count < 3:
-                raise ConnectionError("Connection failed")
+                raise httpx.ConnectError("Connection failed")
             return mock_response
 
-        result = await rotator._execute_async_with_retry(
+        result = await rotator.retry_executor.execute_with_retry_async(
             mock_request_fn, proxy, "GET", "https://example.com"
         )
 
         assert result is mock_response
         assert call_count == 3
 
-    async def test_execute_async_with_retry_circuit_breaker_open_raises(self) -> None:
-        """Test _execute_async_with_retry raises when circuit breaker is open."""
-        proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
-        rotator = AsyncProxyWhirl(proxies=[proxy])
+    async def test_retry_executor_exhausts_retries(self) -> None:
+        """Test retry executor raises after exhausting retries."""
+        import httpx
 
-        # Open the circuit breaker
-        cb = rotator.circuit_breakers[str(proxy.id)]
-        for _ in range(10):
-            cb.record_failure()
-
-        async def mock_request_fn():
-            return MagicMock()
-
-        from proxywhirl.exceptions import ProxyConnectionError
-
-        with pytest.raises(ProxyConnectionError, match="Circuit breaker is open"):
-            await rotator._execute_async_with_retry(
-                mock_request_fn, proxy, "GET", "https://example.com"
-            )
-
-    async def test_execute_async_with_retry_exhausts_retries(self) -> None:
-        """Test _execute_async_with_retry raises after exhausting retries."""
         proxy = Proxy(url="http://192.168.1.1:8080", allow_local=True)
         policy = RetryPolicy(max_attempts=2, base_delay=0.01)
         rotator = AsyncProxyWhirl(proxies=[proxy], retry_policy=policy)
 
         async def mock_request_fn():
-            raise ConnectionError("Connection failed")
+            raise httpx.ConnectError("Connection failed")
 
-        with pytest.raises(ConnectionError, match="Connection failed"):
-            await rotator._execute_async_with_retry(
+        with pytest.raises(ProxyConnectionError, match="failed after 2 attempts"):
+            await rotator.retry_executor.execute_with_retry_async(
                 mock_request_fn, proxy, "GET", "https://example.com"
             )

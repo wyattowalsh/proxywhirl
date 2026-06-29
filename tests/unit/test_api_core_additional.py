@@ -136,10 +136,15 @@ async def test_lifespan_initializes_and_saves(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("PROXYWHIRL_STORAGE_PATH", str(db_path))
     monkeypatch.setenv("PROXYWHIRL_CORS_ORIGINS", "http://example.com, ,")
 
-    proxy = Proxy(url="http://proxy.example.com:8080")
+    proxy_row = {
+        "url": "http://proxy.example.com:8080",
+        "protocol": "http",
+        "host": "proxy.example.com",
+        "port": 8080,
+    }
     with patch.object(api_core.SQLiteStorage, "initialize", AsyncMock()) as initialize_mock:
         with patch.object(
-            api_core.SQLiteStorage, "load", AsyncMock(return_value=[proxy])
+            api_core.SQLiteStorage, "load", AsyncMock(return_value=[proxy_row])
         ) as load_mock:
             with patch.object(api_core.SQLiteStorage, "save", AsyncMock()) as save_mock:
                 async with api_core.lifespan(app):
@@ -222,8 +227,7 @@ def test_update_prometheus_metrics_handles_exception() -> None:
 def _mock_rotator_with_proxy() -> MagicMock:
     rotator = MagicMock()
     rotator.pool = MagicMock()
-    rotator.strategy = MagicMock()
-    rotator.strategy.select.return_value = Proxy(url="http://proxy.example.com:8080")
+    rotator.last_used_proxy = Proxy(url="http://proxy.example.com:8080")
     return rotator
 
 
@@ -233,7 +237,7 @@ def test_request_endpoint_success(client: TestClient) -> None:
     response = httpx.Response(200, text="ok", headers={"X-Test": "1"})
 
     with patch("proxywhirl.api.runtime._rotator", rotator):
-        with patch("httpx.AsyncClient.request", AsyncMock(return_value=response)):
+        with patch.object(rotator, "_make_request", return_value=response):
             result = client.post(
                 "/api/request",
                 json={"url": "https://example.com", "method": "GET"},
@@ -246,27 +250,36 @@ def test_request_endpoint_success(client: TestClient) -> None:
 
 
 def test_request_endpoint_no_proxies(client: TestClient) -> None:
-    """No proxies should return 500 due to catch-all handler."""
+    """No proxies should return 503."""
+    from proxywhirl.exceptions import ProxyPoolEmptyError
+
     rotator = _mock_rotator_with_proxy()
-    rotator.strategy.select.return_value = None
 
     with patch("proxywhirl.api.runtime._rotator", rotator):
-        result = client.post(
-            "/api/request",
-            json={"url": "https://example.com", "method": "GET"},
-        )
+        with patch.object(
+            rotator,
+            "_make_request",
+            side_effect=ProxyPoolEmptyError("empty"),
+        ):
+            result = client.post(
+                "/api/request",
+                json={"url": "https://example.com", "method": "GET"},
+            )
 
-    assert result.status_code == 500
+    assert result.status_code == 503
 
 
 def test_request_endpoint_proxy_error_retries(client: TestClient) -> None:
-    """Proxy errors should retry and eventually return 502."""
+    """Proxy errors should return 502 after rotator exhaustion."""
+    from proxywhirl.exceptions import ProxyConnectionError
+
     rotator = _mock_rotator_with_proxy()
 
     with patch("proxywhirl.api.runtime._rotator", rotator):
-        with patch(
-            "httpx.AsyncClient.request",
-            AsyncMock(side_effect=httpx.ProxyError("boom")),
+        with patch.object(
+            rotator,
+            "_make_request",
+            side_effect=ProxyConnectionError("boom"),
         ):
             result = client.post(
                 "/api/request",
@@ -281,10 +294,7 @@ def test_request_endpoint_unexpected_error(client: TestClient) -> None:
     rotator = _mock_rotator_with_proxy()
 
     with patch("proxywhirl.api.runtime._rotator", rotator):
-        with patch(
-            "httpx.AsyncClient.request",
-            AsyncMock(side_effect=RuntimeError("boom")),
-        ):
+        with patch.object(rotator, "_make_request", side_effect=RuntimeError("boom")):
             result = client.post(
                 "/api/request",
                 json={"url": "https://example.com", "method": "GET"},

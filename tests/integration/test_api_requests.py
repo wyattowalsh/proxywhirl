@@ -212,3 +212,26 @@ async def test_proxy_failover_with_dead_proxy(api_client: AsyncClient):
 
     # Cleanup
     api_runtime.set_rotator(None)
+
+
+@respx.mock
+async def test_proxied_request_uses_rotator_path(api_client: AsyncClient, setup_test_proxies):
+    """Verify /api/request delegates to rotator._make_request (not raw httpx loop)."""
+    from unittest.mock import patch
+
+    rotator = api_runtime.get_current_rotator()
+    assert rotator is not None
+
+    respx.get("https://httpbin.org/get").mock(
+        return_value=Response(200, json={"url": "https://httpbin.org/get"})
+    )
+
+    with patch.object(rotator, "_make_request", wraps=rotator._make_request) as mock_make:
+        response = await api_client.post(
+            "/api/request",
+            json={"url": "https://httpbin.org/get", "method": "GET", "timeout": 30},
+        )
+
+    assert response.status_code == 200
+    mock_make.assert_called_once()
+    assert rotator.last_used_proxy is not None

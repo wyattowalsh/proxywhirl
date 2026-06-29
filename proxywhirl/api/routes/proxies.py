@@ -13,6 +13,7 @@ import hashlib
 import time
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
+from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -47,7 +48,7 @@ from proxywhirl.api.runtime import (
     validate_proxied_request_url,
     verify_api_key,
 )
-from proxywhirl.exceptions import ProxyWhirlError
+from proxywhirl.exceptions import ProxyConnectionError, ProxyPoolEmptyError, ProxyWhirlError
 from proxywhirl.models import HealthStatus, Proxy
 from proxywhirl.rotator import ProxyWhirl
 from proxywhirl.utils import public_proxy_url
@@ -152,72 +153,58 @@ async def make_proxied_request(
         HTTPException: For various error conditions including SSRF protection
     """
     start_time = time.time()
-    max_retries = 3
+    record_rotation()
 
-    for attempt in range(max_retries):
-        try:
-            # Get next proxy from rotator using strategy
-            proxy = rotator.strategy.select(rotator.pool)
-            if not proxy:
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="No proxies available in the pool",
-                )
+    request_kwargs: dict[str, Any] = {
+        "headers": request_data.headers,
+        "timeout": request_data.timeout,
+    }
+    if request_data.body:
+        request_kwargs["content"] = request_data.body.encode()
 
-            # Track last rotation time
-            record_rotation()
+    try:
+        response = await asyncio.to_thread(
+            rotator._make_request,
+            request_data.method.upper(),
+            str(request_data.url),
+            **request_kwargs,
+        )
+    except ProxyPoolEmptyError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No proxies available in the pool",
+        ) from e
+    except ProxyConnectionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="All proxy attempts failed",
+        ) from e
+    except ProxyWhirlError as e:
+        logger.error(f"ProxyWhirl error in proxied request: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Proxy service temporarily unavailable",
+        ) from e
+    except Exception as e:
+        logger.error(f"Unexpected error in proxied request: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred",
+        ) from e
 
-            # Build proxy URL for httpx
-            proxy_url = str(proxy.url)
+    elapsed_ms = int((time.time() - start_time) * 1000)
+    proxy_used = ""
+    if rotator.last_used_proxy is not None:
+        proxy_used = public_proxy_url(str(rotator.last_used_proxy.url))
 
-            # Make the HTTP request through the proxy
-            async with httpx.AsyncClient(proxy=proxy_url) as client:
-                response = await client.request(
-                    method=request_data.method,
-                    url=str(request_data.url),
-                    headers=request_data.headers,
-                    content=request_data.body.encode() if request_data.body else None,
-                    timeout=request_data.timeout,
-                )
-
-            elapsed_ms = int((time.time() - start_time) * 1000)
-
-            # Build successful response
-            response_data = ProxiedResponse(
-                status_code=response.status_code,
-                headers=dict(response.headers),
-                body=response.text,
-                proxy_used=public_proxy_url(proxy_url),
-                elapsed_ms=elapsed_ms,
-            )
-
-            return APIResponse.success(data=response_data)
-
-        except (httpx.ProxyError, httpx.ConnectError, httpx.TimeoutException) as e:
-            # Proxy-related error, try next proxy
-            logger.warning(f"Proxy attempt {attempt + 1} failed: {e}")
-            continue
-
-        except ProxyWhirlError as e:
-            # Handle ProxyWhirl-specific errors
-            logger.error(f"ProxyWhirl error in proxied request: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Proxy service temporarily unavailable",
-            ) from e
-
-        except Exception as e:
-            logger.error(f"Unexpected error in proxied request: {e}", exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="An unexpected error occurred",
-            ) from e
-
-    # All retries exhausted
-    raise HTTPException(
-        status_code=status.HTTP_502_BAD_GATEWAY,
-        detail=f"All {max_retries} proxy attempts failed",
+    response_data = ProxiedResponse(
+        status_code=response.status_code,
+        headers=dict(response.headers),
+        body=response.text,
+        proxy_used=proxy_used,
+        elapsed_ms=elapsed_ms,
     )
+    return APIResponse.success(data=response_data)
 
 
 @router.get(

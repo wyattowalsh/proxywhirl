@@ -150,7 +150,7 @@ def mask_proxy_url(url: str) -> str:
 
 
 def public_proxy_url(url: str) -> str:
-    """Return a proxy URL safe for public API, CLI, TUI, and MCP output.
+    """Return a proxy URL safe for public API, CLI, and MCP output.
 
     Unlike :func:`mask_proxy_url`, this strips userinfo entirely so public
     representations cannot reveal that credentials exist.

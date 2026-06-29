@@ -121,7 +121,6 @@ Initial release.
 - Typer CLI with 9+ commands
 - MCP server for AI assistant integration
 - SQLite persistence with Fernet encryption
-- Textual TUI dashboard
 - Playwright-based `BrowserRenderer` for JS-rendered sources
 - TOML configuration with environment variable overrides
 - `ProxyWhirlError` exception hierarchy with error codes and URL redaction

@@ -75,6 +75,16 @@ Covers the choice of SQLite as the primary storage backend with multiple storage
 - Git-tracked analytics database
 - DELETE journal mode for git compatibility
 
+### [ADR-005: Schema Migration Strategy](005-migrations.md)
+**Status**: Accepted
+
+Forward-only migration approach, dual read paths via `dict_to_proxy()`, and git-friendly analytics DB conventions.
+
+### [ADR-006: Cross-Proxy Failover Orchestration](006-failover.md)
+**Status**: Accepted
+
+Opt-in outer failover loop (`FailoverPolicy.enabled=False` by default) coordinating with inner `RetryExecutor`, shared by sync/async rotators and the REST API.
+
 ## Usage Guidelines
 
 ### When to Create an ADR

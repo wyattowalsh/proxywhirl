@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from collections import OrderedDict
+from collections.abc import Awaitable, Callable
 from typing import Any
 from urllib.parse import quote
 
@@ -21,7 +22,8 @@ from proxywhirl.exceptions import (
 )
 from proxywhirl.logging_config import configure_logging
 from proxywhirl.models import BootstrapConfig, Proxy, ProxyPool
-from proxywhirl.retry import RetryExecutor, RetryMetrics, RetryPolicy
+from proxywhirl.orchestration import FailoverPolicy, RequestOrchestration
+from proxywhirl.retry import NonRetryableError, RetryExecutor, RetryMetrics, RetryPolicy
 from proxywhirl.rotator._bootstrap import bootstrap_pool_if_empty_async
 from proxywhirl.rotator.base import ProxyRotatorBase
 from proxywhirl.settings import ProxyConfiguration
@@ -187,6 +189,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         strategy: RotationStrategy | str | None = None,
         config: ProxyConfiguration | None = None,
         retry_policy: RetryPolicy | None = None,
+        failover_policy: FailoverPolicy | None = None,
         bootstrap: BootstrapConfig | bool | None = None,
     ) -> None:
         """
@@ -200,6 +203,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
                 ``geo-targeted``, ``cost-aware``. Defaults to RoundRobinStrategy.
             config: Configuration settings (default: ProxyConfiguration())
             retry_policy: Retry policy configuration (default: RetryPolicy())
+            failover_policy: Cross-proxy failover policy (default: disabled for legacy behavior)
             bootstrap: Bootstrap configuration for lazy proxy fetching.
                       False disables auto-bootstrap (for manual proxy management).
                       True or None uses default BootstrapConfig.
@@ -228,6 +232,17 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         self.retry_metrics = RetryMetrics()
         self.retry_executor = RetryExecutor(
             self.retry_policy, self.circuit_breakers, self.retry_metrics
+        )
+        self.failover_policy = failover_policy or FailoverPolicy.from_env()
+        self._last_used_proxy: Proxy | None = None
+        self.orchestrator = RequestOrchestration(
+            failover_policy=self.failover_policy,
+            retry_executor=self.retry_executor,
+            strategy=self.strategy,
+            pool=self.pool,
+            circuit_breakers=self.circuit_breakers,
+            select_proxy=self._select_proxy_with_circuit_breaker,
+            get_all_proxies=self.pool.get_all_proxies,
         )
 
         # Initialize circuit breakers for existing proxies (all start CLOSED per FR-021)
@@ -690,6 +705,11 @@ class AsyncProxyWhirl(ProxyRotatorBase):
             "https://": url,
         }
 
+    @property
+    def last_used_proxy(self) -> Proxy | None:
+        """Return the proxy used for the most recent successful request."""
+        return self._last_used_proxy
+
     async def _make_request(
         self,
         method: str,
@@ -716,160 +736,95 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         if self.pool.size == 0:
             await self._ensure_request_bootstrap()
 
-        # Select proxy with circuit breaker filtering
-        try:
-            proxy = self._select_proxy_with_circuit_breaker()
-        except ProxyPoolEmptyError:
-            logger.error("No healthy proxies available or all circuit breakers open")
-            raise
+        active_proxy: Proxy | None = None
 
-        proxy_dict = self._get_proxy_dict(proxy)
+        def on_proxy_selected(proxy: Proxy) -> None:
+            nonlocal active_proxy
+            active_proxy = proxy
 
-        masked_url = mask_proxy_url(str(proxy.url))
-        logger.info(
-            f"Making {method} request to {url}", proxy_id=str(proxy.id), proxy_url=masked_url
-        )
-
-        # Get or create pooled client for this proxy
-        client = await self._get_or_create_client(proxy, proxy_dict)
-
-        # Define async request function for retry executor
-        async def request_fn() -> httpx.Response:
-            # Use pooled client (no context manager - client is reused)
-            response = await client.request(method, url, **kwargs)
-
-            # Check for authentication errors (401 Unauthorized, 407 Proxy Auth Required)
-            if response.status_code in (401, 407):
-                logger.error(
-                    f"Proxy authentication failed: {masked_url}",
-                    proxy_id=str(proxy.id),
-                    status_code=response.status_code,
-                )
-                auth_message = (
-                    "authentication required"
-                    if response.status_code == 407
-                    else "authentication failed"
-                )
-                raise ProxyAuthenticationError(
-                    f"Proxy {auth_message} ({response.status_code}) for {masked_url}. "
-                    "Please provide valid credentials (username and password)."
-                )
-
-            return response
-
-        # Execute with retry - note that retry_executor.execute_with_retry is sync
-        # We'll need to handle the async nature here
-        try:
-            # Since the retry executor is sync, we need to adapt it for async
-            # For now, we'll call the async request_fn directly with basic retry logic
-            response = await self._execute_async_with_retry(
-                request_fn, proxy, method, url, retry_policy
-            )
-
-            # Record success in strategy
-            self.strategy.record_result(proxy, success=True, response_time_ms=0.0)
-
+        def request_fn_factory(
+            proxy: Proxy,
+        ) -> Callable[[], Awaitable[httpx.Response]]:
+            proxy_dict = self._get_proxy_dict(proxy)
+            masked_url = mask_proxy_url(str(proxy.url))
             logger.info(
-                f"Request successful: {method} {url}",
+                f"Making {method} request to {url}",
                 proxy_id=str(proxy.id),
-                status_code=response.status_code,
+                proxy_url=masked_url,
             )
 
-            return response
+            async def request_fn() -> httpx.Response:
+                client = await self._get_or_create_client(proxy, proxy_dict)
+                response = await client.request(method, url, **kwargs)
+                if response.status_code in (401, 407):
+                    logger.error(
+                        f"Proxy authentication failed: {masked_url}",
+                        proxy_id=str(proxy.id),
+                        status_code=response.status_code,
+                    )
+                    auth_message = (
+                        "authentication required"
+                        if response.status_code == 407
+                        else "authentication failed"
+                    )
+                    raise ProxyAuthenticationError(
+                        f"Proxy {auth_message} ({response.status_code}) for {masked_url}. "
+                        "Please provide valid credentials (username and password)."
+                    )
+                return response
 
+            return request_fn
+
+        try:
+            result = await self.orchestrator.execute_async(
+                method=method,
+                url=url,
+                request_fn_factory=request_fn_factory,
+                retry_policy=retry_policy,
+                on_proxy_selected=on_proxy_selected,
+            )
         except ProxyAuthenticationError as e:
-            self.strategy.record_result(proxy, success=False, response_time_ms=0.0)
+            if active_proxy is not None:
+                self.strategy.record_result(active_proxy, success=False, response_time_ms=0.0)
             logger.error(
-                f"Authentication error for proxy {proxy.id}",
-                proxy_id=str(proxy.id),
+                f"Authentication error for proxy {active_proxy.id if active_proxy else 'unknown'}",
+                proxy_id=str(active_proxy.id) if active_proxy else None,
                 error=str(e),
             )
-            # Re-raise auth errors without wrapping
             raise
-        except Exception as e:
-            # Record failure in strategy
-            self.strategy.record_result(proxy, success=False, response_time_ms=0.0)
-
+        except NonRetryableError as e:
+            if active_proxy is not None:
+                self.strategy.record_result(active_proxy, success=False, response_time_ms=0.0)
+            if isinstance(e.__cause__, ProxyAuthenticationError):
+                raise e.__cause__
+            raise ProxyConnectionError(f"Request failed: {e}") from e
+        except ProxyConnectionError as e:
+            if active_proxy is not None:
+                self.strategy.record_result(active_proxy, success=False, response_time_ms=0.0)
             logger.warning(
                 f"Request failed after retries: {method} {url}",
-                proxy_id=str(proxy.id),
+                proxy_id=str(active_proxy.id) if active_proxy else None,
                 error=str(e),
             )
-
+            raise
+        except Exception as e:
+            if active_proxy is not None:
+                self.strategy.record_result(active_proxy, success=False, response_time_ms=0.0)
             raise ProxyConnectionError(f"Request failed: {e}") from e
 
-    async def _execute_async_with_retry(
-        self,
-        request_fn: Any,
-        proxy: Proxy,
-        method: str,
-        url: str,
-        retry_policy: RetryPolicy | None = None,
-    ) -> httpx.Response:
-        """
-        Execute async request with retry logic (ASYNCHRONOUS).
-
-        This is the async counterpart to RetryExecutor.execute_with_retry.
-        It uses asyncio.sleep for non-blocking delays instead of time.sleep.
-
-        Args:
-            request_fn: Async function to execute
-            proxy: Proxy being used
-            method: HTTP method
-            url: Target URL
-            retry_policy: Optional retry policy override
-
-        Returns:
-            HTTP response
-
-        Raises:
-            Exception: If all retry attempts fail
-        """
-        policy = retry_policy or self.retry_policy
-        circuit_breaker = self.circuit_breakers.get(str(proxy.id))
-
-        if circuit_breaker and not circuit_breaker.should_attempt_request():
-            raise ProxyConnectionError("Circuit breaker is open for this proxy")
-
-        last_exception = None
-        previous_delay: float | None = None  # Track for decorrelated jitter
-        for attempt in range(policy.max_attempts):
-            try:
-                response = await request_fn()
-
-                # Record success in circuit breaker
-                if circuit_breaker:
-                    circuit_breaker.record_success()
-
-                return response
-            except ProxyAuthenticationError:
-                # Authentication errors are non-retryable.
-                if circuit_breaker:
-                    circuit_breaker.record_failure()
-                raise
-            except Exception as e:
-                last_exception = e
-
-                # Record failure in circuit breaker
-                if circuit_breaker:
-                    circuit_breaker.record_failure()
-
-                # Check if we should retry
-                if attempt < policy.max_attempts - 1:
-                    # Calculate backoff delay using decorrelated jitter
-                    delay = policy.calculate_delay(attempt, previous_delay=previous_delay)
-                    logger.debug(
-                        f"Retry attempt {attempt + 1}/{policy.max_attempts} after {delay}s",
-                        proxy_id=str(proxy.id),
-                    )
-                    # ASYNC sleep - non-blocking delay for event loop
-                    await asyncio.sleep(delay)
-                    previous_delay = delay  # Track for decorrelated jitter
-                else:
-                    break
-
-        # All retries exhausted
-        raise last_exception if last_exception else ProxyConnectionError("Request failed")
+        self.strategy.record_result(
+            result.proxy,
+            success=True,
+            response_time_ms=result.response_time_ms,
+        )
+        logger.info(
+            f"Request successful: {method} {url}",
+            proxy_id=str(result.proxy.id),
+            status_code=result.response.status_code,
+            response_time_ms=result.response_time_ms,
+        )
+        self._last_used_proxy = result.proxy
+        return result.response
 
     async def get(self, url: str, **kwargs: Any) -> httpx.Response:
         """Make async GET request."""

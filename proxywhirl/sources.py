@@ -1246,10 +1246,11 @@ async def fetch_all_sources(
     if test_url:
         validator_kwargs["test_url"] = test_url
 
+    source_list = sources if sources is not None else ALL_SOURCES
+    enabled_sources = [source for source in source_list if source.enabled]
+
     validator = ProxyValidator(**validator_kwargs)
-    fetcher = ProxyFetcher(
-        sources=sources if sources is not None else ALL_SOURCES, validator=validator
-    )
+    fetcher = ProxyFetcher(sources=enabled_sources, validator=validator)
     try:
         return await fetcher.fetch_all(
             validate=validate,

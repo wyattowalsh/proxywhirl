@@ -22,10 +22,127 @@ from sqlmodel import Field, SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from proxywhirl.cache.crypto import CredentialEncryptor
-from proxywhirl.models import Proxy
+from proxywhirl.models import HealthStatus, Proxy, ProxySource
 
 # Prefix for encrypted credentials stored as strings
 _ENCRYPTED_PREFIX = "encrypted:"
+
+# Consecutive failures before a proxy is marked dead (record_validation + batch)
+_CONSECUTIVE_FAILURES_DEAD_THRESHOLD = 3
+
+
+def _decrypt_stored_credential(
+    value: str | None,
+    encryptor: CredentialEncryptor | None = None,
+) -> str | None:
+    """Decrypt a credential value from storage (module-level helper).
+
+    Args:
+        value: Stored credential (encrypted with prefix or plaintext legacy)
+        encryptor: Optional encryptor; lazily initialized when decrypting prefixed values
+
+    Returns:
+        Plaintext credential, or None if input is None or decryption fails.
+    """
+    if value is None:
+        return None
+
+    if not value.startswith(_ENCRYPTED_PREFIX):
+        logger.debug("Found legacy unencrypted credential in storage")
+        return value
+
+    if encryptor is None:
+        try:
+            encryptor = CredentialEncryptor()
+        except Exception as e:
+            logger.error(
+                f"Cannot decrypt credential: encryptor not configured ({e}). "
+                "Set PROXYWHIRL_CACHE_ENCRYPTION_KEY environment variable."
+            )
+            return None
+
+    try:
+        encoded = value[len(_ENCRYPTED_PREFIX) :]
+        encrypted_bytes = base64.b64decode(encoded)
+        decrypted = encryptor.decrypt(encrypted_bytes)
+        return decrypted.get_secret_value() if decrypted else None
+    except Exception as e:
+        logger.error(f"Failed to decrypt credential: {e}")
+        return None
+
+
+def dict_to_proxy(row: dict[str, Any]) -> Proxy:
+    """Convert a storage row dictionary to a :class:`~proxywhirl.models.Proxy`.
+
+    Handles rows with either a full ``url`` or ``host``/``port``/``protocol``,
+    decrypts stored credentials, and maps health/status metadata from SQLite.
+
+    Args:
+        row: Proxy dictionary from :meth:`SQLiteStorage.load` or similar queries.
+
+    Returns:
+        Validated Proxy instance ready for the rotator pool.
+
+    Raises:
+        ValueError: If the row lacks sufficient identity fields.
+    """
+    url = row.get("url")
+    protocol = row.get("protocol") or "http"
+
+    if not url:
+        host = row.get("host")
+        port = row.get("port")
+        if not host or port is None:
+            raise ValueError("Row must include 'url' or both 'host' and 'port'")
+        url = f"{protocol}://{host}:{port}"
+
+    username_plain = _decrypt_stored_credential(row.get("username"))
+    password_plain = _decrypt_stored_credential(row.get("password"))
+
+    health_raw = row.get("health_status", HealthStatus.UNKNOWN.value)
+    try:
+        health_status = HealthStatus(health_raw)
+    except ValueError:
+        health_status = HealthStatus.UNKNOWN
+
+    source_raw = row.get("source", ProxySource.FETCHED.value)
+    try:
+        source = ProxySource(source_raw)
+    except ValueError:
+        source = ProxySource.FETCHED
+
+    proxy_kwargs: dict[str, Any] = {
+        "url": url,
+        "protocol": protocol,
+        "health_status": health_status,
+        "source": source,
+    }
+
+    if username_plain is not None:
+        proxy_kwargs["username"] = SecretStr(username_plain)
+    if password_plain is not None:
+        proxy_kwargs["password"] = SecretStr(password_plain)
+
+    if row.get("country_code") is not None:
+        proxy_kwargs["country_code"] = row["country_code"]
+    if row.get("source_url") is not None:
+        proxy_kwargs["source_url"] = row["source_url"]
+    if row.get("discovered_at") is not None:
+        proxy_kwargs["created_at"] = row["discovered_at"]
+    if row.get("last_success_at") is not None:
+        proxy_kwargs["last_success_at"] = row["last_success_at"]
+    if row.get("last_failure_at") is not None:
+        proxy_kwargs["last_failure_at"] = row["last_failure_at"]
+    if row.get("last_check_at") is not None:
+        proxy_kwargs["last_health_check"] = row["last_check_at"]
+    if row.get("avg_response_time_ms") is not None:
+        proxy_kwargs["average_response_time_ms"] = row["avg_response_time_ms"]
+    if row.get("total_checks") is not None:
+        proxy_kwargs["total_checks"] = row["total_checks"]
+    if row.get("total_successes") is not None:
+        proxy_kwargs["total_successes"] = row["total_successes"]
+
+    return Proxy(**proxy_kwargs)
 
 
 class ProxyIdentityTable(SQLModel, table=True):
@@ -544,32 +661,7 @@ class SQLiteStorage:
             Decrypted plaintext credential, or None if input is None.
             Handles legacy unencrypted values gracefully.
         """
-        if value is None:
-            return None
-
-        # Check if value is encrypted (has prefix)
-        if not value.startswith(_ENCRYPTED_PREFIX):
-            # Legacy plaintext value - return as-is
-            logger.debug("Found legacy unencrypted credential in storage")
-            return value
-
-        if self._encryptor is None:
-            logger.error(
-                "Cannot decrypt credential: encryptor not configured. "
-                "Set PROXYWHIRL_CACHE_ENCRYPTION_KEY environment variable."
-            )
-            return None
-
-        try:
-            # Remove prefix and decode base64
-            encoded = value[len(_ENCRYPTED_PREFIX) :]
-            encrypted_bytes = base64.b64decode(encoded)
-            # Decrypt
-            decrypted = self._encryptor.decrypt(encrypted_bytes)
-            return decrypted.get_secret_value() if decrypted else None
-        except Exception as e:
-            logger.error(f"Failed to decrypt credential: {e}")
-            return None
+        return _decrypt_stored_credential(value, self._encryptor)
 
     async def initialize(self) -> None:
         """Create normalized database tables if they don't exist.
@@ -1001,7 +1093,7 @@ class SQLiteStorage:
                     status.consecutive_failures += 1
                     status.consecutive_successes = 0
 
-                    if status.consecutive_failures >= 3:
+                    if status.consecutive_failures >= _CONSECUTIVE_FAILURES_DEAD_THRESHOLD:
                         status.health_status = "dead"
                     elif status.consecutive_failures >= 1:
                         status.health_status = "unhealthy"
@@ -1066,12 +1158,16 @@ class SQLiteStorage:
                             consecutive_failures = consecutive_failures + 1,
                             consecutive_successes = 0,
                             health_status = CASE
-                                WHEN consecutive_failures >= 2 THEN 'dead'
+                                WHEN consecutive_failures + 1 >= :dead_threshold THEN 'dead'
                                 ELSE 'unhealthy'
                             END,
                             updated_at = :now
                         WHERE proxy_url = :url
-                    """).bindparams(now=now, url=proxy_url)
+                    """).bindparams(
+                        now=now,
+                        url=proxy_url,
+                        dead_threshold=_CONSECUTIVE_FAILURES_DEAD_THRESHOLD,
+                    )
                     )
 
             await session.commit()

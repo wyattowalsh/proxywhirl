@@ -8,7 +8,7 @@ ProxyWhirl is designed with a modular, layered architecture optimized for scalab
 ┌─────────────────────────────────────────────────────────┐
 │                   Application Layer                     │
 │  ┌──────────────────────────────────────────────────┐   │
-│  │  CLI (typer) │ REST API (FastAPI) │ TUI (Textual)│  │
+│  │  CLI (typer) │ REST API (FastAPI) │ MCP Server   │  │
 │  └──────────────────────────────────────────────────┘   │
 └──────────────────┬──────────────────────────────────────┘
                    │

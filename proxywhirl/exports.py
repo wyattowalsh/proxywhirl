@@ -41,6 +41,22 @@ CONTINENT_NAMES = {
     "SA": "South America",
 }
 
+RELIABILITY_TIERS: list[tuple[str, float, float]] = [
+    ("Elite", 95, 100),
+    ("Reliable", 75, 95),
+    ("Moderate", 50, 75),
+    ("Marginal", 0, 50),
+]
+
+
+def _classify_reliability_tier(success_rate: float | None) -> str:
+    """Classify proxy success rate into reliability tier (matches frontend TIERS)."""
+    rate = success_rate if success_rate is not None else 0.0
+    for name, tier_min, tier_max in RELIABILITY_TIERS:
+        if tier_min <= rate <= tier_max:
+            return name
+    return "Marginal"
+
 
 def parse_proxy_url(url: str) -> tuple[str, int]:
     """Parse proxy URL to extract IP and port.
@@ -95,6 +111,28 @@ async def generate_rich_proxies(
     # For source flow (Sankey) data
     source_flow: defaultdict[tuple[str, str, str], int] = defaultdict(int)
 
+    reliability_tiers: Counter[str] = Counter({name: 0 for name, _, _ in RELIABILITY_TIERS})
+    source_metrics: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {
+            "count": 0,
+            "total_checks": 0,
+            "successful_checks": 0,
+            "total_response": 0.0,
+            "response_samples": 0,
+            "countries": set(),
+            "latest_check": None,
+        }
+    )
+    country_detail: dict[str, dict[str, Any]] = defaultdict(
+        lambda: {
+            "count": 0,
+            "total_response": 0.0,
+            "samples": 0,
+            "continent_code": None,
+        }
+    )
+    discovery_by_date: Counter[str] = Counter()
+
     for proxy in proxies_data:
         ip, port = parse_proxy_url(proxy["url"])
         if not ip or not port:
@@ -147,6 +185,43 @@ async def generate_rich_proxies(
         if avg_response is not None and avg_response > 0:
             response_times.append(avg_response)
 
+        success_rate = proxy_dict["success_rate"]
+        reliability_tiers[_classify_reliability_tier(success_rate)] += 1
+
+        source = proxy_dict["source"] or "unknown"
+        sm = source_metrics[source]
+        sm["count"] += 1
+        sm["total_checks"] += total_checks
+        if success_rate is not None and total_checks > 0:
+            sm["successful_checks"] += round((success_rate / 100) * total_checks)
+        if avg_response is not None and avg_response > 0:
+            sm["total_response"] += avg_response
+            sm["response_samples"] += 1
+        country_code = proxy_dict.get("country_code")
+        if country_code:
+            sm["countries"].add(country_code)
+            cd = country_detail[country_code]
+            cd["count"] += 1
+            if avg_response is not None and avg_response > 0:
+                cd["total_response"] += avg_response
+                cd["samples"] += 1
+            continent_code = proxy_dict.get("continent_code")
+            if continent_code:
+                cd["continent_code"] = continent_code
+        if proxy_dict["last_checked"]:
+            check_dt = datetime.fromisoformat(
+                proxy_dict["last_checked"].replace("Z", "+00:00")
+            )
+            if sm["latest_check"] is None or check_dt > sm["latest_check"]:
+                sm["latest_check"] = check_dt
+        if proxy_dict["created_at"]:
+            created_dt = datetime.fromisoformat(
+                proxy_dict["created_at"].replace("Z", "+00:00")
+            )
+            days_ago = (datetime.now(timezone.utc) - created_dt).days
+            if 0 <= days_ago <= 90:
+                discovery_by_date[created_dt.date().isoformat()] += 1
+
     # Add geo data if requested
     if include_geo and proxies:
         ips = [p["ip"] for p in proxies[:geo_sample_size]]
@@ -167,6 +242,11 @@ async def generate_rich_proxies(
             protocol = p.get("protocol", "http")
             country = country_code or "Unknown"
             source_flow[(source, protocol, country)] += 1
+
+            if country_code:
+                cd = country_detail[country_code]
+                if continent_code:
+                    cd["continent_code"] = continent_code
 
     # Build response time distribution
     response_time_distribution = []
@@ -212,6 +292,52 @@ async def generate_rich_proxies(
         for (s, p, c), cnt in sorted(source_flow.items(), key=lambda x: -x[1])[:200]
     ]
 
+    now = datetime.now(timezone.utc)
+    source_metrics_list: list[dict[str, Any]] = []
+    for name, sm in sorted(source_metrics.items(), key=lambda x: -x[1]["count"]):
+        total_checks = sm["total_checks"]
+        reliability_pct = (
+            round(sm["successful_checks"] / total_checks * 100, 1)
+            if total_checks > 0
+            else 50.0
+        )
+        avg_response_ms = (
+            round(sm["total_response"] / sm["response_samples"], 1)
+            if sm["response_samples"] > 0
+            else None
+        )
+        hours_since_check = (
+            (now - sm["latest_check"]).total_seconds() / 3600
+            if sm["latest_check"]
+            else 168.0
+        )
+        freshness_pct = round(max(0.0, 100.0 - (hours_since_check / 168.0) * 100.0), 1)
+        source_metrics_list.append(
+            {
+                "name": name,
+                "count": sm["count"],
+                "reliability_pct": reliability_pct,
+                "avg_response_ms": avg_response_ms,
+                "country_count": len(sm["countries"]),
+                "freshness_pct": freshness_pct,
+            }
+        )
+
+    by_country_detail = [
+        {
+            "code": code,
+            "count": stats["count"],
+            "avg_response_ms": (
+                round(stats["total_response"] / stats["samples"], 1)
+                if stats["samples"] > 0
+                else None
+            ),
+            "continent_code": stats["continent_code"],
+        }
+        for code, stats in sorted(country_detail.items(), key=lambda x: -x[1]["count"])
+        if stats["count"] > 0
+    ]
+
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "total": len(proxies),
@@ -226,6 +352,13 @@ async def generate_rich_proxies(
             "response_time_distribution": response_time_distribution,
             "performance": performance,
             "source_flow": source_flow_list,
+            "reliability_tiers": [
+                {"tier": name, "count": reliability_tiers[name]}
+                for name, _, _ in RELIABILITY_TIERS
+            ],
+            "by_country_detail": by_country_detail,
+            "source_metrics": source_metrics_list,
+            "discovery_by_date": dict(discovery_by_date),
         },
     }
 
@@ -362,9 +495,16 @@ def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
     response_time_distribution = aggregations.get("response_time_distribution", [])
     by_port = aggregations.get("by_port", [])
     source_flow = aggregations.get("source_flow", [])
+    reliability_tiers = aggregations.get("reliability_tiers", [])
+    by_country_detail = aggregations.get("by_country_detail", [])
+    source_metrics = aggregations.get("source_metrics", [])
+    discovery_by_date = aggregations.get("discovery_by_date", {})
+
+    metadata_generated_at = metadata.get("generated_at")
 
     return {
-        "generated_at": metadata.get("generated_at", datetime.now(timezone.utc).isoformat()),
+        "generated_at": metadata_generated_at or datetime.now(timezone.utc).isoformat(),
+        "metadata_generated_at": metadata_generated_at,
         "sources": {
             "total": metadata.get("total_sources", 0),
         },
@@ -386,6 +526,10 @@ def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
             "by_port": by_port,
             "by_continent": continent_agg,
             "source_flow": source_flow,
+            "reliability_tiers": reliability_tiers,
+            "by_country_detail": by_country_detail,
+            "source_metrics": source_metrics,
+            "discovery_by_date": discovery_by_date,
         },
     }
 

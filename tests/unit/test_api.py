@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -103,6 +103,8 @@ def mock_rotator():
     rotator.pool = MagicMock()
     rotator.strategy = MagicMock()
     rotator.strategy.select.return_value = Proxy(url="http://proxy.example.com:8080")
+    rotator.last_used_proxy = Proxy(url="http://proxy.example.com:8080")
+    rotator._make_request.return_value = httpx.Response(200, text="ok")
 
     return rotator
 
@@ -1571,7 +1573,6 @@ class TestAuditLoggingMiddleware:
         with (
             patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}),
             patch("proxywhirl.api.runtime._rotator", mock_rotator),
-            patch("httpx.AsyncClient.request", AsyncMock(return_value=httpx.Response(200))),
             caplog.at_level(logging.INFO),
         ):
             # Make a write operation
@@ -1710,7 +1711,6 @@ class TestAuditLoggingMiddleware:
         with (
             patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}),
             patch("proxywhirl.api.runtime._rotator", mock_rotator),
-            patch("httpx.AsyncClient.request", AsyncMock(return_value=httpx.Response(200))),
             caplog.at_level(logging.INFO),
         ):
             # Clear any existing logs

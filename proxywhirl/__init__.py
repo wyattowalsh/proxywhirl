@@ -61,6 +61,11 @@ from proxywhirl.models import (
     StrategyConfig,
     ValidationLevel,
 )
+from proxywhirl.orchestration import (
+    FailoverPolicy,
+    ProxyRotationContext,
+    RequestOrchestration,
+)
 from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit, RateLimiter, RateLimitEvent
 from proxywhirl.retry import (
     BackoffStrategy,
@@ -91,7 +96,7 @@ from proxywhirl.sources import (
     validate_sources,
     validate_sources_sync,
 )
-from proxywhirl.storage import FileStorage, SQLiteStorage
+from proxywhirl.storage import FileStorage, SQLiteStorage, dict_to_proxy
 from proxywhirl.strategies import (
     CompositeStrategy,
     CostAwareStrategy,
@@ -158,6 +163,7 @@ __all__ = [
     "CostAwareStrategy",
     "DataStorageConfig",
     "EventLoopConflictError",
+    "FailoverPolicy",
     "FileStorage",
     "GeoTargetedStrategy",
     "HTMLTableParser",
@@ -182,6 +188,7 @@ __all__ = [
     "ProxyMetrics",
     "ProxyPool",
     "ProxyPoolEmptyError",
+    "ProxyRotationContext",
     "ProxySource",
     "ProxySourceConfig",
     "ProxySourceUnavailableError",
@@ -200,6 +207,7 @@ __all__ = [
     "RegexComplexityError",
     "RegexTimeoutError",
     "RenderMode",
+    "RequestOrchestration",
     "RequestQueueFullError",
     "RequestResult",
     "RetryExecutor",
@@ -226,6 +234,7 @@ __all__ = [
     "create_proxy_from_url",
     "deduplicate_proxies",
     "decrypt_credentials",
+    "dict_to_proxy",
     "encrypt_credentials",
     "generate_encryption_key",
     "is_valid_proxy_url",

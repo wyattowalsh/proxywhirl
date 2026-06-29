@@ -12,6 +12,7 @@ This module provides:
 
 from __future__ import annotations
 
+import concurrent.futures
 import hashlib
 import ipaddress
 import logging
@@ -118,6 +119,16 @@ def is_ip_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> tuple[bo
     return False, ""
 
 
+def _resolve_hostname_with_timeout(hostname: str, timeout: float = 2.0) -> str:
+    """Resolve a hostname to an IPv4 address without mutating global socket timeouts."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(socket.gethostbyname, hostname)
+        try:
+            return future.result(timeout=timeout)
+        except concurrent.futures.TimeoutError as exc:
+            raise TimeoutError(f"DNS resolution timed out for {hostname}") from exc
+
+
 def validate_proxy_url_safety(url: str) -> tuple[bool, str]:
     """
     Validate that a proxy URL doesn't point to internal/blocked addresses.
@@ -170,12 +181,9 @@ def validate_proxy_url_safety(url: str) -> tuple[bool, str]:
     ):
         return False, f"Metadata service hostname blocked: {parsed.hostname}"
 
-    # Try DNS resolution (with timeout to prevent DoS)
+    # Try DNS resolution (with timeout to prevent DoS; no global socket mutation)
     try:
-        # Set socket timeout for DNS resolution
-        socket.setdefaulttimeout(2.0)
-        ip_str = socket.gethostbyname(parsed.hostname)
-        socket.setdefaulttimeout(None)
+        ip_str = _resolve_hostname_with_timeout(parsed.hostname, timeout=2.0)
 
         ip = ipaddress.ip_address(ip_str)
         blocked, reason = is_ip_blocked(ip)

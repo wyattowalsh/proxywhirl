@@ -24,9 +24,6 @@ uv run python -m proxywhirl.api
 
 # CLI
 uv run proxywhirl --help
-
-# TUI Dashboard
-uv run proxywhirl tui
 ```
 
 ## Docker Deployment

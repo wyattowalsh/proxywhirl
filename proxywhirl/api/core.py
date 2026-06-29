@@ -55,7 +55,7 @@ from proxywhirl.api.runtime import (
 from proxywhirl.exceptions import ProxyWhirlError
 from proxywhirl.rotator import ProxyWhirl
 from proxywhirl.settings import APISettings
-from proxywhirl.storage import SQLiteStorage
+from proxywhirl.storage import SQLiteStorage, dict_to_proxy
 
 __all__ = [
     "_get_proxy_id",
@@ -109,8 +109,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if storage:
         try:
             stored_proxies = await storage.load()
-            for proxy in stored_proxies:
-                rotator.add_proxy(proxy)
+            for row in stored_proxies:
+                rotator.add_proxy(dict_to_proxy(row))
             logger.info(f"Loaded {len(stored_proxies)} proxies from storage")
         except Exception as e:
             logger.warning(f"Failed to load proxies from storage: {e}")
@@ -144,6 +144,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info("Saving proxy pool state...")
         # Use thread-safe snapshot for saving
         await storage.save(rotator.pool.get_all_proxies())
+
+    if storage:
+        await storage.close()
 
     logger.info("ProxyWhirl API shutdown complete")
 
@@ -692,6 +695,10 @@ app.openapi_tags = [
     {
         "name": "Configuration",
         "description": "Runtime configuration management",
+    },
+    {
+        "name": "Retry & Failover",
+        "description": "Retry policies, circuit breakers, and failover metrics",
     },
 ]
 

@@ -1345,8 +1345,9 @@ class ProxyPool(BaseModel):
                 for p in self.proxies
                 if p.health_status not in (HealthStatus.DEAD, HealthStatus.UNHEALTHY)
             ]
-            # Rebuild ID index after bulk removal
+            # Rebuild ID and URL indexes after bulk removal
             object.__setattr__(self, "_id_index", {p.id: p for p in self.proxies if p.id})
+            object.__setattr__(self, "_url_index", {p.url for p in self.proxies})
             self.updated_at = datetime.now(timezone.utc)
             return initial_count - self.size
 
