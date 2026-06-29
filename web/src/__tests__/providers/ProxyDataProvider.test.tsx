@@ -22,6 +22,66 @@ vi.mock("@/lib/proxy-fetch", async (importOriginal) => {
 		fetchJsonWithProgress: (...args: unknown[]) =>
 			mockFetchJsonWithProgress(...args),
 	};
+	it("serves cached rich data from IndexedDB immediately on analytics route", async () => {
+		mockPathname.mockReturnValue("/analytics");
+		mockGetLargeCache.mockResolvedValue(mockRich);
+
+		render(
+			<ProxyDataProvider>
+				<DataProbe />
+			</ProxyDataProvider>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("rich-count")).toHaveTextContent("1");
+			expect(screen.getByTestId("rich-loading")).toHaveTextContent("false");
+		});
+
+		await waitFor(() => {
+			const richCalls = mockFetchJsonWithProgress.mock.calls.filter(([url]) =>
+				String(url).includes("proxies-rich"),
+			);
+			expect(richCalls.length).toBeGreaterThan(0);
+		});
+	});
+
+	it("falls back to legacy session cache for rich data", async () => {
+		mockPathname.mockReturnValue("/analytics");
+		mockGetLargeCache.mockResolvedValue(null);
+		mockGetCache.mockImplementation((key: string) => {
+			if (key === CACHE_KEYS.PROXIES) {
+				return mockRich;
+			}
+			return null;
+		});
+
+		render(
+			<ProxyDataProvider>
+				<DataProbe />
+			</ProxyDataProvider>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("rich-count")).toHaveTextContent("1");
+		});
+	});
+
+	it("surfaces rich fetch errors on analytics route", async () => {
+		mockPathname.mockReturnValue("/analytics");
+		mockFetchJsonWithProgress.mockRejectedValue(new Error("Rich fetch failed"));
+
+		render(
+			<ProxyDataProvider>
+				<DataProbe />
+			</ProxyDataProvider>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("rich-error")).toHaveTextContent("Rich fetch failed");
+			expect(screen.getByTestId("rich-count")).toHaveTextContent("0");
+		});
+	});
+
 });
 
 const mockGetCache = vi.fn();
@@ -38,6 +98,66 @@ vi.mock("@/lib/cache", async (importOriginal) => {
 		getLargeCache: (...args: unknown[]) => mockGetLargeCache(...args),
 		setLargeCache: (...args: unknown[]) => mockSetLargeCache(...args),
 	};
+	it("serves cached rich data from IndexedDB immediately on analytics route", async () => {
+		mockPathname.mockReturnValue("/analytics");
+		mockGetLargeCache.mockResolvedValue(mockRich);
+
+		render(
+			<ProxyDataProvider>
+				<DataProbe />
+			</ProxyDataProvider>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("rich-count")).toHaveTextContent("1");
+			expect(screen.getByTestId("rich-loading")).toHaveTextContent("false");
+		});
+
+		await waitFor(() => {
+			const richCalls = mockFetchJsonWithProgress.mock.calls.filter(([url]) =>
+				String(url).includes("proxies-rich"),
+			);
+			expect(richCalls.length).toBeGreaterThan(0);
+		});
+	});
+
+	it("falls back to legacy session cache for rich data", async () => {
+		mockPathname.mockReturnValue("/analytics");
+		mockGetLargeCache.mockResolvedValue(null);
+		mockGetCache.mockImplementation((key: string) => {
+			if (key === CACHE_KEYS.PROXIES) {
+				return mockRich;
+			}
+			return null;
+		});
+
+		render(
+			<ProxyDataProvider>
+				<DataProbe />
+			</ProxyDataProvider>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("rich-count")).toHaveTextContent("1");
+		});
+	});
+
+	it("surfaces rich fetch errors on analytics route", async () => {
+		mockPathname.mockReturnValue("/analytics");
+		mockFetchJsonWithProgress.mockRejectedValue(new Error("Rich fetch failed"));
+
+		render(
+			<ProxyDataProvider>
+				<DataProbe />
+			</ProxyDataProvider>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("rich-error")).toHaveTextContent("Rich fetch failed");
+			expect(screen.getByTestId("rich-count")).toHaveTextContent("0");
+		});
+	});
+
 });
 
 const mockStats: Stats = {
@@ -91,6 +211,7 @@ function DataProbe() {
 		slimData,
 		slimLoading,
 		richData,
+		richLoading,
 		richError,
 	} = useProxyData();
 
@@ -101,6 +222,7 @@ function DataProbe() {
 			<span data-testid="stats-error">{statsError ?? ""}</span>
 			<span data-testid="slim-loading">{String(slimLoading)}</span>
 			<span data-testid="slim-count">{slimData?.proxies?.length ?? 0}</span>
+			<span data-testid="rich-loading">{String(richLoading)}</span>
 			<span data-testid="rich-count">{richData?.proxies?.length ?? 0}</span>
 			<span data-testid="rich-error">{richError ?? ""}</span>
 		</div>
@@ -218,4 +340,65 @@ describe("ProxyDataProvider", () => {
 			);
 		});
 	});
+
+	it("serves cached rich data from IndexedDB immediately on analytics route", async () => {
+		mockPathname.mockReturnValue("/analytics");
+		mockGetLargeCache.mockResolvedValue(mockRich);
+
+		render(
+			<ProxyDataProvider>
+				<DataProbe />
+			</ProxyDataProvider>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("rich-count")).toHaveTextContent("1");
+			expect(screen.getByTestId("rich-loading")).toHaveTextContent("false");
+		});
+
+		await waitFor(() => {
+			const richCalls = mockFetchJsonWithProgress.mock.calls.filter(([url]) =>
+				String(url).includes("proxies-rich"),
+			);
+			expect(richCalls.length).toBeGreaterThan(0);
+		});
+	});
+
+	it("falls back to legacy session cache for rich data", async () => {
+		mockPathname.mockReturnValue("/analytics");
+		mockGetLargeCache.mockResolvedValue(null);
+		mockGetCache.mockImplementation((key: string) => {
+			if (key === CACHE_KEYS.PROXIES) {
+				return mockRich;
+			}
+			return null;
+		});
+
+		render(
+			<ProxyDataProvider>
+				<DataProbe />
+			</ProxyDataProvider>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("rich-count")).toHaveTextContent("1");
+		});
+	});
+
+	it("surfaces rich fetch errors on analytics route", async () => {
+		mockPathname.mockReturnValue("/analytics");
+		mockFetchJsonWithProgress.mockRejectedValue(new Error("Rich fetch failed"));
+
+		render(
+			<ProxyDataProvider>
+				<DataProbe />
+			</ProxyDataProvider>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByTestId("rich-error")).toHaveTextContent("Rich fetch failed");
+			expect(screen.getByTestId("rich-count")).toHaveTextContent("0");
+		});
+	});
+
 });

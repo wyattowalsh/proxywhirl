@@ -24,3 +24,28 @@ export async function waitForAnalyticsDashboard(page: Page) {
 		timeout: 30_000,
 	});
 }
+
+
+/** Scroll to and wait for a deferred below-fold analytics section. */
+export async function waitForDeferredSection(page: Page, heading: string) {
+	const locator = page.getByRole("heading", { name: heading, level: 2 });
+
+	await expect
+		.poll(
+			async () => {
+				if ((await locator.count()) === 0) {
+					await page.evaluate(() => {
+						const el = document.scrollingElement ?? document.documentElement;
+						el.scrollTop = Math.min(el.scrollTop + 500, el.scrollHeight);
+					});
+					return false;
+				}
+				return locator.first().isVisible();
+			},
+			{ timeout: 30_000 },
+		)
+		.toBe(true);
+
+	await locator.scrollIntoViewIfNeeded();
+	await expect(locator).toBeVisible({ timeout: 10_000 });
+}

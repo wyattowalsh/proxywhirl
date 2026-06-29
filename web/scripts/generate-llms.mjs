@@ -1,10 +1,70 @@
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const webRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+const docsRoot = join(webRoot, "content", "docs");
 const baseUrl = process.env.PROXYWHIRL_SITE_URL ?? "https://www.proxywhirl.com";
 const generatedAt = new Date().toISOString();
+
+function readMeta(metaDir) {
+	const metaPath = join(metaDir, "meta.json");
+	if (!existsSync(metaPath)) {
+		return { title: "", pages: [] };
+	}
+	return JSON.parse(readFileSync(metaPath, "utf8"));
+}
+
+function isSeparator(page) {
+	return typeof page === "string" && page.startsWith("---");
+}
+
+function pageToUrl(page, metaDir) {
+	if (page === "index") {
+		const rel = metaDir.replace(docsRoot, "").replace(/^\//, "");
+		return rel ? `${baseUrl}/docs/${rel}` : `${baseUrl}/docs`;
+	}
+	if (page.startsWith("../")) {
+		const normalized = page.replace(/^\.\.\//, "");
+		return `${baseUrl}/docs/${normalized}`;
+	}
+	const rel = metaDir.replace(docsRoot, "").replace(/^\//, "");
+	const prefix = rel ? `${rel}/` : "";
+	return `${baseUrl}/docs/${prefix}${page}`;
+}
+
+function formatTitle(page, metaTitle) {
+	if (page === "index") {
+		return metaTitle || "Home";
+	}
+	if (page.startsWith("../")) {
+		return page.replace("../", "").replace(/\//g, " / ");
+	}
+	return page.replace(/-/g, " ");
+}
+
+function linksFromMeta(metaDir, { skipIndex = false, filter } = {}) {
+	const meta = readMeta(metaDir);
+	return meta.pages
+		.filter((page) => !isSeparator(page))
+		.filter((page) => !(skipIndex && page === "index"))
+		.filter((page) => (filter ? filter(page) : true))
+		.map((page) => {
+			const title = formatTitle(page, meta.title);
+			return `- [${title}](${pageToUrl(page, metaDir)})`;
+		});
+}
+
+const startHere = linksFromMeta(docsRoot, {
+	filter: (page) => page === "index" || page === "quickstart" || !page.includes("/"),
+});
+
+const keyGuides = linksFromMeta(join(docsRoot, "guides"), { skipIndex: true });
+
+const generatedReference = linksFromMeta(join(docsRoot, "reference"), {
+	skipIndex: true,
+	filter: (page) => page.startsWith("../generated/") || page === "../api/openapi",
+});
 
 const content = `# ProxyWhirl
 
@@ -14,30 +74,15 @@ Generated: ${generatedAt}
 
 ## Start Here
 
-- [Documentation home](${baseUrl}/docs)
-- [Quickstart](${baseUrl}/docs/quickstart)
-- [Guides](${baseUrl}/docs/guides)
-- [Concepts](${baseUrl}/docs/concepts)
-- [Interfaces (REST + MCP)](${baseUrl}/docs/interfaces)
-- [Reference](${baseUrl}/docs/reference)
+${startHere.join("\n")}
 
 ## Generated Reference
 
-- [Python API](${baseUrl}/docs/generated/python-api)
-- [CLI reference](${baseUrl}/docs/generated/cli-reference)
-- [REST API summary](${baseUrl}/docs/generated/rest-api)
-- [OpenAPI endpoints](${baseUrl}/docs/api/openapi)
-- [Proxy sources catalog](${baseUrl}/docs/generated/proxy-sources)
-- [Rotation strategies](${baseUrl}/docs/generated/strategies)
+${generatedReference.join("\n")}
 
 ## Key Guides
 
-- [Clients (sync/async)](${baseUrl}/docs/guides/clients)
-- [Configuration](${baseUrl}/docs/guides/configuration)
-- [Custom strategies](${baseUrl}/docs/guides/custom-strategies)
-- [Retry & failover](${baseUrl}/docs/guides/retry-failover)
-- [Deployment](${baseUrl}/docs/guides/deployment)
-- [Troubleshooting](${baseUrl}/docs/guides/troubleshooting)
+${keyGuides.join("\n")}
 
 ## Live Assets
 
