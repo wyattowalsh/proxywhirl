@@ -154,6 +154,7 @@ timeout_method = "thread"
 filterwarnings = [
   "ignore::DeprecationWarning",
   "ignore::PendingDeprecationWarning",
+  "ignore::starlette.exceptions.StarletteDeprecationWarning",
   "ignore:unclosed database:ResourceWarning",
 ]
 markers = [

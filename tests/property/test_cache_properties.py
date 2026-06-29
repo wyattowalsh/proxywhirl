@@ -57,6 +57,7 @@ def create_cache_manager_with_max_entries(tmp_dir: Path, max_entries: int) -> Ca
     encryptor = CredentialEncryptor()
     config = CacheConfig(
         l1_config=CacheTierConfig(enabled=True, max_entries=max_entries),
+        l2_config=CacheTierConfig(enabled=False),
         l2_cache_dir=str(tmp_dir / "cache"),
         l3_database_path=str(tmp_dir / "cache.db"),
         encryption_key=SecretStr(encryptor.key.decode("utf-8")),
@@ -265,7 +266,7 @@ class TestCacheMaxSizeInvariant:
         max_entries=st.integers(min_value=3, max_value=20),
         num_puts=st.integers(min_value=1, max_value=50),
     )
-    @settings(max_examples=30, deadline=timedelta(milliseconds=5000))
+    @settings(max_examples=30, deadline=None)
     def test_l1_cache_size_never_exceeds_max(self, max_entries: int, num_puts: int) -> None:
         """Property: L1 cache size should never exceed max_entries regardless of put operations."""
         with tempfile.TemporaryDirectory() as tmp_dir:

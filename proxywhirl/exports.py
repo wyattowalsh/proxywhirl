@@ -58,13 +58,12 @@ def _classify_reliability_tier(success_rate: float | None) -> str:
     return "Marginal"
 
 
-
-
 def _as_utc_aware(dt: datetime) -> datetime:
     """Normalize datetimes for safe aware/naive arithmetic."""
     if dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt.astimezone(timezone.utc)
+
 
 def parse_proxy_url(url: str) -> tuple[str, int]:
     """Parse proxy URL to extract IP and port.

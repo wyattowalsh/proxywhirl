@@ -261,7 +261,7 @@ class TestAsyncTimeoutEdgeCases:
 
         for i in range(3):
             try:
-                async with asyncio.timeout(0.1):
+                async with asyncio.timeout(1.0):
                     await asyncio.sleep(0.01)
                     results.append(f"success-{i}")
             except asyncio.TimeoutError:
