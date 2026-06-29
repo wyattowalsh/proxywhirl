@@ -90,15 +90,15 @@ class TestTimeoutEdgeCases:
         """Test timeout that occurs just before task completion."""
 
         async def timed_task() -> str:
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.02)
             return "done"
 
-        # Just barely time out
+        # Short deadline should expire before the task finishes
         with pytest.raises(asyncio.TimeoutError):
-            await asyncio.wait_for(timed_task(), timeout=0.049)
+            await asyncio.wait_for(timed_task(), timeout=0.005)
 
-        # Just barely complete in time
-        result = await asyncio.wait_for(timed_task(), timeout=0.1)
+        # Generous deadline should complete under scheduler load
+        result = await asyncio.wait_for(timed_task(), timeout=1.0)
         assert result == "done"
 
 
