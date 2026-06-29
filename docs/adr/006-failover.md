@@ -38,3 +38,5 @@ existing single-proxy behavior.
 - `proxywhirl/rotator/sync.py`, `proxywhirl/rotator/async_.py`
 - `proxywhirl/api/routes/proxies.py`
 - `tests/integration/test_true_failover.py`, `tests/integration/test_failover_legacy.py`
+- `tests/unit/test_request_queue.py` (`test_queued_request_pins_proxy_with_failover_enabled`)
+- `tests/unit/test_api_core_additional.py` (`test_request_endpoint_error_status_matrix`)

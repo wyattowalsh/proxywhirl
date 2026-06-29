@@ -65,9 +65,11 @@ class TestProxyFailover:
 
     # Retry disabled via RetryPolicy
     @patch("httpx.Client")
-    def test_failover_records_failure_stats(self, mock_client_class):
-        """Test that failed proxy records failure statistics."""
-        # Setup mock: first attempt fails, retry succeeds
+    def test_inner_retry_succeeds_on_same_proxy(self, mock_client_class):
+        """Inner RetryExecutor retry succeeds on the initially selected proxy.
+
+        FailoverPolicy is disabled by default, so this does not rotate to proxy2.
+        """
         mock_client = MagicMock()
 
         call_count = [0]
@@ -76,17 +78,15 @@ class TestProxyFailover:
             call_count[0] += 1
             if call_count[0] == 1:
                 raise httpx.ConnectError("Connection failed")
-            else:
-                response = Mock(spec=httpx.Response)
-                response.status_code = 200
-                return response
+            response = Mock(spec=httpx.Response)
+            response.status_code = 200
+            return response
 
         mock_client.request.side_effect = mock_request
         mock_client.__enter__.return_value = mock_client
         mock_client.__exit__.return_value = None
         mock_client_class.return_value = mock_client
 
-        # Create rotator with retries disabled
         rotator = ProxyWhirl(retry_policy=RetryPolicy(max_retries=1))
         proxy1 = Proxy(url="http://fail-proxy.example.com:8080")
         proxy2 = Proxy(url="http://good-proxy.example.com:8080")
@@ -95,13 +95,20 @@ class TestProxyFailover:
         rotator.pool.proxies[0].health_status = HealthStatus.HEALTHY
         rotator.pool.proxies[1].health_status = HealthStatus.HEALTHY
 
-        # Make request - should succeed on retry with same proxy
+        attempted_ids: list[str] = []
+        original_factory = rotator._get_or_create_client
+
+        def spy_get_client(proxy: Proxy, proxy_dict: dict[str, str]):
+            attempted_ids.append(str(proxy.id))
+            return original_factory(proxy, proxy_dict)
+
+        rotator._get_or_create_client = spy_get_client  # type: ignore[method-assign]
+
         response = rotator.get("https://example.com")
 
-        # Should succeed
         assert response.status_code == 200
-        # At least 2 calls - initial fail + retry success
         assert call_count[0] >= 2
+        assert len(set(attempted_ids)) == 1
 
     # Retry disabled via RetryPolicy
     @patch("httpx.Client")

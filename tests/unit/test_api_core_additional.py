@@ -303,6 +303,46 @@ def test_request_endpoint_unexpected_error(client: TestClient) -> None:
     assert result.status_code == 500
 
 
+@pytest.mark.parametrize(
+    ("exc", "expected_status"),
+    [
+        ("ProxyPoolEmptyError", 503),
+        ("ProxyConnectionError", 502),
+        ("RateLimitExceededError", 503),
+        ("ProxyAuthenticationError", 503),
+        ("RuntimeError", 500),
+    ],
+)
+def test_request_endpoint_error_status_matrix(
+    client: TestClient, exc: str, expected_status: int
+) -> None:
+    """Document /api/request HTTP status mapping for rotator failures."""
+    from proxywhirl.exceptions import (
+        ProxyAuthenticationError,
+        ProxyConnectionError,
+        ProxyPoolEmptyError,
+        RateLimitExceededError,
+    )
+
+    exc_types = {
+        "ProxyPoolEmptyError": ProxyPoolEmptyError("empty"),
+        "ProxyConnectionError": ProxyConnectionError("boom"),
+        "RateLimitExceededError": RateLimitExceededError("limit"),
+        "ProxyAuthenticationError": ProxyAuthenticationError("auth"),
+        "RuntimeError": RuntimeError("boom"),
+    }
+    rotator = _mock_rotator_with_proxy()
+
+    with patch("proxywhirl.api.runtime._rotator", rotator):
+        with patch.object(rotator, "_make_request", side_effect=exc_types[exc]):
+            result = client.post(
+                "/api/request",
+                json={"url": "https://example.com", "method": "GET"},
+            )
+
+    assert result.status_code == expected_status
+
+
 def test_list_proxies_filters(client: TestClient) -> None:
     """List proxies should apply status filters and pagination."""
     rotator = MagicMock()

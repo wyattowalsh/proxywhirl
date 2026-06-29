@@ -2753,3 +2753,65 @@ class TestNormalizedSchema:
         assert "by_protocol" in stats
         assert stats["by_protocol"].get("http", 0) == 2
         assert stats["by_protocol"].get("socks5", 0) == 1
+
+
+class TestDictToProxy:
+    """Unit tests for dict_to_proxy edge branches."""
+
+    def test_dict_to_proxy_builds_url_from_host_port(self) -> None:
+        from proxywhirl.storage import dict_to_proxy
+
+        restored = dict_to_proxy(
+            {"host": "relay.example.com", "port": 1080, "protocol": "socks5"}
+        )
+
+        assert str(restored.url) == "socks5://relay.example.com:1080"
+        assert restored.protocol == "socks5"
+
+    def test_dict_to_proxy_defaults_protocol_http(self) -> None:
+        from proxywhirl.storage import dict_to_proxy
+
+        restored = dict_to_proxy({"host": "proxy.example.com", "port": 8080})
+
+        assert str(restored.url) == "http://proxy.example.com:8080"
+        assert restored.protocol == "http"
+
+    def test_dict_to_proxy_invalid_health_status_unknown(self) -> None:
+        from proxywhirl.models import HealthStatus
+        from proxywhirl.storage import dict_to_proxy
+
+        restored = dict_to_proxy(
+            {"url": "http://proxy.example.com:8080", "health_status": "bogus"}
+        )
+
+        assert restored.health_status == HealthStatus.UNKNOWN
+
+    def test_dict_to_proxy_invalid_source_fetched(self) -> None:
+        from proxywhirl.models import ProxySource
+        from proxywhirl.storage import dict_to_proxy
+
+        restored = dict_to_proxy({"url": "http://proxy.example.com:8080", "source": "bogus"})
+
+        assert restored.source == ProxySource.FETCHED
+
+    def test_dict_to_proxy_missing_identity_raises(self) -> None:
+        from proxywhirl.storage import dict_to_proxy
+
+        with pytest.raises(ValueError, match="url.*host.*port"):
+            dict_to_proxy({})
+
+        with pytest.raises(ValueError, match="url.*host.*port"):
+            dict_to_proxy({"host": "orphan.example.com"})
+
+    def test_dict_to_proxy_discovered_at_maps_created_at(self) -> None:
+        from proxywhirl.storage import dict_to_proxy
+
+        discovered_at = datetime(2024, 6, 1, 12, 0, 0, tzinfo=timezone.utc)
+        restored = dict_to_proxy(
+            {
+                "url": "http://proxy.example.com:8080",
+                "discovered_at": discovered_at,
+            }
+        )
+
+        assert restored.created_at == discovered_at

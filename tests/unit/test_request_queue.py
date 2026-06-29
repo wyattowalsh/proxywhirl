@@ -23,6 +23,7 @@ from proxywhirl import (
     RateLimitExceededError,
     RequestQueueFullError,
 )
+from proxywhirl.orchestration import FailoverPolicy
 from proxywhirl.rate_limiting import RateLimiter
 
 
@@ -287,6 +288,53 @@ class TestQueueIntegrationWithRateLimiting:
         # Verify the request was made through the mock client
         mock_client.request.assert_called_once()
 
+    @patch("httpx.Client")
+    def test_queued_request_pins_proxy_with_failover_enabled(
+        self, mock_client_class: MagicMock
+    ) -> None:
+        """Queued dequeue must reuse the rate-limited proxy when failover is enabled."""
+        config = ProxyConfiguration(queue_enabled=True, queue_size=10)
+        mock_rate_limiter = MagicMock(spec=RateLimiter)
+        limit_checks: list[str] = []
+
+        def check_limit(proxy_id: str) -> bool:
+            limit_checks.append(proxy_id)
+            return len(limit_checks) > 1
+
+        mock_rate_limiter.check_limit.side_effect = check_limit
+
+        proxy1 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy2 = Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY)
+        rotator = ProxyWhirl(
+            proxies=[proxy1, proxy2],
+            config=config,
+            rate_limiter=mock_rate_limiter,
+            failover_policy=FailoverPolicy(enabled=True, max_proxy_attempts=2),
+        )
+
+        mock_response = Mock(spec=httpx.Response)
+        mock_response.status_code = 200
+        mock_client = MagicMock()
+        mock_client.request.return_value = mock_response
+        mock_client_class.return_value = mock_client
+
+        attempted_ids: list[str] = []
+        original_factory = rotator._get_or_create_client
+
+        def spy_get_client(proxy: Proxy, proxy_dict: dict[str, str]):
+            attempted_ids.append(str(proxy.id))
+            return original_factory(proxy, proxy_dict)
+
+        rotator._get_or_create_client = spy_get_client  # type: ignore[method-assign]
+
+        response = rotator.get("https://httpbin.org/get")
+
+        assert response.status_code == 200
+        assert len(set(limit_checks)) == 1
+        assert len(set(attempted_ids)) == 1
+        assert attempted_ids[0] == limit_checks[0]
+        mock_client.request.assert_called_once()
+
     def test_request_not_queued_when_queue_disabled(self) -> None:
         """Test that requests raise error when queue is disabled and rate limited."""
         config = ProxyConfiguration(queue_enabled=False)
@@ -299,10 +347,8 @@ class TestQueueIntegrationWithRateLimiting:
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator.add_proxy(proxy)
 
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(RateLimitExceededError, match="Rate limit exceeded"):
             rotator.get("https://httpbin.org/get")
-
-        assert isinstance(exc_info.value, RateLimitExceededError)
 
 
 class TestQueueEdgeCases:
