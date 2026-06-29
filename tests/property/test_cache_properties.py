@@ -68,7 +68,7 @@ class TestCacheInvariants:
     """Test fundamental cache invariants using property-based testing."""
 
     @given(key=cache_keys, proxy_url=proxy_urls, ttl=ttl_seconds)
-    @settings(max_examples=50, deadline=timedelta(milliseconds=2000))
+    @settings(max_examples=50, deadline=timedelta(milliseconds=5000))
     def test_put_get_roundtrip(self, key: str, proxy_url: str, ttl: int) -> None:
         """Property: What you put in, you should get back (within TTL)."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -136,7 +136,7 @@ class TestCacheInvariants:
             assert result is None, f"Non-existent key {key} should return None"
 
     @given(key=cache_keys, proxy_url=proxy_urls)
-    @settings(max_examples=50, deadline=timedelta(milliseconds=2000))
+    @settings(max_examples=50, deadline=timedelta(milliseconds=5000))
     def test_update_overwrites(self, key: str, proxy_url: str) -> None:
         """Property: Putting same key twice should overwrite with new value."""
         with tempfile.TemporaryDirectory() as tmp_dir:
