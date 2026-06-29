@@ -788,9 +788,7 @@ class ProxyWhirl(ProxyRotatorBase):
                 on_proxy_selected=on_proxy_selected,
             )
         except _QueueRequestForProxyError as queue_exc:
-            return self._queue_request(
-                method, url, queue_exc.proxy, retry_policy, **kwargs
-            )
+            return self._queue_request(method, url, queue_exc.proxy, retry_policy, **kwargs)
         except ProxyPoolEmptyError:
             logger.error("No healthy proxies available or all circuit breakers open")
             raise

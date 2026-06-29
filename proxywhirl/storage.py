@@ -1164,10 +1164,10 @@ class SQLiteStorage:
                             updated_at = :now
                         WHERE proxy_url = :url
                     """).bindparams(
-                        now=now,
-                        url=proxy_url,
-                        dead_threshold=_CONSECUTIVE_FAILURES_DEAD_THRESHOLD,
-                    )
+                            now=now,
+                            url=proxy_url,
+                            dead_threshold=_CONSECUTIVE_FAILURES_DEAD_THRESHOLD,
+                        )
                     )
 
             await session.commit()

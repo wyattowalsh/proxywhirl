@@ -92,6 +92,7 @@ async def test_on_proxy_selected_invoked_for_async_request() -> None:
     assert len(selected) == 1
     assert selected[0].id == proxy.id
 
+
 def test_on_proxy_selected_invoked_for_failover_rounds() -> None:
     """Failover orchestration invokes callback for each selected proxy."""
     orchestrator, _proxy = _build_orchestrator(failover_enabled=True)
@@ -117,6 +118,7 @@ def test_on_proxy_selected_invoked_for_failover_rounds() -> None:
 
     assert call_count >= 1
     assert len(selected) == call_count
+
 
 def test_selection_excludes_failed_proxy_ids() -> None:
     """Failed proxy IDs in selection context are skipped during selection."""
@@ -146,6 +148,7 @@ def test_selection_uses_pool_proxies_when_get_all_missing() -> None:
     selected = rotator._select_proxy_with_circuit_breaker()
     assert selected.id == proxy.id
 
+
 def test_lru_client_pool_evicts_when_full() -> None:
     """LRU client pool evicts the oldest entry when max size is reached."""
     from unittest.mock import Mock
@@ -160,6 +163,7 @@ def test_lru_client_pool_evicts_when_full() -> None:
     old_client.close.assert_called_once()
     assert pool.get("proxy-old") is None
     assert pool.get("proxy-new") is not None
+
 
 def test_lru_client_pool_refreshes_existing_entry() -> None:
     """Re-inserting an existing proxy moves it to the MRU position without eviction."""
@@ -181,6 +185,7 @@ def test_lru_client_pool_refreshes_existing_entry() -> None:
     assert pool.get("proxy-b") is second
     second.close.assert_not_called()
 
+
 def test_lru_client_pool_logs_close_errors_on_eviction() -> None:
     """Eviction tolerates client close failures without crashing."""
     from unittest.mock import Mock
@@ -197,4 +202,3 @@ def test_lru_client_pool_logs_close_errors_on_eviction() -> None:
     failing_client.close.assert_called_once()
     assert pool.get("proxy-old") is None
     assert pool.get("proxy-new") is not None
-

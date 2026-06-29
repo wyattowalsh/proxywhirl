@@ -209,15 +209,11 @@ async def generate_rich_proxies(
             if continent_code:
                 cd["continent_code"] = continent_code
         if proxy_dict["last_checked"]:
-            check_dt = datetime.fromisoformat(
-                proxy_dict["last_checked"].replace("Z", "+00:00")
-            )
+            check_dt = datetime.fromisoformat(proxy_dict["last_checked"].replace("Z", "+00:00"))
             if sm["latest_check"] is None or check_dt > sm["latest_check"]:
                 sm["latest_check"] = check_dt
         if proxy_dict["created_at"]:
-            created_dt = datetime.fromisoformat(
-                proxy_dict["created_at"].replace("Z", "+00:00")
-            )
+            created_dt = datetime.fromisoformat(proxy_dict["created_at"].replace("Z", "+00:00"))
             days_ago = (datetime.now(timezone.utc) - created_dt).days
             if 0 <= days_ago <= 90:
                 discovery_by_date[created_dt.date().isoformat()] += 1
@@ -297,9 +293,7 @@ async def generate_rich_proxies(
     for name, sm in sorted(source_metrics.items(), key=lambda x: -x[1]["count"]):
         total_checks = sm["total_checks"]
         reliability_pct = (
-            round(sm["successful_checks"] / total_checks * 100, 1)
-            if total_checks > 0
-            else 50.0
+            round(sm["successful_checks"] / total_checks * 100, 1) if total_checks > 0 else 50.0
         )
         avg_response_ms = (
             round(sm["total_response"] / sm["response_samples"], 1)
@@ -307,9 +301,7 @@ async def generate_rich_proxies(
             else None
         )
         hours_since_check = (
-            (now - sm["latest_check"]).total_seconds() / 3600
-            if sm["latest_check"]
-            else 168.0
+            (now - sm["latest_check"]).total_seconds() / 3600 if sm["latest_check"] else 168.0
         )
         freshness_pct = round(max(0.0, 100.0 - (hours_since_check / 168.0) * 100.0), 1)
         source_metrics_list.append(
@@ -353,8 +345,7 @@ async def generate_rich_proxies(
             "performance": performance,
             "source_flow": source_flow_list,
             "reliability_tiers": [
-                {"tier": name, "count": reliability_tiers[name]}
-                for name, _, _ in RELIABILITY_TIERS
+                {"tier": name, "count": reliability_tiers[name]} for name, _, _ in RELIABILITY_TIERS
             ],
             "by_country_detail": by_country_detail,
             "source_metrics": source_metrics_list,
