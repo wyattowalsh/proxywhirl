@@ -7,6 +7,20 @@ const docsRoot = join(webRoot, "content", "docs");
 const baseUrl = process.env.PROXYWHIRL_SITE_URL ?? "https://www.proxywhirl.com";
 const generatedAt = new Date().toISOString();
 
+const PAGE_TITLE_OVERRIDES = {
+	"../api/openapi": "OpenAPI Endpoints",
+};
+
+const ACRONYMS = {
+	api: "API",
+	cli: "CLI",
+	rest: "REST",
+	mcp: "MCP",
+	http: "HTTP",
+	socks4: "SOCKS4",
+	socks5: "SOCKS5",
+};
+
 function readMeta(metaDir) {
 	const metaPath = join(metaDir, "meta.json");
 	if (!existsSync(metaPath)) {
@@ -33,22 +47,63 @@ function pageToUrl(page, metaDir) {
 	return `${baseUrl}/docs/${prefix}${page}`;
 }
 
+function pageToMdxPath(metaDir, page) {
+	if (page === "index") {
+		return join(metaDir, "index.mdx");
+	}
+	if (page.startsWith("../")) {
+		const rel = page.replace(/^\.\.\//, "");
+		const indexCandidate = join(docsRoot, rel, "index.mdx");
+		if (existsSync(indexCandidate)) {
+			return indexCandidate;
+		}
+		return join(docsRoot, `${rel}.mdx`);
+	}
+	return join(metaDir, `${page}.mdx`);
+}
+
+function readFrontmatterTitle(mdxPath) {
+	if (!existsSync(mdxPath)) {
+		return null;
+	}
+	const raw = readFileSync(mdxPath, "utf8");
+	const match = raw.match(/^---\s*\n([\s\S]*?)\n---/);
+	if (!match) {
+		return null;
+	}
+	const titleLine = match[1].match(/^title:\s*(.+)$/m);
+	if (!titleLine) {
+		return null;
+	}
+	return titleLine[1].trim().replace(/^["']|["']$/g, "");
+}
+
 function titleCaseSlug(slug) {
 	return slug
 		.split("-")
-		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.map((part) => ACRONYMS[part.toLowerCase()] ?? part.charAt(0).toUpperCase() + part.slice(1))
 		.join(" ");
 }
 
+function sectionTitle(page) {
+	const sectionMeta = readMeta(join(docsRoot, page));
+	return sectionMeta.title || titleCaseSlug(page);
+}
+
 function formatTitle(page, metaTitle, metaDir) {
+	if (PAGE_TITLE_OVERRIDES[page]) {
+		return PAGE_TITLE_OVERRIDES[page];
+	}
+
+	const mdxTitle = readFrontmatterTitle(pageToMdxPath(metaDir, page));
+	if (mdxTitle) {
+		return mdxTitle;
+	}
+
 	if (page === "index") {
 		return metaTitle || "Home";
 	}
-	if (page.startsWith("../")) {
-		const normalized = page.replace(/^\.\.\//, "");
-		const basename = normalized.split("/").pop() ?? normalized;
-		return titleCaseSlug(basename);
-	}
+
 	return titleCaseSlug(page);
 }
 
@@ -68,11 +123,6 @@ function linksFromMeta(metaDir, { skipIndex = false, filter } = {}) {
 					: formatTitle(page, meta.title, metaDir);
 			return `- [${title}](${pageToUrl(page, metaDir)})`;
 		});
-}
-
-function sectionTitle(page) {
-	const sectionMeta = readMeta(join(docsRoot, page));
-	return sectionMeta.title || titleCaseSlug(page);
 }
 
 const startHere = linksFromMeta(docsRoot, {
