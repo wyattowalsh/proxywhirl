@@ -118,6 +118,23 @@ function firstSentence(text) {
   return normalized.match(/.*?[.!?](?:\s|$)/)?.[0]?.trim() || normalized || "-"
 }
 
+function extractCommandFlags(lines, functionLine) {
+  const flags = new Set()
+
+  for (let scan = functionLine; scan < Math.min(lines.length, functionLine + 200); scan += 1) {
+    const line = lines[scan]
+    if (line.match(/^\s*\)\s*(?:->[^:]+)?:\s*$/)) break
+
+    for (const match of line.matchAll(/"(--[\w-]+(?:\/--[\w-]+)?|-[a-zA-Z])"/g)) {
+      const flag = match[1].split("/")[0]
+      if (flag.startsWith("--") || /^-[a-zA-Z]$/.test(flag)) flags.add(flag)
+    }
+  }
+
+  const sorted = Array.from(flags).sort()
+  return sorted.length > 0 ? sorted.join(", ") : "-"
+}
+
 function fallbackCommandSummary(path) {
   const summaries = {
     "proxywhirl pool list": "List proxies in the active pool.",
@@ -131,11 +148,11 @@ function fallbackCommandSummary(path) {
     "proxywhirl config set": "Write one configuration value.",
     "proxywhirl export": "Export validated proxies for files, docs, and dashboards.",
     "proxywhirl fetch": "Fetch and validate proxies from configured sources.",
-    "proxywhirl sources audit": "Audit source health and parseability.",
-    "proxywhirl sources discover": "Show available built-in proxy sources.",
-    "proxywhirl batch": "Run batch request workflows through proxies.",
-    "proxywhirl list-proxies": "List persisted proxies from storage.",
-    "proxywhirl import-proxies": "Import proxy records into storage.",
+                    "proxywhirl import-proxies": "Import proxy records into storage.",
+    "proxywhirl sources": "List and validate built-in proxy sources.",
+    "proxywhirl request": "Make a proxied HTTP request.",
+    "proxywhirl health": "Check rotator health.",
+    "proxywhirl validate-proxy": "Validate a single proxy URL.",
   }
   return summaries[path] ?? "-"
 }
@@ -189,6 +206,7 @@ function extractCommands(source) {
 
     const path = commandPath(appName, command)
     if (summary === "-") summary = fallbackCommandSummary(path)
+    const flags = extractCommandFlags(lines, functionLine)
 
     commands.push({
       app: appName,
@@ -197,6 +215,7 @@ function extractCommands(source) {
       path,
       function: functionName,
       summary,
+      flags,
     })
   }
 
@@ -365,17 +384,10 @@ const sourceHosts = countBy(sourceItems, (item) => item.host).slice(0, 12)
 const sourceFormats = countBy(sourceItems, (item) => item.format)
 const sourceProtocols = countBy(sourceItems, (item) => item.protocol)
 
-const strategyUseCases = {
-  RoundRobinStrategy: "Even traffic spread with predictable ordering.",
-  RandomStrategy: "Low-state routing where unpredictability matters.",
-  WeightedStrategy: "Prefer known-good proxies while keeping fallback diversity.",
-  LeastUsedStrategy: "Avoid hot-spotting individual proxies.",
-  PerformanceBasedStrategy: "Favor lowest observed latency using recent performance.",
-  SessionPersistenceStrategy: "Keep sticky sessions bound to stable proxy choices.",
-  GeoTargetedStrategy: "Route by country or region preference.",
-  CostAwareStrategy: "Balance traffic against proxy cost metadata.",
-  CompositeStrategy: "Build a custom filter-then-select rotation pipeline.",
+function strategyUseWhen(item) {
+  return item.summary || "Use for custom rotation behavior."
 }
+
 
 writeFile(
   join(generatedDocsDir, "python-api.mdx"),
@@ -406,6 +418,19 @@ writeFile(
     "## Top Namespaces",
     "",
     table(["Module", "Exports"], exportModules.map(([module, count]) => [`\`${module}\``, count])),
+    "",
+    "## All Public Exports",
+    "",
+    table(
+      ["Export", "Kind", "Module", "Summary"],
+      packageData.exports.map((item) => [
+        `\`${item.name}\``,
+        item.kind,
+        `\`${item.module}\``,
+        item.doc || "-",
+      ]),
+    ),
+
   ].join("\n"),
 )
 
@@ -459,8 +484,13 @@ writeFile(
     "## Command Inventory",
     "",
     table(
-      ["Command", "Summary", "Function"],
-      commands.map((item) => [`\`${item.path}\``, item.summary, `\`${item.function}\``]),
+      ["Command", "Summary", "Flags", "Function"],
+      commands.map((item) => [
+        `\`${item.path}\``,
+        item.summary,
+        item.flags === "-" ? "-" : `\`${item.flags}\``,
+        `\`${item.function}\``,
+      ]),
     ),
   ].join("\n"),
 )
@@ -495,12 +525,13 @@ writeFile(
     "## Source Catalog",
     "",
     table(
-      ["Provider", "Protocol", "Format", "Render", "Timeout"],
+      ["Provider", "URL", "Protocol", "Enabled", "Format", "Timeout"],
       sourceItems.map((item) => [
         item.host,
+        item.url.length > 48 ? `${item.url.slice(0, 45)}...` : item.url,
         item.protocol,
+        item.enabled ? "yes" : "no",
         item.format,
-        item.render_mode,
         item.timeout ? `${item.timeout / 1000}s` : "-",
       ]),
     ),
@@ -528,7 +559,7 @@ writeFile(
       ["Strategy", "Use When", "Source Summary"],
       strategyData.items.map((item) => [
         `\`${item.class}\``,
-        strategyUseCases[item.class] ?? "Use for custom rotation behavior.",
+        strategyUseWhen(item),
         item.summary || "-",
       ]),
     ),

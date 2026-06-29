@@ -1,0 +1,167 @@
+---
+title: Troubleshooting
+description: Diagnose ProxyWhirl pool, cache, circuit breaker, and connection issues with actionable fixes.
+---
+
+# Troubleshooting
+
+This guide covers frequent development and production issues. For structured error codes, see the [error code highlights](#error-code-highlights) below.
+
+## ProxyPoolEmptyError
+
+**Symptom:**
+
+```text
+proxywhirl.exceptions.ProxyPoolEmptyError: No healthy proxies available in the pool
+```
+
+| Cause | Fix |
+| ----- | --- |
+| Source returned empty list | Verify source URL, API keys, rate limits |
+| All proxies expired | Reduce TTL or trigger manual refresh (`proxywhirl fetch`) |
+| Circuit breakers OPEN | Wait for `timeout_duration` or `breaker.reset()` |
+| Filter too strict | Relax geo/protocol filters |
+
+```python
+from proxywhirl import ProxyWhirl
+
+rotator = ProxyWhirl()
+print(rotator.pool.size)
+print(rotator.pool.healthy_count)
+```
+
+## All Requests Time Out
+
+Every request raises `ProxyConnectionError` or `RetryableError` after retries.
+
+- Verify outbound connectivity from the host.
+- Target may block proxy IPs — rotate to a fresher pool.
+- Increase `RetryPolicy.timeout` or httpx client timeout.
+
+```python
+from proxywhirl import RetryPolicy
+
+policy = RetryPolicy(max_attempts=3, timeout=10.0)
+```
+
+## Cache Corruption
+
+**Symptom:** `CacheCorruptionError` on startup or read.
+
+```python
+from proxywhirl.cache import CacheManager
+
+manager = CacheManager()
+manager.rebuild_l2()
+manager.rebuild_l3()
+```
+
+Avoid sharing L2 JSONL files across processes without locking. Prefer SQLite-backed L2 for multi-process safety.
+
+## High Memory Usage
+
+- Lower `cache_l1_max_entries` (or `CacheConfig.l1_max_entries`).
+- Ensure custom strategies clean up in `deregister()`.
+- Circuit breaker deques are bounded; reduce window size if memory-constrained.
+
+## Circuit Breaker Stuck OPEN
+
+```python
+breaker = rotator.circuit_breakers.get(str(proxy.id))
+print(breaker.state)
+print(breaker.next_test_time)
+```
+
+If `next_test_time` is far in the future, lower `timeout_duration` or call `breaker.reset()` after confirming upstream health.
+
+## Regex Timeout Errors
+
+**Symptom:** `RegexTimeoutError` during proxy list parsing.
+
+```python
+from proxywhirl.safe_regex import safe_compile_regex
+
+pattern = safe_compile_regex(
+    r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+",
+    max_complexity=500,
+)
+```
+
+Avoid nested quantifiers like `(a+)+` or `(.*)*`.
+
+## Slow Rotation / High Latency
+
+- Use `AsyncProxyWhirl` with background health checks instead of blocking sync checks in an event loop.
+- Reduce L3 SQLite contention — increase cleanup interval or move cache to a separate disk.
+- Cache DNS locally or enable HTTP/2 on httpx clients.
+
+## Getting Help
+
+1. Enable debug logging: `configure_logging(level="DEBUG", redact_credentials=True)` or `PROXYWHIRL_LOG_LEVEL=DEBUG`.
+2. Capture `RetryMetrics` and cache statistics.
+3. Open an issue with stack trace, redacted config, and source metadata.
+
+## Error Code Highlights
+
+ProxyWhirl maps exceptions to stable `error_code` values on `ProxyWhirlError` subclasses.
+
+### Exception hierarchy
+
+```text
+ProxyWhirlError
+├── ProxyPoolEmptyError
+├── ProxyValidationError
+├── ProxyConnectionError
+├── ProxyAuthenticationError
+├── ProxyFetchError
+├── ProxyStorageError
+├── RetryableError / NonRetryableError
+├── RegexTimeoutError / RegexComplexityError
+├── CacheCorruptionError / CacheStorageError / CacheValidationError
+└── RequestQueueFullError
+```
+
+### Common codes
+
+| Code | Exception | Cause | Resolution |
+| ---- | --------- | ----- | ---------- |
+| `E001` | `ProxyPoolEmptyError` | Empty pool | `proxywhirl fetch` or `add_sources()` |
+| `E003` | `ProxyPoolEmptyError` | All breakers OPEN | Wait 30–60s or reset breakers |
+| `E020` | `ProxyConnectionError` | Timeout | Increase timeout, switch proxy |
+| `E030` | `ProxyAuthenticationError` | 407 auth required | Fix credentials in proxy URL |
+| `E040` | `ProxyFetchError` | Source fetch failed | Check URL, rate limits, parser |
+| `E080` | `CacheCorruptionError` | Corrupt cache | `cache_mgr.clear()` or rebuild tiers |
+
+### Handling errors in code
+
+```python
+from proxywhirl import ProxyWhirl, ProxyPoolEmptyError, ProxyConnectionError
+
+whirl = ProxyWhirl()
+
+try:
+    proxy = whirl.get_proxy()
+except ProxyPoolEmptyError:
+    proxy = None  # graceful degradation
+
+try:
+    response = whirl.request("GET", url)
+except ProxyConnectionError as e:
+    print(e.error_code, getattr(e, "retryable", False))
+```
+
+### Debug scenarios
+
+| Scenario | Code | Quick fix |
+| -------- | ---- | --------- |
+| Connection timeout | `E020` | `config.timeout = 60`, switch proxy |
+| All breakers open | `E003` | Wait for HALF_OPEN or `reset_all()` |
+| Database locked | `E051` | Enable WAL, use `AsyncProxyWhirl` |
+| Cache checksum mismatch | `E080` | Clear cache, verify `PROXYWHIRL_CACHE_ENCRYPTION_KEY` |
+
+## See Also
+
+- [Retry & Failover](/docs/guides/retry-failover) — breaker tuning and retry policy
+- [Configuration](/docs/reference/configuration) — env vars and TOML options
+- [Circuit Breakers](/docs/concepts/circuit-breakers) — state machine theory
+- [Operations Playbook](/docs/guides/operations-playbook) — validation and deployment checks

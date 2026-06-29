@@ -36,15 +36,15 @@ description: Rotation strategy matrix generated from proxywhirl.strategies.
 
 | Strategy | Use When | Source Summary |
 | --- | --- | --- |
-| `RoundRobinStrategy` | Even traffic spread with predictable ordering. | Round-robin proxy selection strategy with SelectionContext support. |
-| `RandomStrategy` | Low-state routing where unpredictability matters. | Random proxy selection strategy with SelectionContext support. |
-| `WeightedStrategy` | Prefer known-good proxies while keeping fallback diversity. | Weighted proxy selection strategy with SelectionContext support. |
-| `LeastUsedStrategy` | Avoid hot-spotting individual proxies. | Least-used proxy selection strategy with SelectionContext support. |
-| `PerformanceBasedStrategy` | Favor lowest observed latency using recent performance. | Performance-based proxy selection using EMA response times. |
-| `SessionPersistenceStrategy` | Keep sticky sessions bound to stable proxy choices. | Session persistence strategy (sticky sessions). |
-| `GeoTargetedStrategy` | Route by country or region preference. | Geo-targeted proxy selection strategy. |
-| `CostAwareStrategy` | Balance traffic against proxy cost metadata. | Cost-aware proxy selection strategy. |
-| `CompositeStrategy` | Build a custom filter-then-select rotation pipeline. | Composite strategy that applies filtering and selection strategies in sequence. |
+| `RoundRobinStrategy` | Round-robin proxy selection strategy with SelectionContext support. | Round-robin proxy selection strategy with SelectionContext support. |
+| `RandomStrategy` | Random proxy selection strategy with SelectionContext support. | Random proxy selection strategy with SelectionContext support. |
+| `WeightedStrategy` | Weighted proxy selection strategy with SelectionContext support. | Weighted proxy selection strategy with SelectionContext support. |
+| `LeastUsedStrategy` | Least-used proxy selection strategy with SelectionContext support. | Least-used proxy selection strategy with SelectionContext support. |
+| `PerformanceBasedStrategy` | Performance-based proxy selection using EMA response times. | Performance-based proxy selection using EMA response times. |
+| `SessionPersistenceStrategy` | Session persistence strategy (sticky sessions). | Session persistence strategy (sticky sessions). |
+| `GeoTargetedStrategy` | Geo-targeted proxy selection strategy. | Geo-targeted proxy selection strategy. |
+| `CostAwareStrategy` | Cost-aware proxy selection strategy. | Cost-aware proxy selection strategy. |
+| `CompositeStrategy` | Composite strategy that applies filtering and selection strategies in sequence. | Composite strategy that applies filtering and selection strategies in sequence. |
 
 ## Source Modules
 

@@ -1,0 +1,148 @@
+---
+title: Retry & Failover
+description: Retry policies, circuit breakers, intelligent failover, and observability for resilient proxy rotation.
+---
+
+# Retry & Failover
+
+ProxyWhirl combines **retry logic**, **circuit breaker protection**, and **automatic proxy failover** to maximize request success rates.
+
+> **See also:** [Circuit Breakers](/docs/concepts/circuit-breakers) for theory, [Clients](/docs/guides/clients) for async circuit breakers, and [Configuration](/docs/reference/configuration) for `max_retries` defaults.
+
+## Architecture
+
+Four components work together:
+
+| Component | Role |
+| --------- | ---- |
+| `RetryPolicy` | Backoff, retryable status codes, timeouts |
+| `RetryExecutor` | Orchestrates retries and proxy selection |
+| `CircuitBreaker` / `AsyncCircuitBreaker` | Isolates failing proxies |
+| `RetryMetrics` | Observability and hourly aggregation |
+
+## When to Retry vs Failover
+
+**Retry (same proxy)** when the network is temporarily unstable, the target returns 502/503/504, or the request is idempotent (GET, HEAD, OPTIONS, DELETE, PUT).
+
+**Failover (different proxy)** when authentication fails (407), a circuit breaker opens, geo/performance requirements change, or a proxy hits rate limits.
+
+ProxyWhirl retries with backoff on the current proxy, then fails over using performance-based scoring when retries are exhausted.
+
+## RetryPolicy
+
+```python
+from proxywhirl import ProxyWhirl, RetryPolicy, BackoffStrategy
+
+policy = RetryPolicy(
+    max_attempts=5,
+    backoff_strategy=BackoffStrategy.EXPONENTIAL,
+    base_delay=1.0,
+    multiplier=2.0,
+    max_backoff_delay=30.0,
+    jitter=True,  # AWS decorrelated jitter
+    retry_status_codes=[502, 503, 504],
+    timeout=60.0,
+    retry_non_idempotent=False,
+)
+
+rotator = ProxyWhirl(retry_policy=policy)
+response = rotator.request("GET", "https://httpbin.org/ip")
+```
+
+### Backoff strategies
+
+| Strategy | Best for | Behavior |
+| -------- | -------- | -------- |
+| `EXPONENTIAL` | Network overload | Delays grow exponentially, capped by `max_backoff_delay` |
+| `LINEAR` | Predictable pacing | `base_delay`, `2×base_delay`, `3×base_delay`, … |
+| `FIXED` | Tests / constant spacing | Same delay every attempt |
+
+Enable **jitter** in production to avoid thundering herds. ProxyWhirl uses AWS decorrelated jitter: `delay = min(cap, random(base_delay, previous_delay × 3))`.
+
+### Timeouts and idempotency
+
+`timeout` caps total time across all attempts. POST/PATCH are not retried by default; set `retry_non_idempotent=True` only when your API is idempotent.
+
+## Circuit Breakers
+
+Each proxy has a breaker with states **CLOSED → OPEN → HALF_OPEN → CLOSED**.
+
+```python
+from proxywhirl.circuit_breaker import AsyncCircuitBreaker
+
+# Sync: proxywhirl.CircuitBreaker (threading.Lock)
+# Async: AsyncCircuitBreaker (event-loop safe)
+
+cb = rotator.circuit_breakers[str(proxy.id)]
+print(cb.failure_threshold)   # default: 5
+print(cb.window_duration)     # default: 60s rolling window
+print(cb.timeout_duration)    # default: 30s OPEN timeout
+
+cb.reset()  # manual reset
+```
+
+**Warning:** Do not use sync `CircuitBreaker` inside async code — it can block the event loop. Use `AsyncCircuitBreaker` in production async apps.
+
+## Intelligent Failover
+
+When retries exhaust, `RetryExecutor` scores candidates:
+
+```text
+score = (0.7 × success_rate) + (0.3 × (1 - normalized_latency))
+```
+
+A **10% geo bonus** applies when `target_region` matches proxy metadata. Failed proxies, OPEN circuits, and pending HALF_OPEN tests are excluded.
+
+## RetryMetrics
+
+```python
+metrics = rotator.retry_metrics
+print(metrics.get_summary())
+print(metrics.get_timeseries(hours=24))
+print(metrics.get_by_proxy(hours=24))
+```
+
+Monitor `circuit_breaker_events` for OPEN transitions and tune `failure_threshold` / `timeout_duration` accordingly.
+
+## Integration Example
+
+```python
+from proxywhirl import ProxyWhirl, Proxy, RetryPolicy
+from proxywhirl.strategies import PerformanceBasedStrategy
+from proxywhirl.exceptions import ProxyConnectionError
+
+rotator = ProxyWhirl(
+    proxies=[Proxy(url="http://proxy1.example.com:8080"), Proxy(url="http://proxy2.example.com:8080")],
+    strategy=PerformanceBasedStrategy(),
+    retry_policy=RetryPolicy(max_attempts=3, jitter=True),
+)
+
+try:
+    response = rotator.request("GET", "https://api.example.com/data")
+except ProxyConnectionError as e:
+    print(f"All retries exhausted: {e}")
+```
+
+Circuit breakers filter eligible proxies before strategy selection. Metrics inform performance-based routing over time.
+
+## Best Practices
+
+1. Start with `max_attempts=3`, exponential backoff, and `jitter=True`.
+2. Set `timeout` for time-sensitive workloads (e.g. 5s) vs batch jobs (e.g. 300s).
+3. Alert when more than ~10% of circuits are OPEN.
+4. Use `proxywhirl pool stats` for pool-level visibility — see [CLI Reference](/docs/generated/cli-reference).
+
+## Troubleshooting
+
+| Symptom | Likely cause | Action |
+| ------- | ------------ | ------ |
+| `ProxyConnectionError` after N attempts | All proxies unhealthy or blocked | Check breaker states, reset if needed, review per-proxy metrics |
+| High latency | Aggressive backoff or slow proxies | Shorten `base_delay`, set `timeout`, inspect `get_by_proxy()` |
+| `NonRetryableError` | 4xx or auth failure | Fix credentials; do not retry 407 |
+
+## See Also
+
+- [Troubleshooting](/docs/guides/troubleshooting) — common runtime issues and error codes
+- [Advanced strategies](/docs/generated/strategies) — strategy matrix
+- [Python API](/docs/generated/python-api) — `RetryPolicy`, `RetryExecutor`, `CircuitBreaker`
+- [Caching](/docs/concepts/cache-architecture) — health invalidation with breaker events

@@ -1,0 +1,78 @@
+---
+title: Circuit Breakers
+description: How ProxyWhirl detects, isolates, and recovers from proxy failures with a three-state breaker.
+---
+
+# Circuit Breakers
+
+ProxyWhirl uses the **circuit breaker pattern** to detect, isolate, and recover from proxy failures automatically. For configuration and code examples, see [Retry & Failover](/docs/guides/retry-failover).
+
+## The Problem
+
+Without intelligent failure handling, a rotator would:
+
+- Repeatedly retry known-bad proxies
+- Cascade failures when one slow proxy blocks the pool
+- Never detect when a temporarily failed proxy recovers
+
+Simple per-request retry does not prevent the **same** bad proxy from being selected on the next request.
+
+## Three-State Machine
+
+Each proxy has its own breaker:
+
+```text
+CLOSED ──(failures ≥ threshold)──► OPEN
+  ▲                                    │
+  │                                    ▼
+  └──(test succeeds)── HALF_OPEN ◄──(timeout elapsed)
+                          │
+                          └──(test fails)──► OPEN
+```
+
+| State | Behavior |
+| ----- | -------- |
+| **CLOSED** | Normal operation; failures tracked in a rolling window (default 60s) |
+| **OPEN** | Proxy excluded; `should_attempt_request()` returns false (fail-fast) |
+| **HALF_OPEN** | One test request allowed; success closes, failure reopens |
+
+Default thresholds: **5 failures** in **60s** → OPEN for **30s**, then HALF_OPEN probe.
+
+## Why Not Just Blacklist?
+
+| Approach | Detects failure | Auto recovery | No manual work |
+| -------- | :-------------: | :-----------: | :------------: |
+| Manual blacklist | No | No | No |
+| Simple retry | Per-request | No | Yes |
+| Circuit breaker | Yes | Yes | Yes |
+
+Breakers **probe recovery** automatically after the OPEN timeout.
+
+## Rolling Window
+
+Failures live in a timestamp deque. Only failures inside `window_duration` count toward `failure_threshold`. Old failures expire — transient bursts do not permanently exclude a proxy.
+
+## Half-Open Gating
+
+When the timeout expires, multiple threads might test the same proxy. A `_half_open_pending` flag ensures **only one** test request proceeds; others fail fast and try a different proxy.
+
+## State Persistence
+
+Optional SQLite persistence (`persist_state=True`) prevents **retry storms on restart**. Without it, all breakers start CLOSED after a crash and may flood previously failed proxies. Persistence is asynchronous and non-blocking.
+
+## Tuning
+
+| Parameter | Default | Increase when… | Decrease when… |
+| --------- | ------- | -------------- | -------------- |
+| `failure_threshold` | 5 | Using unreliable free proxies | Using premium proxies |
+| `window_duration` | 60s | Transient failures are common | Failures are persistent |
+| `timeout_duration` | 30s | Slow recovery (residential) | Fast recovery (datacenter) |
+
+Use sync `CircuitBreaker` in threaded code and `AsyncCircuitBreaker` in asyncio apps — never mix sync locks into async hot paths.
+
+## See Also
+
+- [Retry & Failover](/docs/guides/retry-failover) — integration and metrics
+- [Troubleshooting](/docs/guides/troubleshooting) — stuck OPEN breakers
+- [Python API](/docs/generated/python-api) — `CircuitBreaker`, `AsyncCircuitBreaker`
+- [ADR-002: Circuit Breaker](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/adr/002-circuit-breaker.md)

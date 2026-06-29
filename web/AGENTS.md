@@ -10,8 +10,8 @@
 | Package manager | `pnpm` |
 | Routes | `web/src/app/` |
 | UI components | `web/src/components/`, `web/src/screens/` |
-| Content | `web/content/docs/**/*.mdx` |
-| Generated docs | `web/content/docs/generated/` |
+| Content | `web/content/docs/**/*.mdx` (guides, concepts, interfaces, reference) |
+| Generated docs | `web/content/docs/generated/` (linked from `reference/`) |
 | Generated data | `web/content/generated/` |
 | Public proxy assets | `web/public/proxy-lists/` mirrored from `docs/proxy-lists/` |
 
@@ -50,3 +50,5 @@
 ## Docs Steward
 
 Use docs-steward for README, AGENTS, public docs, generated-reference, and documentation-pipeline changes. If multiple docs frameworks are present, treat this `web/` Fumadocs site as the active published docs framework unless the user explicitly targets legacy Sphinx.
+
+| Search | Orama via `web/src/app/api/search/route.ts` |

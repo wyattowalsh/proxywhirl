@@ -5,13 +5,16 @@ description: Core ProxyWhirl concepts for proxy lifecycle, strategy selection, r
 
 # Concepts
 
-ProxyWhirl has four recurring concepts:
+| Concept | Meaning |
+| ------- | ------- |
+| [Proxy lifecycle](/docs/concepts/proxy-lifecycle) | Fetch, parse, validate, enrich, rotate, retire |
+| [Rotation strategies](/docs/concepts/rotation-strategies) | Load, latency, geography, cost, session affinity |
+| [Resilience](/docs/concepts/resilience) | Cache, circuit breakers, retries, rate limits |
+| [Security](/docs/concepts/security-model) | Credentials, validation, redaction |
 
-| Concept            | Meaning                                                                                                     |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| Proxy lifecycle    | Fetch, parse, validate, enrich, rotate, retire.                                                             |
-| Strategy selection | Pick a proxy according to load, latency, geography, cost, or session affinity.                              |
-| Resilience         | Retries, circuit breakers, rate limiting, and cache layers absorb unreliable networks.                      |
-| Security           | Credentials, target URL validation, private-network protections, and redaction controls reduce misuse risk. |
+| Deep dive | Topic |
+| --------- | ----- |
+| [Circuit Breakers](/docs/concepts/circuit-breakers) | Three-state failure isolation |
+| [Cache Architecture](/docs/concepts/cache-architecture) | Multi-tier cache design |
 
-Generated strategy and source pages keep the concept docs tied to the current source code.
+Generated: [Strategy Matrix](/docs/generated/strategies), [Proxy Sources](/docs/generated/proxy-sources).

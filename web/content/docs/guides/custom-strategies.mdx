@@ -1,0 +1,107 @@
+---
+title: Custom Strategies
+description: Implement, register, and configure custom rotation strategies using the RotationStrategy protocol.
+---
+
+# Custom Strategies
+
+ProxyWhirl strategies are **protocol-based** — any class with `select()` and `record_result()` methods works. No inheritance required.
+
+> **See also:** [Rotation Strategies](/docs/concepts/rotation-strategies) for built-in algorithms, [Strategy Matrix](/docs/generated/strategies) for the generated inventory, and [Configuration](/docs/guides/configuration) for TOML wiring.
+
+## Minimal Implementation
+
+```python
+from __future__ import annotations
+
+from proxywhirl import Proxy, ProxyPool, SelectionContext
+from proxywhirl.strategies import StrategyRegistry
+
+
+class PreferLowPortStrategy:
+    """Pick the proxy with the lowest port number."""
+
+    def select(self, pool: ProxyPool, context: SelectionContext | None) -> Proxy:
+        proxies = pool.get_available()
+        if not proxies:
+            raise ValueError("No proxies available")
+        return min(proxies, key=lambda p: p.port)
+
+    def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
+        pass  # Stateless — no feedback needed
+
+
+registry = StrategyRegistry()
+registry.register_strategy("prefer-low-port", PreferLowPortStrategy)
+```
+
+## Register at Runtime
+
+```python
+from proxywhirl import ProxyWhirl
+
+whirl = ProxyWhirl()
+whirl.strategy_registry.register_strategy("prefer-low-port", PreferLowPortStrategy)
+whirl.set_strategy("prefer-low-port")
+```
+
+For async rotators, use the same registry on `AsyncProxyWhirl`.
+
+## Configure via TOML
+
+```toml
+[strategy]
+name = "prefer-low-port"
+```
+
+The strategy name must match a registered entry. Built-in names (`round_robin`, `weighted`, `performance_based`, etc.) are pre-registered.
+
+## Stateful Strategies
+
+Adaptive strategies should update internal state in `record_result()`:
+
+```python
+class SuccessRateStrategy:
+    def __init__(self) -> None:
+        self._scores: dict[str, float] = {}
+
+    def select(self, pool: ProxyPool, context: SelectionContext | None) -> Proxy:
+        proxies = pool.get_available()
+        return max(proxies, key=lambda p: self._scores.get(p.id, 0.5))
+
+    def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
+        prev = self._scores.get(proxy.id, 0.5)
+        self._scores[proxy.id] = prev * 0.9 + (1.0 if success else 0.0) * 0.1
+```
+
+Use locks when sharing state across threads — see [Rotation Strategies](/docs/concepts/rotation-strategies#thread-safety).
+
+## Composite Pipelines
+
+Chain strategies without writing a new combined class:
+
+```python
+from proxywhirl.strategies import CompositeStrategy, GeoTargetedStrategy, PerformanceBasedStrategy
+
+pipeline = CompositeStrategy([
+    GeoTargetedStrategy(country_code="US"),
+    PerformanceBasedStrategy(),
+])
+```
+
+## Testing
+
+```python
+def test_prefer_low_port_selects_smallest_port(sample_pool):
+    strategy = PreferLowPortStrategy()
+    proxy = strategy.select(sample_pool, context=None)
+    assert proxy.port == min(p.port for p in sample_pool.get_available())
+```
+
+Use fixtures from `tests/conftest.py` for `Proxy` and `ProxyPool` instances.
+
+## See Also
+
+- [Clients](/docs/guides/clients) — `set_strategy()` hot-swap
+- [Retry & Failover](/docs/guides/retry-failover) — strategy + circuit breaker integration
+- [Python API](/docs/generated/python-api) — `StrategyRegistry` exports

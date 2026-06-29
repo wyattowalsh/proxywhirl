@@ -1,0 +1,217 @@
+---
+title: Configuration
+description: TOML configuration, environment variables, CLIConfig fields, and validation rules for ProxyWhirl.
+---
+
+# Configuration
+
+Complete reference for ProxyWhirl configuration: TOML files, environment variables, and programmatic setup.
+
+> **See also:** [Quickstart](/docs/quickstart) for initial setup, [Proxy Lists](/docs/guides/proxy-lists) for `proxy_file` exports, and [Troubleshooting](/docs/guides/troubleshooting) for config errors.
+
+## Discovery Order
+
+1. Explicit `--config` path
+2. Project-local `./pyproject.toml` → `[tool.proxywhirl]`
+3. User-global `~/.config/proxywhirl/config.toml`
+4. Built-in defaults
+
+```python
+from pathlib import Path
+from proxywhirl.config import discover_config, load_config
+
+config_path = discover_config()
+config = load_config(config_path)
+config = load_config(Path("./custom-config.toml"))  # explicit
+```
+
+ProxyWhirl uses **TOML**, not YAML.
+
+## TOML Example
+
+```toml
+[tool.proxywhirl]
+rotation_strategy = "round-robin"
+timeout = 30
+max_retries = 3
+cache_enabled = true
+cache_default_ttl = 3600
+encrypt_credentials = true
+
+[[tool.proxywhirl.proxies]]
+url = "http://proxy1.example.com:8080"
+username = "user1"
+password = "pass1"
+
+[tool.proxywhirl.data_storage]
+pool_size = 5
+persist_geo_data = false
+```
+
+User-global config (`~/.config/proxywhirl/config.toml`) uses root-level keys without the `[tool.proxywhirl]` wrapper.
+
+## Environment Variables
+
+### Security
+
+| Variable | Purpose |
+| -------- | ------- |
+| `PROXYWHIRL_KEY` | Master Fernet key for credential encryption (default: `~/.config/proxywhirl/key.enc`) |
+| `PROXYWHIRL_CACHE_ENCRYPTION_KEY` | Optional cache-tier encryption key |
+
+```bash
+export PROXYWHIRL_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+```
+
+### REST API
+
+| Variable | Default | Purpose |
+| -------- | ------- | ------- |
+| `PROXYWHIRL_REQUIRE_AUTH` | `false` | Enable API key auth |
+| `PROXYWHIRL_API_KEY` | — | API key when auth enabled |
+| `PROXYWHIRL_STORAGE_PATH` | `./proxywhirl.db` | SQLite path |
+| `PROXYWHIRL_STRATEGY` | `round-robin` | Default rotation strategy |
+| `PROXYWHIRL_TIMEOUT` | `30` | Request timeout (seconds) |
+| `PROXYWHIRL_MAX_RETRIES` | `3` | Max retry attempts |
+| `PROXYWHIRL_CORS_ORIGINS` | `""` | Comma-separated CORS origins |
+
+## CLIConfig Fields
+
+### Proxy pool & rotation
+
+| Field | Type | Default | Notes |
+| ----- | ---- | ------- | ----- |
+| `proxies` | `list[ProxyConfig]` | `[]` | Inline proxy entries |
+| `proxy_file` | `Path \| None` | `None` | One proxy per line |
+| `rotation_strategy` | `str` | `round-robin` | See strategy aliases below |
+| `health_check_interval` | `int` | `300` | `0` = disabled |
+
+### Request & output
+
+| Field | Type | Default |
+| ----- | ---- | ------- |
+| `timeout` | `int` | `30` |
+| `max_retries` | `int` | `3` |
+| `follow_redirects` | `bool` | `true` |
+| `verify_ssl` | `bool` | `true` |
+| `default_format` | `str` | `text` (`text`, `json`, `csv`) |
+| `color` | `bool` | `true` |
+| `verbose` | `bool` | `false` |
+
+### Cache (three-tier)
+
+| Field | Default | Validation |
+| ----- | ------- | ---------- |
+| `cache_enabled` | `true` | — |
+| `cache_l1_max_entries` | `1000` | — |
+| `cache_l2_max_entries` | `5000` | — |
+| `cache_l3_max_entries` | `None` | unlimited when `None` |
+| `cache_default_ttl` | `3600` | `>= 60` |
+| `cache_cleanup_interval` | `60` | `>= 10` |
+| `cache_l2_dir` | `.cache/proxies` | — |
+| `cache_l3_db_path` | `.cache/db/proxywhirl.db` | — |
+| `cache_health_invalidation` | `true` | — |
+| `cache_failure_threshold` | `3` | `>= 1` |
+
+### Rate limiting (API)
+
+| Field | Default |
+| ----- | ------- |
+| `rate_limit_by_key` | `true` |
+| `rate_limit_per_key` | `100/minute` |
+| `rate_limit_per_ip` | `100/minute` |
+
+### DataStorageConfig (selected)
+
+| Field | Default | Notes |
+| ----- | ------- | ----- |
+| `async_driver` | `true` | aiosqlite |
+| `pool_size` | `5` | `1–100` |
+| `pool_max_overflow` | `10` | `0–100` |
+| `pool_timeout` | `30.0` | seconds |
+| `persist_geo_data` | `false` | privacy-sensitive, opt-in |
+| `persist_ip_intelligence` | `false` | opt-in |
+| `persist_request_logs` | `false` | heavy storage |
+
+### ProxyConfig
+
+| Field | Required | Validation |
+| ----- | -------- | ---------- |
+| `url` | Yes | `http://`, `https://`, `socks4://`, `socks5://` |
+| `username` | No | Auto-encrypted on save |
+| `password` | No | Auto-encrypted on save |
+
+## Programmatic Usage
+
+```python
+from pathlib import Path
+from pydantic import SecretStr
+from proxywhirl.config import CLIConfig, ProxyConfig, DataStorageConfig, load_config, save_config
+
+config = CLIConfig(
+    proxies=[ProxyConfig(url="http://proxy.example.com:8080", username=SecretStr("u"), password=SecretStr("p"))],
+    rotation_strategy="weighted",
+    timeout=45,
+    data_storage=DataStorageConfig(pool_size=10, persist_geo_data=False),
+)
+
+save_config(config, Path("./pyproject.toml"))
+```
+
+## Validation Rules
+
+**Rotation strategies:** `round-robin`, `random`, `weighted`, `least-used`, `performance-based`, `session` / `session-persistence`, `geo-targeted`, `cost-aware`. Underscore aliases (`round_robin`, `geo_targeted`, …) are accepted.
+
+**Numeric constraints:**
+
+| Field | Min | Max |
+| ----- | --- | --- |
+| `cache_default_ttl` | 60 | — |
+| `cache_cleanup_interval` | 10 | — |
+| `max_error_history` | 0 | 100 |
+| `max_health_transitions` | 0 | 500 |
+| `pool_size` | 1 | 100 |
+
+## Preset Profiles
+
+**Minimal:**
+
+```toml
+[tool.proxywhirl]
+rotation_strategy = "round-robin"
+[[tool.proxywhirl.proxies]]
+url = "http://proxy.example.com:8080"
+```
+
+**High performance:** `weighted` strategy, `timeout = 10`, larger connection pool, disable heavy persistence.
+
+**Privacy-focused:** `encrypt_credentials = true`, `cache_enabled = false`, all geo/IP persistence off.
+
+## Security Notes
+
+- Config files are created with mode `600`.
+- Enable `PROXYWHIRL_REQUIRE_AUTH` and a strong `PROXYWHIRL_API_KEY` for REST deployments.
+- Regenerating `key.enc` makes old encrypted credentials unrecoverable.
+
+## Troubleshooting Config
+
+```python
+config_path = discover_config()
+print("No config" if config_path is None else f"Using {config_path}")
+```
+
+Common TOML mistake — nested tables use section headers, not `=`:
+
+```toml
+# Wrong: [tool.proxywhirl.data_storage] = {...}
+# Right:
+[tool.proxywhirl.data_storage]
+persist_geo_data = false
+```
+
+## See Also
+
+- [Cache Architecture](/docs/concepts/cache-architecture) — three-tier design
+- [Retry & Failover](/docs/guides/retry-failover) — `max_retries` and breakers
+- [REST API](/docs/generated/rest-api) — API env configuration
+- [CLI Reference](/docs/generated/cli-reference) — `proxywhirl config` commands

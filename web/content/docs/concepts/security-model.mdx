@@ -15,4 +15,26 @@ ProxyWhirl treats proxy usage as a network boundary problem.
 | Logs             | Avoid recording raw credentials, keys, or full sensitive URLs.           |
 | Sources          | Treat upstream proxy lists as untrusted input.                           |
 
+## Environment Variables
+
+Secrets and runtime paths are loaded from the environment — never hardcode keys in source or config files committed to git.
+
+| Variable | Component | Purpose |
+| -------- | --------- | ------- |
+| `PROXYWHIRL_KEY` | CLI / config | Master encryption key for stored credentials |
+| `PROXYWHIRL_CACHE_ENCRYPTION_KEY` | Cache | Fernet key for L2 cache encryption |
+| `PROXYWHIRL_STORAGE_PATH` | API | SQLite database path |
+| `PROXYWHIRL_API_KEY` | API | REST API authentication key |
+| `PROXYWHIRL_MCP_API_KEY` | MCP | MCP server authentication key |
+| `PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES` | MCP | Local-dev override for MCP write actions (never enable in production) |
+| `PROXYWHIRL_MCP_DB` | MCP | MCP database path |
+
+Generate encryption keys with `proxywhirl.utils.generate_encryption_key()` or the CLI `config` commands. Rotate keys on compromise and re-encrypt stored credentials.
+
+## Credential Handling
+
+- Use `SecretStr` in Pydantic models for passwords and API keys.
+- Exceptions redact sensitive URLs via `redact_url()` — verify logs never echo raw `user:pass@host` strings.
+- MCP and API write endpoints require authentication unless the explicit local-dev override is set.
+
 Review generated API and CLI surfaces after security-sensitive changes to make sure documentation matches the exposed controls.

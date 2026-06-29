@@ -116,6 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CODECOV_TOKEN_PRESENT: ${{ secrets.CODECOV_TOKEN != '' }}
+      HYPOTHESIS_PROFILE: ci
     strategy:
       fail-fast: false
       matrix:
@@ -155,7 +156,7 @@ jobs:
         id: test
         run: |
           echo "::group::Test Results"
-          uv run pytest tests/unit/ tests/integration/ -m "not slow" --timeout=120 -v
+          uv run pytest tests/unit/ tests/integration/ tests/property/ -m "not slow and not stress" --timeout=120 -v
           echo "::endgroup::"
 
       - name: Check coverage threshold
@@ -165,7 +166,8 @@ jobs:
           uv run pytest \
             tests/unit/ \
             tests/integration/ \
-            -m "not slow" \
+            tests/property/ \
+            -m "not slow and not stress" \
             --cov=proxywhirl.models \
             --cov=proxywhirl.strategies \
             --cov=proxywhirl.rotator \
@@ -237,7 +239,7 @@ jobs:
           uv pip install -e ".[all,dev]"
 
       - name: Run tests
-        run: uv run pytest tests/unit/ tests/integration/ -m "not slow" --timeout=120 -v
+        run: uv run pytest tests/unit/ tests/integration/ tests/property/ -m "not slow and not stress" --timeout=120 -v
 
   benchmark:
     name: Benchmark Performance Regression
@@ -381,6 +383,9 @@ jobs:
 
       - name: Generate documentation references
         run: pnpm --dir web run docs:generate
+
+      - name: Verify generated docs are committed
+        run: git diff --exit-code -- web/content/docs/generated web/content/generated
 
       - name: Lint web documentation app
         run: pnpm --dir web run lint

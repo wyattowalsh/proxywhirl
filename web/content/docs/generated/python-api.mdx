@@ -21,7 +21,7 @@ description: Source-grounded public exports from proxywhirl.__all__.
   <div className="mt-1 text-xs text-fd-muted-foreground">Supported runtime range</div>
 </div>
 <div className="rounded-xl border bg-fd-card p-4 shadow-sm">
-  <div className="text-2xl font-semibold tracking-tight">113</div>
+  <div className="text-2xl font-semibold tracking-tight">117</div>
   <div className="mt-1 text-sm font-medium">Public exports</div>
   <div className="mt-1 text-xs text-fd-muted-foreground">Entries in `proxywhirl.__all__`</div>
 </div>
@@ -51,8 +51,8 @@ description: Source-grounded public exports from proxywhirl.__all__.
 
 | Kind | Count |
 | --- | --- |
-| class | 83 |
-| function | 23 |
+| class | 86 |
+| function | 24 |
 | value | 7 |
 
 ## Top Namespaces
@@ -69,5 +69,127 @@ description: Source-grounded public exports from proxywhirl.__all__.
 | `proxywhirl.retry` | 6 |
 | `proxywhirl.rate_limiting` | 4 |
 | `proxywhirl.circuit_breaker` | 3 |
-| `proxywhirl.sources` | 2 |
-| `proxywhirl.storage` | 2 |
+| `proxywhirl.orchestration` | 3 |
+| `proxywhirl.storage` | 3 |
+
+## All Public Exports
+
+| Export | Kind | Module | Summary |
+| --- | --- | --- | --- |
+| `ALL_HTTP_SOURCES` | value | `proxywhirl` | Built-in mutable sequence. |
+| `ALL_SOCKS4_SOURCES` | value | `proxywhirl` | Built-in mutable sequence. |
+| `ALL_SOCKS5_SOURCES` | value | `proxywhirl` | Built-in mutable sequence. |
+| `ALL_SOURCES` | value | `proxywhirl` | Built-in mutable sequence. |
+| `API_SOURCES` | value | `proxywhirl` | Built-in mutable sequence. |
+| `AsyncCircuitBreaker` | class | `proxywhirl.circuit_breaker` | Circuit breaker for a single proxy in async contexts. |
+| `AsyncProxyWhirl` | class | `proxywhirl.rotator.async_` | Async proxy rotator with automatic failover and intelligent rotation. |
+| `AsyncRateLimiter` | class | `proxywhirl.rate_limiting` | Async rate limiter for use in async contexts. |
+| `BackoffStrategy` | class | `proxywhirl.retry` | Retry backoff timing strategy. |
+| `BootstrapConfig` | class | `proxywhirl.models` | Configuration for the lazy bootstrap that runs on first request when the pool is empty. |
+| `BrowserRenderError` | class | `proxywhirl.exceptions` | Raised when browser rendering fails (Playwright). |
+| `BrowserRenderer` | class | `proxywhirl.browser` | Browser-based page renderer using Playwright for JavaScript execution. |
+| `CSVParser` | class | `proxywhirl.fetchers` | Parse CSV-formatted proxy lists with flexible header handling. |
+| `CacheConfig` | class | `proxywhirl.cache.models` | Configuration for cache behavior and tier settings. |
+| `CacheCorruptionError` | class | `proxywhirl.exceptions` | Raised when cache data is corrupted and cannot be recovered. |
+| `CacheManager` | class | `proxywhirl.cache.manager` | Manages multi-tier caching of proxies with automatic promotion/demotion. |
+| `CacheStorageError` | class | `proxywhirl.exceptions` | Raised when cache storage backend is unavailable. |
+| `CacheValidationError` | class | `proxywhirl.exceptions` | Raised when cache entry fails validation. |
+| `CircuitBreaker` | class | `proxywhirl.circuit_breaker` | Circuit breaker for a single proxy in synchronous contexts. |
+| `CircuitBreakerConfig` | class | `proxywhirl.models` | Configuration for circuit breaker behavior. |
+| `CircuitBreakerOpenError` | class | `proxywhirl.exceptions` | Raised when circuit breaker is in open state. |
+| `CircuitBreakerState` | class | `proxywhirl.circuit_breaker` | Circuit breaker states. |
+| `CompositeStrategy` | class | `proxywhirl.strategies` | Composite strategy that applies filtering and selection strategies in sequence. |
+| `CostAwareStrategy` | class | `proxywhirl.strategies` | Cost-aware proxy selection strategy. |
+| `DataStorageConfig` | class | `proxywhirl.config` | Configuration for what data to persist to the database. |
+| `EventLoopConflictError` | class | `proxywhirl.exceptions` | Raised when there's a conflict between async/sync event loops. |
+| `FailoverPolicy` | class | `proxywhirl.orchestration` | Configuration for multi-proxy failover behavior. |
+| `FileStorage` | class | `proxywhirl.storage` | File-based storage backend using JSON with optional encryption. |
+| `GeoTargetedStrategy` | class | `proxywhirl.strategies` | Geo-targeted proxy selection strategy. |
+| `HTMLTableParser` | class | `proxywhirl.fetchers` | Parse HTML table-formatted proxy lists with flexible column mapping. |
+| `HealthMonitor` | class | `proxywhirl.models` | Continuous health monitoring for proxy pools with auto-eviction. |
+| `HealthStatus` | class | `proxywhirl.models` | Proxy health status states. |
+| `JSONParser` | class | `proxywhirl.fetchers` | Parse JSON-formatted proxy lists with optional key extraction. |
+| `LeastUsedStrategy` | class | `proxywhirl.strategies` | Least-used proxy selection strategy with SelectionContext support. |
+| `NonRetryableError` | class | `proxywhirl.retry` | Exception that does not trigger a retry. |
+| `PerformanceBasedStrategy` | class | `proxywhirl.strategies` | Performance-based proxy selection using EMA response times. |
+| `PlainTextParser` | class | `proxywhirl.fetchers` | Parse plain text proxy lists (one proxy per line in IP:PORT format). |
+| `PoolSummary` | class | `proxywhirl.models` | Summary of entire proxy pool. |
+| `Proxy` | class | `proxywhirl.models` | Represents a single proxy server with connection details and metadata. |
+| `ProxyAuthenticationError` | class | `proxywhirl.exceptions` | Raised when proxy authentication fails. |
+| `ProxyChain` | class | `proxywhirl.models` | Represents a chain of proxies for tunneling requests. |
+| `ProxyConfiguration` | class | `proxywhirl.settings` | Global runtime configuration for proxy rotation. |
+| `ProxyConnectionError` | class | `proxywhirl.exceptions` | Raised when unable to connect through a proxy. |
+| `ProxyCredentials` | class | `proxywhirl.models` | Secure credential storage for proxy authentication. |
+| `ProxyErrorCode` | class | `proxywhirl.exceptions` | Error codes for programmatic error handling. |
+| `ProxyFetcher` | class | `proxywhirl.fetchers` | Fetch and parse proxies from multiple sources with validation and deduplication. |
+| `ProxyFetchError` | class | `proxywhirl.exceptions` | Raised when fetching proxies from external sources fails. |
+| `ProxyFormat` | class | `proxywhirl.models` | Supported proxy list formats. |
+| `ProxyMetrics` | class | `proxywhirl.strategies` | Per-proxy mutable metrics maintained by a strategy. |
+| `ProxyPool` | class | `proxywhirl.models` | Collection of proxies with management capabilities. |
+| `ProxyPoolEmptyError` | class | `proxywhirl.exceptions` | Raised when attempting to select from an empty proxy pool. |
+| `ProxyRotationContext` | class | `proxywhirl.orchestration` | Mutable context for a single request's proxy rotation lifecycle. |
+| `ProxySource` | class | `proxywhirl.models` | Origin type of proxy. |
+| `ProxySourceConfig` | class | `proxywhirl.models` | Configuration for a proxy list source. |
+| `ProxySourceUnavailableError` | class | `proxywhirl.exceptions` | Raised when a proxy source is temporarily or permanently unavailable. |
+| `ProxyStatus` | class | `proxywhirl.models` | Status of a single proxy in the pool. |
+| `ProxyStorageError` | class | `proxywhirl.exceptions` | Raised when proxy storage operations fail. |
+| `ProxyValidationError` | class | `proxywhirl.exceptions` | Raised when proxy URL or configuration is invalid. |
+| `ProxyValidator` | class | `proxywhirl.fetchers` | Validate proxy connectivity with detailed metrics and multiple test endpoints. |
+| `ProxyWhirl` | class | `proxywhirl.rotator.sync` | Main class for proxy rotation with automatic failover. |
+| `ProxyWhirlError` | class | `proxywhirl.exceptions` | Base exception for all ProxyWhirl errors. |
+| `RECOMMENDED_SOURCES` | value | `proxywhirl` | Built-in mutable sequence. |
+| `RandomStrategy` | class | `proxywhirl.strategies` | Random proxy selection strategy with SelectionContext support. |
+| `RateLimit` | class | `proxywhirl.rate_limiting` | Rate limit configuration. |
+| `RateLimitEvent` | class | `proxywhirl.rate_limiting` | Rate limit event for logging. |
+| `RateLimitExceededError` | class | `proxywhirl.exceptions` | Raised when rate limit is exceeded. |
+| `RateLimiter` | class | `proxywhirl.rate_limiting` | Rate limiter with per-proxy and global limits using pyrate-limiter. |
+| `RegexComplexityError` | class | `proxywhirl.safe_regex` | Raised when regex pattern is too complex or dangerous. |
+| `RegexTimeoutError` | class | `proxywhirl.safe_regex` | Raised when regex compilation or matching exceeds timeout. |
+| `RenderMode` | class | `proxywhirl.models` | Page rendering modes for fetching proxy lists. |
+| `RequestOrchestration` | class | `proxywhirl.orchestration` | Orchestrates proxy selection, inner retries, and optional outer failover. |
+| `RequestQueueFullError` | class | `proxywhirl.exceptions` | Raised when the request queue is full and cannot accept more requests. |
+| `RequestResult` | class | `proxywhirl.models` | Result of HTTP request made through proxy. |
+| `RetryExecutor` | class | `proxywhirl.retry` | Orchestrates retry logic with exponential backoff and circuit breaker integration. |
+| `RetryMetrics` | class | `proxywhirl.retry` | Aggregated retry metrics collection. |
+| `RetryPolicy` | class | `proxywhirl.retry` | Configuration for retry behavior. |
+| `RetryableError` | class | `proxywhirl.retry` | Exception that triggers a retry. |
+| `RotationStrategy` | class | `proxywhirl.strategies` | Protocol defining interface for proxy rotation strategies. |
+| `RoundRobinStrategy` | class | `proxywhirl.strategies` | Round-robin proxy selection strategy with SelectionContext support. |
+| `SQLiteStorage` | class | `proxywhirl.storage` | SQLite-based storage backend with normalized 3-table schema. |
+| `SelectionContext` | class | `proxywhirl.models` | Context information for proxy selection decisions. |
+| `Session` | class | `proxywhirl.models` | Session tracking for sticky proxy assignments. |
+| `SessionManager` | class | `proxywhirl.strategies` | Thread-safe session manager for sticky proxy assignments. |
+| `SessionPersistenceStrategy` | class | `proxywhirl.strategies` | Session persistence strategy (sticky sessions). |
+| `SourceStats` | class | `proxywhirl.models` | Statistics for a proxy source. |
+| `StorageBackend` | class | `proxywhirl.models` | Protocol for proxy storage backends. |
+| `StrategyConfig` | class | `proxywhirl.models` | Configuration for rotation strategies. |
+| `StrategyRegistry` | class | `proxywhirl.strategies` | Singleton registry for custom rotation strategies. |
+| `StrategyState` | class | `proxywhirl.strategies` | Per-strategy mutable state for managing proxy metrics. |
+| `ValidationLevel` | class | `proxywhirl.models` | Proxy validation strictness levels. |
+| `ValidationResult` | class | `proxywhirl.fetchers` | Result of proxy validation with timing metrics. |
+| `WeightedStrategy` | class | `proxywhirl.strategies` | Weighted proxy selection strategy with SelectionContext support. |
+| `__version__` | value | `proxywhirl` | str(object='') -> str |
+| `configure_logging` | function | `proxywhirl.utils` | Configure loguru logging with optional JSON formatting and credential redaction. |
+| `create_proxy_from_url` | function | `proxywhirl.utils` | Create a Proxy instance from a URL string. |
+| `deduplicate_proxies` | function | `proxywhirl.fetchers` | Deduplicate proxies by URL+Port combination. |
+| `decrypt_credentials` | function | `proxywhirl.utils` | Decrypt credentials using Fernet symmetric encryption. |
+| `dict_to_proxy` | function | `proxywhirl.storage` | Convert a storage row dictionary to a :class:`~proxywhirl.models.Proxy`. |
+| `encrypt_credentials` | function | `proxywhirl.utils` | Encrypt credentials using Fernet symmetric encryption. |
+| `generate_encryption_key` | function | `proxywhirl.utils` | Generate a new Fernet encryption key. |
+| `is_valid_proxy_url` | function | `proxywhirl.utils` | Validate proxy URL format with caching. |
+| `mask_proxy_url` | function | `proxywhirl.utils` | Mask credentials in a proxy URL for safe display in verbose/debug output. |
+| `mask_secret_str` | function | `proxywhirl.utils` | Mask a SecretStr or string value for safe display. |
+| `parse_proxy_url` | function | `proxywhirl.utils` | Parse proxy URL into components with LRU cache. |
+| `proxy_to_dict` | function | `proxywhirl.utils` | Convert a Proxy instance to a dictionary. |
+| `public_proxy_url` | function | `proxywhirl.utils` | Return a proxy URL safe for public API, CLI, and MCP output. |
+| `redact_url` | function | `proxywhirl.exceptions` | Redact sensitive information from a URL. |
+| `safe_regex_compile` | function | `proxywhirl.safe_regex` | Safely compile a regex pattern with timeout protection. |
+| `safe_regex_findall` | function | `proxywhirl.safe_regex` | Safely find all matches of a regex pattern in text with timeout protection. |
+| `safe_regex_match` | function | `proxywhirl.safe_regex` | Safely match a regex pattern against text with timeout protection. |
+| `safe_regex_search` | function | `proxywhirl.safe_regex` | Safely search for a regex pattern in text with timeout protection. |
+| `scrub_credentials_from_dict` | function | `proxywhirl.utils` | Recursively scrub credentials from a dictionary for safe output. |
+| `validate_proxy_model` | function | `proxywhirl.utils` | Validate a Proxy model instance. |
+| `validate_regex_pattern` | function | `proxywhirl.safe_regex` | Validate a regex pattern for safety. |
+| `validate_sources` | function | `proxywhirl.sources` | Validate multiple proxy sources concurrently. |
+| `validate_sources_sync` | function | `proxywhirl.sources` | Synchronous wrapper for validate_sources. |
+| `validate_target_url_safe` | function | `proxywhirl.utils` | Validate a target URL to prevent SSRF attacks (API-safe version). |

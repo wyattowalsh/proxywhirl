@@ -1,0 +1,45 @@
+---
+title: Deployment
+description: Deploy ProxyWhirl API services, validate sources, and publish proxy lists safely.
+---
+
+# Deployment
+
+ProxyWhirl deployments combine a Python runtime (CLI, API, or MCP), optional SQLite storage, and periodically refreshed proxy-list artifacts.
+
+## Pre-Deploy Validation
+
+```bash
+uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
+task quality-gates
+pnpm --dir web run docs:generate && pnpm --dir web run build
+```
+
+## API Service
+
+```bash
+PROXYWHIRL_STORAGE_PATH=/data/proxywhirl.db \
+PROXYWHIRL_API_KEY=<key> \
+  uv run uvicorn proxywhirl.api:app --host 0.0.0.0 --port 8000
+```
+
+Point load balancers at `/api/ready`. See [REST API Deployment](/docs/interfaces/rest-api).
+
+## MCP Service
+
+```bash
+PROXYWHIRL_MCP_API_KEY=<key> \
+PROXYWHIRL_MCP_DB=/data/proxywhirl.db \
+  proxywhirl-mcp --transport http
+```
+
+See [MCP Server](/docs/interfaces/mcp).
+
+## Proxy List Publication
+
+The public bundle at `/proxy-lists/` is mirrored from `docs/proxy-lists/` during `pnpm --dir web run docs:generate`. See [Proxy Lists](/docs/guides/proxy-lists).
+
+## See Also
+
+- [Operations Playbook](/docs/guides/operations-playbook)
+- [Security Model](/docs/concepts/security-model)

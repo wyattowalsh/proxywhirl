@@ -1,0 +1,29 @@
+---
+title: Resilience
+description: How caching, circuit breakers, retries, and rate limiting absorb unreliable proxy networks.
+---
+
+# Resilience
+
+Public proxy pools are volatile. ProxyWhirl layers four resilience mechanisms so applications keep making progress without manual babysitting.
+
+## Components
+
+| Layer | Role |
+| ----- | ---- |
+| **Cache** | Reduce repeated fetches and validation work |
+| **Circuit breaker** | Stop routing through proxies that fail repeatedly |
+| **Retry** | Back off and try alternate proxies on transient errors |
+| **Rate limiting** | Cap request velocity to protect upstreams |
+
+## Deeper Topics
+
+- [Circuit Breakers](/docs/concepts/circuit-breakers)
+- [Cache Architecture](/docs/concepts/cache-architecture)
+- [Retry & Failover](/docs/guides/retry-failover)
+- [Troubleshooting](/docs/guides/troubleshooting)
+
+## See Also
+
+- [Proxy Lifecycle](/docs/concepts/proxy-lifecycle)
+- [Python API](/docs/generated/python-api)

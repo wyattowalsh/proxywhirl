@@ -1,37 +1,225 @@
 ---
 title: Clients
-description: Choose between ProxyWhirl and AsyncProxyWhirl and understand client usage patterns.
+description: Choose between ProxyWhirl and AsyncProxyWhirl, initialization patterns, concurrency, and error handling.
 ---
 
 # Clients
 
-ProxyWhirl exposes both sync and async client surfaces.
+ProxyWhirl exposes both sync and async client surfaces. Both share the same strategy system, retry logic, and circuit breakers — only the execution model differs.
 
-Use `ProxyWhirl` for scripts, CLIs, notebooks, and applications that do not already run an event loop:
+## Quick Choice
+
+| Scenario | Client |
+| -------- | ------ |
+| Scripts, CLIs, notebooks | `ProxyWhirl` |
+| FastAPI, crawlers, worker pools | `AsyncProxyWhirl` |
+| 100+ concurrent requests | `AsyncProxyWhirl` |
+| &lt;10 concurrent requests | Either (async still preferred in existing asyncio apps) |
+
+Use `ProxyWhirl` for scripts, CLIs, notebooks, and apps without an event loop:
 
 ```python
 from proxywhirl import ProxyWhirl
 
-rotator = ProxyWhirl(strategy="performance-based")
-response = rotator.get("https://api.example.com/data")
+with ProxyWhirl(strategy="performance-based") as rotator:
+    rotator.add_proxy("http://proxy1.example.com:8080")
+    response = rotator.get("https://api.example.com/data")
 ```
 
-Use `AsyncProxyWhirl` for FastAPI services, crawlers, concurrent validation, and any application already built around `asyncio`:
+Use `AsyncProxyWhirl` for services and high-concurrency validation:
 
 ```python
+import asyncio
 from proxywhirl import AsyncProxyWhirl
 
-async with AsyncProxyWhirl(strategy="round-robin") as rotator:
-    response = await rotator.get("https://api.example.com/data")
+async def main():
+    async with AsyncProxyWhirl(strategy="round-robin") as rotator:
+        await rotator.add_proxy("http://proxy1.example.com:8080")
+        response = await rotator.get("https://api.example.com/data")
+
+asyncio.run(main())
 ```
 
-## Selection Rules
+Keep proxy fetching, validation, and storage outside the hot request path when possible.
 
-| Scenario                      | Recommended Client      |
-| ----------------------------- | ----------------------- |
-| Small script or CLI task      | `ProxyWhirl`            |
-| Web service or worker pool    | `AsyncProxyWhirl`       |
-| High concurrency validation   | `AsyncProxyWhirl`       |
-| Human-operated local workflow | `ProxyWhirl` or the CLI |
+## Sync Client (`ProxyWhirl`)
 
-Keep proxy source fetching, validation, and storage decisions outside your hot request path when possible.
+### Initialization
+
+```python
+from proxywhirl import ProxyWhirl, Proxy, RetryPolicy
+
+rotator = ProxyWhirl(
+    proxies=[Proxy(url="http://proxy1.example.com:8080")],
+    strategy="weighted",
+    retry_policy=RetryPolicy(max_attempts=3, jitter=True),
+)
+```
+
+String strategy aliases: `round-robin`, `random`, `weighted`, `least-used`, `performance-based`, `session`, `geo-targeted`, `cost-aware` (underscore forms accepted).
+
+### HTTP methods
+
+All standard methods are available: `get`, `post`, `put`, `delete`, `patch`, `head`, `options`, plus `request(method, url, ...)`.
+
+```python
+response = rotator.get("https://api.example.com/search", params={"q": "python"})
+response = rotator.post("https://api.example.com/submit", json={"key": "value"})
+```
+
+### Hot-swap strategies
+
+```python
+rotator.set_strategy("performance-based")
+```
+
+## Async Client (`AsyncProxyWhirl`)
+
+### When async wins
+
+- I/O-bound workloads with long network waits
+- Integration with FastAPI, aiohttp, or existing `asyncio` code
+- Thousands of connections with lower CPU than thread pools
+
+See [Retry & Failover](/docs/guides/retry-failover) for `AsyncCircuitBreaker` — **never** use sync breakers inside async code.
+
+### Initialization
+
+```python
+from proxywhirl import AsyncProxyWhirl, ProxyConfiguration, RetryPolicy
+
+config = ProxyConfiguration(
+    timeout=60,
+    pool_connections=50,
+    pool_max_keepalive=20,
+)
+
+async with AsyncProxyWhirl(
+    strategy="round-robin",
+    config=config,
+    retry_policy=RetryPolicy(max_attempts=5, base_delay=1.5),
+) as rotator:
+    await rotator.add_proxy("http://proxy1.example.com:8080")
+    rotator.set_strategy("performance-based")
+    response = await rotator.get("https://httpbin.org/ip")
+```
+
+Always prefer `async with` for automatic httpx client and background task cleanup.
+
+### Concurrent requests
+
+```python
+import asyncio
+from proxywhirl import AsyncProxyWhirl
+
+async def fetch_all(urls):
+    semaphore = asyncio.Semaphore(50)
+
+    async def fetch(rotator, url):
+        async with semaphore:
+            return await rotator.get(url, timeout=30.0)
+
+    async with AsyncProxyWhirl(strategy="least-used") as rotator:
+        for i in range(5):
+            await rotator.add_proxy(f"http://proxy{i}.example.com:8080")
+        tasks = [fetch(rotator, url) for url in urls]
+        return await asyncio.gather(*tasks, return_exceptions=True)
+```
+
+### FastAPI integration
+
+```python
+from fastapi import FastAPI
+from proxywhirl import AsyncProxyWhirl
+
+app = FastAPI()
+
+@app.on_event("startup")
+async def startup():
+    app.state.rotator = AsyncProxyWhirl(strategy="round-robin")
+    await app.state.rotator.__aenter__()
+    await app.state.rotator.add_proxy("http://proxy1.example.com:8080")
+
+@app.on_event("shutdown")
+async def shutdown():
+    await app.state.rotator.__aexit__(None, None, None)
+
+@app.get("/fetch")
+async def fetch_url(url: str):
+    response = await app.state.rotator.get(url)
+    return response.json()
+```
+
+Reuse a single rotator per process — creating one per request wastes clients and circuit breaker state.
+
+## Error Handling
+
+```python
+from proxywhirl import (
+    AsyncProxyWhirl,
+    ProxyPoolEmptyError,
+    ProxyConnectionError,
+    ProxyAuthenticationError,
+)
+
+async with AsyncProxyWhirl() as rotator:
+    try:
+        await rotator.add_proxy("http://proxy1.example.com:8080")
+        response = await rotator.get("https://httpbin.org/ip")
+    except ProxyPoolEmptyError:
+        ...
+    except ProxyAuthenticationError:
+        ...
+    except ProxyConnectionError as e:
+        print(e.error_code)
+```
+
+Per-request retry override:
+
+```python
+from proxywhirl import RetryPolicy
+
+custom = RetryPolicy(max_attempts=10, base_delay=2.0)
+response = await rotator.get("https://api.example.com/flaky", retry_policy=custom)
+```
+
+## Sync → Async Migration
+
+```python
+# Sync
+with ProxyWhirl() as rotator:
+    rotator.add_proxy("http://proxy1.example.com:8080")
+    rotator.get("https://httpbin.org/ip")
+
+# Async
+async with AsyncProxyWhirl() as rotator:
+    await rotator.add_proxy("http://proxy1.example.com:8080")
+    await rotator.get("https://httpbin.org/ip")
+```
+
+Changes: `ProxyWhirl` → `AsyncProxyWhirl`, `with` → `async with`, `await` on async methods, wrap in `asyncio.run()`.
+
+## Performance Notes
+
+| Metric | AsyncProxyWhirl | ProxyWhirl |
+| ------ | --------------- | ---------- |
+| Strategy hot-swap | &lt;100 ms | &lt;100 ms |
+| Max practical concurrency | 1000+ | ~50–100 (threaded) |
+| Throughput (10 proxies, 100 URLs) | ~2× sync | baseline |
+
+Async shines when latency is network-bound and concurrency is high. Sync is fine for low-concurrency scripts.
+
+## Best Practices
+
+1. Use context managers (`with` / `async with`).
+2. Cap concurrency with `asyncio.Semaphore`.
+3. Use `gather(..., return_exceptions=True)` for batch scraping.
+4. Monitor circuit breaker states — see [Troubleshooting](/docs/guides/troubleshooting).
+5. Configure pool limits via `ProxyConfiguration` for throughput vs latency tradeoffs.
+
+## See Also
+
+- [Retry & Failover](/docs/guides/retry-failover) — retry policies and breakers
+- [Rotation Strategies](/docs/concepts/rotation-strategies) — strategy design
+- [Configuration](/docs/reference/configuration) — timeouts and pool settings
+- [MCP Server](/docs/mcp) — agent-facing tool interface

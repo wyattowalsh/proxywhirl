@@ -1,39 +1,31 @@
 ---
 title: Documentation
-description: Canonical ProxyWhirl documentation for Python, REST, CLI, MCP, TUI, strategies, and operations.
+description: Canonical ProxyWhirl documentation for Python, REST, CLI, MCP, strategies, and operations.
 ---
 
 # ProxyWhirl Documentation
 
-ProxyWhirl is a drop-in Python proxy rotator: create a rotator, make requests, and let it hydrate an empty pool from every enabled built-in public source on first use. It also includes sync and async clients, validation, circuit breakers, retry policies, caching, a REST API, a CLI, a TUI, and an MCP server.
+ProxyWhirl is a drop-in Python proxy rotator: create a rotator, make requests, and let it hydrate an empty pool from every enabled built-in public source on first use. It also includes sync and async clients, validation, circuit breakers, retry policies, caching, a REST API, a CLI, and an MCP server.
 
 This Fumadocs site is the canonical documentation path at `/docs/`. Generated reference pages stay source-grounded through `pnpm --dir web run docs:generate`.
 
 ## Start Here
 
-| Surface                                        | Use It For                                                                       |
-| ---------------------------------------------- | -------------------------------------------------------------------------------- |
-| [Quickstart](/docs/quickstart)                 | Install ProxyWhirl, auto-fetch proxies, and send the first rotated request.      |
-| [Guides](/docs/guides)                         | Learn client setup, caching, retries, deployment, and troubleshooting.           |
-| [Concepts](/docs/concepts)                     | Understand proxy lifecycle, rotation strategies, circuit breakers, and security. |
-| [Python API](/docs/generated/python-api)       | Browse generated public exports from `proxywhirl.__all__`.                       |
-| [REST/OpenAPI](/docs/generated/rest-api)       | Review generated FastAPI OpenAPI paths.                                          |
-| [CLI Reference](/docs/generated/cli-reference) | Review generated Typer command inventory.                                        |
-| [Proxy Sources](/docs/generated/proxy-sources) | Inspect generated proxy source metadata.                                         |
-| [Strategy Matrix](/docs/generated/strategies)  | Compare generated rotation strategy classes.                                     |
+| Surface | Use It For |
+| ------- | ---------- |
+| [Quickstart](/docs/quickstart) | Install ProxyWhirl and send the first rotated request. |
+| [Guides](/docs/guides) | Client setup, configuration, retries, deployment, troubleshooting. |
+| [Concepts](/docs/concepts) | Proxy lifecycle, strategies, resilience, and security. |
+| [Interfaces](/docs/interfaces/mcp) | MCP server and REST API deployment. |
+| [Reference](/docs/reference) | Generated Python, REST, CLI, sources, and strategies. |
 
 ## Documentation Pipeline
 
-The docs build runs in this order:
-
-1. `pnpm --dir web run docs:generate` derives generated pages and JSON from repository code and metadata.
-2. `pnpm --dir web run lint` enforces zero ESLint warnings.
-3. `pnpm --dir web run test:run` validates docs/UI behavior.
-4. `pnpm --dir web run build` builds the Next.js App Router site with Fumadocs at `/docs/`.
-5. CI validates the same pipeline before deployment.
+1. `pnpm --dir web run docs:generate`
+2. `pnpm --dir web run lint`
+3. `pnpm --dir web run test:run`
+4. `pnpm --dir web run build`
 
 ## Production Assurance
 
-Use [Operations](/docs/operations) for the zero-warning gate matrix and [Operations Playbook](/docs/guides/operations-playbook) for source, proxy-list, and CI monitoring checks. The public proxy-list bundle is published under `/proxy-lists/` and mirrored from `docs/proxy-lists/` into `web/public/proxy-lists/` during docs generation.
-
-Python runtime behavior, database schema, and public Python APIs are intentionally unchanged by this documentation site.
+Use [Operations](/docs/operations) for contributor gates and [Operations Playbook](/docs/guides/operations-playbook) for runtime validation. Proxy lists publish under `/proxy-lists/`.

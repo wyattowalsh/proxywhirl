@@ -25,7 +25,7 @@ pnpm --dir web run test:run
 pnpm --dir web run build
 uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
 uv run proxywhirl fetch --no-save-db --no-export --timeout 5 --concurrency 20
-uv run proxywhirl stats
+uv run proxywhirl pool stats
 ```
 
 ## Deployment Checks

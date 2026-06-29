@@ -226,7 +226,7 @@ curl localhost:8000/api/proxies
 
 [<kbd> <br> &nbsp;&nbsp;Full Documentation&nbsp;&nbsp; <br> </kbd>](https://www.proxywhirl.com/docs/)&nbsp;&nbsp;&nbsp;
 [<kbd> <br> &nbsp;&nbsp;Strategy Matrix&nbsp;&nbsp; <br> </kbd>](https://www.proxywhirl.com/docs/generated/strategies)&nbsp;&nbsp;&nbsp;
-[<kbd> <br> &nbsp;&nbsp;MCP Server&nbsp;&nbsp; <br> </kbd>](https://www.proxywhirl.com/docs/mcp)&nbsp;&nbsp;&nbsp;
+[<kbd> <br> &nbsp;&nbsp;MCP Server&nbsp;&nbsp; <br> </kbd>](https://www.proxywhirl.com/docs/interfaces/mcp)&nbsp;&nbsp;&nbsp;
 [<kbd> <br> &nbsp;&nbsp;Examples&nbsp;&nbsp; <br> </kbd>](examples.ipynb)
 
 <br/><br/>

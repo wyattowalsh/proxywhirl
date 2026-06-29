@@ -42,21 +42,21 @@ description: Typer command inventory parsed from proxywhirl.cli.
 
 ## Command Inventory
 
-| Command | Summary | Function |
-| --- | --- | --- |
-| `proxywhirl request` | Make an HTTP request through a rotating proxy. | `request` |
-| `proxywhirl pool list` | List proxies in the active pool. | `_pool_list` |
-| `proxywhirl pool add` | Add a proxy URL to the pool. | `_pool_add` |
-| `proxywhirl pool remove` | Remove a proxy URL from the pool. | `_pool_remove` |
-| `proxywhirl pool test` | Test one proxy against a target URL. | `_pool_test` |
-| `proxywhirl pool stats` | Show active pool statistics. | `_pool_stats` |
-| `proxywhirl config init` | Create a local configuration file. | `_config_init` |
-| `proxywhirl config show` | Print the current configuration. | `_config_show` |
-| `proxywhirl config get` | Read one configuration value. | `_config_get` |
-| `proxywhirl config set` | Write one configuration value. | `_config_set` |
-| `proxywhirl export` | Export proxy data and statistics for web dashboard. | `export` |
-| `proxywhirl fetch` | Fetch proxies from configured sources. | `fetch` |
-| `proxywhirl sources` | List and validate configured proxy sources. | `sources` |
-| `proxywhirl health` | Check health of all proxies in the pool. | `health` |
-| `proxywhirl validate-proxy` | Validate proxy health with optional target URL test. | `validate_proxy` |
-| `proxywhirl import-proxies` | Import proxies from file (JSON, CSV, or plain text). | `import_proxies` |
+| Command | Summary | Flags | Function |
+| --- | --- | --- | --- |
+| `proxywhirl request` | Make an HTTP request through a rotating proxy. | `--allow-private, --data, --header, --method, --proxy, --retries, -H, -X, -d, -p` | `request` |
+| `proxywhirl pool list` | List proxies in the active pool. | `--password, --username, -p, -u` | `_pool_list` |
+| `proxywhirl pool add` | Add a proxy URL to the pool. | `--password, --username, -p, -u` | `_pool_add` |
+| `proxywhirl pool remove` | Remove a proxy URL from the pool. | - | `_pool_remove` |
+| `proxywhirl pool test` | Test one proxy against a target URL. | `--allow-private, --target-url` | `_pool_test` |
+| `proxywhirl pool stats` | Show active pool statistics. | - | `_pool_stats` |
+| `proxywhirl config init` | Create a local configuration file. | - | `_config_init` |
+| `proxywhirl config show` | Print the current configuration. | - | `_config_show` |
+| `proxywhirl config get` | Read one configuration value. | - | `_config_get` |
+| `proxywhirl config set` | Write one configuration value. | - | `_config_set` |
+| `proxywhirl export` | Export proxy data and statistics for web dashboard. | `--db, --output, --proxies-only, --stats-only, -o` | `export` |
+| `proxywhirl fetch` | Fetch proxies from configured sources. | `--concurrency, --https-max, --https-timeout, --https-validate, --no-export, --no-save-db, --no-validate, --prune-failed, --revalidate, --revalidate-limit, --timeout, -R` | `fetch` |
+| `proxywhirl sources` | List and validate configured proxy sources. | `--concurrency, --fail-on-unhealthy, --timeout, --validate, -f, -j, -t, -v` | `sources` |
+| `proxywhirl health` | Check health of all proxies in the pool. | `--allow-private, --continuous, --interval, --target-url, -C, -i, -t` | `health` |
+| `proxywhirl validate-proxy` | Validate proxy health with optional target URL test. | `--target, --timeout, -t` | `validate_proxy` |
+| `proxywhirl import-proxies` | Import proxies from file (JSON, CSV, or plain text). | `--dedup, --format, --pool, -f, -p` | `import_proxies` |

@@ -1,0 +1,134 @@
+---
+title: Proxy Lists
+description: Public proxy-list assets at /proxy-lists/, file formats, freshness, and how to regenerate the bundle.
+---
+
+# Proxy Lists
+
+The docs site publishes a **generated proxy-list bundle** at `/proxy-lists/`. Files are mirrored from `docs/proxy-lists/` into `web/public/proxy-lists/` during `pnpm --dir web run docs:generate`.
+
+Do not hand-edit generated proxy data to fake freshness. Regenerate through the CLI export workflow and validate sources separately.
+
+## Public URLs
+
+| Asset | URL |
+| ----- | --- |
+| HTTP list | `/proxy-lists/http.txt` |
+| HTTPS list | `/proxy-lists/https.txt` |
+| SOCKS4 | `/proxy-lists/socks4.txt` |
+| SOCKS5 | `/proxy-lists/socks5.txt` |
+| Combined text | `/proxy-lists/all.txt` |
+| Compact JSON | `/proxy-lists/proxies.json` |
+| Rich JSON | `/proxy-lists/proxies-rich.json` |
+| Export stats | `/proxy-lists/stats.json` |
+| Bundle metadata | `/proxy-lists/metadata.json` |
+
+Production examples:
+
+- `https://www.proxywhirl.com/proxy-lists/http.txt`
+- `https://www.proxywhirl.com/proxy-lists/metadata.json`
+- `https://www.proxywhirl.com/proxy-lists/proxies-rich.json`
+
+## File Formats
+
+| File | Format | Contents |
+| ---- | ------ | -------- |
+| `*.txt` | Plain text, one proxy per line | `host:port` or full proxy URLs |
+| `proxies.json` | JSON array | Compact proxy records |
+| `proxies-rich.json` | JSON array | Records with validation and source metadata |
+| `stats.json` | JSON object | Export counts, protocol breakdown, dashboard fields |
+| `metadata.json` | JSON object | `generated_at`, source counts, bundle provenance |
+
+Example `metadata.json` shape:
+
+```json
+{
+  "generated_at": "2026-06-06T07:34:45.478108+00:00",
+  "total_sources": 88,
+  "counts": { "http": 18474, "https": 438, "socks4": 110, "socks5": 912 }
+}
+```
+
+Use **rich JSON** when you need health, latency, or source fields. Use **plain text** for quick imports into scripts or third-party tools.
+
+## Freshness
+
+Freshness is defined by export time, not page cache:
+
+1. **`metadata.json` → `generated_at`** — when the bundle was last exported.
+2. **`stats.json`** — aggregate counts at export time.
+3. **GitHub Actions** — scheduled proxy-generation workflow refreshes `docs/proxy-lists/`.
+
+Before treating the public catalog as healthy:
+
+```bash
+uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
+pnpm --dir web run docs:generate
+```
+
+Verify mirrored assets locally:
+
+```bash
+test -s web/public/proxy-lists/metadata.json
+test -s web/public/proxy-lists/http.txt
+```
+
+```python
+import json
+from pathlib import Path
+
+metadata = json.loads(Path("web/public/proxy-lists/metadata.json").read_text())
+stats = json.loads(Path("web/public/proxy-lists/stats.json").read_text())
+assert metadata.get("generated_at")
+assert stats.get("proxies", {}).get("total", -1) >= 0
+```
+
+## Regenerating the Bundle
+
+```bash
+# Default output: docs/proxy-lists/
+uv run proxywhirl export
+
+# Custom directory
+uv run proxywhirl export --output ./exports
+
+# Stats or proxies only
+uv run proxywhirl export --stats-only
+uv run proxywhirl export --proxies-only --db custom.db
+```
+
+After export, mirror to the website:
+
+```bash
+pnpm --dir web run docs:generate
+```
+
+See [CLI Reference](/docs/generated/cli-reference) for all `export` flags.
+
+## Runtime vs Static Files
+
+| Need | Use |
+| ---- | --- |
+| Quick download / demos | `/proxy-lists/*.txt` or JSON |
+| Validated rotation at runtime | `ProxyWhirl` / `AsyncProxyWhirl` or `proxywhirl fetch` |
+| Source catalog details | [Proxy Sources](/docs/generated/proxy-sources) |
+
+```python
+import httpx
+
+# Static list (may be stale)
+lines = httpx.get("https://www.proxywhirl.com/proxy-lists/http.txt").text.splitlines()
+
+# Runtime validation (recommended for production)
+from proxywhirl import ProxyWhirl
+
+rotator = ProxyWhirl()
+rotator.bootstrap()
+response = rotator.get("https://api.example.com/data")
+```
+
+## See Also
+
+- [Operations Playbook](/docs/guides/operations-playbook) — publication checks
+- [Proxy Sources](/docs/generated/proxy-sources) — upstream catalog
+- [Configuration](/docs/reference/configuration) — `proxy_file` and storage paths

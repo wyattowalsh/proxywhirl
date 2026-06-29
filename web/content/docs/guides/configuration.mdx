@@ -1,0 +1,46 @@
+---
+title: Configuration
+description: Configure ProxyWhirl with TOML files, CLI config commands, and environment variables.
+---
+
+# Configuration
+
+ProxyWhirl layers configuration from defaults, TOML files, environment variables, and CLI flags.
+
+## Initialize a Config File
+
+```bash
+uv run proxywhirl config init
+uv run proxywhirl config show
+uv run proxywhirl config set max_retries 3
+uv run proxywhirl config get max_retries
+```
+
+Use `--config /path/to/.proxywhirl.toml` for isolated test or CI configs.
+
+## Optional Extras
+
+```bash
+uv add "proxywhirl[storage]"
+uv add "proxywhirl[security]"
+uv add "proxywhirl[js]"
+uv add "proxywhirl[mcp]"
+```
+
+## Key Environment Variables
+
+| Variable | Component | Purpose |
+| -------- | --------- | ------- |
+| `PROXYWHIRL_KEY` | CLI/config | Master encryption key |
+| `PROXYWHIRL_CACHE_ENCRYPTION_KEY` | cache | Fernet key for L2 cache |
+| `PROXYWHIRL_STORAGE_PATH` | API | SQLite database path |
+| `PROXYWHIRL_API_KEY` | API | REST API authentication |
+| `PROXYWHIRL_MCP_API_KEY` | MCP | MCP server auth key |
+
+See [Configuration Reference](/docs/reference/configuration) for the full inventory.
+
+## See Also
+
+- [Quickstart](/docs/quickstart)
+- [CLI Reference](/docs/generated/cli-reference)
+- [REST API Deployment](/docs/interfaces/rest-api)

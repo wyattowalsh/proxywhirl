@@ -1,0 +1,92 @@
+---
+title: Rotation Strategies
+description: Protocol-based strategy design, the registry pattern, and the nine built-in rotation algorithms.
+---
+
+# Rotation Strategies
+
+ProxyWhirl ships **nine rotation strategies**. This page explains the design; for configuration examples see [Strategy Matrix](/docs/generated/strategies) and [Python API](/docs/generated/python-api).
+
+## Protocol, Not ABC
+
+Strategies implement the `RotationStrategy` **Protocol** (structural subtyping):
+
+```python
+@runtime_checkable
+class RotationStrategy(Protocol):
+    def select(self, pool: ProxyPool, context: SelectionContext | None) -> Proxy: ...
+    def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None: ...
+```
+
+Any class with matching methods is valid — no inheritance required. Benefits: third-party plugins, easier mocking, static type checking via `@runtime_checkable`.
+
+## Registry Pattern
+
+```python
+registry = StrategyRegistry()
+registry.register_strategy("my-custom", MyCustomStrategy)
+strategy_class = registry.get_strategy("my-custom")
+```
+
+Strategy **names** in TOML/CLI decouple from **implementations** and support runtime hot-swapping.
+
+## Built-In Strategies
+
+### Simple (stateless)
+
+| Strategy | Algorithm | Time | Use case |
+| -------- | --------- | ---- | -------- |
+| Round-Robin | Sequential index | O(1) | Even distribution |
+| Random | `random.choice()` | O(1) | Anti-detection |
+
+### Adaptive (stateful)
+
+| Strategy | Algorithm | Time | Use case |
+| -------- | --------- | ---- | -------- |
+| Weighted | Success-rate weights | O(1) cached | Favor reliable proxies |
+| Least-Used | Min active requests | O(n) | Load balancing |
+| Performance-Based | Inverse EMA latency | O(n) | Lowest latency |
+| Cost-Aware | Budget-weighted (free 10× boost) | O(n) | Cost optimization |
+
+`record_result()` feeds adaptive strategies. Performance-based uses EMA with a cold-start exploration period.
+
+### Context-aware
+
+| Strategy | Input | Use case |
+| -------- | ----- | -------- |
+| Session Persistence | Session ID → sticky proxy (LRU + TTL) | Stateful workflows |
+| Geo-Targeted | `country_code` / `region` in context | Regional routing |
+
+### Composition
+
+**Composite** chains strategies into a pipeline:
+
+```text
+[Geo filter: US] → [Performance: fastest] → selected proxy
+```
+
+Avoids an N×M explosion of combined strategy classes. Composite pipelines target &lt;5 µs selection overhead.
+
+## Why `record_result()` Everywhere?
+
+Even stateless strategies implement `record_result()` so:
+
+1. Adaptive strategies receive feedback uniformly
+2. Callers do not branch on strategy type
+3. Simple strategies can become adaptive without API changes
+
+## Thread Safety
+
+| Strategy | Mechanism |
+| -------- | --------- |
+| Round-Robin | `threading.Lock` on index |
+| Session Persistence | `RLock` in `SessionManager` |
+| Random / Weighted | GIL-protected `random.choices` |
+| Performance-Based | Lock on EMA updates |
+
+## See Also
+
+- [Clients](/docs/guides/clients) — `set_strategy()` and hot-swap
+- [Retry & Failover](/docs/guides/retry-failover) — strategy + breaker integration
+- [Strategy Matrix](/docs/generated/strategies) — generated class inventory
+- [ADR-003: Strategy Pattern](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/adr/003-strategy-pattern.md)

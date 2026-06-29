@@ -1,0 +1,139 @@
+---
+title: MCP Server
+description: Run ProxyWhirl as a Model Context Protocol server for AI assistant proxy operations.
+---
+
+# MCP Server
+
+ProxyWhirl includes an MCP server for AI assistant workflows that need structured proxy operations instead of raw Python imports or shell commands.
+
+**Requires:** Python 3.10+, `uv pip install -e ".[mcp]"`
+
+## When to Use MCP
+
+| Use MCP when… | Use CLI/Python when… |
+| ------------- | -------------------- |
+| An agent needs tool-mediated actions | You run scripts or services directly |
+| You want read/write boundaries with auth | You control the full runtime |
+| Credentials must stay out of tool schemas | You embed ProxyWhirl in application code |
+
+## Quick Start
+
+```bash
+proxywhirl-mcp
+
+# HTTP transport with API key
+proxywhirl-mcp --transport http --api-key $PROXYWHIRL_MCP_API_KEY
+
+# No local install
+uvx "proxywhirl[mcp]" proxywhirl-mcp
+```
+
+## Modules
+
+| File | Key types |
+| ---- | --------- |
+| `proxywhirl/mcp/server.py` | `MCPServer`, `main()`, `ProxyWhirlAuthMiddleware` |
+| `proxywhirl/mcp/auth.py` | API key validation |
+
+## Environment Variables
+
+| Variable | Purpose |
+| -------- | ------- |
+| `PROXYWHIRL_MCP_API_KEY` | Authentication key for protected actions |
+| `PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES` | Local-dev/test override for unauthenticated writes — **never in production** |
+| `PROXYWHIRL_MCP_DB` | SQLite database path (default: `proxywhirl.db`) |
+| `PROXYWHIRL_MCP_LOG_LEVEL` | `debug`, `info`, `warning`, `error` |
+
+## Actions (11)
+
+### Read actions
+
+| Action | Purpose |
+| ------ | ------- |
+| `list` | List proxies in the active pool |
+| `rotate` | Get the next proxy from the rotation strategy |
+| `status` | Pool health and statistics |
+| `recommend` | Suggest proxies for a workload |
+| `health` | Health check summary |
+
+### Write actions
+
+| Action | Purpose |
+| ------ | ------- |
+| `add` | Add a proxy to the pool |
+| `remove` | Remove a proxy |
+| `reset_cb` | Reset circuit breaker for a proxy |
+| `fetch` | Fetch from configured sources |
+| `validate` | Validate proxy connectivity |
+| `set_strategy` | Change rotation strategy |
+
+Write actions require authentication when an API key is configured.
+
+## Resources
+
+| URI | Contents |
+| --- | -------- |
+| `resource://proxywhirl/health` | Server and pool health snapshot |
+| `resource://proxywhirl/config` | Active configuration summary |
+
+## Security Boundaries
+
+**Always:**
+
+- Validate API keys when auth is enabled
+- Read keys from MCP metadata/headers — keep them out of tool schemas
+- Sanitize proxy data (strip credentials from responses)
+- Sanitize model-visible exception strings
+- Log all action invocations
+
+**Never:**
+
+- Expose credentials in tool responses
+- Bypass auth checks
+- Allow unauthenticated writes in production
+- Enable `PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES` outside local dev
+
+Treat `fetch` and other write actions as **privileged** tool calls. Pair MCP with [source validation](/docs/guides/operations-playbook) before trusting fetched proxies.
+
+## Client Configuration Example
+
+```json
+{
+  "mcpServers": {
+    "proxywhirl": {
+      "command": "proxywhirl-mcp",
+      "env": {
+        "PROXYWHIRL_MCP_API_KEY": "<your-key>",
+        "PROXYWHIRL_MCP_DB": "./proxywhirl.db"
+      }
+    }
+  }
+}
+```
+
+For HTTP transport, point your MCP client at the server URL and pass the API key via the client’s auth headers/metadata mechanism.
+
+## Operational Notes
+
+| Concern | Guidance |
+| ------- | -------- |
+| Authentication | Set `PROXYWHIRL_MCP_API_KEY` before exposing write tools |
+| Storage | Use `PROXYWHIRL_MCP_DB` to isolate dev vs prod databases |
+| Observability | Use `PROXYWHIRL_MCP_LOG_LEVEL=debug` when debugging tool failures |
+| Data freshness | Run `fetch` + `validate` through MCP or CLI; static lists live at [Proxy Lists](/docs/guides/proxy-lists) |
+
+## Testing
+
+MCP tests skip on Python &lt; 3.10:
+
+```python
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="MCP requires Python 3.10+")
+```
+
+## See Also
+
+- [Clients](/docs/guides/clients) — programmatic sync/async usage
+- [CLI Reference](/docs/generated/cli-reference) — equivalent shell commands
+- [Configuration](/docs/reference/configuration) — shared config and storage paths
+- [Operations Playbook](/docs/guides/operations-playbook) — validation gates

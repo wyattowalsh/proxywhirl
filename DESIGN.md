@@ -35,7 +35,7 @@ Use the system sans stack for UI and prose. Preserve a compact technical rhythm:
 | Data cards | Use small metric cards for source counts, strategy counts, API path counts, and live proxy stats.                                   |
 | Tables     | Use tables for generated reference surfaces; keep columns stable and sortable only when interaction adds value.                     |
 | Callouts   | Use Fumadocs-native callouts for warnings, migration notes, and operational caveats.                                                |
-| Navigation | Keep `/docs/` IA organized by user surfaces: quickstart, guides, concepts, API, MCP, TUI, sources, strategies, operations, project. |
+| Navigation | Keep `/docs/` IA organized by user surfaces: quickstart, guides, concepts, API, MCP, sources, strategies, operations, project. |
 
 ## Motion
 

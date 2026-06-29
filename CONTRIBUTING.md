@@ -300,7 +300,16 @@ Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>
    git rebase -i upstream/develop
    ```
 
-3. **Update documentation**: If changing public APIs, update relevant docs
+3. **Update documentation**: If changing public APIs, edit `web/content/docs/` (Fumadocs MDX) and regenerate generated reference pages:
+
+   ```bash
+   pnpm --dir web run docs:generate
+   pnpm --dir web run lint
+   pnpm --dir web run test:run
+   pnpm --dir web run build
+   ```
+
+   Commit both hand-written MDX and regenerated files under `web/content/docs/generated/` and `web/content/generated/`. Legacy Sphinx sources under `docs/source/` are archived — do not add new pages there.
 
 4. **Add tests**: All new code needs tests (aim for 85%+ coverage)
 
@@ -391,7 +400,7 @@ https://github.com/example/project/issues/123
 
 ## Questions?
 
-- **Documentation**: See [README.md](README.md) and [docs/](docs/)
+- **Documentation**: See [README.md](README.md), active docs in [web/content/docs/](web/content/docs/), and archived Sphinx sources in [docs/source/](docs/source/)
 - **Discussions**: Open a GitHub Discussion
 - **Issues**: Open a GitHub Issue for bugs/features
 

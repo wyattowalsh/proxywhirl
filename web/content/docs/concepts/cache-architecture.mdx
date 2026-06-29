@@ -1,0 +1,82 @@
+---
+title: Cache Architecture
+description: Three-tier cache design, promotion and eviction, credential security, and graceful degradation.
+---
+
+# Cache Architecture
+
+ProxyWhirl uses a **three-tier cache hierarchy** to balance speed, persistence, and scale. For TOML options, see [Configuration](/docs/reference/configuration).
+
+## Why Three Tiers?
+
+Single-tier caching forces a speed vs durability tradeoff. ProxyWhirl uses automatic **promotion** and **demotion** across tiers:
+
+| Tier | Technology | Capacity | Access | Persistence |
+| ---- | ---------- | -------- | ------ | ----------- |
+| **L1** (hot) | `OrderedDict` + LRU | ~1,000 | &lt;1 ms | Volatile |
+| **L2** (warm) | JSONL shards | ~5,000 | 1–5 ms | Disk |
+| **L3** (cold) | SQLite | Unlimited | 5–10 ms | ACID |
+
+Typical workloads see **80%+ L1 hits** — the database is touched on cold starts and misses only.
+
+Alternatives rejected: single SQLite (too slow per lookup), two-tier without warm cache (higher L3 load), Redis/Memcached (external dependency for single-process use).
+
+## Data Flow
+
+**Read path (promotion):**
+
+```text
+Request → L1 miss → L2 miss → L3 hit → promote to L2 + L1
+L2 hit → promote to L1
+L1 hit → update LRU
+```
+
+**Eviction path (demotion):**
+
+```text
+L1 full → LRU evict → demote to L2
+L2 full → FIFO evict → demote to L3
+L3 → TTL expiry → delete
+```
+
+Hot proxies bubble up; cold proxies sink without being lost.
+
+## Credential Security
+
+| Tier | Protection |
+| ---- | ---------- |
+| L1 | Pydantic `SecretStr` — redacted in logs |
+| L2 | Fernet encryption at rest |
+| L3 | Fernet-encrypted BLOBs |
+
+Set `PROXYWHIRL_CACHE_ENCRYPTION_KEY` (Fernet key) for production. Without it, L2/L3 may store credentials in plaintext.
+
+## Graceful Degradation
+
+Each tier tracks consecutive failures and auto-disables after three failures:
+
+- L2 disk full → L1 + L3 continue
+- L3 locked → L1 + L2 continue
+- All tiers fail → operations proceed without cache (slower but functional)
+
+Inspect per-tier health via `CacheManager.get_stats()`.
+
+## TTL
+
+1. **Lazy expiration** — every `get()` checks TTL before return.
+2. **Background cleanup** (optional) — `TTLManager` bulk-purges expired L2/L3 entries.
+
+## Thread Safety
+
+`CacheManager` uses an `RLock` for cross-tier ops. Per-tier mechanisms:
+
+- L1 — manager lock
+- L2 — `portalocker` file locks (multi-process safe)
+- L3 — SQLite connection locking
+
+## See Also
+
+- [Configuration](/docs/reference/configuration) — `cache_*` fields
+- [Troubleshooting](/docs/guides/troubleshooting) — corruption and rebuild
+- [Retry & Failover](/docs/guides/retry-failover) — health invalidation
+- [ADR-001: Three-Tier Cache](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/adr/001-three-tier-cache.md)

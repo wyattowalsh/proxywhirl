@@ -1,0 +1,62 @@
+---
+title: REST API Deployment
+description: Run, authenticate, and health-check the ProxyWhirl FastAPI service.
+---
+
+# REST API Deployment
+
+ProxyWhirl exposes a FastAPI application at `proxywhirl.api:app`. Use it for service integrations that need HTTP access to pool management, rotation, and monitoring.
+
+## Quick Start
+
+```bash
+tmpdir="$(mktemp -d)"
+PROXYWHIRL_STORAGE_PATH="$tmpdir/api.db" \
+  uv run uvicorn proxywhirl.api:app --host 127.0.0.1 --port 8765
+```
+
+Verify health and readiness:
+
+```bash
+uv run python - <<'PY'
+import httpx
+
+for path in ("/api/health", "/api/ready"):
+    response = httpx.get(f"http://127.0.0.1:8765{path}", timeout=5)
+    if path == "/api/ready":
+        response.raise_for_status()
+    payload = response.json()
+    assert payload.get("status") == "success", payload
+    print(path, response.status_code, payload["data"])
+PY
+```
+
+With an empty database, `/api/health` may return `503` with an `unhealthy` body while `/api/ready` returns `200`.
+
+## Environment Variables
+
+| Variable | Purpose |
+| -------- | ------- |
+| `PROXYWHIRL_STORAGE_PATH` | SQLite database path for the API process |
+| `PROXYWHIRL_API_KEY` | API key for authenticated write routes |
+
+## Authentication
+
+When `PROXYWHIRL_API_KEY` is set, protected routes require the key via the `X-API-Key` header. Use a temporary key for local smoke tests; never commit production keys.
+
+## Route Surfaces
+
+| Area | Examples |
+| ---- | -------- |
+| Health | `/api/health`, `/api/ready` |
+| Pool | `/api/proxies`, `/api/rotate` |
+| Config | `/api/config` |
+| Metrics | `/api/metrics`, `/api/stats` |
+
+For the full operation inventory, see [REST/OpenAPI Reference](/docs/generated/rest-api) and [OpenAPI pages](/docs/api/openapi).
+
+## See Also
+
+- [Configuration](/docs/reference/configuration) — TOML and env layering
+- [Operations](/docs/operations) — contributor gate matrix
+- [Operations Playbook](/docs/guides/operations-playbook) — runtime validation loop
