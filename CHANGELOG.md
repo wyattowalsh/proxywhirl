@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Migrated `RetryExecutor` inner retry loops to inline `tenacity.Retrying` /
+  `AsyncRetrying` while preserving `RetryPolicy`, metrics, and circuit-breaker hooks.
+- `/api/request` now maps `ProxyAuthenticationError` to HTTP 502 (aligned with global
+  API error handler).
+
+### Fixed
+
+- Failover integration test used invalid `RetryPolicy(max_retries=…)`; corrected to
+  `max_attempts`.
+- Added `dict_to_proxy` credential decrypt coverage for plaintext, encrypted, and
+  corrupt ciphertext rows.
+
 ## [0.3.3] - 2026-03-03
 
 ### Added
