@@ -15,7 +15,7 @@ from proxywhirl.retry import RetryPolicy
 class TestProxyFailover:
     """Integration tests for automatic proxy failover on failures."""
 
-    # Retry disabled via RetryPolicy
+    # Inner retry capped via max_attempts=1 (failover tests outer rotation only)
     @patch("httpx.Client")
     def test_automatic_failover_to_next_proxy(self, mock_client_class):
         """Test that when one proxy fails, rotator automatically tries the next proxy."""
@@ -63,7 +63,6 @@ class TestProxyFailover:
         assert response.status_code == 200
         assert len(set(attempted_ids)) >= 2, "Failover should try multiple distinct proxy IDs"
 
-    # Retry disabled via RetryPolicy
     @patch("httpx.Client")
     def test_inner_retry_succeeds_on_same_proxy(self, mock_client_class):
         """Inner RetryExecutor retry succeeds on the initially selected proxy.
@@ -87,7 +86,7 @@ class TestProxyFailover:
         mock_client.__exit__.return_value = None
         mock_client_class.return_value = mock_client
 
-        rotator = ProxyWhirl(retry_policy=RetryPolicy(max_retries=1))
+        rotator = ProxyWhirl(retry_policy=RetryPolicy(max_attempts=2))
         proxy1 = Proxy(url="http://fail-proxy.example.com:8080")
         proxy2 = Proxy(url="http://good-proxy.example.com:8080")
         rotator.add_proxy(proxy1)
@@ -110,7 +109,7 @@ class TestProxyFailover:
         assert call_count[0] >= 2
         assert len(set(attempted_ids)) == 1
 
-    # Retry disabled via RetryPolicy
+    # Failover disabled by default; inner retry uses default RetryPolicy
     @patch("httpx.Client")
     def test_all_proxies_fail_raises_exception(self, mock_client_class):
         """Test that when all proxies fail, ProxyConnectionError is raised."""

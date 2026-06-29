@@ -309,7 +309,7 @@ def test_request_endpoint_unexpected_error(client: TestClient) -> None:
         ("ProxyPoolEmptyError", 503),
         ("ProxyConnectionError", 502),
         ("RateLimitExceededError", 503),
-        ("ProxyAuthenticationError", 503),
+        ("ProxyAuthenticationError", 502),
         ("RuntimeError", 500),
     ],
 )

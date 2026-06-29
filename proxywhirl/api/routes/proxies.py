@@ -48,7 +48,12 @@ from proxywhirl.api.runtime import (
     validate_proxied_request_url,
     verify_api_key,
 )
-from proxywhirl.exceptions import ProxyConnectionError, ProxyPoolEmptyError, ProxyWhirlError
+from proxywhirl.exceptions import (
+    ProxyAuthenticationError,
+    ProxyConnectionError,
+    ProxyPoolEmptyError,
+    ProxyWhirlError,
+)
 from proxywhirl.models import HealthStatus, Proxy
 from proxywhirl.rotator import ProxyWhirl
 from proxywhirl.utils import public_proxy_url
@@ -178,6 +183,11 @@ async def make_proxied_request(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="All proxy attempts failed",
+        ) from e
+    except ProxyAuthenticationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Proxy authentication failed",
         ) from e
     except ProxyWhirlError as e:
         logger.error(f"ProxyWhirl error in proxied request: {e}")

@@ -2815,3 +2815,64 @@ class TestDictToProxy:
         )
 
         assert restored.created_at == discovered_at
+
+    def test_dict_to_proxy_plaintext_credentials(self) -> None:
+        from proxywhirl.storage import dict_to_proxy
+
+        restored = dict_to_proxy(
+            {
+                "url": "http://proxy.example.com:8080",
+                "username": "plain_user",
+                "password": "plain_pass",
+            }
+        )
+
+        assert restored.username is not None
+        assert restored.password is not None
+        assert restored.username.get_secret_value() == "plain_user"
+        assert restored.password.get_secret_value() == "plain_pass"
+
+    def test_dict_to_proxy_encrypted_credentials(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import base64
+
+        from cryptography.fernet import Fernet
+        from pydantic import SecretStr
+
+        from proxywhirl.cache.crypto import CredentialEncryptor
+        from proxywhirl.storage import _ENCRYPTED_PREFIX, dict_to_proxy
+
+        key = Fernet.generate_key()
+        monkeypatch.setenv("PROXYWHIRL_CACHE_ENCRYPTION_KEY", key.decode())
+        encryptor = CredentialEncryptor(key=key)
+
+        user_blob = encryptor.encrypt(SecretStr("enc_user"))
+        pass_blob = encryptor.encrypt(SecretStr("enc_pass"))
+        assert user_blob is not None
+        assert pass_blob is not None
+
+        restored = dict_to_proxy(
+            {
+                "url": "http://proxy.example.com:8080",
+                "username": f"{_ENCRYPTED_PREFIX}{base64.b64encode(user_blob).decode()}",
+                "password": f"{_ENCRYPTED_PREFIX}{base64.b64encode(pass_blob).decode()}",
+            }
+        )
+
+        assert restored.username is not None
+        assert restored.password is not None
+        assert restored.username.get_secret_value() == "enc_user"
+        assert restored.password.get_secret_value() == "enc_pass"
+
+    def test_dict_to_proxy_decrypt_failure_omits_secrets(self) -> None:
+        from proxywhirl.storage import dict_to_proxy
+
+        restored = dict_to_proxy(
+            {
+                "url": "http://proxy.example.com:8080",
+                "username": "encrypted:!!!not-valid-ciphertext!!!",
+                "password": "encrypted:!!!not-valid-ciphertext!!!",
+            }
+        )
+
+        assert restored.username is None
+        assert restored.password is None
