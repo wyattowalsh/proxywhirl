@@ -20,6 +20,7 @@ from proxywhirl import (
     Proxy,
     ProxyConfiguration,
     ProxyWhirl,
+    RateLimitExceededError,
     RequestQueueFullError,
 )
 from proxywhirl.rate_limiting import RateLimiter
@@ -301,8 +302,7 @@ class TestQueueIntegrationWithRateLimiting:
         with pytest.raises(Exception) as exc_info:
             rotator.get("https://httpbin.org/get")
 
-        # Should raise ProxyConnectionError, not RequestQueueFullError
-        assert "rate limit" in str(exc_info.value).lower()
+        assert isinstance(exc_info.value, RateLimitExceededError)
 
 
 class TestQueueEdgeCases:

@@ -8,7 +8,7 @@ import asyncio
 import threading
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 import httpx
@@ -19,10 +19,11 @@ from proxywhirl.exceptions import (
     ProxyAuthenticationError,
     ProxyConnectionError,
     ProxyPoolEmptyError,
+    RateLimitExceededError,
 )
 from proxywhirl.logging_config import configure_logging
 from proxywhirl.models import BootstrapConfig, Proxy, ProxyPool
-from proxywhirl.orchestration import FailoverPolicy, RequestOrchestration
+from proxywhirl.orchestration import FailoverPolicy, ProxyRotationCallback, RequestOrchestration
 from proxywhirl.retry import NonRetryableError, RetryExecutor, RetryMetrics, RetryPolicy
 from proxywhirl.rotator._bootstrap import bootstrap_pool_if_empty_async
 from proxywhirl.rotator.base import ProxyRotatorBase
@@ -32,6 +33,9 @@ from proxywhirl.strategies import (
     resolve_builtin_strategy,
 )
 from proxywhirl.utils import mask_proxy_url
+
+if TYPE_CHECKING:
+    from proxywhirl.rate_limiting import AsyncRateLimiter
 
 
 def _resolve_strategy(strategy: RotationStrategy | str | None) -> RotationStrategy:
@@ -190,7 +194,9 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         config: ProxyConfiguration | None = None,
         retry_policy: RetryPolicy | None = None,
         failover_policy: FailoverPolicy | None = None,
+        proxy_rotation_callback: ProxyRotationCallback | None = None,
         bootstrap: BootstrapConfig | bool | None = None,
+        rate_limiter: AsyncRateLimiter | None = None,
     ) -> None:
         """
         Initialize AsyncProxyWhirl.
@@ -204,9 +210,11 @@ class AsyncProxyWhirl(ProxyRotatorBase):
             config: Configuration settings (default: ProxyConfiguration())
             retry_policy: Retry policy configuration (default: RetryPolicy())
             failover_policy: Cross-proxy failover policy (default: disabled for legacy behavior)
+            proxy_rotation_callback: Optional callback invoked on proxy rotation.
             bootstrap: Bootstrap configuration for lazy proxy fetching.
                       False disables auto-bootstrap (for manual proxy management).
                       True or None uses default BootstrapConfig.
+            rate_limiter: Async rate limiter for per-proxy request throttling (optional)
         """
         self.pool = ProxyPool(name="default", proxies=proxies or [])
 
@@ -234,6 +242,8 @@ class AsyncProxyWhirl(ProxyRotatorBase):
             self.retry_policy, self.circuit_breakers, self.retry_metrics
         )
         self.failover_policy = failover_policy or FailoverPolicy.from_env()
+        self.proxy_rotation_callback = proxy_rotation_callback
+        self.rate_limiter = rate_limiter
         self._last_used_proxy: Proxy | None = None
         self.orchestrator = RequestOrchestration(
             failover_policy=self.failover_policy,
@@ -243,6 +253,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
             circuit_breakers=self.circuit_breakers,
             select_proxy=self._select_proxy_with_circuit_breaker,
             get_all_proxies=self.pool.get_all_proxies,
+            proxy_rotation_callback=self.proxy_rotation_callback,
         )
 
         # Initialize circuit breakers for existing proxies (all start CLOSED per FR-021)
@@ -738,9 +749,24 @@ class AsyncProxyWhirl(ProxyRotatorBase):
 
         active_proxy: Proxy | None = None
 
-        def on_proxy_selected(proxy: Proxy) -> None:
+        async def on_proxy_selected_async(proxy: Proxy) -> None:
             nonlocal active_proxy
             active_proxy = proxy
+            if self.rate_limiter is None:
+                return
+            proxy_id = str(proxy.id)
+            if await self.rate_limiter.check_limit(proxy_id):
+                return
+            masked_url = mask_proxy_url(str(proxy.url))
+            logger.warning(
+                f"Rate limit exceeded for proxy {proxy_id}",
+                proxy_id=proxy_id,
+                proxy_url=masked_url,
+            )
+            raise RateLimitExceededError(
+                f"Rate limit exceeded for proxy {proxy_id}. "
+                "Please wait before making more requests."
+            )
 
         def request_fn_factory(
             proxy: Proxy,
@@ -781,8 +807,10 @@ class AsyncProxyWhirl(ProxyRotatorBase):
                 url=url,
                 request_fn_factory=request_fn_factory,
                 retry_policy=retry_policy,
-                on_proxy_selected=on_proxy_selected,
+                on_proxy_selected_async=on_proxy_selected_async,
             )
+        except RateLimitExceededError:
+            raise
         except ProxyAuthenticationError as e:
             if active_proxy is not None:
                 self.strategy.record_result(active_proxy, success=False, response_time_ms=0.0)

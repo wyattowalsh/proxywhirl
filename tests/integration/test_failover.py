@@ -8,6 +8,7 @@ import pytest
 from proxywhirl import Proxy, ProxyWhirl
 from proxywhirl.exceptions import ProxyConnectionError, ProxyPoolEmptyError
 from proxywhirl.models import HealthStatus
+from proxywhirl.orchestration import FailoverPolicy
 from proxywhirl.retry import RetryPolicy
 
 
@@ -39,27 +40,28 @@ class TestProxyFailover:
         mock_client.__exit__.return_value = None
         mock_client_class.return_value = mock_client
 
-        # Create rotator with 2 proxies
-        rotator = ProxyWhirl()
         proxy1 = Proxy(url="http://proxy1.example.com:8080")
         proxy2 = Proxy(url="http://proxy2.example.com:8080")
-        rotator.add_proxy(proxy1)
-        rotator.add_proxy(proxy2)
+        rotator = ProxyWhirl(
+            proxies=[proxy1, proxy2],
+            failover_policy=FailoverPolicy(enabled=True, max_proxy_attempts=2),
+            retry_policy=RetryPolicy(max_attempts=1),
+        )
         rotator.pool.proxies[0].health_status = HealthStatus.HEALTHY
         rotator.pool.proxies[1].health_status = HealthStatus.HEALTHY
 
-        # Make request - should succeed despite first proxy failing
-        try:
-            response = rotator.get("https://example.com")
-            assert response.status_code == 200
-        except ProxyConnectionError:
-            # This should not happen with failover
-            pytest.fail(
-                "Failover did not work - request failed despite having healthy backup proxy"
-            )
+        attempted_ids: list[str] = []
+        original_factory = rotator._get_or_create_client
 
-        # Verify both proxies were tried
-        assert call_count[0] >= 2, "Should have tried at least 2 proxies"
+        def spy_get_client(proxy: Proxy, proxy_dict: dict[str, str]):
+            attempted_ids.append(str(proxy.id))
+            return original_factory(proxy, proxy_dict)
+
+        rotator._get_or_create_client = spy_get_client  # type: ignore[method-assign]
+
+        response = rotator.get("https://example.com")
+        assert response.status_code == 200
+        assert len(set(attempted_ids)) >= 2, "Failover should try multiple distinct proxy IDs"
 
     # Retry disabled via RetryPolicy
     @patch("httpx.Client")

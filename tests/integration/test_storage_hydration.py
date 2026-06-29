@@ -1,7 +1,16 @@
 """Integration tests for storage dict hydration."""
 
+from __future__ import annotations
+
+import tempfile
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import pytest
+from sqlalchemy import text
+
 from proxywhirl.models import HealthStatus, Proxy, ProxySource
-from proxywhirl.storage import dict_to_proxy
+from proxywhirl.storage import SQLiteStorage, dict_to_proxy
 from proxywhirl.utils import proxy_to_dict
 
 
@@ -35,3 +44,49 @@ def test_dict_to_proxy_round_trip() -> None:
     assert restored.total_successes == original.total_successes
     assert round_trip["url"] == serialized["url"]
     assert round_trip["health_status"] == serialized["health_status"]
+
+
+@pytest.mark.asyncio
+async def test_load_preserves_last_check_at() -> None:
+    """SQLiteStorage.load must emit last_check_at for dict_to_proxy hydration."""
+    proxy_url = "http://hydration-last-check.example.com:8080"
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "proxies.db"
+        storage = SQLiteStorage(db_path)
+        await storage.initialize()
+        await storage.save([Proxy(url=proxy_url)])
+        await storage.record_validation(proxy_url, is_valid=True, response_time_ms=42.0)
+
+        rows = await storage.load()
+        row = next(item for item in rows if item["url"] == proxy_url)
+        restored = dict_to_proxy(row)
+
+        assert row.get("last_check_at") is not None
+        assert restored.last_health_check is not None
+        await storage.close()
+
+
+@pytest.mark.asyncio
+async def test_load_preserves_expires_at() -> None:
+    """expires_at on identity rows must round-trip through load and dict_to_proxy."""
+    proxy_url = "http://hydration-expires.example.com:8080"
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=2)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_path = Path(tmpdir) / "proxies.db"
+        storage = SQLiteStorage(db_path)
+        await storage.initialize()
+        await storage.save([Proxy(url=proxy_url)])
+
+        async with storage.engine.begin() as conn:
+            await conn.execute(
+                text("UPDATE proxy_identities SET expires_at = :expires_at WHERE url = :url"),
+                {"expires_at": expires_at, "url": proxy_url},
+            )
+
+        rows = await storage.load()
+        row = next(item for item in rows if item["url"] == proxy_url)
+        restored = dict_to_proxy(row)
+
+        assert row.get("expires_at") == expires_at
+        assert restored.expires_at == expires_at
+        await storage.close()

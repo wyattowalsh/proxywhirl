@@ -1,6 +1,8 @@
 """Unit tests for proxy sources module."""
 
 from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -494,12 +496,12 @@ class TestValidateSources:
         assert report.healthy_sources == 1
         assert report.unhealthy_sources == 1
 
-    async def test_validate_sources_rejects_invalid_concurrency(self):
+    def test_validate_sources_rejects_invalid_concurrency(self):
         """Concurrency must be positive to avoid invalid semaphore behavior."""
         sources = [ProxySourceConfig(url="http://example.com/p.txt")]
 
         with pytest.raises(ValueError, match="concurrency"):
-            await validate_sources(sources=sources, concurrency=0)
+            validate_sources_sync(sources=sources, concurrency=0)
 
 
 class TestValidateSourcesSync:
@@ -614,7 +616,7 @@ class TestSourceCollectionIntegrity:
 
     def test_disabled_sources_have_inline_rationale(self):
         """Every disabled registry source should document why it is disabled."""
-        source_text = Path("proxywhirl/sources.py").read_text()
+        source_text = (REPO_ROOT / "proxywhirl/sources.py").read_text()
         lines = source_text.splitlines()
 
         for index, line in enumerate(lines):
@@ -627,7 +629,7 @@ class TestSourceCollectionIntegrity:
 
     def test_validate_sources_workflow_is_strict(self):
         """Source validation workflow must fail when enabled sources are unhealthy."""
-        workflow = Path(".github/workflows/validate-sources.yml").read_text()
+        workflow = (REPO_ROOT / ".github/workflows/validate-sources.yml").read_text()
 
         assert "uv run proxywhirl sources --validate --fail-on-unhealthy" in workflow
         assert "--concurrency 5" in workflow

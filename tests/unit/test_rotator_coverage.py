@@ -11,8 +11,8 @@ import pytest
 from proxywhirl import HealthStatus, Proxy, ProxyWhirl
 from proxywhirl.exceptions import (
     ProxyAuthenticationError,
-    ProxyConnectionError,
     ProxyPoolEmptyError,
+    RateLimitExceededError,
 )
 from proxywhirl.models import ProxyChain
 from proxywhirl.rate_limiting import RateLimit, RateLimiter
@@ -770,7 +770,7 @@ class TestRotatorRateLimiting:
         assert response1.status_code == 200
 
         # Second request should fail due to rate limit
-        with pytest.raises(ProxyConnectionError, match="Rate limit exceeded"):
+        with pytest.raises(RateLimitExceededError, match="Rate limit exceeded"):
             rotator.get("https://example.com")
 
     @patch("httpx.Client")
@@ -803,7 +803,7 @@ class TestRotatorRateLimiting:
         assert response2.status_code == 200
 
         # Third request should fail due to global rate limit
-        with pytest.raises(ProxyConnectionError, match="Rate limit exceeded"):
+        with pytest.raises(RateLimitExceededError, match="Rate limit exceeded"):
             rotator.get("https://example.com")
 
     def test_rate_limiter_can_be_configured_after_init(self) -> None:
@@ -844,7 +844,7 @@ class TestRotatorRateLimiting:
         rotator.get("https://example.com")
 
         # Second request should log warning and raise exception
-        with pytest.raises(ProxyConnectionError):
+        with pytest.raises(RateLimitExceededError):
             rotator.get("https://example.com")
 
     @patch("httpx.Client")
@@ -876,5 +876,5 @@ class TestRotatorRateLimiting:
         rotator2.add_proxy(proxy)
 
         # Third request with second rotator should fail (state persisted)
-        with pytest.raises(ProxyConnectionError, match="Rate limit exceeded"):
+        with pytest.raises(RateLimitExceededError, match="Rate limit exceeded"):
             rotator2.get("https://example.com")

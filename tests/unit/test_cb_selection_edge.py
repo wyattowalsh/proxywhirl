@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import httpx
@@ -9,6 +10,7 @@ import pytest
 
 from proxywhirl import Proxy, ProxyWhirl
 from proxywhirl.circuit_breaker import CircuitBreaker
+from proxywhirl.exceptions import ProxyConnectionError
 from proxywhirl.models import HealthStatus, ProxyPool
 from proxywhirl.orchestration import FailoverPolicy, RequestOrchestration
 from proxywhirl.retry import RetryExecutor, RetryPolicy
@@ -108,7 +110,7 @@ def test_on_proxy_selected_invoked_for_failover_rounds() -> None:
 
         return request_fn
 
-    with pytest.raises(Exception):
+    with pytest.raises(ProxyConnectionError):
         orchestrator.execute_sync(
             method="GET",
             url="https://example.com",
@@ -118,6 +120,89 @@ def test_on_proxy_selected_invoked_for_failover_rounds() -> None:
 
     assert call_count >= 1
     assert len(selected) == call_count
+
+
+def test_pinned_proxy_skips_reselection() -> None:
+    """Pinned proxy bypasses strategy selection for queued or rate-limited retries."""
+    proxy1 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
+    proxy2 = Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY)
+    pool = ProxyPool(name="test", proxies=[proxy1, proxy2])
+    strategy = RoundRobinStrategy()
+    circuit_breakers = {
+        str(proxy1.id): CircuitBreaker(proxy_id=str(proxy1.id)),
+        str(proxy2.id): CircuitBreaker(proxy_id=str(proxy2.id)),
+    }
+    retry_executor = RetryExecutor(RetryPolicy(max_attempts=1), circuit_breakers, MagicMock())
+    orchestrator = RequestOrchestration(
+        failover_policy=FailoverPolicy(enabled=False),
+        retry_executor=retry_executor,
+        strategy=strategy,
+        pool=pool,
+        circuit_breakers=circuit_breakers,
+        select_proxy=lambda _context=None: strategy.select(pool, _context),
+        get_all_proxies=pool.get_all_proxies,
+    )
+
+    mock_response = MagicMock(spec=httpx.Response)
+    mock_response.status_code = 200
+
+    result = orchestrator.execute_sync(
+        method="GET",
+        url="https://example.com",
+        request_fn_factory=lambda _proxy: lambda: mock_response,
+        pinned_proxy=proxy2,
+    )
+
+    assert result.proxy.id == proxy2.id
+
+
+def test_max_failover_rounds_uses_available_proxies() -> None:
+    """Default failover cap counts eligible proxies, not raw pool size."""
+    now = datetime.now(timezone.utc)
+    proxies = [
+        Proxy(url="http://p1.example.com:8080", health_status=HealthStatus.HEALTHY),
+        Proxy(
+            url="http://p2.example.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            expires_at=now - timedelta(seconds=1),
+        ),
+        Proxy(url="http://p3.example.com:8080", health_status=HealthStatus.HEALTHY),
+    ]
+    pool = ProxyPool(name="test", proxies=proxies)
+    strategy = RoundRobinStrategy()
+    circuit_breakers = {str(proxy.id): CircuitBreaker(proxy_id=str(proxy.id)) for proxy in proxies}
+    retry_executor = RetryExecutor(RetryPolicy(max_attempts=1), circuit_breakers, MagicMock())
+    orchestrator = RequestOrchestration(
+        failover_policy=FailoverPolicy(enabled=True),
+        retry_executor=retry_executor,
+        strategy=strategy,
+        pool=pool,
+        circuit_breakers=circuit_breakers,
+        select_proxy=lambda _context=None: strategy.select(pool, _context),
+        get_all_proxies=pool.get_all_proxies,
+    )
+
+    assert orchestrator._max_failover_rounds() == 2
+
+
+def test_failover_reports_pool_exhaustion_after_single_failure() -> None:
+    """Single-proxy failover should report exhaustion with failed attempt context."""
+    orchestrator, _proxy = _build_orchestrator(failover_enabled=True)
+
+    def request_fn_factory(_proxy: Proxy):
+        def request_fn() -> httpx.Response:
+            raise httpx.ConnectError("boom")
+
+        return request_fn
+
+    with pytest.raises(
+        ProxyConnectionError, match="failover round|failed attempt|No additional proxies"
+    ):
+        orchestrator.execute_sync(
+            method="GET",
+            url="https://example.com",
+            request_fn_factory=request_fn_factory,
+        )
 
 
 def test_selection_excludes_failed_proxy_ids() -> None:

@@ -19,6 +19,7 @@ from proxywhirl.exceptions import (
     ProxyAuthenticationError,
     ProxyConnectionError,
     ProxyPoolEmptyError,
+    RateLimitExceededError,
     RequestQueueFullError,
 )
 from proxywhirl.logging_config import configure_logging
@@ -748,7 +749,7 @@ class ProxyWhirl(ProxyRotatorBase):
             )
             if self.config.queue_enabled and self._request_queue is not None:
                 raise _QueueRequestForProxyError(proxy)
-            raise ProxyConnectionError(
+            raise RateLimitExceededError(
                 f"Rate limit exceeded for proxy {proxy_id}. "
                 "Please wait before making more requests."
             )
@@ -791,6 +792,8 @@ class ProxyWhirl(ProxyRotatorBase):
             return self._queue_request(method, url, queue_exc.proxy, retry_policy, **kwargs)
         except ProxyPoolEmptyError:
             logger.error("No healthy proxies available or all circuit breakers open")
+            raise
+        except RateLimitExceededError:
             raise
         except ProxyAuthenticationError as e:
             if active_proxy is not None:
@@ -968,6 +971,7 @@ class ProxyWhirl(ProxyRotatorBase):
                 url=url,
                 request_fn_factory=request_fn_factory,
                 retry_policy=retry_policy,
+                pinned_proxy=proxy,
             )
         except ProxyAuthenticationError:
             self.strategy.record_result(proxy, success=False, response_time_ms=0.0)

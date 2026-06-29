@@ -67,7 +67,7 @@ def _decrypt_stored_credential(
         decrypted = encryptor.decrypt(encrypted_bytes)
         return decrypted.get_secret_value() if decrypted else None
     except Exception as e:
-        logger.error(f"Failed to decrypt credential: {e}")
+        logger.warning(f"Failed to decrypt stored credential; omitting secret fields: {e}")
         return None
 
 
@@ -135,6 +135,8 @@ def dict_to_proxy(row: dict[str, Any]) -> Proxy:
         proxy_kwargs["last_failure_at"] = row["last_failure_at"]
     if row.get("last_check_at") is not None:
         proxy_kwargs["last_health_check"] = row["last_check_at"]
+    if row.get("expires_at") is not None:
+        proxy_kwargs["expires_at"] = row["expires_at"]
     if row.get("avg_response_time_ms") is not None:
         proxy_kwargs["average_response_time_ms"] = row["avg_response_time_ms"]
     if row.get("total_checks") is not None:
@@ -663,6 +665,38 @@ class SQLiteStorage:
         """
         return _decrypt_stored_credential(value, self._encryptor)
 
+    def _identity_status_row_dict(
+        self,
+        identity: ProxyIdentityTable,
+        status: ProxyStatusTable,
+        *,
+        include_updated_at: bool = False,
+    ) -> dict[str, Any]:
+        """Build a canonical proxy row dict from normalized identity/status tables."""
+        row: dict[str, Any] = {
+            "url": identity.url,
+            "protocol": identity.protocol,
+            "host": identity.host,
+            "port": identity.port,
+            "username": self._decrypt_credential(identity.username),
+            "password": self._decrypt_credential(identity.password),
+            "country_code": identity.country_code,
+            "source": identity.source,
+            "source_url": identity.source_url,
+            "discovered_at": identity.discovered_at,
+            "expires_at": identity.expires_at,
+            "health_status": status.health_status,
+            "last_check_at": status.last_check_at,
+            "last_success_at": status.last_success_at,
+            "last_failure_at": status.last_failure_at,
+            "avg_response_time_ms": status.avg_response_time_ms,
+            "total_checks": status.total_checks,
+            "total_successes": status.total_successes,
+        }
+        if include_updated_at:
+            row["updated_at"] = status.updated_at
+        return row
+
     async def initialize(self) -> None:
         """Create normalized database tables if they don't exist.
 
@@ -1012,26 +1046,7 @@ class SQLiteStorage:
 
             proxies = []
             for identity, status in rows:
-                proxies.append(
-                    {
-                        "url": identity.url,
-                        "protocol": identity.protocol,
-                        "host": identity.host,
-                        "port": identity.port,
-                        "username": self._decrypt_credential(identity.username),
-                        "password": self._decrypt_credential(identity.password),
-                        "country_code": identity.country_code,
-                        "source": identity.source,
-                        "source_url": identity.source_url,
-                        "discovered_at": identity.discovered_at,
-                        "health_status": status.health_status,
-                        "last_success_at": status.last_success_at,
-                        "last_failure_at": status.last_failure_at,
-                        "avg_response_time_ms": status.avg_response_time_ms,
-                        "total_checks": status.total_checks,
-                        "total_successes": status.total_successes,
-                    }
-                )
+                proxies.append(self._identity_status_row_dict(identity, status))
             return proxies
 
     async def record_validation(
@@ -1217,24 +1232,7 @@ class SQLiteStorage:
 
             proxies = []
             for identity, status in rows:
-                proxies.append(
-                    {
-                        "url": identity.url,
-                        "protocol": identity.protocol,
-                        "host": identity.host,
-                        "port": identity.port,
-                        "username": self._decrypt_credential(identity.username),
-                        "password": self._decrypt_credential(identity.password),
-                        "country_code": identity.country_code,
-                        "source": identity.source,
-                        "source_url": identity.source_url,
-                        "health_status": status.health_status,
-                        "last_success_at": status.last_success_at,
-                        "avg_response_time_ms": status.avg_response_time_ms,
-                        "total_checks": status.total_checks,
-                        "total_successes": status.total_successes,
-                    }
-                )
+                proxies.append(self._identity_status_row_dict(identity, status))
             return proxies
 
     async def get_proxies_by_status(
@@ -1261,22 +1259,7 @@ class SQLiteStorage:
 
             proxies = []
             for identity, status in rows:
-                proxies.append(
-                    {
-                        "url": identity.url,
-                        "protocol": identity.protocol,
-                        "host": identity.host,
-                        "port": identity.port,
-                        "username": self._decrypt_credential(identity.username),
-                        "password": self._decrypt_credential(identity.password),
-                        "health_status": status.health_status,
-                        "country_code": identity.country_code,
-                        "source": identity.source,
-                        "source_url": identity.source_url,
-                        "last_success_at": status.last_success_at,
-                        "total_checks": status.total_checks,
-                    }
-                )
+                proxies.append(self._identity_status_row_dict(identity, status))
             return proxies
 
     async def load(self) -> list[dict[str, Any]]:
@@ -1295,26 +1278,7 @@ class SQLiteStorage:
 
             proxies = []
             for identity, status in rows:
-                proxies.append(
-                    {
-                        "url": identity.url,
-                        "protocol": identity.protocol,
-                        "host": identity.host,
-                        "port": identity.port,
-                        "username": self._decrypt_credential(identity.username),
-                        "password": self._decrypt_credential(identity.password),
-                        "country_code": identity.country_code,
-                        "source": identity.source,
-                        "source_url": identity.source_url,
-                        "discovered_at": identity.discovered_at,
-                        "health_status": status.health_status,
-                        "last_success_at": status.last_success_at,
-                        "last_failure_at": status.last_failure_at,
-                        "avg_response_time_ms": status.avg_response_time_ms,
-                        "total_checks": status.total_checks,
-                        "total_successes": status.total_successes,
-                    }
-                )
+                proxies.append(self._identity_status_row_dict(identity, status))
             return proxies
 
     async def load_revalidation_candidates(self, limit: int | None = None) -> list[dict[str, Any]]:
@@ -1353,26 +1317,7 @@ class SQLiteStorage:
             proxies = []
             for identity, status in rows:
                 proxies.append(
-                    {
-                        "url": identity.url,
-                        "protocol": identity.protocol,
-                        "host": identity.host,
-                        "port": identity.port,
-                        "username": self._decrypt_credential(identity.username),
-                        "password": self._decrypt_credential(identity.password),
-                        "country_code": identity.country_code,
-                        "source": identity.source,
-                        "source_url": identity.source_url,
-                        "discovered_at": identity.discovered_at,
-                        "health_status": status.health_status,
-                        "last_check_at": status.last_check_at,
-                        "last_success_at": status.last_success_at,
-                        "last_failure_at": status.last_failure_at,
-                        "avg_response_time_ms": status.avg_response_time_ms,
-                        "total_checks": status.total_checks,
-                        "total_successes": status.total_successes,
-                        "updated_at": status.updated_at,
-                    }
+                    self._identity_status_row_dict(identity, status, include_updated_at=True)
                 )
             return proxies
 
@@ -1402,26 +1347,7 @@ class SQLiteStorage:
 
             proxies = []
             for identity, status in rows:
-                proxies.append(
-                    {
-                        "url": identity.url,
-                        "protocol": identity.protocol,
-                        "host": identity.host,
-                        "port": identity.port,
-                        "username": self._decrypt_credential(identity.username),
-                        "password": self._decrypt_credential(identity.password),
-                        "country_code": identity.country_code,
-                        "source": identity.source,
-                        "source_url": identity.source_url,
-                        "discovered_at": identity.discovered_at,
-                        "health_status": status.health_status,
-                        "last_success_at": status.last_success_at,
-                        "last_failure_at": status.last_failure_at,
-                        "avg_response_time_ms": status.avg_response_time_ms,
-                        "total_checks": status.total_checks,
-                        "total_successes": status.total_successes,
-                    }
-                )
+                proxies.append(self._identity_status_row_dict(identity, status))
             return proxies
 
     async def cleanup(
@@ -1734,24 +1660,7 @@ class SQLiteStorage:
 
             proxies = []
             for identity, status in rows:
-                proxies.append(
-                    {
-                        "url": identity.url,
-                        "protocol": identity.protocol,
-                        "host": identity.host,
-                        "port": identity.port,
-                        "username": self._decrypt_credential(identity.username),
-                        "password": self._decrypt_credential(identity.password),
-                        "country_code": identity.country_code,
-                        "source": identity.source,
-                        "source_url": identity.source_url,
-                        "health_status": status.health_status,
-                        "last_success_at": status.last_success_at,
-                        "avg_response_time_ms": status.avg_response_time_ms,
-                        "total_checks": status.total_checks,
-                        "total_successes": status.total_successes,
-                    }
-                )
+                proxies.append(self._identity_status_row_dict(identity, status))
             return proxies
 
     async def audit_log_change(

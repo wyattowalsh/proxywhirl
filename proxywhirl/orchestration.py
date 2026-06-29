@@ -23,6 +23,7 @@ from proxywhirl.exceptions import (
     ProxyAuthenticationError,
     ProxyConnectionError,
     ProxyPoolEmptyError,
+    RateLimitExceededError,
 )
 from proxywhirl.models import Proxy, ProxyPool, SelectionContext
 from proxywhirl.retry import NonRetryableError, RetryExecutor, RetryPolicy
@@ -74,6 +75,7 @@ class ProxyRotationContext(BaseModel):
 ProxyRotationCallback = Callable[[ProxyRotationContext, Proxy, Proxy], None]
 SelectProxyFn = Callable[[SelectionContext | None], Proxy]
 ProxySelectedCallback = Callable[[Proxy], None]
+AsyncProxySelectedCallback = Callable[[Proxy], Awaitable[None]]
 GetProxiesFn = Callable[[], list[Proxy]]
 SyncRequestFnFactory = Callable[[Proxy], Callable[[], httpx.Response]]
 AsyncRequestFnFactory = Callable[[Proxy], Callable[[], Awaitable[httpx.Response]]]
@@ -126,6 +128,7 @@ class RequestOrchestration:
         retry_policy: RetryPolicy | None = None,
         selection_context: SelectionContext | None = None,
         on_proxy_selected: ProxySelectedCallback | None = None,
+        pinned_proxy: Proxy | None = None,
     ) -> OrchestrationResult:
         """Execute a synchronous request with optional failover."""
         request_id = str(uuid.uuid4())
@@ -146,6 +149,7 @@ class RequestOrchestration:
                 request_fn_factory=request_fn_factory,
                 failover_round=0,
                 on_proxy_selected=on_proxy_selected,
+                pinned_proxy=pinned_proxy,
             )
 
         return self._execute_failover_sync(
@@ -155,6 +159,7 @@ class RequestOrchestration:
             url=url,
             request_fn_factory=request_fn_factory,
             on_proxy_selected=on_proxy_selected,
+            pinned_proxy=pinned_proxy,
         )
 
     async def execute_async(
@@ -166,6 +171,8 @@ class RequestOrchestration:
         retry_policy: RetryPolicy | None = None,
         selection_context: SelectionContext | None = None,
         on_proxy_selected: ProxySelectedCallback | None = None,
+        on_proxy_selected_async: AsyncProxySelectedCallback | None = None,
+        pinned_proxy: Proxy | None = None,
     ) -> OrchestrationResult:
         """Execute an asynchronous request with optional failover."""
         request_id = str(uuid.uuid4())
@@ -186,6 +193,8 @@ class RequestOrchestration:
                 request_fn_factory=request_fn_factory,
                 failover_round=0,
                 on_proxy_selected=on_proxy_selected,
+                on_proxy_selected_async=on_proxy_selected_async,
+                pinned_proxy=pinned_proxy,
             )
 
         return await self._execute_failover_async(
@@ -195,6 +204,8 @@ class RequestOrchestration:
             url=url,
             request_fn_factory=request_fn_factory,
             on_proxy_selected=on_proxy_selected,
+            on_proxy_selected_async=on_proxy_selected_async,
+            pinned_proxy=pinned_proxy,
         )
 
     def _execute_single_proxy_sync(
@@ -207,8 +218,9 @@ class RequestOrchestration:
         request_fn_factory: SyncRequestFnFactory,
         failover_round: int,
         on_proxy_selected: ProxySelectedCallback | None = None,
+        pinned_proxy: Proxy | None = None,
     ) -> OrchestrationResult:
-        proxy = self._select_initial_proxy(rotation_ctx)
+        proxy = pinned_proxy or self._select_initial_proxy(rotation_ctx)
         if on_proxy_selected is not None:
             on_proxy_selected(proxy)
         rotation_ctx.current_proxy_id = str(proxy.id)
@@ -237,9 +249,13 @@ class RequestOrchestration:
         request_fn_factory: AsyncRequestFnFactory,
         failover_round: int,
         on_proxy_selected: ProxySelectedCallback | None = None,
+        on_proxy_selected_async: AsyncProxySelectedCallback | None = None,
+        pinned_proxy: Proxy | None = None,
     ) -> OrchestrationResult:
-        proxy = self._select_initial_proxy(rotation_ctx)
-        if on_proxy_selected is not None:
+        proxy = pinned_proxy or self._select_initial_proxy(rotation_ctx)
+        if on_proxy_selected_async is not None:
+            await on_proxy_selected_async(proxy)
+        elif on_proxy_selected is not None:
             on_proxy_selected(proxy)
         rotation_ctx.current_proxy_id = str(proxy.id)
         start_time = time.time()
@@ -266,6 +282,7 @@ class RequestOrchestration:
         url: str,
         request_fn_factory: SyncRequestFnFactory,
         on_proxy_selected: ProxySelectedCallback | None = None,
+        pinned_proxy: Proxy | None = None,
     ) -> OrchestrationResult:
         max_rounds = self._max_failover_rounds()
         last_error: Exception | None = None
@@ -275,11 +292,12 @@ class RequestOrchestration:
             rotation_ctx.failover_round = failover_round
             try:
                 if failover_round == 0:
-                    proxy = self._select_initial_proxy(rotation_ctx)
+                    proxy = pinned_proxy or self._select_initial_proxy(rotation_ctx)
                 else:
                     assert previous_proxy is not None
                     proxy = self._rotate_proxy(rotation_ctx, previous_proxy)
                     if proxy is None:
+                        last_error = self._pool_exhausted_error(rotation_ctx)
                         break
                     self._notify_rotation(rotation_ctx, previous_proxy, proxy)
             except ProxyPoolEmptyError as exc:
@@ -304,7 +322,7 @@ class RequestOrchestration:
                     proxy=proxy,
                     response_time_ms=(time.time() - start_time) * 1000,
                 )
-            except (NonRetryableError, ProxyAuthenticationError):
+            except (NonRetryableError, ProxyAuthenticationError, RateLimitExceededError):
                 raise
             except ProxyConnectionError as exc:
                 last_error = exc
@@ -318,11 +336,7 @@ class RequestOrchestration:
                 )
                 continue
 
-        if last_error:
-            raise ProxyConnectionError(
-                f"Request failed after {len(rotation_ctx.failed_proxy_ids)} proxy failover round(s)"
-            ) from last_error
-        raise ProxyConnectionError("Request failed: no proxies available for failover")
+        raise self._failover_terminal_error(rotation_ctx, last_error)
 
     async def _execute_failover_async(
         self,
@@ -333,6 +347,8 @@ class RequestOrchestration:
         url: str,
         request_fn_factory: AsyncRequestFnFactory,
         on_proxy_selected: ProxySelectedCallback | None = None,
+        on_proxy_selected_async: AsyncProxySelectedCallback | None = None,
+        pinned_proxy: Proxy | None = None,
     ) -> OrchestrationResult:
         max_rounds = self._max_failover_rounds()
         last_error: Exception | None = None
@@ -342,18 +358,21 @@ class RequestOrchestration:
             rotation_ctx.failover_round = failover_round
             try:
                 if failover_round == 0:
-                    proxy = self._select_initial_proxy(rotation_ctx)
+                    proxy = pinned_proxy or self._select_initial_proxy(rotation_ctx)
                 else:
                     assert previous_proxy is not None
                     proxy = self._rotate_proxy(rotation_ctx, previous_proxy)
                     if proxy is None:
+                        last_error = self._pool_exhausted_error(rotation_ctx)
                         break
                     self._notify_rotation(rotation_ctx, previous_proxy, proxy)
             except ProxyPoolEmptyError as exc:
                 last_error = exc
                 break
 
-            if on_proxy_selected is not None:
+            if on_proxy_selected_async is not None:
+                await on_proxy_selected_async(proxy)
+            elif on_proxy_selected is not None:
                 on_proxy_selected(proxy)
             rotation_ctx.current_proxy_id = str(proxy.id)
             start_time = time.time()
@@ -371,7 +390,7 @@ class RequestOrchestration:
                     proxy=proxy,
                     response_time_ms=(time.time() - start_time) * 1000,
                 )
-            except (NonRetryableError, ProxyAuthenticationError):
+            except (NonRetryableError, ProxyAuthenticationError, RateLimitExceededError):
                 raise
             except ProxyConnectionError as exc:
                 last_error = exc
@@ -385,10 +404,36 @@ class RequestOrchestration:
                 )
                 continue
 
-        if last_error:
+        raise self._failover_terminal_error(rotation_ctx, last_error)
+
+    def _pool_exhausted_error(self, rotation_ctx: ProxyRotationContext) -> ProxyConnectionError:
+        """Build an error when no additional proxies remain for failover."""
+        failed_count = len(rotation_ctx.failed_proxy_ids)
+        if failed_count:
+            return ProxyConnectionError(
+                f"No additional proxies available after {failed_count} failed attempt(s)"
+            )
+        return ProxyConnectionError("Request failed: no proxies available for failover")
+
+    def _failover_terminal_error(
+        self,
+        rotation_ctx: ProxyRotationContext,
+        last_error: Exception | None,
+    ) -> ProxyConnectionError:
+        """Raise the terminal failover error with the most specific message available."""
+        failed_count = len(rotation_ctx.failed_proxy_ids)
+        if last_error is not None:
+            if failed_count:
+                message = (
+                    f"Request failed after {failed_count} proxy failover round(s): {last_error}"
+                )
+            else:
+                message = str(last_error)
+            raise ProxyConnectionError(message) from last_error
+        if failed_count:
             raise ProxyConnectionError(
-                f"Request failed after {len(rotation_ctx.failed_proxy_ids)} proxy failover round(s)"
-            ) from last_error
+                f"Request failed after {failed_count} proxy failover round(s)"
+            )
         raise ProxyConnectionError("Request failed: no proxies available for failover")
 
     def _select_initial_proxy(self, rotation_ctx: ProxyRotationContext) -> Proxy:
@@ -455,7 +500,8 @@ class RequestOrchestration:
         """Compute how many distinct proxies to attempt in the outer loop."""
         if self.failover_policy.max_proxy_attempts is not None:
             return self.failover_policy.max_proxy_attempts
-        return max(len(self.get_all_proxies()), 1)
+        available = len(self._get_available_proxies([]))
+        return max(available, 1)
 
     def _notify_rotation(
         self,
