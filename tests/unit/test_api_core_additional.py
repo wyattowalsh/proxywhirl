@@ -289,6 +289,27 @@ def test_request_endpoint_proxy_error_retries(client: TestClient) -> None:
     assert result.status_code == 502
 
 
+def test_request_endpoint_proxy_auth_error_returns_502(client: TestClient) -> None:
+    """Proxy authentication failures should return 502 with a stable detail message."""
+    from proxywhirl.exceptions import ProxyAuthenticationError
+
+    rotator = _mock_rotator_with_proxy()
+
+    with patch("proxywhirl.api.runtime._rotator", rotator):
+        with patch.object(
+            rotator,
+            "_make_request",
+            side_effect=ProxyAuthenticationError("invalid credentials"),
+        ):
+            result = client.post(
+                "/api/request",
+                json={"url": "https://example.com", "method": "GET"},
+            )
+
+    assert result.status_code == 502
+    assert result.json()["detail"] == "Proxy authentication failed"
+
+
 def test_request_endpoint_unexpected_error(client: TestClient) -> None:
     """Unexpected errors should return 500."""
     rotator = _mock_rotator_with_proxy()

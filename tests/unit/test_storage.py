@@ -2761,9 +2761,7 @@ class TestDictToProxy:
     def test_dict_to_proxy_builds_url_from_host_port(self) -> None:
         from proxywhirl.storage import dict_to_proxy
 
-        restored = dict_to_proxy(
-            {"host": "relay.example.com", "port": 1080, "protocol": "socks5"}
-        )
+        restored = dict_to_proxy({"host": "relay.example.com", "port": 1080, "protocol": "socks5"})
 
         assert str(restored.url) == "socks5://relay.example.com:1080"
         assert restored.protocol == "socks5"
@@ -2780,9 +2778,7 @@ class TestDictToProxy:
         from proxywhirl.models import HealthStatus
         from proxywhirl.storage import dict_to_proxy
 
-        restored = dict_to_proxy(
-            {"url": "http://proxy.example.com:8080", "health_status": "bogus"}
-        )
+        restored = dict_to_proxy({"url": "http://proxy.example.com:8080", "health_status": "bogus"})
 
         assert restored.health_status == HealthStatus.UNKNOWN
 
@@ -2871,6 +2867,25 @@ class TestDictToProxy:
                 "url": "http://proxy.example.com:8080",
                 "username": "encrypted:!!!not-valid-ciphertext!!!",
                 "password": "encrypted:!!!not-valid-ciphertext!!!",
+            }
+        )
+
+        assert restored.username is None
+        assert restored.password is None
+
+    def test_dict_to_proxy_encryptor_init_failure_omits_secrets(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Invalid PROXYWHIRL_CACHE_ENCRYPTION_KEY must not crash dict_to_proxy."""
+        from proxywhirl.storage import _ENCRYPTED_PREFIX, dict_to_proxy
+
+        monkeypatch.setenv("PROXYWHIRL_CACHE_ENCRYPTION_KEY", "not-a-valid-fernet-key")
+
+        restored = dict_to_proxy(
+            {
+                "url": "http://proxy.example.com:8080",
+                "username": f"{_ENCRYPTED_PREFIX}dGVzdA==",
+                "password": f"{_ENCRYPTED_PREFIX}dGVzdA==",
             }
         )
 
