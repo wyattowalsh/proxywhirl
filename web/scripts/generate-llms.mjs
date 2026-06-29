@@ -33,14 +33,23 @@ function pageToUrl(page, metaDir) {
 	return `${baseUrl}/docs/${prefix}${page}`;
 }
 
-function formatTitle(page, metaTitle) {
+function titleCaseSlug(slug) {
+	return slug
+		.split("-")
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(" ");
+}
+
+function formatTitle(page, metaTitle, metaDir) {
 	if (page === "index") {
 		return metaTitle || "Home";
 	}
 	if (page.startsWith("../")) {
-		return page.replace("../", "").replace(/\//g, " / ");
+		const normalized = page.replace(/^\.\.\//, "");
+		const basename = normalized.split("/").pop() ?? normalized;
+		return titleCaseSlug(basename);
 	}
-	return page.replace(/-/g, " ");
+	return titleCaseSlug(page);
 }
 
 function linksFromMeta(metaDir, { skipIndex = false, filter } = {}) {
@@ -50,9 +59,20 @@ function linksFromMeta(metaDir, { skipIndex = false, filter } = {}) {
 		.filter((page) => !(skipIndex && page === "index"))
 		.filter((page) => (filter ? filter(page) : true))
 		.map((page) => {
-			const title = formatTitle(page, meta.title);
+			const title =
+				metaDir === docsRoot &&
+				page !== "index" &&
+				page !== "quickstart" &&
+				!page.startsWith("../")
+					? sectionTitle(page)
+					: formatTitle(page, meta.title, metaDir);
 			return `- [${title}](${pageToUrl(page, metaDir)})`;
 		});
+}
+
+function sectionTitle(page) {
+	const sectionMeta = readMeta(join(docsRoot, page));
+	return sectionMeta.title || titleCaseSlug(page);
 }
 
 const startHere = linksFromMeta(docsRoot, {

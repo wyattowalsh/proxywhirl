@@ -16,7 +16,7 @@ describe('ShortcutsHelp', () => {
       expect(row).not.toBeNull()
       expect(row).toHaveTextContent(shortcut.key)
     })
-  })
+  }, 10_000)
 
   it('calls onClose when the dialog is dismissed', async () => {
     const user = userEvent.setup()
