@@ -11,13 +11,16 @@ from proxywhirl.sources import (
     ALL_SOCKS4_SOURCES,
     ALL_SOCKS5_SOURCES,
     ALL_SOURCES,
+    GEONODE_HTTP,
     GITHUB_ROOSTERKID_SOCKS4,
     GITHUB_ROOSTERKID_SOCKS5,
     SOURCE_VALIDATION_PARSERS,
     ProxySourceConfig,
     SourceValidationReport,
     SourceValidationResult,
+    _count_parseable_proxies,
     _get_source_name,
+    fetch_all_sources,
     validate_source,
     validate_sources,
     validate_sources_sync,
@@ -183,6 +186,45 @@ class TestSourceValidationReport:
             total_time_ms=100.0,
         )
         assert report.all_healthy is False
+
+
+class TestCountParseableProxies:
+    """Tests for _count_parseable_proxies helper."""
+
+    def test_custom_parser_counts_proxies(self):
+        """GeoNode custom parser should count entries in the data wrapper."""
+        content = (
+            '{"data": [{"ip": "1.2.3.4", "port": 8080, "protocols": ["http"], '
+            '"anonymityLevel": "elite", "country": "US"}]}'
+        )
+        assert _count_parseable_proxies(GEONODE_HTTP, content) == 1
+
+    def test_empty_content_returns_zero(self):
+        """Whitespace-only payloads should not count as proxies."""
+        assert _count_parseable_proxies(GEONODE_HTTP, "   \n") == 0
+
+
+class TestFetchAllSources:
+    """Tests for fetch_all_sources orchestration."""
+
+    async def test_fetch_all_sources_closes_fetcher(self):
+        """fetch_all_sources should delegate to ProxyFetcher and always close it."""
+        source = ProxySourceConfig(url="http://example.com/proxies.txt", format="plain_text")
+        fetcher = AsyncMock()
+        fetcher.fetch_all = AsyncMock(return_value=[{"url": "http://1.2.3.4:8080"}])
+        fetcher.close = AsyncMock()
+
+        with patch("proxywhirl.fetchers.ProxyFetcher", return_value=fetcher):
+            with patch("proxywhirl.fetchers.ProxyValidator"):
+                proxies = await fetch_all_sources(
+                    sources=[source],
+                    validate=False,
+                    test_url="http://example.com/generate_204",
+                )
+
+        assert proxies == [{"url": "http://1.2.3.4:8080"}]
+        fetcher.fetch_all.assert_awaited_once()
+        fetcher.close.assert_awaited_once()
 
 
 class TestGetSourceName:
