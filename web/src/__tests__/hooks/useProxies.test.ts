@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { filterProxies, sortProxies, type ProxyFilters } from '@/hooks/useProxies'
+import { filterProxies, sortProxies, parseSlimProxyJson, type ProxyFilters } from '@/hooks/useProxies'
 import type { Proxy } from '@/types'
 
 const createMockProxy = (overrides: Partial<Proxy> = {}): Proxy => ({
@@ -33,6 +33,33 @@ const defaultFilters: ProxyFilters = {
   statuses: [],
   countries: [],
 }
+
+describe('parseSlimProxyJson', () => {
+  it('parses ip:port strings into Proxy records', () => {
+    const result = parseSlimProxyJson({
+      metadata: {
+        generated_at: '2026-01-14T12:00:00Z',
+        total_sources: 2,
+        counts: { http: 2, https: 0, socks4: 0, socks5: 1 },
+      },
+      proxies: {
+        http: ['10.0.0.1:8080', '192.168.1.1:3128'],
+        socks5: ['203.0.113.10:1080'],
+      },
+    })
+
+    expect(result.total).toBe(3)
+    expect(result.proxies).toHaveLength(3)
+    expect(result.proxies[0]).toMatchObject({
+      ip: '10.0.0.1',
+      port: 8080,
+      protocol: 'http',
+      status: 'unknown',
+      response_time: null,
+    })
+    expect(result.proxies[0].country_code).toBeUndefined()
+  })
+})
 
 describe('filterProxies', () => {
   it('returns all proxies when no filters are applied', () => {

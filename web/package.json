@@ -14,7 +14,8 @@
 		"test": "vitest",
 		"test:run": "vitest run",
 		"test:coverage": "vitest run --coverage",
-		"test:e2e": "NODE_OPTIONS=--disable-warning=DEP0205 playwright test"
+		"test:e2e": "NODE_OPTIONS=--disable-warning=DEP0205 playwright test",
+		"test:e2e:ci": "CI=1 NODE_OPTIONS=--disable-warning=DEP0205 playwright test"
 	},
 	"dependencies": {
 		"@radix-ui/react-dialog": "^1.1.17",

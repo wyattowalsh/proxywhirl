@@ -22,9 +22,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: process.env.CI
-      ? 'pnpm run build && pnpm exec next start -p 4177'
-      : 'pnpm exec next start -p 4177',
+    command: 'node scripts/playwright-webserver.mjs',
     port: 4177,
     reuseExistingServer: !process.env.CI,
     timeout: 300_000,
