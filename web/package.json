@@ -6,7 +6,7 @@
 	"packageManager": "pnpm@10.13.1",
 	"scripts": {
 		"dev": "next dev",
-		"docs:generate": "node scripts/generate-docs.mjs && node scripts/generate-openapi-docs.mjs",
+		"docs:generate": "node scripts/generate-docs.mjs && node scripts/generate-openapi-docs.mjs && node scripts/generate-llms.mjs",
 		"prebuild": "pnpm run docs:generate",
 		"build": "NODE_OPTIONS=--disable-warning=DEP0205 next build",
 		"start": "next start",
