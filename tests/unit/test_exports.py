@@ -13,6 +13,7 @@ import pytest
 
 from proxywhirl.exports import (
     RELIABILITY_TIERS,
+    _as_utc_aware,
     _classify_reliability_tier,
     export_for_web,
     generate_proxy_lists,
@@ -45,6 +46,31 @@ class TestClassifyReliabilityTier:
     def test_reliability_tiers_constant_matches_classifier(self) -> None:
         tier_names = [name for name, _, _ in RELIABILITY_TIERS]
         assert tier_names == ["Elite", "Reliable", "Moderate", "Marginal"]
+
+
+class TestAsUtcAware:
+    """Test naive/aware datetime normalization for export aggregations."""
+
+    def test_naive_datetime_gets_utc_tz(self) -> None:
+        naive = datetime(2026, 1, 15, 12, 0, 0)
+        result = _as_utc_aware(naive)
+        assert result.tzinfo == timezone.utc
+        assert result.year == 2026 and result.month == 1 and result.day == 15
+
+    def test_utc_aware_datetime_unchanged(self) -> None:
+        aware = datetime(2026, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+        result = _as_utc_aware(aware)
+        assert result == aware
+
+    def test_non_utc_aware_converts_to_utc(self) -> None:
+        from datetime import timedelta
+
+        eastern = timezone(timedelta(hours=-5))
+        aware = datetime(2026, 1, 15, 12, 0, 0, tzinfo=eastern)
+        result = _as_utc_aware(aware)
+        assert result.tzinfo == timezone.utc
+        assert result.hour == 17
+
 
 class TestParseProxyUrl:
     """Test parse_proxy_url function."""
