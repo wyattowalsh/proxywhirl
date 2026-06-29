@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { waitForAnalyticsReady, waitForHomeReady } from './helpers';
+import { waitForAnalyticsDashboard, waitForAnalyticsReady, waitForHomeReady } from './helpers';
 
 test.describe('Analytics Page', () => {
   test('should load analytics dashboard', async ({ page }) => {
@@ -10,6 +10,14 @@ test.describe('Analytics Page', () => {
     await expect(
       page.getByText('Comprehensive proxy health, performance, and geographic insights'),
     ).toBeVisible();
+  });
+
+  test('should render analytics charts after data loads', async ({ page }) => {
+    await page.goto('/analytics');
+    await waitForAnalyticsDashboard(page);
+
+    await expect(page.getByRole('heading', { name: 'Response Speed', level: 3 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Validation Depth', level: 3 })).toBeVisible();
   });
 
   test('should navigate back to home', async ({ page }) => {
