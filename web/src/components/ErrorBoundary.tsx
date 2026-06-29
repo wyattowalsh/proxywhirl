@@ -39,21 +39,24 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           return cloneElement(this.props.fallback, { 
             onRetry: this.handleRetry,
             // Preserve existing onRetry if passed (though unlikely)
-            ...(this.props.fallback.props as any)
-          } as any)
+            ...(this.props.fallback.props as Record<string, unknown>)
+          } as Record<string, unknown>)
         }
         return this.props.fallback
       }
 
       return (
-        <div className="flex flex-col items-center justify-center p-8 text-center">
-          <AlertTriangle className="h-12 w-12 text-destructive mb-4" />
+        <div
+          role="alert"
+          className="flex flex-col items-center justify-center p-8 text-center"
+        >
+          <AlertTriangle className="h-12 w-12 text-destructive mb-4" aria-hidden="true" />
           <h3 className="text-lg font-semibold mb-2">Something went wrong</h3>
           <p className="text-sm text-muted-foreground mb-4 max-w-md">
             {this.state.error?.message || 'An unexpected error occurred'}
           </p>
           <Button onClick={this.handleRetry} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
             Try Again
           </Button>
         </div>
@@ -71,14 +74,17 @@ interface ChartErrorFallbackProps {
 
 export function ChartErrorFallback({ title = 'chart', onRetry }: ChartErrorFallbackProps) {
   return (
-    <div className="flex flex-col items-center justify-center h-full min-h-[200px] p-4 text-center bg-muted/30 rounded-lg">
-      <AlertTriangle className="h-8 w-8 text-muted-foreground mb-3" />
+    <div
+      role="alert"
+      className="flex flex-col items-center justify-center h-full min-h-[200px] p-4 text-center bg-muted/30 rounded-lg"
+    >
+      <AlertTriangle className="h-8 w-8 text-muted-foreground mb-3" aria-hidden="true" />
       <p className="text-sm text-muted-foreground mb-3">
         Unable to load {title}
       </p>
       {onRetry && (
         <Button onClick={onRetry} variant="ghost" size="sm">
-          <RefreshCw className="h-3 w-3 mr-1" />
+          <RefreshCw className="h-3 w-3 mr-1" aria-hidden="true" />
           Retry
         </Button>
       )}

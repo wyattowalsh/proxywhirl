@@ -1,12 +1,17 @@
 "use client";
 
+import { lazy, Suspense } from "react";
 import Link from "next/link";
 import { ArrowLeft, RefreshCw, AlertTriangle, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AnalyticsDashboard } from "@/components/analytics/AnalyticsDashboard";
-import { useStats } from "@/hooks/useStats";
-import { useRichProxies } from "@/hooks/useProxies";
+import { useProxyData } from "@/providers/ProxyDataProvider";
+
+const AnalyticsDashboard = lazy(() =>
+	import("@/components/analytics/AnalyticsDashboard").then((m) => ({
+		default: m.AnalyticsDashboard,
+	})),
+);
 
 function LoadingSkeleton() {
 	return (
@@ -28,24 +33,22 @@ function LoadingSkeleton() {
 export function AnalyticsPage() {
 	const {
 		stats,
-		loading: statsLoading,
-		error: statsError,
-		refresh: refreshStats,
-	} = useStats();
-	const {
-		data: proxyData,
-		loading: proxiesLoading,
-		error: proxiesError,
-		refresh: refreshProxies,
-	} = useRichProxies();
+		statsLoading,
+		statsError,
+		refreshStats,
+		richData,
+		richLoading,
+		richError,
+		refreshRich,
+	} = useProxyData();
 
-	const isLoading = statsLoading || proxiesLoading;
-	const hasError = statsError || proxiesError;
-	const hasData = stats && proxyData?.proxies && proxyData.proxies.length > 0;
+	const isLoading = statsLoading || richLoading;
+	const hasError = statsError || richError;
+	const hasData = stats && richData?.proxies && richData.proxies.length > 0;
 
 	const handleRefresh = () => {
 		refreshStats();
-		refreshProxies();
+		refreshRich();
 	};
 
 	return (
@@ -54,13 +57,13 @@ export function AnalyticsPage() {
 			<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 				<div className="flex items-center gap-4">
 					<Button variant="ghost" size="icon" asChild>
-						<Link href="/">
-							<ArrowLeft className="h-5 w-5" />
+						<Link href="/" aria-label="Back to home">
+							<ArrowLeft className="h-5 w-5" aria-hidden="true" />
 						</Link>
 					</Button>
 					<div>
 						<h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-							<BarChart3 className="h-8 w-8 text-primary" />
+							<BarChart3 className="h-8 w-8 text-primary" aria-hidden="true" />
 							Analytics Dashboard
 						</h1>
 						<p className="text-muted-foreground mt-1">
@@ -71,6 +74,7 @@ export function AnalyticsPage() {
 				<Button variant="outline" onClick={handleRefresh} disabled={isLoading}>
 					<RefreshCw
 						className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
+						aria-hidden="true"
 					/>
 					Refresh Data
 				</Button>
@@ -78,50 +82,70 @@ export function AnalyticsPage() {
 
 			{/* Error state */}
 			{hasError && !isLoading && (
-				<div className="rounded-lg border border-destructive/50 bg-destructive/5 p-6">
-					<div className="flex items-start gap-4">
-						<AlertTriangle className="h-6 w-6 text-destructive shrink-0 mt-0.5" />
-						<div className="flex-1">
-							<h3 className="font-semibold text-destructive">
-								Failed to load data
-							</h3>
-							<p className="text-sm text-muted-foreground mt-1">
-								{statsError || proxiesError}
-							</p>
-							<Button
-								variant="outline"
-								size="sm"
-								className="mt-3"
-								onClick={handleRefresh}
-							>
-								<RefreshCw className="h-4 w-4 mr-2" />
-								Try Again
-							</Button>
+				<section aria-labelledby="analytics-error-heading">
+					<div className="rounded-lg border border-destructive/50 bg-destructive/5 p-6">
+						<div className="flex items-start gap-4">
+							<AlertTriangle className="h-6 w-6 text-destructive shrink-0 mt-0.5" aria-hidden="true" />
+							<div className="flex-1">
+								<h2 id="analytics-error-heading" className="font-semibold text-destructive">
+									Failed to load data
+								</h2>
+								<p className="text-sm text-muted-foreground mt-1">
+									{statsError || richError}
+								</p>
+								<Button
+									variant="outline"
+									size="sm"
+									className="mt-3"
+									onClick={handleRefresh}
+								>
+									<RefreshCw className="h-4 w-4 mr-2" aria-hidden="true" />
+									Try Again
+								</Button>
+							</div>
 						</div>
 					</div>
-				</div>
+				</section>
 			)}
 
 			{/* Loading state */}
-			{isLoading && <LoadingSkeleton />}
+			{isLoading && (
+				<section aria-labelledby="analytics-loading-heading">
+					<h2 id="analytics-loading-heading" className="sr-only">
+						Loading analytics data
+					</h2>
+					<LoadingSkeleton />
+				</section>
+			)}
 
 			{/* Main dashboard */}
 			{!isLoading && hasData && (
-				<AnalyticsDashboard stats={stats} proxies={proxyData.proxies} />
+				<section aria-labelledby="analytics-dashboard-heading">
+					<h2 id="analytics-dashboard-heading" className="sr-only">
+						Analytics charts and metrics
+					</h2>
+					<Suspense fallback={<LoadingSkeleton />}>
+						<AnalyticsDashboard stats={stats} proxies={richData.proxies} />
+					</Suspense>
+				</section>
 			)}
 
 			{/* No data state */}
 			{!isLoading && !hasError && !hasData && (
-				<div className="rounded-lg border p-12 text-center">
-					<BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-					<h3 className="text-lg font-semibold">No Analytics Data</h3>
-					<p className="text-muted-foreground mt-1">
-						Proxy data is not available yet. Please check back later.
-					</p>
-					<Button variant="outline" className="mt-4" asChild>
-						<Link href="/">Return Home</Link>
-					</Button>
-				</div>
+				<section aria-labelledby="analytics-empty-heading">
+					<div className="rounded-lg border p-12 text-center">
+						<BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" aria-hidden="true" />
+						<h2 id="analytics-empty-heading" className="text-lg font-semibold">
+							No Analytics Data
+						</h2>
+						<p className="text-muted-foreground mt-1">
+							Proxy data is not available yet. Please check back later.
+						</p>
+						<Button variant="outline" className="mt-4" asChild>
+							<Link href="/">Return Home</Link>
+						</Button>
+					</div>
+				</section>
 			)}
 		</div>
 	);

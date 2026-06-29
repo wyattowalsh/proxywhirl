@@ -6,7 +6,9 @@ import {
 	DocsPage,
 	DocsTitle,
 } from "fumadocs-ui/page";
+import { APIPage } from "@/components/api-page";
 import { getMDXComponents } from "@/mdx-components";
+import { createPageMetadata } from "@/lib/metadata";
 import { source } from "@/lib/source";
 
 interface PageProps {
@@ -26,7 +28,7 @@ export default async function Page({ params }: PageProps) {
 			<DocsTitle>{page.data.title}</DocsTitle>
 			<DocsDescription>{page.data.description}</DocsDescription>
 			<DocsBody>
-				<MDX components={getMDXComponents()} />
+				<MDX components={getMDXComponents({ APIPage })} />
 			</DocsBody>
 		</DocsPage>
 	);
@@ -44,8 +46,9 @@ export async function generateMetadata({
 
 	if (!page) notFound();
 
-	return {
+	return createPageMetadata({
 		title: page.data.title,
 		description: page.data.description,
-	};
+		path: page.url,
+	});
 }

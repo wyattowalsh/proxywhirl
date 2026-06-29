@@ -1,13 +1,18 @@
+import { lazy, Suspense } from "react";
 import Link from "next/link";
 import { BarChart3, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorBoundary, ChartErrorFallback } from "@/components/ErrorBoundary";
 import { ResponseTimeChart } from "@/components/stats/ResponseTimeChart";
 import { ProtocolChart } from "@/components/stats/ProtocolChart";
 import { PortChart } from "@/components/stats/PortChart";
 import { ContinentChart } from "@/components/stats/ContinentChart";
-import { GeoMap } from "@/components/stats/GeoMap";
 import type { Stats, Proxy } from "@/types";
+
+const GeoMap = lazy(() =>
+	import("@/components/stats/GeoMap").then((m) => ({ default: m.GeoMap })),
+);
 
 interface AnalyticsProps {
 	stats: Stats;
@@ -22,9 +27,9 @@ export function Analytics({ stats, proxies, onCountryClick }: AnalyticsProps) {
 				<h2 className="text-2xl font-bold tracking-tight">Analytics</h2>
 				<Button variant="outline" asChild>
 					<Link href="/analytics">
-						<BarChart3 className="mr-2 h-4 w-4" />
+						<BarChart3 className="mr-2 h-4 w-4" aria-hidden="true" />
 						Full Dashboard
-						<ArrowRight className="ml-2 h-4 w-4" />
+						<ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
 					</Link>
 				</Button>
 			</div>
@@ -52,7 +57,9 @@ export function Analytics({ stats, proxies, onCountryClick }: AnalyticsProps) {
 			</div>
 
 			<ErrorBoundary fallback={<ChartErrorFallback title="geographic map" />}>
-				<GeoMap proxies={proxies} onCountryClick={onCountryClick} />
+				<Suspense fallback={<Skeleton className="h-[400px] w-full rounded-lg" />}>
+					<GeoMap proxies={proxies} onCountryClick={onCountryClick} />
+				</Suspense>
 			</ErrorBoundary>
 		</section>
 	);

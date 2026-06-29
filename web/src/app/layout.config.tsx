@@ -1,6 +1,8 @@
 import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
 import Image from "next/image";
 
+import { docsLayoutLinks } from "@/lib/site-nav";
+
 function Logo() {
 	return (
 		<Image
@@ -25,13 +27,5 @@ export const baseOptions: BaseLayoutProps = {
 			</span>
 		),
 	},
-	links: [
-		{ text: "Home", url: "/" },
-		{ text: "Analytics", url: "/analytics" },
-		{
-			text: "GitHub",
-			url: "https://github.com/wyattowalsh/proxywhirl",
-			external: true,
-		},
-	],
+	links: docsLayoutLinks,
 };

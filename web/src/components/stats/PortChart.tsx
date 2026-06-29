@@ -12,6 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Server } from "lucide-react"
+import { CHART_COLORS, PORT_COLORS } from "@/lib/chart-tokens"
 import type { Proxy, Stats } from "@/types"
 
 interface PortChartProps {
@@ -19,34 +20,20 @@ interface PortChartProps {
   stats?: Stats | null
 }
 
-const PORT_COLORS: Record<number, string> = {
-  80: "#3b82f6",     // blue
-  8080: "#22c55e",   // green
-  3128: "#f59e0b",   // amber
-  1080: "#8b5cf6",   // violet
-  8888: "#ec4899",   // pink
-  8000: "#14b8a6",   // teal
-  443: "#6366f1",    // indigo
-  3129: "#f97316",   // orange
-  0: "#6b7280",      // gray for "Other"
-}
-
 const COMMON_PORTS = [80, 443, 1080, 3128, 3129, 8000, 8080, 8888]
 
 export function PortChart({ proxies, stats }: PortChartProps) {
   const data = useMemo(() => {
-    // Use pre-computed distribution from stats if available
     const precomputed = stats?.aggregations?.by_port
     if (precomputed && precomputed.length > 0) {
       return precomputed.map((entry) => ({
         port: entry.port,
         label: entry.label || entry.port.toString(),
         count: entry.count,
-        color: PORT_COLORS[entry.port] || "#6b7280",
+        color: PORT_COLORS[entry.port] || CHART_COLORS.muted,
       }))
     }
 
-    // Fall back to client-side computation
     const counts: Record<number, number> = {}
     let otherCount = 0
 
@@ -63,7 +50,7 @@ export function PortChart({ proxies, stats }: PortChartProps) {
         port: Number(port),
         label: port.toString(),
         count,
-        color: PORT_COLORS[Number(port)] || "#6b7280",
+        color: PORT_COLORS[Number(port)] || CHART_COLORS.muted,
       }))
       .sort((a, b) => b.count - a.count)
 
@@ -72,7 +59,7 @@ export function PortChart({ proxies, stats }: PortChartProps) {
         port: 0,
         label: "Other",
         count: otherCount,
-        color: "#6b7280",
+        color: CHART_COLORS.muted,
       })
     }
 
@@ -102,13 +89,17 @@ export function PortChart({ proxies, stats }: PortChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Port Distribution</CardTitle>
-        <CardDescription>
+        <CardTitle id="port-chart-title">Port Distribution</CardTitle>
+        <CardDescription id="port-chart-desc">
           Common proxy ports across {totalProxies.toLocaleString()} proxies
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[250px]">
+        <div
+          role="img"
+          aria-labelledby="port-chart-title port-chart-desc"
+          className="h-[250px]"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -132,13 +123,32 @@ export function PortChart({ proxies, stats }: PortChartProps) {
                 formatter={(value: number) => [value.toLocaleString(), "Proxies"]}
                 labelFormatter={(label) => `Port ${label}`}
               />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+              <Bar dataKey="count" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          <table className="sr-only">
+            <caption>Port distribution</caption>
+            <thead>
+              <tr>
+                <th scope="col">Port</th>
+                <th scope="col">Proxies</th>
+                <th scope="col">Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((entry) => (
+                <tr key={entry.label}>
+                  <td>{entry.label}</td>
+                  <td>{entry.count.toLocaleString()}</td>
+                  <td>{totalProxies > 0 ? `${((entry.count / totalProxies) * 100).toFixed(1)}%` : "0%"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </CardContent>
     </Card>

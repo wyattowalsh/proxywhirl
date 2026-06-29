@@ -14,13 +14,19 @@ export function ProtocolChart({ stats }: ProtocolChartProps) {
     color: PROTOCOL_COLORS[protocol],
   }))
 
+  const total = data.reduce((sum, d) => sum + d.value, 0)
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Protocol Distribution</CardTitle>
+        <CardTitle id="protocol-chart-title">Protocol Distribution</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-[300px]">
+        <div
+          role="img"
+          aria-labelledby="protocol-chart-title"
+          className="h-[300px]"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -31,6 +37,7 @@ export function ProtocolChart({ stats }: ProtocolChartProps) {
                 outerRadius={100}
                 fill="#8884d8"
                 dataKey="value"
+                isAnimationActive={false}
                 label={({ name, percent }) =>
                   `${name} ${(percent * 100).toFixed(0)}%`
                 }
@@ -45,6 +52,25 @@ export function ProtocolChart({ stats }: ProtocolChartProps) {
               <Legend />
             </PieChart>
           </ResponsiveContainer>
+          <table className="sr-only">
+            <caption>Protocol distribution</caption>
+            <thead>
+              <tr>
+                <th scope="col">Protocol</th>
+                <th scope="col">Proxies</th>
+                <th scope="col">Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((entry) => (
+                <tr key={entry.name}>
+                  <td>{entry.name}</td>
+                  <td>{entry.value.toLocaleString()}</td>
+                  <td>{total > 0 ? `${((entry.value / total) * 100).toFixed(0)}%` : "0%"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </CardContent>
     </Card>

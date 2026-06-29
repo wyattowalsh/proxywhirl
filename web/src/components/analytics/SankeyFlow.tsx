@@ -1,5 +1,6 @@
 import { useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { CHART_COLORS, getSeriesColor } from "@/lib/chart-tokens"
 import { PROTOCOL_COLORS } from "@/types"
 import type { SourceFlowEntry } from "@/types"
 
@@ -20,7 +21,6 @@ export function SankeyFlow({ sourceFlow }: SankeyFlowProps) {
       return { sources: [], protocols: [], countries: [], flows: [] }
     }
 
-    // Aggregate counts
     const sourceCounts: Record<string, number> = {}
     const protocolCounts: Record<string, number> = {}
     const countryCounts: Record<string, number> = {}
@@ -31,14 +31,13 @@ export function SankeyFlow({ sourceFlow }: SankeyFlowProps) {
       countryCounts[f.country] = (countryCounts[f.country] || 0) + f.count
     })
 
-    // Sort and take top entries
     const sources = Object.entries(sourceCounts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8)
       .map(([name, count], i) => ({
         name: name.length > 15 ? name.slice(0, 13) + "…" : name,
         count,
-        color: `hsl(${(i * 45) % 360}, 70%, 50%)`,
+        color: getSeriesColor(i),
       }))
 
     const protocols = Object.entries(protocolCounts)
@@ -46,7 +45,7 @@ export function SankeyFlow({ sourceFlow }: SankeyFlowProps) {
       .map(([name, count]) => ({
         name: name.toUpperCase(),
         count,
-        color: PROTOCOL_COLORS[name as keyof typeof PROTOCOL_COLORS] || "#6b7280",
+        color: PROTOCOL_COLORS[name as keyof typeof PROTOCOL_COLORS] || CHART_COLORS.muted,
       }))
 
     const countries = Object.entries(countryCounts)
@@ -86,20 +85,23 @@ export function SankeyFlow({ sourceFlow }: SankeyFlowProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Proxy Flow</CardTitle>
-        <CardDescription>
+        <CardTitle id="sankey-flow-title">Proxy Flow</CardTitle>
+        <CardDescription id="sankey-flow-desc">
           Source → Protocol → Country distribution
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex justify-between gap-4 min-h-[300px]">
-          {/* Sources column */}
+        <div
+          role="img"
+          aria-labelledby="sankey-flow-title sankey-flow-desc"
+          className="flex justify-between gap-4 min-h-[300px]"
+        >
           <div className="flex-1 space-y-2">
             <p className="text-xs font-medium text-muted-foreground text-center mb-3">Sources</p>
             {data.sources.map((source) => (
               <div key={source.name} className="relative">
                 <div
-                  className="h-8 rounded-md flex items-center px-2 text-xs font-medium text-white overflow-hidden"
+                  className="h-8 rounded-md flex items-center px-2 text-xs font-medium text-white overflow-hidden motion-reduce:transition-none"
                   style={{
                     backgroundColor: source.color,
                     width: `${(source.count / maxSourceCount) * 100}%`,
@@ -115,13 +117,12 @@ export function SankeyFlow({ sourceFlow }: SankeyFlowProps) {
             ))}
           </div>
 
-          {/* Protocols column */}
           <div className="flex-1 space-y-2">
             <p className="text-xs font-medium text-muted-foreground text-center mb-3">Protocols</p>
             {data.protocols.map((protocol) => (
               <div key={protocol.name} className="relative">
                 <div
-                  className="h-8 rounded-md flex items-center justify-center px-2 text-xs font-medium text-white"
+                  className="h-8 rounded-md flex items-center justify-center px-2 text-xs font-medium text-white motion-reduce:transition-none"
                   style={{
                     backgroundColor: protocol.color,
                     width: `${(protocol.count / maxProtocolCount) * 100}%`,
@@ -139,13 +140,12 @@ export function SankeyFlow({ sourceFlow }: SankeyFlowProps) {
             ))}
           </div>
 
-          {/* Countries column */}
           <div className="flex-1 space-y-2">
             <p className="text-xs font-medium text-muted-foreground text-center mb-3">Countries</p>
             {data.countries.map((country) => (
               <div key={country.code} className="relative flex justify-end">
                 <div
-                  className="h-8 rounded-md flex items-center justify-end px-2 text-xs font-medium text-white overflow-hidden"
+                  className="h-8 rounded-md flex items-center justify-end px-2 text-xs font-medium text-white overflow-hidden motion-reduce:transition-none"
                   style={{
                     backgroundColor: `hsl(${country.code.charCodeAt(0) * 5}, 60%, 45%)`,
                     width: `${(country.count / maxCountryCount) * 100}%`,
@@ -160,6 +160,28 @@ export function SankeyFlow({ sourceFlow }: SankeyFlowProps) {
               </div>
             ))}
           </div>
+
+          <table className="sr-only">
+            <caption>Proxy flow from sources through protocols to countries</caption>
+            <thead>
+              <tr>
+                <th scope="col">Source</th>
+                <th scope="col">Protocol</th>
+                <th scope="col">Country</th>
+                <th scope="col">Count</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.flows.slice(0, 50).map((flow, i) => (
+                <tr key={`${flow.source}-${flow.protocol}-${flow.country}-${i}`}>
+                  <td>{flow.source}</td>
+                  <td>{flow.protocol}</td>
+                  <td>{flow.country}</td>
+                  <td>{flow.count.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </CardContent>
     </Card>

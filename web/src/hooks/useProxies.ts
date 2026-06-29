@@ -1,94 +1,191 @@
-import { useEffect, useState, useCallback } from "react";
-import type { Protocol, RichProxyData, Proxy } from "@/types";
+import { useEffect, useState, useCallback, useRef } from "react";
+import type { Protocol, RichProxyData, Proxy, SlimProxyData } from "@/types";
 import { compareIPs } from "@/lib/ip";
-import { getCache, setCache, CACHE_KEYS, DEFAULT_TTL } from "@/lib/cache";
+import {
+	getCache,
+	setCache,
+	getLargeCache,
+	setLargeCache,
+	CACHE_KEYS,
+	DEFAULT_TTL,
+} from "@/lib/cache";
+import { fetchJsonWithProgress, parseSlimProxyJson } from "@/lib/proxy-fetch";
+import type { SlimProxyJsonRaw } from "@/types";
+
+export { parseSlimProxyJson } from "@/lib/proxy-fetch";
 
 const BASE_URL = "/proxy-lists/";
 
-export function useRichProxies() {
+export function useProxiesSlim() {
+	const [data, setData] = useState<SlimProxyData | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const [progress, setProgress] = useState<number | undefined>(undefined);
+	const isMounted = useRef(true);
+
+	useEffect(() => {
+		isMounted.current = true;
+		return () => {
+			isMounted.current = false;
+		};
+	}, []);
+
+	const fetchFromNetwork = useCallback(
+		async (options: { force?: boolean; background?: boolean }) => {
+			const forceRefresh = options.force ?? false;
+			const background = options.background ?? false;
+
+			if (!background) {
+				setLoading(true);
+				setProgress(0);
+			}
+
+			try {
+				const cacheBuster = forceRefresh ? `?v=${Date.now()}` : "";
+				const raw = await fetchJsonWithProgress<SlimProxyJsonRaw>(
+					`${BASE_URL}proxies.json${cacheBuster}`,
+					background
+						? undefined
+						: (percent) => {
+								if (isMounted.current) setProgress(percent);
+							},
+				);
+				const json = parseSlimProxyJson(raw);
+
+				if (isMounted.current) {
+					setData(json);
+					setError(null);
+				}
+				setCache(CACHE_KEYS.PROXIES_SLIM, json, DEFAULT_TTL);
+			} catch (err) {
+				if (isMounted.current && !background) {
+					setError(err instanceof Error ? err.message : "Unknown error");
+				}
+			} finally {
+				if (isMounted.current && !background) {
+					setLoading(false);
+					setProgress(undefined);
+				}
+			}
+		},
+		[],
+	);
+
+	const loadData = useCallback(
+		async (options?: { force?: boolean; background?: boolean }) => {
+			const forceRefresh = options?.force ?? false;
+			const background = options?.background ?? false;
+
+			if (!forceRefresh) {
+				const cached = getCache<SlimProxyData>(CACHE_KEYS.PROXIES_SLIM);
+				if (cached) {
+					setData(cached);
+					setLoading(false);
+					setProgress(undefined);
+					void fetchFromNetwork({ force: true, background: true });
+					return;
+				}
+			}
+
+			await fetchFromNetwork({ force: forceRefresh, background });
+		},
+		[fetchFromNetwork],
+	);
+
+	useEffect(() => {
+		void loadData();
+	}, [loadData]);
+
+	return { data, loading, error, progress, refresh: () => loadData({ force: true }) };
+}
+
+export function useProxiesRich() {
 	const [data, setData] = useState<RichProxyData | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [progress, setProgress] = useState<number | undefined>(undefined);
-
-	const fetchData = useCallback(async (forceRefresh = false) => {
-		// Check cache first (unless force refresh)
-		if (!forceRefresh) {
-			const cached = getCache<RichProxyData>(CACHE_KEYS.PROXIES);
-			if (cached) {
-				setData(cached);
-				setLoading(false);
-				setProgress(undefined);
-				return;
-			}
-		}
-
-		setLoading(true);
-		setProgress(0); // Start at 0%
-
-		try {
-			// Normal loads: let CDN serve cached data (stale-while-revalidate handles freshness)
-			// Force refresh: cache-bust to bypass CDN
-			const cacheBuster = forceRefresh ? `?v=${Date.now()}` : "";
-			const res = await fetch(`${BASE_URL}proxies-rich.json${cacheBuster}`);
-			if (!res.ok) throw new Error("Failed to fetch proxy data");
-
-			const contentLength = res.headers.get("Content-Length");
-
-			// If we can track progress...
-			if (contentLength && res.body) {
-				const total = parseInt(contentLength, 10);
-				const reader = res.body.getReader();
-				let received = 0;
-				const chunks: Uint8Array[] = [];
-
-				while (true) {
-					const { done, value } = await reader.read();
-					if (done) break;
-
-					if (value) {
-						chunks.push(value);
-						received += value.length;
-						// Calculate percentage
-						setProgress(Math.round((received / total) * 100));
-					}
-				}
-
-				// Combine chunks and parse
-				const bodyContent = new Uint8Array(received);
-				let position = 0;
-				for (const chunk of chunks) {
-					bodyContent.set(chunk, position);
-					position += chunk.length;
-				}
-
-				const text = new TextDecoder("utf-8").decode(bodyContent);
-				const json: RichProxyData = JSON.parse(text);
-
-				setData(json);
-				setError(null);
-				setCache(CACHE_KEYS.PROXIES, json, DEFAULT_TTL);
-			} else {
-				// Fallback for no Content-Length or no body stream support
-				setProgress(undefined); // Indeterminate
-				const json: RichProxyData = await res.json();
-				setData(json);
-				setError(null);
-				setCache(CACHE_KEYS.PROXIES, json, DEFAULT_TTL);
-			}
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Unknown error");
-		} finally {
-			setLoading(false);
-			setProgress(undefined);
-		}
-	}, []);
+	const isMounted = useRef(true);
 
 	useEffect(() => {
-		fetchData();
-	}, [fetchData]);
+		isMounted.current = true;
+		return () => {
+			isMounted.current = false;
+		};
+	}, []);
 
-	return { data, loading, error, progress, refresh: () => fetchData(true) };
+	const fetchFromNetwork = useCallback(
+		async (options: { force?: boolean; background?: boolean }) => {
+			const forceRefresh = options.force ?? false;
+			const background = options.background ?? false;
+
+			if (!background) {
+				setLoading(true);
+				setProgress(0);
+			}
+
+			try {
+				const cacheBuster = forceRefresh ? `?v=${Date.now()}` : "";
+				const json = await fetchJsonWithProgress<RichProxyData>(
+					`${BASE_URL}proxies-rich.json${cacheBuster}`,
+					background
+						? undefined
+						: (percent) => {
+								if (isMounted.current) setProgress(percent);
+							},
+				);
+
+				if (isMounted.current) {
+					setData(json);
+					setError(null);
+				}
+				await setLargeCache(CACHE_KEYS.PROXIES_RICH, json, DEFAULT_TTL);
+			} catch (err) {
+				if (isMounted.current && !background) {
+					setError(err instanceof Error ? err.message : "Unknown error");
+				}
+			} finally {
+				if (isMounted.current && !background) {
+					setLoading(false);
+					setProgress(undefined);
+				}
+			}
+		},
+		[],
+	);
+
+	const loadData = useCallback(
+		async (options?: { force?: boolean; background?: boolean }) => {
+			const forceRefresh = options?.force ?? false;
+			const background = options?.background ?? false;
+
+			if (!forceRefresh) {
+				const cached =
+					(await getLargeCache<RichProxyData>(CACHE_KEYS.PROXIES_RICH)) ??
+					getCache<RichProxyData>(CACHE_KEYS.PROXIES);
+				if (cached) {
+					setData(cached);
+					setLoading(false);
+					setProgress(undefined);
+					void fetchFromNetwork({ force: true, background: true });
+					return;
+				}
+			}
+
+			await fetchFromNetwork({ force: forceRefresh, background });
+		},
+		[fetchFromNetwork],
+	);
+
+	useEffect(() => {
+		void loadData();
+	}, [loadData]);
+
+	return { data, loading, error, progress, refresh: () => loadData({ force: true }) };
+}
+
+/** @deprecated Use useProxiesRich() */
+export function useRichProxies() {
+	return useProxiesRich();
 }
 
 export interface ProxyFilters {

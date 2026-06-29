@@ -3,10 +3,11 @@ import { Treemap, ResponsiveContainer, Tooltip } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { COUNTRY_TO_CONTINENT, getCountryName } from "@/lib/geo"
 import { CONTINENT_COLORS, CONTINENT_LABELS } from "@/types"
-import type { Proxy } from "@/types"
+import type { Proxy, Stats } from "@/types"
 
 interface ProxyTreemapProps {
-  proxies: Proxy[]
+  proxies?: Proxy[]
+  stats?: Stats | null
 }
 
 interface TreemapItem {
@@ -17,7 +18,6 @@ interface TreemapItem {
   color?: string
 }
 
-// Custom content renderer for treemap cells
 const CustomContent = (props: {
   x?: number
   y?: number
@@ -32,7 +32,6 @@ const CustomContent = (props: {
 
   if (depth !== 2 || width < 30 || height < 30) return null
 
-  // Color based on response time
   let fillColor = color || "#6b7280"
   if (avgResponse) {
     if (avgResponse <= 500) fillColor = "#22c55e"
@@ -69,10 +68,58 @@ const CustomContent = (props: {
   )
 }
 
-export function ProxyTreemap({ proxies }: ProxyTreemapProps) {
+function buildTreemapFromCountryDetail(
+  countryDetail: NonNullable<Stats["aggregations"]>["by_country_detail"],
+): TreemapItem[] {
+  if (!countryDetail || countryDetail.length === 0) return []
+
+  const continentData: Record<
+    string,
+    Record<string, { count: number; totalResponse: number; samples: number }>
+  > = {}
+
+  for (const entry of countryDetail) {
+    const continent =
+      entry.continent_code || COUNTRY_TO_CONTINENT[entry.code] || "AS"
+
+    if (!continentData[continent]) {
+      continentData[continent] = {}
+    }
+    continentData[continent][entry.code] = {
+      count: entry.count,
+      totalResponse: (entry.avg_response_ms ?? 0) * entry.count,
+      samples: entry.avg_response_ms ? entry.count : 0,
+    }
+  }
+
+  return Object.entries(continentData)
+    .map(([continent, countries]) => ({
+      name: CONTINENT_LABELS[continent] || continent,
+      color: CONTINENT_COLORS[continent] || "#6b7280",
+      children: Object.entries(countries)
+        .map(([code, countryStats]) => ({
+          name: getCountryName(code, true),
+          size: countryStats.count,
+          avgResponse:
+            countryStats.samples > 0
+              ? Math.round(countryStats.totalResponse / countryStats.samples)
+              : undefined,
+        }))
+        .sort((a, b) => (b.size || 0) - (a.size || 0))
+        .slice(0, 10),
+    }))
+    .filter((c) => c.children && c.children.length > 0)
+}
+
+export function ProxyTreemap({ proxies = [], stats }: ProxyTreemapProps) {
   const data = useMemo(() => {
-    // Group by continent -> country
-    const continentData: Record<string, Record<string, { count: number; totalResponse: number; samples: number }>> = {}
+    const precomputed = buildTreemapFromCountryDetail(stats?.aggregations?.by_country_detail)
+    if (precomputed.length > 0) return precomputed
+
+    const continentData: Record<
+      string,
+      Record<string, { count: number; totalResponse: number; samples: number }>
+    > = {}
 
     proxies.forEach((proxy) => {
       const countryCode = proxy.country_code
@@ -94,24 +141,24 @@ export function ProxyTreemap({ proxies }: ProxyTreemapProps) {
       }
     })
 
-    // Build treemap structure
-    const treemapData: TreemapItem[] = Object.entries(continentData)
+    return Object.entries(continentData)
       .map(([continent, countries]) => ({
         name: CONTINENT_LABELS[continent] || continent,
         color: CONTINENT_COLORS[continent] || "#6b7280",
         children: Object.entries(countries)
-          .map(([code, stats]) => ({
+          .map(([code, countryStats]) => ({
             name: getCountryName(code, true),
-            size: stats.count,
-            avgResponse: stats.samples > 0 ? Math.round(stats.totalResponse / stats.samples) : undefined,
+            size: countryStats.count,
+            avgResponse:
+              countryStats.samples > 0
+                ? Math.round(countryStats.totalResponse / countryStats.samples)
+                : undefined,
           }))
           .sort((a, b) => (b.size || 0) - (a.size || 0))
-          .slice(0, 10), // Top 10 per continent
+          .slice(0, 10),
       }))
       .filter((c) => c.children && c.children.length > 0)
-
-    return treemapData
-  }, [proxies])
+  }, [proxies, stats])
 
   if (data.length === 0) {
     return (
@@ -147,17 +194,15 @@ export function ProxyTreemap({ proxies }: ProxyTreemapProps) {
               <Tooltip
                 content={({ payload }) => {
                   if (!payload || !payload[0]) return null
-                  const data = payload[0].payload
+                  const item = payload[0].payload
                   return (
                     <div className="bg-popover border rounded-md px-3 py-2 text-sm">
-                      <p className="font-medium">{data.name}</p>
+                      <p className="font-medium">{item.name}</p>
                       <p className="text-muted-foreground">
-                        {data.size?.toLocaleString()} proxies
+                        {item.size?.toLocaleString()} proxies
                       </p>
-                      {data.avgResponse && (
-                        <p className="text-muted-foreground">
-                          Avg: {data.avgResponse}ms
-                        </p>
+                      {item.avgResponse && (
+                        <p className="text-muted-foreground">Avg: {item.avgResponse}ms</p>
                       )}
                     </div>
                   )
@@ -166,7 +211,6 @@ export function ProxyTreemap({ proxies }: ProxyTreemapProps) {
             </Treemap>
           </ResponsiveContainer>
         </div>
-        {/* Legend */}
         <div className="mt-4 flex flex-wrap justify-center gap-4 text-sm">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded" style={{ backgroundColor: "#22c55e" }} />

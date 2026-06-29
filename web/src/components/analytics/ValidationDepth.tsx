@@ -1,15 +1,10 @@
 import { RadialBarChart, RadialBar, ResponsiveContainer, PolarAngleAxis } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { getConfidenceColor } from "@/lib/chart-tokens"
 import type { Proxy } from "@/types"
 
 interface ValidationDepthProps {
   proxies: Proxy[]
-}
-
-function getConfidenceColor(score: number): string {
-  if (score >= 70) return "#22c55e" // green
-  if (score >= 40) return "#eab308" // yellow
-  return "#ef4444" // red
 }
 
 function getConfidenceLabel(score: number): string {
@@ -22,7 +17,6 @@ export function ValidationDepth({ proxies }: ValidationDepthProps) {
   const total = proxies.length
   const maxChecks = 5
 
-  // Score: average of min(total_checks / maxChecks, 1.0) across all proxies, scaled to 0-100
   const score = total > 0
     ? Math.round(
         (proxies.reduce((sum, p) => sum + Math.min((p.total_checks || 0) / maxChecks, 1.0), 0) / total) * 100
@@ -32,7 +26,6 @@ export function ValidationDepth({ proxies }: ValidationDepthProps) {
   const color = getConfidenceColor(score)
   const label = getConfidenceLabel(score)
 
-  // Stats
   const avgChecks = total > 0
     ? (proxies.reduce((sum, p) => sum + (p.total_checks || 0), 0) / total).toFixed(1)
     : "0"
@@ -54,13 +47,17 @@ export function ValidationDepth({ proxies }: ValidationDepthProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Validation Depth</CardTitle>
-        <CardDescription>
+        <CardTitle id="validation-depth-title">Validation Depth</CardTitle>
+        <CardDescription id="validation-depth-desc">
           How thoroughly the {total.toLocaleString()} proxies have been tested
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="relative h-[200px]">
+        <div
+          role="img"
+          aria-labelledby="validation-depth-title validation-depth-desc"
+          className="relative h-[200px]"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <RadialBarChart
               cx="50%"
@@ -83,10 +80,10 @@ export function ValidationDepth({ proxies }: ValidationDepthProps) {
                 dataKey="value"
                 cornerRadius={10}
                 angleAxisId={0}
+                isAnimationActive={false}
               />
             </RadialBarChart>
           </ResponsiveContainer>
-          {/* Center label */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ marginTop: "20px" }}>
             <div className="text-center">
               <p className="text-4xl font-bold" style={{ color }}>
@@ -97,8 +94,28 @@ export function ValidationDepth({ proxies }: ValidationDepthProps) {
               </p>
             </div>
           </div>
+          <table className="sr-only">
+            <caption>Validation depth metrics</caption>
+            <tbody>
+              <tr>
+                <th scope="row">Confidence score</th>
+                <td>{score}%</td>
+              </tr>
+              <tr>
+                <th scope="row">Average checks</th>
+                <td>{avgChecks}</td>
+              </tr>
+              <tr>
+                <th scope="row">Single-check proxies</th>
+                <td>{singleCheckPct}%</td>
+              </tr>
+              <tr>
+                <th scope="row">Well-tested proxies</th>
+                <td>{wellTestedPct}%</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        {/* Stats row */}
         <div className="mt-4 grid grid-cols-3 gap-4 text-center text-sm">
           <div>
             <p className="text-muted-foreground">Avg Checks</p>

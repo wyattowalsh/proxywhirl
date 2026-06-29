@@ -76,16 +76,46 @@ export interface SourcesRanking {
   top_sources: SourceEntry[]
 }
 
+// Reliability tier bucket (success-rate distribution)
+export interface ReliabilityTierEntry {
+  tier: string
+  count: number
+}
+
+// Per-country stats for geographic charts
+export interface CountryDetailEntry {
+  code: string
+  count: number
+  avg_response_ms?: number | null
+  continent_code?: string | null
+}
+
+// Per-source metrics for radar comparison
+export interface SourceMetricEntry {
+  name: string
+  count: number
+  reliability_pct?: number
+  avg_response_ms?: number | null
+  country_count?: number
+  freshness_pct?: number
+}
+
 // Pre-computed aggregations
 export interface StatsAggregations {
   response_time_distribution: ResponseTimeBin[]
   by_port: PortEntry[]
   by_continent: Record<string, number>
   source_flow: SourceFlowEntry[]
+  reliability_tiers?: ReliabilityTierEntry[]
+  by_country_detail?: CountryDetailEntry[]
+  source_metrics?: SourceMetricEntry[]
+  discovery_by_date?: Record<string, number>
 }
 
 export interface Stats {
   generated_at: string
+  /** Timestamp from metadata.json when bundled with stats */
+  metadata_generated_at?: string
   sources: {
     total: number
   }
@@ -170,6 +200,24 @@ export interface RichProxyData {
   total: number
   proxies: Proxy[]
   aggregations: RichAggregations
+}
+
+/** Raw proxies.json shape (protocol → ip:port strings) */
+export interface SlimProxyJsonRaw {
+  metadata: {
+    generated_at: string
+    total_sources: number
+    counts: Partial<Record<Protocol, number>>
+  }
+  proxies: Partial<Record<Protocol, string[]>>
+}
+
+/** Normalized slim proxy payload for table views */
+export interface SlimProxyData {
+  generated_at: string
+  total: number
+  proxies: Proxy[]
+  metadata: SlimProxyJsonRaw['metadata']
 }
 
 export type Protocol = "http" | "https" | "socks4" | "socks5"

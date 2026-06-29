@@ -12,7 +12,7 @@ export function EmptyState({ icon: Icon, title, description, className }: EmptyS
   return (
     <div className={cn("flex flex-col items-center justify-center p-8 text-center", className)}>
       {Icon && (
-        <Icon className="h-10 w-10 text-muted-foreground/50 mb-4" />
+        <Icon className="h-10 w-10 text-muted-foreground/50 mb-4" aria-hidden="true" />
       )}
       <h3 className="text-sm font-medium text-muted-foreground">{title}</h3>
       {description && (

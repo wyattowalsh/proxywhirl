@@ -6,6 +6,7 @@ import { useDebounce } from "@/hooks/useDebounce"
 import { ProxyCard } from "./ProxyCard"
 import { Copy, Search, ArrowUpDown, ArrowUp, ArrowDown, Filter, Download, Clipboard, X, Globe, Star, Terminal } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { Proxy, Protocol } from "@/types"
 import { filterProxies, sortProxies, type SortField, type SortDirection, type ProxyFilters } from "@/hooks/useProxies"
@@ -228,12 +229,17 @@ export function RichProxyTable({
     virtualizer.scrollToIndex(0)
   }
 
+  const getAriaSort = (field: SortField): "ascending" | "descending" | "none" => {
+    if (sortField !== field) return "none"
+    return sortDirection === "asc" ? "ascending" : "descending"
+  }
+
   const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" />
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
     return sortDirection === "asc" ? (
-      <ArrowUp className="h-4 w-4" />
+      <ArrowUp className="h-4 w-4" aria-hidden="true" />
     ) : (
-      <ArrowDown className="h-4 w-4" />
+      <ArrowDown className="h-4 w-4" aria-hidden="true" />
     )
   }
 
@@ -263,8 +269,8 @@ export function RichProxyTable({
           </CardTitle>
           <div className="flex gap-2">
             <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <input
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden="true" />
+              <Input
                 ref={actualSearchRef}
                 type="text"
                 name="proxy-search"
@@ -274,7 +280,7 @@ export function RichProxyTable({
                 spellCheck={false}
                 value={localSearch}
                 onChange={(e) => setLocalSearch(e.target.value)}
-                className="flex h-10 w-full sm:w-[200px] rounded-md border border-input bg-background px-3 py-2 pl-8 pr-8 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="w-full sm:w-[200px] pl-8 pr-8"
               />
               {localSearch && (
                 <button
@@ -297,6 +303,7 @@ export function RichProxyTable({
               onClick={() => setShowFilters(!showFilters)}
               aria-label="Toggle filters"
               aria-expanded={showFilters}
+              aria-pressed={showFilters}
             >
               <Filter className="h-4 w-4" aria-hidden="true" />
             </Button>
@@ -339,8 +346,9 @@ export function RichProxyTable({
                   variant={showFavoritesOnly ? "default" : "outline"}
                   size="sm"
                   onClick={() => onShowFavoritesOnlyChange(!showFavoritesOnly)}
+                  aria-pressed={showFavoritesOnly}
                 >
-                  <Star className={`h-3 w-3 mr-1 ${showFavoritesOnly ? "fill-current" : ""}`} />
+                  <Star className={`h-3 w-3 mr-1 ${showFavoritesOnly ? "fill-current" : ""}`} aria-hidden="true" />
                   {favoritesCount > 0 ? `Favorites (${favoritesCount})` : "Favorites"}
                 </Button>
               </div>
@@ -355,6 +363,7 @@ export function RichProxyTable({
                     variant={filters.protocols.includes(protocol) ? "default" : "outline"}
                     size="sm"
                     onClick={() => toggleProtocolFilter(protocol)}
+                    aria-pressed={filters.protocols.includes(protocol)}
                   >
                     {PROTOCOL_LABELS[protocol]}
                   </Button>
@@ -485,20 +494,20 @@ export function RichProxyTable({
             </div>
           </div>
         ) : (
-          /* Desktop: Table view */
-          <div className="overflow-x-auto">
+          /* Desktop: single virtualized table */
+          <div ref={parentRef} className="h-[600px] overflow-auto overflow-x-auto">
             <table className="w-full text-sm table-fixed">
               <colgroup>
-                <col style={{ width: '22%' }} />
-                <col style={{ width: '10%' }} />
-                <col style={{ width: '12%' }} />
-                <col style={{ width: '20%' }} />
-                <col style={{ width: '16%' }} />
-                <col style={{ width: '20%' }} />
+                <col style={{ width: "22%" }} />
+                <col style={{ width: "10%" }} />
+                <col style={{ width: "12%" }} />
+                <col style={{ width: "20%" }} />
+                <col style={{ width: "16%" }} />
+                <col style={{ width: "20%" }} />
               </colgroup>
               <thead className="sticky top-0 bg-card z-10">
                 <tr className="border-b">
-                  <th className="text-left p-2">
+                  <th className="text-left p-2" aria-sort={getAriaSort("ip")} scope="col">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -508,7 +517,7 @@ export function RichProxyTable({
                       IP <SortIcon field="ip" />
                     </Button>
                   </th>
-                  <th className="text-left p-2">
+                  <th className="text-left p-2" aria-sort={getAriaSort("port")} scope="col">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -518,7 +527,7 @@ export function RichProxyTable({
                       Port <SortIcon field="port" />
                     </Button>
                   </th>
-                  <th className="text-left p-2">
+                  <th className="text-left p-2" aria-sort={getAriaSort("protocol")} scope="col">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -528,10 +537,10 @@ export function RichProxyTable({
                       Protocol <SortIcon field="protocol" />
                     </Button>
                   </th>
-                  <th className="text-left p-2">
+                  <th className="text-left p-2" scope="col">
                     <span className="font-medium px-3">Country</span>
                   </th>
-                  <th className="text-left p-2">
+                  <th className="text-left p-2" aria-sort={getAriaSort("response_time")} scope="col">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -541,118 +550,108 @@ export function RichProxyTable({
                       Response <SortIcon field="response_time" />
                     </Button>
                   </th>
-                  <th className="text-left p-2"></th>
+                  <th className="text-left p-2" scope="col">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
-            </table>
-            <div
-              ref={parentRef}
-              className="h-[600px] overflow-auto"
-            >
-              <div
-                style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}
+              <tbody
+                style={{
+                  height: `${virtualizer.getTotalSize()}px`,
+                  position: "relative",
+                  display: "block",
+                }}
               >
-                <table className="w-full text-sm table-fixed">
-                  <colgroup>
-                    <col style={{ width: '22%' }} />
-                    <col style={{ width: '10%' }} />
-                    <col style={{ width: '12%' }} />
-                    <col style={{ width: '20%' }} />
-                    <col style={{ width: '16%' }} />
-                    <col style={{ width: '20%' }} />
-                  </colgroup>
-                  <tbody>
-                    {virtualizer.getVirtualItems().map((virtualRow) => {
-                      const proxy = sortedProxies[virtualRow.index]
-                      const proxyString = `${proxy.ip}:${proxy.port}:${proxy.protocol}`
-                      return (
-                        <tr
-                          key={proxyString}
-                          className="border-b hover:bg-muted/50 group"
-                          style={{
-                            display: 'table',
-                            tableLayout: 'fixed',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: `${virtualRow.size}px`,
-                            transform: `translateY(${virtualRow.start}px)`,
-                          }}
-                        >
-                          <td style={{ width: '22%' }} className="p-2 font-mono truncate">{proxy.ip}</td>
-                          <td style={{ width: '10%' }} className="p-2 font-mono">{proxy.port}</td>
-                          <td style={{ width: '12%' }} className="p-2">
-                            <Badge variant={proxy.protocol as "http" | "https" | "socks4" | "socks5"}>
-                              {proxy.protocol.toUpperCase()}
-                            </Badge>
-                          </td>
-                          <td style={{ width: '20%' }} className="p-2 text-muted-foreground truncate">
-                            {proxy.country_code ? (
-                              <span
-                                title={[
-                                  proxy.country,
-                                  proxy.city && proxy.region ? `${proxy.city}, ${proxy.region}` : (proxy.city || proxy.region),
-                                  proxy.timezone,
-                                ].filter(Boolean).join("\n") || proxy.country_code}
-                                className="cursor-help"
-                              >
-                                {proxy.country_code}
-                                {proxy.city && (
-                                  <span className="text-xs ml-1 opacity-70">{proxy.city}</span>
-                                )}
-                              </span>
-                            ) : proxy.is_private ? (
-                              <span className="text-xs text-amber-500" title="Private IP address">Private</span>
-                            ) : "—"}
-                          </td>
-                          <td style={{ width: '16%' }} className="p-2 font-mono text-muted-foreground">
-                            {proxy.response_time !== null
-                              ? `${proxy.response_time.toFixed(0)}ms`
-                              : "—"}
-                          </td>
-                          <td style={{ width: '20%' }} className="p-2">
-                            <div className="flex gap-1">
-                              {onToggleFavorite && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className={`h-8 w-8 transition-opacity focus-visible:opacity-100 ${isFavorite?.(proxy.ip, proxy.port) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
-                                  onClick={() => onToggleFavorite(proxy.ip, proxy.port, proxy.protocol)}
-                                  aria-label={isFavorite?.(proxy.ip, proxy.port) ? `Remove ${proxy.ip}:${proxy.port} from favorites` : `Add ${proxy.ip}:${proxy.port} to favorites`}
-                                >
-                                  <Star className={`h-4 w-4 ${isFavorite?.(proxy.ip, proxy.port) ? "fill-yellow-500 text-yellow-500" : ""}`} aria-hidden="true" />
-                                </Button>
-                              )}
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                                onClick={() => handleTestProxy(proxy)}
-                                title="Copy test command"
-                                aria-label={`Copy test command for ${proxy.ip}:${proxy.port}`}
-                              >
-                                <Terminal className="h-4 w-4" aria-hidden="true" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                                onClick={() => handleCopyProxy(proxy)}
-                                title="Copy proxy address"
-                                aria-label={`Copy proxy address ${proxy.ip}:${proxy.port}`}
-                              >
-                                <Copy className="h-4 w-4" aria-hidden="true" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                {virtualizer.getVirtualItems().map((virtualRow) => {
+                  const proxy = sortedProxies[virtualRow.index]
+                  const proxyString = `${proxy.ip}:${proxy.port}:${proxy.protocol}`
+                  return (
+                    <tr
+                      key={proxyString}
+                      className="border-b hover:bg-muted/50 group"
+                      style={{
+                        display: "table",
+                        tableLayout: "fixed",
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: `${virtualRow.size}px`,
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                    >
+                      <td style={{ width: "22%" }} className="p-2 font-mono truncate">{proxy.ip}</td>
+                      <td style={{ width: "10%" }} className="p-2 font-mono">{proxy.port}</td>
+                      <td style={{ width: "12%" }} className="p-2">
+                        <Badge variant={proxy.protocol as "http" | "https" | "socks4" | "socks5"}>
+                          {proxy.protocol.toUpperCase()}
+                        </Badge>
+                      </td>
+                      <td style={{ width: "20%" }} className="p-2 text-muted-foreground truncate">
+                        {proxy.country_code ? (
+                          <span
+                            title={[
+                              proxy.country,
+                              proxy.city && proxy.region ? `${proxy.city}, ${proxy.region}` : (proxy.city || proxy.region),
+                              proxy.timezone,
+                            ].filter(Boolean).join("\n") || proxy.country_code}
+                            className="cursor-help"
+                          >
+                            {proxy.country_code}
+                            {proxy.city && (
+                              <span className="text-xs ml-1 opacity-70">{proxy.city}</span>
+                            )}
+                          </span>
+                        ) : proxy.is_private ? (
+                          <span className="text-xs text-amber-500" title="Private IP address">Private</span>
+                        ) : "—"}
+                      </td>
+                      <td style={{ width: "16%" }} className="p-2 font-mono text-muted-foreground">
+                        {proxy.response_time !== null
+                          ? `${proxy.response_time.toFixed(0)}ms`
+                          : "—"}
+                      </td>
+                      <td style={{ width: "20%" }} className="p-2">
+                        <div className="flex gap-1">
+                          {onToggleFavorite && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={`h-8 w-8 transition-opacity focus-visible:opacity-100 ${isFavorite?.(proxy.ip, proxy.port) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                              onClick={() => onToggleFavorite(proxy.ip, proxy.port, proxy.protocol)}
+                              aria-label={isFavorite?.(proxy.ip, proxy.port) ? `Remove ${proxy.ip}:${proxy.port} from favorites` : `Add ${proxy.ip}:${proxy.port} to favorites`}
+                              aria-pressed={isFavorite?.(proxy.ip, proxy.port) ?? false}
+                            >
+                              <Star className={`h-4 w-4 ${isFavorite?.(proxy.ip, proxy.port) ? "fill-yellow-500 text-yellow-500" : ""}`} aria-hidden="true" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                            onClick={() => handleTestProxy(proxy)}
+                            title="Copy test command"
+                            aria-label={`Copy test command for ${proxy.ip}:${proxy.port}`}
+                          >
+                            <Terminal className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                            onClick={() => handleCopyProxy(proxy)}
+                            title="Copy proxy address"
+                            aria-label={`Copy proxy address ${proxy.ip}:${proxy.port}`}
+                          >
+                            <Copy className="h-4 w-4" aria-hidden="true" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
         )}
 

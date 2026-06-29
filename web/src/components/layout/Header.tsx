@@ -7,8 +7,10 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Github, Moon, Sun, BookOpen, Menu } from "lucide-react";
+import { siteNavLinks } from "@/lib/site-nav";
+import { BarChart3, BookOpen, Github, Menu, Moon, Sun } from "lucide-react";
 import Link from "next/link";
+import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 
 function ProxyWhirlLogo({ className }: { className?: string }) {
@@ -42,25 +44,41 @@ function ProxyWhirlLogo({ className }: { className?: string }) {
 	);
 }
 
+const navIcons = {
+	Docs: BookOpen,
+	Analytics: BarChart3,
+	GitHub: Github,
+} as const;
+
+function NavIcon({
+	label,
+	className = "h-4 w-4",
+}: {
+	label: string;
+	className?: string;
+}) {
+	const Icon = navIcons[label as keyof typeof navIcons];
+	if (!Icon) return null;
+	return <Icon className={className} aria-hidden="true" />;
+}
+
 export function Header() {
-	const [isDark, setIsDark] = useState(false);
+	const { resolvedTheme, setTheme } = useTheme();
+	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {
-		const prefersDark = window.matchMedia(
-			"(prefers-color-scheme: dark)",
-		).matches;
-		const stored = localStorage.getItem("theme");
-		const shouldBeDark = stored ? stored === "dark" : prefersDark;
-		setIsDark(shouldBeDark);
-		document.documentElement.classList.toggle("dark", shouldBeDark);
+		setMounted(true);
 	}, []);
 
+	const isDark = resolvedTheme === "dark";
+
 	const toggleTheme = () => {
-		const newIsDark = !isDark;
-		setIsDark(newIsDark);
-		document.documentElement.classList.toggle("dark", newIsDark);
-		localStorage.setItem("theme", newIsDark ? "dark" : "light");
+		setTheme(isDark ? "light" : "dark");
 	};
+
+	const primaryNavLinks = siteNavLinks.filter(
+		(link) => link.label !== "Home" && link.label !== "GitHub",
+	);
 
 	return (
 		<header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -71,13 +89,16 @@ export function Header() {
 				</Link>
 
 				<nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
-					<Link
-						href="/docs/"
-						className="flex items-center gap-1 text-foreground/60 transition-colors hover:text-foreground/80"
-					>
-						<BookOpen className="h-4 w-4" aria-hidden="true" />
-						Docs
-					</Link>
+					{primaryNavLinks.map((link) => (
+						<Link
+							key={link.href}
+							href={link.href}
+							className="flex items-center gap-1 text-foreground/60 transition-colors hover:text-foreground/80"
+						>
+							<NavIcon label={link.label} />
+							{link.label}
+						</Link>
+					))}
 				</nav>
 
 				<div className="flex flex-1 items-center justify-end space-x-2">
@@ -87,7 +108,7 @@ export function Header() {
 						onClick={toggleTheme}
 						aria-label="Toggle theme"
 					>
-						{isDark ? (
+						{mounted && isDark ? (
 							<Sun className="h-5 w-5" aria-hidden="true" />
 						) : (
 							<Moon className="h-5 w-5" aria-hidden="true" />
@@ -100,7 +121,10 @@ export function Header() {
 						className="hidden md:flex"
 					>
 						<a
-							href="https://github.com/wyattowalsh/proxywhirl"
+							href={
+								siteNavLinks.find((link) => link.label === "GitHub")?.href ??
+								"https://github.com/wyattowalsh/proxywhirl"
+							}
 							target="_blank"
 							rel="noopener noreferrer"
 						>
@@ -117,23 +141,37 @@ export function Header() {
 								</Button>
 							</DropdownMenuTrigger>
 							<DropdownMenuContent align="end">
-								<DropdownMenuItem asChild>
-									<Link href="/docs/" className="cursor-pointer">
-										<BookOpen className="mr-2 h-4 w-4" aria-hidden="true" />
-										Docs
-									</Link>
-								</DropdownMenuItem>
-								<DropdownMenuItem asChild>
-									<a
-										href="https://github.com/wyattowalsh/proxywhirl"
-										target="_blank"
-										rel="noopener noreferrer"
-										className="cursor-pointer"
-									>
-										<Github className="mr-2 h-4 w-4" aria-hidden="true" />
-										GitHub
-									</a>
-								</DropdownMenuItem>
+								{siteNavLinks
+									.filter((link) => link.label !== "Home")
+									.map((link) => (
+										<DropdownMenuItem key={link.href} asChild>
+											{link.external ? (
+												<a
+													href={link.href}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="flex cursor-pointer items-center"
+												>
+													<NavIcon
+														label={link.label}
+														className="mr-2 h-4 w-4"
+													/>
+													{link.label}
+												</a>
+											) : (
+												<Link
+													href={link.href}
+													className="flex cursor-pointer items-center"
+												>
+													<NavIcon
+														label={link.label}
+														className="mr-2 h-4 w-4"
+													/>
+													{link.label}
+												</Link>
+											)}
+										</DropdownMenuItem>
+									))}
 							</DropdownMenuContent>
 						</DropdownMenu>
 					</div>

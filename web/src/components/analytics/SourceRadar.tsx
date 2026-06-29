@@ -10,35 +10,76 @@ import {
   Tooltip,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import type { Proxy } from "@/types"
+import type { Proxy, Stats } from "@/types"
 
 interface SourceRadarProps {
-  proxies: Proxy[]
+  proxies?: Proxy[]
+  stats?: Stats | null
 }
 
 interface SourceMetrics {
   name: string
-  volume: number       // normalized proxy count
-  reliability: number  // success rate
-  speed: number        // inverse of avg response time
-  diversity: number    // number of countries
-  freshness: number    // recency score
+  volume: number
+  reliability: number
+  speed: number
+  diversity: number
+  freshness: number
 }
 
 const COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"]
 
-export function SourceRadar({ proxies }: SourceRadarProps) {
+function buildRadarFromPrecomputed(
+  sourceMetrics: NonNullable<Stats["aggregations"]>["source_metrics"],
+): { radarData: Record<string, string | number>[]; sourceNames: string[] } | null {
+  if (!sourceMetrics || sourceMetrics.length === 0) return null
+
+  const topSources = [...sourceMetrics].sort((a, b) => b.count - a.count).slice(0, 6)
+  const maxCount = Math.max(...topSources.map((s) => s.count))
+  const maxCountries = Math.max(...topSources.map((s) => s.country_count ?? 0))
+
+  const metrics: SourceMetrics[] = topSources.map((s) => {
+    const avgResponse = s.avg_response_ms ?? 5000
+    return {
+      name: s.name.length > 15 ? s.name.slice(0, 13) + "..." : s.name,
+      volume: maxCount > 0 ? Math.round((s.count / maxCount) * 100) : 0,
+      reliability: Math.round(s.reliability_pct ?? 50),
+      speed: Math.round(Math.max(0, 100 - avgResponse / 50)),
+      diversity:
+        maxCountries > 0
+          ? Math.round(((s.country_count ?? 0) / maxCountries) * 100)
+          : 0,
+      freshness: Math.round(s.freshness_pct ?? 0),
+    }
+  })
+
+  const radarData = [
+    { metric: "Volume", ...Object.fromEntries(metrics.map((m) => [m.name, m.volume])) },
+    { metric: "Reliability", ...Object.fromEntries(metrics.map((m) => [m.name, m.reliability])) },
+    { metric: "Speed", ...Object.fromEntries(metrics.map((m) => [m.name, m.speed])) },
+    { metric: "Diversity", ...Object.fromEntries(metrics.map((m) => [m.name, m.diversity])) },
+    { metric: "Freshness", ...Object.fromEntries(metrics.map((m) => [m.name, m.freshness])) },
+  ]
+
+  return { radarData, sourceNames: metrics.map((m) => m.name) }
+}
+
+export function SourceRadar({ proxies = [], stats }: SourceRadarProps) {
   const data = useMemo(() => {
-    // Group by source
-    const sourceStats: Record<string, {
-      count: number
-      totalChecks: number
-      successfulChecks: number
-      totalResponse: number
-      responseSamples: number
-      countries: Set<string>
-      latestCheck: Date | null
-    }> = {}
+    const precomputed = buildRadarFromPrecomputed(stats?.aggregations?.source_metrics)
+    if (precomputed) return precomputed
+
+    const sourceStats: Record<
+      string,
+      {
+        count: number
+        totalChecks: number
+        successfulChecks: number
+        totalResponse: number
+        responseSamples: number
+        countries: Set<string>
+        latestCheck: Date | null
+      }
+    > = {}
 
     proxies.forEach((proxy) => {
       const source = proxy.source || "unknown"
@@ -74,45 +115,45 @@ export function SourceRadar({ proxies }: SourceRadarProps) {
       }
     })
 
-    // Get top 6 sources by count
     const topSources = Object.entries(sourceStats)
       .sort((a, b) => b[1].count - a[1].count)
       .slice(0, 6)
 
     if (topSources.length === 0) return null
 
-    // Calculate max values for normalization
     const maxCount = Math.max(...topSources.map(([_, s]) => s.count))
     const maxCountries = Math.max(...topSources.map(([_, s]) => s.countries.size))
     const now = Date.now()
 
-    // Build radar data
-    const metrics: SourceMetrics[] = topSources.map(([name, stats]) => {
-      const avgResponse = stats.responseSamples > 0
-        ? stats.totalResponse / stats.responseSamples
-        : 5000 // default to slow if no data
+    const metrics: SourceMetrics[] = topSources.map(([name, sourceData]) => {
+      const avgResponse =
+        sourceData.responseSamples > 0
+          ? sourceData.totalResponse / sourceData.responseSamples
+          : 5000
 
-      const successRate = stats.totalChecks > 0
-        ? (stats.successfulChecks / stats.totalChecks) * 100
-        : 50
+      const successRate =
+        sourceData.totalChecks > 0
+          ? (sourceData.successfulChecks / sourceData.totalChecks) * 100
+          : 50
 
-      // Freshness: hours since last check (0-168 hours = 0-100%)
-      const hoursSinceCheck = stats.latestCheck
-        ? (now - stats.latestCheck.getTime()) / (1000 * 60 * 60)
+      const hoursSinceCheck = sourceData.latestCheck
+        ? (now - sourceData.latestCheck.getTime()) / (1000 * 60 * 60)
         : 168
       const freshness = Math.max(0, 100 - (hoursSinceCheck / 168) * 100)
 
       return {
         name: name.length > 15 ? name.slice(0, 13) + "..." : name,
-        volume: Math.round((stats.count / maxCount) * 100),
+        volume: Math.round((sourceData.count / maxCount) * 100),
         reliability: Math.round(successRate),
-        speed: Math.round(Math.max(0, 100 - (avgResponse / 50))), // 0-100 scale
-        diversity: maxCountries > 0 ? Math.round((stats.countries.size / maxCountries) * 100) : 0,
+        speed: Math.round(Math.max(0, 100 - avgResponse / 50)),
+        diversity:
+          maxCountries > 0
+            ? Math.round((sourceData.countries.size / maxCountries) * 100)
+            : 0,
         freshness: Math.round(freshness),
       }
     })
 
-    // Transform for radar chart format
     const radarData = [
       { metric: "Volume", ...Object.fromEntries(metrics.map((m) => [m.name, m.volume])) },
       { metric: "Reliability", ...Object.fromEntries(metrics.map((m) => [m.name, m.reliability])) },
@@ -122,7 +163,7 @@ export function SourceRadar({ proxies }: SourceRadarProps) {
     ]
 
     return { radarData, sourceNames: metrics.map((m) => m.name) }
-  }, [proxies])
+  }, [proxies, stats])
 
   if (!data || !data.radarData || data.radarData.length === 0) {
     return (
@@ -141,9 +182,7 @@ export function SourceRadar({ proxies }: SourceRadarProps) {
     <Card>
       <CardHeader>
         <CardTitle>Source Comparison</CardTitle>
-        <CardDescription>
-          Top 6 sources compared across 5 metrics
-        </CardDescription>
+        <CardDescription>Top 6 sources compared across 5 metrics</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-[400px]">
@@ -178,9 +217,7 @@ export function SourceRadar({ proxies }: SourceRadarProps) {
                   borderRadius: "var(--radius)",
                 }}
               />
-              <Legend
-                wrapperStyle={{ fontSize: 11 }}
-              />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
             </RadarChart>
           </ResponsiveContainer>
         </div>

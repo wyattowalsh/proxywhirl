@@ -3,6 +3,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Globe } from "lucide-react"
+import { CHART_COLORS } from "@/lib/chart-tokens"
+import { CONTINENT_COLORS } from "@/types"
 import type { Proxy, Stats } from "@/types"
 
 interface ContinentChartProps {
@@ -11,18 +13,16 @@ interface ContinentChartProps {
 }
 
 const CONTINENT_CONFIG: Record<string, { name: string; color: string }> = {
-  AS: { name: "Asia", color: "#f59e0b" },
-  EU: { name: "Europe", color: "#3b82f6" },
-  NA: { name: "North America", color: "#22c55e" },
-  SA: { name: "South America", color: "#8b5cf6" },
-  AF: { name: "Africa", color: "#ec4899" },
-  OC: { name: "Oceania", color: "#14b8a6" },
-  AN: { name: "Antarctica", color: "#6b7280" },
+  AS: { name: "Asia", color: CONTINENT_COLORS.AS },
+  EU: { name: "Europe", color: CONTINENT_COLORS.EU },
+  NA: { name: "North America", color: CONTINENT_COLORS.NA },
+  SA: { name: "South America", color: CONTINENT_COLORS.SA },
+  AF: { name: "Africa", color: CONTINENT_COLORS.AF },
+  OC: { name: "Oceania", color: CONTINENT_COLORS.OC },
+  AN: { name: "Antarctica", color: CONTINENT_COLORS.AN },
 }
 
-// Map ISO country codes to continent codes
 const COUNTRY_TO_CONTINENT: Record<string, string> = {
-  // Africa (AF)
   DZ: "AF", AO: "AF", BJ: "AF", BW: "AF", BF: "AF", BI: "AF", CM: "AF", CV: "AF",
   CF: "AF", TD: "AF", KM: "AF", CG: "AF", CD: "AF", CI: "AF", DJ: "AF", EG: "AF",
   GQ: "AF", ER: "AF", SZ: "AF", ET: "AF", GA: "AF", GM: "AF", GH: "AF", GN: "AF",
@@ -30,7 +30,6 @@ const COUNTRY_TO_CONTINENT: Record<string, string> = {
   MR: "AF", MU: "AF", MA: "AF", MZ: "AF", NA: "AF", NE: "AF", NG: "AF", RW: "AF",
   ST: "AF", SN: "AF", SC: "AF", SL: "AF", SO: "AF", ZA: "AF", SS: "AF", SD: "AF",
   TZ: "AF", TG: "AF", TN: "AF", UG: "AF", ZM: "AF", ZW: "AF", RE: "AF", YT: "AF",
-  // Asia (AS)
   AF: "AS", AM: "AS", AZ: "AS", BH: "AS", BD: "AS", BT: "AS", BN: "AS", KH: "AS",
   CN: "AS", CY: "AS", GE: "AS", HK: "AS", IN: "AS", ID: "AS", IR: "AS", IQ: "AS",
   IL: "AS", JP: "AS", JO: "AS", KZ: "AS", KW: "AS", KG: "AS", LA: "AS", LB: "AS",
@@ -38,7 +37,6 @@ const COUNTRY_TO_CONTINENT: Record<string, string> = {
   PK: "AS", PS: "AS", PH: "AS", QA: "AS", SA: "AS", SG: "AS", KR: "AS", LK: "AS",
   SY: "AS", TW: "AS", TJ: "AS", TH: "AS", TL: "AS", TR: "AS", TM: "AS", AE: "AS",
   UZ: "AS", VN: "AS", YE: "AS",
-  // Europe (EU)
   AL: "EU", AD: "EU", AT: "EU", BY: "EU", BE: "EU", BA: "EU", BG: "EU", HR: "EU",
   CZ: "EU", DK: "EU", EE: "EU", FI: "EU", FR: "EU", DE: "EU", GR: "EU", HU: "EU",
   IS: "EU", IE: "EU", IT: "EU", XK: "EU", LV: "EU", LI: "EU", LT: "EU", LU: "EU",
@@ -46,26 +44,21 @@ const COUNTRY_TO_CONTINENT: Record<string, string> = {
   PT: "EU", RO: "EU", RU: "EU", SM: "EU", RS: "EU", SK: "EU", SI: "EU", ES: "EU",
   SE: "EU", CH: "EU", UA: "EU", GB: "EU", VA: "EU", FO: "EU", GI: "EU", GG: "EU",
   IM: "EU", JE: "EU",
-  // North America (NA)
   AG: "NA", BS: "NA", BB: "NA", BZ: "NA", CA: "NA", CR: "NA", CU: "NA", DM: "NA",
   DO: "NA", SV: "NA", GD: "NA", GT: "NA", HT: "NA", HN: "NA", JM: "NA", MX: "NA",
   NI: "NA", PA: "NA", KN: "NA", LC: "NA", VC: "NA", TT: "NA", US: "NA", AW: "NA",
   BM: "NA", KY: "NA", CW: "NA", GL: "NA", GP: "NA", MQ: "NA", MS: "NA", PR: "NA",
   SX: "NA", TC: "NA", VG: "NA", VI: "NA",
-  // South America (SA)
   AR: "SA", BO: "SA", BR: "SA", CL: "SA", CO: "SA", EC: "SA", FK: "SA", GF: "SA",
   GY: "SA", PY: "SA", PE: "SA", SR: "SA", UY: "SA", VE: "SA",
-  // Oceania (OC)
   AU: "OC", FJ: "OC", KI: "OC", MH: "OC", FM: "OC", NR: "OC", NZ: "OC", PW: "OC",
   PG: "OC", WS: "OC", SB: "OC", TO: "OC", TV: "OC", VU: "OC", NC: "OC", PF: "OC",
   GU: "OC", AS: "OC", CK: "OC", NU: "OC", TK: "OC", WF: "OC",
-  // Antarctica (AN)
   AQ: "AN",
 }
 
 export function ContinentChart({ proxies, stats }: ContinentChartProps) {
   const data = useMemo(() => {
-    // Use pre-computed distribution from stats if available
     const precomputed = stats?.aggregations?.by_continent
     if (precomputed && Object.keys(precomputed).length > 0) {
       return Object.entries(precomputed)
@@ -73,15 +66,13 @@ export function ContinentChart({ proxies, stats }: ContinentChartProps) {
           code,
           name: CONTINENT_CONFIG[code]?.name || code,
           value: count,
-          color: CONTINENT_CONFIG[code]?.color || "#6b7280",
+          color: CONTINENT_CONFIG[code]?.color || CHART_COLORS.muted,
         }))
         .sort((a, b) => b.value - a.value)
     }
 
-    // Fall back to client-side computation
     const counts: Record<string, number> = {}
     proxies.forEach((proxy) => {
-      // Use continent_code if available, otherwise derive from country_code
       const continentCode =
         proxy.continent_code ||
         (proxy.country_code ? COUNTRY_TO_CONTINENT[proxy.country_code] : undefined)
@@ -95,7 +86,7 @@ export function ContinentChart({ proxies, stats }: ContinentChartProps) {
         code,
         name: CONTINENT_CONFIG[code]?.name || code,
         value: count,
-        color: CONTINENT_CONFIG[code]?.color || "#6b7280",
+        color: CONTINENT_CONFIG[code]?.color || CHART_COLORS.muted,
       }))
       .sort((a, b) => b.value - a.value)
   }, [proxies, stats])
@@ -123,10 +114,14 @@ export function ContinentChart({ proxies, stats }: ContinentChartProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle>Continents</CardTitle>
+        <CardTitle id="continent-chart-title">Continents</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center gap-4">
+        <div
+          role="img"
+          aria-labelledby="continent-chart-title"
+          className="flex flex-col sm:flex-row items-center gap-4"
+        >
           <div className="h-[180px] w-[180px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -138,6 +133,7 @@ export function ContinentChart({ proxies, stats }: ContinentChartProps) {
                   outerRadius={80}
                   paddingAngle={2}
                   dataKey="value"
+                  isAnimationActive={false}
                 >
                   {data.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -157,13 +153,14 @@ export function ContinentChart({ proxies, stats }: ContinentChartProps) {
               </PieChart>
             </ResponsiveContainer>
           </div>
-          <div className="flex-1 space-y-2">
+          <div className="flex-1 w-full space-y-2">
             {data.slice(0, 5).map((item) => (
               <div key={item.code} className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
                   <div
                     className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: item.color }}
+                    aria-hidden="true"
                   />
                   <span>{item.code} {item.name}</span>
                 </div>
@@ -173,6 +170,25 @@ export function ContinentChart({ proxies, stats }: ContinentChartProps) {
               </div>
             ))}
           </div>
+          <table className="sr-only">
+            <caption>Continent distribution</caption>
+            <thead>
+              <tr>
+                <th scope="col">Continent</th>
+                <th scope="col">Proxies</th>
+                <th scope="col">Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((item) => (
+                <tr key={item.code}>
+                  <td>{item.name}</td>
+                  <td>{item.value.toLocaleString()}</td>
+                  <td>{((item.value / total) * 100).toFixed(1)}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </CardContent>
     </Card>

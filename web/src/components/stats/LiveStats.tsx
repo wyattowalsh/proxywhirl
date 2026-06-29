@@ -13,16 +13,20 @@ interface LiveStatsProps {
 const statCardClass = "flex items-center gap-3 rounded-xl border bg-card p-4 shadow-sm"
 const statIconClass = "rounded-lg bg-primary/10 p-2 text-primary"
 
-function AnimatedNumber({ value, duration = 1500 }: { value: number; duration?: number }) {
+function AnimatedNumber({
+  value,
+  duration = 1500,
+  prefersReducedMotion,
+}: {
+  value: number
+  duration?: number
+  prefersReducedMotion: boolean | null
+}) {
   const [displayValue, setDisplayValue] = useState(0)
   const frameRef = useRef<number | null>(null)
 
   useEffect(() => {
-    const shouldReduceMotion =
-      typeof window.matchMedia === "function" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches
-
-    if (shouldReduceMotion) {
+    if (prefersReducedMotion) {
       setDisplayValue(value)
       return
     }
@@ -50,13 +54,14 @@ function AnimatedNumber({ value, duration = 1500 }: { value: number; duration?: 
         cancelAnimationFrame(frameRef.current)
       }
     }
-  }, [value, duration])
+  }, [value, duration, prefersReducedMotion])
 
   return <span className="tabular-nums">{displayValue.toLocaleString()}</span>
 }
 
 export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
   const prefersReducedMotion = useReducedMotion()
+  const motionProps = prefersReducedMotion ? {} : cardInteraction
   const computedStats = useMemo(() => {
     // Use pre-computed stats when available, fall back to client-side computation
     const precomputed = stats?.performance
@@ -112,14 +117,14 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
       <motion.div
         className={statCardClass}
         variants={slideUp}
-        {...cardInteraction}
+        {...motionProps}
       >
         <div className={statIconClass}>
           <Wifi className="h-5 w-5" aria-hidden="true" />
         </div>
         <div>
           <p className="text-2xl font-bold">
-            <AnimatedNumber value={computedStats.total} />
+            <AnimatedNumber value={computedStats.total} prefersReducedMotion={prefersReducedMotion} />
           </p>
           <p className="text-xs text-muted-foreground">Total Proxies</p>
         </div>
@@ -128,14 +133,14 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
       <motion.div
         className={statCardClass}
         variants={slideUp}
-        {...cardInteraction}
+        {...motionProps}
       >
         <div className={statIconClass}>
           <Globe className="h-5 w-5" aria-hidden="true" />
         </div>
         <div>
           <p className="text-2xl font-bold">
-            <AnimatedNumber value={computedStats.countries} />
+            <AnimatedNumber value={computedStats.countries} prefersReducedMotion={prefersReducedMotion} />
           </p>
           <p className="text-xs text-muted-foreground">Countries</p>
         </div>
@@ -144,7 +149,7 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
       <motion.div
         className={statCardClass}
         variants={slideUp}
-        {...cardInteraction}
+        {...motionProps}
       >
         <div className={statIconClass}>
           <Zap className="h-5 w-5" aria-hidden="true" />
@@ -152,7 +157,7 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
         <div>
           <p className="text-2xl font-bold">
             {computedStats.avgResponseTime > 0 ? (
-              <><AnimatedNumber value={computedStats.avgResponseTime} /><span className="text-base font-normal">ms</span></>
+              <><AnimatedNumber value={computedStats.avgResponseTime} prefersReducedMotion={prefersReducedMotion} /><span className="text-base font-normal">ms</span></>
             ) : (
               "—"
             )}
@@ -164,7 +169,7 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
       <motion.div
         className={statCardClass}
         variants={slideUp}
-        {...cardInteraction}
+        {...motionProps}
       >
         <div className={statIconClass}>
           <TrendingUp className="h-5 w-5" aria-hidden="true" />
@@ -172,7 +177,7 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
         <div>
           <p className="text-2xl font-bold">
             {computedStats.avgReliability > 0 ? (
-              <><AnimatedNumber value={computedStats.avgReliability} /><span className="text-base font-normal">%</span></>
+              <><AnimatedNumber value={computedStats.avgReliability} prefersReducedMotion={prefersReducedMotion} /><span className="text-base font-normal">%</span></>
             ) : (
               "—"
             )}
@@ -184,7 +189,7 @@ export function LiveStats({ proxies, generatedAt, stats }: LiveStatsProps) {
       <motion.div
         className={statCardClass}
         variants={slideUp}
-        {...cardInteraction}
+        {...motionProps}
       >
         <div className={statIconClass}>
           <Clock className="h-5 w-5" aria-hidden="true" />

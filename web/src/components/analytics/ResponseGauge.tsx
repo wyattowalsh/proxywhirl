@@ -1,15 +1,10 @@
 import { RadialBarChart, RadialBar, ResponsiveContainer, PolarAngleAxis } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { getSpeedColor } from "@/lib/chart-tokens"
 import type { PerformanceStats } from "@/types"
 
 interface ResponseGaugeProps {
   performance: PerformanceStats
-}
-
-function getSpeedColor(ms: number): string {
-  if (ms <= 500) return "#22c55e" // green - fast
-  if (ms <= 1500) return "#eab308" // yellow - medium
-  return "#ef4444" // red - slow
 }
 
 function getSpeedLabel(ms: number): string {
@@ -20,7 +15,6 @@ function getSpeedLabel(ms: number): string {
 
 export function ResponseGauge({ performance }: ResponseGaugeProps) {
   const avgMs = performance.avg_response_ms || 0
-  // Normalize to 0-100 scale (5000ms = 0%, 0ms = 100%)
   const speedScore = Math.max(0, Math.min(100, 100 - (avgMs / 50)))
   const color = getSpeedColor(avgMs)
   const label = getSpeedLabel(avgMs)
@@ -36,13 +30,17 @@ export function ResponseGauge({ performance }: ResponseGaugeProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Response Speed</CardTitle>
-        <CardDescription>
+        <CardTitle id="response-gauge-title">Response Speed</CardTitle>
+        <CardDescription id="response-gauge-desc">
           Average response time across {(performance.samples || 0).toLocaleString()} samples
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="relative h-[200px]">
+        <div
+          role="img"
+          aria-labelledby="response-gauge-title response-gauge-desc"
+          className="relative h-[200px]"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <RadialBarChart
               cx="50%"
@@ -65,10 +63,10 @@ export function ResponseGauge({ performance }: ResponseGaugeProps) {
                 dataKey="value"
                 cornerRadius={10}
                 angleAxisId={0}
+                isAnimationActive={false}
               />
             </RadialBarChart>
           </ResponsiveContainer>
-          {/* Center label */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ marginTop: "20px" }}>
             <div className="text-center">
               <p className="text-4xl font-bold" style={{ color }}>
@@ -79,8 +77,32 @@ export function ResponseGauge({ performance }: ResponseGaugeProps) {
               </p>
             </div>
           </div>
+          <table className="sr-only">
+            <caption>Response speed metrics</caption>
+            <tbody>
+              <tr>
+                <th scope="row">Average response</th>
+                <td>{avgMs > 0 ? `${Math.round(avgMs)}ms (${label})` : "No data"}</td>
+              </tr>
+              <tr>
+                <th scope="row">Median</th>
+                <td>{performance.median_response_ms != null ? `${performance.median_response_ms}ms` : "—"}</td>
+              </tr>
+              <tr>
+                <th scope="row">P95</th>
+                <td>{performance.p95_response_ms != null ? `${performance.p95_response_ms}ms` : "—"}</td>
+              </tr>
+              <tr>
+                <th scope="row">Range</th>
+                <td>
+                  {performance.min_response_ms != null && performance.max_response_ms != null
+                    ? `${performance.min_response_ms}–${performance.max_response_ms}ms`
+                    : "—"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
-        {/* Stats row */}
         {avgMs > 0 && (
           <div className="mt-4 grid grid-cols-3 gap-4 text-center text-sm">
             <div>

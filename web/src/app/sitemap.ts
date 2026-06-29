@@ -15,6 +15,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
 			url: `${baseUrl}/analytics`,
 			lastModified: now,
 		},
+		{
+			url: `${baseUrl}/llms.txt`,
+			lastModified: now,
+		},
 		...source.getPages().map((page) => ({
 			url: `${baseUrl}${page.url}`,
 			lastModified: now,

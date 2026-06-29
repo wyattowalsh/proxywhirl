@@ -1,9 +1,26 @@
 import { useRef, useEffect, useMemo, useState, type ComponentType } from "react"
+import { useReducedMotion } from "motion/react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import type { Proxy } from "@/types"
+import { CHART_COLORS, getSpeedColor } from "@/lib/chart-tokens"
+import type { Proxy, Stats } from "@/types"
+
+/** Self-hosted globe textures under /public/assets/globe/ */
+const GLOBE_TEXTURES = {
+  globe: "/assets/globe/earth-blue-marble.jpg",
+  bump: "/assets/globe/earth-topology.png",
+  background: "/assets/globe/night-sky.png",
+} as const
+
+/**
+ * Unpkg fallback (three-globe example assets) if self-hosted files are missing:
+ * - https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg
+ * - https://unpkg.com/three-globe/example/img/earth-topology.png
+ * - https://unpkg.com/three-globe/example/img/night-sky.png
+ */
 
 interface Globe3DProps {
-  proxies: Proxy[]
+  proxies?: Proxy[]
+  stats?: Stats | null
 }
 
 interface GlobePoint {
@@ -14,7 +31,6 @@ interface GlobePoint {
   avgResponse: number
 }
 
-// Country code to approximate centroid coordinates
 const COUNTRY_CENTROIDS: Record<string, [number, number]> = {
   US: [39.8, -98.5], CA: [56.1, -106.3], MX: [23.6, -102.5], BR: [-14.2, -51.9],
   AR: [-38.4, -63.6], CL: [-35.7, -71.5], CO: [-4.6, -74.3], PE: [-9.2, -75.0],
@@ -49,18 +65,12 @@ const COUNTRY_CENTROIDS: Record<string, [number, number]> = {
   SC: [-4.7, 55.5], IM: [54.2, -4.5], LU: [49.8, 6.1],
 }
 
-function getPointColor(avgResponse: number): string {
-  if (avgResponse <= 500) return "#22c55e" // green
-  if (avgResponse <= 1500) return "#eab308" // yellow
-  return "#ef4444" // red
-}
-
-export function Globe3D({ proxies }: Globe3DProps) {
+export function Globe3D({ proxies = [], stats }: Globe3DProps) {
   const globeRef = useRef<unknown>(null)
+  const prefersReducedMotion = useReducedMotion()
   const [GlobeComponent, setGlobeComponent] = useState<ComponentType<Record<string, unknown>> | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  // Dynamically import react-globe.gl on client only
   useEffect(() => {
     let mounted = true
     import("react-globe.gl")
@@ -80,20 +90,36 @@ export function Globe3D({ proxies }: Globe3DProps) {
     }
   }, [])
 
-  // Auto-rotate
   useEffect(() => {
     if (globeRef.current && GlobeComponent) {
       const globe = globeRef.current as { controls: () => { autoRotate: boolean; autoRotateSpeed: number } }
       if (globe.controls) {
         const controls = globe.controls()
-        controls.autoRotate = true
+        controls.autoRotate = !prefersReducedMotion
         controls.autoRotateSpeed = 0.5
       }
     }
-  }, [GlobeComponent])
+  }, [GlobeComponent, prefersReducedMotion])
 
   const points = useMemo((): GlobePoint[] => {
-    // Aggregate by country code using centroid coordinates
+    const countryDetail = stats?.aggregations?.by_country_detail
+    if (countryDetail && countryDetail.length > 0) {
+      return countryDetail
+        .filter((entry) => COUNTRY_CENTROIDS[entry.code])
+        .map((entry) => {
+          const [lat, lng] = COUNTRY_CENTROIDS[entry.code]
+          return {
+            lat,
+            lng,
+            count: entry.count,
+            country: entry.code,
+            avgResponse: entry.avg_response_ms
+              ? Math.round(entry.avg_response_ms)
+              : 1000,
+          }
+        })
+    }
+
     const countryData: Record<string, {
       count: number
       totalResponse: number
@@ -128,7 +154,7 @@ export function Globe3D({ proxies }: Globe3DProps) {
         avgResponse: data.samples > 0 ? Math.round(data.totalResponse / data.samples) : 1000,
       }
     })
-  }, [proxies])
+  }, [proxies, stats])
 
   const totalWithLocation = points.reduce((sum, p) => sum + p.count, 0)
   const maxCount = Math.max(...points.map((p) => p.count), 1)
@@ -154,7 +180,7 @@ export function Globe3D({ proxies }: Globe3DProps) {
           <CardDescription>Loading 3D globe...</CardDescription>
         </CardHeader>
         <CardContent className="h-[500px] flex items-center justify-center">
-          <div className="animate-pulse text-muted-foreground">Loading globe...</div>
+          <div className="animate-pulse motion-reduce:animate-none text-muted-foreground">Loading globe...</div>
         </CardContent>
       </Card>
     )
@@ -176,23 +202,27 @@ export function Globe3D({ proxies }: Globe3DProps) {
   return (
     <Card className="overflow-hidden">
       <CardHeader>
-        <CardTitle>Global Distribution</CardTitle>
-        <CardDescription>
+        <CardTitle id="globe-3d-title">Global Distribution</CardTitle>
+        <CardDescription id="globe-3d-desc">
           {totalWithLocation.toLocaleString()} proxies with location data (color = response time)
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="h-[500px] bg-zinc-950 relative">
+        <div
+          role="img"
+          aria-labelledby="globe-3d-title globe-3d-desc"
+          className="h-[500px] bg-zinc-950 relative"
+        >
           {GlobeComponent && (
             <GlobeComponent
               ref={globeRef}
-              globeImageUrl="//unpkg.com/three-globe/example/img/earth-blue-marble.jpg"
-              bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-              backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
+              globeImageUrl={GLOBE_TEXTURES.globe}
+              bumpImageUrl={GLOBE_TEXTURES.bump}
+              backgroundImageUrl={GLOBE_TEXTURES.background}
               pointsData={points}
               pointLat={(d: GlobePoint) => d.lat}
               pointLng={(d: GlobePoint) => d.lng}
-              pointColor={(d: GlobePoint) => getPointColor(d.avgResponse)}
+              pointColor={(d: GlobePoint) => getSpeedColor(d.avgResponse)}
               pointAltitude={(d: GlobePoint) => Math.min(0.1 + (d.count / maxCount) * 0.3, 0.4)}
               pointRadius={(d: GlobePoint) => Math.min(0.3 + (d.count / maxCount) * 1.5, 2)}
               pointLabel={(d: GlobePoint) =>
@@ -202,30 +232,50 @@ export function Globe3D({ proxies }: Globe3DProps) {
                   ${d.avgResponse}ms avg
                 </div>`
               }
-              atmosphereColor="#3b82f6"
+              atmosphereColor={CHART_COLORS.atmosphere}
               atmosphereAltitude={0.15}
               width={typeof window !== "undefined" ? Math.min(window.innerWidth - 100, 800) : 800}
               height={500}
             />
           )}
-          {/* Legend overlay */}
           <div className="absolute bottom-4 right-4 bg-background/80 backdrop-blur rounded-lg p-3 text-xs">
             <p className="font-medium mb-2">Response Time</p>
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-green-500" />
+                <div className="w-3 h-3 rounded-full bg-green-500" aria-hidden="true" />
                 <span>&lt;500ms</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-yellow-500" />
+                <div className="w-3 h-3 rounded-full bg-yellow-500" aria-hidden="true" />
                 <span>500-1500ms</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full bg-red-500" />
+                <div className="w-3 h-3 rounded-full bg-red-500" aria-hidden="true" />
                 <span>&gt;1500ms</span>
               </div>
             </div>
           </div>
+          <table className="sr-only">
+            <caption>Global proxy distribution by country</caption>
+            <thead>
+              <tr>
+                <th scope="col">Country</th>
+                <th scope="col">Proxies</th>
+                <th scope="col">Avg response (ms)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {points
+                .sort((a, b) => b.count - a.count)
+                .map((point) => (
+                  <tr key={point.country}>
+                    <td>{point.country}</td>
+                    <td>{point.count.toLocaleString()}</td>
+                    <td>{point.avgResponse}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
         </div>
       </CardContent>
     </Card>

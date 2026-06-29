@@ -8,6 +8,7 @@ import {
   Cell,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { getSeriesColor } from "@/lib/chart-tokens"
 import type { SourceEntry } from "@/types"
 
 interface SourceRankingProps {
@@ -15,30 +16,28 @@ interface SourceRankingProps {
   totalActive: number
 }
 
-const COLORS = [
-  "#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899",
-  "#14b8a6", "#6366f1", "#f97316", "#84cc16", "#06b6d4",
-  "#a855f7", "#10b981", "#f43f5e", "#0ea5e9", "#d946ef",
-]
-
 export function SourceRanking({ sources, totalActive }: SourceRankingProps) {
   const data = sources.slice(0, 15).map((s, i) => ({
     name: s.name.length > 20 ? s.name.slice(0, 18) + "..." : s.name,
     fullName: s.name,
     count: s.count,
-    color: COLORS[i % COLORS.length],
+    color: getSeriesColor(i),
   }))
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Top Sources</CardTitle>
-        <CardDescription>
+        <CardTitle id="source-ranking-title">Top Sources</CardTitle>
+        <CardDescription id="source-ranking-desc">
           Top 15 of {totalActive} active proxy sources
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[400px]">
+        <div
+          role="img"
+          aria-labelledby="source-ranking-title source-ranking-desc"
+          className="h-[400px]"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               layout="vertical"
@@ -69,13 +68,30 @@ export function SourceRanking({ sources, totalActive }: SourceRankingProps) {
                   borderRadius: "var(--radius)",
                 }}
               />
-              <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+              <Bar dataKey="count" radius={[0, 4, 4, 0]} isAnimationActive={false}>
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          <table className="sr-only">
+            <caption>Top proxy sources by count</caption>
+            <thead>
+              <tr>
+                <th scope="col">Source</th>
+                <th scope="col">Proxies</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((entry) => (
+                <tr key={entry.fullName}>
+                  <td>{entry.fullName}</td>
+                  <td>{entry.count.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </CardContent>
     </Card>

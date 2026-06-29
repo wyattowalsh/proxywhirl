@@ -18,10 +18,8 @@ import { Globe } from "lucide-react";
 import type { Proxy } from "@/types";
 import geoData from "@/assets/geo-data.json";
 
-// Using local Natural Earth 110m world topology
 const GEO_URL = geoData;
 
-// ISO numeric codes used by world-atlas
 const NUMERIC_TO_ALPHA2: Record<string, string> = {
 	"840": "US",
 	"156": "CN",
@@ -109,19 +107,16 @@ export function GeoMap({ proxies, onCountryClick }: GeoMapProps) {
 	const totalWithGeo = Object.values(countryData).reduce((a, b) => a + b, 0);
 	const uniqueCountries = Object.keys(countryData).length;
 
-	// Get color based on proxy count
 	const getCountryColor = (countryCode: string | undefined) => {
 		if (!countryCode) return "hsl(var(--muted))";
 		const count = countryData[countryCode] || 0;
 		if (count === 0) return "hsl(var(--muted))";
 
-		// Color scale from light to saturated primary
 		const intensity = Math.min(count / maxCount, 1);
-		const lightness = 80 - intensity * 50; // 80% to 30%
+		const lightness = 80 - intensity * 50;
 		return `hsl(220, 70%, ${lightness}%)`;
 	};
 
-	// Convert geo numeric ID to alpha-2
 	const getAlpha2FromGeo = (geo: GeographyType) => {
 		const props = geo.properties as { ISO_A2?: string } | undefined;
 		if (props?.ISO_A2) return props.ISO_A2;
@@ -150,15 +145,18 @@ export function GeoMap({ proxies, onCountryClick }: GeoMapProps) {
 	return (
 		<Card className="col-span-full">
 			<CardHeader>
-				<CardTitle>Geographic Distribution</CardTitle>
-				<CardDescription>
+				<CardTitle id="geo-map-title">Geographic Distribution</CardTitle>
+				<CardDescription id="geo-map-desc">
 					{totalWithGeo.toLocaleString()} proxies from {uniqueCountries}{" "}
 					countries
 				</CardDescription>
 			</CardHeader>
 			<CardContent>
-				<div className="grid gap-6 md:grid-cols-[1fr_250px]">
-					{/* World Map */}
+				<div
+					role="img"
+					aria-labelledby="geo-map-title geo-map-desc"
+					className="grid gap-6 md:grid-cols-[1fr_250px]"
+				>
 					<div className="relative h-[300px] bg-muted/30 rounded-lg overflow-hidden">
 						<ComposableMap
 							projection="geoMercator"
@@ -212,7 +210,6 @@ export function GeoMap({ proxies, onCountryClick }: GeoMapProps) {
 							</ZoomableGroup>
 						</ComposableMap>
 
-						{/* Tooltip */}
 						{hoveredCountry && countryData[hoveredCountry] && (
 							<div className="absolute top-2 left-2 bg-popover border rounded-md px-3 py-2 shadow-md text-sm">
 								<span className="font-medium">{hoveredCountry}</span>
@@ -223,7 +220,6 @@ export function GeoMap({ proxies, onCountryClick }: GeoMapProps) {
 						)}
 					</div>
 
-					{/* Top countries list */}
 					<div className="space-y-3">
 						<h4 className="text-sm font-medium text-muted-foreground">
 							Top Countries
@@ -235,7 +231,7 @@ export function GeoMap({ proxies, onCountryClick }: GeoMapProps) {
 									<button
 										key={code}
 										type="button"
-										className="flex w-full items-center gap-3 rounded px-1 -mx-1 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+										className="flex w-full items-center gap-3 rounded px-1 -mx-1 text-left transition-colors motion-reduce:transition-none hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 										onClick={() => onCountryClick?.(code)}
 										onMouseEnter={() => setHoveredCountry(code)}
 										onMouseLeave={() => setHoveredCountry(null)}
@@ -246,7 +242,7 @@ export function GeoMap({ proxies, onCountryClick }: GeoMapProps) {
 										<span className="text-sm font-medium w-8">{code}</span>
 										<div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
 											<div
-												className="h-full w-full origin-left bg-primary transition-transform duration-500"
+												className="h-full w-full origin-left bg-primary transition-transform duration-500 motion-reduce:transition-none motion-reduce:duration-0"
 												style={{
 													transform: `scaleX(${count / topCountries[0][1]})`,
 												}}
@@ -260,6 +256,26 @@ export function GeoMap({ proxies, onCountryClick }: GeoMapProps) {
 							})}
 						</div>
 					</div>
+
+					<table className="sr-only">
+						<caption>Geographic distribution by country</caption>
+						<thead>
+							<tr>
+								<th scope="col">Country</th>
+								<th scope="col">Proxies</th>
+								<th scope="col">Share</th>
+							</tr>
+						</thead>
+						<tbody>
+							{topCountries.map(([code, count]) => (
+								<tr key={code}>
+									<td>{code}</td>
+									<td>{count.toLocaleString()}</td>
+									<td>{((count / totalWithGeo) * 100).toFixed(1)}%</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
 				</div>
 			</CardContent>
 		</Card>

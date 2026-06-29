@@ -16,14 +16,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LiveStats } from "@/components/stats/LiveStats";
 import { LastUpdated } from "@/components/stats/LastUpdated";
 import { RichProxyTable } from "@/components/proxy/RichProxyTable";
 import { LoadingProgress } from "@/components/ui/loading-progress";
 import { ScrollToTop } from "@/components/ui/scroll-to-top";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useStats } from "@/hooks/useStats";
-import { useRichProxies } from "@/hooks/useProxies";
+import { useProxyData } from "@/providers/ProxyDataProvider";
 import { useUrlFilters } from "@/hooks/useUrlFilters";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -137,17 +137,15 @@ $ uvx proxywhirl stats`,
 export function Home() {
 	const {
 		stats,
-		loading: statsLoading,
-		error: statsError,
-		refresh: refreshStats,
-	} = useStats();
-	const {
-		data: proxyData,
-		loading: proxiesLoading,
-		error: proxiesError,
-		progress: proxiesProgress,
-		refresh: refreshProxies,
-	} = useRichProxies();
+		statsLoading,
+		statsError,
+		refreshStats,
+		slimData,
+		slimLoading: proxiesLoading,
+		slimError: proxiesError,
+		slimProgress: proxiesProgress,
+		refreshSlim: refreshProxies,
+	} = useProxyData();
 	const { filters, setFilters, sortField, sortDirection, setSort, clearAll } =
 		useUrlFilters();
 
@@ -156,7 +154,7 @@ export function Home() {
 	const [showFilters, setShowFilters] = useState(false);
 	const [showShortcuts, setShowShortcuts] = useState(false);
 	const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
-	const [codeTab, setCodeTab] = useState(0);
+	const [codeTab, setCodeTab] = useState(CODE_EXAMPLES[0].id);
 	const prefersReducedMotion = useReducedMotion();
 
 	// Favorites
@@ -164,9 +162,9 @@ export function Home() {
 
 	// Copy all filtered proxies
 	const handleCopyAll = useCallback(async () => {
-		if (!proxyData?.proxies) return;
+		if (!slimData?.proxies) return;
 		// Apply filters to get current list
-		const filteredProxies = proxyData.proxies.filter((p) => {
+		const filteredProxies = slimData.proxies.filter((p) => {
 			if (filters.search) {
 				const searchLower = filters.search.toLowerCase();
 				if (
@@ -197,7 +195,7 @@ export function Home() {
 				`Copied ${filteredProxies.length.toLocaleString()} proxies`,
 			);
 		}
-	}, [proxyData?.proxies, filters]);
+	}, [slimData?.proxies, filters]);
 
 	// Wire up keyboard shortcuts
 	useKeyboardShortcuts({
@@ -215,11 +213,11 @@ export function Home() {
 				: [...filters.countries, countryCode];
 			setFilters({ ...filters, countries: newCountries });
 			// Scroll to table
-			document
-				.getElementById("proxy-table")
-				?.scrollIntoView({ behavior: "smooth" });
+			document.getElementById("proxy-table")?.scrollIntoView({
+				behavior: prefersReducedMotion ? "auto" : "smooth",
+			});
 		},
-		[filters, setFilters],
+		[filters, setFilters, prefersReducedMotion],
 	);
 
 	return (
@@ -243,6 +241,11 @@ export function Home() {
 						{stats
 							? `${stats.proxies.total.toLocaleString()} proxies • Updated every 6 hours`
 							: "Updated every 6 hours"}
+						<span className="sr-only" role="status" aria-live="polite">
+							{stats
+								? `${stats.proxies.total.toLocaleString()} proxies available, updated every 6 hours`
+								: "Loading live proxy statistics"}
+						</span>
 					</motion.div>
 
 					<motion.h1
@@ -322,7 +325,7 @@ export function Home() {
 					<section className="space-y-4">
 						{/* Live Stats Cards */}
 						<LiveStats
-							proxies={proxyData?.proxies ?? []}
+							proxies={slimData?.proxies ?? []}
 							generatedAt={stats.generated_at}
 							stats={stats}
 						/>
@@ -332,7 +335,7 @@ export function Home() {
 								<h2 className="text-2xl font-bold tracking-tight">
 									Download Proxy Lists
 								</h2>
-								<LastUpdated timestamp={stats.generated_at} />
+								<LastUpdated timestamp={stats.generated_at} stats={stats} />
 							</div>
 						</div>
 
@@ -450,7 +453,7 @@ export function Home() {
 						</p>
 					</div>
 					<RichProxyTable
-						proxies={proxyData?.proxies ?? []}
+						proxies={slimData?.proxies ?? []}
 						loading={proxiesLoading}
 						filters={filters}
 						onFiltersChange={setFilters}
@@ -471,13 +474,11 @@ export function Home() {
 				{/* Visualizations - lazy loaded */}
 				{!statsLoading &&
 					!statsError &&
-					stats &&
-					proxyData?.proxies &&
-					proxyData.proxies.length > 0 && (
+					stats?.aggregations && (
 						<Suspense fallback={<AnalyticsSkeleton />}>
 							<Analytics
 								stats={stats}
-								proxies={proxyData.proxies}
+								proxies={[]}
 								onCountryClick={handleCountryClick}
 							/>
 						</Suspense>
@@ -510,48 +511,46 @@ export function Home() {
 							Get Started in Seconds
 						</h2>
 						<div className="max-w-2xl mx-auto">
-							<div className="rounded-xl border border-zinc-200 bg-zinc-950 shadow-xl dark:border-zinc-800 dark:shadow-2xl dark:shadow-zinc-950/20 overflow-hidden">
+							<Tabs
+								value={codeTab}
+								onValueChange={setCodeTab}
+								className="rounded-xl border border-zinc-200 bg-zinc-950 shadow-xl dark:border-zinc-800 dark:shadow-2xl dark:shadow-zinc-950/20 overflow-hidden"
+							>
 								<div className="flex items-center gap-2 px-4 py-2.5 border-b border-zinc-800 bg-zinc-900/80">
 									<div className="flex gap-1.5 mr-3" aria-hidden="true">
 										<div className="w-3 h-3 rounded-full bg-red-500/80" />
 										<div className="w-3 h-3 rounded-full bg-yellow-500/80" />
 										<div className="w-3 h-3 rounded-full bg-green-500/80" />
 									</div>
-									<div className="flex gap-0.5" role="tablist" aria-label="Code examples">
-										{CODE_EXAMPLES.map((example, i) => (
-											<button
+									<TabsList
+										aria-label="Code examples"
+										className="h-auto gap-0.5 rounded-none border-0 bg-transparent p-0"
+									>
+										{CODE_EXAMPLES.map((example) => (
+											<TabsTrigger
 												key={example.id}
-												type="button"
-												id={`code-tab-${example.id}`}
-												role="tab"
-												aria-selected={codeTab === i}
-												aria-controls={`code-panel-${example.id}`}
-												onClick={() => setCodeTab(i)}
-												className={`rounded-md px-3 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 ${
-													codeTab === i
-														? "bg-zinc-700/80 text-zinc-100 shadow-sm"
-														: "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/60"
-												}`}
+												value={example.id}
+												className="rounded-md px-3 py-1 text-xs font-medium text-zinc-500 transition-colors data-[state=active]:bg-zinc-700/80 data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm hover:bg-zinc-800/60 hover:text-zinc-300 focus-visible:ring-zinc-300"
 											>
 												{example.label}
-											</button>
+											</TabsTrigger>
 										))}
-									</div>
+									</TabsList>
 									<div className="flex-1" />
 									<span className="text-[11px] text-zinc-600 hidden sm:inline">
-										{CODE_EXAMPLES[codeTab].filename}
+										{CODE_EXAMPLES.find((e) => e.id === codeTab)?.filename}
 									</span>
 									<button
 										type="button"
 										onClick={async () => {
-											const success = await copyToClipboard(
-												CODE_EXAMPLES[codeTab].code,
-											);
+											const example = CODE_EXAMPLES.find((e) => e.id === codeTab);
+											if (!example) return;
+											const success = await copyToClipboard(example.code);
 											if (success) toast.success("Copied to clipboard");
 										}}
 										className="ml-1 rounded p-1 text-zinc-500 transition-colors hover:bg-zinc-800/60 hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
 										title="Copy to clipboard"
-										aria-label={`Copy ${CODE_EXAMPLES[codeTab].label} example`}
+										aria-label={`Copy ${CODE_EXAMPLES.find((e) => e.id === codeTab)?.label ?? "code"} example`}
 									>
 										<svg
 											className="h-3.5 w-3.5"
@@ -569,17 +568,18 @@ export function Home() {
 										</svg>
 									</button>
 								</div>
-								<pre
-									id={`code-panel-${CODE_EXAMPLES[codeTab].id}`}
-									role="tabpanel"
-									aria-labelledby={`code-tab-${CODE_EXAMPLES[codeTab].id}`}
-									className="min-h-[200px] overflow-x-auto p-5 text-[13px] leading-relaxed"
-								>
-									<code className="text-zinc-200 font-mono">
-										{CODE_EXAMPLES[codeTab].code}
-									</code>
-								</pre>
-							</div>
+								{CODE_EXAMPLES.map((example) => (
+									<TabsContent
+										key={example.id}
+										value={example.id}
+										className="mt-0 focus-visible:outline-none focus-visible:ring-0"
+									>
+										<pre className="min-h-[200px] overflow-x-auto p-5 text-[13px] leading-relaxed">
+											<code className="text-zinc-200 font-mono">{example.code}</code>
+										</pre>
+									</TabsContent>
+								))}
+							</Tabs>
 						</div>
 						<div className="text-center">
 							<Button asChild>

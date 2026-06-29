@@ -12,6 +12,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { EmptyState } from "@/components/ui/empty-state"
 import { Clock } from "lucide-react"
+import { CHART_COLORS, RESPONSE_TIME_BIN_COLORS } from "@/lib/chart-tokens"
 import type { Proxy, Stats } from "@/types"
 
 interface ResponseTimeChartProps {
@@ -20,27 +21,25 @@ interface ResponseTimeChartProps {
 }
 
 const BINS = [
-  { min: 0, max: 100, label: "<100ms", color: "#22c55e" },
-  { min: 100, max: 500, label: "100-500ms", color: "#84cc16" },
-  { min: 500, max: 1000, label: "500ms-1s", color: "#eab308" },
-  { min: 1000, max: 2000, label: "1-2s", color: "#f97316" },
-  { min: 2000, max: 5000, label: "2-5s", color: "#ef4444" },
-  { min: 5000, max: Infinity, label: ">5s", color: "#dc2626" },
+  { min: 0, max: 100, label: "<100ms", color: RESPONSE_TIME_BIN_COLORS[0] },
+  { min: 100, max: 500, label: "100-500ms", color: RESPONSE_TIME_BIN_COLORS[1] },
+  { min: 500, max: 1000, label: "500ms-1s", color: RESPONSE_TIME_BIN_COLORS[2] },
+  { min: 1000, max: 2000, label: "1-2s", color: RESPONSE_TIME_BIN_COLORS[3] },
+  { min: 2000, max: 5000, label: "2-5s", color: RESPONSE_TIME_BIN_COLORS[4] },
+  { min: 5000, max: Infinity, label: ">5s", color: RESPONSE_TIME_BIN_COLORS[5] },
 ]
 
 export function ResponseTimeChart({ proxies, stats }: ResponseTimeChartProps) {
   const data = useMemo(() => {
-    // Use pre-computed distribution from stats if available
     const precomputed = stats?.aggregations?.response_time_distribution
     if (precomputed && precomputed.length > 0) {
       return precomputed.map((bin, idx) => ({
         label: bin.range,
         count: bin.count,
-        color: BINS[idx]?.color || "#6b7280",
+        color: BINS[idx]?.color || CHART_COLORS.muted,
       }))
     }
 
-    // Fall back to client-side computation
     const counts = BINS.map((bin) => ({
       ...bin,
       count: 0,
@@ -83,13 +82,17 @@ export function ResponseTimeChart({ proxies, stats }: ResponseTimeChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Response Time Distribution</CardTitle>
-        <CardDescription>
+        <CardTitle id="response-time-chart-title">Response Time Distribution</CardTitle>
+        <CardDescription id="response-time-chart-desc">
           {totalWithTiming.toLocaleString()} proxies with timing data
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[250px]">
+        <div
+          role="img"
+          aria-labelledby="response-time-chart-title response-time-chart-desc"
+          className="h-[250px]"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -112,13 +115,32 @@ export function ResponseTimeChart({ proxies, stats }: ResponseTimeChartProps) {
                 labelStyle={{ color: "hsl(var(--popover-foreground))" }}
                 formatter={(value: number) => [value.toLocaleString(), "Proxies"]}
               />
-              <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+              <Bar dataKey="count" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+          <table className="sr-only">
+            <caption>Response time distribution by latency bucket</caption>
+            <thead>
+              <tr>
+                <th scope="col">Range</th>
+                <th scope="col">Proxies</th>
+                <th scope="col">Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.map((entry) => (
+                <tr key={entry.label}>
+                  <td>{entry.label}</td>
+                  <td>{entry.count.toLocaleString()}</td>
+                  <td>{totalWithTiming > 0 ? `${((entry.count / totalWithTiming) * 100).toFixed(1)}%` : "0%"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </CardContent>
     </Card>

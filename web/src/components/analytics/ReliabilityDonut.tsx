@@ -1,9 +1,11 @@
+import { useMemo } from "react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import type { Proxy } from "@/types"
+import type { Proxy, Stats } from "@/types"
 
 interface ReliabilityDonutProps {
-  proxies: Proxy[]
+  proxies?: Proxy[]
+  stats?: Stats | null
 }
 
 interface Tier {
@@ -28,25 +30,40 @@ function classifyProxy(successRate: number | null): string {
   return "Marginal"
 }
 
-export function ReliabilityDonut({ proxies }: ReliabilityDonutProps) {
-  const counts: Record<string, number> = {}
-  for (const tier of TIERS) counts[tier.name] = 0
+export function ReliabilityDonut({ proxies = [], stats }: ReliabilityDonutProps) {
+  const { data, total, elitePct } = useMemo(() => {
+    const counts: Record<string, number> = {}
+    for (const tier of TIERS) counts[tier.name] = 0
 
-  for (const proxy of proxies) {
-    const tier = classifyProxy(proxy.success_rate)
-    counts[tier]++
-  }
+    const precomputed = stats?.aggregations?.reliability_tiers
+    if (precomputed && precomputed.length > 0) {
+      for (const entry of precomputed) {
+        if (entry.tier in counts) {
+          counts[entry.tier] = entry.count
+        }
+      }
+    } else {
+      for (const proxy of proxies) {
+        const tier = classifyProxy(proxy.success_rate)
+        counts[tier]++
+      }
+    }
 
-  const data = TIERS
-    .filter((tier) => counts[tier.name] > 0)
-    .map((tier) => ({
+    const chartData = TIERS.filter((tier) => counts[tier.name] > 0).map((tier) => ({
       name: tier.name,
       value: counts[tier.name],
       color: tier.color,
     }))
 
-  const total = proxies.length
-  const elitePct = total > 0 ? Math.round((counts["Elite"] / total) * 100) : 0
+    const totalCount =
+      stats?.proxies?.total ??
+      precomputed?.reduce((sum, e) => sum + e.count, 0) ??
+      proxies.length
+
+    const elite = totalCount > 0 ? Math.round((counts["Elite"] / totalCount) * 100) : 0
+
+    return { data: chartData, total: totalCount, elitePct: elite }
+  }, [proxies, stats])
 
   return (
     <Card>
@@ -81,7 +98,6 @@ export function ReliabilityDonut({ proxies }: ReliabilityDonutProps) {
               />
             </PieChart>
           </ResponsiveContainer>
-          {/* Center label */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center">
               <p className="text-3xl font-bold">{elitePct}%</p>
@@ -89,7 +105,6 @@ export function ReliabilityDonut({ proxies }: ReliabilityDonutProps) {
             </div>
           </div>
         </div>
-        {/* Legend */}
         <div className="mt-4 grid grid-cols-2 gap-2">
           {data.map((item) => (
             <div key={item.name} className="flex items-center gap-2 text-sm">
@@ -104,6 +119,11 @@ export function ReliabilityDonut({ proxies }: ReliabilityDonutProps) {
             </div>
           ))}
         </div>
+        {total > 0 && (
+          <p className="sr-only">
+            {total.toLocaleString()} proxies across {data.length} reliability tiers
+          </p>
+        )}
       </CardContent>
     </Card>
   )

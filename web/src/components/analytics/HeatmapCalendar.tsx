@@ -1,18 +1,19 @@
 import { useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import type { Proxy } from "@/types"
+import type { Proxy, Stats } from "@/types"
 
 interface HeatmapCalendarProps {
-  proxies: Proxy[]
+  proxies?: Proxy[]
+  stats?: Stats | null
 }
 
 function getColorForCount(count: number, max: number): string {
   if (count === 0) return "hsl(var(--muted))"
   const intensity = Math.min(count / max, 1)
-  if (intensity < 0.25) return "#dcfce7" // green-100
-  if (intensity < 0.5) return "#86efac"  // green-300
-  if (intensity < 0.75) return "#22c55e" // green-500
-  return "#15803d" // green-700
+  if (intensity < 0.25) return "#dcfce7"
+  if (intensity < 0.5) return "#86efac"
+  if (intensity < 0.75) return "#22c55e"
+  return "#15803d"
 }
 
 function formatDate(date: Date): string {
@@ -28,33 +29,44 @@ function getTooltipText(date: Date, count: number): string {
   return `${dateStr}: ${count.toLocaleString()} proxies discovered`
 }
 
-export function HeatmapCalendar({ proxies }: HeatmapCalendarProps) {
+function buildCountsFromProxies(proxies: Proxy[]): Record<string, number> {
+  const counts: Record<string, number> = {}
+  const now = new Date()
+  const startDate = new Date(now)
+  startDate.setDate(startDate.getDate() - 90)
+
+  proxies.forEach((proxy) => {
+    if (proxy.created_at) {
+      const date = new Date(proxy.created_at)
+      if (date >= startDate && date <= now) {
+        const key = formatDate(date)
+        counts[key] = (counts[key] || 0) + 1
+      }
+    }
+  })
+
+  return counts
+}
+
+export function HeatmapCalendar({ proxies = [], stats }: HeatmapCalendarProps) {
   const { data, maxCount, weeks, months } = useMemo(() => {
-    // Count proxies by discovery date (last 90 days)
-    const counts: Record<string, number> = {}
+    const precomputed = stats?.aggregations?.discovery_by_date
+    const counts =
+      precomputed && Object.keys(precomputed).length > 0
+        ? { ...precomputed }
+        : buildCountsFromProxies(proxies)
+
     const now = new Date()
     const startDate = new Date(now)
     startDate.setDate(startDate.getDate() - 90)
 
-    proxies.forEach((proxy) => {
-      if (proxy.created_at) {
-        const date = new Date(proxy.created_at)
-        if (date >= startDate && date <= now) {
-          const key = formatDate(date)
-          counts[key] = (counts[key] || 0) + 1
-        }
-      }
-    })
-
-    // Build calendar grid (13 weeks x 7 days)
     const weeks: Array<Array<{ date: Date; count: number; key: string }>> = []
     let maxCount = 0
 
-    // Start from the beginning of the week containing startDate
     const calendarStart = new Date(startDate)
     calendarStart.setDate(calendarStart.getDate() - calendarStart.getDay())
 
-    let currentDate = new Date(calendarStart)
+    const currentDate = new Date(calendarStart)
     let currentWeek: Array<{ date: Date; count: number; key: string }> = []
 
     while (currentDate <= now) {
@@ -80,7 +92,6 @@ export function HeatmapCalendar({ proxies }: HeatmapCalendarProps) {
       weeks.push(currentWeek)
     }
 
-    // Generate month labels
     const months: Array<{ name: string; weekIndex: number }> = []
     let lastMonth = -1
     weeks.forEach((week, weekIndex) => {
@@ -98,7 +109,7 @@ export function HeatmapCalendar({ proxies }: HeatmapCalendarProps) {
     })
 
     return { data: counts, maxCount, weeks, months }
-  }, [proxies])
+  }, [proxies, stats])
 
   const totalDiscovered = Object.values(data).reduce((sum, c) => sum + c, 0)
 
@@ -112,14 +123,16 @@ export function HeatmapCalendar({ proxies }: HeatmapCalendarProps) {
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
-          {/* Month labels */}
           <div className="flex ml-8 mb-1">
             {months.map((month, i) => (
               <div
                 key={i}
                 className="text-xs text-muted-foreground"
                 style={{
-                  marginLeft: i === 0 ? month.weekIndex * 14 : (month.weekIndex - months[i - 1].weekIndex - 1) * 14,
+                  marginLeft:
+                    i === 0
+                      ? month.weekIndex * 14
+                      : (month.weekIndex - months[i - 1].weekIndex - 1) * 14,
                   width: 14,
                 }}
               >
@@ -129,14 +142,12 @@ export function HeatmapCalendar({ proxies }: HeatmapCalendarProps) {
           </div>
 
           <div className="flex">
-            {/* Day labels */}
             <div className="flex flex-col justify-around mr-2 text-xs text-muted-foreground">
               <span>Mon</span>
               <span>Wed</span>
               <span>Fri</span>
             </div>
 
-            {/* Calendar grid */}
             <div className="flex gap-[2px]">
               {weeks.map((week, weekIndex) => (
                 <div key={weekIndex} className="flex flex-col gap-[2px]">
@@ -153,7 +164,6 @@ export function HeatmapCalendar({ proxies }: HeatmapCalendarProps) {
             </div>
           </div>
 
-          {/* Legend */}
           <div className="flex items-center justify-end gap-2 mt-4 text-xs text-muted-foreground">
             <span>Less</span>
             <div className="flex gap-[2px]">
