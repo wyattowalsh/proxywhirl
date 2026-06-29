@@ -58,6 +58,14 @@ def _classify_reliability_tier(success_rate: float | None) -> str:
     return "Marginal"
 
 
+
+
+def _as_utc_aware(dt: datetime) -> datetime:
+    """Normalize datetimes for safe aware/naive arithmetic."""
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
 def parse_proxy_url(url: str) -> tuple[str, int]:
     """Parse proxy URL to extract IP and port.
 
@@ -209,11 +217,15 @@ async def generate_rich_proxies(
             if continent_code:
                 cd["continent_code"] = continent_code
         if proxy_dict["last_checked"]:
-            check_dt = datetime.fromisoformat(proxy_dict["last_checked"].replace("Z", "+00:00"))
+            check_dt = _as_utc_aware(
+                datetime.fromisoformat(proxy_dict["last_checked"].replace("Z", "+00:00"))
+            )
             if sm["latest_check"] is None or check_dt > sm["latest_check"]:
                 sm["latest_check"] = check_dt
         if proxy_dict["created_at"]:
-            created_dt = datetime.fromisoformat(proxy_dict["created_at"].replace("Z", "+00:00"))
+            created_dt = _as_utc_aware(
+                datetime.fromisoformat(proxy_dict["created_at"].replace("Z", "+00:00"))
+            )
             days_ago = (datetime.now(timezone.utc) - created_dt).days
             if 0 <= days_ago <= 90:
                 discovery_by_date[created_dt.date().isoformat()] += 1

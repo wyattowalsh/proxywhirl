@@ -1,6 +1,6 @@
 """Contract tests for retry/failover API endpoints (Retry & Failover).
 
-Tests the API contract for all 13 retry/failover endpoints:
+Tests the API contract for all 9 retry/failover endpoints:
 1. GET /api/retry/policy - Get global retry policy
 2. PUT /api/retry/policy - Update global retry policy
 3. GET /api/circuit-breakers - List all circuit breaker states

@@ -12,6 +12,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from proxywhirl.exports import (
+    RELIABILITY_TIERS,
+    _classify_reliability_tier,
     export_for_web,
     generate_proxy_lists,
     generate_rich_proxies,
@@ -19,6 +21,30 @@ from proxywhirl.exports import (
     parse_proxy_url,
 )
 
+
+class TestClassifyReliabilityTier:
+    """Test reliability tier classification matches frontend TIERS."""
+
+    @pytest.mark.parametrize(
+        ("success_rate", "expected"),
+        [
+            (100.0, "Elite"),
+            (95.0, "Elite"),
+            (94.9, "Reliable"),
+            (75.0, "Reliable"),
+            (74.9, "Moderate"),
+            (50.0, "Moderate"),
+            (49.9, "Marginal"),
+            (0.0, "Marginal"),
+            (None, "Marginal"),
+        ],
+    )
+    def test_classify_reliability_tier(self, success_rate: float | None, expected: str) -> None:
+        assert _classify_reliability_tier(success_rate) == expected
+
+    def test_reliability_tiers_constant_matches_classifier(self) -> None:
+        tier_names = [name for name, _, _ in RELIABILITY_TIERS]
+        assert tier_names == ["Elite", "Reliable", "Moderate", "Marginal"]
 
 class TestParseProxyUrl:
     """Test parse_proxy_url function."""
@@ -246,6 +272,12 @@ class TestGenerateRichProxies:
         assert result["aggregations"]["by_status"]["degraded"] == 1
         assert result["aggregations"]["by_source"]["free-proxy-list"] == 3
         assert result["aggregations"]["by_source"]["spys-one"] == 1
+        assert "reliability_tiers" in result["aggregations"]
+        tier_counts = {
+            entry["tier"]: entry["count"] for entry in result["aggregations"]["reliability_tiers"]
+        }
+        assert tier_counts["Elite"] == 3
+        assert tier_counts["Moderate"] == 1
 
 
 class TestGenerateStatsFromFiles:
