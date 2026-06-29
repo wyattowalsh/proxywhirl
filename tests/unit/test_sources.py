@@ -553,7 +553,15 @@ class TestSourceCollectionIntegrity:
 
     def test_custom_parser_sources_have_parser_metadata(self):
         """Custom-parser sources must also declare a validation parser format."""
+        from proxywhirl.sources import GEONODE_HTTP, GEONODE_SOCKS4, GEONODE_SOCKS5
+
         custom_sources = [source for source in ALL_SOURCES if source.custom_parser is not None]
+        if not custom_sources:
+            custom_sources = [
+                source
+                for source in (GEONODE_HTTP, GEONODE_SOCKS4, GEONODE_SOCKS5)
+                if source.custom_parser is not None
+            ]
 
         assert custom_sources, "Expected at least one custom-parser source"
         for source in custom_sources:

@@ -105,6 +105,7 @@ tasks:
     cmds:
       - pnpm --dir web run docs:generate
       - pnpm --dir web run lint
+      - git diff --exit-code -- web/content/docs/generated web/content/generated
 
   docs-clean:
     desc: Clean documentation build artifacts

@@ -56,6 +56,7 @@ GEONODE_HTTP = ProxySourceConfig(
     format="json",
     custom_parser=GeonodeParser(),  # GeoNode uses {"data": [...]} wrapper
     trusted=True,  # GeoNode validates and sorts by lastChecked
+    enabled=False,  # Disabled after public API started returning 401 in Jun 2026 validation.
 )
 
 GEONODE_SOCKS4 = ProxySourceConfig(
@@ -63,6 +64,7 @@ GEONODE_SOCKS4 = ProxySourceConfig(
     format="json",
     custom_parser=GeonodeParser(),
     trusted=True,
+    enabled=False,  # Disabled after public API started returning 401 in Jun 2026 validation.
 )
 
 GEONODE_SOCKS5 = ProxySourceConfig(
@@ -848,7 +850,6 @@ ALL_HTTP_SOURCES = [
     # API sources (high reliability)
     PROXY_SCRAPE_HTTP,
     PROXY_SCRAPE_HTTP_ANONYMOUS,
-    GEONODE_HTTP,
     # Non-GitHub web sources
     PROXYSPACE_HTTP,
     OPENPROXYLIST_HTTP,
@@ -903,7 +904,6 @@ ALL_HTTP_SOURCES = [
 # All SOCKS4 sources
 ALL_SOCKS4_SOURCES = [
     # API sources
-    GEONODE_SOCKS4,
     # Non-GitHub web sources
     # GitHub sources
     GITHUB_THESPEEDX_SOCKS4,
@@ -969,7 +969,7 @@ ALL_SOURCES = ALL_HTTP_SOURCES + ALL_SOCKS4_SOURCES + ALL_SOCKS5_SOURCES
 
 # Recommended fast/reliable sources for quick start
 RECOMMENDED_SOURCES = [
-    GEONODE_HTTP,
+    GITHUB_IPLOCATE_HTTP,
     GITHUB_MONOSANS_HTTP,
     GITHUB_PROXIFLY_HTTP,
     GITHUB_KOMUTAN_HTTP,  # Updated every 2 minutes
@@ -977,8 +977,8 @@ RECOMMENDED_SOURCES = [
 
 # API-based sources only (typically faster/more reliable)
 API_SOURCES = [
-    GEONODE_HTTP,
-    GEONODE_SOCKS4,
+    PROXY_SCRAPE_HTTP,
+    PROXY_SCRAPE_SOCKS4,
 ]
 
 

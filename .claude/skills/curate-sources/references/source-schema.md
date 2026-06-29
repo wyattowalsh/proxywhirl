@@ -75,8 +75,8 @@ Pattern: `{DOMAIN}_{PROTOCOL}`
 | SOCKS4 sources | `ALL_SOCKS4_SOURCES` | All SOCKS4 proxy sources |
 | SOCKS5 sources | `ALL_SOCKS5_SOURCES` | All SOCKS5 proxy sources |
 | All sources | `ALL_SOURCES` | `ALL_HTTP_SOURCES + ALL_SOCKS4_SOURCES + ALL_SOCKS5_SOURCES` |
-| Recommended | `RECOMMENDED_SOURCES` | Hand-picked reliable sources (5 currently) |
-| API only | `API_SOURCES` | API-based sources only (GeoNode) |
+| Recommended | `RECOMMENDED_SOURCES` | Hand-picked reliable sources (4 currently: iplocate, monosans, proxifly, komutan) |
+| API only | `API_SOURCES` | API-based sources (ProxyScrape HTTP/SOCKS4) |
 
 ## `_get_source_name()` Patterns
 

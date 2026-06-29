@@ -6,18 +6,18 @@ Current sources in `proxywhirl/sources.py`. Use this to avoid adding duplicates.
 > `uv run python scripts/curate_sources.py validate | python -c "import json,sys; ..."`
 
 **Total:** 119 source variables, 114 in ALL_SOURCES (53 HTTP, 32 SOCKS4, 29 SOCKS5)
-5 disabled sources are defined but excluded from collection lists.
+7 disabled sources are defined but excluded from collection lists.
 
 ## API Sources
 
 | Variable | URL | Protocol | Trusted | Collections |
 |----------|-----|----------|---------|-------------|
-| `PROXY_SCRAPE_HTTP` | api.proxyscrape.com (http) | http | No | HTTP |
+| `PROXY_SCRAPE_HTTP` | api.proxyscrape.com (http) | http | No | HTTP, API |
 | `PROXY_SCRAPE_HTTP_ANONYMOUS` | api.proxyscrape.com (elite/anonymous) | http | No | HTTP |
-| `GEONODE_HTTP` | proxylist.geonode.com (http/https) | http | Yes | HTTP, RECOMMENDED, API |
-| `GEONODE_SOCKS4` | proxylist.geonode.com (socks4) | socks4 | Yes | SOCKS4, API |
+| `GEONODE_HTTP` | proxylist.geonode.com (http/https) | http | Yes | -- (DISABLED: 401 Jun 2026) |
+| `GEONODE_SOCKS4` | proxylist.geonode.com (socks4) | socks4 | Yes | -- (DISABLED: 401 Jun 2026) |
 | `GEONODE_SOCKS5` | proxylist.geonode.com (socks5) | socks5 | Yes | SOCKS5, API |
-| `PROXY_SCRAPE_SOCKS4` | api.proxyscrape.com (socks4) | socks4 | No | SOCKS4 |
+| `PROXY_SCRAPE_SOCKS4` | api.proxyscrape.com (socks4) | socks4 | No | SOCKS4, API |
 
 ## Non-GitHub Web Sources
 
@@ -93,7 +93,7 @@ Current sources in `proxywhirl/sources.py`. Use this to avoid adding duplicates.
 | `GITHUB_ERCINDEDEOGLU_HTTPS` | ErcinDedeoglu/proxies | https | No | HTTP |
 | `GITHUB_ERCINDEDEOGLU_SOCKS4` | ErcinDedeoglu/proxies | socks4 | No | SOCKS4 |
 | `GITHUB_ERCINDEDEOGLU_SOCKS5` | ErcinDedeoglu/proxies | socks5 | No | SOCKS5 |
-| `GITHUB_IPLOCATE_HTTP` | iplocate/free-proxy-list | http | Yes | HTTP |
+| `GITHUB_IPLOCATE_HTTP` | iplocate/free-proxy-list | http | Yes | HTTP, RECOMMENDED |
 | `GITHUB_IPLOCATE_HTTPS` | iplocate/free-proxy-list | https | Yes | HTTP |
 | `GITHUB_IPLOCATE_ALL` | iplocate/free-proxy-list | http | Yes | HTTP |
 | `GITHUB_IPLOCATE_SOCKS4` | iplocate/free-proxy-list | socks4 | Yes | SOCKS4 |

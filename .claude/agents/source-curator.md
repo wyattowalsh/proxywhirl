@@ -77,7 +77,6 @@ The only file with an exact hardcoded source count is `README.md` (`<strong>N So
 |------|----------------|
 | `proxywhirl/__init__.py` | Collection lists (ALL_SOURCES, RECOMMENDED_SOURCES, etc.) |
 | `proxywhirl/cli.py` | ALL_SOURCES, fetch_all_sources, ALL_HTTP/SOCKS4/SOCKS5, _get_source_name |
-| `proxywhirl/tui.py` | ALL_HTTP_SOURCES, ALL_SOCKS4_SOURCES, ALL_SOCKS5_SOURCES, ALL_SOURCES, RECOMMENDED_SOURCES |
 | `proxywhirl/exports.py` | ALL_HTTP_SOURCES, ALL_SOCKS4_SOURCES, ALL_SOCKS5_SOURCES |
 | `scripts/curate_sources.py` | sources module, ALL_SOURCES |
 | `scripts/update_readme_stats.py` | All collection lists for counting |

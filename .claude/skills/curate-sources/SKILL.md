@@ -46,7 +46,7 @@ uv run python scripts/curate_sources.py check-candidate URL  # Check a candidate
 
 See the full file inventory in [`.claude/agents/source-curator.md`](../../agents/source-curator.md#files-affected-by-source-changes).
 
-Key files: `proxywhirl/sources.py` (primary), `references/known-sources.md` (inventory), `tests/unit/test_sources.py`, `tests/contract/test_proxy_sources.py`, `tests/unit/test_sources_audit.py`, `README.md` (feature card count), and all code that imports sources (`cli.py`, `tui.py`, `exports.py`, `__init__.py`).
+Key files: `proxywhirl/sources.py` (primary), `references/known-sources.md` (inventory), `tests/unit/test_sources.py`, `tests/contract/test_proxy_sources.py`, `tests/unit/test_sources_audit.py`, `README.md` (feature card count), and all code that imports sources (`cli.py`, `exports.py`, `__init__.py`).
 
 ## References
 

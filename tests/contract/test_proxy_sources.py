@@ -25,6 +25,7 @@ from proxywhirl.fetchers import (
 )
 from proxywhirl.sources import (
     GEONODE_HTTP,
+    GITHUB_IPLOCATE_HTTP,
     GITHUB_KOMUTAN_HTTP,
     GITHUB_MONOSANS_HTTP,
     GITHUB_PROXIFLY_HTTP,
@@ -296,6 +297,7 @@ async def test_proxyscrape_http_contract():
 
 
 @pytest.mark.network
+@pytest.mark.skipif(not GEONODE_HTTP.enabled, reason="GeoNode source disabled")
 async def test_geonode_http_contract():
     """Test GeoNode HTTP API contract.
 
@@ -472,7 +474,7 @@ async def test_all_top_sources_together():
     """
     sources = [
         PROXY_SCRAPE_HTTP,
-        GEONODE_HTTP,
+        GITHUB_IPLOCATE_HTTP,
         GITHUB_MONOSANS_HTTP,
         GITHUB_PROXIFLY_HTTP,
         GITHUB_KOMUTAN_HTTP,
@@ -549,7 +551,7 @@ async def test_generate_contract_validation_report():
 
     sources = [
         PROXY_SCRAPE_HTTP,
-        GEONODE_HTTP,
+        GITHUB_IPLOCATE_HTTP,
         GITHUB_MONOSANS_HTTP,
         GITHUB_PROXIFLY_HTTP,
         GITHUB_KOMUTAN_HTTP,
