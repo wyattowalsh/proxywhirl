@@ -11,7 +11,7 @@ Operational checks should validate runtime surfaces, docs generation, proxy-list
 
 | Surface | Command | Expected result |
 | ------- | ------- | --------------- |
-| Python quality | `task quality-gates` | Ruff, ty, fast tests, and coverage pass with no actionable warnings. |
+| Python quality | `just quality-gates` | Ruff, ty, fast tests, and coverage pass with no actionable warnings. |
 | Expanded tests | `uv run pytest tests/ -q -m "not slow" --ignore=tests/benchmarks --timeout=120` | API, contract, property, unit, and integration coverage pass outside benchmark/slow browser lanes. |
 | Docs generation | `pnpm --dir web run docs:generate` | Generated Fumadocs references and JSON data match source code. |
 | Docs lint | `pnpm --dir web run lint` | ESLint exits with `--max-warnings 0`. |
@@ -120,3 +120,5 @@ gh run view <run-id> --log | rg '##\[warning\]|##\[error\]|::warning::|::error::
 Literal environment assignments such as `PYTHONWARNINGS="ignore::UserWarning"` are not emitted warnings. Codecov upload is optional and skipped when no `CODECOV_TOKEN` is configured; local coverage threshold enforcement and coverage artifact upload remain required.
 
 Keep documentation generation read-only with respect to proxy runtime behavior and database schema unless a separate implementation task explicitly changes those contracts.
+
+See also [Contributing](/docs/project/contributing) for the contributor workflow and quality-gate expectations.

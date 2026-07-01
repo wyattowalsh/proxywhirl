@@ -1,6 +1,6 @@
 ---
 title: Deployment
-description: Deploy ProxyWhirl API services, validate sources, and publish proxy lists safely.
+description: Deploy ProxyWhirl locally, on Kubernetes, AWS, or Linux systemd with Docker Compose and Helm.
 ---
 
 # Deployment
@@ -11,11 +11,89 @@ ProxyWhirl deployments combine a Python runtime (CLI, API, or MCP), optional SQL
 
 ```bash
 uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
-task quality-gates
+just quality-gates
 pnpm --dir web run docs:generate && pnpm --dir web run build
 ```
 
-## API Service
+## Docker Compose (API Only)
+
+Root [`docker-compose.yml`](https://github.com/wyattowalsh/proxywhirl/blob/main/docker-compose.yml) runs the REST API with persistent storage:
+
+```bash
+docker compose up -d
+curl http://localhost:8000/api/health
+```
+
+## Docker Compose (Full Stack)
+
+[`deploy/docker-compose.yml`](https://github.com/wyattowalsh/proxywhirl/blob/main/deploy/docker-compose.yml) adds Redis, PostgreSQL, Prometheus, and Grafana:
+
+```bash
+docker compose -f deploy/docker-compose.yml up -d
+```
+
+| Service | URL |
+| ------- | --- |
+| API | http://localhost:8000 |
+| Prometheus | http://localhost:9091 |
+| Grafana | http://localhost:3000 (admin/admin) |
+
+Build context resolves to the repo-root `Dockerfile` (`context: ..` from `deploy/`).
+
+## Kubernetes
+
+### Raw manifests
+
+```bash
+kubectl apply -f deploy/kubernetes/
+kubectl get pods -n proxywhirl
+kubectl logs -n proxywhirl -l app=proxywhirl
+```
+
+### Helm (recommended)
+
+```bash
+helm install proxywhirl deploy/helm/ -n proxywhirl --create-namespace
+helm upgrade proxywhirl deploy/helm/ --set replicaCount=5 --set persistence.size=50Gi
+```
+
+Customize via `deploy/helm/values.yaml` or a local values file for image tag, persistence, and secrets.
+
+## AWS (Terraform)
+
+```bash
+cd deploy/terraform
+terraform init
+terraform plan -var-file=prod.tfvars
+terraform apply -var-file=prod.tfvars
+terraform output alb_dns_name
+```
+
+Configure AWS credentials before apply.
+
+## Linux systemd
+
+```bash
+uv sync
+sudo cp deploy/systemd/*.service /etc/systemd/system/
+sudo cp deploy/systemd/*.socket /etc/systemd/system/
+sudo useradd -r -s /bin/false proxywhirl
+sudo mkdir -p /opt/proxywhirl /var/lib/proxywhirl /var/log/proxywhirl
+sudo chown proxywhirl:proxywhirl /var/lib/proxywhirl /var/log/proxywhirl
+sudo systemctl daemon-reload
+sudo systemctl enable --now proxywhirl
+```
+
+Environment file example (`/etc/default/proxywhirl`):
+
+```bash
+PROXYWHIRL_LOG_LEVEL=INFO
+PROXYWHIRL_STORAGE_PATH=/var/lib/proxywhirl/proxywhirl.db
+PROXYWHIRL_ENCRYPTION_KEY=<key>
+PROXYWHIRL_API_KEY=<key>
+```
+
+## API Service (Direct)
 
 ```bash
 PROXYWHIRL_STORAGE_PATH=/data/proxywhirl.db \
@@ -35,11 +113,31 @@ PROXYWHIRL_MCP_DB=/data/proxywhirl.db \
 
 See [MCP Server](/docs/interfaces/mcp).
 
+## Backup and Zero-Downtime
+
+```bash
+./deploy/scripts/backup-restore.sh backup
+./deploy/scripts/backup-restore.sh list
+./deploy/scripts/backup-restore.sh restore /path/to/backup.db.gz
+./deploy/scripts/blue-green-deploy.sh
+./deploy/scripts/health-check.sh
+```
+
+## Monitoring
+
+```bash
+curl 'http://localhost:9091/api/v1/query?query=proxywhirl_available_proxies'
+kubectl port-forward -n proxywhirl svc/grafana 3000:3000
+```
+
+Check Grafana for error rate, latency, available proxies, and cache hit rate.
+
 ## Proxy List Publication
 
 The public bundle at `/proxy-lists/` is mirrored from `docs/proxy-lists/` during `pnpm --dir web run docs:generate`. See [Proxy Lists](/docs/guides/proxy-lists).
 
 ## See Also
 
+- [Operations](/docs/operations)
 - [Operations Playbook](/docs/guides/operations-playbook)
 - [Security Model](/docs/concepts/security-model)

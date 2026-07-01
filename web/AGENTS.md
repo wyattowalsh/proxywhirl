@@ -14,6 +14,8 @@
 | Generated docs | `web/content/docs/generated/` (linked from `reference/`) |
 | Generated data | `web/content/generated/` |
 | Public proxy assets | `web/public/proxy-lists/` mirrored from `docs/proxy-lists/` |
+| Design reference | `docs/DESIGN.md` (canonical); published overview at `/docs/project/design` |
+| Project meta docs | `web/content/docs/project/` (contributing, changelog, design) |
 
 ## Commands
 

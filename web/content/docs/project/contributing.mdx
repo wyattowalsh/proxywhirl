@@ -1,0 +1,32 @@
+---
+title: Contributing
+description: How to set up ProxyWhirl locally, run quality gates, and open pull requests.
+---
+
+# Contributing
+
+Canonical contributor guide: [docs/CONTRIBUTING.md on GitHub](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/CONTRIBUTING.md).
+
+## Quick start
+
+```bash
+git clone https://github.com/wyattowalsh/proxywhirl.git
+cd proxywhirl
+uv sync
+pre-commit install
+just quality-gates
+```
+
+## Workflow
+
+1. Branch from `main` using `feature/*`, `fix/*`, or `docs/*`.
+2. Write tests for behavior changes.
+3. Run `just quality-gates` before opening a PR.
+4. Update Fumadocs pages in `web/content/docs/` when public docs change, then run `pnpm --dir web run docs:generate`.
+5. Use conventional commits (`feat`, `fix`, `docs`, `test`, `chore`, `refactor`, `perf`).
+
+## Resources
+
+- [Operations gate matrix](/docs/operations) — full pre-merge validation commands
+- [Configuration reference](/docs/reference/configuration) — TOML and environment variables
+- [Root CONTRIBUTING stub](https://github.com/wyattowalsh/proxywhirl/blob/main/CONTRIBUTING.md) — GitHub community profile pointer
