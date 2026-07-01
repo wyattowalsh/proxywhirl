@@ -1,14 +1,21 @@
 ## MODIFIED Requirements
 
-### Requirement: Just Recipes
+### Requirement: Task Runner
 
-Developer workflow examples SHALL use the tracked `justfile` and `just <recipe>` commands, with direct `uv run ...` equivalents where useful.
+Developer workflow examples SHALL use the tracked `justfile` and `just <recipe>` commands, with direct `uv run ...` equivalents where useful. The tracked `Taskfile.yml` (go-task) and root `Makefile` SHALL NOT be reintroduced as the local task runner.
 
-#### Scenario: Developer recipes
+#### Scenario: Developer task commands
 
 - **WHEN** a developer lists project recipes
-- **THEN** `justfile` defines `test`, `test-unit`, `test-integration`, `test-fast`, `test-parallel`, `lint`, `format`, `type-check`, `quality-gates`, `coverage`, `validate-sources`, `validate-sources-ci`, `sources-list`, `docs-html`, `docs-linkcheck`, and `docs-clean`
+- **THEN** `justfile` defines `test`, `test-unit`, `test-integration`, `test-fast`, `test-parallel`, `lint`, `format`, `format-check`, `type-check`, `quality-gates`, `coverage`, `validate-sources`, `validate-sources-ci`, `sources-list`, `docs-generate`, `docs-html`, `docs-linkcheck`, and `docs-clean`
 - **AND** Python commands inside recipes use `uv run`
+- **AND** `just --list` prints the full recipe list with descriptions
+
+#### Scenario: No competing task runner
+
+- **WHEN** a contributor looks for the project's task runner
+- **THEN** no tracked root `Makefile` or `Taskfile.yml` exists
+- **AND** `docs/Makefile` remains solely as a legacy Sphinx build alias, not a general-purpose task runner
 
 ### Requirement: Source Validation
 
@@ -28,7 +35,7 @@ Strict source validation SHALL treat `ALL_*` collections as the enabled built-in
 
 ### Requirement: Coverage Enforcement
 
-Focused pytest commands SHALL NOT inherit coverage collection or pytest-xdist parallelism from global pytest addopts. Coverage thresholds SHALL be enforced only by explicit coverage tasks and CI coverage jobs.
+Focused pytest commands SHALL NOT inherit coverage collection or pytest-xdist parallelism from global pytest addopts. Coverage thresholds SHALL be enforced only by explicit coverage recipes and CI coverage jobs.
 
 #### Scenario: Focused pytest
 

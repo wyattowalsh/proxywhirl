@@ -6,8 +6,8 @@
 
 | Dir | Purpose | Command | Status |
 |-----|---------|---------|--------|
-| `unit/` | Unit tests | `task test-unit` | ✅ |
-| `integration/` | Integration tests | `task test-integration` | ⚠️ partial |
+| `unit/` | Unit tests | `just test-unit` | ✅ |
+| `integration/` | Integration tests | `just test-integration` | ⚠️ partial |
 | `property/` | Hypothesis tests | `uv run pytest tests/property/ -v` | ✅ |
 | `benchmarks/` | Performance | `uv run pytest tests/benchmarks/ -v --benchmark-only` | ✅ |
 | `contract/` | API contract tests | `uv run pytest tests/contract/ -v` | ⚠️ partial |

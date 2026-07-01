@@ -3,7 +3,7 @@
 - [x] Create OpenSpec change for approved refinement.
 - [x] Add `GET /api/rotate` contract and implementation.
 - [x] Remove root metrics routes and expose canonical `/api/metrics/*` paths only.
-- [x] Add tracked `Taskfile.yml` and remove Makefile-centered workflow references.
+- [x] Add tracked `justfile` and remove Makefile-centered workflow references.
 - [x] Keep source validation strict with timeout and concurrency in CI/task/docs.
 - [x] Move coverage enforcement out of global pytest addopts.
 - [x] Fix CLI xdist lock isolation without disabling production locking.

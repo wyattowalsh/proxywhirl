@@ -39,36 +39,36 @@ cd docs && uv run sphinx-build -b linkcheck source build/linkcheck && cd ..
 ```
 
 ```{tip}
-The tracked ``Taskfile.yml`` wraps these checks into ``task quality-gates``, which runs lint, type-check, tests, and coverage in sequence. Use ``task format`` for auto-fixing style issues before you lint.
+The tracked ``justfile`` wraps these checks into ``just quality-gates``, which runs lint, type-check, tests, and coverage in sequence. Use ``just format`` for auto-fixing style issues before you lint.
 ```
 
-### Taskfile Targets Quick Reference
+### Just Recipes Quick Reference
 
 ```{list-table}
 :header-rows: 1
 :widths: 30 70
 
-* - Target
+* - Recipe
   - Description
-* - ``task test``
+* - ``just test``
   - Run all tests with pretty output
-* - ``task test-unit``
+* - ``just test-unit``
   - Run unit tests only
-* - ``task test-integration``
+* - ``just test-integration``
   - Run integration tests only
-* - ``task test-fast``
+* - ``just test-fast``
   - Run tests excluding ``@pytest.mark.slow``
-* - ``task lint``
+* - ``just lint``
   - Run Ruff linter
-* - ``task format``
+* - ``just format``
   - Auto-format with Ruff
-* - ``task type-check``
+* - ``just type-check``
   - Run ``ty`` type checker
-* - ``task quality-gates``
+* - ``just quality-gates``
   - Run lint + type-check + test + coverage
-* - ``task docs-html``
+* - ``just docs-html``
   - Build HTML documentation
-* - ``task docs-linkcheck``
+* - ``just docs-linkcheck``
   - Check documentation links
 ```
 
@@ -590,7 +590,7 @@ Without these variables, Sphinx builds cleanly but omits DocSearch assets to avo
   - Commands
   - Purpose
 * - ``lint``
-  - ``task lint`` / ``uv run ruff check .``
+  - ``just lint`` / ``uv run ruff check .``
   - Style enforcement and static analysis
 * - ``typecheck``
   - ``uv run ty check proxywhirl/``

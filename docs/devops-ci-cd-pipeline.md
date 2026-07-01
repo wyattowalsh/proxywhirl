@@ -11,15 +11,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: make lint
-      - run: make format-check
+      - run: just lint
+      - run: just format-check
 
   test:
     needs: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: make test
+      - run: just test
       - uses: codecov/codecov-action@v3
 
   build:
@@ -27,7 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: make build
+      # ci.yml is the source of truth for the actual build job; this illustrative
+      # pipeline uses `uv build` to produce the sdist/wheel artifacts.
+      - run: uv build
       - run: docker push proxywhirl:${{ github.sha }}
 ```
 

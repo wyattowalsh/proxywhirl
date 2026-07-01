@@ -1,5 +1,7 @@
 # Refine API Surface, Task Runner, and Validation Gates
 
+> **Superseded (Task Runner scope only):** The `Taskfile.yml`/`task <target>` workflow introduced below has been replaced by `justfile`/`just <recipe>` in [`migrate-taskfile-to-justfile`](../migrate-taskfile-to-justfile/proposal.md). The API surface, source validation, and coverage-enforcement scope of this proposal remain in effect.
+
 ## Summary
 
 Standardize ProxyWhirl's public REST surface on unversioned `/api/*` paths, migrate local workflow examples to `go-task`, and make source validation and coverage gates explicit rather than implicit global pytest behavior.

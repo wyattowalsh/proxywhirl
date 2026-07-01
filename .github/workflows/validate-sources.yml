@@ -80,16 +80,16 @@ jobs:
 
           ### Action Required
           1. Review the workflow logs to identify unhealthy sources
-          2. Run \`task validate-sources-ci\` locally to see details
+          2. Run \`just validate-sources-ci\` locally to see details
           3. Remove or update stale sources in \`proxywhirl/sources.py\`
 
           ### Quick Commands
           \`\`\`bash
           # List all sources
-          task sources-list
+          just sources-list
 
           # Validate sources locally
-          task validate-sources-ci
+          just validate-sources-ci
 
           # Run with verbose output
           uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5

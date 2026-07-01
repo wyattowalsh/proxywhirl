@@ -8,7 +8,7 @@
 | ------------ | ----------------------------------------------------------------- |
 | **Language** | Python 3.10+ (uv package manager)                                 |
 | **Stack**    | pytest, ruff, ty (Astral), pre-commit, GitHub Actions             |
-| **Docs**     | Fumadocs + Next.js in `web/`; legacy Sphinx sources remain under `docs/source/` |
+| **Docs**     | Fumadocs + Next.js in `web/content/docs/`; canonical prose in `docs/`; generated assets in `docs/proxy-lists/` and `docs/assets/` |
 | **Key Libs** | httpx, pydantic, sqlmodel, loguru, tenacity, typer, fastapi       |
 
 ## Commands
@@ -16,13 +16,13 @@
 | Task          | Command                                                                               |
 | ------------- | ------------------------------------------------------------------------------------- |
 | Install       | `uv sync`                                                                             |
-| Test          | `task test-fast` / `uv run pytest tests/unit/ tests/integration/ -m "not slow" --timeout=120 -q` |
-| Lint          | `task lint` / `uv run ruff check proxywhirl/ tests/`                                  |
-| Format        | `task format` / `uv run ruff format proxywhirl/ tests/`                               |
-| Type check    | `task type-check` / `uv run ty check proxywhirl/`                                     |
-| Quality gates | `task quality-gates`                                                                  |
+| Test          | `just test-fast` / `uv run pytest tests/unit/ tests/integration/ tests/property/ -m "not slow and not stress" --timeout=120 -q` |
+| Lint          | `just lint` / `uv run ruff check proxywhirl/ tests/`                                  |
+| Format        | `just format` / `uv run ruff format proxywhirl/ tests/`                               |
+| Type check    | `just type-check` / `uv run ty check proxywhirl/`                                     |
+| Quality gates | `just quality-gates`                                                                  |
 | Docs generate | `pnpm --dir web run docs:generate`                                                    |
-| Docs build    | `task docs-html` / `pnpm --dir web run build`                                         |
+| Docs build    | `just docs-html` / `pnpm --dir web run build`                                         |
 | Source gate   | `uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5` |
 
 **Always prefix with `uv run`** — never bare `pytest`, `python`, or `pip`.
@@ -93,7 +93,7 @@ Use the same tiers as CI:
 | Scope | Command | Notes |
 | ----- | ------- | ----- |
 | Focused regression | `uv run pytest tests/unit/test_<module>.py -q --no-cov -n0` | Keeps local probes free of coverage/xdist noise. |
-| CI parity | `task quality-gates` | Runs lint, type check, non-slow unit/integration tests, and coverage. |
+| CI parity | `just quality-gates` | Runs lint, type check, non-slow unit/integration tests, and coverage. |
 | Expanded non-slow | `uv run pytest tests/ -q -m "not slow" --ignore=tests/benchmarks --timeout=120` | Covers API, contract, property, unit, and integration surfaces without real-network slow/browser tests or benchmarks. |
 | Full raw suite | `uv run pytest tests/ -q` | Intentional stress run only; includes slow real-browser/network tests and benchmarks that are not the CI parity gate. |
 
@@ -146,8 +146,8 @@ Run `pnpm --dir web run test:e2e` only when browser dependencies are installed a
 
 **Always:**
 
-- Run `task lint` before commit
-- Run `task quality-gates` before production-readiness commits when Python behavior changed
+- Run `just lint` before commit
+- Run `just quality-gates` before production-readiness commits when Python behavior changed
 - Add tests for new features (test-first)
 - Use type hints on public functions
 - Use `loguru` for logging (never `print`)
@@ -194,7 +194,7 @@ See subsystem AGENTS.md files for complete environment variable lists.
 | Category        | Forbidden                                                       | Allowed                                       |
 | --------------- | --------------------------------------------------------------- | --------------------------------------------- |
 | **Files**       | `*.env*`, `*.pem`, `*.key`, `*secret*`, `*credential*`, `*.bak` | `proxywhirl/`, `tests/`, `docs/`, `examples/` |
-| **Commands**    | `rm -rf`, `curl \| sh`, `eval`, `chmod 777`, `sudo *`           | `uv run *`, `task *`, `git *`                 |
+| **Commands**    | `rm -rf`, `curl \| sh`, `eval`, `chmod 777`, `sudo *`           | `uv run *`, `just *`, `git *`                 |
 | **Network**     | Raw sockets, production APIs, external URLs not in codebase     | httpx client, localhost, mocked fixtures      |
 | **Secrets**     | Hardcoded creds, logging passwords, base64-encoded keys         | `os.environ.get()`, `cryptography` lib        |
 | **Regex**       | User-provided patterns without validation                       | `safe_regex.py` utilities only (ReDoS)        |
@@ -227,6 +227,7 @@ See subsystem AGENTS.md files for complete environment variable lists.
 ```bash
 git clone https://github.com/wyattowalsh/proxywhirl.git && cd proxywhirl
 uv sync && pre-commit install
+just --list  # see all available developer commands
 ```
 
 ## Subagents
@@ -249,7 +250,7 @@ Docs command: pnpm --dir web run docs:generate && pnpm --dir web run build
 | ------------- | ------------------------------------------------------------------------ |
 | Sync vs Async | `ProxyWhirl` for scripts/CLI; `AsyncProxyWhirl` for web/high-concurrency |
 | Tests fail    | 1) `uv run pytest path::test -v` 2) Check `conftest.py` 3) `uv sync`     |
-| Lint fails    | 1) `task format` auto-fix 2) Manual fix remaining 3) Check ruff codes    |
+| Lint fails    | 1) `just format` auto-fix 2) Manual fix remaining 3) Check ruff codes    |
 | Type errors   | `uv run ty check` (not mypy) — check `ty.rules` in pyproject.toml        |
 | Docs drift    | 1) `pnpm --dir web run docs:generate` 2) Inspect generated diff 3) `pnpm --dir web run build` |
 | Source drift  | `uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5` |
