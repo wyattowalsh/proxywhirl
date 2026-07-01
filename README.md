@@ -32,7 +32,7 @@
 <!-- Navigation pills -->
 
 [<kbd> <br> Docs <br> </kbd>](https://www.proxywhirl.com/docs/)&nbsp;&nbsp;
-[<kbd> <br> Examples <br> </kbd>](examples.ipynb)&nbsp;&nbsp;
+[<kbd> <br> Examples <br> </kbd>](examples/examples.ipynb)&nbsp;&nbsp;
 [<kbd> <br> Discussions <br> </kbd>](https://github.com/wyattowalsh/proxywhirl/discussions)
 
 </div>
@@ -58,6 +58,16 @@ uvx proxywhirl --help
 ```
 
 Prefer `uv tool install proxywhirl` when you want the `proxywhirl` CLI available globally.
+
+**Developer commands** (contributing to ProxyWhirl itself):
+
+```bash
+git clone https://github.com/wyattowalsh/proxywhirl.git && cd proxywhirl
+uv sync
+
+just quality-gates
+just --list
+```
 
 ```python
 from proxywhirl import ProxyWhirl
@@ -227,7 +237,7 @@ curl localhost:8000/api/proxies
 [<kbd> <br> &nbsp;&nbsp;Full Documentation&nbsp;&nbsp; <br> </kbd>](https://www.proxywhirl.com/docs/)&nbsp;&nbsp;&nbsp;
 [<kbd> <br> &nbsp;&nbsp;Strategy Matrix&nbsp;&nbsp; <br> </kbd>](https://www.proxywhirl.com/docs/generated/strategies)&nbsp;&nbsp;&nbsp;
 [<kbd> <br> &nbsp;&nbsp;MCP Server&nbsp;&nbsp; <br> </kbd>](https://www.proxywhirl.com/docs/interfaces/mcp)&nbsp;&nbsp;&nbsp;
-[<kbd> <br> &nbsp;&nbsp;Examples&nbsp;&nbsp; <br> </kbd>](examples.ipynb)
+[<kbd> <br> &nbsp;&nbsp;Examples&nbsp;&nbsp; <br> </kbd>](examples/examples.ipynb)
 
 <br/><br/>
 

@@ -1093,4 +1093,4 @@ curl -X PUT http://localhost:8000/api/config \
 For issues and questions:
 - GitHub Issues: https://github.com/wyattowalsh/proxywhirl/issues
 - Documentation: See `README.md` and `docs/`
-- Examples: See `examples.ipynb` at project root
+- Examples: See `examples/examples.ipynb`
