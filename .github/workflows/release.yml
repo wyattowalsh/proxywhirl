@@ -26,7 +26,7 @@ jobs:
     permissions:
       id-token: write
       contents: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -63,7 +63,7 @@ jobs:
           CURRENT="${{ steps.current_version.outputs.version }}"
           BUMP="${{ inputs.version_bump }}"
           CUSTOM="${{ inputs.custom_version }}"
-          
+
           if [ "$BUMP" = "custom" ] && [ -n "$CUSTOM" ]; then
             NEW_VERSION="$CUSTOM"
           else
@@ -80,7 +80,7 @@ jobs:
                 ;;
             esac
           fi
-          
+
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "New version: $NEW_VERSION"
 
@@ -124,10 +124,10 @@ jobs:
           name: Release v${{ steps.new_version.outputs.version }}
           body: |
             ## proxywhirl v${{ steps.new_version.outputs.version }}
-            
+
             ### Changes
-            See [CHANGELOG](https://github.com/wyattowalsh/proxywhirl/blob/main/CHANGELOG.md) for details.
-            
+            See [CHANGELOG](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/CHANGELOG.md) for details.
+
             ### Installation
             ```bash
             pip install proxywhirl==${{ steps.new_version.outputs.version }}

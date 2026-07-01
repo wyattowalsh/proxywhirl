@@ -306,15 +306,15 @@ configure_logging(level="DEBUG")
 
 ### Q: How do I contribute?
 
-**A:** See [CONTRIBUTING.md](https://github.com/wyattowalsh/proxywhirl/blob/main/CONTRIBUTING.md). Run tests with `task test`.
+**A:** See [CONTRIBUTING.md](../../CONTRIBUTING.md). Run `just quality-gates`.
 
 ### Q: How do I run tests locally?
 
-**A:** `uv run pytest tests/ -v` or `task test`
+**A:** `uv run pytest tests/ -v` or `just test-fast`
 
 ### Q: How do I build documentation?
 
-**A:** `task docs-html` or `cd docs && uv run --extra docs sphinx-build -M html source build`
+**A:** `just docs-html` or `cd docs && uv run --extra docs sphinx-build -M html source build`
 
 ### Q: Can I add a new rotation strategy?
 

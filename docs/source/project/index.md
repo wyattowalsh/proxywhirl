@@ -38,7 +38,7 @@ uv run ty check proxywhirl/
 
 ### Task Commands
 
-All common operations are available via `task`:
+All common operations are available via `just`:
 
 ```{list-table}
 :header-rows: 1
@@ -47,19 +47,19 @@ All common operations are available via `task`:
 * - Command
   - Equivalent
   - Purpose
-* - `task test`
+* - `just test`
   - `uv run pytest tests/ -q`
   - Run all tests
-* - `task lint`
+* - `just lint`
   - `uv run ruff check proxywhirl/ tests/`
   - Lint with ruff
-* - `task format`
+* - `just format`
   - `uv run ruff format proxywhirl/ tests/`
   - Auto-format code
-* - `task type-check`
+* - `just type-check`
   - `uv run ty check proxywhirl/`
   - Type check with ty (Astral)
-* - `task quality-gates`
+* - `just quality-gates`
   - all of the above
   - Full pre-merge validation
 ```
@@ -77,7 +77,7 @@ Never run bare `pytest`, `python`, or `pip`. Always prefix with `uv run` to use 
 2. **Create a branch** from `main`: `git checkout -b feature/my-feature` or `fix/my-fix`
 3. **Write tests first** -- every new feature needs test coverage
 4. **Implement** your changes
-5. **Run quality gates**: `task quality-gates`
+5. **Run quality gates**: `just quality-gates`
 6. **Commit** using conventional commits: `<type>(<scope>): <description>`
 7. **Open a PR** against `main`
 
@@ -363,5 +363,6 @@ Detailed phase completion reports live alongside the source tree under `docs/` (
 :maxdepth: 2
 :hidden:
 
+contributing
 changelog
 ```

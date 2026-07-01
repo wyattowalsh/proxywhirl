@@ -11,26 +11,26 @@ All public functions, classes, and modules must use Google-style docstrings.
 ```python
 def function_name(param1: str, param2: int = 5) -> bool:
     """One-line summary of what the function does.
-    
+
     Extended description providing more context (if needed).
     Can span multiple paragraphs to explain implementation
     details, usage patterns, or important notes.
-    
+
     Args:
         param1: Description of the first parameter.
         param2: Description of the second parameter. Defaults to 5.
-    
+
     Returns:
         Description of the return value and its type.
-    
+
     Raises:
         ValueError: When parameter validation fails.
         TimeoutError: When operation exceeds timeout.
-    
+
     Example:
         >>> result = function_name("test", param2=10)
         >>> assert result is True
-    
+
     Note:
         This function is async-safe and thread-safe.
     """
@@ -110,9 +110,9 @@ Include attributes and key methods:
 ```python
 class ProxyPool:
     """Manages a pool of proxy connections.
-    
+
     Thread-safe pool with health checking and rotation strategies.
-    
+
     Attributes:
         proxies: List of available proxies.
         max_size: Maximum pool size (default 1000).
@@ -131,7 +131,7 @@ grep -r "def " proxywhirl/ --include="*.py" | head -20
 ### Automated Fix (Future)
 - [ ] Add ruff rule for docstring format
 - [ ] Add pre-commit hook for validation
-- [ ] Update `CONTRIBUTING.md` with docstring requirements
+- [ ] Update [CONTRIBUTING.md](../../CONTRIBUTING.md) with docstring requirements
 
 ## Compliance Status
 
@@ -168,12 +168,12 @@ def get_proxy(self):
 ```python
 def get_proxy(self) -> Proxy:
     """Get the next proxy from the pool.
-    
+
     Uses the configured rotation strategy to select proxies.
-    
+
     Returns:
         Next available Proxy object based on strategy.
-    
+
     Raises:
         ProxyPoolEmptyError: If no proxies available in pool.
     """

@@ -1,5 +1,7 @@
 # Deployment Guide
 
+> **See also:** [DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md) for Docker Compose, Helm, Terraform, systemd, monitoring, backup, and scaling runbooks.
+
 Production-ready deployment for ProxyWhirl.
 
 ## Local Development
@@ -14,7 +16,7 @@ pre-commit install
 
 ### Run Tests
 ```bash
-task test
+just test
 ```
 
 ### Run Locally
@@ -315,10 +317,10 @@ upstream proxywhirl {
 server {
     listen 443 ssl http2;
     server_name proxies.example.com;
-    
+
     ssl_certificate /etc/ssl/certs/cert.pem;
     ssl_certificate_key /etc/ssl/private/key.pem;
-    
+
     location / {
         proxy_pass http://proxywhirl;
         proxy_set_header Host $host;
