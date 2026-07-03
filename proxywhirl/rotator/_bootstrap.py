@@ -97,6 +97,7 @@ async def _fetch_bootstrap_candidates(
 
     # -- Rich progress callbacks (no-ops when progress is hidden) -----------
     progress_ctx: Any = None
+    progress_started = False
     fetch_task_id: Any = None
     validate_task_id: Any = None
 
@@ -133,39 +134,56 @@ async def _fetch_bootstrap_candidates(
         nonlocal proxies_found
         proxies_found = found
         if progress_ctx is not None and fetch_task_id is not None:
-            progress_ctx.update(
-                fetch_task_id,
-                completed=completed,
-                status=f"[cyan]{proxies_found:,} found[/cyan]",
-            )
+            try:
+                progress_ctx.update(
+                    fetch_task_id,
+                    completed=completed,
+                    status=f"[cyan]{proxies_found:,} found[/cyan]",
+                )
+            except OSError:
+                pass
 
     def _validate_cb(completed: int, total: int, valid: int) -> None:
         nonlocal valid_count
         valid_count = valid
         if progress_ctx is not None and validate_task_id is not None:
-            progress_ctx.update(
-                validate_task_id,
-                completed=completed,
-                total=total,
-                status=f"[green]{valid:,} valid[/green]",
-            )
+            try:
+                progress_ctx.update(
+                    validate_task_id,
+                    completed=completed,
+                    total=total,
+                    status=f"[green]{valid:,} valid[/green]",
+                )
+            except OSError:
+                pass
 
     start_time = time.monotonic()
 
     try:
         if progress_ctx is not None:
-            progress_ctx.start()
-            fetch_task_id = progress_ctx.add_task(
-                "Fetching proxies",
-                total=total_sources,
-                status="[cyan]0 found[/cyan]",
-            )
-            if config.validate_proxies:
-                validate_task_id = progress_ctx.add_task(
-                    "Validating proxies",
-                    total=0,
-                    status="[yellow]waiting[/yellow]",
+            try:
+                progress_ctx.start()
+                progress_started = True
+                fetch_task_id = progress_ctx.add_task(
+                    "Fetching proxies",
+                    total=total_sources,
+                    status="[cyan]0 found[/cyan]",
                 )
+                if config.validate_proxies:
+                    validate_task_id = progress_ctx.add_task(
+                        "Validating proxies",
+                        total=0,
+                        status="[yellow]waiting[/yellow]",
+                    )
+            except OSError:
+                try:
+                    progress_ctx.stop()
+                except OSError:
+                    pass
+                progress_ctx = None
+                fetch_task_id = None
+                validate_task_id = None
+                progress_started = False
         fetched = await fetch_all_sources(
             validate=config.validate_proxies,
             timeout=config.timeout,
@@ -175,8 +193,11 @@ async def _fetch_bootstrap_candidates(
             validate_progress_callback=_validate_cb if show_progress else None,
         )
     finally:
-        if progress_ctx is not None:
-            progress_ctx.stop()
+        if progress_ctx is not None and progress_started:
+            try:
+                progress_ctx.stop()
+            except OSError:
+                pass
 
     elapsed = time.monotonic() - start_time
 
