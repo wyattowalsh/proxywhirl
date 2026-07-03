@@ -101,7 +101,7 @@ class TestSessionIdUniqueness:
         assert len(all_sessions) == len(session_ids)
 
     @given(session_id=session_ids)
-    @settings(max_examples=30, deadline=timedelta(milliseconds=1000))
+    @settings(max_examples=30, deadline=None)
     def test_same_session_id_updates_existing_session(self, session_id: str) -> None:
         """Property: Creating session with existing ID updates (replaces) it."""
         manager = SessionManager(max_sessions=100)

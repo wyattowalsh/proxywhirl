@@ -1,6 +1,28 @@
 """Unit tests for rate_limiting.limiter module."""
 
-from proxywhirl.rate_limiting import AsyncRateLimiter, RateLimit, RateLimiter, SyncRateLimiter
+import pytest
+
+from proxywhirl.rate_limiting import (
+    AsyncRateLimiter,
+    RateLimit,
+    RateLimiter,
+    SyncRateLimiter,
+    _make_limiter,
+    _RateLimitExceededError,
+)
+
+
+class FakeClock:
+    """Deterministic clock for token bucket refill tests."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    def advance(self, seconds: float) -> None:
+        self.now += seconds
 
 
 class TestRateLimiter:
@@ -77,6 +99,58 @@ class TestRateLimiter:
 
         # Third should fail (exceeds global limit)
         assert limiter.check_limit("proxy3") is False
+
+    def test_global_limit_applies_burst_allowance(self) -> None:
+        """Global burst allowance should add temporary capacity."""
+        limiter = RateLimiter(
+            global_limit=RateLimit(max_requests=2, time_window=60, burst_allowance=3)
+        )
+
+        assert [limiter.check_limit(f"proxy-{index}") for index in range(6)] == [
+            True,
+            True,
+            True,
+            True,
+            True,
+            False,
+        ]
+
+    def test_proxy_denial_does_not_consume_global_quota(self) -> None:
+        """Per-proxy denial should not spend global capacity."""
+        limiter = RateLimiter(global_limit=RateLimit(max_requests=2, time_window=60))
+        limiter.set_proxy_limit("proxy1", RateLimit(max_requests=1, time_window=60))
+        limiter.set_proxy_limit("proxy2", RateLimit(max_requests=1, time_window=60))
+
+        assert limiter.check_limit("proxy1") is True
+        assert limiter.check_limit("proxy1") is False
+        assert limiter.check_limit("proxy2") is True
+
+    def test_burst_allowance_refills_at_base_rate(self) -> None:
+        """Burst capacity should not become sustained per-window quota."""
+        clock = FakeClock()
+        limiter = _make_limiter(
+            RateLimit(max_requests=2, time_window=60, burst_allowance=3),
+            time_fn=clock,
+        )
+
+        for _ in range(5):
+            limiter.try_acquire("global")
+
+        with pytest.raises(_RateLimitExceededError):
+            limiter.try_acquire("global")
+
+        clock.advance(30)
+        limiter.try_acquire("global")
+
+        with pytest.raises(_RateLimitExceededError):
+            limiter.try_acquire("global")
+
+        clock.advance(60)
+        limiter.try_acquire("global")
+        limiter.try_acquire("global")
+
+        with pytest.raises(_RateLimitExceededError):
+            limiter.try_acquire("global")
 
     def test_acquire_delegates_to_check_limit(self) -> None:
         """Test acquire delegates to check_limit."""
@@ -181,6 +255,41 @@ class TestSyncRateLimiter:
 
         # Third should fail (exceeds global limit)
         assert limiter.check_limit("proxy3") is False
+
+    def test_proxy_limit_applies_burst_allowance(self) -> None:
+        """Per-proxy burst allowance should add temporary capacity."""
+        limiter = SyncRateLimiter()
+        limiter.set_proxy_limit(
+            "proxy1", RateLimit(max_requests=2, time_window=60, burst_allowance=3)
+        )
+
+        assert [limiter.check_limit("proxy1") for _ in range(6)] == [
+            True,
+            True,
+            True,
+            True,
+            True,
+            False,
+        ]
+
+    def test_proxy_denial_does_not_consume_global_quota(self) -> None:
+        """Per-proxy denial should not spend global capacity."""
+        limiter = SyncRateLimiter(global_limit=RateLimit(max_requests=2, time_window=60))
+        limiter.set_proxy_limit("proxy1", RateLimit(max_requests=1, time_window=60))
+        limiter.set_proxy_limit("proxy2", RateLimit(max_requests=1, time_window=60))
+
+        assert limiter.check_limit("proxy1") is True
+        assert limiter.check_limit("proxy1") is False
+        assert limiter.check_limit("proxy2") is True
+
+    def test_zero_burst_allowance_matches_base_limit(self) -> None:
+        """A zero burst should behave like a plain fixed capacity token bucket."""
+        limiter = SyncRateLimiter()
+        limiter.set_proxy_limit(
+            "proxy1", RateLimit(max_requests=2, time_window=60, burst_allowance=0)
+        )
+
+        assert [limiter.check_limit("proxy1") for _ in range(3)] == [True, True, False]
 
     def test_acquire_delegates_to_check_limit(self) -> None:
         """Test acquire delegates to check_limit."""
@@ -333,6 +442,27 @@ class TestAsyncRateLimiter:
         # Third request should fail (global limit)
         result = await limiter.check_limit("proxy3")
         assert result is False
+
+    async def test_async_proxy_limit_applies_burst_allowance(self) -> None:
+        """Async per-proxy burst allowance should add temporary capacity."""
+        limiter = AsyncRateLimiter()
+        await limiter.set_proxy_limit(
+            "proxy1",
+            RateLimit(max_requests=2, time_window=60, burst_allowance=3),
+        )
+
+        results = [await limiter.check_limit("proxy1") for _ in range(6)]
+        assert results == [True, True, True, True, True, False]
+
+    async def test_proxy_denial_does_not_consume_global_quota(self) -> None:
+        """Per-proxy denial should not spend global capacity."""
+        limiter = AsyncRateLimiter(global_limit=RateLimit(max_requests=2, time_window=60))
+        await limiter.set_proxy_limit("proxy1", RateLimit(max_requests=1, time_window=60))
+        await limiter.set_proxy_limit("proxy2", RateLimit(max_requests=1, time_window=60))
+
+        assert await limiter.check_limit("proxy1") is True
+        assert await limiter.check_limit("proxy1") is False
+        assert await limiter.check_limit("proxy2") is True
 
     async def test_acquire_delegates_to_check_limit(self) -> None:
         """Test that acquire delegates to check_limit."""

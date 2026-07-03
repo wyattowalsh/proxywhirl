@@ -1,0 +1,39 @@
+---
+title: Release Process
+description: Versioning, changelog, PyPI publish, and production release checklist.
+---
+## Versioning
+
+Versions follow semver in [`pyproject.toml`](https://github.com/wyattowalsh/proxywhirl/blob/main/pyproject.toml). Changelog source: [`docs/CHANGELOG.md`](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/CHANGELOG.md) (Commitizen).
+
+```bash
+just bump-dry    # preview
+just bump        # patch bump + changelog
+just changelog   # regenerate changelog only
+```
+
+## Pre-Release Checklist
+
+1. `just quality-gates`
+2. `pnpm --dir web run docs:generate && pnpm --dir web run build`
+3. `uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5`
+4. Review generated changelog and OpenSpec tasks if applicable
+
+## GitHub Release
+
+Tagged pushes trigger [`.github/workflows/release.yml`](https://github.com/wyattowalsh/proxywhirl/blob/main/.github/workflows/release.yml) for PyPI publish and GitHub release artifacts.
+
+## Production Deploy
+
+1. Build and push container image (CD workflow or manual)
+2. Run `./deploy/scripts/blue-green-deploy.sh` or Helm upgrade
+3. `./deploy/scripts/health-check.sh`
+4. Monitor Grafana error rate and latency for 15–30 minutes
+
+## Rollback
+
+- Blue/green: `./deploy/scripts/blue-green-deploy.sh rollback`
+- Helm: `helm rollback proxywhirl <revision>`
+- Database: `./deploy/scripts/backup-restore.sh restore <backup>`
+
+See [CI/CD](/docs/operations/ci-cd) and [Deployment](/docs/guides/deployment).

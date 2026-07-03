@@ -1,0 +1,64 @@
+---
+title: Operations
+description: Production-minded checks for docs, sources, API health, and runtime validation.
+---
+Operational checks should validate runtime surfaces, docs generation, proxy-list publication, and CI logs independently. Treat each surface as its own gate; do not call a release production-ready from one passing lane.
+
+## Production Gate Matrix
+
+| Surface | Command | Expected result |
+| ------- | ------- | --------------- |
+| Python quality | `just quality-gates` | Ruff, ty, fast tests, and coverage pass with no actionable warnings. |
+| Expanded tests | `uv run pytest tests/ -q -m "not slow" --ignore=tests/benchmarks --timeout=120` | API, contract, property, unit, and integration coverage pass outside benchmark/slow browser lanes. |
+| Docs generation | `pnpm --dir web run docs:generate` | Generated Fumadocs references and JSON data match source code. |
+| Docs lint | `pnpm --dir web run lint` | ESLint exits with `--max-warnings 0`. |
+| Docs unit tests | `pnpm --dir web run test:run` | Vitest docs/UI tests pass. |
+| Docs build | `pnpm --dir web run build` | Next.js + Fumadocs build succeeds with no actionable warnings. |
+| Strict source health | `uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5` | Every enabled built-in source is reachable and healthy at the stable CI concurrency. |
+| Package build | `.venv/bin/python -m build` | Wheel and sdist build with the same interpreter used for dependency install. |
+
+## Docs Pipeline
+
+```bash
+pnpm --dir web run docs:generate
+pnpm --dir web run lint
+pnpm --dir web run test:run
+pnpm --dir web run build
+```
+
+Run `pnpm --dir web run test:e2e` when browser dependencies are installed and the change affects rendered behavior.
+
+## CLI Smoke
+
+```bash
+tmpdir="$(mktemp -d)"
+config_path="$tmpdir/.proxywhirl.toml"
+uv run python - <<PY
+from pathlib import Path
+from proxywhirl.config import CLIConfig, save_config
+
+save_config(CLIConfig(encrypt_credentials=False), Path("$config_path"))
+PY
+
+uv run proxywhirl --no-lock --config "$config_path" config set max_retries 0
+uv run proxywhirl --no-lock --config "$config_path" --format json config get max_retries \
+  > "$tmpdir/max_retries.json"
+rg '"max_retries": 0' "$tmpdir/max_retries.json"
+uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
+```
+
+## API Smoke
+
+```bash
+tmpdir="$(mktemp -d)"
+PROXYWHIRL_STORAGE_PATH="$tmpdir/api.db" \
+  uv run uvicorn proxywhirl.api:app --host 127.0.0.1 --port 8765
+```
+
+Verify `/api/health` and `/api/ready` in another shell. With an empty database, `/api/health` may return `503` with an `unhealthy` body while `/api/ready` returns `200`.
+
+## GitHub Actions Assurance
+
+After pushing, monitor `CI`, `Security Scan`, and manually dispatched `Validate Proxy Sources` on the target SHA. Scan logs for `##[error]`, tracebacks, and Codecov token errors. Codecov upload is optional when no token is configured; coverage thresholds and artifact upload remain required locally.
+
+See also [Contributing](/docs/project/contributing) and [CI/CD](/docs/operations/ci-cd).

@@ -1,0 +1,56 @@
+---
+title: Performance Tuning
+description: Cache tiers, strategy latency tradeoffs, connection pooling, and throughput optimization.
+---
+## Cache tiers
+
+```python
+from proxywhirl import CacheConfig, ProxyConfiguration
+
+config = ProxyConfiguration(
+    cache=CacheConfig(
+        l1_size=100,
+        l2_size=1000,
+        l3_enabled=True,
+        ttl_seconds=3600,
+        encryption=True,
+    )
+)
+```
+
+- **L1**: hot in-memory set (100–500 entries), sub-millisecond lookups
+- **L2**: disk-backed JSONL shard, survives restarts
+- **L3**: optional Redis for multi-instance deployments
+
+See [Cache Architecture](/docs/concepts/cache-architecture).
+
+## Strategy characteristics
+
+| Strategy | CPU | Memory | Latency | Best for |
+| -------- | --- | ------ | ------- | -------- |
+| RoundRobin | Low | Low | Low | Uniform load |
+| Weighted | Medium | Low | Low | Heterogeneous pools |
+| PerformanceBased | High | Medium | Variable | Latency-sensitive |
+| Random | Low | Low | Low | Unpredictable patterns |
+| CostAware | Medium | Low | Low | Budget caps |
+
+## Connection reuse
+
+Reuse HTTP clients to avoid per-request TLS handshakes:
+
+```python
+import httpx
+
+async with httpx.AsyncClient(
+    limits=httpx.Limits(max_keepalive_connections=20, max_connections=40)
+) as client:
+    for _ in range(1000):
+        proxy = await whirl.get_proxy()
+        await client.get(url, proxy=proxy.to_url())
+```
+
+## Monitoring
+
+Use `MetricsCollector` and Grafana dashboards to track cache hit rate, selection latency, and circuit breaker state. Target >80% cache hit rate in steady state.
+
+See [FAQ](/docs/project/faq) and [Operations](/docs/operations/monitoring).

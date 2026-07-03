@@ -1,7 +1,7 @@
 """IP Geolocation utilities for proxy country lookup.
 
 Uses MaxMind GeoLite2-Country database for fast, offline lookups.
-Falls back to ip-api.com batch API if database not available.
+External API lookup is available only when explicitly enabled.
 """
 
 from __future__ import annotations
@@ -106,7 +106,7 @@ async def geolocate_with_api(
     batch_size: int = 100,
     max_batches: int = 50,
 ) -> dict[str, dict[str, str]]:
-    """Batch geolocate IPs using ip-api.com (fallback) with caching.
+    """Batch geolocate IPs using ip-api.com with caching.
 
     Args:
         ips: List of IP addresses to lookup
@@ -138,7 +138,7 @@ async def geolocate_with_api(
 
             try:
                 response = await client.post(
-                    "http://ip-api.com/batch?fields=query,country,countryCode,status",
+                    "https://ip-api.com/batch?fields=query,country,countryCode,status",
                     json=batch,
                 )
                 response.raise_for_status()
@@ -172,18 +172,20 @@ async def batch_geolocate(
     batch_size: int = 100,
     max_batches: int = 50,
     db_path: Path | None = None,
+    allow_external_api: bool = False,
 ) -> dict[str, dict[str, str]]:
     """Geolocate IPs using best available method.
 
     Tries in order:
     1. Local GeoLite2 database (fast, no rate limits)
-    2. ip-api.com batch API (fallback, rate limited)
+    2. External HTTPS API, only when explicitly enabled
 
     Args:
         ips: List of IP addresses to lookup
         batch_size: Number of IPs per API batch
         max_batches: Maximum API batches to process
         db_path: Optional explicit path to GeoLite2 database
+        allow_external_api: Whether to send IPs to the external lookup API
 
     Returns:
         dict[str, dict[str, str]]: Mapping of IP to geo info with country and countryCode keys.
@@ -197,8 +199,11 @@ async def batch_geolocate(
         logger.info(f"Using GeoLite2 database: {db}")
         return geolocate_with_database(ips, db)
 
-    # Fall back to API
-    logger.info("GeoLite2 database not found, falling back to API")
+    if not allow_external_api:
+        logger.info("GeoLite2 database not found; external geo lookup disabled")
+        return {}
+
+    logger.info("GeoLite2 database not found, using external geo API")
     return await geolocate_with_api(ips, batch_size, max_batches)
 
 

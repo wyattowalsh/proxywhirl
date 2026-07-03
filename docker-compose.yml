@@ -22,7 +22,7 @@ services:
       # - PROXYWHIRL_API_KEY=your-secret-api-key-here
       
       # CORS Configuration
-      - PROXYWHIRL_CORS_ORIGINS=*
+      - PROXYWHIRL_CORS_ORIGINS=http://localhost:3000,http://localhost:8000
       
       # Database Storage
       - PROXYWHIRL_STORAGE_PATH=/data/proxies.db
@@ -55,7 +55,13 @@ services:
     restart: unless-stopped
     
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/ready', timeout=5)",
+        ]
       interval: 30s
       timeout: 10s
       start_period: 10s

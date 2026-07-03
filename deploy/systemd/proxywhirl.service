@@ -4,19 +4,19 @@ After=network.target postgresql.service redis.service
 Documentation=https://proxywhirl.readthedocs.io
 
 [Service]
-Type=notify
+Type=simple
 User=proxywhirl
 Group=proxywhirl
 WorkingDirectory=/opt/proxywhirl
 
-ExecStart=/opt/proxywhirl/.venv/bin/python -m proxywhirl.api
+ExecStart=/opt/proxywhirl/.venv/bin/uvicorn proxywhirl.api:app --host 0.0.0.0 --port 8000
 Restart=on-failure
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
 
 # Environment
-EnvironmentFile=/etc/proxywhirl/proxywhirl.conf
+EnvironmentFile=-/etc/default/proxywhirl
 Environment="PATH=/opt/proxywhirl/.venv/bin"
 Environment="PYTHONUNBUFFERED=1"
 

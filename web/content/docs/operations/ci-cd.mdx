@@ -1,0 +1,47 @@
+---
+title: CI/CD Pipeline
+description: GitHub Actions workflows, quality gates, and deployment stages for ProxyWhirl.
+---
+Canonical workflow definitions live in [`.github/workflows/`](https://github.com/wyattowalsh/proxywhirl/tree/main/.github/workflows). Local parity gate:
+
+```bash
+just quality-gates
+```
+
+## Primary Workflows
+
+| Workflow | Trigger | Purpose |
+| -------- | ------- | ------- |
+| `ci.yml` | push, PR | Lint, type check, tests, coverage, package build |
+| `security.yml` | schedule, push | Dependency and static analysis |
+| `validate-sources.yml` | cron, manual | Strict proxy source health |
+| `release.yml` | tag | PyPI publish and GitHub release |
+| `cd.yml` | manual | Deployment automation |
+
+## Typical Pipeline Stages
+
+1. Lint and format check (`just lint`, `just format-check`)
+2. Type check (`just type-check`)
+3. Fast tests and coverage (`just quality-gates`)
+4. Docker image build (release/CD paths)
+5. Staging deploy and smoke tests (CD paths)
+6. Production deploy with approval (CD paths)
+
+## Local Commands
+
+```bash
+just lint
+just format-check
+just type-check
+just test-fast
+just coverage
+uv build
+```
+
+## Deployment Strategy
+
+- **Staging**: auto-deploy on main merges where CD is configured
+- **Production**: manual approval or tagged release
+- **Rollback**: use `deploy/scripts/blue-green-deploy.sh rollback` or redeploy prior artifact
+
+See [Release Process](/docs/operations/release) and [Monitoring](/docs/operations/monitoring).

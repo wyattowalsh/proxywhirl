@@ -701,6 +701,29 @@ class TestExecuteSingleAttempt:
         assert result == mock_response
         assert len(list(metrics.current_attempts)) >= 1
 
+    def test_retryable_status_records_failure(self):
+        """Retryable HTTP statuses should not be counted as single-attempt success."""
+        policy = RetryPolicy(retry_status_codes=[503])
+        metrics = RetryMetrics()
+        executor = RetryExecutor(policy, {}, metrics)
+
+        proxy = Proxy(url="http://proxy.example.com:8080")
+        mock_response = Mock(spec=httpx.Response)
+        mock_response.status_code = 503
+
+        result = executor._execute_single_attempt(
+            lambda: mock_response,
+            proxy,
+            "req-503",
+            0,
+            0.0,
+        )
+
+        assert result == mock_response
+        attempts = list(metrics.current_attempts)
+        assert attempts[-1].outcome == RetryOutcome.FAILURE
+        assert attempts[-1].status_code == 503
+
     def test_failure_records_and_reraises(self):
         """Test failed single attempt records metrics and re-raises."""
         policy = RetryPolicy()
@@ -967,6 +990,29 @@ class TestAsyncExecuteSingleAttempt:
         assert result == mock_response
         metrics = executor.retry_metrics
         assert len(list(metrics.current_attempts)) >= 1
+
+    async def test_retryable_status_records_failure(self, executor):
+        """Retryable HTTP statuses should not be counted as async single-attempt success."""
+        executor.retry_policy.retry_status_codes = [503]
+        proxy = Proxy(url="http://proxy.example.com:8080")
+        mock_response = Mock(spec=httpx.Response)
+        mock_response.status_code = 503
+
+        async def request_fn():
+            return mock_response
+
+        result = await executor._execute_single_attempt_async(
+            request_fn,
+            proxy,
+            "req-503",
+            0,
+            0.0,
+        )
+
+        assert result == mock_response
+        attempts = list(executor.retry_metrics.current_attempts)
+        assert attempts[-1].outcome == RetryOutcome.FAILURE
+        assert attempts[-1].status_code == 503
 
     async def test_failure_records_and_reraises(self, executor):
         """Test failed async single attempt records metrics and re-raises."""

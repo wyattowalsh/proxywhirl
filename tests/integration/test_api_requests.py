@@ -206,9 +206,10 @@ async def test_proxy_failover_with_dead_proxy(api_client: AsyncClient):
         # Success responses use APIResponse structure
         assert body["status"] == "success"
     else:
-        # Error responses from HTTPException use FastAPI's default format
-        # which has "detail" instead of APIResponse structure
-        assert "detail" in body
+        assert body["status"] == "error"
+        assert "error" in body
+        assert "code" in body["error"]
+        assert "message" in body["error"]
 
     # Cleanup
     api_runtime.set_rotator(None)

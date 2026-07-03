@@ -14,7 +14,15 @@ const config = [
     },
   },
   {
-    ignores: [".next/**", ".source/**", "next-env.d.ts", "out/**"],
+    ignores: [
+      ".next/**",
+      ".source/**",
+      "next-env.d.ts",
+      "out/**",
+      "playwright-report/**",
+      "test-results/**",
+      "coverage/**",
+    ],
   },
 ]
 

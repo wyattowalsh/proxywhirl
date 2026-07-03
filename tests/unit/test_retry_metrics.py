@@ -202,6 +202,60 @@ class TestRetryMetricsAggregateHourly:
         assert agg.total_requests == 2
         assert agg.total_retries == 4
 
+    def test_aggregate_hourly_is_idempotent(self):
+        """Repeated aggregation should not inflate hourly or summary totals."""
+        metrics = RetryMetrics()
+        now = datetime.now(timezone.utc)
+
+        for index in range(2):
+            metrics.record_attempt(
+                RetryAttempt(
+                    request_id=f"req-{index}",
+                    attempt_number=index,
+                    proxy_id="proxy-1",
+                    timestamp=now,
+                    outcome=RetryOutcome.SUCCESS,
+                    delay_before=0.0,
+                    latency=0.5,
+                )
+            )
+
+        metrics.aggregate_hourly()
+        first_summary = metrics.get_summary()
+        metrics.aggregate_hourly()
+        second_summary = metrics.get_summary()
+
+        hour = now.replace(minute=0, second=0, microsecond=0)
+        assert metrics.hourly_aggregates[hour].total_retries == 2
+        assert first_summary["total_retries"] == 2
+        assert second_summary["total_retries"] == 2
+
+    def test_retained_summary_survives_current_attempt_eviction(self):
+        """Retention-period summaries should not be capped by current_attempts maxlen."""
+        metrics = RetryMetrics(max_current_attempts=2)
+        now = datetime.now(timezone.utc)
+
+        for index in range(4):
+            metrics.record_attempt(
+                RetryAttempt(
+                    request_id=f"req-{index}",
+                    attempt_number=0,
+                    proxy_id="proxy-1",
+                    timestamp=now,
+                    outcome=RetryOutcome.SUCCESS,
+                    delay_before=0.0,
+                    latency=0.5,
+                )
+            )
+
+        assert len(metrics.current_attempts) == 2
+        assert metrics.get_summary()["total_retries"] == 4
+
+        metrics.aggregate_hourly()
+        metrics.aggregate_hourly()
+
+        assert metrics.get_summary()["total_retries"] == 4
+
 
 class TestRetryMetricsGetSummary:
     """Test RetryMetrics.get_summary() method."""
@@ -337,6 +391,32 @@ class TestRetryMetricsTimeSeries:
             assert "total_retries" in point
             assert "success_rate" in point
 
+    def test_get_timeseries_survives_current_attempt_eviction(self):
+        """Timeseries should use retained aggregates, not only current attempts."""
+        metrics = RetryMetrics(max_current_attempts=2)
+        now = datetime.now(timezone.utc)
+
+        for index in range(4):
+            metrics.record_attempt(
+                RetryAttempt(
+                    request_id=f"req-{index}",
+                    attempt_number=0,
+                    proxy_id="proxy-1",
+                    timestamp=now,
+                    outcome=RetryOutcome.SUCCESS,
+                    delay_before=0.0,
+                    latency=0.25,
+                )
+            )
+
+        timeseries = metrics.get_timeseries(hours=24)
+
+        assert len(metrics.current_attempts) == 2
+        assert len(timeseries) == 1
+        assert timeseries[0]["total_requests"] == 4
+        assert timeseries[0]["total_retries"] == 4
+        assert timeseries[0]["avg_latency"] == 0.25
+
 
 class TestRetryMetricsByProxy:
     """Test per-proxy metrics queries."""
@@ -372,6 +452,31 @@ class TestRetryMetricsByProxy:
             assert proxy_stats["total_attempts"] == 10
             assert proxy_stats["success_count"] == 7
             assert proxy_stats["failure_count"] == 3
+
+    def test_get_by_proxy_survives_current_attempt_eviction(self):
+        """Per-proxy stats should use retained aggregates after deque eviction."""
+        metrics = RetryMetrics(max_current_attempts=2)
+        now = datetime.now(timezone.utc)
+
+        for index in range(4):
+            metrics.record_attempt(
+                RetryAttempt(
+                    request_id=f"req-{index}",
+                    attempt_number=0,
+                    proxy_id="proxy-1",
+                    timestamp=now,
+                    outcome=RetryOutcome.SUCCESS if index < 3 else RetryOutcome.FAILURE,
+                    delay_before=0.0,
+                    latency=0.5,
+                )
+            )
+
+        stats = metrics.get_by_proxy(hours=24)
+
+        assert len(metrics.current_attempts) == 2
+        assert stats["proxy-1"]["total_attempts"] == 4
+        assert stats["proxy-1"]["success_count"] == 3
+        assert stats["proxy-1"]["failure_count"] == 1
 
     def test_includes_circuit_breaker_opens(self):
         """Test that per-proxy stats include circuit breaker opens."""

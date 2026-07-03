@@ -30,6 +30,7 @@ from proxywhirl._proxy_views import (
 from proxywhirl.mcp.auth import MCPAuth
 from proxywhirl.models import HealthStatus
 from proxywhirl.rotator import AsyncProxyWhirl
+from proxywhirl.security import redact_url
 from proxywhirl.settings import MCPSettings
 from proxywhirl.strategies import BUILTIN_STRATEGY_CLASSES
 from proxywhirl.utils import public_proxy_url
@@ -71,7 +72,7 @@ def _allow_unauthenticated_writes() -> bool:
 
 def _sanitize_error_text(error: object) -> str:
     """Return an exception/error string safe for model-visible MCP responses."""
-    return _URL_PATTERN.sub(lambda match: public_proxy_url(match.group(0)), str(error))
+    return _URL_PATTERN.sub(lambda match: redact_url(match.group(0)), str(error))
 
 
 def _proxy_summary(view: ProxyView) -> dict[str, object]:
@@ -150,6 +151,18 @@ def _create_auth_middleware_class() -> type | None:
             if auth_error is not None:
                 return auth_error
 
+            return await call_next(context)
+
+        async def on_read_resource(
+            self,
+            context: object,
+            call_next: Callable[[object], Awaitable[object]],
+        ) -> object:
+            """Validate API key on resource reads."""
+            credentials = get_auth().extract_context_credentials(context)
+            auth_error = _authorize_tool_call(None, credentials=credentials)
+            if auth_error is not None:
+                return auth_error
             return await call_next(context)
 
     return ProxyWhirlAuthMiddleware
@@ -483,6 +496,15 @@ Examples:
         auth = MCPAuth(api_key=args.api_key)
         set_auth(auth)
         logger.info("Authentication enabled")
+    else:
+        logger.warning(
+            "MCP server starting WITHOUT authentication (no --api-key / "
+            "PROXYWHIRL_MCP_API_KEY set). Read actions are unauthenticated; write actions "
+            "(add, remove, fetch, validate, reset_cb, set_strategy) will be rejected unless "
+            "PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES is explicitly set. This is intended "
+            "for local development only. For production, set PROXYWHIRL_MCP_API_KEY. "
+            "See https://www.proxywhirl.com/docs/guides/deployment for hardening guidance."
+        )
 
     # Store DB path for get_rotator to use without mutating process environment.
     _mcp_db_path = Path(args.db)
@@ -1162,13 +1184,11 @@ async def _proxywhirl_tool(
     """
     if ctx is None:
         auth_error = _authorize_tool_call(action, api_key=api_key)
-        if auth_error is not None:
-            return auth_error
-    elif action in _WRITE_ACTIONS:
+    else:
         credentials = get_auth().extract_context_credentials(ctx)
         auth_error = _authorize_tool_call(action, credentials=credentials)
-        if auth_error is not None:
-            return auth_error
+    if auth_error is not None:
+        return auth_error
 
     # Use context for logging if available, otherwise fall back to loguru
     def log_info(msg: str) -> None:
@@ -1269,17 +1289,32 @@ proxywhirl = mcp.tool()(_proxywhirl_mcp_tool) if mcp is not None else _proxywhir
 # ============================================================================
 
 
-async def _get_proxy_health_impl() -> str:
+def _authorize_resource_access(ctx: object | None = None, api_key: str | None = None) -> dict[str, object] | None:
+    """Authorize an MCP resource read using direct credentials or FastMCP context metadata."""
+    if ctx is None:
+        return _authorize_tool_call(None, api_key=api_key)
+    return _authorize_tool_call(None, credentials=get_auth().extract_context_credentials(ctx))
+
+
+async def _get_proxy_health_impl(ctx: object | None = None, api_key: str | None = None) -> str:
     """Get proxy pool health as JSON resource."""
     import json
+
+    auth_error = _authorize_resource_access(ctx=ctx, api_key=api_key)
+    if auth_error is not None:
+        return json.dumps(auth_error, indent=2)
 
     health_data = await _get_health_impl()
     return json.dumps(health_data, indent=2)
 
 
-async def _get_proxy_config_impl() -> str:
+async def _get_proxy_config_impl(ctx: object | None = None, api_key: str | None = None) -> str:
     """Get proxy configuration as JSON resource."""
     import json
+
+    auth_error = _authorize_resource_access(ctx=ctx, api_key=api_key)
+    if auth_error is not None:
+        return json.dumps(auth_error, indent=2)
 
     logger.info("Resource accessed: proxy://config")
     rotator = await get_rotator()

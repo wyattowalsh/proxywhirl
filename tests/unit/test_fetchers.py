@@ -576,8 +576,11 @@ class TestPlainTextParserEdgeCases:
         text_data = "http://proxy1.com:8080"
         parser = PlainTextParser(skip_invalid=False)
 
-        with patch("proxywhirl.fetchers.parse_proxy_url", side_effect=Exception("Parse error")):
-            with pytest.raises(Exception, match="Parse error"):
+        # A non-ValueError exception is not caught by _validate_proxy_url()'s
+        # `except ValueError` (which wraps ValueError as ProxyFetchError), so it
+        # propagates unwrapped through parse()'s narrowed (ValueError, TypeError) handler.
+        with patch("proxywhirl.fetchers.parse_proxy_url", side_effect=RuntimeError("Parse error")):
+            with pytest.raises(RuntimeError, match="Parse error"):
                 parser.parse(text_data)
 
     def test_parse_exception_skipped_when_skip_invalid(self) -> None:
@@ -597,7 +600,9 @@ class TestPlainTextParserEdgeCases:
         def mock_parse_proxy_url(url):
             call_count[0] += 1
             if call_count[0] == 1:
-                raise Exception("Parse error")
+                # parse_proxy_url() raises ValueError on invalid URLs (see utils.py docstring);
+                # PlainTextParser._validate_proxy_url() narrows its except clause accordingly.
+                raise ValueError("Parse error")
             return parse_proxy_url(url)
 
         with patch("proxywhirl.fetchers.parse_proxy_url", side_effect=mock_parse_proxy_url):
@@ -1072,6 +1077,58 @@ class TestProxyValidatorMethods:
             result = await validator.validate_batch(proxies)
 
         assert result == []
+
+    async def test_validate_batch_catches_httpx_error_and_updates_progress(self) -> None:
+        """Validation transport errors are counted and reported as failed proxies."""
+        from unittest.mock import AsyncMock, patch
+
+        import httpx
+
+        from proxywhirl.fetchers import ProxyValidator
+
+        progress_events: list[tuple[int, int, int]] = []
+        validator = ProxyValidator()
+
+        with patch.object(validator, "validate", new_callable=AsyncMock) as mock_validate:
+            mock_validate.side_effect = httpx.ConnectError("connection failed")
+
+            result = await validator.validate_batch(
+                [{"url": "http://proxy1.com:8080"}],
+                progress_callback=lambda completed, total, valid: progress_events.append(
+                    (completed, total, valid)
+                ),
+            )
+
+        assert result == []
+        assert progress_events == [(1, 1, 0)]
+
+    async def test_validate_malformed_proxy_url_returns_invalid(self) -> None:
+        """Malformed URL ports are invalid proxy inputs, not validation crashes."""
+        from proxywhirl.fetchers import ProxyValidator
+
+        validator = ProxyValidator(timeout=0.1)
+
+        result = await validator.validate({"url": "http://example.com:notaport"})
+
+        assert result.is_valid is False
+        assert result.response_time_ms is None
+
+    async def test_validate_batch_malformed_proxy_url_updates_progress(self) -> None:
+        """Malformed URL failures should still count toward batch progress."""
+        from proxywhirl.fetchers import ProxyValidator
+
+        progress_events: list[tuple[int, int, int]] = []
+        validator = ProxyValidator(timeout=0.1)
+
+        result = await validator.validate_batch(
+            [{"url": "http://example.com:notaport"}],
+            progress_callback=lambda completed, total, valid: progress_events.append(
+                (completed, total, valid)
+            ),
+        )
+
+        assert result == []
+        assert progress_events == [(1, 1, 0)]
 
     async def test_validate_https_capability_batch_empty(self) -> None:
         """Empty input returns empty list."""
@@ -1621,6 +1678,37 @@ class TestProxyFetcher:
 
         assert len(proxies) == 1
 
+    async def test_fetch_all_catches_proxy_fetch_error_and_updates_progress(self) -> None:
+        """Source fetch errors update progress without failing the whole batch."""
+        from unittest.mock import AsyncMock, patch
+
+        from proxywhirl.fetchers import ProxyFetcher, ProxySourceConfig
+
+        progress_events: list[tuple[int, int, int]] = []
+        source1 = ProxySourceConfig(url="http://example1.com/proxies.json")
+        source2 = ProxySourceConfig(url="http://example2.com/proxies.json")
+        fetcher = ProxyFetcher(sources=[source1, source2])
+
+        with patch.object(fetcher, "fetch_from_source", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.side_effect = [
+                ProxyFetchError("Source 1 failed"),
+                [{"url": "http://proxy2.com:8080"}],
+            ]
+            with patch.object(
+                fetcher.validator, "validate_batch", new_callable=AsyncMock
+            ) as mock_validate:
+                mock_validate.return_value = [{"url": "http://proxy2.com:8080"}]
+
+                proxies = await fetcher.fetch_all(
+                    fetch_progress_callback=lambda completed, total, proxy_count: (
+                        progress_events.append((completed, total, proxy_count))
+                    )
+                )
+
+        assert proxies == [{"url": "http://proxy2.com:8080"}]
+        assert (1, 2, 0) in progress_events
+        assert (2, 2, 1) in progress_events
+
     async def test_fetch_all_no_validation(self) -> None:
         """Test fetch_all without validation."""
         from unittest.mock import AsyncMock, patch
@@ -1867,8 +1955,10 @@ class TestProxyValidatorWithSocks:
         assert result.is_valid is True
 
     async def test_validate_exception_returns_false(self) -> None:
-        """Test validate returns False on any exception."""
+        """Test validate returns False when the HTTP client raises a connection error."""
         from unittest.mock import AsyncMock, MagicMock, patch
+
+        import httpx
 
         from proxywhirl.fetchers import ProxyValidator
 
@@ -1884,7 +1974,9 @@ class TestProxyValidatorWithSocks:
 
             with patch("httpx.AsyncClient") as mock_client:
                 mock_instance = AsyncMock()
-                mock_instance.get = AsyncMock(side_effect=Exception("Unknown error"))
+                # ProxyValidator.validate() narrows its except clause to
+                # (httpx.HTTPError, OSError, TimeoutError); use a realistic httpx error here.
+                mock_instance.get = AsyncMock(side_effect=httpx.ConnectError("Unknown error"))
                 mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
                 mock_instance.__aexit__ = AsyncMock(return_value=None)
                 mock_client.return_value = mock_instance

@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from proxywhirl.export_formats import ExportFormat, MultiFormatExporter
 from proxywhirl.exports import (
     RELIABILITY_TIERS,
     _as_utc_aware,
@@ -21,6 +22,43 @@ from proxywhirl.exports import (
     generate_stats_from_files,
     parse_proxy_url,
 )
+from proxywhirl.formatters import OutputFormat, format_proxies
+from proxywhirl.models import Proxy
+
+
+class TestLegacyProxyFormatters:
+    """Regression tests for legacy proxy formatting/export helpers."""
+
+    def test_format_proxies_handles_current_proxy_without_credentials(self) -> None:
+        """Formatter output should not require removed Proxy attributes or leak userinfo."""
+        proxy = Proxy(
+            url="http://user:pass@proxy.example.com:8080",
+            country_code="US",
+        )
+
+        output = format_proxies([proxy], OutputFormat.JSON)
+
+        assert "proxy.example.com" in output
+        assert "user:pass" not in output
+        assert '"country": "US"' in output
+
+    @pytest.mark.parametrize("export_format", list(ExportFormat))
+    def test_multi_format_exporter_strips_proxy_credentials(
+        self,
+        export_format: ExportFormat,
+    ) -> None:
+        """All legacy export formats should serialize public proxy URLs."""
+        proxy = Proxy(
+            url="http://user:pass@proxy.example.com:8080",
+            country_code="US",
+        )
+        exporter = MultiFormatExporter()
+
+        output = exporter.export([proxy], export_format)
+
+        assert "proxy.example.com" in output
+        assert "user:pass" not in output
+        assert "pass@" not in output
 
 
 class TestClassifyReliabilityTier:

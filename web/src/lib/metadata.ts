@@ -14,6 +14,18 @@ export const siteConfig = {
 	githubUrl: GITHUB_URL,
 } as const;
 
+const ogImagePath = "/og-image.png";
+const ogImageFallbackPath = "/og-image.svg";
+
+export const ogImage: NonNullable<Metadata["openGraph"]>["images"] = [
+	{
+		url: ogImagePath,
+		width: 1200,
+		height: 630,
+		alt: `${siteConfig.name} — ${siteConfig.tagline}`,
+	},
+];
+
 export const defaultMetadata: Metadata = {
 	metadataBase: new URL(baseUrl),
 	title: {
@@ -28,11 +40,13 @@ export const defaultMetadata: Metadata = {
 		siteName: siteConfig.name,
 		title: `${siteConfig.name} — ${siteConfig.tagline}`,
 		description: siteConfig.description,
+		images: ogImage,
 	},
 	twitter: {
 		card: "summary_large_image",
 		title: `${siteConfig.name} — ${siteConfig.tagline}`,
 		description: siteConfig.description,
+		images: [ogImagePath, ogImageFallbackPath],
 	},
 	icons: {
 		icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
@@ -60,11 +74,13 @@ export function createPageMetadata({
 			url,
 			type: "website",
 			siteName: siteConfig.name,
+			images: ogImage,
 		},
 		twitter: {
 			card: "summary_large_image",
 			title,
 			description,
+			images: [ogImagePath, ogImageFallbackPath],
 		},
 	};
 }

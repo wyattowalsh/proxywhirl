@@ -23,7 +23,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, Request, status
+from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from loguru import logger
@@ -92,6 +92,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     api_settings = APISettings()
     storage = None
+
+    if not api_settings.require_auth:
+        logger.warning(
+            "ProxyWhirl API starting with authentication DISABLED "
+            "(PROXYWHIRL_REQUIRE_AUTH=false). All endpoints, including write operations, "
+            "pool management, and monitoring endpoints are reachable without an API key. "
+            "This is intended for local development only. For production deployments, set "
+            "PROXYWHIRL_REQUIRE_AUTH=true and PROXYWHIRL_API_KEY. "
+            "See https://www.proxywhirl.com/docs/guides/deployment for hardening guidance."
+        )
 
     # Initialize storage if configured
     if api_settings.storage_path:
@@ -601,6 +611,33 @@ async def validation_error_handler(request: Request, exc: Any) -> JSONResponse:
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
         content=response.model_dump(mode="json"),
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    """Handle FastAPI HTTPException with the APIResponse envelope."""
+    detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
+    if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
+        code = ErrorCode.SERVICE_UNAVAILABLE
+    elif exc.status_code == status.HTTP_409_CONFLICT:
+        code = ErrorCode.PROXY_ALREADY_EXISTS
+    elif exc.status_code == status.HTTP_404_NOT_FOUND:
+        code = ErrorCode.PROXY_NOT_FOUND
+    elif exc.status_code >= status.HTTP_500_INTERNAL_SERVER_ERROR:
+        code = ErrorCode.INTERNAL_ERROR
+    else:
+        code = ErrorCode.VALIDATION_ERROR
+
+    response: APIResponse[None] = APIResponse.error_response(
+        code=code,
+        message=detail,
+        details={"path": request.url.path, "method": request.method},
+    )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=response.model_dump(mode="json"),
+        headers=getattr(exc, "headers", None),
     )
 
 

@@ -1,0 +1,25 @@
+{
+  "task_id": "V-001",
+  "finding": "RV-003",
+  "hypothesis": "TestCacheMaxSizeInvariant property tests time out because create_cache_manager_with_max_entries() disables L2 but leaves L3 (SQLite) enabled with its default CacheTierConfig(enabled=True), so every manager.put() call also performs a synchronous SQLite write while holding the manager lock.",
+  "evidence": [
+    {
+      "file": "tests/property/test_cache_properties.py",
+      "lines": "55-65",
+      "detail": "create_cache_manager_with_max_entries() sets l1_config and l2_config explicitly (l2_config.enabled=False) but never touches l3_config, so CacheConfig.l3_config defaults apply."
+    },
+    {
+      "file": "proxywhirl/cache/models.py",
+      "lines": "133-186",
+      "detail": "CacheTierConfig.enabled defaults to True. CacheConfig.l3_config default_factory only overrides max_entries (None), leaving enabled=True. Therefore L3 SQLite tier is always active for the 'max_entries' helper despite the test intent to isolate L1 behavior."
+    },
+    {
+      "file": "tests/property/test_cache_properties.py",
+      "lines": "262-297",
+      "detail": "test_l1_cache_size_never_exceeds_max uses @settings(max_examples=30, deadline=None) with num_puts up to 50, each put() also writing to L3 SQLite (open connection + write per call), multiplying into up to 1500 SQLite round-trips per Hypothesis run with no explicit test timeout other than the outer --timeout=120 pytest-timeout wrapper."
+    }
+  ],
+  "isolated_repro_command": "uv run pytest tests/property/test_cache_properties.py::TestCacheMaxSizeInvariant::test_l1_cache_size_never_exceeds_max -v --timeout=120",
+  "conclusion": "CONFIRMED root cause: this is a slow-I/O-under-lock performance issue in the test helper, not a cache correctness/deadlock bug. No production code fix is required (RV-003 status: test-only fix). Fix: disable L3 in create_cache_manager_with_max_entries(), add an explicit Hypothesis deadline, and cap num_puts to keep the invariant test fast and deterministic (see F-006).",
+  "confidence": 0.95
+}

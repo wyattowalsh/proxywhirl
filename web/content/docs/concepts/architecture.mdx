@@ -1,0 +1,75 @@
+---
+title: Architecture
+description: System layers, core components, and extension points in ProxyWhirl.
+---
+ProxyWhirl is a Python proxy rotation library for high-concurrency workloads with health monitoring, circuit breaking, adaptive retries, and multi-tier caching.
+
+## Design principles
+
+- **Abstraction**: hide rotation complexity behind `ProxyWhirl` / `AsyncProxyWhirl`
+- **Performance**: sub-millisecond selection with L1 cache
+- **Resilience**: circuit breakers, retries, failover policies
+- **Observability**: metrics and structured logging (Loguru)
+- **Security**: encrypted credentials, input validation, ReDoS-safe regex
+- **Extensibility**: strategy protocol, parser plugins, storage backends
+
+## Layered view
+
+```
+User Layer (CLI, REST API, MCP, Python rotators)
+        ↓
+Rotator Core (strategy selection, pool, sessions)
+        ↓
+Resilience (health, rate limits, circuit breakers, retries, cache)
+        ↓
+Storage (SQLite / file backends via SQLModel)
+        ↓
+External (HTTP clients, proxy source endpoints)
+```
+
+## Entry points
+
+| Component | When to use |
+| --------- | ----------- |
+| `ProxyWhirl` | Scripts, CLI, blocking I/O |
+| `AsyncProxyWhirl` | FastAPI, high-concurrency async |
+| `proxywhirl.api` | HTTP control plane |
+| `proxywhirl-mcp` | AI assistant integrations |
+
+## Core modules
+
+| Module | Role |
+| ------ | ---- |
+| `models/` | `Proxy`, `ProxyPool`, config models |
+| `strategies/` | Nine rotation strategies + registry |
+| `rotator/` | Sync/async rotator implementations |
+| `storage.py` | SQLite persistence |
+| `fetchers.py` | Source fetch + validation parsers |
+| `cache/` | L1/L2/L3 cache manager |
+| `circuit_breaker/` | Failure isolation |
+| `retry/` | Backoff and retry executor |
+
+## ProxyValidator client pool
+
+`ProxyValidator` lazily creates shared `httpx.AsyncClient` instances for HTTP and SOCKS validation so batch checks reuse connections instead of opening one client per proxy.
+
+- HTTP client: up to 100 connections, 20 keep-alive slots
+- SOCKS client: dedicated transport with the same limits
+- `validate()`, `validate_batch()`, and `check_anonymity()` all draw from the pool
+- Clients close on validator teardown to avoid socket leaks during long-running jobs
+
+Tune pool sizes when validating very large batches or running multiple validator instances in parallel.
+
+## Extension points
+
+1. Implement `RotationStrategy` and register with `StrategyRegistry`
+2. Add parsers (`JSONParser`, `CSVParser`, etc.) for new source formats
+3. Plug storage via `storage_provider` constructor argument
+4. Add REST routes under `proxywhirl/api/` following existing `/api/*` patterns
+
+## Related docs
+
+- [Architecture Decision Records](/docs/project/adr)
+- [Python API reference](/docs/generated/python-api)
+- [Cache Architecture](/docs/concepts/cache-architecture)
+- [Circuit Breakers](/docs/concepts/circuit-breakers)

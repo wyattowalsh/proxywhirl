@@ -1,0 +1,49 @@
+---
+title: Migration v2
+description: Breaking changes and migration paths from ProxyWhirl v1.x to v2.0.
+---
+ProxyWhirl v2.0 removes deprecated fields and consolidates configuration on strategies and granular request counters.
+
+## `total_requests` removed
+
+**Before (v1.x):**
+
+```python
+proxy = rotator.get_proxy()
+print(proxy.total_requests)
+```
+
+**After (v2.0):**
+
+```python
+proxy = rotator.get_proxy()
+print(proxy.requests_completed)
+print(proxy.requests_started)
+print(proxy.requests_active)
+```
+
+Use `requests_completed`, `requests_started`, and `requests_active` for selection and observability.
+
+## `ema_alpha` on Proxy removed
+
+EMA smoothing is strategy-scoped via `StrategyConfig.ema_alpha`:
+
+```python
+from proxywhirl import ProxyWhirl, StrategyConfig
+from proxywhirl.strategies import PerformanceBasedStrategy
+
+config = StrategyConfig(ema_alpha=0.3)
+strategy = PerformanceBasedStrategy(config=config)
+rotator = ProxyWhirl(strategy=strategy)
+```
+
+## Validation
+
+After migrating call sites:
+
+```bash
+just quality-gates
+uv run pytest tests/unit/ -q --no-cov -n0 -k proxy
+```
+
+See [Configuration](/docs/guides/configuration) and [Rotation Strategies](/docs/concepts/rotation-strategies).

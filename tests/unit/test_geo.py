@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
@@ -20,12 +21,24 @@ async def test_batch_geolocate_empty_list() -> None:
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_batch_geolocate_does_not_call_external_api_by_default() -> None:
+    """Missing local DB should not leak IPs to a third-party API by default."""
+    route = respx.post("https://ip-api.com/batch?fields=query,country,countryCode,status")
+
+    result = await batch_geolocate(["1.1.1.1"], db_path=Path("/does/not/exist.mmdb"))
+
+    assert result == {}
+    assert route.called is False
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_batch_geolocate_multiple_batches(monkeypatch) -> None:
     """Multiple batches should sleep between requests and return results."""
     sleep_mock = AsyncMock()
     monkeypatch.setattr(asyncio, "sleep", sleep_mock)
 
-    route = respx.post("http://ip-api.com/batch?fields=query,country,countryCode,status")
+    route = respx.post("https://ip-api.com/batch?fields=query,country,countryCode,status")
     route.side_effect = [
         Response(
             200,
@@ -44,6 +57,7 @@ async def test_batch_geolocate_multiple_batches(monkeypatch) -> None:
         ["1.1.1.1", "2.2.2.2", "3.3.3.3"],
         batch_size=2,
         max_batches=10,
+        allow_external_api=True,
     )
 
     assert result["1.1.1.1"]["countryCode"] == "AA"

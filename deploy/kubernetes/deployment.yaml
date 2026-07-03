@@ -24,7 +24,7 @@ spec:
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8000"
-        prometheus.io/path: "/metrics"
+        prometheus.io/path: "/api/metrics"
     spec:
       serviceAccountName: proxywhirl
       securityContext:
@@ -38,9 +38,6 @@ spec:
         ports:
         - name: http
           containerPort: 8000
-          protocol: TCP
-        - name: metrics
-          containerPort: 9090
           protocol: TCP
         
         env:
@@ -56,6 +53,10 @@ spec:
             secretKeyRef:
               name: proxywhirl-secrets
               key: api-key
+        - name: PROXYWHIRL_REQUIRE_AUTH
+          value: "true"
+        - name: PROXYWHIRL_PUBLIC_METRICS
+          value: "true"
         - name: PROXYWHIRL_STORAGE_PATH
           value: "/data/proxywhirl.db"
         - name: REDIS_URL
@@ -78,7 +79,7 @@ spec:
         
         livenessProbe:
           httpGet:
-            path: /api/v1/health
+            path: /api/ready
             port: http
           initialDelaySeconds: 10
           periodSeconds: 10
@@ -87,7 +88,7 @@ spec:
         
         readinessProbe:
           httpGet:
-            path: /api/v1/health
+            path: /api/ready
             port: http
           initialDelaySeconds: 5
           periodSeconds: 5

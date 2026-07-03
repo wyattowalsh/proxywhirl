@@ -448,7 +448,7 @@ class PlainTextParser:
                 if self.skip_invalid:
                     continue
                 raise
-            except Exception:
+            except (ValueError, TypeError):
                 if self.skip_invalid:
                     continue
                 raise
@@ -1241,7 +1241,8 @@ class ProxyValidator:
                     )
                     self._set_cached_result(proxy, result)
                     return result
-        except Exception:
+        except (httpx.HTTPError, OSError, TimeoutError, ValueError, TypeError) as e:
+            logger.debug(f"Proxy validation failed for {proxy.get('url')}: {e}")
             result = ValidationResult(is_valid=False, response_time_ms=None)
             self._set_cached_result(proxy, result)
             return result
@@ -1314,13 +1315,16 @@ class ProxyValidator:
                     if progress_callback:
                         progress_callback(completed, total, valid_count)
                     return (proxy, result)
-                except Exception as e:
+                except (
+                    httpx.HTTPError,
+                    OSError,
+                    TimeoutError,
+                    ProxyFetchError,
+                    ValueError,
+                    TypeError,
+                ) as e:
                     # If validation raises an exception, treat as failed
-                    import logging
-
-                    logging.getLogger(__name__).debug(
-                        f"Validation error for {proxy.get('url')}: {e}"
-                    )
+                    logger.debug(f"Validation error for {proxy.get('url')}: {e}")
                     completed += 1
                     if progress_callback:
                         progress_callback(completed, total, valid_count)
@@ -1456,7 +1460,8 @@ class ProxyValidator:
                     except httpx.HTTPStatusError:
                         http_error_count += 1
                         continue
-                    except Exception:
+                    except (httpx.HTTPError, RuntimeError) as e:
+                        logger.debug(f"Unexpected HTTPS-validation error for {http_url}: {e}")
                         other_error_count += 1
                         continue
 
@@ -1907,7 +1912,7 @@ class ProxyFetcher:
             raise  # Re-raise for retry decorator to handle
         except httpx.RequestError as e:
             raise ProxyFetchError(f"Request error fetching from {source.url}: {e}") from e
-        except Exception as e:
+        except (ProxyFetchError, ProxyValidationError, ValueError, TypeError, KeyError) as e:
             raise ProxyFetchError(f"Error fetching from {source.url}: {e}") from e
 
     async def fetch_all(
@@ -1983,7 +1988,7 @@ class ProxyFetcher:
                         completed_sources, total_sources, len(all_proxies) + len(result)
                     )
                 return result
-            except Exception:
+            except (ProxyFetchError, httpx.HTTPError):
                 logger.opt(exception=True).warning("Failed to fetch from {}", source.url)
                 completed_sources += 1
                 if fetch_progress_callback:

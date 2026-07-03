@@ -9,6 +9,9 @@ const repoRoot = join(webRoot, "..")
 const generatedDocsDir = join(webRoot, "content", "docs", "generated")
 const generatedDataDir = join(webRoot, "content", "generated")
 const publicProxyDir = join(webRoot, "public", "proxy-lists")
+const publicOgImageSvg = join(webRoot, "public", "og-image.svg")
+const publicOgImagePng = join(webRoot, "public", "og-image.png")
+const socialPreviewSvg = join(repoRoot, "docs", "assets", "social-preview.svg")
 
 function runPython(script) {
   const output = execFileSync("uv", ["run", "python", "-c", script], {
@@ -346,6 +349,20 @@ if (existsSync(statsPath)) {
   }
 }
 
+function copyOgImageAssets() {
+  if (!existsSync(socialPreviewSvg)) return
+  copyFileSync(socialPreviewSvg, publicOgImageSvg)
+  try {
+    execFileSync(
+      "rsvg-convert",
+      ["-w", "1200", "-h", "630", "-o", publicOgImagePng, socialPreviewSvg],
+      { stdio: "ignore", timeout: 30_000 },
+    )
+  } catch {
+    // PNG optional when rsvg-convert is unavailable; metadata falls back to SVG.
+  }
+}
+
 const exportKinds = countBy(packageData.exports, (item) => item.kind)
 const exportModules = countBy(packageData.exports, (item) => item.module).slice(0, 12)
 const coreExports = [
@@ -393,7 +410,6 @@ writeFile(
   join(generatedDocsDir, "python-api.mdx"),
   [
     frontmatter("Python API Reference", "Source-grounded public exports from proxywhirl.__all__."),
-    "# Python API Reference",
     "",
     generatedNote("`proxywhirl.__all__`, package metadata, and object docstrings"),
     "",
@@ -438,7 +454,6 @@ writeFile(
   join(generatedDocsDir, "rest-api.mdx"),
   [
     frontmatter("REST/OpenAPI Reference", "FastAPI OpenAPI summary generated from proxywhirl.api.app."),
-    "# REST/OpenAPI Reference",
     "",
     generatedNote("`proxywhirl.api.app.openapi()`"),
     "",
@@ -466,7 +481,6 @@ writeFile(
   join(generatedDocsDir, "cli-reference.mdx"),
   [
     frontmatter("CLI Reference", "Typer command inventory parsed from proxywhirl.cli."),
-    "# CLI Reference",
     "",
     generatedNote("Typer command declarations and docstrings in `proxywhirl/cli.py`"),
     "",
@@ -499,7 +513,6 @@ writeFile(
   join(generatedDocsDir, "proxy-sources.mdx"),
   [
     frontmatter("Proxy Sources", "Proxy source catalog generated from proxywhirl.sources."),
-    "# Proxy Sources",
     "",
     generatedNote("`proxywhirl.sources.ALL_SOURCES` and related source collections"),
     "",
@@ -542,7 +555,6 @@ writeFile(
   join(generatedDocsDir, "strategies.mdx"),
   [
     frontmatter("Strategy Matrix", "Rotation strategy matrix generated from proxywhirl.strategies."),
-    "# Strategy Matrix",
     "",
     generatedNote("exported strategy classes in `proxywhirl.strategies`"),
     "",
@@ -573,5 +585,7 @@ writeFile(
 writeFile(join(generatedDataDir, "openapi.json"), `${JSON.stringify(openApi, null, 2)}\n`)
 writeFile(join(generatedDataDir, "sources.json"), `${JSON.stringify(sourceData, null, 2)}\n`)
 writeFile(join(generatedDataDir, "strategies.json"), `${JSON.stringify(strategyData, null, 2)}\n`)
+
+copyOgImageAssets()
 
 console.log(`Generated docs surfaces in ${generatedDocsDir}`)

@@ -14,8 +14,10 @@ from __future__ import annotations
 
 import concurrent.futures
 import hashlib
+import hmac
 import ipaddress
 import logging
+import os
 import re
 import socket
 from enum import Enum
@@ -119,10 +121,18 @@ def is_ip_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> tuple[bo
     return False, ""
 
 
-def _resolve_hostname_with_timeout(hostname: str, timeout: float = 2.0) -> str:
-    """Resolve a hostname to an IPv4 address without mutating global socket timeouts."""
+def _resolve_hostname_addresses_with_timeout(hostname: str, timeout: float = 2.0) -> set[str]:
+    """Resolve a hostname to all IPv4/IPv6 addresses without mutating socket timeouts."""
+
+    def _resolve_all() -> set[str]:
+        addresses: set[str] = set()
+        for family, _, _, _, sockaddr in socket.getaddrinfo(hostname, None):
+            if family in {socket.AF_INET, socket.AF_INET6}:
+                addresses.add(sockaddr[0])
+        return addresses
+
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(socket.gethostbyname, hostname)
+        future = executor.submit(_resolve_all)
         try:
             return future.result(timeout=timeout)
         except concurrent.futures.TimeoutError as exc:
@@ -183,18 +193,20 @@ def validate_proxy_url_safety(url: str) -> tuple[bool, str]:
 
     # Try DNS resolution (with timeout to prevent DoS; no global socket mutation)
     try:
-        ip_str = _resolve_hostname_with_timeout(parsed.hostname, timeout=2.0)
+        ip_strings = _resolve_hostname_addresses_with_timeout(parsed.hostname, timeout=2.0)
+        if not ip_strings:
+            return False, f"DNS resolution returned no addresses for {parsed.hostname}"
 
-        ip = ipaddress.ip_address(ip_str)
-        blocked, reason = is_ip_blocked(ip)
-        return not blocked, reason if blocked else ""
-    except (TimeoutError, socket.gaierror, OSError):
-        # DNS resolution failed - assume it's safe (external service)
-        # This prevents DoS attacks on invalid hostnames
+        for ip_str in ip_strings:
+            ip = ipaddress.ip_address(ip_str)
+            blocked, reason = is_ip_blocked(ip)
+            if blocked:
+                return False, reason
         return True, ""
-    except Exception:
-        # Unknown error - assume safe
-        return True, ""
+    except (TimeoutError, socket.gaierror, OSError) as exc:
+        return False, f"DNS resolution failed for {parsed.hostname}: {exc}"
+    except Exception as exc:
+        return False, f"DNS safety validation failed for {parsed.hostname}: {exc}"
 
 
 # ============================================================================
@@ -346,12 +358,12 @@ class RedactionFilter(logging.Filter):
 def _redact_string_secrets(text: str) -> str:
     """Redact common secret patterns from a string."""
     # Redact URLs with credentials
-    text = re.sub(r"://[^/@?#]*@", "://***:***@", text)
+    text = re.sub(r"([a-z][a-z0-9+.-]*://)[^/@\s?#]+@", r"\1***:***@", text)
 
-    # Redact quoted values after known secret parameter names
+    # Redact values after known secret parameter names
     text = re.sub(
-        r'(?i)(password|token|api_?key|secret|credential)["\']?\s*[:=]\s*["\']([^"\']*)["\']',
-        r'\1: "***"',
+        r"(?i)(password|token|api_?key|secret|credential)([\"']?\s*[:=]\s*[\"']?)([^\"'\s&,}]+)",
+        r"\1\2***",
         text,
     )
 
@@ -367,10 +379,7 @@ def add_redaction_to_loguru() -> None:
     """Add redaction filter to loguru logger."""
     logger.enable("proxywhirl")
 
-    # Create a function that redacts before logging
-    def redacting_sink(message: dict[str, Any]) -> None:
-        record = message.record
-
+    def redacting_patcher(record: dict[str, Any]) -> None:
         # Redact message
         if isinstance(record["message"], str):
             record["message"] = _redact_string_secrets(record["message"])
@@ -379,12 +388,7 @@ def add_redaction_to_loguru() -> None:
         if record["extra"]:
             record["extra"] = redact_dict(record["extra"])
 
-        # Print redacted message
-        print(message, end="")
-
-    # Note: loguru doesn't use logging.Filter, so redaction is handled
-    # differently. This function documents the approach.
-    pass
+    logger.configure(patcher=redacting_patcher)
 
 
 # ============================================================================
@@ -511,7 +515,7 @@ def derive_key_pbkdf2(
 
     # Generate random salt if not provided
     if salt is None:
-        salt = hashlib.pbkdf2_hmac(hash_name, b"salt_gen", b"", 1)[:16]
+        salt = os.urandom(16)
 
     if len(salt) < 8:
         raise ValueError(f"Salt must be >= 8 bytes, got {len(salt)}")
@@ -561,9 +565,7 @@ def verify_pbkdf2_key(
             dklen=dklen,
         )
         # Constant-time comparison to prevent timing attacks
-        return hashlib.pbkdf2_hmac("sha256", stored_key, b"", 1) == hashlib.pbkdf2_hmac(
-            "sha256", derived_key, b"", 1
-        )
+        return hmac.compare_digest(stored_key, derived_key)
     except Exception:
         return False
 

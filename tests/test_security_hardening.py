@@ -13,6 +13,7 @@ Tests cover:
 from __future__ import annotations
 
 import ipaddress
+import socket
 
 import pytest
 
@@ -139,8 +140,20 @@ class TestSSRFHostnameValidation:
 
     def test_public_url_allowed(self):
         """Public proxy URLs should be allowed."""
-        safe, reason = validate_proxy_url_safety("http://proxy.example.com:8080")
+        safe, reason = validate_proxy_url_safety("http://example.com:8080")
         assert safe is True
+
+    def test_hostname_resolving_to_loopback_rejected(self, monkeypatch):
+        """DNS-backed internal addresses should be rejected."""
+        monkeypatch.setattr(
+            "proxywhirl.security.socket.getaddrinfo",
+            lambda *_args, **_kwargs: [
+                (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("127.0.0.1", 8080))
+            ],
+        )
+        safe, reason = validate_proxy_url_safety("http://public.example.test:8080")
+        assert safe is False
+        assert "loopback" in reason.lower()
 
     def test_invalid_url_rejected(self):
         """Invalid URLs should be rejected."""
@@ -179,6 +192,15 @@ class TestPBKDF2KeyDerivation:
         # Different salts
         assert salt1 != salt2
         # Different keys (due to different salts)
+        assert key1 != key2
+
+    def test_default_salt_is_random(self):
+        """Implicit PBKDF2 salts should differ across calls."""
+        password = "test_password"
+        key1, salt1 = derive_key_pbkdf2(password)
+        key2, salt2 = derive_key_pbkdf2(password)
+
+        assert salt1 != salt2
         assert key1 != key2
 
     def test_same_password_same_salt(self):

@@ -7,11 +7,10 @@ Service (ReDoS) attacks.
 
 from __future__ import annotations
 
+import multiprocessing as mp
 import re
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import TimeoutError as FuturesTimeoutError
 from re import Pattern
-from typing import cast
+from typing import Any, cast
 
 import typer
 
@@ -112,8 +111,126 @@ def validate_regex_pattern(pattern: str, max_length: int = MAX_PATTERN_LENGTH) -
             raise typer.Exit(code=1)
 
 
+def _findall_limited(compiled_pattern: Pattern[str], text: str, max_results: int) -> list[Any]:
+    """Return re.findall-compatible values without materializing unbounded matches."""
+    if max_results <= 0:
+        return []
+
+    matches: list[Any] = []
+    for match in compiled_pattern.finditer(text):
+        if compiled_pattern.groups == 0:
+            matches.append(match.group(0))
+        elif compiled_pattern.groups == 1:
+            matches.append(match.group(1))
+        else:
+            matches.append(match.groups())
+
+        if len(matches) >= max_results:
+            break
+    return matches
+
+
+def _regex_worker(
+    conn: Any,
+    operation: str,
+    pattern: str,
+    flags: int,
+    text: str,
+    max_results: int,
+) -> None:
+    """Run one regex operation in an isolated child process."""
+    try:
+        compiled_pattern = re.compile(pattern, flags)
+        if operation == "compile":
+            payload: Any = True
+        elif operation == "search":
+            payload = compiled_pattern.search(text) is not None
+        elif operation == "findall":
+            payload = _findall_limited(compiled_pattern, text, max_results)
+        else:
+            raise ValueError(f"Unsupported regex operation: {operation}")
+        conn.send(("ok", payload))
+    except re.error as exc:
+        conn.send(("re_error", str(exc)))
+    except ValueError as exc:
+        conn.send(("value_error", str(exc)))
+    except BaseException as exc:  # pragma: no cover - defensive child-process boundary
+        conn.send(("error", f"{type(exc).__name__}: {exc}"))
+    finally:
+        conn.close()
+
+
+def _regex_process_context() -> Any:
+    """Use fork when available to keep per-call isolation practical."""
+    if "fork" in mp.get_all_start_methods():
+        return mp.get_context("fork")
+    return mp.get_context()
+
+
+def _stop_regex_process(process: Any) -> None:
+    """Terminate a regex worker that exceeded its budget."""
+    process.terminate()
+    process.join(0.2)
+    if process.is_alive():
+        process.kill()
+        process.join()
+
+
+def _run_regex_operation(
+    operation: str,
+    pattern: str,
+    flags: int,
+    text: str = "",
+    timeout: float = DEFAULT_REGEX_TIMEOUT,
+    max_results: int = 0,
+) -> Any:
+    """Run a regex operation in a killable process with a hard timeout."""
+    if timeout <= 0:
+        raise RegexTimeoutError(f"Regex {operation} timed out after {timeout}s")
+
+    ctx = _regex_process_context()
+    parent_conn, child_conn = ctx.Pipe(duplex=False)
+    process = ctx.Process(
+        target=_regex_worker,
+        args=(child_conn, operation, pattern, flags, text, max_results),
+    )
+    process.daemon = True
+
+    try:
+        process.start()
+    except OSError as exc:
+        parent_conn.close()
+        child_conn.close()
+        raise RegexTimeoutError(f"Regex {operation} worker failed to start") from exc
+
+    child_conn.close()
+    process.join(timeout)
+    if process.is_alive():
+        _stop_regex_process(process)
+        parent_conn.close()
+        raise RegexTimeoutError(f"Regex {operation} timed out after {timeout}s")
+
+    try:
+        if not parent_conn.poll():
+            raise RegexTimeoutError(
+                f"Regex {operation} worker exited without a result "
+                f"(exit code {process.exitcode})"
+            )
+        status, payload = parent_conn.recv()
+    finally:
+        parent_conn.close()
+
+    if status == "ok":
+        return payload
+    if status == "re_error":
+        raise re.error(payload)
+    if status == "value_error":
+        raise ValueError(payload)
+    raise RegexTimeoutError(f"Regex {operation} worker failed: {payload}")
+
+
 def _compile_with_timeout(pattern: str, flags: int, timeout: float) -> Pattern[str]:
-    """Compile regex with timeout using thread pool.
+    """Compile regex after caller-side complexity validation.
 
     Args:
         pattern: Regex pattern
@@ -126,18 +243,15 @@ def _compile_with_timeout(pattern: str, flags: int, timeout: float) -> Pattern[s
     Raises:
         RegexTimeoutError: If compilation exceeds timeout
     """
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(re.compile, pattern, flags)  # type: ignore[arg-type]
-        try:
-            return cast(Pattern[str], future.result(timeout=timeout))
-        except FuturesTimeoutError as e:
-            raise RegexTimeoutError(
-                f"Regex compilation timed out after {timeout}s: {pattern[:50]}..."
-            ) from e
+    if timeout <= 0:
+        raise RegexTimeoutError(
+            f"Regex compilation timed out after {timeout}s: {pattern[:50]}..."
+        )
+    return re.compile(pattern, flags)
 
 
 def _match_with_timeout(pattern: Pattern[str], text: str, timeout: float) -> re.Match[str] | None:
-    """Match regex with timeout using thread pool.
+    """Search regex with timeout using a killable worker process.
 
     Args:
         pattern: Compiled regex pattern
@@ -150,12 +264,17 @@ def _match_with_timeout(pattern: Pattern[str], text: str, timeout: float) -> re.
     Raises:
         RegexTimeoutError: If matching exceeds timeout
     """
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(pattern.search, text)  # type: ignore[arg-type]
-        try:
-            return cast(re.Match[str] | None, future.result(timeout=timeout))
-        except FuturesTimeoutError as e:
-            raise RegexTimeoutError(f"Regex matching timed out after {timeout}s") from e
+    try:
+        matched = cast(
+            bool,
+            _run_regex_operation("search", pattern.pattern, pattern.flags, text, timeout),
+        )
+    except RegexTimeoutError as e:
+        raise RegexTimeoutError(f"Regex matching timed out after {timeout}s") from e
+
+    if not matched:
+        return None
+    return pattern.search(text)
 
 
 def safe_regex_compile(
@@ -299,31 +418,36 @@ def safe_regex_findall(
         RegexTimeoutError: If searching exceeds timeout
         typer.Exit: If pattern is rejected during validation
     """
-    # Compile pattern if needed
     if isinstance(pattern, str):
-        compiled_pattern = safe_regex_compile(pattern, flags, timeout, validate)
+        if validate:
+            validate_regex_pattern(pattern)
+        pattern_text = pattern
+        pattern_flags = flags
     else:
-        compiled_pattern = pattern
+        pattern_text = pattern.pattern
+        pattern_flags = pattern.flags
 
-    # Find all matches with timeout
-    def _findall() -> list[str]:
-        matches = compiled_pattern.findall(text)
-        # Limit results to prevent DoS
-        return matches[:max_results]
-
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_findall)
-        try:
-            return future.result(timeout=timeout)
-        except FuturesTimeoutError as e:
-            typer.secho(
-                f"Error: Regex findall timed out after {timeout}s",
-                err=True,
-                fg="red",
-            )
-            typer.secho(
-                "The input text may trigger pathological backtracking",
-                err=True,
-                fg="yellow",
-            )
-            raise typer.Exit(code=1) from e
+    try:
+        return cast(
+            list[str],
+            _run_regex_operation(
+                "findall",
+                pattern_text,
+                pattern_flags,
+                text,
+                timeout,
+                max_results,
+            ),
+        )
+    except RegexTimeoutError as e:
+        typer.secho(
+            f"Error: Regex findall timed out after {timeout}s",
+            err=True,
+            fg="red",
+        )
+        typer.secho(
+            "The input text may trigger pathological backtracking",
+            err=True,
+            fg="yellow",
+        )
+        raise typer.Exit(code=1) from e

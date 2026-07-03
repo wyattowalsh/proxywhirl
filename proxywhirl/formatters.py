@@ -10,10 +10,12 @@ import json
 from enum import Enum
 from io import StringIO
 from typing import Any
+from urllib.parse import urlparse
 
 import yaml
 
 from proxywhirl.models import Proxy
+from proxywhirl.utils import public_proxy_url
 
 
 class OutputFormat(str, Enum):
@@ -85,54 +87,21 @@ def _format_text(proxies: list[Proxy]) -> str:
     lines.append("-" * 57)
 
     for proxy in proxies:
-        status = (
-            proxy.health_status.name
-            if hasattr(proxy, "health_status") and proxy.health_status
-            else "UNKNOWN"
-        )
-        country = getattr(proxy, "country", "Unknown")
-        lines.append(f"{proxy.proxy_string:<30} {status:<12} {country:<15}")
+        row = _proxy_output_row(proxy)
+        lines.append(f"{row['proxy']:<30} {row['status']:<12} {row['country']:<15}")
 
     return "\n".join(lines)
 
 
 def _format_json(proxies: list[Proxy]) -> str:
     """Format proxies as JSON."""
-    data = [
-        {
-            "proxy": proxy.proxy_string,
-            "host": proxy.host,
-            "port": proxy.port,
-            "protocol": proxy.protocol,
-            "status": (
-                proxy.health_status.name
-                if hasattr(proxy, "health_status") and proxy.health_status
-                else None
-            ),
-            "country": getattr(proxy, "country", None),
-        }
-        for proxy in proxies
-    ]
+    data = [_proxy_output_row(proxy) for proxy in proxies]
     return json.dumps(data, indent=2)
 
 
 def _format_yaml(proxies: list[Proxy]) -> str:
     """Format proxies as YAML."""
-    data = [
-        {
-            "proxy": proxy.proxy_string,
-            "host": proxy.host,
-            "port": proxy.port,
-            "protocol": proxy.protocol,
-            "status": (
-                proxy.health_status.name
-                if hasattr(proxy, "health_status") and proxy.health_status
-                else None
-            ),
-            "country": getattr(proxy, "country", None),
-        }
-        for proxy in proxies
-    ]
+    data = [_proxy_output_row(proxy) for proxy in proxies]
     return yaml.dump(data, default_flow_style=False)
 
 
@@ -143,20 +112,38 @@ def _format_csv(proxies: list[Proxy]) -> str:
     writer.writerow(["proxy", "host", "port", "protocol", "status", "country"])
 
     for proxy in proxies:
-        status = (
-            proxy.health_status.name
-            if hasattr(proxy, "health_status") and proxy.health_status
-            else None
-        )
+        row = _proxy_output_row(proxy)
         writer.writerow(
             [
-                proxy.proxy_string,
-                proxy.host,
-                proxy.port,
-                proxy.protocol,
-                status,
-                getattr(proxy, "country", None),
+                row["proxy"],
+                row["host"],
+                row["port"],
+                row["protocol"],
+                row["status"],
+                row["country"],
             ]
         )
 
     return output.getvalue()
+
+
+def _proxy_output_row(proxy: Proxy) -> dict[str, Any]:
+    """Return a formatter-safe proxy row for current Proxy models."""
+    safe_url = public_proxy_url(str(proxy.url))
+    parsed = urlparse(safe_url)
+    metadata = getattr(proxy, "metadata", {}) or {}
+    country = (
+        getattr(proxy, "country_code", None)
+        or metadata.get("country_code")
+        or metadata.get("country")
+        or "Unknown"
+    )
+    status = proxy.health_status.name if getattr(proxy, "health_status", None) else "UNKNOWN"
+    return {
+        "proxy": safe_url,
+        "host": parsed.hostname,
+        "port": parsed.port,
+        "protocol": proxy.protocol,
+        "status": status,
+        "country": country,
+    }

@@ -2,9 +2,6 @@
 title: Circuit Breakers
 description: How ProxyWhirl detects, isolates, and recovers from proxy failures with a three-state breaker.
 ---
-
-# Circuit Breakers
-
 ProxyWhirl uses the **circuit breaker pattern** to detect, isolate, and recover from proxy failures automatically. For configuration and code examples, see [Retry & Failover](/docs/guides/retry-failover).
 
 ## The Problem
@@ -75,4 +72,4 @@ Use sync `CircuitBreaker` in threaded code and `AsyncCircuitBreaker` in asyncio 
 - [Retry & Failover](/docs/guides/retry-failover) — integration and metrics
 - [Troubleshooting](/docs/guides/troubleshooting) — stuck OPEN breakers
 - [Python API](/docs/generated/python-api) — `CircuitBreaker`, `AsyncCircuitBreaker`
-- [ADR-002: Circuit Breaker](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/adr/002-circuit-breaker.md)
+- [ADR-002: Circuit Breaker](/docs/project/adr/002-circuit-breaker)

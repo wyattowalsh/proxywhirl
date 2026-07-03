@@ -12,11 +12,13 @@ Example:
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
+from proxywhirl.exceptions import ProxyFetchError
 from proxywhirl.fetchers import (
     CSVParser,
     GeonodeParser,
@@ -34,6 +36,7 @@ SOURCE_VALIDATION_PARSERS: dict[str, type[Any]] = {
     "text": PlainTextParser,
     "html": HTMLTableParser,
 }
+SOURCE_VALIDATION_MAX_BYTES = 256_000
 
 # =============================================================================
 # API-Based Sources (JSON/CSV formats)
@@ -43,12 +46,14 @@ SOURCE_VALIDATION_PARSERS: dict[str, type[Any]] = {
 PROXY_SCRAPE_HTTP = ProxySourceConfig(
     url="https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all",
     format="plain_text",
+    enabled=False,  # Disabled after strict validation timed out on 2026-07-02.
 )
 
 # ProxyScrape with additional filters for more coverage
 PROXY_SCRAPE_HTTP_ANONYMOUS = ProxySourceConfig(
     url="https://api.proxyscrape.com/v2/?request=displayproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=elite,anonymous",
     format="plain_text",
+    enabled=False,  # Disabled after strict validation timed out on 2026-07-02.
 )
 
 GEONODE_HTTP = ProxySourceConfig(
@@ -92,6 +97,7 @@ PROXY_SCRAPE_SOCKS4 = ProxySourceConfig(
 PROXYSPACE_HTTP = ProxySourceConfig(
     url="https://proxyspace.pro/http.txt",
     format="plain_text",
+    enabled=False,  # Disabled after strict validation timed out on 2026-07-02.
 )
 
 PROXYSPACE_SOCKS4 = ProxySourceConfig(
@@ -131,6 +137,7 @@ JSDELIVR_PROXIFLY_ALL = ProxySourceConfig(
 GITHUB_THESPEEDX_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/TheSpeedX/PROXY-List/master/http.txt",
     format="plain_text",
+    enabled=False,  # Disabled after strict validation timed out on 2026-07-02.
 )
 
 GITHUB_THESPEEDX_SOCKS4 = ProxySourceConfig(
@@ -217,12 +224,14 @@ GITHUB_SUNNY9577_SOCKS5 = ProxySourceConfig(
 GITHUB_MMPX12_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/mmpx12/proxy-list/master/http.txt",
     format="plain_text",
+    enabled=False,  # Disabled after upstream raw file returned 404 in Jul 2026 validation.
 )
 
 GITHUB_MMPX12_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/mmpx12/proxy-list/master/https.txt",
     format="plain_text",
     protocol="https",
+    enabled=False,  # Disabled after upstream raw file returned 404 in Jul 2026 validation.
 )
 
 GITHUB_MMPX12_SOCKS4 = ProxySourceConfig(
@@ -236,6 +245,7 @@ GITHUB_MMPX12_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/mmpx12/proxy-list/master/socks5.txt",
     format="plain_text",
     protocol="socks5",
+    enabled=False,  # Disabled after upstream raw file returned 404 in Jul 2026 validation.
 )
 
 # proxifly/free-proxy-list - Verified working proxies
@@ -495,6 +505,7 @@ GITHUB_ZEVTYARDT_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/mzyui/proxy-list/main/socks5.txt",
     format="plain_text",
     protocol="socks5",
+    enabled=False,  # Disabled after strict validation exceeded timeout budget on 2026-07-02.
 )
 
 # ErcinDedeoglu/proxies - Very large lists (50k+ each), frequently updated
@@ -521,6 +532,7 @@ GITHUB_ERCINDEDEOGLU_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ErcinDedeoglu/proxies/main/proxies/socks5.txt",
     format="plain_text",
     protocol="socks5",
+    enabled=False,  # Disabled after strict validation exceeded timeout budget on 2026-07-02.
 )
 
 # iplocate/free-proxy-list - Updated every 30 minutes, validated proxies
@@ -528,6 +540,7 @@ GITHUB_IPLOCATE_HTTP = ProxySourceConfig(
     url="https://raw.githubusercontent.com/iplocate/free-proxy-list/main/protocols/http.txt",
     format="plain_text",
     trusted=True,
+    enabled=False,  # Disabled after strict validation timed out on 2026-07-02.
 )
 
 GITHUB_IPLOCATE_HTTPS = ProxySourceConfig(
@@ -535,6 +548,7 @@ GITHUB_IPLOCATE_HTTPS = ProxySourceConfig(
     format="plain_text",
     protocol="https",
     trusted=True,
+    enabled=False,  # Disabled after strict validation timed out on 2026-07-02.
 )
 
 GITHUB_IPLOCATE_SOCKS4 = ProxySourceConfig(
@@ -549,12 +563,14 @@ GITHUB_IPLOCATE_SOCKS5 = ProxySourceConfig(
     format="plain_text",
     protocol="socks5",
     trusted=True,
+    enabled=False,  # Disabled after strict validation exceeded timeout budget on 2026-07-02.
 )
 
 GITHUB_IPLOCATE_ALL = ProxySourceConfig(
     url="https://raw.githubusercontent.com/iplocate/free-proxy-list/main/all-proxies.txt",
     format="plain_text",
     trusted=True,
+    enabled=False,  # Disabled after strict validation timed out on 2026-07-02.
 )
 
 # ProxyScraper/ProxyScraper - Updated every 30 minutes
@@ -574,6 +590,7 @@ GITHUB_PROXYSCRAPER_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/ProxyScraper/ProxyScraper/main/socks5.txt",
     format="plain_text",
     protocol="socks5",
+    enabled=False,  # Disabled after strict validation timed out on 2026-07-02.
 )
 
 
@@ -599,6 +616,7 @@ GITHUB_ZLOI_SOCKS5 = ProxySourceConfig(
     url="https://raw.githubusercontent.com/zloi-user/hideip.me/master/socks5.txt",
     format="plain_text",
     protocol="socks5",
+    enabled=False,  # Disabled after strict validation timed out on 2026-07-02.
 )
 
 # ALIILAPRO/Proxy - Updated hourly, large lists
@@ -659,6 +677,7 @@ GITHUB_R00TEE_HTTPS = ProxySourceConfig(
     url="https://raw.githubusercontent.com/r00tee/Proxy-List/main/Https.txt",
     format="plain_text",
     protocol="https",
+    enabled=False,  # Disabled after strict validation connect timeouts on 2026-07-02.
 )
 
 GITHUB_R00TEE_SOCKS4 = ProxySourceConfig(
@@ -845,8 +864,14 @@ GITHUB_NIKOLAIT_HTTPS = ProxySourceConfig(
 # Predefined Source Collections
 # =============================================================================
 
+
+def _enabled_collection(sources: list[ProxySourceConfig]) -> list[ProxySourceConfig]:
+    """Return only sources that are active in public source collections."""
+    return [source for source in sources if source.enabled]
+
+
 # All HTTP/HTTPS sources
-ALL_HTTP_SOURCES = [
+_ALL_HTTP_SOURCES = [
     # API sources (high reliability)
     PROXY_SCRAPE_HTTP,
     PROXY_SCRAPE_HTTP_ANONYMOUS,
@@ -900,9 +925,10 @@ ALL_HTTP_SOURCES = [
     GITHUB_THEMIRALAY_HTTP,
     GITHUB_NIKOLAIT_HTTPS,
 ]
+ALL_HTTP_SOURCES = _enabled_collection(_ALL_HTTP_SOURCES)
 
 # All SOCKS4 sources
-ALL_SOCKS4_SOURCES = [
+_ALL_SOCKS4_SOURCES = [
     # API sources
     # Non-GitHub web sources
     # GitHub sources
@@ -929,9 +955,10 @@ ALL_SOCKS4_SOURCES = [
     GITHUB_VADIM287_SOCKS4,
     GITHUB_SOLISPIRIT_SOCKS4,
 ]
+ALL_SOCKS4_SOURCES = _enabled_collection(_ALL_SOCKS4_SOURCES)
 
 # All SOCKS5 sources
-ALL_SOCKS5_SOURCES = [
+_ALL_SOCKS5_SOURCES = [
     # API sources
     # Non-GitHub web sources
     # GitHub sources
@@ -963,23 +990,26 @@ ALL_SOCKS5_SOURCES = [
     GITHUB_VADIM287_SOCKS5,
     GITHUB_SOLISPIRIT_SOCKS5,
 ]
+ALL_SOCKS5_SOURCES = _enabled_collection(_ALL_SOCKS5_SOURCES)
 
 # All sources combined
 ALL_SOURCES = ALL_HTTP_SOURCES + ALL_SOCKS4_SOURCES + ALL_SOCKS5_SOURCES
 
 # Recommended fast/reliable sources for quick start
 RECOMMENDED_SOURCES = [
-    GITHUB_IPLOCATE_HTTP,
     GITHUB_MONOSANS_HTTP,
+    JSDELIVR_PROXIFLY_ALL,
     GITHUB_PROXIFLY_HTTP,
     GITHUB_KOMUTAN_HTTP,  # Updated every 2 minutes
 ]
 
 # API-based sources only (typically faster/more reliable)
-API_SOURCES = [
-    PROXY_SCRAPE_HTTP,
-    PROXY_SCRAPE_SOCKS4,
-]
+API_SOURCES = _enabled_collection(
+    [
+        PROXY_SCRAPE_HTTP,
+        PROXY_SCRAPE_SOCKS4,
+    ]
+)
 
 
 # =============================================================================
@@ -1049,6 +1079,68 @@ def _count_parseable_proxies(source: ProxySourceConfig, content: str) -> int:
     return len(proxies)
 
 
+async def _read_validation_content(
+    source: ProxySourceConfig,
+    response: httpx.Response,
+    max_bytes: int = SOURCE_VALIDATION_MAX_BYTES,
+) -> tuple[str, int, str | None]:
+    """Read enough response content to prove a source returns proxy data."""
+    chunks: list[str] = []
+    bytes_read = 0
+    parse_error: str | None = None
+
+    async for chunk in response.aiter_bytes(chunk_size=65536):
+        if not chunk:
+            continue
+
+        remaining = max_bytes - bytes_read
+        if remaining <= 0:
+            break
+
+        selected = chunk[:remaining]
+        bytes_read += len(selected)
+        chunks.append(selected.decode(response.encoding or "utf-8", errors="replace"))
+        content = "".join(chunks)
+
+        try:
+            if _count_parseable_proxies(source, content) > 0:
+                return content.strip(), bytes_read, None
+            parse_error = None
+        except (ProxyFetchError, ValueError, TypeError) as exception:
+            parse_error = f"Parse error: {exception}"[:100]
+
+        if bytes_read >= max_bytes:
+            break
+
+    return "".join(chunks).strip(), bytes_read, parse_error
+
+
+async def _fetch_validation_content(
+    source: ProxySourceConfig,
+    timeout: float,
+    client: httpx.AsyncClient,
+) -> tuple[int, int, int, str | None]:
+    request_timeout = httpx.Timeout(
+        timeout, connect=timeout, read=timeout, write=timeout, pool=timeout
+    )
+
+    async with client.stream("GET", str(source.url), timeout=request_timeout) as response:
+        if response.status_code != 200:
+            return response.status_code, 0, 0, None
+
+        content, content_length, parse_error = await _read_validation_content(source, response)
+        if parse_error is not None:
+            return response.status_code, content_length, 0, parse_error
+
+        try:
+            proxy_count = _count_parseable_proxies(source, content)
+        except (ProxyFetchError, ValueError, TypeError) as exception:
+            proxy_count = 0
+            parse_error = f"Parse error: {exception}"[:100]
+
+        return response.status_code, content_length, proxy_count, parse_error
+
+
 def _get_source_name(source: ProxySourceConfig) -> str:
     """Extract a readable name from a source URL."""
     url = str(source.url)
@@ -1108,44 +1200,62 @@ async def validate_source(
     name = _get_source_name(source)
     start = time.perf_counter()
 
-    try:
-        if client is None:
-            async with httpx.AsyncClient(follow_redirects=True) as c:
-                resp = await c.get(str(source.url), timeout=timeout)
-        else:
-            resp = await client.get(str(source.url), timeout=timeout)
-
+    total_timeout = (timeout * 2) + 0.25
+    for attempt in range(2):
         elapsed_ms = (time.perf_counter() - start) * 1000
-        content = resp.text.strip() if resp.status_code == 200 else ""
-        content_length = len(content)
-
-        parse_error = None
         try:
-            proxy_count = _count_parseable_proxies(source, content)
-        except Exception as exception:
-            proxy_count = 0
-            parse_error = f"Parse error: {exception}"[:100]
+            if client is None:
+                async with httpx.AsyncClient(follow_redirects=True) as c:
+                    (
+                        status_code,
+                        content_length,
+                        proxy_count,
+                        parse_error,
+                    ) = await asyncio.wait_for(
+                        _fetch_validation_content(source, timeout, c), timeout=total_timeout
+                    )
+            else:
+                status_code, content_length, proxy_count, parse_error = await asyncio.wait_for(
+                    _fetch_validation_content(source, timeout, client), timeout=total_timeout
+                )
 
-        return SourceValidationResult(
-            source=source,
-            name=name,
-            status_code=resp.status_code,
-            content_length=content_length,
-            has_proxies=proxy_count > 0,
-            error=parse_error,
-            response_time_ms=elapsed_ms,
-        )
-    except Exception as e:
-        elapsed_ms = (time.perf_counter() - start) * 1000
-        return SourceValidationResult(
-            source=source,
-            name=name,
-            status_code=None,
-            content_length=0,
-            has_proxies=False,
-            error=str(e)[:100],
-            response_time_ms=elapsed_ms,
-        )
+            result = SourceValidationResult(
+                source=source,
+                name=name,
+                status_code=status_code,
+                content_length=content_length,
+                has_proxies=proxy_count > 0,
+                error=parse_error,
+                response_time_ms=elapsed_ms,
+            )
+        except TimeoutError:
+            result = SourceValidationResult(
+                source=source,
+                name=name,
+                status_code=None,
+                content_length=0,
+                has_proxies=False,
+                error=f"Validation timeout after {timeout:g}s",
+                response_time_ms=elapsed_ms,
+            )
+        except (httpx.HTTPError, OSError) as e:
+            result = SourceValidationResult(
+                source=source,
+                name=name,
+                status_code=None,
+                content_length=0,
+                has_proxies=False,
+                error=str(e)[:100] or type(e).__name__,
+                response_time_ms=elapsed_ms,
+            )
+
+        if result.is_healthy or attempt == 1:
+            result.response_time_ms = (time.perf_counter() - start) * 1000
+            return result
+
+        await asyncio.sleep(0)
+
+    raise RuntimeError("source validation retry loop exhausted")
 
 
 async def validate_sources(

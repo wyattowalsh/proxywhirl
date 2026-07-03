@@ -1,5 +1,5 @@
 [Unit]
-Description=ProxyWhirl Worker Service
+Description=ProxyWhirl Background Health Check Service
 Documentation=https://proxywhirl.readthedocs.io
 After=network-online.target proxywhirl.service
 Wants=network-online.target
@@ -14,9 +14,7 @@ WorkingDirectory=/opt/proxywhirl
 Environment="PROXYWHIRL_LOG_LEVEL=INFO"
 EnvironmentFile=-/etc/default/proxywhirl
 
-ExecStart=/opt/proxywhirl/venv/bin/python3 -m proxywhirl worker \
-    --queue-name background \
-    --workers 2
+ExecStart=/opt/proxywhirl/.venv/bin/proxywhirl health --continuous --interval 300
 
 Restart=on-failure
 RestartSec=5

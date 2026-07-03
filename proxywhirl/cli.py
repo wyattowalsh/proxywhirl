@@ -253,6 +253,40 @@ def validate_target_url(url: str, allow_private: bool = False) -> None:
         address = _parse_target_ip_address(hostname_lower)
         if address is not None:
             _reject_forbidden_target_address(address, parsed.hostname)
+        else:
+            try:
+                resolved_addresses = socket.getaddrinfo(
+                    parsed.hostname,
+                    None,
+                    socket.AF_UNSPEC,
+                    socket.SOCK_STREAM,
+                )
+            except socket.gaierror as e:
+                typer.secho(
+                    f"Error: Cannot resolve hostname: {parsed.hostname}", err=True, fg="red"
+                )
+                raise typer.Exit(code=1) from e
+
+            checked_addresses: set[ipaddress.IPv4Address | ipaddress.IPv6Address] = set()
+            for address_info in resolved_addresses:
+                try:
+                    resolved_address = ipaddress.ip_address(address_info[4][0])
+                except ValueError:
+                    typer.secho(
+                        f"Error: Cannot validate resolved address for: {parsed.hostname}",
+                        err=True,
+                        fg="red",
+                    )
+                    raise typer.Exit(code=1)
+                if (
+                    isinstance(resolved_address, ipaddress.IPv6Address)
+                    and resolved_address.ipv4_mapped
+                ):
+                    resolved_address = resolved_address.ipv4_mapped
+                if resolved_address in checked_addresses:
+                    continue
+                checked_addresses.add(resolved_address)
+                _reject_forbidden_target_address(resolved_address, parsed.hostname)
 
 
 def get_context() -> CommandContext:

@@ -131,14 +131,10 @@ async def test_post_request_endpoint_contract():
         assert response.status_code in [200, 500, 503, 502, 504]
         data = response.json()
 
-        # Verify envelope structure or FastAPI error structure
-        if "status" in data:
-            assert data["status"] in ["success", "error"]
+        # Verify APIResponse envelope structure
+        assert data["status"] in ["success", "error"]
 
-            if data["status"] == "error":
-                assert "error" in data
-                assert "code" in data["error"]
-                assert "message" in data["error"]
-        else:
-            # FastAPI validation error structure
-            assert "detail" in data
+        if data["status"] == "error":
+            assert "error" in data
+            assert "code" in data["error"]
+            assert "message" in data["error"]

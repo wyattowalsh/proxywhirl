@@ -507,6 +507,25 @@ class TestSQLiteStorage:
             assert "aiosqlite" in str(storage.engine.url)
             await storage.close()
 
+    async def test_encrypt_credential_failure_raises_storage_error(self) -> None:
+        """Credential encryption failures must not fall back to plaintext storage."""
+        from proxywhirl.exceptions import ProxyStorageError
+        from proxywhirl.storage import SQLiteStorage
+
+        class FailingEncryptor:
+            def encrypt(self, value):
+                raise ValueError("encryption failed")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            storage._encryptor = FailingEncryptor()
+
+            with pytest.raises(ProxyStorageError, match="Failed to encrypt credential"):
+                storage._encrypt_credential("secret")
+
+            await storage.close()
+
     async def test_sqlite_storage_initialize_creates_tables(self) -> None:
         """Test initialize() creates database tables."""
         from proxywhirl.storage import SQLiteStorage

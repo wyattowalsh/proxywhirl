@@ -15,17 +15,23 @@ Tests cover:
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
 
 from proxywhirl.exceptions import ProxyPoolEmptyError
-from proxywhirl.models import BootstrapConfig, ProxySourceConfig
+from proxywhirl.models import BootstrapConfig, Proxy, ProxyPool, ProxySourceConfig
 from proxywhirl.rotator._bootstrap import (
+    _coerce_proxy,
+    _fetch_bootstrap_candidates,
     _raise_bootstrap_empty_error,
+    _run_async_from_sync,
     _sample_sources,
     _should_show_progress,
+    bootstrap_pool_if_empty_async,
+    bootstrap_pool_if_empty_sync,
 )
 from proxywhirl.sources import ALL_SOURCES
 
@@ -384,3 +390,360 @@ class TestBootstrapSummaryAndLogging:
             summary_text = "".join(write_calls)
             assert "fetched" in summary_text
             assert "validated" in summary_text
+
+    @pytest.mark.asyncio
+    async def test_summary_without_validated_count(self):
+        """Summary omits validated count when validation is disabled."""
+        config = BootstrapConfig(show_progress=True, validate_proxies=False)
+
+        async def mock_fetch(**kwargs):
+            return [{"url": "http://45.33.32.156:8080"}]
+
+        mock_stderr = MagicMock()
+        mock_stderr.isatty.return_value = True
+
+        with (
+            patch("proxywhirl.rotator._bootstrap.fetch_all_sources", new=mock_fetch),
+            patch("proxywhirl.rotator._bootstrap.sys.stderr", mock_stderr),
+            patch("proxywhirl.rotator._bootstrap.logger"),
+        ):
+            await _fetch_bootstrap_candidates(config=config)
+            write_calls = [str(c) for c in mock_stderr.write.call_args_list]
+            summary_text = "".join(write_calls)
+            assert "validated" not in summary_text
+            assert "Ready: 1 proxies from" in summary_text
+
+    @pytest.mark.asyncio
+    async def test_stderr_write_oserror_is_swallowed(self):
+        """A broken stderr (e.g. closed pipe) should not crash bootstrap."""
+        config = BootstrapConfig(show_progress=True, validate_proxies=False)
+
+        async def mock_fetch(**kwargs):
+            return [{"url": "http://45.33.32.156:8080"}]
+
+        mock_stderr = MagicMock()
+        mock_stderr.isatty.return_value = True
+        mock_stderr.write.side_effect = OSError("broken pipe")
+
+        with (
+            patch("proxywhirl.rotator._bootstrap.fetch_all_sources", new=mock_fetch),
+            patch("proxywhirl.rotator._bootstrap.sys.stderr", mock_stderr),
+            patch("proxywhirl.rotator._bootstrap.logger") as mock_logger,
+        ):
+            candidates, count = await _fetch_bootstrap_candidates(config=config)
+            assert len(candidates) == 1
+            mock_logger.info.assert_called_once()
+
+
+class TestCoerceProxy:
+    """Test _coerce_proxy() edge cases."""
+
+    def test_missing_url_returns_none(self):
+        """A payload without a 'url' key returns None."""
+        assert _coerce_proxy({}) is None
+
+    def test_non_string_url_returns_none(self):
+        """A non-string 'url' value returns None."""
+        assert _coerce_proxy({"url": 12345}) is None
+
+    def test_empty_string_url_returns_none(self):
+        """An empty string 'url' returns None."""
+        assert _coerce_proxy({"url": ""}) is None
+
+    def test_invalid_url_format_returns_none(self):
+        """A malformed proxy URL that fails validation returns None."""
+        assert _coerce_proxy({"url": "not-a-valid-proxy-url"}) is None
+
+    def test_valid_url_returns_proxy(self):
+        """A well-formed proxy URL returns a Proxy instance."""
+        result = _coerce_proxy({"url": "http://45.33.32.156:8080"})
+        assert isinstance(result, Proxy)
+
+
+class TestSampleSourcesAllDisabled:
+    """Test _sample_sources() when no built-in sources are enabled."""
+
+    def test_returns_empty_list_when_none_enabled(self):
+        """No enabled sources yields an empty list rather than raising."""
+        with patch("proxywhirl.rotator._bootstrap.ALL_SOURCES", []):
+            result = _sample_sources(None, sample_size=None)
+            assert result == []
+
+
+class TestFetchBootstrapCandidatesNoSources:
+    """Test _fetch_bootstrap_candidates() when source selection is empty."""
+
+    @pytest.mark.asyncio
+    async def test_empty_explicit_sources_short_circuits(self):
+        """An explicit empty source list returns immediately without fetching."""
+        config = BootstrapConfig(sources=[], validate_proxies=False, show_progress=False)
+
+        with patch("proxywhirl.rotator._bootstrap.fetch_all_sources") as mock_fetch:
+            candidates, count = await _fetch_bootstrap_candidates(config=config)
+            assert candidates == []
+            assert count == 0
+            mock_fetch.assert_not_called()
+
+
+class TestShowProgressImportError:
+    """Test graceful degradation when the optional `rich` dependency is unavailable."""
+
+    @pytest.mark.asyncio
+    async def test_missing_rich_disables_progress_bars(self):
+        """ImportError while importing rich should not crash bootstrap fetch."""
+        config = BootstrapConfig(show_progress=True, validate_proxies=False)
+
+        async def mock_fetch(**kwargs):
+            return [{"url": "http://45.33.32.156:8080"}]
+
+        mock_stderr = MagicMock()
+        mock_stderr.isatty.return_value = True
+
+        with (
+            patch.dict("sys.modules", {"rich.console": None, "rich.progress": None}),
+            patch("proxywhirl.rotator._bootstrap.fetch_all_sources", new=mock_fetch),
+            patch("proxywhirl.rotator._bootstrap.sys.stderr", mock_stderr),
+            patch("proxywhirl.rotator._bootstrap.logger"),
+        ):
+            candidates, _count = await _fetch_bootstrap_candidates(config=config)
+            assert len(candidates) == 1
+
+
+class TestRunAsyncFromSync:
+    """Test _run_async_from_sync() bridging behavior."""
+
+    def test_no_running_loop_uses_asyncio_run(self):
+        """When no event loop is running, asyncio.run() is used directly."""
+
+        async def factory():
+            return 42
+
+        assert _run_async_from_sync(factory) == 42
+
+    def test_running_loop_uses_worker_thread_sync_call_site(self):
+        """Direct call from a coroutine on a running loop delegates to a worker thread."""
+        loop = asyncio.new_event_loop()
+
+        async def factory():
+            return "from-thread"
+
+        async def runner():
+            # Invoking the sync bridge from inside a running coroutine means
+            # asyncio.get_running_loop() succeeds, forcing the worker-thread branch.
+            return _run_async_from_sync(factory)
+
+        try:
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(runner())
+            assert result == "from-thread"
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+    def test_running_loop_propagates_exceptions_sync_call_site(self):
+        """Exceptions raised in the worker thread propagate to the caller."""
+        loop = asyncio.new_event_loop()
+
+        async def factory():
+            raise ValueError("boom")
+
+        try:
+            asyncio.set_event_loop(loop)
+
+            async def runner():
+                return _run_async_from_sync(factory)
+
+            with pytest.raises(ValueError, match="boom"):
+                loop.run_until_complete(runner())
+        finally:
+            loop.close()
+            asyncio.set_event_loop(None)
+
+
+class TestBootstrapPoolPartialFailures:
+    """Test bootstrap_pool_if_empty_{async,sync}() partial add_proxy failures."""
+
+    @pytest.mark.asyncio
+    async def test_async_skips_failed_proxies_but_returns_added_count(self):
+        """Proxies that fail add_proxy are skipped; successful ones are counted."""
+        pool = ProxyPool(name="test", proxies=[])
+        added_proxies: list[Proxy] = []
+        call_count = 0
+
+        async def flaky_add_proxy(proxy: Proxy) -> None:
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise RuntimeError("simulated failure")
+            added_proxies.append(proxy)
+
+        async def mock_fetch(**kwargs):
+            return [
+                {"url": "http://45.33.32.156:8080"},
+                {"url": "http://45.33.32.157:8080"},
+            ]
+
+        with patch("proxywhirl.rotator._bootstrap.fetch_all_sources", new=mock_fetch):
+            added = await bootstrap_pool_if_empty_async(
+                pool=pool,
+                add_proxy=flaky_add_proxy,
+                validate=False,
+                sources=[ProxySourceConfig(url="https://example.com/a.txt", format="plain_text")],
+            )
+        assert added == 1
+
+    @pytest.mark.asyncio
+    async def test_async_raises_when_all_adds_fail(self):
+        """All add_proxy failures should raise ProxyPoolEmptyError."""
+        pool = ProxyPool(name="test", proxies=[])
+
+        async def always_fail_add_proxy(proxy: Proxy) -> None:
+            raise RuntimeError("simulated failure")
+
+        async def mock_fetch(**kwargs):
+            return [{"url": "http://45.33.32.156:8080"}]
+
+        with patch("proxywhirl.rotator._bootstrap.fetch_all_sources", new=mock_fetch):
+            with pytest.raises(ProxyPoolEmptyError):
+                await bootstrap_pool_if_empty_async(
+                    pool=pool,
+                    add_proxy=always_fail_add_proxy,
+                    validate=False,
+                    sources=[
+                        ProxySourceConfig(url="https://example.com/a.txt", format="plain_text")
+                    ],
+                )
+
+    def test_sync_skips_failed_proxies_but_returns_added_count(self):
+        """Sync variant: proxies that fail add_proxy are skipped."""
+        pool = ProxyPool(name="test", proxies=[])
+        added_proxies: list[Proxy] = []
+
+        def flaky_add_proxy(proxy: Proxy) -> None:
+            if len(added_proxies) == 0:
+                added_proxies.append(proxy)
+                raise RuntimeError("simulated failure")
+            added_proxies.append(proxy)
+
+        async def mock_fetch(**kwargs):
+            return [
+                {"url": "http://45.33.32.156:8080"},
+                {"url": "http://45.33.32.157:8080"},
+            ]
+
+        with patch("proxywhirl.rotator._bootstrap.fetch_all_sources", new=mock_fetch):
+            added = bootstrap_pool_if_empty_sync(
+                pool=pool,
+                add_proxy=flaky_add_proxy,
+                validate=False,
+                sources=[ProxySourceConfig(url="https://example.com/a.txt", format="plain_text")],
+            )
+        assert added == 1
+
+    def test_sync_raises_when_all_adds_fail(self):
+        """Sync variant: all add_proxy failures should raise ProxyPoolEmptyError."""
+        pool = ProxyPool(name="test", proxies=[])
+
+        def always_fail_add_proxy(proxy: Proxy) -> None:
+            raise RuntimeError("simulated failure")
+
+        async def mock_fetch(**kwargs):
+            return [{"url": "http://45.33.32.156:8080"}]
+
+        with patch("proxywhirl.rotator._bootstrap.fetch_all_sources", new=mock_fetch):
+            with pytest.raises(ProxyPoolEmptyError):
+                bootstrap_pool_if_empty_sync(
+                    pool=pool,
+                    add_proxy=always_fail_add_proxy,
+                    validate=False,
+                    sources=[
+                        ProxySourceConfig(url="https://example.com/a.txt", format="plain_text")
+                    ],
+                )
+
+    @pytest.mark.asyncio
+    async def test_async_noop_when_pool_already_populated(self):
+        """A non-empty pool short-circuits bootstrap and returns 0."""
+        pool = ProxyPool(name="test", proxies=[Proxy(url="http://45.33.32.156:8080")])
+
+        with patch("proxywhirl.rotator._bootstrap.fetch_all_sources") as mock_fetch:
+            added = await bootstrap_pool_if_empty_async(
+                pool=pool, add_proxy=AsyncMock(), config=BootstrapConfig()
+            )
+        assert added == 0
+        mock_fetch.assert_not_called()
+
+    def test_sync_noop_when_pool_already_populated(self):
+        """A non-empty pool short-circuits bootstrap and returns 0 (sync)."""
+        pool = ProxyPool(name="test", proxies=[Proxy(url="http://45.33.32.156:8080")])
+
+        with patch("proxywhirl.rotator._bootstrap.fetch_all_sources") as mock_fetch:
+            added = bootstrap_pool_if_empty_sync(
+                pool=pool, add_proxy=MagicMock(), config=BootstrapConfig()
+            )
+        assert added == 0
+        mock_fetch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_async_raises_when_max_proxies_truncates_to_empty(self):
+        """max_proxies=0 truncates all candidates, triggering the empty-pool error."""
+        pool = ProxyPool(name="test", proxies=[])
+
+        async def mock_fetch(**kwargs):
+            return [{"url": "http://45.33.32.156:8080"}]
+
+        with patch("proxywhirl.rotator._bootstrap.fetch_all_sources", new=mock_fetch):
+            with pytest.raises(ProxyPoolEmptyError):
+                await bootstrap_pool_if_empty_async(
+                    pool=pool,
+                    add_proxy=AsyncMock(),
+                    validate=False,
+                    max_proxies=0,
+                    sources=[
+                        ProxySourceConfig(url="https://example.com/a.txt", format="plain_text")
+                    ],
+                )
+
+    def test_sync_raises_when_max_proxies_truncates_to_empty(self):
+        """Sync: max_proxies=0 truncates all candidates, triggering the empty-pool error."""
+        pool = ProxyPool(name="test", proxies=[])
+
+        async def mock_fetch(**kwargs):
+            return [{"url": "http://45.33.32.156:8080"}]
+
+        with patch("proxywhirl.rotator._bootstrap.fetch_all_sources", new=mock_fetch):
+            with pytest.raises(ProxyPoolEmptyError):
+                bootstrap_pool_if_empty_sync(
+                    pool=pool,
+                    add_proxy=MagicMock(),
+                    validate=False,
+                    max_proxies=0,
+                    sources=[
+                        ProxySourceConfig(url="https://example.com/a.txt", format="plain_text")
+                    ],
+                )
+
+    def test_sync_legacy_kwargs_build_config_and_apply_max_proxies(self):
+        """Legacy kwargs (config=None) construct a BootstrapConfig and respect max_proxies."""
+        pool = ProxyPool(name="test", proxies=[])
+        added_proxies: list[Proxy] = []
+
+        async def mock_fetch(**kwargs):
+            return [
+                {"url": "http://45.33.32.156:8080"},
+                {"url": "http://45.33.32.157:8080"},
+                {"url": "http://45.33.32.158:8080"},
+            ]
+
+        with patch("proxywhirl.rotator._bootstrap.fetch_all_sources", new=mock_fetch):
+            added = bootstrap_pool_if_empty_sync(
+                pool=pool,
+                add_proxy=added_proxies.append,
+                validate=False,
+                timeout=5,
+                max_concurrent=10,
+                max_proxies=2,
+                sources=[ProxySourceConfig(url="https://example.com/a.txt", format="plain_text")],
+            )
+        assert added == 2
+        assert len(added_proxies) == 2

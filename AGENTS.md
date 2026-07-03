@@ -37,7 +37,7 @@ Use `uvx` only for intentionally isolated tools such as `uvx pip-audit` or `uvx 
 | 2     | test-integration, test-property | test-unit    |
 | 3     | coverage, build                 | All tests    |
 
-**Locks required:** `uv.lock` (write), `proxywhirl.db` (write)
+**Locks required:** `uv.lock` (write)
 
 ## Key Modules
 
@@ -113,7 +113,7 @@ When manually testing CLI fixes, use `uv run proxywhirl --no-lock --help` plus a
 
 **Pre-commit:** ruff lint/format, commitizen, private key detection, large file check
 
-**CI Workflows** (`.github/workflows/`): `ci.yml` (main), `security.yml`, `generate-proxies.yml` (6h cron), `validate-sources.yml`, `update-readme-stats.yml`, `release.yml`, `cd.yml`
+**CI Workflows** (`.github/workflows/`): `ci.yml` (main), `security.yml`, `generate-proxies.yml` (3h cron), `validate-sources.yml`, `update-readme-stats.yml`, `release.yml`, `cd.yml`
 
 For remote assurance, monitor at least `CI`, `Security Scan`, and manually dispatched `Validate Proxy Sources` on the pushed SHA. Treat GitHub log markers as actionable if they include `##[warning]`, `##[error]`, `::warning::`, `::error::`, Python warning classes, tracebacks, or Codecov upload token errors. Literal environment assignments such as `PYTHONWARNINGS="ignore::UserWarning"` are not emitted warnings.
 
@@ -173,7 +173,7 @@ Run `pnpm --dir web run test:e2e` only when browser dependencies are installed a
 - `*.backup`, `*.bak` files
 - Files outside repo root
 
-**Database:** `proxywhirl.db` tracked in git, CI auto-updates every 6h, local changes overwritten
+**Database:** `proxywhirl.db` is local runtime state (gitignored). CI refreshes exported proxy lists under `docs/proxy-lists/` every 3h.
 
 ## Environment Variables
 

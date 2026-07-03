@@ -2,9 +2,6 @@
 title: MCP Server
 description: Run ProxyWhirl as a Model Context Protocol server for AI assistant proxy operations.
 ---
-
-# MCP Server
-
 ProxyWhirl includes an MCP server for AI assistant workflows that need structured proxy operations instead of raw Python imports or shell commands.
 
 **Requires:** Python 3.10+, `uv pip install -e ".[mcp]"`
@@ -44,6 +41,13 @@ uvx "proxywhirl[mcp]" proxywhirl-mcp
 | `PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES` | Local-dev/test override for unauthenticated writes — **never in production** |
 | `PROXYWHIRL_MCP_DB` | SQLite database path (default: `proxywhirl.db`) |
 | `PROXYWHIRL_MCP_LOG_LEVEL` | `debug`, `info`, `warning`, `error` |
+
+> [!IMPORTANT]
+> `PROXYWHIRL_MCP_API_KEY` is unset by default. Starting `proxywhirl-mcp` without it logs a `WARNING`
+> ("MCP server starting WITHOUT authentication…") and leaves read actions unauthenticated; write actions
+> are still rejected unless `PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES` is explicitly set. Treat that
+> warning as a signal to set an API key before exposing the server outside local development — see
+> [Production Hardening](/docs/guides/deployment#production-hardening-authentication).
 
 ## Actions (11)
 

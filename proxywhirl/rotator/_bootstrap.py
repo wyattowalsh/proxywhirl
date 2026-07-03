@@ -49,7 +49,8 @@ def _sample_sources(
         return enabled
 
     k = min(sample_size, len(enabled))
-    return random.sample(enabled, k)
+    # Non-cryptographic randomness is sufficient for source sampling.
+    return random.sample(enabled, k)  # nosec B311
 
 
 def _should_show_progress(show_progress: bool | None) -> bool:

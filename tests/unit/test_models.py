@@ -2,7 +2,7 @@
 Unit tests for Proxy model validation.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import pytest
@@ -796,6 +796,23 @@ class TestProxySlidingWindowConcurrency:
 
 
 @pytest.mark.slow
+class TestProxyPoolExpiration:
+    """Regression tests for ProxyPool expiration cleanup."""
+
+    def test_clear_expired_rebuilds_url_index(self) -> None:
+        """Expired proxy URLs should be reusable after cleanup."""
+        url = "http://expired.example.com:8080"
+        expired_proxy = Proxy(url=url, expires_at=datetime.now(UTC) - timedelta(seconds=1))
+        pool = ProxyPool(name="test-pool", proxies=[expired_proxy])
+
+        removed = pool.clear_expired()
+        pool.add_proxy(Proxy(url=url))
+
+        assert removed == 1
+        assert pool.size == 1
+        assert pool.has_proxy_url(url) is True
+
+
 class TestProxyPoolConcurrentAccess:
     """Test ProxyPool thread safety for concurrent access operations.
 

@@ -77,6 +77,31 @@ class TestRotatorSetStrategy:
         rotator.set_strategy("random", atomic=False)
         assert rotator.strategy.__class__.__name__ == "RandomStrategy"
 
+    def test_set_strategy_updates_orchestrator_strategy(self) -> None:
+        """Hot-swapping strategy should update failover orchestration too."""
+        from proxywhirl.strategies import RandomStrategy
+
+        rotator = ProxyWhirl(strategy="round-robin")
+        strategy = RandomStrategy()
+
+        rotator.set_strategy(strategy)
+
+        assert rotator.strategy is strategy
+        assert rotator.orchestrator.strategy is strategy
+
+    def test_duplicate_proxy_add_does_not_create_phantom_circuit_breaker(self) -> None:
+        """Duplicate URL adds should not create circuit breakers for skipped proxies."""
+        rotator = ProxyWhirl()
+        first = Proxy(url="http://duplicate.example.com:8080")
+        duplicate = Proxy(url="http://duplicate.example.com:8080")
+
+        rotator.add_proxy(first)
+        rotator.add_proxy(duplicate)
+
+        assert rotator.pool.size == 1
+        assert len(rotator.circuit_breakers) == 1
+        assert str(first.id) in rotator.circuit_breakers
+
 
 class TestRotatorCircuitBreakerEdgeCases:
     """Test circuit breaker edge cases."""

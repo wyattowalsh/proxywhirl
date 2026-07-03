@@ -378,7 +378,7 @@ class Proxy(BaseModel):
     # complete_request methods. This field is retained for storage serialization
     # and backward compatibility only. Strategies using StrategyState manage
     # their own per-proxy metrics with independent alpha values.
-    ema_alpha: float = 0.2  # Deprecated in v1.8+: use StrategyConfig.ema_alpha in strategies instead. Will be removed in v2.0. See migration guide: docs/source/guides/migration-v2.md
+    ema_alpha: float = 0.2  # Deprecated in v1.8+: use StrategyConfig.ema_alpha in strategies instead. Will be removed in v2.0. See migration guide: web/content/docs/guides/migration-v2.mdx
     # Sliding window for counter staleness prevention
     window_start: datetime | None = None  # Start time of current window
     window_duration_seconds: int = 3600  # Window duration (default 1 hour)
@@ -1376,8 +1376,9 @@ class ProxyPool(BaseModel):
         with self._lock:
             initial_count = self.size
             self.proxies = [p for p in self.proxies if not p.is_expired]
-            # Rebuild ID index after bulk removal
+            # Rebuild indexes after bulk removal
             object.__setattr__(self, "_id_index", {p.id: p for p in self.proxies if p.id})
+            object.__setattr__(self, "_url_index", {p.url for p in self.proxies})
             self.updated_at = datetime.now(timezone.utc)
             return initial_count - self.size
 

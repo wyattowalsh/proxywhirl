@@ -706,6 +706,26 @@ class TestWeightedStrategy:
         assert first_cached_ids != second_cached_ids
         assert len(second_cached_ids) == 2
 
+    def test_cache_invalidation_on_proxy_counter_change(self):
+        """Cached weights should refresh when success-rate counters change."""
+        pool = ProxyPool(name="test-pool")
+        proxy1 = Proxy(url="http://proxy1.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy1.total_requests = 10
+        proxy1.total_successes = 1
+        proxy2 = Proxy(url="http://proxy2.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy2.total_requests = 10
+        proxy2.total_successes = 9
+        pool.add_proxy(proxy1)
+        pool.add_proxy(proxy2)
+        strategy = WeightedStrategy()
+
+        first_weights = strategy._get_weights(pool.get_healthy_proxies())
+        proxy1.total_successes = 10
+        second_weights = strategy._get_weights(pool.get_healthy_proxies())
+
+        assert first_weights != second_weights
+        assert second_weights[0] > first_weights[0]
+
     def test_weights_normalized_after_proxy_removal(self):
         """Test that weights are renormalized to sum to 1.0 after proxies are removed."""
         # Arrange
@@ -1108,7 +1128,9 @@ class TestWeightedStrategy:
 
         # Proxy IDs in cache should match current healthy proxies
         current_ids = [str(p.id) for p in healthy_proxies]
-        assert strategy._cached_proxy_ids == current_ids
+        assert [
+            cache_key.split(":", 1)[0] for cache_key in strategy._cached_proxy_ids
+        ] == current_ids
 
     def test_concurrent_cache_invalidation_race_condition(self):
         """Test that cache invalidation race condition is properly handled.

@@ -3,7 +3,6 @@ title: Python API Reference
 description: Source-grounded public exports from proxywhirl.__all__.
 ---
 
-# Python API Reference
 
 <div className="rounded-xl border border-fd-border bg-fd-muted/40 p-4 text-sm">
 <strong>Generated reference.</strong> This page is derived from `proxywhirl.__all__`, package metadata, and object docstrings during <code>pnpm --dir web run docs:generate</code>. Edit <code>web/scripts/generate-docs.mjs</code>, not this MDX file.
@@ -142,7 +141,7 @@ description: Source-grounded public exports from proxywhirl.__all__.
 | `RateLimit` | class | `proxywhirl.rate_limiting` | Rate limit configuration. |
 | `RateLimitEvent` | class | `proxywhirl.rate_limiting` | Rate limit event for logging. |
 | `RateLimitExceededError` | class | `proxywhirl.exceptions` | Raised when rate limit is exceeded. |
-| `RateLimiter` | class | `proxywhirl.rate_limiting` | Rate limiter with per-proxy and global limits using pyrate-limiter. |
+| `RateLimiter` | class | `proxywhirl.rate_limiting` | Rate limiter with per-proxy and global token-bucket limits. |
 | `RegexComplexityError` | class | `proxywhirl.safe_regex` | Raised when regex pattern is too complex or dangerous. |
 | `RegexTimeoutError` | class | `proxywhirl.safe_regex` | Raised when regex compilation or matching exceeds timeout. |
 | `RenderMode` | class | `proxywhirl.models` | Page rendering modes for fetching proxy lists. |

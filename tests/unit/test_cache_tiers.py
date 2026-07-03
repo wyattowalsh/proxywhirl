@@ -5,6 +5,7 @@ Tests for MemoryCacheTier, JsonlCacheTier, DiskCacheTier, and SQLiteCacheTier.
 
 import json
 import sqlite3
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -504,6 +505,38 @@ class TestJsonlCacheTier:
         keys = tier.keys()
         assert set(keys) == {"key1", "key2"}
 
+    def test_concurrent_put_respects_max_entries(self, tmp_path: Path) -> None:
+        """Concurrent JSONL writes should not exceed configured capacity."""
+        config = CacheTierConfig(enabled=True, max_entries=10, ttl_seconds=3600)
+        tier = JsonlCacheTier(config, TierType.L2_FILE, tmp_path, num_shards=1)
+        now = datetime.now(timezone.utc)
+
+        def put_entry(index: int) -> None:
+            entry = CacheEntry(
+                key=f"key-{index}",
+                proxy_url=f"http://proxy{index}.example.com:8080",
+                source="test",
+                fetch_time=now,
+                last_accessed=now + timedelta(microseconds=index),
+                ttl_seconds=3600,
+                expires_at=now + timedelta(hours=1),
+            )
+            assert tier.put(entry.key, entry) is True
+
+        threads = [threading.Thread(target=put_entry, args=(index,)) for index in range(50)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        shard_rows = [
+            json.loads(line)
+            for line in tier._get_shard_path(0).read_text().splitlines()
+            if line.strip()
+        ]
+        assert tier.size() <= config.max_entries
+        assert len(shard_rows) <= config.max_entries
+
     def test_shard_path(self, tier_config: CacheTierConfig, tmp_path: Path) -> None:
         """Test shard path generation."""
         tier = JsonlCacheTier(tier_config, TierType.L2_FILE, tmp_path)
@@ -748,6 +781,42 @@ class TestDiskCacheTier:
         result = tier.get(sample_entry.key)
         assert result is not None
         assert result.key == sample_entry.key
+
+    def test_concurrent_puts_are_persisted(
+        self,
+        tier_config: CacheTierConfig,
+        tmp_path: Path,
+    ) -> None:
+        """Concurrent SQLite L2 writes should all persist when they report success."""
+        tier = DiskCacheTier(tier_config, TierType.L2_FILE, tmp_path)
+        now = datetime.now(timezone.utc)
+        results: list[bool] = []
+        result_lock = threading.Lock()
+
+        def put_entry(index: int) -> None:
+            entry = CacheEntry(
+                key=f"disk-key-{index}",
+                proxy_url=f"http://disk-proxy{index}.example.com:8080",
+                source="test",
+                fetch_time=now,
+                last_accessed=now,
+                ttl_seconds=3600,
+                expires_at=now + timedelta(hours=1),
+            )
+            success = tier.put(entry.key, entry)
+            with result_lock:
+                results.append(success)
+
+        threads = [threading.Thread(target=put_entry, args=(index,)) for index in range(50)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+
+        assert all(results)
+        assert len(results) == 50
+        assert tier.size() == 50
+        tier.close()
 
     def test_put_and_get_with_credentials(
         self, tier_config: CacheTierConfig, tmp_path: Path, entry_with_credentials: CacheEntry

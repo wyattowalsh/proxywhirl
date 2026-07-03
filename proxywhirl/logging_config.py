@@ -229,6 +229,8 @@ def configure_logging(
     if redact_secrets:
         import re
 
+        from proxywhirl.security import redact_dict
+
         def redact_record(record) -> None:
             msg_str = record["message"]
             msg_str = re.sub(
@@ -238,6 +240,7 @@ def configure_logging(
             )
             msg_str = re.sub(r"://[^/@?#]*@", "://***:***@", msg_str)
             record["message"] = msg_str
+            record["extra"] = redact_dict(record["extra"])
 
         patcher = redact_record
 

@@ -29,6 +29,27 @@ from proxywhirl.sources import (
 )
 
 
+class MockSourceStream:
+    """Async context manager matching httpx.AsyncClient.stream for source tests."""
+
+    def __init__(self, status_code: int = 200, text: str = "", chunks: list[bytes] | None = None):
+        self.status_code = status_code
+        self.encoding = "utf-8"
+        self._chunks = chunks if chunks is not None else [text.encode()]
+        self.started = False
+
+    async def __aenter__(self):
+        self.started = True
+        return self
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        return None
+
+    async def aiter_bytes(self, chunk_size: int = 65536):
+        for chunk in self._chunks:
+            yield chunk
+
+
 class TestSourceValidationResult:
     """Tests for SourceValidationResult dataclass."""
 
@@ -337,12 +358,10 @@ class TestValidateSource:
         """Test successful source validation."""
         source = ProxySourceConfig(url="http://example.com/proxies.txt", format="plain_text")
 
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = "192.168.1.1:8080\n10.0.0.1:3128\n" + "x" * 100
-
         mock_client = AsyncMock()
-        mock_client.get.return_value = mock_response
+        mock_client.stream = MagicMock(
+            return_value=MockSourceStream(text="192.168.1.1:8080\n10.0.0.1:3128\n" + "x" * 100)
+        )
 
         result = await validate_source(source, client=mock_client)
 
@@ -355,12 +374,10 @@ class TestValidateSource:
         """Short but parseable source content should count as healthy."""
         source = ProxySourceConfig(url="http://example.com/proxies.txt", format="plain_text")
 
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = "45.56.173.146:6129\n162.220.247.199:6794"
-
         mock_client = AsyncMock()
-        mock_client.get.return_value = mock_response
+        mock_client.stream = MagicMock(
+            return_value=MockSourceStream(text="45.56.173.146:6129\n162.220.247.199:6794")
+        )
 
         result = await validate_source(source, client=mock_client)
 
@@ -374,7 +391,7 @@ class TestValidateSource:
         source = ProxySourceConfig(url="http://example.com/proxies.txt")
 
         mock_client = AsyncMock()
-        mock_client.get.side_effect = httpx.TimeoutException("Timeout")
+        mock_client.stream = MagicMock(side_effect=httpx.TimeoutException("Timeout"))
 
         result = await validate_source(source, client=mock_client)
 
@@ -387,12 +404,10 @@ class TestValidateSource:
         """Test validation with content that doesn't look like proxies."""
         source = ProxySourceConfig(url="http://example.com/empty.txt")
 
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = "Just some random text without IPs"
-
         mock_client = AsyncMock()
-        mock_client.get.return_value = mock_response
+        mock_client.stream = MagicMock(
+            return_value=MockSourceStream(text="Just some random text without IPs")
+        )
 
         result = await validate_source(source, client=mock_client)
 
@@ -403,12 +418,10 @@ class TestValidateSource:
         """Test validation with 404 response."""
         source = ProxySourceConfig(url="http://example.com/notfound.txt")
 
-        mock_response = MagicMock()
-        mock_response.status_code = 404
-        mock_response.text = "Not Found"
-
         mock_client = AsyncMock()
-        mock_client.get.return_value = mock_response
+        mock_client.stream = MagicMock(
+            return_value=MockSourceStream(status_code=404, text="Not Found")
+        )
 
         result = await validate_source(source, client=mock_client)
 
@@ -420,13 +433,10 @@ class TestValidateSource:
         """Test validation creates its own client when none provided."""
         source = ProxySourceConfig(url="http://example.com/proxies.txt", format="plain_text")
 
-        # Mock httpx.AsyncClient context manager
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = "1.2.3.4:8080\n" + "x" * 100
-
         mock_client_instance = AsyncMock()
-        mock_client_instance.get.return_value = mock_response
+        mock_client_instance.stream = MagicMock(
+            return_value=MockSourceStream(text="1.2.3.4:8080\n" + "x" * 100)
+        )
         mock_client_instance.__aenter__.return_value = mock_client_instance
         mock_client_instance.__aexit__.return_value = None
 
@@ -434,6 +444,25 @@ class TestValidateSource:
             result = await validate_source(source)
 
         assert result.status_code == 200
+
+    async def test_validate_source_stops_after_detecting_proxy_data(self):
+        """Validation should not download an entire large source to prove health."""
+        source = ProxySourceConfig(url="http://example.com/proxies.txt", format="plain_text")
+
+        stream = MockSourceStream(
+            chunks=[
+                b"1.2.3.4:8080\n",
+                b"this trailing content should not be needed\n",
+            ]
+        )
+        mock_client = AsyncMock()
+        mock_client.stream = MagicMock(return_value=stream)
+
+        result = await validate_source(source, client=mock_client)
+
+        assert result.status_code == 200
+        assert result.has_proxies is True
+        assert result.content_length == len(b"1.2.3.4:8080\n")
 
 
 class TestValidateSources:
@@ -446,12 +475,10 @@ class TestValidateSources:
             ProxySourceConfig(url="http://example2.com/p.txt", format="plain_text"),
         ]
 
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = "1.2.3.4:8080\n" + "x" * 100
-
         mock_client = AsyncMock()
-        mock_client.get.return_value = mock_response
+        mock_client.stream = MagicMock(
+            return_value=MockSourceStream(text="1.2.3.4:8080\n" + "x" * 100)
+        )
         mock_client.__aenter__.return_value = mock_client
         mock_client.__aexit__.return_value = None
 
@@ -472,20 +499,15 @@ class TestValidateSources:
 
         call_count = 0
 
-        async def mock_get(url, **kwargs):
+        def mock_stream(method, url, **kwargs):
             nonlocal call_count
             call_count += 1
-            response = MagicMock()
             if "good" in url:
-                response.status_code = 200
-                response.text = "1.2.3.4:8080\n" + "x" * 100
-            else:
-                response.status_code = 500
-                response.text = ""
-            return response
+                return MockSourceStream(text="1.2.3.4:8080\n" + "x" * 100)
+            return MockSourceStream(status_code=500)
 
         mock_client = AsyncMock()
-        mock_client.get = mock_get
+        mock_client.stream = mock_stream
         mock_client.__aenter__.return_value = mock_client
         mock_client.__aexit__.return_value = None
 
@@ -513,12 +535,10 @@ class TestValidateSourcesSync:
             ProxySourceConfig(url="http://example.com/p.txt", format="plain_text"),
         ]
 
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = "1.2.3.4:8080\n" + "x" * 100
-
         mock_client = AsyncMock()
-        mock_client.get.return_value = mock_response
+        mock_client.stream = MagicMock(
+            return_value=MockSourceStream(text="1.2.3.4:8080\n" + "x" * 100)
+        )
         mock_client.__aenter__.return_value = mock_client
         mock_client.__aexit__.return_value = None
 
@@ -636,12 +656,10 @@ class TestSourceCollectionIntegrity:
 
     async def test_validate_sources_filters_disabled(self):
         """Verify validate_sources skips disabled sources when using defaults."""
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.text = "1.2.3.4:8080\n" + "x" * 100
-
         mock_client = AsyncMock()
-        mock_client.get.return_value = mock_response
+        mock_client.stream = MagicMock(
+            return_value=MockSourceStream(text="1.2.3.4:8080\n" + "x" * 100)
+        )
         mock_client.__aenter__.return_value = mock_client
         mock_client.__aexit__.return_value = None
 

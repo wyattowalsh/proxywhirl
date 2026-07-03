@@ -48,6 +48,11 @@ class TestValidationEdgeCases:
         with pytest.raises(ValueError):
             create_proxy_from_url("http://:password@proxy.example.com:8080")
 
+    def test_create_proxy_from_url_with_empty_password(self):
+        """Test that malformed URL credentials with empty password are rejected."""
+        with pytest.raises(ValueError):
+            create_proxy_from_url("http://user:@proxy.example.com:8080")
+
     def test_proxy_model_allows_explicit_empty_credential_fields(self):
         """Explicit model credentials may be empty; URL-embedded empty creds are invalid."""
         proxy = Proxy(url="http://proxy.example.com:8080", username="", password="password")

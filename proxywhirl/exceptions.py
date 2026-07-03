@@ -78,10 +78,18 @@ def redact_url(url: str) -> str:
     """
     try:
         parsed = urlparse(url)
+        query = ""
+        if parsed.query:
+            query_items = [
+                (key, "***" if _is_sensitive_query_name(key) else value)
+                for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+            ]
+            query = urlencode(query_items).replace("%2A%2A%2A", "***")
+
         if parsed.username is not None or parsed.password is not None:
             host_port = parsed.netloc.rsplit("@", 1)[-1]
             redacted_netloc = f"***:***@{host_port}"
-            return parsed._replace(netloc=redacted_netloc).geturl()
+            return parsed._replace(netloc=redacted_netloc, query=query).geturl()
 
         # Reconstruct URL without credentials
         if parsed.hostname:
@@ -90,19 +98,41 @@ def redact_url(url: str) -> str:
                 redacted += f":{parsed.port}"
             if parsed.path:
                 redacted += parsed.path
-            if parsed.query:
-                # Redact sensitive query parameters
-                query_items = [
-                    (key, "***" if _is_sensitive_query_name(key) else value)
-                    for key, value in parse_qsl(parsed.query, keep_blank_values=True)
-                ]
-                query = urlencode(query_items).replace("%2A%2A%2A", "***")
+            if query:
                 redacted += f"?{query}"
             return redacted
         return url
     except Exception:
         # If parsing fails, try simple regex-based redaction
         return re.sub(r"://[^/@?#]*@", "://***:***@", url)
+
+
+def _redact_text(text: str) -> str:
+    """Redact embedded URL credentials and token-like values from free-form text."""
+    text = re.sub(r"([a-z][a-z0-9+.-]*://)[^/@\s?#]+@", r"\1***:***@", text)
+    return re.sub(
+        r"(?i)(password|token|api_?key|secret|credential)([\"']?\s*[:=]\s*[\"']?)([^\"'\s&,}]+)",
+        r"\1\2***",
+        text,
+    )
+
+
+def _redact_metadata_value(value: Any, key: str | None = None) -> Any:
+    """Recursively redact sensitive exception metadata."""
+    if key and _is_sensitive_query_name(key):
+        return "***"
+    if isinstance(value, dict):
+        return {
+            item_key: _redact_metadata_value(item_value, item_key)
+            for item_key, item_value in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_metadata_value(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_metadata_value(item) for item in value)
+    if isinstance(value, str):
+        return redact_url(value) if "://" in value else _redact_text(value)
+    return value
 
 
 class ProxyWhirlError(Exception):
@@ -146,7 +176,7 @@ class ProxyWhirlError(Exception):
         redacted_url = redact_url(proxy_url) if proxy_url else None
 
         # Build enhanced message with context
-        enhanced_message = message
+        enhanced_message = _redact_text(message)
         if redacted_url:
             enhanced_message += f" (proxy: {redacted_url})"
         if attempt_count is not None:
@@ -163,7 +193,7 @@ class ProxyWhirlError(Exception):
         self.recovery_hint = recovery_hint
         self.file_path = file_path
         self.line_number = line_number
-        self.metadata = metadata
+        self.metadata = _redact_metadata_value(metadata)
 
     def __repr__(self) -> str:
         """Return detailed representation for debugging."""
@@ -183,19 +213,21 @@ class ProxyWhirlError(Exception):
         Returns:
             Dictionary representation of the error
         """
-        return {
-            "error_code": self.error_code.value,
-            "message": str(self),
-            "proxy_url": self.proxy_url,
-            "error_type": self.error_type,
-            "retry_recommended": self.retry_recommended,
-            "attempt_count": self.attempt_count,
-            "operation": self.operation,
-            "recovery_hint": self.recovery_hint,
-            "file_path": self.file_path,
-            "line_number": self.line_number,
-            **self.metadata,
-        }
+        return _redact_metadata_value(
+            {
+                "error_code": self.error_code.value,
+                "message": str(self),
+                "proxy_url": self.proxy_url,
+                "error_type": self.error_type,
+                "retry_recommended": self.retry_recommended,
+                "attempt_count": self.attempt_count,
+                "operation": self.operation,
+                "recovery_hint": self.recovery_hint,
+                "file_path": self.file_path,
+                "line_number": self.line_number,
+                **self.metadata,
+            }
+        )
 
 
 class ProxyValidationError(ProxyWhirlError):

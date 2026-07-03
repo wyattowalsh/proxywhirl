@@ -18,7 +18,7 @@ BLUE_PORT=8000
 GREEN_PORT=8001
 BLUE_ENV="blue"
 GREEN_ENV="green"
-HEALTH_CHECK_URL="/api/v1/health"
+HEALTH_CHECK_URL="/api/ready"
 MAX_RETRIES=30
 RETRY_INTERVAL=2
 
@@ -88,16 +88,24 @@ smoke_tests() {
     local port=$1
     
     log_info "Running smoke tests on port $port..."
+    local curl_args=("-f" "-s")
+    if [ -n "${PROXYWHIRL_API_KEY:-}" ]; then
+        curl_args+=("-H" "X-API-Key: $PROXYWHIRL_API_KEY")
+    fi
     
     # Test API endpoints
-    if ! curl -f -s "http://localhost:$port/api/v1/proxy" > /dev/null; then
-        log_error "Smoke test failed: /api/v1/proxy"
+    if ! curl -f -s "http://localhost:$port/api/ready" > /dev/null; then
+        log_error "Smoke test failed: /api/ready"
         return 1
     fi
     
-    if ! curl -f -s "http://localhost:$port/api/v1/health/metrics" > /dev/null; then
-        log_error "Smoke test failed: /api/v1/health/metrics"
-        return 1
+    if [ -n "${PROXYWHIRL_API_KEY:-}" ] || [ "${PROXYWHIRL_PUBLIC_METRICS:-false}" = "true" ]; then
+        if ! curl "${curl_args[@]}" "http://localhost:$port/api/metrics" > /dev/null; then
+            log_error "Smoke test failed: /api/metrics"
+            return 1
+        fi
+    else
+        log_warn "Skipping /api/metrics smoke test; set PROXYWHIRL_API_KEY or PROXYWHIRL_PUBLIC_METRICS=true"
     fi
     
     log_info "✓ All smoke tests passed"

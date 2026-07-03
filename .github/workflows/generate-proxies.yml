@@ -94,7 +94,7 @@ jobs:
 
       - name: Compact database
         run: |
-          # Drop orphaned validation records and VACUUM to keep db under 100 MB
+          # Drop orphaned validation records and VACUUM before export
           sqlite3 proxywhirl.db <<'SQL'
           DELETE FROM validation_results WHERE proxy_url NOT IN (SELECT url FROM proxy_identities);
           VACUUM;
@@ -102,9 +102,6 @@ jobs:
           DB_SIZE=$(stat --format=%s proxywhirl.db)
           DB_MB=$((DB_SIZE / 1048576))
           echo "Database size after compact: ${DB_MB} MB"
-          if [ "$DB_MB" -ge 95 ]; then
-            echo "Database is ${DB_MB} MB — approaching GitHub 100 MB limit"
-          fi
 
       - name: Export proxy lists
         run: |
@@ -153,7 +150,6 @@ jobs:
           cp -a web/public/proxy-lists "${GENERATED_SNAPSHOT}/web-proxy-lists"
           cp -a web/content/docs/generated "${GENERATED_SNAPSHOT}/web-generated-docs"
           cp -a web/content/generated "${GENERATED_SNAPSHOT}/web-generated-data"
-          cp -a proxywhirl.db "${GENERATED_SNAPSHOT}/proxywhirl.db"
 
           # Rebase-prone generated files are last-writer-wins. Re-anchor on the
           # latest branch head first, then restore this run's generated outputs.
@@ -170,21 +166,11 @@ jobs:
           # Add generated proxy list files and source-grounded docs data.
           git add docs/proxy-lists/ web/public/proxy-lists/ web/content/docs/generated/ web/content/generated/
 
-          # Only add database if under 95 MB (GitHub rejects files >= 100 MB)
-          DB_SIZE=$(stat --format=%s "${GENERATED_SNAPSHOT}/proxywhirl.db")
-          DB_MB=$((DB_SIZE / 1048576))
-          if [ "$DB_MB" -lt 95 ]; then
-            cp -a "${GENERATED_SNAPSHOT}/proxywhirl.db" proxywhirl.db
-            git add proxywhirl.db
-          else
-            echo "Skipping proxywhirl.db commit — ${DB_MB} MB exceeds safe limit"
-          fi
-
           # Only commit if there are staged changes.
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: Update proxy lists and database - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            git commit -m "chore: Update proxy lists - $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
             git push
           fi
 

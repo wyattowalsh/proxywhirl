@@ -1,0 +1,23 @@
+---
+title: API
+description: REST, Python, and CLI reference entry points for ProxyWhirl.
+---
+
+ProxyWhirl exposes a Python package API, an optional FastAPI control plane, and a Typer CLI.
+
+## Reference sections
+
+| Section | Contents |
+| ------- | -------- |
+| [Python API](/docs/generated/python-api) | Public classes, models, strategies, and helpers exported by the package |
+| [REST API](/docs/generated/rest-api) | Generated endpoint reference for the FastAPI control plane |
+| [OpenAPI routes](/docs/api/openapi) | Endpoint pages grouped by operation area |
+| [CLI reference](/docs/generated/cli-reference) | Commands for source validation, pool management, and configuration |
+
+## Runtime entry points
+
+Use `ProxyWhirl` for synchronous scripts and `AsyncProxyWhirl` for async applications. The REST API is mounted under `/api/*` when running `proxywhirl.api:app`, and CLI commands are available through `uv run proxywhirl`.
+
+## Authentication
+
+Production API deployments should set `PROXYWHIRL_REQUIRE_AUTH=true` and provide `PROXYWHIRL_API_KEY`. Health and readiness endpoints remain public for probes; metrics and stats exposure should be restricted by deployment policy when operational metadata is sensitive.

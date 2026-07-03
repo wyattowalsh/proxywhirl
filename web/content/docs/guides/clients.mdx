@@ -2,9 +2,6 @@
 title: Clients
 description: Choose between ProxyWhirl and AsyncProxyWhirl, initialization patterns, concurrency, and error handling.
 ---
-
-# Clients
-
 ProxyWhirl exposes both sync and async client surfaces. Both share the same strategy system, retry logic, and circuit breakers — only the execution model differs.
 
 ## Quick Choice
@@ -222,4 +219,4 @@ Async shines when latency is network-bound and concurrency is high. Sync is fine
 - [Retry & Failover](/docs/guides/retry-failover) — retry policies and breakers
 - [Rotation Strategies](/docs/concepts/rotation-strategies) — strategy design
 - [Configuration](/docs/reference/configuration) — timeouts and pool settings
-- [MCP Server](/docs/mcp) — agent-facing tool interface
+- [MCP Server](/docs/interfaces/mcp) — agent-facing tool interface

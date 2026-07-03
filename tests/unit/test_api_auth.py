@@ -12,6 +12,11 @@ from fastapi.testclient import TestClient
 from proxywhirl.api.middleware.auth import APIKeyMiddleware
 
 
+def _error_message(response) -> str:
+    payload = response.json()
+    return payload["error"]["message"]
+
+
 @pytest.fixture
 def auth_app() -> FastAPI:
     """Create a minimal FastAPI app with APIKeyMiddleware for testing."""
@@ -25,6 +30,14 @@ def auth_app() -> FastAPI:
     @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "healthy"}
+
+    @app.get("/api/stats")
+    def stats() -> dict[str, int]:
+        return {"total_proxies": 3}
+
+    @app.get("/api/metrics")
+    def metrics() -> dict[str, float]:
+        return {"requests_total": 42.0}
 
     return app
 
@@ -52,7 +65,8 @@ class TestAPIKeyMiddleware:
         ):
             response = auth_client.get("/protected")
             assert response.status_code == 401
-            assert response.json()["detail"] == "Invalid or missing API key"
+            assert _error_message(response) == "Invalid or missing API key"
+            assert response.json()["status"] == "error"
 
     def test_invalid_key_rejected(self, auth_client: TestClient) -> None:
         """Test that invalid API key is rejected."""
@@ -65,7 +79,7 @@ class TestAPIKeyMiddleware:
                 headers={"X-API-Key": "wrong-key"},
             )
             assert response.status_code == 401
-            assert response.json()["detail"] == "Invalid or missing API key"
+            assert _error_message(response) == "Invalid or missing API key"
 
     def test_valid_key_accepted(self, auth_client: TestClient) -> None:
         """Test that valid API key is accepted."""
@@ -99,7 +113,7 @@ class TestAPIKeyMiddleware:
         ):
             response = auth_client.get("/protected")
             assert response.status_code == 503
-            assert response.json()["detail"] == "API authentication not configured"
+            assert _error_message(response) == "API authentication not configured"
 
     def test_timing_attack_resistance(self, auth_client: TestClient) -> None:
         """Test that compare_digest is used to prevent timing attacks."""
@@ -118,4 +132,61 @@ class TestAPIKeyMiddleware:
             )
             assert response1.status_code == 401
             assert response2.status_code == 401
-            assert response1.json() == response2.json()
+            assert response1.json()["status"] == response2.json()["status"] == "error"
+            error1 = response1.json()["error"]
+            error2 = response2.json()["error"]
+            assert error1["code"] == error2["code"]
+            assert error1["message"] == error2["message"]
+            assert error1["details"] == error2["details"]
+
+
+class TestMonitoringAuthContract:
+    """Contract for secure-by-default monitoring exposure."""
+
+    def test_stats_reachable_without_key_when_auth_disabled(self, auth_client: TestClient) -> None:
+        """/api/stats requires no key when PROXYWHIRL_REQUIRE_AUTH is unset/false."""
+        response = auth_client.get("/api/stats")
+        assert response.status_code == 200
+
+    def test_metrics_reachable_without_key_when_auth_disabled(
+        self, auth_client: TestClient
+    ) -> None:
+        """/api/metrics requires no key when PROXYWHIRL_REQUIRE_AUTH is unset/false."""
+        response = auth_client.get("/api/metrics")
+        assert response.status_code == 200
+
+    def test_stats_rejects_missing_key_when_auth_enabled(self, auth_client: TestClient) -> None:
+        """/api/stats is protected when PROXYWHIRL_REQUIRE_AUTH is true."""
+        with patch.dict(
+            os.environ,
+            {"PROXYWHIRL_REQUIRE_AUTH": "true", "PROXYWHIRL_API_KEY": "secret-key-123"},
+        ):
+            response = auth_client.get("/api/stats")
+            assert response.status_code == 401
+            assert _error_message(response) == "Invalid or missing API key"
+
+    def test_metrics_rejects_missing_key_when_auth_enabled(self, auth_client: TestClient) -> None:
+        """/api/metrics is protected when PROXYWHIRL_REQUIRE_AUTH is true."""
+        with patch.dict(
+            os.environ,
+            {"PROXYWHIRL_REQUIRE_AUTH": "true", "PROXYWHIRL_API_KEY": "secret-key-123"},
+        ):
+            response = auth_client.get("/api/metrics")
+            assert response.status_code == 401
+            assert _error_message(response) == "Invalid or missing API key"
+
+    def test_metrics_public_when_public_metrics_enabled(self, auth_client: TestClient) -> None:
+        """/api/metrics can be public by explicit opt-in."""
+        with patch.dict(
+            os.environ,
+            {
+                "PROXYWHIRL_REQUIRE_AUTH": "true",
+                "PROXYWHIRL_API_KEY": "secret-key-123",
+                "PROXYWHIRL_PUBLIC_METRICS": "true",
+            },
+        ):
+            response = auth_client.get("/api/metrics")
+            assert response.status_code == 200
+
+            stats_response = auth_client.get("/api/stats")
+            assert stats_response.status_code == 401

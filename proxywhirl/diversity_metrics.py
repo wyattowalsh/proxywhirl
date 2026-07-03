@@ -68,12 +68,23 @@ class DiversityAnalyzer:
         cities = []
 
         for proxy in proxies:
-            if hasattr(proxy, "country") and proxy.country:
-                countries.append(proxy.country)
-            if hasattr(proxy, "asn") and proxy.asn:
-                asns.append(proxy.asn)
-            if hasattr(proxy, "city") and proxy.city:
-                cities.append(proxy.city)
+            metadata = getattr(proxy, "metadata", {}) or {}
+
+            country = getattr(proxy, "country_code", None) or metadata.get("country_code")
+            if country:
+                countries.append(str(country))
+
+            asn = getattr(proxy, "asn", None) or metadata.get("asn") or metadata.get("as_number")
+            if asn:
+                asns.append(str(asn))
+
+            city = (
+                getattr(proxy, "city", None)
+                or metadata.get("city")
+                or getattr(proxy, "region", None)
+            )
+            if city:
+                cities.append(str(city))
 
         country_dist = dict(Counter(countries))
         as_dist = dict(Counter(asns))

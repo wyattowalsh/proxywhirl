@@ -28,6 +28,21 @@ class TestRateLimit:
         assert limit.time_window == 60
         assert limit.burst_allowance == 20
 
+    @pytest.mark.parametrize(
+        "kwargs",
+        [
+            {"max_requests": 0, "time_window": 60},
+            {"max_requests": -1, "time_window": 60},
+            {"max_requests": 100, "time_window": 0},
+            {"max_requests": 100, "time_window": -1},
+            {"max_requests": 100, "time_window": 60, "burst_allowance": -1},
+        ],
+    )
+    def test_rate_limit_rejects_invalid_limits(self, kwargs):
+        """Test that rate limit dimensions must be non-zero positive values."""
+        with pytest.raises(ValueError):
+            RateLimit(**kwargs)
+
     def test_rate_limit_requires_max_requests(self):
         """Test that max_requests is required."""
         with pytest.raises(ValueError):

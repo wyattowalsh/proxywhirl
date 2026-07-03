@@ -22,6 +22,7 @@ from sqlmodel import Field, SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from proxywhirl.cache.crypto import CredentialEncryptor
+from proxywhirl.exceptions import ProxyStorageError
 from proxywhirl.models import HealthStatus, Proxy, ProxySource
 
 # Prefix for encrypted credentials stored as strings
@@ -54,7 +55,7 @@ def _decrypt_stored_credential(
     if encryptor is None:
         try:
             encryptor = CredentialEncryptor()
-        except Exception as e:
+        except ValueError as e:
             logger.error(
                 f"Cannot decrypt credential: encryptor not configured ({e}). "
                 "Set PROXYWHIRL_CACHE_ENCRYPTION_KEY environment variable."
@@ -63,10 +64,11 @@ def _decrypt_stored_credential(
 
     try:
         encoded = value[len(_ENCRYPTED_PREFIX) :]
+        # base64.b64decode raises binascii.Error, a ValueError subclass, on malformed input.
         encrypted_bytes = base64.b64decode(encoded)
         decrypted = encryptor.decrypt(encrypted_bytes)
         return decrypted.get_secret_value() if decrypted else None
-    except Exception as e:
+    except ValueError as e:
         logger.warning(f"Failed to decrypt stored credential; omitting secret fields: {e}")
         return None
 
@@ -392,7 +394,7 @@ class FileStorage:
                 await f.flush()
             # File is now closed and flushed, safe to rename
             temp_path.replace(self.filepath)
-        except Exception as e:
+        except OSError as e:
             # Clean up temp file if it exists
             if temp_path.exists():
                 temp_path.unlink()
@@ -457,7 +459,9 @@ class FileStorage:
             raise
         except json.JSONDecodeError as e:
             raise ValueError(f"Invalid JSON in storage file: {e}") from e
-        except Exception as e:
+        except (ValueError, TypeError) as e:
+            # Covers pydantic ValidationError (ValueError subclass) from Proxy.model_validate()
+            # and UnicodeDecodeError (ValueError subclass) from decrypted-content decoding.
             raise ValueError(f"Failed to load proxies: {e}") from e
 
     async def clear(self) -> None:
@@ -484,7 +488,7 @@ class FileStorage:
         try:
             if self.filepath.exists():
                 self.filepath.unlink()
-        except Exception as e:
+        except OSError as e:
             raise OSError(f"Failed to clear storage: {e}") from e
 
 
@@ -601,11 +605,16 @@ class SQLiteStorage:
         try:
             self._encryptor = CredentialEncryptor()
             logger.debug("Credential encryption initialized for SQLite storage")
-        except Exception as e:
+        except ValueError as e:
             logger.warning(
                 f"Credential encryption not available, storing credentials unencrypted: {e}"
             )
             self._encryptor = None
+
+    def _invalidate_stats_cache(self) -> None:
+        """Invalidate cached aggregate stats after a successful write."""
+        self._stats_cache = None
+        self._stats_cache_time = None
 
     async def _timed_exec(self, session: AsyncSession, statement: Any) -> Any:
         """Execute a session statement with slow query logging."""
@@ -649,9 +658,9 @@ class SQLiteStorage:
             # Encode as base64 string with prefix for storage in TEXT column
             encoded = base64.b64encode(encrypted_bytes).decode("utf-8")
             return f"{_ENCRYPTED_PREFIX}{encoded}"
-        except Exception as e:
-            logger.error(f"Failed to encrypt credential, storing unencrypted: {e}")
-            return value
+        except ValueError as e:
+            logger.error(f"Failed to encrypt credential: {e}")
+            raise ProxyStorageError("Failed to encrypt credential for storage") from e
 
     def _decrypt_credential(self, value: str | None) -> str | None:
         """Decrypt a credential value from storage.
@@ -863,6 +872,7 @@ class SQLiteStorage:
             session.add(status)
 
             await session.commit()
+            self._invalidate_stats_cache()
             return True
 
     async def add_proxies_batch(
@@ -957,6 +967,8 @@ class SQLiteStorage:
             await session.commit()
             added = len(new_proxies)
 
+        if added:
+            self._invalidate_stats_cache()
         return added, skipped
 
     async def async_batch_insert_proxies(
@@ -1000,7 +1012,13 @@ class SQLiteStorage:
             True if deleted, False if not found
         """
         async with AsyncSession(self.engine) as session:
-            # Delete from status table first
+            # Delete child rows before identity to avoid relying on FK cascade support.
+            del_validation = delete(ValidationResultTable).where(
+                ValidationResultTable.proxy_url == proxy_url
+            )
+            await session.exec(del_validation)  # type: ignore[arg-type]
+
+            # Delete from status table
             del_status = delete(ProxyStatusTable).where(ProxyStatusTable.proxy_url == proxy_url)
             await session.exec(del_status)  # type: ignore[arg-type]
 
@@ -1008,6 +1026,7 @@ class SQLiteStorage:
             del_identity = delete(ProxyIdentityTable).where(ProxyIdentityTable.url == proxy_url)
             result = await session.exec(del_identity)  # type: ignore[arg-type]
             await session.commit()
+            self._invalidate_stats_cache()
 
             return result.rowcount > 0 if hasattr(result, "rowcount") else True
 
@@ -1021,6 +1040,7 @@ class SQLiteStorage:
             # Delete all identities
             await session.exec(delete(ProxyIdentityTable))  # type: ignore[arg-type]
             await session.commit()
+            self._invalidate_stats_cache()
 
     async def query(self, **filters: str) -> list[dict[str, Any]]:
         """Query proxies with filtering.
@@ -1116,6 +1136,7 @@ class SQLiteStorage:
                 session.add(status)
 
             await session.commit()
+            self._invalidate_stats_cache()
 
     async def record_validations_batch(
         self,
@@ -1187,6 +1208,7 @@ class SQLiteStorage:
 
             await session.commit()
 
+        self._invalidate_stats_cache()
         return len(results)
 
     async def get_healthy_proxies(

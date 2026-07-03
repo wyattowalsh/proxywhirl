@@ -18,6 +18,7 @@ from proxywhirl.mcp.server import (
     _get_proxy_health_impl,
     _proxywhirl_mcp_tool,
     _proxywhirl_tool,
+    _sanitize_error_text,
     cleanup_rotator,
     get_auth,
     get_rotator,
@@ -53,12 +54,25 @@ async def recommend_proxy(
     return await _proxywhirl_tool(action="recommend", criteria=criteria or None, api_key=api_key)
 
 
-async def get_proxy_health() -> str:
-    return await _get_proxy_health_impl()
+async def get_proxy_health(api_key: str | None = None) -> str:
+    return await _get_proxy_health_impl(api_key=api_key)
 
 
-async def get_proxy_config() -> str:
-    return await _get_proxy_config_impl()
+async def get_proxy_config(api_key: str | None = None) -> str:
+    return await _get_proxy_config_impl(api_key=api_key)
+
+
+def test_sanitize_error_text_redacts_url_credentials_and_sensitive_query_params() -> None:
+    error = "failed https://user:pass@proxy.example.com/path?api_key=secret&token=value&page=1"
+
+    sanitized = _sanitize_error_text(error)
+
+    assert "user:pass" not in sanitized
+    assert "secret" not in sanitized
+    assert "token=value" not in sanitized
+    assert "api_key=***" in sanitized
+    assert "token=***" in sanitized
+    assert "page=1" in sanitized
 
 
 @pytest.fixture
@@ -152,9 +166,13 @@ def mock_rotator():
 
 
 @pytest.fixture(autouse=True)
-async def setup_test_rotator(mock_rotator, monkeypatch):
+async def setup_test_rotator(mock_rotator, monkeypatch, tmp_path):
     """Setup mock rotator for all tests."""
+    from proxywhirl.mcp import server as mcp_server
+
     monkeypatch.setenv("PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES", "1")
+    monkeypatch.setenv("PROXYWHIRL_MCP_DB", str(tmp_path / "mcp-test.db"))
+    mcp_server._mcp_db_path = None
     await set_rotator(mock_rotator)
     # Reset auth to default (no authentication required)
     set_auth(MCPAuth())
@@ -162,6 +180,7 @@ async def setup_test_rotator(mock_rotator, monkeypatch):
     # Reset to None after test
     await set_rotator(None)
     set_auth(None)
+    mcp_server._mcp_db_path = None
 
 
 class TestProxyWhirlMCPServer:
@@ -625,6 +644,27 @@ class TestGetProxyHealthResource:
         assert isinstance(data["average_latency_ms"], (int, float))
         assert data["average_latency_ms"] >= 0
 
+    async def test_get_proxy_health_requires_auth_when_configured(self, mock_rotator) -> None:
+        """Resource reads should fail closed when MCP auth is configured."""
+        await set_rotator(mock_rotator)
+        set_auth(MCPAuth(api_key="required-key"))
+
+        result = await get_proxy_health()
+        data = json.loads(result)
+
+        assert "error" in data
+        assert "Authentication failed" in data["error"]
+
+    async def test_get_proxy_health_accepts_api_key_when_configured(self, mock_rotator) -> None:
+        """Direct resource reads accept explicit API keys."""
+        await set_rotator(mock_rotator)
+        set_auth(MCPAuth(api_key="required-key"))
+
+        result = await get_proxy_health(api_key="required-key")
+        data = json.loads(result)
+
+        assert "pool_status" in data
+
 
 class TestGetProxyConfigResource:
     """Test get_proxy_config resource."""
@@ -688,6 +728,17 @@ class TestGetProxyConfigResource:
         # Should still have circuit_breaker field but it should be empty
         assert "circuit_breaker" in data
         assert data["circuit_breaker"] == {}
+
+    async def test_get_proxy_config_requires_auth_when_configured(self, mock_rotator) -> None:
+        """Config resource should fail closed when MCP auth is configured."""
+        await set_rotator(mock_rotator)
+        set_auth(MCPAuth(api_key="required-key"))
+
+        result = await get_proxy_config()
+        data = json.loads(result)
+
+        assert "error" in data
+        assert "Authentication failed" in data["error"]
 
 
 class TestToolAuthentication:
@@ -1077,7 +1128,7 @@ class TestUnifiedProxywhirlTool:
         result = await _proxywhirl_tool(action="rotate")
 
         assert "user:pass" not in result["error"]
-        assert "http://leaky.example.com:8080" in result["error"]
+        assert "http://***:***@leaky.example.com:8080" in result["error"]
 
     async def test_proxywhirl_reset_cb_no_circuit_breaker(self, mock_rotator) -> None:
         """Test reset_cb when no circuit breaker exists for proxy."""
@@ -1663,6 +1714,49 @@ class TestMainCLI:
 
         set_auth(None)
 
+    def test_main_warns_when_no_api_key(self) -> None:
+        """RV-002: main() should warn on startup when no API key is configured."""
+        import os
+
+        from proxywhirl.mcp import server as mcp_server
+        from proxywhirl.mcp.server import main, set_auth
+
+        set_auth(None)
+
+        with patch.dict(os.environ, {}, clear=True):
+            with patch("sys.argv", ["proxywhirl-mcp"]):
+                with patch("proxywhirl.mcp.server.ProxyWhirlMCPServer") as mock_server:
+                    mock_instance = MagicMock()
+                    mock_server.return_value = mock_instance
+
+                    with patch.object(mcp_server.logger, "warning") as warning_mock:
+                        main()
+
+                    messages = [call.args[0] for call in warning_mock.call_args_list]
+                    assert any("WITHOUT authentication" in message for message in messages)
+
+        set_auth(None)
+
+    def test_main_does_not_warn_when_api_key_provided(self) -> None:
+        """main() should not emit the no-auth warning when an API key is configured."""
+        from proxywhirl.mcp import server as mcp_server
+        from proxywhirl.mcp.server import main, set_auth
+
+        set_auth(None)
+
+        with patch("sys.argv", ["proxywhirl-mcp", "--api-key", "test-key"]):
+            with patch("proxywhirl.mcp.server.ProxyWhirlMCPServer") as mock_server:
+                mock_instance = MagicMock()
+                mock_server.return_value = mock_instance
+
+                with patch.object(mcp_server.logger, "warning") as warning_mock:
+                    main()
+
+                messages = [call.args[0] for call in warning_mock.call_args_list]
+                assert not any("WITHOUT authentication" in message for message in messages)
+
+        set_auth(None)
+
 
 class TestEdgeCases:
     """Tests for edge cases and error handling paths."""
@@ -2146,16 +2240,25 @@ class TestResourceURIs:
 class TestDirectToolCallAuth:
     """Test authentication for direct _proxywhirl_tool calls."""
 
-    async def test_tool_with_ctx_skips_auth(self, mock_rotator) -> None:
-        """Read-only calls with ctx rely on middleware auth."""
+    async def test_tool_with_ctx_requires_context_auth(self, mock_rotator) -> None:
+        """Read-only calls with ctx still fail closed when auth metadata is missing."""
         await set_rotator(mock_rotator)
         set_auth(MCPAuth(api_key="required-key"))
 
-        # With ctx (simulating MCP call), auth is handled by middleware
-        mock_ctx = MagicMock()
+        mock_ctx = SimpleNamespace()
         result = await _proxywhirl_tool(action="health", ctx=mock_ctx)
 
-        # Should succeed even without api_key because ctx is present
+        assert "error" in result
+        assert "Authentication failed" in result["error"]
+
+    async def test_tool_with_ctx_accepts_context_auth(self, mock_rotator) -> None:
+        """Read-only calls with ctx accept API keys from context metadata."""
+        await set_rotator(mock_rotator)
+        set_auth(MCPAuth(api_key="required-key"))
+
+        mock_ctx = SimpleNamespace(metadata={"api_key": "required-key"})
+        result = await _proxywhirl_tool(action="health", ctx=mock_ctx)
+
         assert "error" not in result or "Authentication" not in result.get("error", "")
 
     async def test_tool_without_ctx_requires_auth(self, mock_rotator) -> None:

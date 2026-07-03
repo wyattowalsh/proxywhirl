@@ -8,8 +8,9 @@ WORKDIR /app
 # Install uv package manager
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy dependency files FIRST for better layer caching (most stable)
-COPY pyproject.toml uv.lock* ./
+# Copy dependency and package metadata files FIRST for better layer caching.
+COPY pyproject.toml uv.lock* README.md LICENSE ./
+COPY proxywhirl/ ./proxywhirl/
 
 # Install dependencies to a virtual environment
 # This layer is cached unless pyproject.toml or uv.lock changes
@@ -65,9 +66,9 @@ USER proxywhirl
 # Expose API port
 EXPOSE 8000
 
-# Health check with improved timeout handling
+# Health check with improved timeout handling. /api/ready is stable even when the pool is empty.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request, sys; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=5); sys.exit(0)" || exit 1
+    CMD python -c "import urllib.request, sys; urllib.request.urlopen('http://localhost:8000/api/ready', timeout=5); sys.exit(0)" || exit 1
 
 # Run the API server with uvicorn
 CMD ["uvicorn", "proxywhirl.api:app", "--host", "0.0.0.0", "--port", "8000", "--access-log"]

@@ -198,7 +198,7 @@ class TestSafeRegexFindall:
         """Findall should limit results to prevent DoS."""
         # Create input with many matches
         text = " ".join(str(i) for i in range(20000))
-        matches = safe_regex_findall(r"\d+", text, max_results=100)
+        matches = safe_regex_findall(r"\d+", text, timeout=5.0, max_results=100)
         assert len(matches) == 100  # Should be limited
 
     def test_findall_timeout_protection(self) -> None:
@@ -386,35 +386,19 @@ class TestSecurityScenarios:
             safe_regex_compile(malicious_filter)
 
 
-class _TimeoutFuture:
-    def result(self, timeout: float | None = None):  # noqa: ANN001 - helper protocol
-        raise safe_regex.FuturesTimeoutError()
-
-
-class _TimeoutExecutor:
-    def __init__(self, *args, **kwargs):  # noqa: ANN002
-        pass
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):  # noqa: ANN002
-        return False
-
-    def submit(self, *args, **kwargs):  # noqa: ANN002
-        return _TimeoutFuture()
+def _raise_regex_timeout(*_args, **_kwargs):
+    raise safe_regex.RegexTimeoutError("timeout")
 
 
 class TestSafeRegexTimeoutPaths:
     """Cover timeout/error branches for safe_regex helpers."""
 
-    def test_compile_with_timeout_raises(self, monkeypatch) -> None:
-        monkeypatch.setattr(safe_regex, "ThreadPoolExecutor", _TimeoutExecutor)
+    def test_compile_with_timeout_raises(self) -> None:
         with pytest.raises(safe_regex.RegexTimeoutError):
-            safe_regex._compile_with_timeout(r"a+", 0, timeout=0.01)
+            safe_regex._compile_with_timeout(r"a+", 0, timeout=0)
 
     def test_match_with_timeout_raises(self, monkeypatch) -> None:
-        monkeypatch.setattr(safe_regex, "ThreadPoolExecutor", _TimeoutExecutor)
+        monkeypatch.setattr(safe_regex, "_run_regex_operation", _raise_regex_timeout)
         compiled = re.compile(r"a+")
         with pytest.raises(safe_regex.RegexTimeoutError):
             safe_regex._match_with_timeout(compiled, "aaaa", timeout=0.01)
@@ -438,7 +422,7 @@ class TestSafeRegexTimeoutPaths:
         assert exc_info.value.exit_code == 1
 
     def test_safe_regex_findall_timeout(self, monkeypatch) -> None:
-        monkeypatch.setattr(safe_regex, "ThreadPoolExecutor", _TimeoutExecutor)
+        monkeypatch.setattr(safe_regex, "_run_regex_operation", _raise_regex_timeout)
         with pytest.raises(typer.Exit) as exc_info:
             safe_regex.safe_regex_findall(re.compile(r"a+"), "aaaa", validate=False, timeout=0.01)
         assert exc_info.value.exit_code == 1

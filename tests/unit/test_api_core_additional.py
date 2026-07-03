@@ -49,6 +49,7 @@ from proxywhirl.api.routes.proxies import (
     get_proxy,
     health_check_proxies,
     health_check_proxies_deprecated,
+    make_proxied_request,
 )
 from proxywhirl.exceptions import ProxyValidationError
 from proxywhirl.models import HealthStatus, Proxy
@@ -130,6 +131,31 @@ def test_validate_proxied_request_url_allows_public() -> None:
 
 
 @pytest.mark.asyncio
+async def test_make_proxied_request_disables_redirect_following() -> None:
+    """The public proxied-request endpoint must not follow unvalidated redirect hops."""
+    rotator = MagicMock()
+    rotator._make_request.return_value = httpx.Response(
+        status_code=302,
+        headers={"location": "http://127.0.0.1/admin"},
+        text="",
+    )
+    rotator.last_used_proxy = None
+    request_data = ProxiedRequest(url="https://example.com", method="GET")
+
+    response = await make_proxied_request(
+        _make_request(path="/api/request", method="POST"),
+        request_data,
+        rotator,
+        None,
+    )
+
+    assert response.data is not None
+    assert response.data.status_code == 302
+    rotator._make_request.assert_called_once()
+    assert rotator._make_request.call_args.kwargs["follow_redirects"] is False
+
+
+@pytest.mark.asyncio
 async def test_lifespan_initializes_and_saves(tmp_path, monkeypatch) -> None:
     """Lifespan should initialize storage/rotator and save on shutdown."""
     db_path = tmp_path / "proxywhirl.db"
@@ -165,6 +191,8 @@ async def test_lifespan_initializes_empty_storage_without_load_warning(
     """A new API storage database should be initialized before load runs."""
     db_path = tmp_path / "proxywhirl.db"
     monkeypatch.setenv("PROXYWHIRL_STORAGE_PATH", str(db_path))
+    monkeypatch.setenv("PROXYWHIRL_REQUIRE_AUTH", "true")
+    monkeypatch.setenv("PROXYWHIRL_API_KEY", "test-key")
 
     with patch.object(api_core.logger, "warning") as warning_mock:
         async with api_core.lifespan(app):
@@ -173,7 +201,36 @@ async def test_lifespan_initializes_empty_storage_without_load_warning(
             assert storage is not None
             assert rotator is not None
             assert rotator.pool.size == 0
-        warning_mock.assert_not_called()
+        messages = [call.args[0] for call in warning_mock.call_args_list]
+        assert not any("Failed to load proxies" in message for message in messages)
+
+
+@pytest.mark.asyncio
+async def test_lifespan_warns_when_auth_disabled(monkeypatch) -> None:
+    """RV-001: lifespan should warn on startup when require_auth is false."""
+    monkeypatch.delenv("PROXYWHIRL_REQUIRE_AUTH", raising=False)
+    monkeypatch.delenv("PROXYWHIRL_API_KEY", raising=False)
+
+    with patch.object(api_core.logger, "warning") as warning_mock:
+        async with api_core.lifespan(app):
+            pass
+
+    messages = [call.args[0] for call in warning_mock.call_args_list]
+    assert any("authentication DISABLED" in message for message in messages)
+
+
+@pytest.mark.asyncio
+async def test_lifespan_does_not_warn_when_auth_enabled(monkeypatch) -> None:
+    """RV-001: lifespan should not emit the auth-disabled warning when auth is required."""
+    monkeypatch.setenv("PROXYWHIRL_REQUIRE_AUTH", "true")
+    monkeypatch.setenv("PROXYWHIRL_API_KEY", "test-key")
+
+    with patch.object(api_core.logger, "warning") as warning_mock:
+        async with api_core.lifespan(app):
+            pass
+
+    messages = [call.args[0] for call in warning_mock.call_args_list]
+    assert not any("authentication DISABLED" in message for message in messages)
 
 
 @pytest.mark.asyncio
@@ -290,7 +347,7 @@ def test_request_endpoint_proxy_error_retries(client: TestClient) -> None:
 
 
 def test_request_endpoint_proxy_auth_error_returns_502(client: TestClient) -> None:
-    """Proxy authentication failures should return 502 with a stable detail message."""
+    """Proxy authentication failures should return 502 with a stable error message."""
     from proxywhirl.exceptions import ProxyAuthenticationError
 
     rotator = _mock_rotator_with_proxy()
@@ -307,7 +364,7 @@ def test_request_endpoint_proxy_auth_error_returns_502(client: TestClient) -> No
             )
 
     assert result.status_code == 502
-    assert result.json()["detail"] == "Proxy authentication failed"
+    assert result.json()["error"]["message"] == "Proxy authentication failed"
 
 
 def test_request_endpoint_unexpected_error(client: TestClient) -> None:

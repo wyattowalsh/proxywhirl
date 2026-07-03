@@ -1,0 +1,70 @@
+---
+title: Testing
+description: Pytest markers, fixtures, async tests, and CI parity commands for ProxyWhirl contributors.
+---
+## CI parity
+
+```bash
+just quality-gates
+```
+
+Focused module probe:
+
+```bash
+uv run pytest tests/unit/test_<module>.py -q --no-cov -n0
+```
+
+Expanded non-slow suite:
+
+```bash
+uv run pytest tests/ -q -m "not slow" --ignore=tests/benchmarks --timeout=120
+```
+
+## Markers
+
+| Marker | Purpose |
+| ------ | ------- |
+| `unit` | Isolated logic, mocked boundaries |
+| `integration` | Multi-module seams |
+| `property` | Hypothesis property tests |
+| `slow` | Real network/browser (excluded from CI parity) |
+| `benchmark` | pytest-benchmark (separate lane) |
+
+## Fixtures
+
+Shared fixtures live in `tests/conftest.py`. Use `respx` for HTTP mocking (not `responses`). Async tests use `asyncio_mode = auto` from `pyproject.toml`.
+
+## Example unit test
+
+```python
+import pytest
+from proxywhirl import ProxyWhirl
+from proxywhirl.exceptions import ProxyPoolEmptyError
+
+
+def test_empty_pool_raises(tmp_path):
+    whirl = ProxyWhirl(storage_path=tmp_path / "test.db")
+    whirl.pool.proxies.clear()
+    with pytest.raises(ProxyPoolEmptyError):
+        whirl.get()
+```
+
+## Async example
+
+```python
+import pytest
+from proxywhirl import AsyncProxyWhirl
+
+
+@pytest.mark.asyncio
+async def test_async_get_proxy(tmp_path):
+    whirl = AsyncProxyWhirl(storage_path=tmp_path / "test.db")
+    proxy = await whirl.get_proxy()
+    assert proxy.host
+```
+
+## Coverage
+
+Coverage modules are scoped in the `justfile` `cov_modules` constant. Threshold enforcement runs inside `just quality-gates`.
+
+See [Contributing](/docs/project/contributing) for PR expectations.

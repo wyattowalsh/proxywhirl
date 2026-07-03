@@ -16,8 +16,8 @@ rule_files:
 scrape_configs:
   - job_name: 'proxywhirl'
     static_configs:
-      - targets: ['localhost:8000']
-    metrics_path: '/metrics'
+      - targets: ['proxywhirl:8000']
+    metrics_path: '/api/metrics'
     scrape_interval: 30s
     scrape_timeout: 10s
     scheme: http

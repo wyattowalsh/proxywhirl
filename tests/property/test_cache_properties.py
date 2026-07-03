@@ -53,11 +53,18 @@ def create_cache_manager(tmp_dir: Path) -> CacheManager:
 
 
 def create_cache_manager_with_max_entries(tmp_dir: Path, max_entries: int) -> CacheManager:
-    """Helper to create a CacheManager with L1 max entries configured."""
+    """Helper to create a CacheManager isolated to the L1 tier only.
+
+    L2 and L3 are both disabled so these L1-max-size property tests exercise pure
+    in-memory eviction logic without incurring filesystem or SQLite I/O per put()
+    (see RV-003 / F-006: leaving L3 enabled here caused synchronous SQLite writes
+    under the manager lock on every put, making Hypothesis runs slow/flaky).
+    """
     encryptor = CredentialEncryptor()
     config = CacheConfig(
         l1_config=CacheTierConfig(enabled=True, max_entries=max_entries),
         l2_config=CacheTierConfig(enabled=False),
+        l3_config=CacheTierConfig(enabled=False),
         l2_cache_dir=str(tmp_dir / "cache"),
         l3_database_path=str(tmp_dir / "cache.db"),
         encryption_key=SecretStr(encryptor.key.decode("utf-8")),
@@ -264,9 +271,9 @@ class TestCacheMaxSizeInvariant:
 
     @given(
         max_entries=st.integers(min_value=3, max_value=20),
-        num_puts=st.integers(min_value=1, max_value=50),
+        num_puts=st.integers(min_value=1, max_value=25),
     )
-    @settings(max_examples=30, deadline=None)
+    @settings(max_examples=30, deadline=timedelta(milliseconds=2000))
     def test_l1_cache_size_never_exceeds_max(self, max_entries: int, num_puts: int) -> None:
         """Property: L1 cache size should never exceed max_entries regardless of put operations."""
         with tempfile.TemporaryDirectory() as tmp_dir:

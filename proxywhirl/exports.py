@@ -87,15 +87,17 @@ async def generate_rich_proxies(
     include_geo: bool = True,
     geo_sample_size: int = 5000,
     max_age_hours: int = 72,
+    allow_external_geo: bool = False,
 ) -> dict[str, Any]:
     """Generate rich proxy data from database.
 
     Args:
         storage: SQLiteStorage instance to query
-        include_geo: Whether to include country data (slower)
-        geo_sample_size: Max IPs to geolocate (rate limited)
+        include_geo: Whether to include country data from a local GeoLite database
+        geo_sample_size: Max IPs to geolocate
         max_age_hours: Only include proxies validated within this time window.
             Default: 72 hours (36 runs at 2h schedule). Set to 0 to include all proxies.
+        allow_external_geo: Whether to send IPs to an external HTTPS geolocation API
 
     Returns:
         dict[str, Any]: Proxies with metadata and aggregations.
@@ -232,7 +234,11 @@ async def generate_rich_proxies(
     # Add geo data if requested
     if include_geo and proxies:
         ips = [p["ip"] for p in proxies[:geo_sample_size]]
-        geo_data = await batch_geolocate(ips, max_batches=50)  # Up to 5000 IPs
+        geo_data = await batch_geolocate(
+            ips,
+            max_batches=50,  # Up to 5000 IPs
+            allow_external_api=allow_external_geo,
+        )
         proxies = enrich_proxies_with_geo(proxies, geo_data)
 
         # Count countries and continents, build source flow

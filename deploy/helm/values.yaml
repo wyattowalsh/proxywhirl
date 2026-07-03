@@ -8,6 +8,24 @@ image:
 service:
   type: ClusterIP
   port: 8000
+  targetPort: 8000
+
+config:
+  auth:
+    requireAuth: true
+    publicMetrics: false
+  logging:
+    level: INFO
+
+secrets:
+  create: false
+  existingSecret: proxywhirl-secrets
+  encryptionKey: ""
+  apiKey: ""
+
+persistence:
+  enabled: true
+  mountPath: /data
 
 ingress:
   enabled: true
@@ -36,11 +54,14 @@ postgresql:
   enabled: true
   auth:
     username: proxywhirl
-    password: secretpassword
+    existingSecret: proxywhirl-postgresql
     database: proxywhirl
 
 redis:
   enabled: true
+  host: redis
+  port: 6379
+  database: 0
   auth:
     enabled: false
 

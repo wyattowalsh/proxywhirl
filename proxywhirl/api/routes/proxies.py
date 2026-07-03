@@ -163,6 +163,7 @@ async def make_proxied_request(
     request_kwargs: dict[str, Any] = {
         "headers": request_data.headers,
         "timeout": request_data.timeout,
+        "follow_redirects": False,
     }
     if request_data.body:
         request_kwargs["content"] = request_data.body.encode()

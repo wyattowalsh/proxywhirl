@@ -18,8 +18,8 @@ spec:
     targetPort: http
     protocol: TCP
   - name: metrics
-    port: 9090
-    targetPort: metrics
+    port: 8000
+    targetPort: http
     protocol: TCP
   sessionAffinity: ClientIP
   sessionAffinityConfig:

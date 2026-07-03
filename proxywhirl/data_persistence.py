@@ -78,14 +78,51 @@ class PersistenceMetadata:
 class DataPersistence:
     """Handles data persistence."""
 
-    def __init__(self, storage_path: Path | str):
+    def __init__(self, storage_path: Path | str, *, allow_pickle: bool = False):
         """Initialize persistence.
 
         Args:
             storage_path: Directory for storage
+            allow_pickle: Enable pickle save/load for trusted local data only
         """
-        self.storage_path = Path(storage_path)
+        self.storage_path = Path(storage_path).expanduser()
         self.storage_path.mkdir(parents=True, exist_ok=True)
+        self.storage_path = self.storage_path.resolve()
+        self.allow_pickle = allow_pickle
+
+    def _resolve_file(self, name: str, suffix: str) -> Path:
+        """Resolve a data name to a file under the storage directory."""
+        if not name or "\x00" in name:
+            raise ValueError("Persistence name must be a non-empty file name")
+
+        raw_path = Path(name)
+        if raw_path.is_absolute():
+            raise ValueError("Persistence name must be relative to the storage directory")
+
+        file_path = (self.storage_path / f"{name}{suffix}").resolve()
+        try:
+            file_path.relative_to(self.storage_path)
+        except ValueError as e:
+            raise ValueError("Persistence name escapes the storage directory") from e
+
+        if raw_path.name != name or "/" in name or "\\" in name or name in {".", ".."}:
+            raise ValueError("Persistence name must be a flat file name")
+
+        return file_path
+
+    @staticmethod
+    def _suffix_for_format(format_type: str) -> str:
+        """Return the storage suffix for a supported persistence format."""
+        if format_type == "json":
+            return ".json"
+        if format_type in {"pickle", "pkl"}:
+            return ".pkl"
+        raise ValueError(f"Unsupported persistence format: {format_type}")
+
+    def _ensure_pickle_allowed(self) -> None:
+        """Reject pickle operations unless explicitly enabled by trusted callers."""
+        if not self.allow_pickle:
+            raise ValueError("Pickle persistence is disabled by default")
 
     def save_json(self, name: str, data: Any) -> None:
         """Save data as JSON.
@@ -94,10 +131,11 @@ class DataPersistence:
             name: Data name
             data: Data to save
         """
-        file_path = self.storage_path / f"{name}.json"
+        file_path = self._resolve_file(name, ".json")
 
         try:
             content = PersistenceFormat.to_json(data)
+            file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_text(content)
             logger.info(f"Saved {name} to {file_path}")
         except Exception as e:
@@ -113,7 +151,7 @@ class DataPersistence:
         Returns:
             Loaded data or None
         """
-        file_path = self.storage_path / f"{name}.json"
+        file_path = self._resolve_file(name, ".json")
 
         if not file_path.exists():
             logger.warning(f"File not found: {file_path}")
@@ -135,10 +173,12 @@ class DataPersistence:
             name: Data name
             data: Data to save
         """
-        file_path = self.storage_path / f"{name}.pkl"
+        self._ensure_pickle_allowed()
+        file_path = self._resolve_file(name, ".pkl")
 
         try:
             content = PersistenceFormat.to_pickle(data)
+            file_path.parent.mkdir(parents=True, exist_ok=True)
             file_path.write_bytes(content)
             logger.info(f"Saved {name} to {file_path}")
         except Exception as e:
@@ -154,7 +194,8 @@ class DataPersistence:
         Returns:
             Loaded data or None
         """
-        file_path = self.storage_path / f"{name}.pkl"
+        self._ensure_pickle_allowed()
+        file_path = self._resolve_file(name, ".pkl")
 
         if not file_path.exists():
             logger.warning(f"File not found: {file_path}")
@@ -179,8 +220,10 @@ class DataPersistence:
         Returns:
             True if deleted
         """
-        ext = ".json" if format_type == "json" else ".pkl"
-        file_path = self.storage_path / f"{name}{ext}"
+        ext = self._suffix_for_format(format_type)
+        if ext == ".pkl":
+            self._ensure_pickle_allowed()
+        file_path = self._resolve_file(name, ext)
 
         if not file_path.exists():
             return False
@@ -199,7 +242,11 @@ class DataPersistence:
         Returns:
             List of file names
         """
-        return [f.stem for f in self.storage_path.glob("*")]
+        return sorted(
+            file_path.stem
+            for file_path in self.storage_path.glob("*")
+            if file_path.is_file() and file_path.suffix in {".json", ".pkl"}
+        )
 
     def get_size(self) -> int:
         """Get total storage size in bytes.

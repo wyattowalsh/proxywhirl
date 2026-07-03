@@ -1,0 +1,52 @@
+---
+title: Monitoring and Alerts
+description: Capacity planning, alerting thresholds, logging, and observability for ProxyWhirl deployments.
+---
+## Metrics and Dashboards
+
+- **Prometheus**: scrape API metrics on port `9090` (full stack compose maps host `9091`)
+- **Grafana**: dashboards under `deploy/monitoring/grafana-dashboards/`
+- **API**: `/api/stats`, `/api/metrics/*` for runtime counters; protected when API auth is enabled
+
+Example query:
+
+```bash
+curl 'http://localhost:9091/api/v1/query?query=proxywhirl_available_proxies'
+```
+
+## Alert Thresholds (starting points)
+
+| Signal | Warning | Critical |
+| ------ | ------- | -------- |
+| Error rate | > 5% | > 15% |
+| p95 latency | > 10s | > 30s |
+| Available proxies | < 100 | < 20 |
+| Cache hit rate | < 80% | < 50% |
+
+Tune thresholds per environment and traffic profile.
+
+## Logging
+
+ProxyWhirl uses Loguru. Configure level and output via environment:
+
+```bash
+PROXYWHIRL_LOG_LEVEL=INFO
+PROXYWHIRL_LOG_FILE=/var/log/proxywhirl.log
+```
+
+Aggregate logs with your platform standard (CloudWatch, Loki, ELK). Avoid shipping credential-bearing URLs.
+
+## Capacity
+
+- Scale horizontally via Kubernetes HPA (`deploy/kubernetes/hpa.yaml`, Helm HPA template)
+- Vertical scaling: adjust CPU/memory requests in deployment manifests
+- Load-test before raising concurrency limits; see expanded pytest stress markers for regression probes
+
+## Health Scripts
+
+```bash
+./deploy/scripts/health-check.sh
+PROXYWHIRL_API_URL=https://api.example.com PROXYWHIRL_API_KEY=<key> ./deploy/scripts/health-check.sh
+```
+
+See [Operations](/docs/operations) for smoke-test commands.

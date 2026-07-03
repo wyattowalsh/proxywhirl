@@ -2,9 +2,6 @@
 title: Deployment
 description: Deploy ProxyWhirl locally, on Kubernetes, AWS, or Linux systemd with Docker Compose and Helm.
 ---
-
-# Deployment
-
 ProxyWhirl deployments combine a Python runtime (CLI, API, or MCP), optional SQLite storage, and periodically refreshed proxy-list artifacts.
 
 ## Pre-Deploy Validation
@@ -57,7 +54,9 @@ helm install proxywhirl deploy/helm/ -n proxywhirl --create-namespace
 helm upgrade proxywhirl deploy/helm/ --set replicaCount=5 --set persistence.size=50Gi
 ```
 
-Customize via `deploy/helm/values.yaml` or a local values file for image tag, persistence, and secrets.
+Create `proxywhirl-secrets` first or set `secrets.create=true` with local, uncommitted secret values.
+Customize via `deploy/helm/values.yaml` or a local values file for image tag, persistence, metrics
+exposure, and secret references.
 
 ## AWS (Terraform)
 
@@ -76,7 +75,6 @@ Configure AWS credentials before apply.
 ```bash
 uv sync
 sudo cp deploy/systemd/*.service /etc/systemd/system/
-sudo cp deploy/systemd/*.socket /etc/systemd/system/
 sudo useradd -r -s /bin/false proxywhirl
 sudo mkdir -p /opt/proxywhirl /var/lib/proxywhirl /var/log/proxywhirl
 sudo chown proxywhirl:proxywhirl /var/lib/proxywhirl /var/log/proxywhirl
@@ -89,13 +87,17 @@ Environment file example (`/etc/default/proxywhirl`):
 ```bash
 PROXYWHIRL_LOG_LEVEL=INFO
 PROXYWHIRL_STORAGE_PATH=/var/lib/proxywhirl/proxywhirl.db
+PROXYWHIRL_REQUIRE_AUTH=true
 PROXYWHIRL_ENCRYPTION_KEY=<key>
 PROXYWHIRL_API_KEY=<key>
+# Optional only for internal Prometheus scraping:
+# PROXYWHIRL_PUBLIC_METRICS=true
 ```
 
 ## API Service (Direct)
 
 ```bash
+PROXYWHIRL_REQUIRE_AUTH=true \
 PROXYWHIRL_STORAGE_PATH=/data/proxywhirl.db \
 PROXYWHIRL_API_KEY=<key> \
   uv run uvicorn proxywhirl.api:app --host 0.0.0.0 --port 8000
@@ -112,6 +114,31 @@ PROXYWHIRL_MCP_DB=/data/proxywhirl.db \
 ```
 
 See [MCP Server](/docs/interfaces/mcp).
+
+## Production Hardening (Authentication)
+
+> [!IMPORTANT]
+> Both `PROXYWHIRL_REQUIRE_AUTH` (REST API) and `PROXYWHIRL_MCP_API_KEY` (MCP server) default to
+> **disabled/unset** for local-dev ergonomics. Neither flips automatically for production — you must
+> opt in explicitly. When either is off at startup, ProxyWhirl now logs a `WARNING` describing the
+> exposure; treat that log line as an actionable signal in any environment reachable outside localhost.
+
+1. Set `PROXYWHIRL_REQUIRE_AUTH=true` and `PROXYWHIRL_API_KEY=$(openssl rand -base64 32)` for the REST
+   API; set `PROXYWHIRL_MCP_API_KEY` (or `--api-key`) for the MCP server. Rotate keys on a schedule and
+   store them in a secrets manager, not in compose/env files committed to git.
+2. Terminate TLS in front of the API/MCP service (Nginx/Caddy/ALB) — neither service terminates TLS
+   itself.
+3. Restrict `PROXYWHIRL_CORS_ORIGINS` to known origins; never combine `*` with credentials (enforced at
+   import time in `proxywhirl/api/core.py`, which also logs a warning if `*` is configured).
+4. `/api/stats` and `/api/metrics` require the REST API key when `PROXYWHIRL_REQUIRE_AUTH=true`.
+   `/api/metrics` can be exposed without a key only by explicitly setting
+   `PROXYWHIRL_PUBLIC_METRICS=true`; use that only on an internal listener or behind network policy.
+5. The MCP server allows unauthenticated *read* actions by default; write actions (`add`, `remove`,
+   `fetch`, `validate`, `reset_cb`, `set_strategy`) are rejected without a key unless
+   `PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES` is explicitly set — keep that variable unset in
+   production.
+6. Monitor the "authentication DISABLED" startup warnings (API and MCP) in log aggregation/alerting so
+   a misconfigured deployment is caught before it reaches production traffic.
 
 ## Backup and Zero-Downtime
 

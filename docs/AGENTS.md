@@ -1,22 +1,19 @@
 # Legacy Docs and Generated Assets Guidelines
 
-> Scope: `docs/` — legacy Sphinx source, architecture notes, and generated proxy-list assets.
+> Scope: `docs/` — commitizen changelog, design reference, and generated proxy-list/stats assets.
 
 ## Current Role
 
-`web/` is the active published docs framework. Files under `docs/source/` are legacy Sphinx-era content and reference material unless a task explicitly targets Sphinx.
+`web/content/docs/` (Fumadocs) is the sole active published docs framework. The legacy Sphinx source tree (`docs/source/`) and duplicate hand-written guides that used to live under `docs/` have been removed in favor of the published docs site — do not recreate them.
 
-Contributor guidelines are canonical at [`docs/CONTRIBUTING.md`](CONTRIBUTING.md); the repo root [`CONTRIBUTING.md`](../CONTRIBUTING.md) is a pointer stub for GitHub discovery.
+The contributor guide is canonical at the repo root ([`CONTRIBUTING.md`](../CONTRIBUTING.md)); `web/content/docs/project/contributing.mdx` links to it. The FAQ is canonical at [`web/content/docs/project/faq.mdx`](../web/content/docs/project/faq.mdx) (published at `/docs/project/faq`).
 
 ## Canonical Project Docs
 
 | Path | Purpose |
 | ---- | ------- |
 | `docs/CHANGELOG.md` | Release history (`commitizen` source of truth) |
-| `docs/CONTRIBUTING.md` | Contributor guide |
-| `docs/DEPLOYMENT_GUIDE.md` | Deployment runbooks (Docker, K8s, Terraform, systemd) |
-| `docs/DESIGN.md` | Web/docs design system |
-| `docs/security-implementation-plan.md` | Security hardening task checklist |
+| `docs/DESIGN.md` | Web/docs design system (canonical; root `DESIGN.md` is a pointer stub) |
 
 ## Generated Assets
 
@@ -32,7 +29,6 @@ Contributor guidelines are canonical at [`docs/CONTRIBUTING.md`](CONTRIBUTING.md
 | ---- | ------- |
 | Active docs generation | `pnpm --dir web run docs:generate` |
 | Active docs build | `pnpm --dir web run build` |
-| Legacy docs alias | `just docs-html` / `just docs-linkcheck` |
 | Strict source validation | `uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5` |
 
 ## Boundaries
@@ -41,10 +37,10 @@ Contributor guidelines are canonical at [`docs/CONTRIBUTING.md`](CONTRIBUTING.md
 
 - Preserve generated proxy-list data unless the task explicitly regenerates proxy exports.
 - Keep generated proxy-list README wording consistent between `docs/proxy-lists/README.md` and `web/public/proxy-lists/README.md`.
-- Prefer updating active Fumadocs pages in `web/content/docs/` for published docs changes.
+- Make published docs changes in `web/content/docs/` (Fumadocs MDX), not by adding new files under `docs/`.
 
 **Never:**
 
-- Treat `docs/Makefile` as a legacy pointer only; prefer `just docs-html` for the active web build unless the user explicitly requested Sphinx.
+- Recreate a Sphinx source tree, standalone deployment/troubleshooting/quickstart guides, or other duplicate narrative docs under `docs/`; those belong in `web/content/docs/`.
 - Hand-edit generated proxy-list data files to fake freshness or health.
-- Commit `.DS_Store`, Sphinx build output, local caches, or generated reports.
+- Commit `.DS_Store`, build output, local caches, or generated reports.

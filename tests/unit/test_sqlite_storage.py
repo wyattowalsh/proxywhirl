@@ -49,6 +49,33 @@ class TestSQLiteStorage:
 
             await storage.close()
 
+    async def test_stats_cache_invalidates_after_mutations(self) -> None:
+        """Cached aggregate stats should refresh after writes."""
+        from proxywhirl.storage import SQLiteStorage
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+
+            empty_stats = await storage.get_stats_cached()
+            assert empty_stats["total_proxies"] == 0
+
+            proxy = Proxy(url="http://proxy-cache.example.com:8080")
+            await storage.save([proxy])
+            after_save = await storage.get_stats_cached()
+            assert after_save["total_proxies"] == 1
+
+            await storage.record_validation(proxy.url, True, 100.0)
+            after_validation = await storage.get_stats_cached()
+            assert after_validation["validations_24h"]["total"] == 1
+
+            await storage.clear()
+            after_clear = await storage.get_stats_cached()
+            assert after_clear["total_proxies"] == 0
+
+            await storage.close()
+
     async def test_sqlite_save_multiple_proxies(self) -> None:
         """T062: Test saving multiple proxies."""
         from proxywhirl.storage import SQLiteStorage

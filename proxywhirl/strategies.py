@@ -592,7 +592,8 @@ class RandomStrategy:
                     "No healthy proxies available after filtering failed proxies"
                 )
 
-        proxy = random.choice(healthy_proxies)
+        # Non-cryptographic randomness is sufficient for proxy load balancing.
+        proxy = random.choice(healthy_proxies)  # nosec B311
 
         # Update proxy metadata to track request start
         proxy.start_request()
@@ -714,8 +715,15 @@ class WeightedStrategy:
         Returns:
             List of weights corresponding to each proxy
         """
-        # Generate proxy ID list for cache validation
-        current_proxy_ids = [str(proxy.id) for proxy in proxies]
+        # Include counters that feed success_rate so live health changes invalidate weights.
+        current_proxy_ids = [
+            (
+                f"{proxy.id}:{proxy.total_successes}:{proxy.total_failures}:"
+                f"{proxy.requests_completed}:{proxy.average_response_time_ms}:"
+                f"{proxy.ema_response_time_ms}"
+            )
+            for proxy in proxies
+        ]
 
         # Protect cache access with lock
         with self._cache_lock:
@@ -773,8 +781,10 @@ class WeightedStrategy:
         # Get weights (from cache if valid, otherwise recalculate)
         weights = self._get_weights(healthy_proxies)
 
-        # Use random.choices for weighted selection
-        selected = random.choices(healthy_proxies, weights=weights, k=1)[0]
+        # Use non-cryptographic weighted selection for proxy load balancing.
+        selected = random.choices(  # nosec B311
+            healthy_proxies, weights=weights, k=1
+        )[0]
 
         # Update proxy metadata to track request start
         selected.start_request()
@@ -1094,18 +1104,24 @@ class PerformanceBasedStrategy:
 
         # Prioritize exploration: if we have new proxies, select from them first
         if exploration_proxies:
-            # Use random selection for exploration (equal opportunity)
-            selected = random.choice(exploration_proxies)
+            # Use non-cryptographic random selection for exploration.
+            selected = random.choice(  # nosec B311
+                exploration_proxies
+            )
         elif exploitation_proxies:
             # Use performance-based selection for exploitation
             # Calculate inverse weights (lower EMA = higher weight)
             weights = [1.0 / p.ema_response_time_ms for p in exploitation_proxies]  # type: ignore[operator]
-            selected = random.choices(exploitation_proxies, weights=weights, k=1)[0]
+            selected = random.choices(  # nosec B311
+                exploitation_proxies, weights=weights, k=1
+            )[0]
         else:
             # No proxies with EMA data and no exploration candidates
             # This can happen if all proxies have been tried but none have EMA yet
             # (e.g., all requests failed). Fall back to random selection.
-            selected = random.choice(healthy_proxies)
+            selected = random.choice(  # nosec B311
+                healthy_proxies
+            )
 
         # Track request start
         selected.start_request()
@@ -1478,12 +1494,13 @@ class SessionPersistenceStrategy:
         session = self._session_manager.get_session(session_id)
 
         if session is not None:
-            # Session exists - try to use assigned proxy
+            # Session exists - try to use assigned proxy when the persisted ID is valid.
             try:
-                # Convert proxy_id from string to UUID
-                from uuid import UUID
-
                 proxy_uuid = UUID(session.proxy_id)
+            except (ValueError, TypeError, AttributeError):
+                proxy_uuid = None
+
+            if proxy_uuid is not None:
                 assigned_proxy = pool.get_proxy_by_id(proxy_uuid)
 
                 # Check if proxy is still healthy or untested (UNKNOWN is acceptable)
@@ -1498,9 +1515,6 @@ class SessionPersistenceStrategy:
                     assigned_proxy.start_request()
                     return assigned_proxy
                 # Proxy unhealthy - need to failover (fall through to new selection)
-            except Exception:
-                # Error retrieving proxy - fall through to new selection
-                pass
 
         # No valid session or failover needed - select new proxy
         healthy_proxies = pool.get_healthy_proxies()
@@ -1522,9 +1536,6 @@ class SessionPersistenceStrategy:
         self._session_manager.create_session(
             session_id=session_id, proxy=new_proxy, timeout_seconds=self._session_timeout_seconds
         )
-
-        # Mark proxy as in-use
-        new_proxy.start_request()
 
         return new_proxy
 
@@ -1730,9 +1741,6 @@ class GeoTargetedStrategy:
         temp_pool = ProxyPool(name="geo_filtered", proxies=filtered_proxies)
         selected_proxy = self._secondary_strategy.select(temp_pool)
 
-        # Mark proxy as in-use
-        selected_proxy.start_request()
-
         return selected_proxy
 
     def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
@@ -1890,8 +1898,10 @@ class CostAwareStrategy:
             # Fallback to uniform weights (shouldn't happen with free proxy boost)
             weights = [1.0 / len(weights)] * len(weights)
 
-        # Weighted random selection
-        selected = random.choices(healthy_proxies, weights=weights, k=1)[0]
+        # Weighted non-cryptographic selection for proxy load balancing.
+        selected = random.choices(  # nosec B311
+            healthy_proxies, weights=weights, k=1
+        )[0]
 
         # Mark proxy as in-use
         selected.start_request()
@@ -1988,8 +1998,8 @@ class CompositeStrategy:
 
             context = SelectionContext()
 
-        # Start with healthy proxies only
-        filtered_proxies = [p for p in pool.get_all_proxies() if p.is_healthy]
+        # Start with the same selectable health states used by ProxyPool.
+        filtered_proxies = pool.get_healthy_proxies()
 
         if not filtered_proxies:
             raise ProxyPoolEmptyError("No healthy proxies available")
@@ -2001,19 +2011,23 @@ class CompositeStrategy:
             for proxy in filtered_proxies:
                 temp_pool.add_proxy(proxy)
 
-            # Apply filter
+            # Apply filter without letting filter-only selection own request counters.
+            counter_snapshot = self._snapshot_request_counters(filtered_proxies)
             try:
                 selected = filter_strategy.select(temp_pool, context)
+            except ProxyPoolEmptyError:
+                self._restore_request_counters(filtered_proxies, counter_snapshot)
+                # Filter eliminated all proxies
+                raise ProxyPoolEmptyError(
+                    f"Filter {filter_strategy.__class__.__name__} eliminated all proxies"
+                )
+            else:
+                self._restore_request_counters(filtered_proxies, counter_snapshot)
                 # If filter returned one proxy, use it to filter the set
                 # For geo-filtering, this means only proxies matching criteria remain
                 filtered_proxies = [
                     p for p in filtered_proxies if self._matches_filter(p, selected)
                 ]
-            except ProxyPoolEmptyError:
-                # Filter eliminated all proxies
-                raise ProxyPoolEmptyError(
-                    f"Filter {filter_strategy.__class__.__name__} eliminated all proxies"
-                )
 
             if not filtered_proxies:
                 raise ProxyPoolEmptyError("All proxies filtered out")
@@ -2050,6 +2064,32 @@ class CompositeStrategy:
         # If no specific criteria, include all
         return True
 
+    @staticmethod
+    def _snapshot_request_counters(
+        proxies: list[Proxy],
+    ) -> dict[str, tuple[int, int, datetime | None]]:
+        """Capture lifecycle counters before filter-only strategy selection."""
+        return {
+            str(proxy.id): (proxy.requests_started, proxy.requests_active, proxy.window_start)
+            for proxy in proxies
+        }
+
+    @staticmethod
+    def _restore_request_counters(
+        proxies: list[Proxy],
+        snapshot: dict[str, tuple[int, int, datetime | None]],
+    ) -> None:
+        """Undo lifecycle counter changes from strategy calls used only as filters."""
+        for proxy in proxies:
+            counters = snapshot.get(str(proxy.id))
+            if counters is None:
+                continue
+            requests_started, requests_active, window_start = counters
+            with proxy._window_lock:
+                proxy.requests_started = requests_started
+                proxy.requests_active = requests_active
+                proxy.window_start = window_start
+
     def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
         """
         Record result by delegating to selector strategy.
@@ -2061,11 +2101,6 @@ class CompositeStrategy:
         """
         # Delegate to selector for result recording
         self.selector.record_result(proxy, success, response_time_ms)
-
-        # Also update filters if they track results
-        for filter_strategy in self.filters:
-            if hasattr(filter_strategy, "record_result"):
-                filter_strategy.record_result(proxy, success, response_time_ms)
 
     def configure(self, config: StrategyConfig) -> None:
         """

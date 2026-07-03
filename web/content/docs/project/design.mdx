@@ -2,31 +2,14 @@
 title: Design System
 description: Visual and interaction guidelines for the ProxyWhirl web app and documentation site.
 ---
-
-# Design System
-
 Canonical design reference: [docs/DESIGN.md on GitHub](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/DESIGN.md).
 
-## Direction
+## Published vs canonical
 
-ProxyWhirl uses a technical editorial dashboard style: calm density, clear hierarchy, code-first readability, and subtle network/proxy identity. Documentation and the live console should feel like infrastructure docs and an operational data surface in one product.
+| Surface | Location | Role |
+| ------- | -------- | ---- |
+| Canonical spec | [`docs/DESIGN.md`](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/DESIGN.md) | Full tokens, typography, motion, and component rules |
+| Published overview | This page | Short pointer for docs readers |
+| Web implementation | `web/src/index.css`, Fumadocs layout | Runtime styling for the docs site and dashboard |
 
-## Principles
-
-| Principle | Rule |
-| --------- | ---- |
-| Source-grounded | Docs and data cards point back to code, generated metadata, or operational artifacts. |
-| Calm density | Prefer compact tables, grouped cards, and strong headings over sparse marketing whitespace. |
-| Code readability | Code blocks need high contrast, generous line height, and runnable context. |
-| Accessible by default | Keyboard support, visible focus, semantic landmarks, and AA contrast are required. |
-
-## Implementation
-
-| Area | Rule |
-| ---- | ---- |
-| Published docs | Fumadocs MDX under `web/content/docs/` is canonical. |
-| Generated docs | Run `pnpm --dir web run docs:generate` before build. |
-| Styling | Use Tailwind tokens from `web/src/index.css`; avoid one-off hex colors except logo gradients. |
-| Runtime scope | Design changes must not alter Python runtime behavior, database schema, or public Python APIs. |
-
-See the [full design system doc](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/DESIGN.md) for tokens, typography, motion, and component rules.
+For direction, principles, tokens, and accessibility rules, edit `docs/DESIGN.md` first, then sync this overview if the published summary needs to change.

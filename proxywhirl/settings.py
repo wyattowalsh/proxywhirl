@@ -82,6 +82,7 @@ class APISettings(BaseSettings):
     max_retries: int = 3
     require_auth: bool = False
     api_key: SecretStr | None = None
+    public_metrics: bool = False
     cors_origins: Annotated[list[str], NoDecode] = Field(default_factory=list)
     cors_allow_credentials: bool = True
     rate_limit: str = "100/minute"

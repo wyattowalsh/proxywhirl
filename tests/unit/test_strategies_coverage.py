@@ -98,6 +98,28 @@ class TestCompositeStrategy:
 
         assert selected.country_code == "US"
 
+    def test_select_with_geo_filter_balances_single_request_lifecycle(self) -> None:
+        """Filter-only selection should not double count request lifecycle counters."""
+        pool = ProxyPool(name="test-pool")
+        proxy = Proxy(
+            url="http://us-proxy.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            country_code="US",
+        )
+        pool.add_proxy(proxy)
+        strategy = CompositeStrategy(
+            filters=[GeoTargetedStrategy()],
+            selector=RoundRobinStrategy(),
+        )
+        context = SelectionContext(target_country="US")
+
+        selected = strategy.select(pool, context)
+        strategy.record_result(selected, success=True, response_time_ms=100.0)
+
+        assert selected.requests_started == 1
+        assert selected.requests_completed == 1
+        assert selected.requests_active == 0
+
     def test_select_raises_when_pool_empty(self) -> None:
         """Test that selection raises when pool has no healthy proxies."""
         pool = ProxyPool(name="empty-pool")
@@ -280,6 +302,21 @@ class TestSessionPersistenceEdgeCases:
         session = strategy._session_manager.get_session("new-session-123")
         assert session is not None
 
+    def test_new_session_selection_balances_single_request_lifecycle(self) -> None:
+        """Fallback strategy selection should not be counted twice for new sessions."""
+        strategy = SessionPersistenceStrategy()
+        pool = ProxyPool(name="test-pool")
+        proxy = Proxy(url="http://proxy1.com:8080", health_status=HealthStatus.HEALTHY)
+        pool.add_proxy(proxy)
+        context = SelectionContext(session_id="new-session-lifecycle")
+
+        selected = strategy.select(pool, context)
+        strategy.record_result(selected, success=True, response_time_ms=100.0)
+
+        assert selected.requests_started == 1
+        assert selected.requests_completed == 1
+        assert selected.requests_active == 0
+
     def test_select_reuses_existing_session(self) -> None:
         """Test that select reuses existing session's proxy."""
         strategy = SessionPersistenceStrategy()
@@ -320,6 +357,27 @@ class TestSessionPersistenceEdgeCases:
         second = strategy.select(pool, context)
 
         assert second.health_status == HealthStatus.HEALTHY
+
+    def test_select_failover_when_session_proxy_id_invalid(self) -> None:
+        """Invalid persisted session proxy IDs should fail over to a new proxy."""
+        from datetime import datetime, timedelta, timezone
+
+        from proxywhirl.models import Session
+
+        strategy = SessionPersistenceStrategy()
+        pool = ProxyPool(name="test-pool")
+        proxy = Proxy(url="http://proxy1.com:8080", health_status=HealthStatus.HEALTHY)
+        pool.add_proxy(proxy)
+
+        strategy._session_manager._sessions["corrupt-session"] = Session(
+            session_id="corrupt-session",
+            proxy_id="not-a-uuid",
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+        )
+
+        selected = strategy.select(pool, SelectionContext(session_id="corrupt-session"))
+
+        assert selected.id == proxy.id
 
     def test_close_session(self) -> None:
         """Test explicitly closing a session."""
@@ -382,6 +440,25 @@ class TestGeoTargetedStrategyEdgeCases:
         selected = strategy.select(pool, context)
 
         assert selected.country_code == "US"
+
+    def test_geo_selection_balances_single_request_lifecycle(self) -> None:
+        """Secondary strategy selection should not be counted twice."""
+        strategy = GeoTargetedStrategy()
+        pool = ProxyPool(name="test-pool")
+        proxy = Proxy(
+            url="http://us.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            country_code="US",
+        )
+        pool.add_proxy(proxy)
+        context = SelectionContext(target_country="US")
+
+        selected = strategy.select(pool, context)
+        strategy.record_result(selected, success=True, response_time_ms=100.0)
+
+        assert selected.requests_started == 1
+        assert selected.requests_completed == 1
+        assert selected.requests_active == 0
 
     def test_select_with_target_region(self) -> None:
         """Test selection with target_region filters correctly."""

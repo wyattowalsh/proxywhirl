@@ -1,0 +1,48 @@
+---
+title: Security Operations
+description: Hardening, secret handling, network policies, and security checklist for deployments.
+---
+## Secret Management
+
+- Store `PROXYWHIRL_API_KEY`, `PROXYWHIRL_ENCRYPTION_KEY`, and `PROXYWHIRL_KEY` in Kubernetes Secrets or your secret manager
+- Never commit `.env` files or embed keys in images
+- Rotate keys on a schedule; use `cryptography` Fernet helpers from `proxywhirl.utils`
+
+## Network Policies
+
+Kubernetes manifests include default-deny style policies:
+
+- Ingress only from the ingress controller
+- Egress to Redis, databases, and required external endpoints
+- Non-root pod user (uid 1000), dropped capabilities, read-only root FS where configured
+
+## API Hardening
+
+- Enable `PROXYWHIRL_REQUIRE_AUTH=true` in production
+- Restrict `PROXYWHIRL_CORS_ORIGINS` to known frontends
+- Terminate TLS at ingress/load balancer
+
+## Proxy Usage
+
+Public proxies are untrusted. Do not send sensitive data without application-layer encryption. ProxyWhirl redacts credentials in logs and exceptions where configured.
+
+## Implemented Hardening Controls
+
+| Control | Location | Details |
+| ------- | -------- | ------- |
+| SSRF protection | `proxywhirl/utils.py`, `proxywhirl/api/core.py` | `validate_target_url_safe()` blocks private/reserved IP ranges before proxying a request |
+| Credential redaction | `proxywhirl/utils.py`, `proxywhirl/logging_config.py` | `_redact_sensitive_data()` strips secrets from logs and exception messages |
+| Input validation | `proxywhirl/api/core.py`, `proxywhirl/models/` | Request validators enforce schema and value constraints on all API endpoints |
+| TLS verification | `proxywhirl/fetchers.py`, `proxywhirl/rotator/` | `verify_ssl` defaults to enabled with CA bundle handling |
+| Per-API-key rate limiting | `proxywhirl/rate_limiting/` | Rate-limit bucket keys on the API key hash first, falling back to client IP, to prevent `X-Forwarded-For` bypass |
+| Debug logging redaction | `proxywhirl/logging_config.py` | Debug-level logs never emit raw credentials |
+
+## Audit Checklist
+
+- [ ] Auth required on write/admin API routes
+- [ ] Secrets in environment or secret store, not manifests
+- [ ] TLS enabled for external API exposure
+- [ ] Dependency scan clean (`security.yml`)
+- [ ] Source validation passing before deploy
+
+See [Security Model](/docs/concepts/security-model) for design rationale.

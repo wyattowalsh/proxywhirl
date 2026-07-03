@@ -1,0 +1,94 @@
+---
+title: FAQ
+description: Frequently asked questions about ProxyWhirl installation, strategies, caching, and operations.
+---
+## General
+
+**What is ProxyWhirl?** A production-grade Python library for intelligent proxy rotation with nine strategies, 100+ built-in sources, circuit breakers, multi-tier caching, and Python, REST, CLI, and MCP interfaces.
+
+**Python versions?** 3.10+ (tested on 3.10–3.13).
+
+**Production ready?** Yes — circuit breakers, retries, health monitoring, and structured error handling are first-class.
+
+## Installation
+
+```bash
+uv add proxywhirl
+uv run proxywhirl --help
+```
+
+Core dependencies: httpx, pydantic, sqlmodel, loguru, tenacity. Optional: FastAPI (REST), Playwright (JS sources).
+
+SQLite persistence is required; use `:memory:` for ephemeral runs.
+
+## Proxy sources
+
+Built-in public lists refresh on a configurable cache TTL. CI regenerates exported lists under `docs/proxy-lists/` every three hours. Run `proxywhirl fetch` locally to populate your own `proxywhirl.db` (gitignored). Add custom sources via `ProxySource` or the CLI pool commands.
+
+## Strategies
+
+| Strategy | Use when |
+| -------- | -------- |
+| RoundRobin | Default, fastest, uniform load |
+| PerformanceBased | Latency-sensitive workloads |
+| Weighted / WeightedRandom | Success-rate bias |
+| SessionPersistent | Sticky sessions |
+| CostAware | Budget limits |
+
+See [Rotation Strategies](/docs/concepts/rotation-strategies). Switch at runtime via config or `SelectionContext`.
+
+## HTTP clients
+
+```python
+import httpx
+
+proxy = whirl.get()
+with httpx.Client(proxy=proxy.to_url()) as client:
+    client.get("https://example.com")
+```
+
+Works similarly with `requests`, Selenium, and Playwright (`proxy={"server": proxy.to_url()}`).
+
+## Caching and resilience
+
+Multi-tier L1/L2/L3 caching reduces selection latency from ~10ms to under 1ms. Clear with `whirl.cache_manager.clear()`. Circuit breakers exclude failing proxies; reset with `whirl.circuit_breaker.reset_all()` after upstream outages.
+
+## Interfaces
+
+1. **Python**: `ProxyWhirl` / `AsyncProxyWhirl`
+2. **REST**: `uv run uvicorn proxywhirl.api:app --host 127.0.0.1 --port 8000`
+3. **CLI**: `proxywhirl` — see [CLI reference](/docs/generated/cli-reference)
+4. **MCP**: [MCP Server](/docs/interfaces/mcp)
+
+## Security
+
+Public proxies are untrusted. Credentials are Fernet-encrypted when `PROXYWHIRL_KEY` is set. Configure Loguru via [Configuration](/docs/reference/configuration).
+
+## Troubleshooting
+
+| Symptom | Fix |
+| ------- | --- |
+| Slow selection | Enable cache; prefer RoundRobin |
+| `ProxyPoolEmptyError` | Run bootstrap/fetch; add sources |
+| Timeouts | Increase `timeout_seconds`; validate sources |
+| All breakers open | Wait for half-open recovery or reset |
+
+Enable debug logging:
+
+```python
+from proxywhirl.logging_config import configure_logging
+
+configure_logging(level="DEBUG")
+```
+
+See [Troubleshooting](/docs/guides/troubleshooting).
+
+## Development
+
+Contributing: [Contributing](/docs/project/contributing). Local tests: `just test-fast` or `just quality-gates`. Docs: `pnpm --dir web run docs:generate && pnpm --dir web run build`.
+
+## License
+
+MIT — free for commercial use. Use proxies responsibly and comply with target site policies.
+
+Report bugs on [GitHub Issues](https://github.com/wyattowalsh/proxywhirl/issues).

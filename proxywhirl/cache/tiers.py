@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
+import threading
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from contextlib import closing
@@ -393,11 +395,16 @@ class JsonlCacheTier(CacheTier):
         self._index: dict[str, int] = {}
         # OrderedDict for O(1) LRU eviction tracking (key -> last_accessed timestamp)
         self._access_order: OrderedDict[str, float] = OrderedDict()
+        self._state_lock = threading.RLock()
         self._rebuild_index()
 
     def _get_shard_path(self, shard_id: int) -> Path:
         """Get path to a specific shard file."""
         return self.cache_dir / f"shard_{shard_id:02d}.jsonl"
+
+    def _get_shard_lock_path(self, shard_id: int) -> Path:
+        """Get path to the coarse lock for a shard read-modify-write cycle."""
+        return self.cache_dir / f"shard_{shard_id:02d}.lock"
 
     def _get_shard_id(self, key: str) -> int:
         """Compute shard ID for a cache key using deterministic hashing.
@@ -530,7 +537,9 @@ class JsonlCacheTier(CacheTier):
 
         try:
             # Write to temp file first, then rename for atomicity
-            temp_path = shard_path.with_suffix(".tmp")
+            temp_path = shard_path.with_name(
+                f"{shard_path.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+            )
             with portalocker.Lock(temp_path, "w", timeout=5) as f:
                 for data in entries.values():
                     json.dump(data, f)
@@ -624,20 +633,8 @@ class JsonlCacheTier(CacheTier):
                     f"Key mismatch in put(): parameter '{key}' vs entry.key '{entry.key}', using entry.key"
                 )
 
-            # Check if we need to evict before adding (LRU eviction)
-            # Only evict if this is a new key and we're at capacity
-            if (
-                self.config.max_entries
-                and entry.key not in self._index
-                and len(self._index) >= self.config.max_entries
-            ):
-                self._evict_oldest()
-
             # Always use entry.key for consistency
             shard_id = self._get_shard_id(entry.key)
-
-            # Read existing shard
-            entries = self._read_shard(shard_id)
 
             # Prepare entry data with all fields including health monitoring
             data = {
@@ -676,22 +673,42 @@ class JsonlCacheTier(CacheTier):
                 encrypted = self.encryptor.encrypt(entry.password)
                 data["password_encrypted"] = encrypted.hex()
 
-            # Add/update entry using entry.key for consistency
-            entries[entry.key] = data
+            with self._state_lock:
+                self._evict_to_capacity_for_new_key(entry.key)
 
-            # Write shard
-            if self._write_shard(shard_id, entries):
-                self._index[entry.key] = shard_id
-                # Update access order for LRU tracking
-                if entry.key in self._access_order:
-                    self._access_order.move_to_end(entry.key)
-                self._access_order[entry.key] = entry.last_accessed.timestamp()
-                self.reset_failures()
-                return True
+                with portalocker.Lock(self._get_shard_lock_path(shard_id), "a+", timeout=5):
+                    # Read existing shard while holding the shard lock to avoid lost updates.
+                    entries = self._read_shard(shard_id)
+                    entries[entry.key] = data
+
+                    if self._write_shard(shard_id, entries):
+                        self._index[entry.key] = shard_id
+                        # Update access order for LRU tracking
+                        if entry.key in self._access_order:
+                            self._access_order.move_to_end(entry.key)
+                        self._access_order[entry.key] = entry.last_accessed.timestamp()
+                        self.reset_failures()
+                        return True
             return False
         except Exception as e:
             self.handle_failure(e)
             return False
+
+    def _evict_to_capacity_for_new_key(self, key: str) -> None:
+        """Evict LRU entries before adding a new key, while caller holds _state_lock."""
+        if not self.config.max_entries or key in self._index:
+            return
+
+        while len(self._index) >= self.config.max_entries and self._access_order:
+            oldest_key, _ = self._access_order.popitem(last=False)
+            oldest_shard_id = self._index.pop(oldest_key, None)
+            if oldest_shard_id is None:
+                continue
+
+            with portalocker.Lock(self._get_shard_lock_path(oldest_shard_id), "a+", timeout=5):
+                entries = self._read_shard(oldest_shard_id)
+                entries.pop(oldest_key, None)
+                self._write_shard(oldest_shard_id, entries)
 
     def delete(self, key: str) -> bool:
         """Remove entry from JSONL shard.
@@ -708,17 +725,19 @@ class JsonlCacheTier(CacheTier):
             if shard_id is None:
                 return False
 
-            entries = self._read_shard(shard_id)
-            if key not in entries:
-                self._index.pop(key, None)
-                self._access_order.pop(key, None)
-                return False
+            with self._state_lock:
+                with portalocker.Lock(self._get_shard_lock_path(shard_id), "a+", timeout=5):
+                    entries = self._read_shard(shard_id)
+                    if key not in entries:
+                        self._index.pop(key, None)
+                        self._access_order.pop(key, None)
+                        return False
 
-            del entries[key]
-            if self._write_shard(shard_id, entries):
-                self._index.pop(key, None)
-                self._access_order.pop(key, None)
-                return True
+                    del entries[key]
+                    if self._write_shard(shard_id, entries):
+                        self._index.pop(key, None)
+                        self._access_order.pop(key, None)
+                        return True
             return False
         except Exception as e:
             self.handle_failure(e)
@@ -858,6 +877,7 @@ class DiskCacheTier(CacheTier):
 
         self._conn: sqlite3.Connection | None = None
         self._conn_lock = threading.Lock()
+        self._op_lock = threading.RLock()
 
         self._init_db()
 
@@ -907,13 +927,14 @@ class DiskCacheTier(CacheTier):
             >>> tier.close()  # Safe to call again
 
         """
-        with self._conn_lock:
-            if self._conn is not None:
-                try:
-                    self._conn.close()
-                except Exception:
-                    pass  # Ignore errors on close
-                self._conn = None
+        with self._op_lock:
+            with self._conn_lock:
+                if self._conn is not None:
+                    try:
+                        self._conn.close()
+                    except Exception:
+                        pass  # Ignore errors on close
+                    self._conn = None
 
     def __del__(self) -> None:
         """Destructor to ensure SQLite connection is closed during garbage collection.
@@ -943,30 +964,31 @@ class DiskCacheTier(CacheTier):
         - Expires_at index for efficient cleanup
         """
         try:
-            conn = self._get_connection()
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS l2_cache (
-                    key TEXT PRIMARY KEY,
-                    proxy_url TEXT NOT NULL,
-                    username_encrypted BLOB,
-                    password_encrypted BLOB,
-                    source TEXT NOT NULL,
-                    fetch_time REAL NOT NULL,
-                    last_accessed REAL NOT NULL,
-                    access_count INTEGER DEFAULT 0,
-                    ttl_seconds INTEGER NOT NULL,
-                    expires_at REAL NOT NULL,
-                    health_status TEXT DEFAULT 'unknown',
-                    failure_count INTEGER DEFAULT 0,
-                    evicted_from_l1 INTEGER DEFAULT 0
-                )
-            """)
+            with self._op_lock:
+                conn = self._get_connection()
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS l2_cache (
+                        key TEXT PRIMARY KEY,
+                        proxy_url TEXT NOT NULL,
+                        username_encrypted BLOB,
+                        password_encrypted BLOB,
+                        source TEXT NOT NULL,
+                        fetch_time REAL NOT NULL,
+                        last_accessed REAL NOT NULL,
+                        access_count INTEGER DEFAULT 0,
+                        ttl_seconds INTEGER NOT NULL,
+                        expires_at REAL NOT NULL,
+                        health_status TEXT DEFAULT 'unknown',
+                        failure_count INTEGER DEFAULT 0,
+                        evicted_from_l1 INTEGER DEFAULT 0
+                    )
+                """)
 
-            # Create indexes for common queries
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_l2_expires_at ON l2_cache(expires_at)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_l2_source ON l2_cache(source)")
+                # Create indexes for common queries
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_l2_expires_at ON l2_cache(expires_at)")
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_l2_source ON l2_cache(source)")
 
-            conn.commit()
+                conn.commit()
         except Exception as e:
             self.handle_failure(e)
 
@@ -981,9 +1003,10 @@ class DiskCacheTier(CacheTier):
 
         """
         try:
-            conn = self._get_connection()
-            cursor = conn.execute("SELECT * FROM l2_cache WHERE key = ?", (key,))
-            row = cursor.fetchone()
+            with self._op_lock:
+                conn = self._get_connection()
+                cursor = conn.execute("SELECT * FROM l2_cache WHERE key = ?", (key,))
+                row = cursor.fetchone()
 
             if not row:
                 return None
@@ -1050,33 +1073,34 @@ class DiskCacheTier(CacheTier):
             if entry.password:
                 password_encrypted = self.encryptor.encrypt(entry.password)
 
-            conn = self._get_connection()
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO l2_cache (
-                    key, proxy_url, username_encrypted, password_encrypted,
-                    source, fetch_time, last_accessed, access_count,
-                    ttl_seconds, expires_at, health_status, failure_count,
-                    evicted_from_l1
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    entry.key,
-                    entry.proxy_url,
-                    username_encrypted,
-                    password_encrypted,
-                    entry.source,
-                    entry.fetch_time.timestamp(),
-                    entry.last_accessed.timestamp(),
-                    entry.access_count,
-                    entry.ttl_seconds,
-                    entry.expires_at.timestamp(),
-                    entry.health_status.value,
-                    entry.failure_count,
-                    int(entry.evicted_from_l1),
-                ),
-            )
-            conn.commit()
+            with self._op_lock:
+                conn = self._get_connection()
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO l2_cache (
+                        key, proxy_url, username_encrypted, password_encrypted,
+                        source, fetch_time, last_accessed, access_count,
+                        ttl_seconds, expires_at, health_status, failure_count,
+                        evicted_from_l1
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        entry.key,
+                        entry.proxy_url,
+                        username_encrypted,
+                        password_encrypted,
+                        entry.source,
+                        entry.fetch_time.timestamp(),
+                        entry.last_accessed.timestamp(),
+                        entry.access_count,
+                        entry.ttl_seconds,
+                        entry.expires_at.timestamp(),
+                        entry.health_status.value,
+                        entry.failure_count,
+                        int(entry.evicted_from_l1),
+                    ),
+                )
+                conn.commit()
 
             self.reset_failures()
             return True
@@ -1109,10 +1133,11 @@ class DiskCacheTier(CacheTier):
 
         """
         try:
-            conn = self._get_connection()
-            cursor = conn.execute("DELETE FROM l2_cache WHERE key = ?", (key,))
-            deleted = cursor.rowcount > 0
-            conn.commit()
+            with self._op_lock:
+                conn = self._get_connection()
+                cursor = conn.execute("DELETE FROM l2_cache WHERE key = ?", (key,))
+                deleted = cursor.rowcount > 0
+                conn.commit()
             return deleted
         except Exception as e:
             self.handle_failure(e)
@@ -1156,11 +1181,12 @@ class DiskCacheTier(CacheTier):
 
         """
         try:
-            conn = self._get_connection()
-            cursor = conn.execute("SELECT COUNT(*) FROM l2_cache")
-            count = cursor.fetchone()[0]
-            conn.execute("DELETE FROM l2_cache")
-            conn.commit()
+            with self._op_lock:
+                conn = self._get_connection()
+                cursor = conn.execute("SELECT COUNT(*) FROM l2_cache")
+                count = cursor.fetchone()[0]
+                conn.execute("DELETE FROM l2_cache")
+                conn.commit()
 
             self.reset_failures()
             return count
@@ -1192,9 +1218,10 @@ class DiskCacheTier(CacheTier):
 
         """
         try:
-            conn = self._get_connection()
-            cursor = conn.execute("SELECT COUNT(*) FROM l2_cache")
-            count = cursor.fetchone()[0]
+            with self._op_lock:
+                conn = self._get_connection()
+                cursor = conn.execute("SELECT COUNT(*) FROM l2_cache")
+                count = cursor.fetchone()[0]
 
             self.reset_failures()
             return count
@@ -1233,9 +1260,10 @@ class DiskCacheTier(CacheTier):
 
         """
         try:
-            conn = self._get_connection()
-            cursor = conn.execute("SELECT key FROM l2_cache")
-            keys = [row[0] for row in cursor.fetchall()]
+            with self._op_lock:
+                conn = self._get_connection()
+                cursor = conn.execute("SELECT key FROM l2_cache")
+                keys = [row[0] for row in cursor.fetchall()]
 
             self.reset_failures()
             return keys
@@ -1280,10 +1308,11 @@ class DiskCacheTier(CacheTier):
         try:
             now = datetime.now(timezone.utc).timestamp()
 
-            conn = self._get_connection()
-            cursor = conn.execute("DELETE FROM l2_cache WHERE expires_at < ?", (now,))
-            removed = cursor.rowcount
-            conn.commit()
+            with self._op_lock:
+                conn = self._get_connection()
+                cursor = conn.execute("DELETE FROM l2_cache WHERE expires_at < ?", (now,))
+                removed = cursor.rowcount
+                conn.commit()
 
             self.reset_failures()
             return removed

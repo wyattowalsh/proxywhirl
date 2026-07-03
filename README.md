@@ -224,6 +224,14 @@ curl localhost:8000/api/proxies
 </tr>
 </table>
 
+> [!WARNING]
+> The REST API and MCP server run **without authentication by default** (`PROXYWHIRL_REQUIRE_AUTH=false`,
+> no `PROXYWHIRL_MCP_API_KEY`) for zero-friction local development — both now log a startup warning when
+> this is the case. Before exposing either service beyond `localhost`, set `PROXYWHIRL_REQUIRE_AUTH=true`
+> plus `PROXYWHIRL_API_KEY`, and set `PROXYWHIRL_MCP_API_KEY`. See the
+> [Deployment guide](https://www.proxywhirl.com/docs/guides/deployment#production-hardening-authentication)
+> for the full hardening checklist.
+
 <br/>
 
 ---

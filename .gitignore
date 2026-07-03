@@ -83,6 +83,7 @@ lerna-debug.log*
 
 # temporary files which can be created if a process still has a handle open of a deleted file
 .fuse_hidden*
+web/public/.goutputstream-*
 
 # KDE directory preferences
 .directory
@@ -402,13 +403,11 @@ zsdoc/data
 .temp
 
 # =========================================
-# PROXYWHIRL: Track the database in git
+# PROXYWHIRL: Runtime SQLite pool (CLI fetch / API / MCP default)
 # =========================================
-# We explicitly track proxywhirl.db for long-running analytics
-# The database is updated by CI/CD workflows
-!proxywhirl.db
+proxywhirl.db
 
-# But ignore SQLite journal files (created during writes)
+# SQLite journal files (created during writes)
 *.db-journal
 *.db-wal
 *.db-shm
@@ -477,7 +476,6 @@ web/.source/
 
 .claude/settings.local.json
 .claude/session-state/
-docs/source/autoapi/
 web/playwright-report/
 web/test-results/
 web/public/README.md

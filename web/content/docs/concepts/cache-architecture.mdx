@@ -2,9 +2,6 @@
 title: Cache Architecture
 description: Three-tier cache design, promotion and eviction, credential security, and graceful degradation.
 ---
-
-# Cache Architecture
-
 ProxyWhirl uses a **three-tier cache hierarchy** to balance speed, persistence, and scale. For TOML options, see [Configuration](/docs/reference/configuration).
 
 ## Why Three Tiers?
@@ -79,4 +76,4 @@ Inspect per-tier health via `CacheManager.get_stats()`.
 - [Configuration](/docs/reference/configuration) — `cache_*` fields
 - [Troubleshooting](/docs/guides/troubleshooting) — corruption and rebuild
 - [Retry & Failover](/docs/guides/retry-failover) — health invalidation
-- [ADR-001: Three-Tier Cache](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/adr/001-three-tier-cache.md)
+- [ADR-001: Three-Tier Cache](/docs/project/adr/001-three-tier-cache)

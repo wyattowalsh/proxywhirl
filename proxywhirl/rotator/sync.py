@@ -31,7 +31,7 @@ from proxywhirl.orchestration import (
 )
 from proxywhirl.retry import NonRetryableError, RetryExecutor, RetryMetrics, RetryPolicy
 from proxywhirl.rotator._bootstrap import bootstrap_pool_if_empty_sync
-from proxywhirl.rotator.base import ProxyRotatorBase
+from proxywhirl.rotator.base import CircuitBreakerSnapshot, ProxyRotatorBase
 from proxywhirl.rotator.client_pool import (
     LRUClientPool,  # noqa: F401 - re-export for backward compatibility
 )
@@ -267,6 +267,11 @@ class ProxyWhirl(ProxyRotatorBase):
             from proxywhirl.utils import create_proxy_from_url
 
             proxy = create_proxy_from_url(proxy)
+
+        if self.pool.has_proxy_url(proxy.url):
+            masked_url = mask_proxy_url(proxy.url)
+            logger.debug(f"Skipped duplicate proxy: {masked_url}", proxy_id=str(proxy.id))
+            return
 
         self.pool.add_proxy(proxy)
 
@@ -505,9 +510,11 @@ class ProxyWhirl(ProxyRotatorBase):
             # Use a lock to ensure atomic swap
             with self._strategy_lock:
                 self.strategy = new_strategy
+                self.orchestrator.strategy = new_strategy
         else:
             # Direct assignment (faster but less safe)
             self.strategy = new_strategy
+            self.orchestrator.strategy = new_strategy
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000
 
@@ -1275,14 +1282,14 @@ class ProxyWhirl(ProxyRotatorBase):
         self._aggregation_timer.daemon = True
         self._aggregation_timer.start()
 
-    def get_circuit_breaker_states(self) -> dict[str, CircuitBreaker]:
+    def get_circuit_breaker_states(self) -> dict[str, CircuitBreakerSnapshot]:
         """
         Get circuit breaker states for all proxies.
 
         Returns:
-            dict[str, CircuitBreaker]: Mapping of proxy IDs to their circuit breaker instances.
+            dict[str, CircuitBreakerSnapshot]: Mapping of proxy IDs to immutable snapshots.
         """
-        return self.circuit_breakers.copy()
+        return super().get_circuit_breaker_states()
 
     def reset_circuit_breaker(self, proxy_id: str) -> None:
         """

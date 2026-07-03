@@ -169,7 +169,7 @@ class TestRetryMetricsEndpoint:
             response = client.get("/api/metrics/retries")
 
             assert response.status_code == 503
-            assert "Rotator not initialized" in response.json()["detail"]
+            assert "Rotator not initialized" in response.json()["error"]["message"]
 
     def test_get_retry_metrics_preserves_special_chars_in_json(self, client):
         """Test per-proxy retry metrics preserve proxy IDs in JSON output."""
@@ -253,7 +253,7 @@ class TestCircuitBreakerMetricsEndpoint:
             response = client.get("/api/metrics/circuit-breakers")
 
             assert response.status_code == 503
-            assert "Rotator not initialized" in response.json()["detail"]
+            assert "Rotator not initialized" in response.json()["error"]["message"]
 
     def test_circuit_breaker_state_mapping(self, client, mock_rotator):
         """Test that circuit breaker states are correctly mapped to numeric values."""
@@ -375,7 +375,7 @@ class TestAPIAuthentication:
             # Request should be rejected with 503 when auth required but key not configured
             response = client.get("/api/metrics/retries")
             assert response.status_code == 503
-            assert "authentication not configured" in response.json()["detail"].lower()
+            assert "authentication not configured" in response.json()["error"]["message"].lower()
 
             # Same behavior even with an API key header (since expected key is not configured)
             response = client.get(

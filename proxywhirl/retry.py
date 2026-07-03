@@ -81,12 +81,19 @@ class RetryPolicy(BaseModel):
 
         if self.jitter:
             if previous_delay is not None:
-                delay = min(
-                    self.max_backoff_delay,
-                    random.uniform(self.base_delay, previous_delay * 3),
+                # Non-cryptographic randomness is sufficient for retry jitter.
+                retry_jitter = random.uniform(  # nosec B311
+                    self.base_delay,
+                    previous_delay * 3,
                 )
+                delay = min(self.max_backoff_delay, retry_jitter)
             else:
-                delay = random.uniform(0, min(base, self.max_backoff_delay))
+                jitter_cap = min(base, self.max_backoff_delay)
+                # Non-cryptographic randomness is sufficient for retry jitter.
+                delay = random.uniform(  # nosec B311
+                    0,
+                    jitter_cap,
+                )
         else:
             delay = min(base, self.max_backoff_delay)
 
@@ -148,6 +155,10 @@ class RetryMetrics(BaseModel):
     max_current_attempts: int = Field(default=10000)
 
     _lock: Any = PrivateAttr(default_factory=__import__("threading").Lock)
+    _hourly_request_ids: dict[datetime, set[str]] = PrivateAttr(default_factory=dict)
+    _proxy_hourly_aggregates: dict[datetime, dict[str, dict[str, Any]]] = PrivateAttr(
+        default_factory=dict
+    )
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -156,11 +167,20 @@ class RetryMetrics(BaseModel):
         super().__init__(**data)
         max_attempts = data.get("max_current_attempts", 10000)
         self.current_attempts = deque(self.current_attempts, maxlen=max_attempts)
+        existing_attempts = list(self.current_attempts)
+        self.hourly_aggregates = {}
+        self._hourly_request_ids = {}
+        self._proxy_hourly_aggregates = {}
+        for attempt in existing_attempts:
+            self._record_attempt_aggregate(attempt)
+        self._prune_aggregates()
 
     def record_attempt(self, attempt: RetryAttempt) -> None:
         """Record a retry attempt."""
         with self._lock:
             self.current_attempts.append(attempt)
+            self._record_attempt_aggregate(attempt)
+            self._prune_aggregates()
 
     def record_circuit_breaker_event(self, event: CircuitBreakerEvent) -> None:
         """Record circuit breaker state change."""
@@ -170,44 +190,19 @@ class RetryMetrics(BaseModel):
                 self.circuit_breaker_events = self.circuit_breaker_events[-1000:]
 
     def aggregate_hourly(self) -> None:
-        """Aggregate current_attempts into hourly summaries."""
+        """Prune retained hourly summaries.
+
+        Attempts are folded into hourly aggregates when recorded. This maintenance
+        method is intentionally idempotent so periodic callers do not inflate counts.
+        """
         with self._lock:
-            now = datetime.now(timezone.utc)
-            cutoff = now - timedelta(hours=self.retention_hours)
-
-            attempts_by_hour: dict[datetime, list[RetryAttempt]] = defaultdict(list)
-            for attempt in self.current_attempts:
-                if attempt.timestamp >= cutoff:
-                    hour = attempt.timestamp.replace(minute=0, second=0, microsecond=0)
-                    attempts_by_hour[hour].append(attempt)
-
-            for hour, attempts in attempts_by_hour.items():
-                if hour not in self.hourly_aggregates:
-                    self.hourly_aggregates[hour] = HourlyAggregate(hour=hour)
-
-                agg = self.hourly_aggregates[hour]
-                agg.total_requests += len({a.request_id for a in attempts})
-                agg.total_retries += len(attempts)
-
-                for attempt in attempts:
-                    if attempt.outcome == RetryOutcome.SUCCESS:
-                        agg.success_by_attempt[attempt.attempt_number] = (
-                            agg.success_by_attempt.get(attempt.attempt_number, 0) + 1
-                        )
-                    else:
-                        reason = attempt.error_message or attempt.outcome.value
-                        agg.failure_by_reason[reason] = agg.failure_by_reason.get(reason, 0) + 1
-
-            self.hourly_aggregates = {
-                h: agg for h, agg in self.hourly_aggregates.items() if h >= cutoff
-            }
+            self._prune_aggregates()
 
     def get_summary(self) -> dict[str, Any]:
         """Get metrics summary for API response."""
         with self._lock:
-            total_retries = len(self.current_attempts) + sum(
-                agg.total_retries for agg in self.hourly_aggregates.values()
-            )
+            self._prune_aggregates()
+            total_retries = sum(agg.total_retries for agg in self.hourly_aggregates.values())
 
             success_by_attempt: dict[int, int] = defaultdict(int)
             for agg in self.hourly_aggregates.values():
@@ -224,6 +219,7 @@ class RetryMetrics(BaseModel):
     def get_timeseries(self, hours: int = 24) -> list[dict[str, Any]]:
         """Get time-series data for the specified hours."""
         with self._lock:
+            self._prune_aggregates()
             cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
 
             data_points = []
@@ -248,6 +244,7 @@ class RetryMetrics(BaseModel):
     def get_by_proxy(self, hours: int = 24) -> dict[str, dict[str, Any]]:
         """Get per-proxy retry statistics."""
         with self._lock:
+            self._prune_aggregates()
             cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
             proxy_stats: dict[str, dict[str, Any]] = defaultdict(
                 lambda: {
@@ -259,16 +256,15 @@ class RetryMetrics(BaseModel):
                 }
             )
 
-            for attempt in self.current_attempts:
-                if attempt.timestamp >= cutoff:
-                    stats = proxy_stats[attempt.proxy_id]
-                    stats["total_attempts"] += 1
-                    stats["total_latency"] += attempt.latency
-
-                    if attempt.outcome == RetryOutcome.SUCCESS:
-                        stats["success_count"] += 1
-                    else:
-                        stats["failure_count"] += 1
+            for hour, per_proxy in self._proxy_hourly_aggregates.items():
+                if hour < cutoff:
+                    continue
+                for proxy_id, retained_stats in per_proxy.items():
+                    stats = proxy_stats[proxy_id]
+                    stats["total_attempts"] += retained_stats["total_attempts"]
+                    stats["success_count"] += retained_stats["success_count"]
+                    stats["failure_count"] += retained_stats["failure_count"]
+                    stats["total_latency"] += retained_stats["total_latency"]
 
             for event in self.circuit_breaker_events:
                 if event.timestamp >= cutoff and event.to_state == CircuitBreakerState.OPEN:
@@ -291,6 +287,66 @@ class RetryMetrics(BaseModel):
                 }
 
             return result
+
+    def _record_attempt_aggregate(self, attempt: RetryAttempt) -> None:
+        """Fold one attempt into retained hourly and per-proxy aggregates."""
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=self.retention_hours)
+        if attempt.timestamp < cutoff:
+            return
+
+        hour = attempt.timestamp.replace(minute=0, second=0, microsecond=0)
+        agg = self.hourly_aggregates.setdefault(hour, HourlyAggregate(hour=hour))
+        request_ids = self._hourly_request_ids.setdefault(hour, set())
+
+        if attempt.request_id not in request_ids:
+            request_ids.add(attempt.request_id)
+            agg.total_requests += 1
+
+        previous_total = agg.total_retries
+        agg.total_retries += 1
+        agg.avg_latency = ((agg.avg_latency * previous_total) + attempt.latency) / agg.total_retries
+
+        if attempt.outcome == RetryOutcome.SUCCESS:
+            agg.success_by_attempt[attempt.attempt_number] = (
+                agg.success_by_attempt.get(attempt.attempt_number, 0) + 1
+            )
+        else:
+            reason = attempt.error_message or attempt.outcome.value
+            agg.failure_by_reason[reason] = agg.failure_by_reason.get(reason, 0) + 1
+
+        per_proxy = self._proxy_hourly_aggregates.setdefault(hour, {})
+        proxy_stats = per_proxy.setdefault(
+            attempt.proxy_id,
+            {
+                "total_attempts": 0,
+                "success_count": 0,
+                "failure_count": 0,
+                "total_latency": 0.0,
+            },
+        )
+        proxy_stats["total_attempts"] += 1
+        proxy_stats["total_latency"] += attempt.latency
+        if attempt.outcome == RetryOutcome.SUCCESS:
+            proxy_stats["success_count"] += 1
+        else:
+            proxy_stats["failure_count"] += 1
+
+    def _prune_aggregates(self) -> None:
+        """Drop retained aggregates outside the configured retention window."""
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=self.retention_hours)
+        self.hourly_aggregates = {
+            hour: agg for hour, agg in self.hourly_aggregates.items() if hour >= cutoff
+        }
+        self._hourly_request_ids = {
+            hour: request_ids
+            for hour, request_ids in self._hourly_request_ids.items()
+            if hour >= cutoff
+        }
+        self._proxy_hourly_aggregates = {
+            hour: per_proxy
+            for hour, per_proxy in self._proxy_hourly_aggregates.items()
+            if hour >= cutoff
+        }
 
 
 class RetryableError(Exception):
@@ -782,6 +838,21 @@ class RetryExecutor:
             response = request_fn()
             latency = time.time() - attempt_start
 
+            if response.status_code in self.retry_policy.retry_status_codes:
+                self._record_attempt(
+                    request_id,
+                    attempt,
+                    str(proxy.id),
+                    RetryOutcome.FAILURE,
+                    delay,
+                    latency,
+                    status_code=response.status_code,
+                    error_message=f"Status {response.status_code}",
+                    failover_round=failover_round,
+                )
+                self._record_proxy_failure(proxy)
+                return response
+
             self._record_attempt(
                 request_id,
                 attempt,
@@ -825,6 +896,21 @@ class RetryExecutor:
         try:
             response = await request_fn()
             latency = time.time() - attempt_start
+
+            if response.status_code in self.retry_policy.retry_status_codes:
+                self._record_attempt(
+                    request_id,
+                    attempt,
+                    str(proxy.id),
+                    RetryOutcome.FAILURE,
+                    delay,
+                    latency,
+                    status_code=response.status_code,
+                    error_message=f"Status {response.status_code}",
+                    failover_round=failover_round,
+                )
+                self._record_proxy_failure(proxy)
+                return response
 
             self._record_attempt(
                 request_id,

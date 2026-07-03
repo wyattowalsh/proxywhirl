@@ -7,17 +7,33 @@ reducing code duplication and ensuring consistent behavior.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 from urllib.parse import quote
 
 from loguru import logger
 
-from proxywhirl.circuit_breaker import CircuitBreaker
+from proxywhirl.circuit_breaker import CircuitBreaker, CircuitBreakerState
 from proxywhirl.exceptions import ProxyPoolEmptyError
 from proxywhirl.models import Proxy, ProxyPool, SelectionContext
 from proxywhirl.retry import RetryMetrics, RetryPolicy
 from proxywhirl.strategies import RotationStrategy
 from proxywhirl.utils import mask_proxy_url
+
+
+@dataclass(frozen=True)
+class CircuitBreakerSnapshot:
+    """Immutable circuit breaker state exposed to external callers."""
+
+    proxy_id: str
+    state: CircuitBreakerState
+    failure_count: int
+    failure_threshold: int
+    window_duration: float
+    timeout_duration: float
+    next_test_time: float | None
+    last_state_change: datetime
 
 
 class ProxyRotatorBase:
@@ -223,6 +239,11 @@ class ProxyRotatorBase:
         Note:
             Subclasses should call this method from their add_proxy implementation.
         """
+        if self.pool.has_proxy_url(proxy.url):
+            masked_url = mask_proxy_url(proxy.url)
+            logger.debug(f"Skipped duplicate proxy: {masked_url}", proxy_id=str(proxy.id))
+            return
+
         self.pool.add_proxy(proxy)
 
         # Initialize circuit breaker for new proxy (starts CLOSED per FR-021)
@@ -251,17 +272,34 @@ class ProxyRotatorBase:
             del self.circuit_breakers[proxy_id]
             logger.debug(f"Removed circuit breaker for proxy: {proxy_id}")
 
-    def get_circuit_breaker_states(self) -> dict[str, CircuitBreaker]:
+    @staticmethod
+    def _snapshot_circuit_breaker(circuit_breaker: CircuitBreaker) -> CircuitBreakerSnapshot:
+        """Return an immutable snapshot of a circuit breaker."""
+        return CircuitBreakerSnapshot(
+            proxy_id=circuit_breaker.proxy_id,
+            state=circuit_breaker.state,
+            failure_count=circuit_breaker.failure_count,
+            failure_threshold=circuit_breaker.failure_threshold,
+            window_duration=circuit_breaker.window_duration,
+            timeout_duration=circuit_breaker.timeout_duration,
+            next_test_time=circuit_breaker.next_test_time,
+            last_state_change=circuit_breaker.last_state_change,
+        )
+
+    def get_circuit_breaker_states(self) -> dict[str, CircuitBreakerSnapshot]:
         """
         Get circuit breaker states for all proxies.
 
         Returns:
-            dict[str, CircuitBreaker]: Mapping of proxy IDs to their circuit breaker instances.
+            dict[str, CircuitBreakerSnapshot]: Mapping of proxy IDs to immutable snapshots.
 
         Note:
-            Returns a copy to prevent external modification.
+            Returns snapshots to prevent external mutation of live circuit breakers.
         """
-        return self.circuit_breakers.copy()
+        return {
+            proxy_id: self._snapshot_circuit_breaker(circuit_breaker)
+            for proxy_id, circuit_breaker in self.circuit_breakers.items()
+        }
 
     def reset_circuit_breaker(self, proxy_id: str) -> None:
         """

@@ -271,6 +271,16 @@ class TestProxyDictConversion:
         assert result["source"] == "user"
         assert "stats" in result
 
+    def test_proxy_to_dict_redacts_url_userinfo(self):
+        """URL-embedded credentials must not leak through public dict conversion."""
+        proxy = Proxy(url="http://user:pass@proxy.example.com:8080")  # type: ignore
+
+        result = proxy_to_dict(proxy)
+
+        assert result["url"] == "http://proxy.example.com:8080"
+        assert "user" not in result["url"]
+        assert "pass" not in result["url"]
+
     def test_proxy_to_dict_with_tags(self):
         """Test proxy to dict includes tags."""
         proxy = Proxy(url="http://proxy.example.com:8080", tags={"fast", "us"})  # type: ignore
@@ -433,6 +443,21 @@ class TestLoggingUtilities:
 
         # Should not raise
         configure_logging(level="INFO", format_type="text", redact_credentials=True)
+
+    def test_configure_logging_text_format_redacts_secrets(self, capsys):
+        """Text-format logging should redact URL credentials and token-like values."""
+        from loguru import logger
+
+        from proxywhirl.utils import configure_logging
+
+        configure_logging(level="INFO", format_type="text", redact_credentials=True)
+        logger.info("fetch http://user:pass@proxy.example.com:8080?token=abc123")
+
+        captured = capsys.readouterr()
+        assert "proxy.example.com" in captured.out
+        assert "user:pass" not in captured.out
+        assert "pass@" not in captured.out
+        assert "abc123" not in captured.out
 
     def test_configure_logging_json_format(self):
         """Test configuring JSON-format logging."""

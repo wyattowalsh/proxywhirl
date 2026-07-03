@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
@@ -323,7 +324,7 @@ class TestRequestCommandAdvanced:
                 "Authorization: Bearer token123",
                 "--header",
                 "Content-Type: application/json",
-                "https://api.example.com",
+                "https://example.com",
             ],
         )
 
@@ -357,7 +358,7 @@ class TestRequestCommandAdvanced:
                 "POST",
                 "--data",
                 '{"name": "test"}',
-                "https://api.example.com/users",
+                "https://example.com/users",
             ],
         )
 
@@ -436,7 +437,7 @@ class TestRequestCommandAdvanced:
                 "--format",
                 "json",
                 "request",
-                "https://api.example.com",
+                "https://example.com",
             ],
         )
 
@@ -1719,6 +1720,31 @@ class TestURLValidation:
                 "http://127.0.0.1:8080/admin",
             ],
         )
+        assert result.exit_code != 0
+        output = result.stdout + result.stderr
+        assert "localhost" in output.lower() or "loopback" in output.lower()
+
+    @patch("proxywhirl.cli.socket.getaddrinfo")
+    def test_target_url_rejects_hostname_resolving_to_loopback(
+        self, mock_getaddrinfo: Mock
+    ) -> None:
+        """Target URL should reject public-looking hostnames that resolve internally."""
+        mock_getaddrinfo.return_value = [
+            (socket.AF_INET, socket.SOCK_STREAM, 0, "", ("127.0.0.1", 8080))
+        ]
+
+        result = runner.invoke(
+            app,
+            [
+                "--no-lock",
+                "pool",
+                "test",
+                "http://proxy.example.com:8080",
+                "--target-url",
+                "http://public.example.test/admin",
+            ],
+        )
+
         assert result.exit_code != 0
         output = result.stdout + result.stderr
         assert "localhost" in output.lower() or "loopback" in output.lower()

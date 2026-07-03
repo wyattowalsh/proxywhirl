@@ -2,9 +2,6 @@
 title: REST API Deployment
 description: Run, authenticate, and health-check the ProxyWhirl FastAPI service.
 ---
-
-# REST API Deployment
-
 ProxyWhirl exposes a FastAPI application at `proxywhirl.api:app`. Use it for service integrations that need HTTP access to pool management, rotation, and monitoring.
 
 ## Quick Start
@@ -38,11 +35,13 @@ With an empty database, `/api/health` may return `503` with an `unhealthy` body 
 | Variable | Purpose |
 | -------- | ------- |
 | `PROXYWHIRL_STORAGE_PATH` | SQLite database path for the API process |
+| `PROXYWHIRL_REQUIRE_AUTH` | Set to `true` to require API-key authentication on protected routes |
 | `PROXYWHIRL_API_KEY` | API key for authenticated write routes |
+| `PROXYWHIRL_PUBLIC_METRICS` | Optional explicit unauthenticated `/api/metrics` exposure for internal Prometheus scraping |
 
 ## Authentication
 
-When `PROXYWHIRL_API_KEY` is set, protected routes require the key via the `X-API-Key` header. Use a temporary key for local smoke tests; never commit production keys.
+When `PROXYWHIRL_REQUIRE_AUTH=true`, protected routes require `PROXYWHIRL_API_KEY` via the `X-API-Key` header. Use a temporary key for local smoke tests; never commit production keys.
 
 ## Route Surfaces
 

@@ -28,6 +28,10 @@ uvx "proxywhirl[mcp]" proxywhirl-mcp             # No install
 | `PROXYWHIRL_MCP_DB`                           | Database path (default: `proxywhirl.db`)                  |
 | `PROXYWHIRL_MCP_LOG_LEVEL`                    | Log level (debug/info/warning/error)                      |
 
+`PROXYWHIRL_MCP_API_KEY` is unset by default (dev ergonomics). `main()` logs a `WARNING` at startup
+whenever no key is configured, since read actions are then fully unauthenticated. Never rely on this
+default outside local development.
+
 ## Actions (11)
 
 **Read:** `list`, `rotate`, `status`, `recommend`, `health`

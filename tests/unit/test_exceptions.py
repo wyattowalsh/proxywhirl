@@ -85,6 +85,17 @@ class TestRedactUrl:
         assert "api_key=***" in result
         assert "secret123" not in result
 
+    def test_redact_url_with_userinfo_and_sensitive_query_params(self) -> None:
+        """Userinfo redaction should not skip sensitive query redaction."""
+        url = "http://user:pass@proxy.example.com:8080/path?token=abc123&page=1"
+        result = redact_url(url)
+        assert "***:***@proxy.example.com:8080" in result
+        assert "token=***" in result
+        assert "page=1" in result
+        assert "user" not in result
+        assert "pass" not in result
+        assert "abc123" not in result
+
     def test_redact_url_keeps_non_sensitive_key_substrings(self) -> None:
         """Test non-sensitive query names containing key as substring are preserved."""
         url = "http://proxy.example.com:8080?monkey=banana&page=1"
@@ -249,6 +260,19 @@ class TestProxyWhirlError:
         assert result["error_type"] == "test"
         assert result["attempt_count"] == 1
         assert result["custom_field"] == "custom_value"
+
+    def test_to_dict_redacts_metadata_urls(self) -> None:
+        """Exception metadata should be redacted recursively during serialization."""
+        error = ProxyWhirlError(
+            "Failed http://user:pass@proxy.example.com:8080?token=abc123",
+            nested={"url": "http://user:pass@proxy.example.com:8080?token=abc123"},
+        )
+        result = error.to_dict()
+
+        assert "pass" not in result["message"]
+        assert "abc123" not in result["message"]
+        assert result["nested"]["url"].endswith("token=***")
+        assert "pass" not in result["nested"]["url"]
 
 
 class TestProxyValidationError:

@@ -205,33 +205,13 @@ class TestTimeoutProtection:
     @pytest.mark.slow
     @pytest.mark.timeout(10)
     def test_compile_timeout_on_pathological_pattern(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Extremely slow compilation must trigger timeout path.
-
-        We force the timeout by monkey-patching ThreadPoolExecutor to
-        always raise FuturesTimeoutError.
-        """
-        from concurrent.futures import TimeoutError as FuturesTimeoutError
-
+        """The public compile wrapper must preserve timeout error handling."""
         import proxywhirl.safe_regex as safe_regex_module
 
-        class _TimeoutFuture:
-            def result(self, timeout: float | None = None) -> None:
-                raise FuturesTimeoutError()
+        def _raise_regex_timeout(*_args: object, **_kwargs: object) -> None:
+            raise RegexTimeoutError("timeout")
 
-        class _TimeoutExecutor:
-            def __init__(self, *args: object, **kwargs: object) -> None:
-                pass
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *args: object) -> bool:
-                return False
-
-            def submit(self, *args: object, **kwargs: object) -> _TimeoutFuture:
-                return _TimeoutFuture()
-
-        monkeypatch.setattr(safe_regex_module, "ThreadPoolExecutor", _TimeoutExecutor)
+        monkeypatch.setattr(safe_regex_module, "_compile_with_timeout", _raise_regex_timeout)
 
         with pytest.raises(typer.Exit) as exc_info:
             safe_regex_compile(r"a+b", validate=False, timeout=0.01)
@@ -241,28 +221,12 @@ class TestTimeoutProtection:
     @pytest.mark.timeout(10)
     def test_match_timeout_on_slow_match(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Slow matching must trigger timeout path."""
-        from concurrent.futures import TimeoutError as FuturesTimeoutError
-
         import proxywhirl.safe_regex as safe_regex_module
 
-        class _TimeoutFuture:
-            def result(self, timeout: float | None = None) -> None:
-                raise FuturesTimeoutError()
+        def _raise_regex_timeout(*_args: object, **_kwargs: object) -> None:
+            raise RegexTimeoutError("timeout")
 
-        class _TimeoutExecutor:
-            def __init__(self, *args: object, **kwargs: object) -> None:
-                pass
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *args: object) -> bool:
-                return False
-
-            def submit(self, *args: object, **kwargs: object) -> _TimeoutFuture:
-                return _TimeoutFuture()
-
-        monkeypatch.setattr(safe_regex_module, "ThreadPoolExecutor", _TimeoutExecutor)
+        monkeypatch.setattr(safe_regex_module, "_run_regex_operation", _raise_regex_timeout)
 
         compiled = re.compile(r"a+")
         with pytest.raises(typer.Exit) as exc_info:
@@ -273,32 +237,24 @@ class TestTimeoutProtection:
     @pytest.mark.timeout(10)
     def test_findall_timeout_on_slow_findall(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Slow findall must trigger timeout path."""
-        from concurrent.futures import TimeoutError as FuturesTimeoutError
-
         import proxywhirl.safe_regex as safe_regex_module
 
-        class _TimeoutFuture:
-            def result(self, timeout: float | None = None) -> None:
-                raise FuturesTimeoutError()
+        def _raise_regex_timeout(*_args: object, **_kwargs: object) -> None:
+            raise RegexTimeoutError("timeout")
 
-        class _TimeoutExecutor:
-            def __init__(self, *args: object, **kwargs: object) -> None:
-                pass
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *args: object) -> bool:
-                return False
-
-            def submit(self, *args: object, **kwargs: object) -> _TimeoutFuture:
-                return _TimeoutFuture()
-
-        monkeypatch.setattr(safe_regex_module, "ThreadPoolExecutor", _TimeoutExecutor)
+        monkeypatch.setattr(safe_regex_module, "_run_regex_operation", _raise_regex_timeout)
 
         compiled = re.compile(r"a+")
         with pytest.raises(typer.Exit) as exc_info:
             safe_regex_findall(compiled, "aaaa", validate=False, timeout=0.01)
+        assert exc_info.value.exit_code == 1
+
+    @pytest.mark.timeout(5)
+    def test_validation_disabled_redos_match_is_hard_bounded(self) -> None:
+        """Dangerous trusted patterns still cannot hang the caller."""
+        compiled = safe_regex_compile(r"(a+)+$", validate=False, timeout=0.5)
+        with pytest.raises(typer.Exit) as exc_info:
+            safe_regex_match(compiled, "a" * 5000 + "!", validate=False, timeout=0.05)
         assert exc_info.value.exit_code == 1
 
 

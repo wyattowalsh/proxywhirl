@@ -6,6 +6,8 @@ Tests verify the base class methods used by both ProxyWhirl and AsyncProxyWhirl.
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 from pydantic import SecretStr
 
@@ -203,7 +205,7 @@ class TestGetCircuitBreakerStates:
     """Test get_circuit_breaker_states method."""
 
     def test_returns_copy_of_circuit_breakers(self):
-        """Test that get_circuit_breaker_states returns a copy."""
+        """Test that get_circuit_breaker_states returns immutable snapshots."""
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         rotator = ConcreteRotator(proxies=[proxy])
 
@@ -211,6 +213,12 @@ class TestGetCircuitBreakerStates:
 
         assert str(proxy.id) in states
         assert states is not rotator.circuit_breakers
+        assert states[str(proxy.id)] is not rotator.circuit_breakers[str(proxy.id)]
+
+        with pytest.raises(FrozenInstanceError):
+            states[str(proxy.id)].failure_count = 99  # type: ignore[misc]
+
+        assert rotator.circuit_breakers[str(proxy.id)].failure_count == 0
 
     def test_returns_empty_dict_when_no_proxies(self):
         """Test with no proxies."""

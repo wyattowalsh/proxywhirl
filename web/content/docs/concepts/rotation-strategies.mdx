@@ -2,9 +2,6 @@
 title: Rotation Strategies
 description: Protocol-based strategy design, the registry pattern, and the nine built-in rotation algorithms.
 ---
-
-# Rotation Strategies
-
 ProxyWhirl ships **nine rotation strategies**. This page explains the design; for configuration examples see [Strategy Matrix](/docs/generated/strategies) and [Python API](/docs/generated/python-api).
 
 ## Protocol, Not ABC
@@ -89,4 +86,4 @@ Even stateless strategies implement `record_result()` so:
 - [Clients](/docs/guides/clients) — `set_strategy()` and hot-swap
 - [Retry & Failover](/docs/guides/retry-failover) — strategy + breaker integration
 - [Strategy Matrix](/docs/generated/strategies) — generated class inventory
-- [ADR-003: Strategy Pattern](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/adr/003-strategy-pattern.md)
+- [ADR-003: Strategy Pattern](/docs/project/adr/003-strategy-pattern)

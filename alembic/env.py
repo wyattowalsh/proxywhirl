@@ -34,11 +34,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import table models to populate metadata (must import to register with SQLModel.metadata)
 from proxywhirl.storage import (  # noqa: F401
-    CacheEntryTable,
-    CircuitBreakerStateTable,
-    DailyStatsTable,
-    ProxyTable,
-    RequestLogTable,
+    ProxyAuditTable,
+    ProxyIdentityTable,
+    ProxyStatusTable,
+    ValidationResultTable,
 )
 
 # Alembic Config object
@@ -73,10 +72,9 @@ def run_migrations_offline() -> None:
     Calls to context.execute() here emit the given string to the script output.
     """
     url = config.get_main_option("sqlalchemy.url")
-    if url and url.startswith("sqlite"):
+    if url and url.startswith("sqlite") and "///~" in url:
         # Handle sqlite+aiosqlite:///~/path expansion
-        if "///~" in url:
-            url = url.replace("///~", f"///{os.path.expanduser('~')}")
+        url = url.replace("///~", f"///{os.path.expanduser('~')}")
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -120,10 +118,9 @@ async def run_async_migrations() -> None:
     # Create async engine from config
     configuration = config.get_section(config.config_ini_section, {})
     url = configuration.get("sqlalchemy.url")
-    if url and url.startswith("sqlite"):
+    if url and url.startswith("sqlite") and "///~" in url:
         # Handle sqlite+aiosqlite:///~/path expansion
-        if "///~" in url:
-            url = url.replace("///~", f"///{os.path.expanduser('~')}")
+        url = url.replace("///~", f"///{os.path.expanduser('~')}")
         configuration["sqlalchemy.url"] = url
 
     connectable = async_engine_from_config(

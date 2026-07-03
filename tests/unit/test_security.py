@@ -11,11 +11,13 @@ Tests cover:
 
 import ipaddress
 import logging
+from io import StringIO
 
 import pytest
 
 from proxywhirl.security import (
     RedactionFilter,
+    add_redaction_to_loguru,
     is_ip_blocked,
     redact_dict,
     redact_url,
@@ -141,7 +143,7 @@ class TestProxyURLSafety:
 
     def test_public_proxy_url_allowed(self):
         """Test public proxy URLs are allowed."""
-        is_safe, reason = validate_proxy_url_safety("http://proxy.example.com:8080")
+        is_safe, reason = validate_proxy_url_safety("http://example.com:8080")
         assert is_safe
 
     def test_localhost_proxy_url_rejected(self):
@@ -271,6 +273,24 @@ class TestCredentialRedaction:
         assert "pass" not in redacted["proxy_url"]
         assert "***:***@" in redacted["proxy_url"]
         assert redacted["target_url"] == "http://example.com"
+
+    def test_add_redaction_to_loguru_redacts_message_and_extra(self):
+        """Loguru redaction helper should install an active patcher."""
+        from loguru import logger
+
+        output = StringIO()
+        logger.remove()
+        logger.add(output, format="{message} {extra}", enqueue=False)
+
+        add_redaction_to_loguru()
+        logger.bind(password="secret").info("fetch http://user:pass@proxy.com:8080?token=abc123")
+
+        log_output = output.getvalue()
+        assert "proxy.com" in log_output
+        assert "user:pass" not in log_output
+        assert "pass@" not in log_output
+        assert "secret" not in log_output
+        assert "abc123" not in log_output
 
 
 class TestLoggingRedactionFilter:
