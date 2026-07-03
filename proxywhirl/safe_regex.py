@@ -213,8 +213,7 @@ def _run_regex_operation(
     try:
         if not parent_conn.poll():
             raise RegexTimeoutError(
-                f"Regex {operation} worker exited without a result "
-                f"(exit code {process.exitcode})"
+                f"Regex {operation} worker exited without a result (exit code {process.exitcode})"
             )
         status, payload = parent_conn.recv()
     finally:
@@ -244,9 +243,7 @@ def _compile_with_timeout(pattern: str, flags: int, timeout: float) -> Pattern[s
         RegexTimeoutError: If compilation exceeds timeout
     """
     if timeout <= 0:
-        raise RegexTimeoutError(
-            f"Regex compilation timed out after {timeout}s: {pattern[:50]}..."
-        )
+        raise RegexTimeoutError(f"Regex compilation timed out after {timeout}s: {pattern[:50]}...")
     return re.compile(pattern, flags)
 
 

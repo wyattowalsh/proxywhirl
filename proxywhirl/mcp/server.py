@@ -1289,7 +1289,9 @@ proxywhirl = mcp.tool()(_proxywhirl_mcp_tool) if mcp is not None else _proxywhir
 # ============================================================================
 
 
-def _authorize_resource_access(ctx: object | None = None, api_key: str | None = None) -> dict[str, object] | None:
+def _authorize_resource_access(
+    ctx: object | None = None, api_key: str | None = None
+) -> dict[str, object] | None:
     """Authorize an MCP resource read using direct credentials or FastMCP context metadata."""
     if ctx is None:
         return _authorize_tool_call(None, api_key=api_key)
