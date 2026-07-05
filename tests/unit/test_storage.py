@@ -2748,6 +2748,40 @@ class TestNormalizedSchema:
         dead = await storage.get_proxies_by_status("dead")
         assert len(dead) == 0
 
+    async def test_cleanup_preserves_never_validated_when_requested(self, storage):
+        """Stale cleanup should not delete never-validated proxies through a null timestamp."""
+        unchecked = Proxy(url="http://1.2.3.5:8080", protocol="http", allow_local=True)
+        stale = Proxy(url="http://1.2.3.6:8080", protocol="http", allow_local=True)
+        await storage.add_proxies_batch([unchecked, stale])
+        await storage.record_validation(stale.url, True, 100.0)
+
+        stale_check_at = datetime.now(timezone.utc) - timedelta(days=30)
+        async with storage.engine.begin() as conn:
+            await conn.execute(
+                sa.text("""
+                UPDATE proxy_statuses
+                SET last_check_at = :last_check_at
+                WHERE proxy_url = :url
+                """),
+                {"last_check_at": stale_check_at, "url": stale.url},
+            )
+
+        cached_before = await storage.get_stats_cached()
+        assert cached_before["total_proxies"] == 2
+
+        counts = await storage.cleanup(
+            remove_dead=False,
+            remove_stale_days=7,
+            remove_never_validated=False,
+            vacuum=False,
+        )
+
+        assert counts["stale"] == 1
+        remaining = await storage.load()
+        assert [row["url"] for row in remaining] == [unchecked.url]
+        cached_after = await storage.get_stats_cached()
+        assert cached_after["total_proxies"] == 1
+
     async def test_get_stats(self, storage):
         """Test getting database statistics."""
         # Add and validate some proxies
@@ -2846,6 +2880,29 @@ class TestDictToProxy:
         assert restored.password is not None
         assert restored.username.get_secret_value() == "plain_user"
         assert restored.password.get_secret_value() == "plain_pass"
+
+    @pytest.mark.parametrize(
+        "row",
+        [
+            {
+                "url": "http://proxy.example.com:8080",
+                "username": "plain_user",
+                "password": "encrypted:not-base64",
+            },
+            {
+                "url": "http://proxy.example.com:8080",
+                "username": "encrypted:not-base64",
+                "password": "plain_pass",
+            },
+        ],
+    )
+    def test_dict_to_proxy_omits_incomplete_credentials(self, row: dict[str, str]) -> None:
+        from proxywhirl.storage import dict_to_proxy
+
+        restored = dict_to_proxy(row)
+
+        assert restored.username is None
+        assert restored.password is None
 
     def test_dict_to_proxy_encrypted_credentials(self, monkeypatch: pytest.MonkeyPatch) -> None:
         import base64

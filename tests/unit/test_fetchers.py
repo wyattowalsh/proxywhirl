@@ -430,6 +430,13 @@ class TestProxyValidator:
         # Should validate 100+ proxies/sec
         assert validator is not None
 
+    def test_constructor_rejects_invalid_concurrency(self) -> None:
+        """Concurrency must be positive before validation creates semaphores."""
+        from proxywhirl.fetchers import ProxyValidator
+
+        with pytest.raises(ValueError, match="concurrency"):
+            ProxyValidator(concurrency=0)
+
 
 class TestJSONParserEdgeCases:
     """Additional JSON parser edge case tests."""
@@ -987,6 +994,23 @@ class TestDeduplicateProxiesEdgeCases:
 class TestProxyValidatorMethods:
     """Test ProxyValidator methods with mocking."""
 
+    def test_validation_cache_is_partitioned_by_protocol_and_target(self) -> None:
+        """Validation cache keys do not cross proxy protocol or test target boundaries."""
+        from proxywhirl.fetchers import ProxyValidator, ValidationResult
+
+        validator = ProxyValidator()
+        proxy_http = {"url": "http://proxy1.com:8080", "protocol": "http"}
+        proxy_https = {"url": "http://proxy1.com:8080", "protocol": "https"}
+        cached_result = ValidationResult(is_valid=True, response_time_ms=12.5)
+
+        validator._set_cached_result(proxy_http, cached_result, "http://target.example/check")
+
+        assert (
+            validator._get_cached_result(proxy_http, "http://target.example/check") is cached_result
+        )
+        assert validator._get_cached_result(proxy_https, "https://target.example/check") is None
+        assert validator._get_cached_result(proxy_http, "http://other.example/check") is None
+
     async def test_validate_no_url(self) -> None:
         """Test validate returns False for proxy without URL."""
         from proxywhirl.fetchers import ProxyValidator
@@ -1242,6 +1266,33 @@ class TestProxyValidatorMethods:
         # Only 2 unique proxies should be tested
         assert call_count == 2
         assert len(result) == 2
+
+    async def test_validate_https_capability_batch_skips_non_http_inputs(self) -> None:
+        """HTTPS capability checks must not relabel SOCKS or non-HTTP proxies."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from proxywhirl.fetchers import ProxyValidator
+
+        validator = ProxyValidator()
+        mock_response = MagicMock(status_code=204)
+        mock_client = AsyncMock()
+        mock_client.head = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+
+        proxies = [
+            {"url": "socks5://proxy1.com:1080", "protocol": "socks5"},
+            {"url": "https://proxy2.com:443", "protocol": "https"},
+            {"url": "http://proxy3.com:8080", "protocol": "socks4"},
+            {"url": "http://proxy4.com:8080", "protocol": "http"},
+        ]
+
+        with patch("httpx.AsyncClient", return_value=mock_client) as mock_client_class:
+            result = await validator.validate_https_capability_batch(proxies)
+
+        assert [proxy["url"] for proxy in result] == ["https://proxy4.com:8080"]
+        assert all(proxy["protocol"] == "https" for proxy in result)
+        mock_client_class.assert_called_once()
 
     async def test_validate_tcp_connectivity_success(self) -> None:
         """Test _validate_tcp_connectivity succeeds for open port."""

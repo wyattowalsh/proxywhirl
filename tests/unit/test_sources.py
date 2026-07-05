@@ -226,6 +226,32 @@ class TestCountParseableProxies:
         """Whitespace-only payloads should not count as proxies."""
         assert _count_parseable_proxies(GEONODE_HTTP, "   \n") == 0
 
+    def test_ignores_non_proxy_json_rows(self):
+        """JSON parser rows only count when they normalize to valid proxy URLs."""
+        source = ProxySourceConfig(url="http://example.com/proxies.json", format="json")
+        content = """
+        [
+            {"status": "ok"},
+            {"url": "not-a-proxy"},
+            {"url": "1.2.3.4:8080"},
+            {"host": "5.6.7.8", "port": 3128},
+            {"ip": "2001:db8::1", "port": 1080, "protocol": "socks5"}
+        ]
+        """
+
+        assert _count_parseable_proxies(source, content) == 3
+
+    def test_uses_source_protocol_for_host_port_rows(self):
+        """Rows without protocol inherit the source protocol before URL validation."""
+        source = ProxySourceConfig(
+            url="http://example.com/proxies.csv",
+            format="csv",
+            protocol="socks4",
+        )
+        content = "host,port\n1.2.3.4,1080\ninvalid host,1080\n"
+
+        assert _count_parseable_proxies(source, content) == 1
+
 
 class TestFetchAllSources:
     """Tests for fetch_all_sources orchestration."""

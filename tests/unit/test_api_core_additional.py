@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import socket
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -68,6 +69,20 @@ def reset_api_state() -> None:
     api_runtime.reset_api_state()
     yield
     api_runtime.reset_api_state()
+
+
+@pytest.fixture(autouse=True)
+def deterministic_public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Resolve example hostnames to public addresses without relying on live DNS."""
+    original_getaddrinfo = socket.getaddrinfo
+
+    def _getaddrinfo(host, port, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM, *args, **kwargs):
+        host_text = str(host).rstrip(".").lower()
+        if host_text == "example.com" or host_text.endswith(".example.com"):
+            return [(socket.AF_INET, type, 0, "", ("93.184.216.34", port or 443))]
+        return original_getaddrinfo(host, port, family, type, *args, **kwargs)
+
+    monkeypatch.setattr(socket, "getaddrinfo", _getaddrinfo)
 
 
 class DummyRetryMetrics:
@@ -467,23 +482,30 @@ async def test_add_proxy_success_and_duplicate() -> None:
     """Add proxy should handle success and duplicate conflict."""
     rotator = MagicMock()
     rotator.pool.get_all_proxies.return_value = []
+    storage = MagicMock()
+    storage.save = AsyncMock()
 
     request = SimpleNamespace()
     proxy_data = CreateProxyRequest(url="http://proxy.example.com:8080")
 
-    created = await add_proxy.__wrapped__(request, proxy_data, rotator, None)
+    with patch(
+        "proxywhirl.api.routes.proxies.validate_proxy_url_safety",
+        return_value=(True, ""),
+    ):
+        created = await add_proxy.__wrapped__(request, proxy_data, rotator, storage, None)
     assert created.status == "success"
+    storage.save.assert_awaited_once()
 
     rotator.pool.get_all_proxies.return_value = [Proxy(url="http://proxy.example.com:8080")]
     with pytest.raises(HTTPException) as exc_info:
-        await add_proxy.__wrapped__(request, proxy_data, rotator, None)
+        await add_proxy.__wrapped__(request, proxy_data, rotator, storage, None)
     assert exc_info.value.status_code == 409
 
     credentialed_url = "http://user:pass@proxy.example.com:8080"
     rotator.pool.get_all_proxies.return_value = [Proxy(url=credentialed_url)]
     with pytest.raises(HTTPException) as credentialed_exc_info:
         await add_proxy.__wrapped__(
-            request, CreateProxyRequest(url=credentialed_url), rotator, None
+            request, CreateProxyRequest(url=credentialed_url), rotator, storage, None
         )
     assert credentialed_exc_info.value.status_code == 409
     assert "user:pass" not in credentialed_exc_info.value.detail
@@ -501,7 +523,25 @@ async def test_add_proxy_error_path() -> None:
     proxy_data = CreateProxyRequest(url="http://proxy.example.com:8080")
 
     with pytest.raises(HTTPException) as exc_info:
-        await add_proxy.__wrapped__(request, proxy_data, rotator, None)
+        with patch(
+            "proxywhirl.api.routes.proxies.validate_proxy_url_safety",
+            return_value=(True, ""),
+        ):
+            await add_proxy.__wrapped__(request, proxy_data, rotator, None, None)
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_add_proxy_rejects_blocked_proxy_url() -> None:
+    """Add proxy should reject URLs blocked by proxy SSRF policy."""
+    rotator = MagicMock()
+    rotator.pool.get_all_proxies.return_value = []
+
+    request = SimpleNamespace()
+    proxy_data = CreateProxyRequest(url="http://169.254.169.254:8080")
+
+    with pytest.raises(HTTPException) as exc_info:
+        await add_proxy.__wrapped__(request, proxy_data, rotator, None, None)
     assert exc_info.value.status_code == 400
 
 
@@ -716,11 +756,20 @@ async def test_delete_proxy_success_and_missing() -> None:
     rotator.pool.get_all_proxies.return_value = [proxy]
     rotator.pool.remove_proxy = MagicMock()
     storage = MagicMock()
-    storage.save = AsyncMock()
+    storage.delete = AsyncMock()
 
     await delete_proxy(api_core._get_proxy_id(proxy), rotator, storage, None)
     rotator.remove_proxy.assert_called_once_with(api_core._get_proxy_id(proxy))
-    storage.save.assert_awaited_once()
+    storage.delete.assert_awaited_once_with("http://proxy.example.com:8080")
+
+    credentialed_proxy = Proxy(url="http://user:pass@proxy.example.com:8080")
+    rotator.remove_proxy.reset_mock()
+    storage.delete.reset_mock()
+    rotator.pool.get_all_proxies.return_value = [credentialed_proxy]
+
+    await delete_proxy(api_core._get_proxy_id(credentialed_proxy), rotator, storage, None)
+    rotator.remove_proxy.assert_called_once_with(api_core._get_proxy_id(credentialed_proxy))
+    storage.delete.assert_awaited_once_with("http://user:pass@proxy.example.com:8080")
 
     rotator.pool.get_all_proxies.return_value = []
     with pytest.raises(HTTPException) as exc_info:

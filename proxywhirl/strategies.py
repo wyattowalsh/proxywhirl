@@ -390,16 +390,25 @@ class StrategyRegistry:
         """
         required_methods = ["select", "record_result"]
         missing_methods = []
+        non_callable_methods = []
 
         for method in required_methods:
             if not hasattr(strategy_class, method):
                 missing_methods.append(method)
+                continue
 
-        if missing_methods:
+            if not callable(getattr(strategy_class, method)):
+                non_callable_methods.append(method)
+
+        if missing_methods or non_callable_methods:
+            details = []
+            if missing_methods:
+                details.append(f"missing required methods: {', '.join(missing_methods)}")
+            if non_callable_methods:
+                details.append(f"non-callable required methods: {', '.join(non_callable_methods)}")
             raise TypeError(
-                f"Strategy {strategy_class.__name__} missing required methods: "
-                f"{', '.join(missing_methods)}. "
-                f"Must implement RotationStrategy protocol."
+                f"Strategy {strategy_class.__name__} {'; '.join(details)}. "
+                "Must implement RotationStrategy protocol."
             )
 
     @classmethod
@@ -1450,8 +1459,7 @@ class SessionPersistenceStrategy:
 
         # Optionally configure fallback strategy
         if hasattr(config, "fallback_strategy") and config.fallback_strategy:
-            # In a real implementation, you'd instantiate the strategy from name
-            pass
+            self._fallback_strategy = resolve_builtin_strategy(config.fallback_strategy)
 
     def validate_metadata(self, pool: ProxyPool) -> bool:
         """
@@ -1489,6 +1497,7 @@ class SessionPersistenceStrategy:
             raise ValueError("SessionPersistenceStrategy requires SelectionContext with session_id")
 
         session_id = context.session_id
+        failed_proxy_ids = set(context.failed_proxy_ids)
 
         # Check for existing session and attempt to reuse with single lookup
         session = self._session_manager.get_session(session_id)
@@ -1504,9 +1513,14 @@ class SessionPersistenceStrategy:
                 assigned_proxy = pool.get_proxy_by_id(proxy_uuid)
 
                 # Check if proxy is still healthy or untested (UNKNOWN is acceptable)
-                if assigned_proxy is not None and assigned_proxy.health_status in (
-                    HealthStatus.HEALTHY,
-                    HealthStatus.UNKNOWN,
+                if (
+                    assigned_proxy is not None
+                    and assigned_proxy.health_status
+                    in (
+                        HealthStatus.HEALTHY,
+                        HealthStatus.UNKNOWN,
+                    )
+                    and str(assigned_proxy.id) not in failed_proxy_ids
                 ):
                     # Update session last_used with cached session object
                     # (single lookup, session touch happens exactly once)
@@ -1520,9 +1534,8 @@ class SessionPersistenceStrategy:
         healthy_proxies = pool.get_healthy_proxies()
 
         # Filter out failed proxies from context
-        if context and context.failed_proxy_ids:
-            failed_ids = set(context.failed_proxy_ids)
-            healthy_proxies = [p for p in healthy_proxies if str(p.id) not in failed_ids]
+        if failed_proxy_ids:
+            healthy_proxies = [p for p in healthy_proxies if str(p.id) not in failed_proxy_ids]
 
         if not healthy_proxies:
             raise ProxyPoolEmptyError("No healthy proxies available for session")
@@ -2026,7 +2039,7 @@ class CompositeStrategy:
                 # If filter returned one proxy, use it to filter the set
                 # For geo-filtering, this means only proxies matching criteria remain
                 filtered_proxies = [
-                    p for p in filtered_proxies if self._matches_filter(p, selected)
+                    p for p in filtered_proxies if self._matches_filter(p, selected, context)
                 ]
 
             if not filtered_proxies:
@@ -2039,7 +2052,12 @@ class CompositeStrategy:
 
         return self.selector.select(final_pool, context)
 
-    def _matches_filter(self, proxy: Proxy, filter_result: Proxy) -> bool:
+    def _matches_filter(
+        self,
+        proxy: Proxy,
+        filter_result: Proxy,
+        context: SelectionContext | None = None,
+    ) -> bool:
         """
         Check if proxy matches filter criteria based on filter result.
 
@@ -2057,9 +2075,28 @@ class CompositeStrategy:
         if proxy.id == filter_result.id:
             return True
 
-        # Check geo-location match
+        target_country = context.target_country if context else None
+        target_region = context.target_region if context else None
+
+        if target_country:
+            return (
+                proxy.country_code is not None
+                and proxy.country_code.upper() == target_country.upper()
+            )
+
+        if target_region:
+            return proxy.region is not None and proxy.region.upper() == target_region.upper()
+
+        # Check geo-location match from the selected filter result.
         if hasattr(filter_result, "country_code") and filter_result.country_code:
-            return getattr(proxy, "country_code", None) == filter_result.country_code
+            proxy_country = getattr(proxy, "country_code", None)
+            return proxy_country is not None and proxy_country.upper() == (
+                filter_result.country_code.upper()
+            )
+
+        if hasattr(filter_result, "region") and filter_result.region:
+            proxy_region = getattr(proxy, "region", None)
+            return proxy_region is not None and proxy_region.upper() == filter_result.region.upper()
 
         # If no specific criteria, include all
         return True

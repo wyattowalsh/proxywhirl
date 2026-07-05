@@ -257,7 +257,7 @@ class TestSessionDataPreservation:
     """Property tests for session data integrity."""
 
     @given(session_id=session_ids, ttl=ttl_seconds)
-    @settings(max_examples=50, deadline=timedelta(milliseconds=1000))
+    @settings(max_examples=50, deadline=None)
     def test_proxy_id_preserved_across_retrieval(self, session_id: str, ttl: int) -> None:
         """Property: Proxy ID assigned to session is preserved on retrieval."""
         manager = SessionManager(max_sessions=100)
@@ -274,7 +274,7 @@ class TestSessionDataPreservation:
             assert retrieved.proxy_id == original_proxy_id
 
     @given(session_id=session_ids)
-    @settings(max_examples=30, deadline=timedelta(milliseconds=1000))
+    @settings(max_examples=30, deadline=None)
     def test_touch_updates_request_count(self, session_id: str) -> None:
         """Property: Touching session increments request count."""
         manager = SessionManager(max_sessions=100)

@@ -256,33 +256,37 @@ class BrowserRenderer:
                 "Install with: pip install 'proxywhirl[browser]' or pip install playwright"
             ) from e
 
-        # Start playwright
-        self._playwright = await async_playwright().start()
+        try:
+            # Start playwright
+            self._playwright = await async_playwright().start()
 
-        # Launch browser
-        browser_launcher = getattr(self._playwright, self.browser_type)
-        launch_options: dict[str, Any] = {"headless": self.headless}
-        if self.extra_args:
-            launch_options["args"] = self.extra_args
-        self._browser = await browser_launcher.launch(**launch_options)
+            # Launch browser
+            browser_launcher = getattr(self._playwright, self.browser_type)
+            launch_options: dict[str, Any] = {"headless": self.headless}
+            if self.extra_args:
+                launch_options["args"] = self.extra_args
+            self._browser = await browser_launcher.launch(**launch_options)
 
-        # Initialize pool infrastructure
-        self._context_pool = asyncio.Queue(maxsize=self.max_contexts)
-        self._all_contexts = []
-        self._pool_lock = asyncio.Lock()
+            # Initialize pool infrastructure
+            self._context_pool = asyncio.Queue(maxsize=self.max_contexts)
+            self._all_contexts = []
+            self._pool_lock = asyncio.Lock()
 
-        # Pre-create contexts for the pool
-        context_options = self._get_context_options()
-        for i in range(self.max_contexts):
-            context = await self._browser.new_context(**context_options)
-            self._all_contexts.append(context)
-            await self._context_pool.put(context)
-            logger.debug(f"Created browser context {i + 1}/{self.max_contexts} for pool")
+            # Pre-create contexts for the pool
+            context_options = self._get_context_options()
+            for i in range(self.max_contexts):
+                context = await self._browser.new_context(**context_options)
+                self._all_contexts.append(context)
+                await self._context_pool.put(context)
+                logger.debug(f"Created browser context {i + 1}/{self.max_contexts} for pool")
 
-        # Keep legacy single context for backwards compatibility
-        self._context = self._all_contexts[0] if self._all_contexts else None
-        self._is_started = True
-        logger.info(f"BrowserRenderer started with {self.max_contexts} pooled contexts")
+            # Keep legacy single context for backwards compatibility
+            self._context = self._all_contexts[0] if self._all_contexts else None
+            self._is_started = True
+            logger.info(f"BrowserRenderer started with {self.max_contexts} pooled contexts")
+        except Exception:
+            await self.close()
+            raise
 
     def _get_context_options(self) -> dict[str, Any]:
         """Get context creation options.
@@ -301,11 +305,22 @@ class BrowserRenderer:
         Closes all browser contexts in the pool and the browser itself.
         Safe to call multiple times.
         """
-        if not self._is_started:
+        if (
+            not self._is_started
+            and not self._all_contexts
+            and self._context_pool is None
+            and self._context is None
+            and self._browser is None
+            and self._playwright is None
+        ):
             return
 
         # Close all pooled contexts
-        for context in self._all_contexts:
+        contexts = list(self._all_contexts)
+        if self._context is not None and not any(context is self._context for context in contexts):
+            contexts.append(self._context)
+
+        for context in contexts:
             try:
                 await context.close()
             except Exception as e:
@@ -317,11 +332,17 @@ class BrowserRenderer:
         self._context = None
 
         if self._browser:
-            await self._browser.close()
+            try:
+                await self._browser.close()
+            except Exception as e:
+                logger.warning(f"Error closing browser: {e}")
             self._browser = None
 
         if self._playwright:
-            await self._playwright.stop()
+            try:
+                await self._playwright.stop()
+            except Exception as e:
+                logger.warning(f"Error stopping playwright: {e}")
             self._playwright = None
 
         self._is_started = False
@@ -501,7 +522,10 @@ class BrowserRenderer:
         finally:
             # Always close the page
             if page:
-                await page.close()
+                try:
+                    await page.close()
+                except Exception as e:
+                    logger.warning(f"Error closing browser page: {e}")
             # Always release context back to pool
             await self.release_context(context)
 

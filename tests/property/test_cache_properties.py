@@ -42,9 +42,11 @@ ttl_seconds = st.integers(min_value=1, max_value=86400)
 
 
 def create_cache_manager(tmp_dir: Path) -> CacheManager:
-    """Helper to create a CacheManager with proper configuration."""
+    """Helper to create an L1-only CacheManager for pure cache invariants."""
     encryptor = CredentialEncryptor()
     config = CacheConfig(
+        l2_config=CacheTierConfig(enabled=False),
+        l3_config=CacheTierConfig(enabled=False),
         l2_cache_dir=str(tmp_dir / "cache"),
         l3_database_path=str(tmp_dir / "cache.db"),
         encryption_key=SecretStr(encryptor.key.decode("utf-8")),

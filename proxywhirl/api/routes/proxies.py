@@ -24,6 +24,7 @@ from proxywhirl._proxy_views import (
     ProxyListQuery,
     ProxyView,
     add_proxy_to_rotator,
+    find_proxy,
     find_proxy_view,
     list_proxy_views,
     proxy_to_view,
@@ -56,6 +57,7 @@ from proxywhirl.exceptions import (
 )
 from proxywhirl.models import HealthStatus, Proxy
 from proxywhirl.rotator import ProxyWhirl
+from proxywhirl.security import validate_proxy_url_safety
 from proxywhirl.utils import public_proxy_url
 
 router = APIRouter()
@@ -399,6 +401,7 @@ async def add_proxy(
     request: Request,
     proxy_data: CreateProxyRequest,
     rotator: ProxyWhirl = Depends(get_rotator),
+    storage=Depends(get_storage),
     api_key: None = Depends(verify_api_key),
 ) -> APIResponse[ProxyResource]:
     """Add a new proxy to the pool.
@@ -423,6 +426,10 @@ async def add_proxy(
     try:
         from pydantic import SecretStr
 
+        safe, reason = validate_proxy_url_safety(proxy_url_str)
+        if not safe:
+            raise ValueError(f"Proxy URL blocked by security policy: {reason}")
+
         new_proxy = Proxy(
             url=proxy_url_str,
             username=SecretStr(proxy_data.username) if proxy_data.username else None,
@@ -430,6 +437,8 @@ async def add_proxy(
         )
 
         view = add_proxy_to_rotator(rotator, new_proxy)
+        if storage:
+            await storage.save([new_proxy])
 
         return APIResponse.success(data=_proxy_resource_from_view(view))
 
@@ -615,11 +624,13 @@ async def delete_proxy(
         storage: Optional storage dependency
         api_key: API key verification
     """
+    stored_proxy = find_proxy(rotator, proxy_id)
     removed = remove_proxy_from_rotator(rotator, proxy_id)
     if removed is not None:
         # Persist if storage configured
         if storage:
-            await storage.save(rotator.pool.get_all_proxies())
+            storage_url = str(stored_proxy.url) if stored_proxy is not None else str(removed.url)
+            await storage.delete(storage_url)
         return
 
     raise HTTPException(

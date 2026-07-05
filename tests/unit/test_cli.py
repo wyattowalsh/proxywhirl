@@ -13,6 +13,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import httpx
+import pytest
 from typer.main import get_command
 from typer.testing import CliRunner
 
@@ -55,6 +56,20 @@ runner = CliRunner(
         "HOME": str(Path.cwd() / f".cli-test-home-{_xdist_worker}"),
     }
 )
+
+
+@pytest.fixture(autouse=True)
+def deterministic_public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Resolve test hostnames to public addresses without depending on live DNS."""
+    original_getaddrinfo = socket.getaddrinfo
+
+    def _getaddrinfo(host, port, family=socket.AF_UNSPEC, type=socket.SOCK_STREAM, *args, **kwargs):
+        host_text = str(host).rstrip(".").lower()
+        if host_text == "httpbin.org" or host_text.endswith(".example.com"):
+            return [(socket.AF_INET, type, 0, "", ("93.184.216.34", port or 443))]
+        return original_getaddrinfo(host, port, family, type, *args, **kwargs)
+
+    monkeypatch.setattr(socket, "getaddrinfo", _getaddrinfo)
 
 
 def _root_command_names() -> set[str]:
@@ -171,6 +186,19 @@ class TestCLIGlobalOptions:
 
 class TestRequestCommand:
     """Test the request command (US1)."""
+
+    @pytest.fixture(autouse=True)
+    def mock_request_client(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Keep basic request-command tests off the network."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.text = '{"ok": true}'
+        mock_response.headers = {"content-type": "application/json"}
+
+        mock_client = MagicMock()
+        mock_client.__enter__.return_value = mock_client
+        mock_client.request.return_value = mock_response
+        monkeypatch.setattr(httpx, "Client", MagicMock(return_value=mock_client))
 
     def test_request_requires_url(self) -> None:
         """Request command should require URL argument."""
@@ -597,19 +625,24 @@ class TestPoolCommandAdvanced:
                 "--no-lock",
                 "pool",
                 "test",
-                "http://proxy.com:8080",
+                "http://demo:secret@proxy.com:8080",
             ],
         )
 
         assert result.exit_code == 0
         assert "working" in result.stdout.lower() or "✓" in result.stdout
+        assert "http://proxy.com:8080" in result.stdout
+        assert "demo" not in result.stdout
+        assert "secret" not in result.stdout
 
     @patch("httpx.Client")
     def test_pool_test_proxy_failure(self, mock_client_class: Mock) -> None:
         """Pool test should handle proxy connection failures."""
         mock_client = MagicMock()
         mock_client.__enter__.return_value = mock_client
-        mock_client.get.side_effect = Exception("Connection refused")
+        mock_client.get.side_effect = Exception(
+            "Connection refused via http://demo:secret@badproxy.com:8080"
+        )
         mock_client_class.return_value = mock_client
 
         result = runner.invoke(
@@ -618,12 +651,15 @@ class TestPoolCommandAdvanced:
                 "--no-lock",
                 "pool",
                 "test",
-                "http://badproxy.com:8080",
+                "http://demo:secret@badproxy.com:8080",
             ],
         )
 
         assert result.exit_code != 0
         assert "failed" in result.stdout.lower() or "✗" in result.stdout
+        assert "demo" not in result.stdout
+        assert "secret" not in result.stdout
+        assert "http://***:***@badproxy.com:8080" in result.stdout
 
     def test_pool_list_json_format(self) -> None:
         """Pool list should support JSON output format."""
@@ -769,6 +805,73 @@ class TestConfigCommandAdvanced:
         assert result.exit_code == 0
         data = json.loads(result.stdout)
         assert "timeout" in data
+
+    def test_config_get_proxies_scrubs_credentials_text(self) -> None:
+        """Config get should not expose proxy credentials in text output."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / ".proxywhirl.toml"
+            save_config(
+                CLIConfig(
+                    encrypt_credentials=False,
+                    proxies=[
+                        {
+                            "url": "http://user:secret@proxy.example.com:8080",
+                            "username": "user",
+                            "password": "secret",
+                        }
+                    ],
+                ),
+                config_path,
+            )
+
+            result = runner.invoke(
+                app,
+                ["--no-lock", "--config", str(config_path), "config", "get", "proxies"],
+            )
+
+        assert result.exit_code == 0
+        assert "http://proxy.example.com:8080" in result.stdout
+        assert "user:secret" not in result.stdout
+        assert "'username': '***'" in result.stdout
+        assert "'password': '***'" in result.stdout
+
+    def test_config_get_proxies_scrubs_credentials_json(self) -> None:
+        """Config get should not expose proxy credentials in JSON output."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / ".proxywhirl.toml"
+            save_config(
+                CLIConfig(
+                    encrypt_credentials=False,
+                    proxies=[
+                        {
+                            "url": "http://user:secret@proxy.example.com:8080",
+                            "username": "user",
+                            "password": "secret",
+                        }
+                    ],
+                ),
+                config_path,
+            )
+
+            result = runner.invoke(
+                app,
+                [
+                    "--no-lock",
+                    "--format",
+                    "json",
+                    "--config",
+                    str(config_path),
+                    "config",
+                    "get",
+                    "proxies",
+                ],
+            )
+
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        assert payload["proxies"][0]["url"] == "http://proxy.example.com:8080"
+        assert payload["proxies"][0]["username"] == "***"
+        assert payload["proxies"][0]["password"] == "***"
 
     def test_config_set_value(self) -> None:
         """Config set should update configuration value."""

@@ -98,6 +98,31 @@ class TestCompositeStrategy:
 
         assert selected.country_code == "US"
 
+    def test_select_with_geo_filter_honors_target_region(self) -> None:
+        """Test composite geo filtering keeps all proxies in the requested region."""
+        pool = ProxyPool(name="test-pool")
+        asia_proxy = Proxy(
+            url="http://asia-proxy.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            region="Asia",
+        )
+        europe_proxy = Proxy(
+            url="http://europe-proxy.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            region="Europe",
+        )
+        pool.add_proxy(asia_proxy)
+        pool.add_proxy(europe_proxy)
+
+        strategy = CompositeStrategy(
+            filters=[GeoTargetedStrategy()],
+            selector=RoundRobinStrategy(),
+        )
+        context = SelectionContext(target_region="Europe")
+        selected = strategy.select(pool, context)
+
+        assert selected.region == "Europe"
+
     def test_select_with_geo_filter_balances_single_request_lifecycle(self) -> None:
         """Filter-only selection should not double count request lifecycle counters."""
         pool = ProxyPool(name="test-pool")
@@ -173,6 +198,24 @@ class TestCompositeStrategy:
         strategy = CompositeStrategy(selector=RoundRobinStrategy())
         proxy1 = Proxy(url="http://proxy1.com:8080", country_code="US")
         proxy2 = Proxy(url="http://proxy2.com:8080", country_code="UK")
+
+        result = strategy._matches_filter(proxy1, proxy2)
+        assert result is False
+
+    def test_matches_filter_same_region(self) -> None:
+        """Test _matches_filter returns True for same region."""
+        strategy = CompositeStrategy(selector=RoundRobinStrategy())
+        proxy1 = Proxy(url="http://proxy1.com:8080", region="Europe")
+        proxy2 = Proxy(url="http://proxy2.com:8080", region="Europe")
+
+        result = strategy._matches_filter(proxy1, proxy2)
+        assert result is True
+
+    def test_matches_filter_different_region(self) -> None:
+        """Test _matches_filter returns False for different regions."""
+        strategy = CompositeStrategy(selector=RoundRobinStrategy())
+        proxy1 = Proxy(url="http://proxy1.com:8080", region="Europe")
+        proxy2 = Proxy(url="http://proxy2.com:8080", region="Asia")
 
         result = strategy._matches_filter(proxy1, proxy2)
         assert result is False
@@ -608,6 +651,19 @@ class TestStrategyRegistryValidation:
         with pytest.raises(TypeError, match="record_result"):
             registry.register_strategy("no-record", NoRecordStrategy, validate=True)
 
+    def test_register_strategy_rejects_non_callable_required_attribute(self) -> None:
+        """Test validation fails when required protocol attributes are not callable."""
+        registry = StrategyRegistry()
+
+        class NonCallableSelectStrategy:
+            select = None
+
+            def record_result(self, proxy, success, response_time_ms):
+                pass
+
+        with pytest.raises(TypeError, match="non-callable.*select"):
+            registry.register_strategy("non-callable-select", NonCallableSelectStrategy)
+
     def test_unregister_strategy(self) -> None:
         """Test unregistering a strategy."""
         registry = StrategyRegistry()
@@ -909,6 +965,14 @@ class TestSessionPersistenceStrategyConfigure:
 
         # Should use the config's default value (300)
         assert strategy._session_timeout_seconds == config.session_stickiness_duration_seconds
+
+    def test_configure_fallback_strategy_uses_builtin_resolution(self) -> None:
+        """Test that configured fallback strategy name is resolved to a strategy instance."""
+        strategy = SessionPersistenceStrategy()
+
+        strategy.configure(StrategyConfig(fallback_strategy="least-used"))
+
+        assert isinstance(strategy._fallback_strategy, LeastUsedStrategy)
 
 
 class TestCompositeStrategyFromConfig:

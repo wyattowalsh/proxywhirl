@@ -241,6 +241,7 @@ class ProxiedRequest(BaseModel):
     """Request to make an HTTP request through a proxy."""
 
     model_config = ConfigDict(
+        extra="forbid",
         json_schema_extra={
             "example": {
                 "url": "https://httpbin.org/ip",
@@ -249,7 +250,7 @@ class ProxiedRequest(BaseModel):
                 "body": None,
                 "timeout": 30,
             }
-        }
+        },
     )
 
     url: HttpUrl = Field(description="Target URL to fetch through proxy")
@@ -377,13 +378,14 @@ class CreateProxyRequest(BaseModel):
     """Request to add a new proxy to the pool."""
 
     model_config = ConfigDict(
+        extra="forbid",
         json_schema_extra={
             "example": {
                 "url": "http://proxy.example.com:8080",
                 "username": "user123",
                 "password": "secret456",
             }
-        }
+        },
     )
 
     url: str = Field(description="Proxy URL (protocol://host:port)")
@@ -500,11 +502,12 @@ class HealthCheckRequest(BaseModel):
     """Request to health check specific proxies."""
 
     model_config = ConfigDict(
+        extra="forbid",
         json_schema_extra={
             "example": {
                 "proxy_ids": ["550e8400-e29b-41d4-a716-446655440000"],
             }
-        }
+        },
     )
 
     proxy_ids: list[str] | None = Field(
@@ -720,12 +723,13 @@ class UpdateConfigRequest(BaseModel):
     """Request to update API configuration (partial updates allowed)."""
 
     model_config = ConfigDict(
+        extra="forbid",
         json_schema_extra={
             "example": {
                 "rotation_strategy": "round-robin",
                 "timeout": 60,
             }
-        }
+        },
     )
 
     rotation_strategy: str | None = None

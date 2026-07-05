@@ -1427,22 +1427,48 @@ class TestAuditLoggingMiddleware:
         middleware = AuditLoggingMiddleware(None)
 
         # Test that middleware respects environment variable
-        with patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "false"}):
-            with patch("proxywhirl.api.runtime._rotator", mock_rotator):
+        with patch.dict(
+            "os.environ",
+            {
+                "PROXYWHIRL_AUDIT_LOG": "false",
+                "PROXYWHIRL_API_KEY": "test-api-key",
+            },
+        ):
+            with (
+                patch("proxywhirl.api.runtime._rotator", mock_rotator),
+                patch(
+                    "proxywhirl.api.routes.proxies.validate_proxy_url_safety",
+                    return_value=(True, ""),
+                ),
+            ):
                 # This should not audit because PROXYWHIRL_AUDIT_LOG=false
                 response = client.post(
                     "/api/proxies",
                     json={"url": "http://proxy.example.com:8080"},
+                    headers={"X-API-Key": "test-api-key"},
                 )
                 # Just verify the request went through
                 assert response.status_code in [200, 201, 422]
 
-        with patch.dict("os.environ", {"PROXYWHIRL_AUDIT_LOG": "true"}):
-            with patch("proxywhirl.api.runtime._rotator", mock_rotator):
+        with patch.dict(
+            "os.environ",
+            {
+                "PROXYWHIRL_AUDIT_LOG": "true",
+                "PROXYWHIRL_API_KEY": "test-api-key",
+            },
+        ):
+            with (
+                patch("proxywhirl.api.runtime._rotator", mock_rotator),
+                patch(
+                    "proxywhirl.api.routes.proxies.validate_proxy_url_safety",
+                    return_value=(True, ""),
+                ),
+            ):
                 # This should audit because PROXYWHIRL_AUDIT_LOG=true
                 response = client.post(
                     "/api/proxies",
                     json={"url": "http://proxy.example.com:8080"},
+                    headers={"X-API-Key": "test-api-key"},
                 )
                 # Just verify the request went through
                 assert response.status_code in [200, 201, 422]

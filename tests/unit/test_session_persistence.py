@@ -155,6 +155,27 @@ class TestSessionPersistenceStrategy:
         assert second_proxy.health_status == HealthStatus.HEALTHY
         assert second_proxy.url != first_proxy.url  # Different proxy
 
+    def test_select_does_not_reuse_failed_session_proxy(self):
+        """Test failover when the sticky proxy failed earlier in the same request."""
+        pool = ProxyPool(name="test-pool")
+        proxy1 = Proxy(url="http://proxy1.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy2 = Proxy(url="http://proxy2.com:8080", health_status=HealthStatus.HEALTHY)
+        pool.add_proxy(proxy1)
+        pool.add_proxy(proxy2)
+
+        strategy = SessionPersistenceStrategy()
+        context = SelectionContext(session_id="user-123")
+        first_proxy = strategy.select(pool, context)
+
+        retry_context = SelectionContext(
+            session_id="user-123",
+            failed_proxy_ids=[str(first_proxy.id)],
+        )
+        selected = strategy.select(pool, retry_context)
+
+        assert selected.id != first_proxy.id
+        assert str(selected.id) not in retry_context.failed_proxy_ids
+
     def test_select_raises_when_no_session_id_provided(self):
         """Test that selection without session_id raises error."""
         # Arrange
