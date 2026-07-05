@@ -120,6 +120,11 @@ def dict_to_proxy(row: dict[str, Any]) -> Proxy:
         "source": source,
     }
 
+    if (username_plain is None) != (password_plain is None):
+        logger.warning("Stored proxy credentials are incomplete; omitting secret fields")
+        username_plain = None
+        password_plain = None
+
     if username_plain is not None:
         proxy_kwargs["username"] = SecretStr(username_plain)
     if password_plain is not None:
@@ -1428,8 +1433,7 @@ class SQLiteStorage:
             if remove_stale_days > 0:
                 cutoff = datetime.now(timezone.utc) - timedelta(days=remove_stale_days)
                 stale_stmt = select(ProxyStatusTable.proxy_url).where(
-                    (cast(Any, ProxyStatusTable.last_check_at) < cutoff)
-                    | ProxyStatusTable.last_check_at.is_(None)  # type: ignore[union-attr]
+                    cast(Any, ProxyStatusTable.last_check_at) < cutoff
                 )
                 stale_result = await session.exec(stale_stmt)
                 stale_urls = list(stale_result.all())
@@ -1493,6 +1497,7 @@ class SQLiteStorage:
             counts["old_validations"] = result.rowcount if hasattr(result, "rowcount") else 0
 
             await session.commit()
+            self._invalidate_stats_cache()
 
         # Vacuum to reclaim space
         if vacuum:

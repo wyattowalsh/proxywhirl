@@ -72,7 +72,9 @@ uvx "proxywhirl[mcp]" proxywhirl-mcp
 | `validate` | Validate proxy connectivity |
 | `set_strategy` | Change rotation strategy |
 
-Write actions require authentication when an API key is configured.
+Write actions are rejected without a valid API key unless
+`PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES=true` is explicitly set for local
+development or tests.
 
 ## Resources
 
@@ -122,7 +124,7 @@ For HTTP transport, point your MCP client at the server URL and pass the API key
 
 | Concern | Guidance |
 | ------- | -------- |
-| Authentication | Set `PROXYWHIRL_MCP_API_KEY` before exposing write tools |
+| Authentication | Set `PROXYWHIRL_MCP_API_KEY` before exposing the MCP server or read resources outside localhost |
 | Storage | Use `PROXYWHIRL_MCP_DB` to isolate dev vs prod databases |
 | Observability | Use `PROXYWHIRL_MCP_LOG_LEVEL=debug` when debugging tool failures |
 | Data freshness | Run `fetch` + `validate` through MCP or CLI; static lists live at [Proxy Lists](/docs/guides/proxy-lists) |

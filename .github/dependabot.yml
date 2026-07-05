@@ -32,7 +32,7 @@ updates:
         update-types:
           - "patch"
         dependency-type: "production"
-        
+
       # Group minor and patch updates together
       python-minor-patch:
         patterns:
@@ -40,9 +40,47 @@ updates:
         update-types:
           - "minor"
           - "patch"
-      
+
       # Major versions need manual review
       python-major:
+        patterns:
+          - "*"
+        update-types:
+          - "major"
+
+  # Web dependencies via npm/pnpm (web/package.json and web/pnpm-lock.yaml)
+  - package-ecosystem: "npm"
+    directory: "/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:30"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 10
+    pull-request-branch-name:
+      separator: "/"
+    labels:
+      - "dependencies"
+      - "javascript"
+      - "web"
+      - "automated"
+    reviewers:
+      - "wyattowalsh"
+    assignees:
+      - "wyattowalsh"
+    commit-message:
+      prefix: "chore(deps-web)"
+      prefix-development: "chore(deps-web)"
+      include: "scope"
+    groups:
+      web-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+
+      web-major:
         patterns:
           - "*"
         update-types:

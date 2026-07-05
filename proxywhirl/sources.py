@@ -27,6 +27,7 @@ from proxywhirl.fetchers import (
     PlainTextParser,
 )
 from proxywhirl.models import ProxySourceConfig
+from proxywhirl.utils import parse_proxy_url
 
 SOURCE_VALIDATION_PARSERS: dict[str, type[Any]] = {
     "json": JSONParser,
@@ -1068,7 +1069,7 @@ def _count_parseable_proxies(source: ProxySourceConfig, content: str) -> int:
 
     if source.custom_parser:
         proxies = source.custom_parser.parse(content)
-        return len(proxies)
+        return sum(1 for proxy in proxies if _normalizes_to_proxy_shape(source, proxy))
 
     format_key = source.format.value if hasattr(source.format, "value") else source.format
     parser_class = SOURCE_VALIDATION_PARSERS.get(str(format_key))
@@ -1076,7 +1077,60 @@ def _count_parseable_proxies(source: ProxySourceConfig, content: str) -> int:
         return 0
 
     proxies = parser_class().parse(content)
-    return len(proxies)
+    return sum(1 for proxy in proxies if _normalizes_to_proxy_shape(source, proxy))
+
+
+def _normalizes_to_proxy_shape(source: ProxySourceConfig, proxy: Any) -> bool:
+    """Return True when a parser row can be normalized into a valid proxy URL."""
+    if not isinstance(proxy, dict):
+        return False
+
+    return any(_is_valid_normalized_proxy_url(url) for url in _candidate_proxy_urls(source, proxy))
+
+
+def _candidate_proxy_urls(source: ProxySourceConfig, proxy: dict[str, Any]) -> list[str]:
+    protocol = _candidate_proxy_protocol(source, proxy)
+    candidates: list[str] = []
+
+    url = proxy.get("url")
+    port = proxy.get("port")
+    if isinstance(url, str) and url.strip():
+        stripped_url = url.strip()
+        if "://" in stripped_url:
+            candidates.append(stripped_url)
+        else:
+            if port not in (None, ""):
+                candidates.append(f"{protocol}://{stripped_url}:{port}")
+            candidates.append(f"{protocol}://{stripped_url}")
+
+    host = proxy.get("host") or proxy.get("hostname") or proxy.get("ip")
+    if isinstance(host, str) and host.strip() and port not in (None, ""):
+        candidates.append(f"{protocol}://{_format_proxy_host(host.strip())}:{port}")
+
+    return candidates
+
+
+def _candidate_proxy_protocol(source: ProxySourceConfig, proxy: dict[str, Any]) -> str:
+    protocol = proxy.get("protocol")
+    if isinstance(protocol, str) and protocol.strip():
+        return protocol.strip().lower()
+    if isinstance(source.protocol, str) and source.protocol.strip():
+        return source.protocol.strip().lower()
+    return "http"
+
+
+def _format_proxy_host(host: str) -> str:
+    if ":" in host and not (host.startswith("[") and host.endswith("]")):
+        return f"[{host}]"
+    return host
+
+
+def _is_valid_normalized_proxy_url(url: str) -> bool:
+    try:
+        parse_proxy_url(url)
+    except ValueError:
+        return False
+    return True
 
 
 async def _read_validation_content(

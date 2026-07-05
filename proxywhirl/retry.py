@@ -361,6 +361,11 @@ class NonRetryableError(Exception):
     pass
 
 
+def _current_time() -> float:
+    """Return the retry executor clock."""
+    return time.time()
+
+
 @dataclass
 class _RetryRunContext:
     """Mutable per-request state shared across tenacity attempts."""
@@ -394,6 +399,10 @@ def _make_wait(policy: RetryPolicy, ctx: _RetryRunContext) -> Callable[[RetryCal
             retry_state.attempt_number - 1,
             previous_delay=ctx.previous_delay,
         )
+        if policy.timeout is not None:
+            elapsed = _current_time() - ctx.start_time
+            remaining_budget = max(0.0, policy.timeout - elapsed)
+            delay = min(delay, remaining_budget)
         ctx.previous_delay = delay
         return delay
 
@@ -511,7 +520,7 @@ class RetryExecutor:
             request_id=request_id,
             proxy=proxy,
             failover_round=failover_round,
-            start_time=time.time(),
+            start_time=_current_time(),
         )
         retrying = Retrying(
             stop=stop_after_attempt(self.retry_policy.max_attempts),
@@ -590,7 +599,7 @@ class RetryExecutor:
             request_id=request_id,
             proxy=proxy,
             failover_round=failover_round,
-            start_time=time.time(),
+            start_time=_current_time(),
         )
         retrying = AsyncRetrying(
             stop=stop_after_attempt(self.retry_policy.max_attempts),
@@ -628,7 +637,7 @@ class RetryExecutor:
         if not self.retry_policy.timeout:
             return
 
-        elapsed = time.time() - ctx.start_time
+        elapsed = _current_time() - ctx.start_time
         if elapsed >= self.retry_policy.timeout:
             logger.warning(
                 f"Request timeout exceeded ({self.retry_policy.timeout}s) after {attempt} attempts"
@@ -699,7 +708,7 @@ class RetryExecutor:
         ctx: _RetryRunContext,
     ) -> NoReturn:
         """Record attempt failure and re-raise or wrap for tenacity."""
-        latency = time.time() - attempt_start
+        latency = _current_time() - attempt_start
 
         if isinstance(error, (httpx.ConnectError, httpx.TimeoutException)):
             logger.warning(f"Connection error with proxy {proxy.id}: {error}")
@@ -758,10 +767,10 @@ class RetryExecutor:
         """Execute one synchronous attempt; raise RetryableError to trigger tenacity retry."""
         self._check_attempt_timeout(request_id, attempt, proxy, ctx)
 
-        attempt_start = time.time()
+        attempt_start = _current_time()
         try:
             response = request_fn()
-            latency = time.time() - attempt_start
+            latency = _current_time() - attempt_start
             return self._evaluate_response_for_retry(
                 response,
                 request_id,
@@ -796,10 +805,10 @@ class RetryExecutor:
         """Execute one asynchronous attempt; raise RetryableError to trigger tenacity retry."""
         self._check_attempt_timeout(request_id, attempt, proxy, ctx)
 
-        attempt_start = time.time()
+        attempt_start = _current_time()
         try:
             response = await request_fn()
-            latency = time.time() - attempt_start
+            latency = _current_time() - attempt_start
             return self._evaluate_response_for_retry(
                 response,
                 request_id,
@@ -833,10 +842,10 @@ class RetryExecutor:
         failover_round: int = 0,
     ) -> httpx.Response:
         """Execute a single request attempt without retry."""
-        attempt_start = time.time()
+        attempt_start = _current_time()
         try:
             response = request_fn()
-            latency = time.time() - attempt_start
+            latency = _current_time() - attempt_start
 
             if response.status_code in self.retry_policy.retry_status_codes:
                 self._record_attempt(
@@ -867,7 +876,7 @@ class RetryExecutor:
             return response
 
         except Exception as e:
-            latency = time.time() - attempt_start
+            latency = _current_time() - attempt_start
             self._record_attempt(
                 request_id,
                 attempt,
@@ -892,10 +901,10 @@ class RetryExecutor:
         failover_round: int = 0,
     ) -> httpx.Response:
         """Execute a single async request attempt without retry."""
-        attempt_start = time.time()
+        attempt_start = _current_time()
         try:
             response = await request_fn()
-            latency = time.time() - attempt_start
+            latency = _current_time() - attempt_start
 
             if response.status_code in self.retry_policy.retry_status_codes:
                 self._record_attempt(
@@ -926,7 +935,7 @@ class RetryExecutor:
             return response
 
         except Exception as e:
-            latency = time.time() - attempt_start
+            latency = _current_time() - attempt_start
             self._record_attempt(
                 request_id,
                 attempt,

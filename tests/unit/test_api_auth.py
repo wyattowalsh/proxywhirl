@@ -27,6 +27,14 @@ def auth_app() -> FastAPI:
     def protected() -> dict[str, str]:
         return {"status": "ok"}
 
+    @app.post("/api/proxies")
+    def add_proxy() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.put("/api/config")
+    def update_config() -> dict[str, str]:
+        return {"status": "ok"}
+
     @app.get("/api/health")
     def health() -> dict[str, str]:
         return {"status": "healthy"}
@@ -56,6 +64,40 @@ class TestAPIKeyMiddleware:
         response = auth_client.get("/protected")
         assert response.status_code == 200
         assert response.json() == {"status": "ok"}
+
+    def test_write_requires_configured_key_even_when_global_auth_disabled(
+        self, auth_client: TestClient
+    ) -> None:
+        """Mutating endpoints fail closed without a configured API key."""
+        with patch.dict(os.environ, {}, clear=True):
+            response = auth_client.post("/api/proxies")
+            assert response.status_code == 503
+            assert _error_message(response) == "API authentication not configured"
+
+    def test_write_accepts_key_even_when_global_auth_disabled(
+        self, auth_client: TestClient
+    ) -> None:
+        """Mutating endpoints use API keys even when read auth is disabled."""
+        with patch.dict(os.environ, {"PROXYWHIRL_API_KEY": "secret-key-123"}, clear=True):
+            response = auth_client.post(
+                "/api/proxies",
+                headers={"X-API-Key": "secret-key-123"},
+            )
+            assert response.status_code == 200
+            assert response.json() == {"status": "ok"}
+
+    def test_cors_preflight_skips_auth(self, auth_client: TestClient) -> None:
+        """CORS preflight should not be blocked by API key checks."""
+        with patch.dict(os.environ, {"PROXYWHIRL_REQUIRE_AUTH": "true"}, clear=True):
+            response = auth_client.options("/api/proxies")
+            assert response.status_code != 503
+
+    def test_config_write_requires_key_by_path(self, auth_client: TestClient) -> None:
+        """Admin config writes are protected even when global auth is disabled."""
+        with patch.dict(os.environ, {}, clear=True):
+            response = auth_client.put("/api/config")
+            assert response.status_code == 503
+            assert _error_message(response) == "API authentication not configured"
 
     def test_api_key_required_when_auth_enabled(self, auth_client: TestClient) -> None:
         """Test that protected endpoints reject without API key when auth is required."""

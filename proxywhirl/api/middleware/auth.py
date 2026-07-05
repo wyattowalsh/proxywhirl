@@ -41,20 +41,43 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         }
     )
     PUBLIC_METRICS_PATHS: frozenset[str] = frozenset({"/api/metrics"})
+    PROTECTED_EXACT_ROUTES: frozenset[tuple[str, str]] = frozenset(
+        {
+            ("POST", "/api/proxies"),
+            ("PUT", "/api/config"),
+            ("PUT", "/api/retry/policy"),
+        }
+    )
+    PROTECTED_PREFIX_ROUTES: frozenset[tuple[str, str]] = frozenset(
+        {
+            ("DELETE", "/api/proxies/"),
+            ("POST", "/api/circuit-breakers/"),
+        }
+    )
 
     async def dispatch(self, request: Request, call_next):
         """Validate API key for protected requests."""
         api_settings = APISettings()
-
-        if not api_settings.require_auth:
-            return await call_next(request)
-
         path = request.url.path
+
+        if request.method == "OPTIONS":
+            return await call_next(request)
 
         # Skip public paths. Prometheus exposition is public only by explicit opt-in.
         if path in self.PUBLIC_PATHS or (
             api_settings.public_metrics and path in self.PUBLIC_METRICS_PATHS
         ):
+            return await call_next(request)
+
+        auth_required = (
+            api_settings.require_auth
+            or (request.method, path) in self.PROTECTED_EXACT_ROUTES
+            or any(
+                request.method == method and path.startswith(prefix)
+                for method, prefix in self.PROTECTED_PREFIX_ROUTES
+            )
+        )
+        if not auth_required:
             return await call_next(request)
 
         expected_key = api_settings.api_key.get_secret_value() if api_settings.api_key else None

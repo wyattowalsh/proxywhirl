@@ -136,7 +136,7 @@ class TestSafePatternAcceptance:
     @pytest.mark.timeout(5)
     def test_safe_pattern_matches(self) -> None:
         """A safe pattern must match expected input."""
-        match = safe_regex_match(r"hello", "hello world")
+        match = safe_regex_match(r"hello", "hello world", timeout=5.0)
         assert match is not None
         assert match.group() == "hello"
 
@@ -275,7 +275,7 @@ class TestEdgeCases:
     @pytest.mark.timeout(5)
     def test_empty_text(self) -> None:
         """Matching against empty text should return None for non-empty pattern."""
-        match = safe_regex_match(r"hello", "")
+        match = safe_regex_match(r"hello", "", timeout=5.0)
         assert match is None
 
     @pytest.mark.timeout(5)

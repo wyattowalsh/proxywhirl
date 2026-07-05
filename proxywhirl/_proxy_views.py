@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from proxywhirl.models import HealthStatus, Proxy
+from proxywhirl.security import redact_url
 from proxywhirl.utils import create_proxy_from_url, public_proxy_url
 
 ProxyStatus = Literal["active", "degraded", "failed"]
@@ -169,7 +170,7 @@ def proxy_to_view(rotator: Any, proxy: Proxy) -> ProxyView:
         success_rate=proxy.success_rate,
         avg_latency_ms=int(proxy.average_response_time_ms or 0),
         country_code=proxy.country_code,
-        source_url=str(proxy.source_url) if proxy.source_url is not None else None,
+        source_url=redact_url(str(proxy.source_url)) if proxy.source_url is not None else None,
         created_at=proxy.created_at,
         updated_at=proxy.updated_at,
     )

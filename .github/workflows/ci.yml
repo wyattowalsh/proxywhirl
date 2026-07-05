@@ -17,6 +17,9 @@ on:
 env:
   STEP_TIMING_ENABLED: "true"
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint & Format Check
@@ -33,7 +36,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
         with:
-          version: "latest"
+          version: "0.8.22"
 
       - name: Install dependencies
         run: |
@@ -69,7 +72,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
         with:
-          version: "latest"
+          version: "0.8.22"
 
       - name: Install dependencies
         run: |
@@ -101,7 +104,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
         with:
-          version: "latest"
+          version: "0.8.22"
 
       - name: Install commitizen
         run: uv pip install commitizen
@@ -134,7 +137,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
         with:
-          version: "latest"
+          version: "0.8.22"
 
       - name: Cache pytest
         uses: actions/cache@v5
@@ -220,7 +223,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
         with:
-          version: "latest"
+          version: "0.8.22"
 
       - name: Cache pytest
         uses: actions/cache@v5
@@ -260,7 +263,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
         with:
-          version: "latest"
+          version: "0.8.22"
 
       - name: Cache benchmark results
         uses: actions/cache@v5
@@ -330,7 +333,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
         with:
-          version: "latest"
+          version: "0.8.22"
 
       - name: Install build dependencies
         run: |
@@ -361,7 +364,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
         with:
-          version: "latest"
+          version: "0.8.22"
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6.0.8

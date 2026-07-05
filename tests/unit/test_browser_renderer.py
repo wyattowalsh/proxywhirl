@@ -226,6 +226,46 @@ class TestBrowserRendererLifecycle:
         await renderer.close()
         await renderer.close()
 
+    async def test_browser_start_cleans_up_partial_resources_on_failure(self) -> None:
+        """start() closes partially created browser resources when startup fails."""
+        from proxywhirl.browser import BrowserRenderer
+
+        renderer = BrowserRenderer(max_contexts=2)
+
+        mock_playwright = MagicMock()
+        mock_browser = AsyncMock()
+        mock_context = AsyncMock()
+        mock_context.close = AsyncMock()
+        mock_browser.close = AsyncMock()
+        mock_playwright.stop = AsyncMock()
+
+        mock_playwright.chromium.launch = AsyncMock(return_value=mock_browser)
+        mock_browser.new_context = AsyncMock(
+            side_effect=[mock_context, RuntimeError("context failed")]
+        )
+
+        mock_playwright_cm = MagicMock()
+        mock_playwright_cm.start = AsyncMock(return_value=mock_playwright)
+
+        def mock_async_playwright():
+            return mock_playwright_cm
+
+        mock_module = MagicMock()
+        mock_module.async_playwright = mock_async_playwright
+
+        with patch.dict("sys.modules", {"playwright.async_api": mock_module}):
+            with pytest.raises(RuntimeError, match="context failed"):
+                await renderer.start()
+
+        mock_context.close.assert_awaited_once()
+        mock_browser.close.assert_awaited_once()
+        mock_playwright.stop.assert_awaited_once()
+        assert renderer._is_started is False
+        assert renderer._browser is None
+        assert renderer._playwright is None
+        assert renderer._context_pool is None
+        assert renderer._all_contexts == []
+
 
 class TestBrowserRendererRender:
     """Test page rendering."""
@@ -271,6 +311,31 @@ class TestBrowserRendererRender:
         mock_page.close.assert_called_once()
 
         # Context should be back in the pool
+        assert renderer.pool_size == 1
+
+    async def test_render_releases_context_when_page_close_fails(self) -> None:
+        """A page.close error must not leak the acquired context."""
+        from proxywhirl.browser import BrowserRenderer
+
+        renderer = BrowserRenderer(max_contexts=1)
+
+        mock_page = AsyncMock()
+        mock_page.goto = AsyncMock()
+        mock_page.content = AsyncMock(return_value="<html>Test content</html>")
+        mock_page.close = AsyncMock(side_effect=RuntimeError("close failed"))
+
+        mock_context = AsyncMock()
+        mock_context.new_page = AsyncMock(return_value=mock_page)
+
+        renderer._is_started = True
+        renderer._context_pool = asyncio.Queue(maxsize=1)
+        renderer._all_contexts = [mock_context]
+        await renderer._context_pool.put(mock_context)
+
+        html = await renderer.render("https://example.com")
+
+        assert html == "<html>Test content</html>"
+        mock_page.close.assert_awaited_once()
         assert renderer.pool_size == 1
 
     async def test_render_with_wait_strategy(self) -> None:

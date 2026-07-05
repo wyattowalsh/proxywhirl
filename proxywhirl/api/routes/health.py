@@ -32,6 +32,7 @@ from proxywhirl.api.runtime import (
 )
 from proxywhirl.models import HealthStatus
 from proxywhirl.rotator import ProxyWhirl
+from proxywhirl.settings import APISettings
 
 router = APIRouter()
 
@@ -115,6 +116,9 @@ async def readiness_check(
         "proxy_pool_initialized": rotator is not None,
         "storage_connected": storage is not None if storage else True,
     }
+    api_settings = APISettings()
+    if api_settings.require_auth:
+        checks["auth_configured"] = api_settings.api_key is not None
 
     ready = all(checks.values())
     status_code = status.HTTP_200_OK if ready else status.HTTP_503_SERVICE_UNAVAILABLE

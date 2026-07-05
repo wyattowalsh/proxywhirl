@@ -400,10 +400,41 @@ class TestExecuteWithRetryFailures:
 
         with (
             patch("time.sleep"),
-            patch("proxywhirl.retry.time.time", side_effect=mock_time),
+            patch("proxywhirl.retry._current_time", side_effect=mock_time),
             pytest.raises(ProxyConnectionError, match="Request timeout"),
         ):
             executor.execute_with_retry(request_fn, proxy, "GET", "https://example.com")
+
+    def test_backoff_delay_is_capped_by_total_timeout(self):
+        """Test retry backoff does not sleep past the total retry timeout."""
+        policy = RetryPolicy(max_attempts=2, base_delay=5.0, timeout=0.5)
+        executor = RetryExecutor(policy, {}, RetryMetrics())
+        proxy = Proxy(url="http://proxy.example.com:8080")
+
+        clock = 0.0
+        sleep_delays = []
+
+        def fake_time():
+            return clock
+
+        def fake_sleep(delay):
+            nonlocal clock
+            sleep_delays.append(delay)
+            clock += delay
+
+        def request_fn():
+            nonlocal clock
+            clock += 0.1
+            raise httpx.ConnectError("Connection failed")
+
+        with (
+            patch("proxywhirl.retry._current_time", side_effect=fake_time),
+            patch("proxywhirl.retry.time.sleep", side_effect=fake_sleep),
+            pytest.raises(ProxyConnectionError, match="Request timeout"),
+        ):
+            executor.execute_with_retry(request_fn, proxy, "GET", "https://example.com")
+
+        assert sleep_delays == [pytest.approx(0.4)]
 
 
 class TestNonIdempotentMethods:
@@ -907,10 +938,42 @@ class TestAsyncExecuteWithRetry:
             raise httpx.ConnectError("Connection failed")
 
         with (
-            patch("proxywhirl.retry.time.time", side_effect=mock_time),
+            patch("proxywhirl.retry._current_time", side_effect=mock_time),
             pytest.raises(ProxyConnectionError, match="Request timeout"),
         ):
             await executor.execute_with_retry_async(request_fn, proxy, "GET", "https://example.com")
+
+    async def test_backoff_delay_is_capped_by_total_timeout_async(self, executor):
+        """Test async retry backoff does not sleep past the total retry timeout."""
+        executor.retry_policy.max_attempts = 2
+        executor.retry_policy.base_delay = 5.0
+        executor.retry_policy.timeout = 0.5
+        proxy = Proxy(url="http://proxy.example.com:8080")
+
+        clock = 0.0
+        sleep_delays = []
+
+        def fake_time():
+            return clock
+
+        async def fake_sleep(delay):
+            nonlocal clock
+            sleep_delays.append(delay)
+            clock += delay
+
+        async def request_fn():
+            nonlocal clock
+            clock += 0.1
+            raise httpx.ConnectError("Connection failed")
+
+        with (
+            patch("proxywhirl.retry._current_time", side_effect=fake_time),
+            patch("proxywhirl.retry.asyncio.sleep", new=fake_sleep),
+            pytest.raises(ProxyConnectionError, match="Request timeout"),
+        ):
+            await executor.execute_with_retry_async(request_fn, proxy, "GET", "https://example.com")
+
+        assert sleep_delays == [pytest.approx(0.4)]
 
     async def test_post_without_retry_non_idempotent_flag_async(self, executor):
         """Test async POST executes only once without retry_non_idempotent flag."""

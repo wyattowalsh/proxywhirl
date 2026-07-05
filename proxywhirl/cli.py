@@ -65,6 +65,32 @@ def _proxy_reference_matches(stored_url: str, requested_url: str) -> bool:
     return stored_url == requested_url or public_proxy_url(stored_url) == requested_url
 
 
+def _safe_config_value(value: Any) -> Any:
+    """Return a display-safe representation of a CLI config value."""
+    from pydantic import BaseModel, SecretStr
+
+    if isinstance(value, SecretStr):
+        return "***"
+    if isinstance(value, BaseModel):
+        return _safe_config_value(value.model_dump(mode="json"))
+    if isinstance(value, dict):
+        safe: dict[str, Any] = {}
+        for key, item in value.items():
+            key_lower = str(key).lower()
+            if key_lower == "url" and isinstance(item, str):
+                safe[str(key)] = public_proxy_url(item)
+            elif key_lower in {"username", "password"}:
+                safe[str(key)] = "***" if item else None
+            else:
+                safe[str(key)] = _safe_config_value(item)
+        return safe
+    if isinstance(value, list):
+        return [_safe_config_value(item) for item in value]
+    if isinstance(value, str) and "://" in value and "@" in value:
+        return public_proxy_url(value)
+    return value
+
+
 @dataclass
 class CommandContext:
     """Shared context for all CLI commands.
@@ -1000,7 +1026,7 @@ def pool(
         validate_target_url(target_url, allow_private=allow_private)
 
         # Test proxy with HTTP request
-        command_ctx.console.print(f"Testing proxy: {proxy}...")
+        command_ctx.console.print(f"Testing proxy: {public_proxy_url(proxy)}...")
         command_ctx.console.print(f"Target URL: {target_url}")
 
         try:
@@ -1024,7 +1050,7 @@ def pool(
                     f"[yellow]![/yellow] Proxy returned status {response.status_code}"
                 )
         except Exception as e:
-            command_ctx.console.print(f"[red]✗[/red] Proxy test failed: {e}")
+            command_ctx.console.print(f"[red]✗[/red] Proxy test failed: {mask_proxy_url(str(e))}")
             raise typer.Exit(code=1) from e
 
     elif action == "stats":
@@ -1164,7 +1190,7 @@ def config(
             command_ctx.console.print(f"[red]Unknown config key: {key}[/red]")
             raise typer.Exit(code=1)
 
-        value_obj = getattr(command_ctx.config, key)
+        value_obj = _safe_config_value(getattr(command_ctx.config, key))
         if command_ctx.format == FormatterOutputFormat.JSON:
             render_json({key: value_obj})
         else:

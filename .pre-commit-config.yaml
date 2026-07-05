@@ -32,9 +32,11 @@ repos:
       - id: ruff
         name: Ruff linter
         args: [--fix, --exit-non-zero-on-fix]
+        types_or: [python, pyi]
       # Run the formatter
       - id: ruff-format
         name: Ruff formatter
+        types_or: [python, pyi]
 
   # Commitizen - Conventional commits validation
   - repo: https://github.com/commitizen-tools/commitizen
@@ -59,10 +61,7 @@ repos:
 
 # Global settings
 default_language_version:
-  python: python3.9
+  python: python3.10
 
 # Run on all files when pre-commit is first installed
 default_install_hook_types: [pre-commit, commit-msg]
-
-# Run specific hooks for specific file types
-files: \.py$

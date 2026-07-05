@@ -42,7 +42,7 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
         with:
-          version: "latest"
+          version: "0.8.22"
 
       - name: Install dependencies
         run: |
@@ -59,34 +59,66 @@ jobs:
 
       - name: Calculate new version
         id: new_version
+        env:
+          CURRENT_VERSION: ${{ steps.current_version.outputs.version }}
+          VERSION_BUMP: ${{ inputs.version_bump }}
+          CUSTOM_VERSION: ${{ inputs.custom_version }}
         run: |
-          CURRENT="${{ steps.current_version.outputs.version }}"
-          BUMP="${{ inputs.version_bump }}"
-          CUSTOM="${{ inputs.custom_version }}"
+          uv run python - <<'PY'
+          from pathlib import Path
+          import os
+          import sys
 
-          if [ "$BUMP" = "custom" ] && [ -n "$CUSTOM" ]; then
-            NEW_VERSION="$CUSTOM"
-          else
-            IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
-            case "$BUMP" in
-              major)
-                NEW_VERSION="$((MAJOR + 1)).0.0"
-                ;;
-              minor)
-                NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
-                ;;
-              patch|*)
-                NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
-                ;;
-            esac
-          fi
+          from packaging.version import InvalidVersion, Version
 
-          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "New version: $NEW_VERSION"
+
+          def fail(message: str) -> None:
+              print(f"::error::{message}", file=sys.stderr)
+              raise SystemExit(1)
+
+
+          def pep440_version(value: str, field: str) -> Version:
+              if not value:
+                  fail(f"{field} must not be empty.")
+              try:
+                  version = Version(value)
+              except InvalidVersion:
+                  fail(f"{field} must be a valid PEP 440 version.")
+              normalized = str(version)
+              if normalized != value:
+                  fail(f"{field} must use normalized PEP 440 form: {normalized}")
+              return version
+
+
+          current = pep440_version(os.environ["CURRENT_VERSION"], "Current version")
+          bump = os.environ["VERSION_BUMP"]
+          custom = os.environ.get("CUSTOM_VERSION", "").strip()
+
+          if bump == "custom":
+              version_text = str(pep440_version(custom, "custom_version"))
+          else:
+              if bump not in {"major", "minor", "patch"}:
+                  fail("version_bump must be one of: major, minor, patch, custom.")
+              release = list(current.release)
+              release.extend([0] * (3 - len(release)))
+              major, minor, patch = release[:3]
+              if bump == "major":
+                  version_text = f"{major + 1}.0.0"
+              elif bump == "minor":
+                  version_text = f"{major}.{minor + 1}.0"
+              else:
+                  version_text = f"{major}.{minor}.{patch + 1}"
+              pep440_version(version_text, "Calculated version")
+
+          with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
+              output.write(f"version={version_text}\n")
+          print(f"New version: {version_text}")
+          PY
 
       - name: Update version in pyproject.toml
+        env:
+          NEW_VERSION: ${{ steps.new_version.outputs.version }}
         run: |
-          NEW_VERSION="${{ steps.new_version.outputs.version }}"
           sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" pyproject.toml
           # Also update version in __init__.py if it exists
           if [ -f "proxywhirl/__init__.py" ]; then

@@ -12,8 +12,21 @@ from __future__ import annotations
 import random
 from collections import Counter
 
+import pytest
+
 from proxywhirl.models import Proxy, ProxyPool, SelectionContext
 from proxywhirl.strategies import WeightedStrategy
+
+
+@pytest.fixture(autouse=True)
+def seeded_random_state():
+    """Keep distribution assertions reproducible without changing production randomness."""
+    random_state = random.getstate()
+    random.seed(1337)
+    try:
+        yield
+    finally:
+        random.setstate(random_state)
 
 
 def create_proxy_with_success_rate(url: str, success_rate: float) -> Proxy:
