@@ -9,6 +9,7 @@ import {
 import { APIPage } from "@/components/api-page";
 import { getMDXComponents } from "@/mdx-components";
 import { createPageMetadata } from "@/lib/metadata";
+import { openapi } from "@/lib/openapi";
 import { source } from "@/lib/source";
 
 interface PageProps {
@@ -28,7 +29,16 @@ export default async function Page({ params }: PageProps) {
 			<DocsTitle>{page.data.title}</DocsTitle>
 			<DocsDescription>{page.data.description}</DocsDescription>
 			<DocsBody>
-				<MDX components={getMDXComponents({ APIPage })} />
+				<MDX
+					components={getMDXComponents({
+						APIPage: async (props) => (
+							<APIPage
+								{...(await openapi.preloadOpenAPIPage(page))}
+								{...props}
+							/>
+						),
+					})}
+				/>
 			</DocsBody>
 		</DocsPage>
 	);

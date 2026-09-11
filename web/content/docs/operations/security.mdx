@@ -4,7 +4,15 @@ description: Hardening, secret handling, network policies, and security checklis
 ---
 ## Secret Management
 
-- Store `PROXYWHIRL_API_KEY`, `PROXYWHIRL_ENCRYPTION_KEY`, and `PROXYWHIRL_KEY` in Kubernetes Secrets or your secret manager
+| Variable | Purpose |
+| -------- | ------- |
+| `PROXYWHIRL_API_KEY` | REST API authentication key |
+| `PROXYWHIRL_KEY` | Master Fernet key for CLI/config credential encryption |
+| `PROXYWHIRL_CACHE_ENCRYPTION_KEY` | Canonical Fernet key for L2/L3 cache credential encryption |
+| `PROXYWHIRL_ENCRYPTION_KEY` | **Deprecated** alias for `PROXYWHIRL_CACHE_ENCRYPTION_KEY` (temporary deploy-template bridge; prefer the canonical name) |
+
+- Store the keys above in Kubernetes Secrets or your secret manager
+- Prefer `PROXYWHIRL_CACHE_ENCRYPTION_KEY` over the deprecated `PROXYWHIRL_ENCRYPTION_KEY` alias
 - Never commit `.env` files or embed keys in images
 - Rotate keys on a schedule; use `cryptography` Fernet helpers from `proxywhirl.utils`
 
@@ -33,7 +41,7 @@ Public proxies are untrusted. Do not send sensitive data without application-lay
 | SSRF protection | `proxywhirl/utils.py`, `proxywhirl/api/core.py` | `validate_target_url_safe()` blocks private/reserved IP ranges before proxying a request |
 | Credential redaction | `proxywhirl/utils.py`, `proxywhirl/logging_config.py` | `_redact_sensitive_data()` strips secrets from logs and exception messages |
 | Input validation | `proxywhirl/api/core.py`, `proxywhirl/models/` | Request validators enforce schema and value constraints on all API endpoints |
-| TLS verification | `proxywhirl/fetchers.py`, `proxywhirl/rotator/` | `verify_ssl` defaults to enabled with CA bundle handling |
+| TLS verification | `proxywhirl/fetchers/`, `proxywhirl/rotator/` | `verify_ssl` defaults to enabled with CA bundle handling |
 | Per-API-key rate limiting | `proxywhirl/rate_limiting/` | Rate-limit bucket keys on the API key hash first, falling back to client IP, to prevent `X-Forwarded-For` bypass |
 | Debug logging redaction | `proxywhirl/logging_config.py` | Debug-level logs never emit raw credentials |
 

@@ -30,7 +30,7 @@ uvx "proxywhirl[mcp]" proxywhirl-mcp
 
 | File | Key types |
 | ---- | --------- |
-| `proxywhirl/mcp/server.py` | `MCPServer`, `main()`, `ProxyWhirlAuthMiddleware` |
+| `proxywhirl/mcp/server.py` | `ProxyWhirlMCPServer`, `main()`, `ProxyWhirlAuthMiddleware` |
 | `proxywhirl/mcp/auth.py` | API key validation |
 
 ## Environment Variables
@@ -57,9 +57,11 @@ uvx "proxywhirl[mcp]" proxywhirl-mcp
 | ------ | ------- |
 | `list` | List proxies in the active pool |
 | `rotate` | Get the next proxy from the rotation strategy |
-| `status` | Pool health and statistics |
+| `status` | **Per-proxy** detail — requires `proxy_id` |
 | `recommend` | Suggest proxies for a workload |
-| `health` | Health check summary |
+| `health` | **Pool-level** health summary (`pool_status`, healthy/total counts) |
+
+Do not confuse the two health surfaces: `health` is the pool snapshot; `status` is one proxy and returns an error if `proxy_id` is omitted.
 
 ### Write actions
 

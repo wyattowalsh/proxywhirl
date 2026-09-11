@@ -1,6 +1,6 @@
 import { generateFiles } from "fumadocs-openapi";
 import { createOpenAPI } from "fumadocs-openapi/server";
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,13 +21,26 @@ await generateFiles({
 	meta: true,
 });
 
+/**
+ * Normalize OpenAPI group/operation slugs for URL-safe Fumadocs paths.
+ * fumadocs-openapi can emit tags like "Retry & Failover" → "retry-&-failover".
+ */
+function sanitizeSlug(slug) {
+	return String(slug)
+		.trim()
+		.replace(/&/g, "and")
+		.replace(/[^a-zA-Z0-9._-]+/g, "-")
+		.replace(/-+/g, "-")
+		.replace(/^-|-$/g, "")
+		.toLowerCase();
+}
+
 function titleFromSlug(slug) {
-	return slug
+	return sanitizeSlug(slug)
 		.split(/[-_]+/)
 		.filter(Boolean)
 		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-		.join(" ")
-		.replace("&", "&");
+		.join(" ");
 }
 
 async function readJson(path) {
@@ -37,6 +50,44 @@ async function readJson(path) {
 async function writeJson(path, value) {
 	await writeFile(path, `${JSON.stringify(value, null, 2)}\n`);
 }
+
+async function sanitizeOpenApiDirs() {
+	const entries = await readdir(outputDir, { withFileTypes: true });
+	const renames = [];
+
+	for (const entry of entries) {
+		if (!entry.isDirectory()) continue;
+		const safe = sanitizeSlug(entry.name);
+		if (safe !== entry.name) {
+			renames.push({ from: entry.name, to: safe });
+		}
+	}
+
+	for (const { from, to } of renames) {
+		const fromPath = join(outputDir, from);
+		const toPath = join(outputDir, to);
+		// Prior runs leave the sanitized dir; replace it with freshly generated content.
+		await rm(toPath, { recursive: true, force: true });
+		await rename(fromPath, toPath);
+	}
+
+	const metaPath = join(outputDir, "meta.json");
+	try {
+		const meta = await readJson(metaPath);
+		if (Array.isArray(meta.pages)) {
+			meta.pages = meta.pages.map((page) =>
+				page === "index" || page.startsWith("---") ? page : sanitizeSlug(page),
+			);
+			await writeJson(metaPath, meta);
+		}
+	} catch {
+		// meta.json may not exist yet
+	}
+
+	return renames;
+}
+
+await sanitizeOpenApiDirs();
 
 const metaPath = join(outputDir, "meta.json");
 const meta = await readJson(metaPath);
@@ -64,12 +115,17 @@ for (const entry of groupEntries) {
 	const title = groupMeta.title || titleFromSlug(groupSlug);
 	const description = groupMeta.description || "Generated OpenAPI operation pages.";
 	const pages = Array.isArray(groupMeta.pages) ? groupMeta.pages : [];
-	if (!pages.includes("index")) {
-		groupMeta.pages = ["index", ...pages];
-		await writeJson(groupMetaPath, groupMeta);
+	const sanitizedPages = pages.map((page) =>
+		page === "index" ? page : sanitizeSlug(page),
+	);
+	if (!sanitizedPages.includes("index")) {
+		groupMeta.pages = ["index", ...sanitizedPages];
+	} else {
+		groupMeta.pages = sanitizedPages;
 	}
+	await writeJson(groupMetaPath, groupMeta);
 
-	const operationLinks = pages
+	const operationLinks = groupMeta.pages
 		.filter((page) => page !== "index")
 		.map((page) => `- [${titleFromSlug(page)}](/docs/api/openapi/${groupSlug}/${page})`)
 		.join("\n");

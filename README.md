@@ -104,7 +104,7 @@ response = rotator.get("https://api.example.com/data")
 <br/>
 <img src="https://api.iconify.design/carbon:cloud-download.svg?color=%230f766e" alt="" width="48"/>
 <br/><br/>
-<strong>88 Sources</strong>
+<strong>70 Sources</strong>
 <br/>
 <sub>Auto-fetch from built-in providers with validation</sub>
 <br/><br/>
@@ -141,9 +141,17 @@ response = rotator.get("https://api.example.com/data")
 ## Rotation Strategies
 
 ```python
-# Switch strategies on the fly
+# Switch strategies on the fly (name string or strategy instance)
 rotator = ProxyWhirl(strategy="performance-based")
-rotator.set_strategy("geo-targeted", preferences={"US": [...], "EU": [...]})
+rotator.set_strategy("geo-targeted")
+
+# Geo targeting filters via SelectionContext on strategy.select()
+from proxywhirl import SelectionContext
+
+proxy = rotator.strategy.select(
+    rotator.pool,
+    SelectionContext(target_country="US"),
+)
 ```
 
 | Strategy              | Best For               |
@@ -225,10 +233,11 @@ curl localhost:8000/api/proxies
 </table>
 
 > [!WARNING]
-> The REST API and MCP server run **without authentication by default** (`PROXYWHIRL_REQUIRE_AUTH=false`,
-> no `PROXYWHIRL_MCP_API_KEY`) for zero-friction local development — both now log a startup warning when
-> this is the case. Before exposing either service beyond `localhost`, set `PROXYWHIRL_REQUIRE_AUTH=true`
-> plus `PROXYWHIRL_API_KEY`, and set `PROXYWHIRL_MCP_API_KEY`. See the
+> The REST API and MCP server can run **without authentication on loopback by default**
+> (`PROXYWHIRL_REQUIRE_AUTH=false`, no `PROXYWHIRL_MCP_API_KEY`) for local development.
+> API startup fails closed when `PROXYWHIRL_BIND_HOST` is non-loopback without authentication.
+> Before exposing either service beyond `localhost`, set `PROXYWHIRL_REQUIRE_AUTH=true` plus
+> `PROXYWHIRL_API_KEY`, and set `PROXYWHIRL_MCP_API_KEY`. See the
 > [Deployment guide](https://www.proxywhirl.com/docs/guides/deployment#production-hardening-authentication)
 > for the full hardening checklist.
 

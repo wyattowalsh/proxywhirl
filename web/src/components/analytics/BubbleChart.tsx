@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { useReducedMotion } from "motion/react"
 import {
   ScatterChart,
   Scatter,
@@ -30,13 +31,14 @@ interface BubbleData {
 }
 
 export function BubbleChart({ proxies = [], stats }: BubbleChartProps) {
+  const prefersReducedMotion = useReducedMotion()
   const data = useMemo(() => {
     const precomputed = stats?.aggregations?.by_country_detail
     if (precomputed && precomputed.length > 0) {
       return precomputed
         .map((entry) => {
           const continent =
-            entry.continent_code || COUNTRY_TO_CONTINENT[entry.code] || "AS"
+            entry.continent_code || COUNTRY_TO_CONTINENT[entry.code] || "UN"
           const avgResponse = entry.avg_response_ms ?? 0
           return {
             country: entry.code,
@@ -74,7 +76,7 @@ export function BubbleChart({ proxies = [], stats }: BubbleChartProps) {
 
     return Object.entries(countryData)
       .map(([code, countryStats]) => {
-        const continent = COUNTRY_TO_CONTINENT[code] || "AS"
+        const continent = COUNTRY_TO_CONTINENT[code] || "UN"
         return {
           country: code,
           countryCode: code,
@@ -111,13 +113,17 @@ export function BubbleChart({ proxies = [], stats }: BubbleChartProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Country Performance</CardTitle>
-        <CardDescription>
+        <CardTitle id="bubble-chart-title">Country Performance</CardTitle>
+        <CardDescription id="bubble-chart-desc">
           Proxy count vs response time by country (bubble size = count)
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[400px]">
+        <div
+          className="h-[400px]"
+          role="img"
+          aria-labelledby="bubble-chart-title bubble-chart-desc"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -174,6 +180,7 @@ export function BubbleChart({ proxies = [], stats }: BubbleChartProps) {
                   name={CONTINENT_LABELS[continent] || continent}
                   data={data.filter((d) => d.continent === continent)}
                   fill={CONTINENT_COLORS[continent] || "#6b7280"}
+                  isAnimationActive={!prefersReducedMotion}
                 />
               ))}
             </ScatterChart>
@@ -192,6 +199,25 @@ export function BubbleChart({ proxies = [], stats }: BubbleChartProps) {
             </div>
           ))}
         </div>
+        <table className="sr-only">
+          <caption>Country performance: proxy count and average response time</caption>
+          <thead>
+            <tr>
+              <th scope="col">Country</th>
+              <th scope="col">Proxies</th>
+              <th scope="col">Avg response (ms)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((row) => (
+              <tr key={row.countryCode}>
+                <td>{row.countryCode}</td>
+                <td>{row.count.toLocaleString()}</td>
+                <td>{row.avgResponse}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </CardContent>
     </Card>
   )

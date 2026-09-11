@@ -47,7 +47,7 @@ Use `uvx` only for intentionally isolated tools such as `uvx pip-audit` or `uvx 
 | `strategies/`          | `RoundRobinStrategy`, `WeightedStrategy`, `PerformanceBasedStrategy`       |
 | `rotator/`             | `ProxyWhirl` (sync), `AsyncProxyWhirl` (async)                             |
 | `storage.py`           | `SQLiteStorage`, `FileStorage`, `ProxyTable` (SQLModel)                    |
-| `fetchers.py`          | `ProxyFetcher`, `ProxyValidator`, parsers (`JSON/CSV/PlainText/HTMLTable`) |
+| `fetchers/`            | `ProxyFetcher`, `ProxyValidator`, parsers (`JSON/CSV/PlainText/HTMLTable`) |
 | `sources.py`           | `ALL_SOURCES`, `RECOMMENDED_SOURCES`, predefined proxy endpoints           |
 | `cache/`               | `CacheManager`, multi-tier caching                                         |
 | `circuit_breaker/`     | `CircuitBreaker`, `AsyncCircuitBreaker`                                    |
@@ -55,7 +55,7 @@ Use `uvx` only for intentionally isolated tools such as `uvx pip-audit` or `uvx 
 | `rate_limiting/`       | `RateLimiter` (token bucket)                                               |
 | `api/`                 | FastAPI canonical `/api/*` routes                                          |
 | `mcp/`                 | MCP server for AI assistants                                               |
-| `cli.py`               | Typer CLI (`proxywhirl` command)                                           |
+| `cli/`                 | Typer CLI (`proxywhirl` command)                                           |
 | `browser.py`           | Playwright for JS-rendered sources                                         |
 | `config.py`            | TOML config, `CLIConfig`, `DataStorageConfig`                              |
 | `exceptions.py`        | `ProxyWhirlError` hierarchy                                                |

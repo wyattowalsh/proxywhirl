@@ -1,52 +1,58 @@
 ---
 title: Strategy Matrix
-description: Rotation strategy matrix generated from proxywhirl.strategies.
+description: Rotation strategy matrix generated from the public built-in strategy registry.
 ---
 
 
 <div className="rounded-xl border border-fd-border bg-fd-muted/40 p-4 text-sm">
-<strong>Generated reference.</strong> This page is derived from exported strategy classes in `proxywhirl.strategies` during <code>pnpm --dir web run docs:generate</code>. Edit <code>web/scripts/generate-docs.mjs</code>, not this MDX file.
+<strong>Generated reference.</strong> This page is derived from `proxywhirl.strategies.BUILTIN_STRATEGY_CLASSES` during <code>pnpm --dir web run docs:generate</code>. Edit <code>web/scripts/generate-docs.mjs</code>, not this MDX file.
 </div>
 
 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
 <div className="rounded-xl border bg-fd-card p-4 shadow-sm">
-  <div className="text-2xl font-semibold tracking-tight">9</div>
+  <div className="text-2xl font-semibold tracking-tight">8</div>
   <div className="mt-1 text-sm font-medium">Strategies</div>
-  <div className="mt-1 text-xs text-fd-muted-foreground">Concrete rotation classes</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Unique registered strategy classes</div>
 </div>
 <div className="rounded-xl border bg-fd-card p-4 shadow-sm">
-  <div className="text-2xl font-semibold tracking-tight">RoundRobin</div>
+  <div className="text-2xl font-semibold tracking-tight">15</div>
+  <div className="mt-1 text-sm font-medium">Registered names</div>
+  <div className="mt-1 text-xs text-fd-muted-foreground">Canonical names plus aliases</div>
+</div>
+<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
+  <div className="text-2xl font-semibold tracking-tight">round-robin</div>
   <div className="mt-1 text-sm font-medium">Default</div>
   <div className="mt-1 text-xs text-fd-muted-foreground">Balanced first choice</div>
 </div>
 <div className="rounded-xl border bg-fd-card p-4 shadow-sm">
-  <div className="text-2xl font-semibold tracking-tight">PerformanceBased</div>
-  <div className="mt-1 text-sm font-medium">Fastest</div>
+  <div className="text-2xl font-semibold tracking-tight">performance-based</div>
+  <div className="mt-1 text-sm font-medium">Performance aware</div>
   <div className="mt-1 text-xs text-fd-muted-foreground">EMA latency preference</div>
-</div>
-<div className="rounded-xl border bg-fd-card p-4 shadow-sm">
-  <div className="text-2xl font-semibold tracking-tight">Composite</div>
-  <div className="mt-1 text-sm font-medium">Composable</div>
-  <div className="mt-1 text-xs text-fd-muted-foreground">Filter and select pipeline</div>
 </div>
 </div>
 
 ## Strategy Selection
 
-| Strategy | Use When | Source Summary |
-| --- | --- | --- |
-| `RoundRobinStrategy` | Round-robin proxy selection strategy with SelectionContext support. | Round-robin proxy selection strategy with SelectionContext support. |
-| `RandomStrategy` | Random proxy selection strategy with SelectionContext support. | Random proxy selection strategy with SelectionContext support. |
-| `WeightedStrategy` | Weighted proxy selection strategy with SelectionContext support. | Weighted proxy selection strategy with SelectionContext support. |
-| `LeastUsedStrategy` | Least-used proxy selection strategy with SelectionContext support. | Least-used proxy selection strategy with SelectionContext support. |
-| `PerformanceBasedStrategy` | Performance-based proxy selection using EMA response times. | Performance-based proxy selection using EMA response times. |
-| `SessionPersistenceStrategy` | Session persistence strategy (sticky sessions). | Session persistence strategy (sticky sessions). |
-| `GeoTargetedStrategy` | Geo-targeted proxy selection strategy. | Geo-targeted proxy selection strategy. |
-| `CostAwareStrategy` | Cost-aware proxy selection strategy. | Cost-aware proxy selection strategy. |
-| `CompositeStrategy` | Composite strategy that applies filtering and selection strategies in sequence. | Composite strategy that applies filtering and selection strategies in sequence. |
+| Registry Name | Class | Aliases | Use When | Module |
+| --- | --- | --- | --- | --- |
+| `round-robin` | `RoundRobinStrategy` | `round-robin`, `round_robin` | Round-robin proxy selection strategy with SelectionContext support. | `proxywhirl.strategies.round_robin` |
+| `random` | `RandomStrategy` | `random` | Random proxy selection strategy with SelectionContext support. | `proxywhirl.strategies.random` |
+| `weighted` | `WeightedStrategy` | `weighted` | Weighted proxy selection strategy with SelectionContext support. | `proxywhirl.strategies.weighted` |
+| `least-used` | `LeastUsedStrategy` | `least-used`, `least_used` | Least-used proxy selection strategy with SelectionContext support. | `proxywhirl.strategies.least_used` |
+| `performance-based` | `PerformanceBasedStrategy` | `performance-based`, `performance_based` | Performance-based proxy selection using EMA response times. | `proxywhirl.strategies.performance` |
+| `session` | `SessionPersistenceStrategy` | `session`, `session-persistence`, `session_persistence` | Session persistence strategy (sticky sessions). | `proxywhirl.strategies.session` |
+| `geo-targeted` | `GeoTargetedStrategy` | `geo-targeted`, `geo_targeted` | Geo-targeted proxy selection strategy. | `proxywhirl.strategies.geo` |
+| `cost-aware` | `CostAwareStrategy` | `cost-aware`, `cost_aware` | Cost-aware proxy selection strategy. | `proxywhirl.strategies.cost` |
 
 ## Source Modules
 
 | Module | Strategies |
 | --- | --- |
-| `proxywhirl.strategies` | 9 |
+| `proxywhirl.strategies.cost` | 1 |
+| `proxywhirl.strategies.geo` | 1 |
+| `proxywhirl.strategies.least_used` | 1 |
+| `proxywhirl.strategies.performance` | 1 |
+| `proxywhirl.strategies.random` | 1 |
+| `proxywhirl.strategies.round_robin` | 1 |
+| `proxywhirl.strategies.session` | 1 |
+| `proxywhirl.strategies.weighted` | 1 |

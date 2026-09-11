@@ -80,7 +80,7 @@ function buildTreemapFromCountryDetail(
 
   for (const entry of countryDetail) {
     const continent =
-      entry.continent_code || COUNTRY_TO_CONTINENT[entry.code] || "AS"
+      entry.continent_code || COUNTRY_TO_CONTINENT[entry.code] || "UN"
 
     if (!continentData[continent]) {
       continentData[continent] = {}
@@ -125,7 +125,7 @@ export function ProxyTreemap({ proxies = [], stats }: ProxyTreemapProps) {
       const countryCode = proxy.country_code
       if (!countryCode) return
 
-      const continent = proxy.continent_code || COUNTRY_TO_CONTINENT[countryCode] || "AS"
+      const continent = proxy.continent_code || COUNTRY_TO_CONTINENT[countryCode] || "UN"
 
       if (!continentData[continent]) {
         continentData[continent] = {}

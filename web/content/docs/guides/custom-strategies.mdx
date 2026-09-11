@@ -11,47 +11,58 @@ ProxyWhirl strategies are **protocol-based** — any class with `select()` and `
 ```python
 from __future__ import annotations
 
-from proxywhirl import Proxy, ProxyPool, SelectionContext
+from urllib.parse import urlparse
+
+from proxywhirl import Proxy, ProxyPool, ProxyWhirl, SelectionContext
+from proxywhirl.exceptions import ProxyPoolEmptyError
 from proxywhirl.strategies import StrategyRegistry
 
 
 class PreferLowPortStrategy:
-    """Pick the proxy with the lowest port number."""
+    """Pick the healthy proxy with the lowest port number."""
 
-    def select(self, pool: ProxyPool, context: SelectionContext | None) -> Proxy:
-        proxies = pool.get_available()
+    def select(self, pool: ProxyPool, context: SelectionContext | None = None) -> Proxy:
+        proxies = pool.get_healthy_proxies()
         if not proxies:
-            raise ValueError("No proxies available")
-        return min(proxies, key=lambda p: p.port)
+            raise ProxyPoolEmptyError("No healthy proxies available")
+        return min(proxies, key=lambda p: urlparse(str(p.url)).port or 0)
 
     def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
         pass  # Stateless — no feedback needed
-
-
-registry = StrategyRegistry()
-registry.register_strategy("prefer-low-port", PreferLowPortStrategy)
 ```
 
-## Register at Runtime
+`ProxyPool` exposes `get_healthy_proxies()` / `get_all_proxies()` — there is no `get_available()`. `Proxy` stores `url` (not a `.port` attribute); parse the URL when you need host/port.
+
+## Use at Runtime
+
+Pass an instance to the constructor or hot-swap with `set_strategy`:
 
 ```python
-from proxywhirl import ProxyWhirl
-
-whirl = ProxyWhirl()
-whirl.strategy_registry.register_strategy("prefer-low-port", PreferLowPortStrategy)
-whirl.set_strategy("prefer-low-port")
+rotator = ProxyWhirl(bootstrap=False, strategy=PreferLowPortStrategy())
+# ...
+rotator.set_strategy(PreferLowPortStrategy())
+rotator.set_strategy("performance-based")  # built-in name also works
 ```
 
-For async rotators, use the same registry on `AsyncProxyWhirl`.
+`ProxyWhirl` does **not** expose a `strategy_registry` attribute. Use a standalone `StrategyRegistry` when you want named lookup:
+
+```python
+registry = StrategyRegistry()
+registry.register_strategy("prefer-low-port", PreferLowPortStrategy)
+strategy_cls = registry.get_strategy("prefer-low-port")
+rotator.set_strategy(strategy_cls())
+```
+
+`set_strategy(strategy, *, atomic=True)` accepts a `RotationStrategy` instance or a built-in name string (`round-robin`, `random`, `weighted`, `least-used`, `performance-based`, `session`, `geo-targeted`, `cost-aware`). Custom names are only resolved if you construct the instance yourself (or via your own registry).
 
 ## Configure via TOML
 
 ```toml
 [strategy]
-name = "prefer-low-port"
+name = "performance-based"
 ```
 
-The strategy name must match a registered entry. Built-in names (`round_robin`, `weighted`, `performance_based`, etc.) are pre-registered.
+Built-in names are resolved by the rotator. Custom classes must be constructed in code and passed as instances — TOML cannot import arbitrary Python classes.
 
 ## Stateful Strategies
 
@@ -62,28 +73,42 @@ class SuccessRateStrategy:
     def __init__(self) -> None:
         self._scores: dict[str, float] = {}
 
-    def select(self, pool: ProxyPool, context: SelectionContext | None) -> Proxy:
-        proxies = pool.get_available()
-        return max(proxies, key=lambda p: self._scores.get(p.id, 0.5))
+    def select(self, pool: ProxyPool, context: SelectionContext | None = None) -> Proxy:
+        proxies = pool.get_healthy_proxies()
+        if not proxies:
+            raise ProxyPoolEmptyError("No healthy proxies available")
+        return max(proxies, key=lambda p: self._scores.get(str(p.id), 0.5))
 
     def record_result(self, proxy: Proxy, success: bool, response_time_ms: float) -> None:
-        prev = self._scores.get(proxy.id, 0.5)
-        self._scores[proxy.id] = prev * 0.9 + (1.0 if success else 0.0) * 0.1
+        key = str(proxy.id)
+        prev = self._scores.get(key, 0.5)
+        self._scores[key] = prev * 0.9 + (1.0 if success else 0.0) * 0.1
 ```
 
 Use locks when sharing state across threads — see [Rotation Strategies](/docs/concepts/rotation-strategies#thread-safety).
 
 ## Composite Pipelines
 
-Chain strategies without writing a new combined class:
+`CompositeStrategy` takes **filters** plus an optional **selector** (not a single list of strategies):
 
 ```python
-from proxywhirl.strategies import CompositeStrategy, GeoTargetedStrategy, PerformanceBasedStrategy
+from proxywhirl.strategies import (
+    CompositeStrategy,
+    GeoTargetedStrategy,
+    PerformanceBasedStrategy,
+)
 
-pipeline = CompositeStrategy([
-    GeoTargetedStrategy(country_code="US"),
-    PerformanceBasedStrategy(),
-])
+pipeline = CompositeStrategy(
+    filters=[GeoTargetedStrategy()],
+    selector=PerformanceBasedStrategy(),
+)
+rotator = ProxyWhirl(bootstrap=False, strategy=pipeline)
+
+# Geo filters read SelectionContext.target_country / target_region
+proxy = rotator.strategy.select(
+    rotator.pool,
+    SelectionContext(target_country="US"),
+)
 ```
 
 ## Testing
@@ -92,7 +117,8 @@ pipeline = CompositeStrategy([
 def test_prefer_low_port_selects_smallest_port(sample_pool):
     strategy = PreferLowPortStrategy()
     proxy = strategy.select(sample_pool, context=None)
-    assert proxy.port == min(p.port for p in sample_pool.get_available())
+    ports = [urlparse(str(p.url)).port or 0 for p in sample_pool.get_healthy_proxies()]
+    assert (urlparse(str(proxy.url)).port or 0) == min(ports)
 ```
 
 Use fixtures from `tests/conftest.py` for `Proxy` and `ProxyPool` instances.

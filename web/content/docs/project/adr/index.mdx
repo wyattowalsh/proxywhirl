@@ -87,6 +87,11 @@ Forward-only migration approach, dual read paths via `dict_to_proxy()`, and git-
 
 Opt-in outer failover loop (`FailoverPolicy.enabled=False` by default) coordinating with inner `RetryExecutor`, shared by sync/async rotators and the REST API.
 
+### [ADR-007: MCP OAuth 2.1 + PKCE](/docs/project/adr/007-mcp-oauth)
+**Status**: Proposed (design only)
+
+OAuth 2.1 with PKCE for public remote MCP HTTP transports; stdio stays env-based; API keys remain for private networked MCP until the epic lands. Canonical text: `docs/specs/mcp-oauth-2.1-pkce.md`.
+
 ## Usage Guidelines
 
 ### When to Create an ADR

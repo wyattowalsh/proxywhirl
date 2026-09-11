@@ -1,19 +1,11 @@
 import { useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { CHART_COLORS, getHeatmapColor } from "@/lib/chart-tokens"
 import type { Proxy, Stats } from "@/types"
 
 interface HeatmapCalendarProps {
   proxies?: Proxy[]
   stats?: Stats | null
-}
-
-function getColorForCount(count: number, max: number): string {
-  if (count === 0) return "hsl(var(--muted))"
-  const intensity = Math.min(count / max, 1)
-  if (intensity < 0.25) return "#dcfce7"
-  if (intensity < 0.5) return "#86efac"
-  if (intensity < 0.75) return "#22c55e"
-  return "#15803d"
 }
 
 function formatDate(date: Date): string {
@@ -49,7 +41,7 @@ function buildCountsFromProxies(proxies: Proxy[]): Record<string, number> {
 }
 
 export function HeatmapCalendar({ proxies = [], stats }: HeatmapCalendarProps) {
-  const { data, maxCount, weeks, months } = useMemo(() => {
+  const { data, maxCount, weeks, months, tableRows } = useMemo(() => {
     const precomputed = stats?.aggregations?.discovery_by_date
     const counts =
       precomputed && Object.keys(precomputed).length > 0
@@ -108,7 +100,11 @@ export function HeatmapCalendar({ proxies = [], stats }: HeatmapCalendarProps) {
       }
     })
 
-    return { data: counts, maxCount, weeks, months }
+    const tableRows = Object.entries(counts)
+      .filter(([, count]) => count > 0)
+      .sort(([a], [b]) => b.localeCompare(a))
+
+    return { data: counts, maxCount, weeks, months, tableRows }
   }, [proxies, stats])
 
   const totalDiscovered = Object.values(data).reduce((sum, c) => sum + c, 0)
@@ -116,13 +112,17 @@ export function HeatmapCalendar({ proxies = [], stats }: HeatmapCalendarProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Discovery Activity</CardTitle>
-        <CardDescription>
+        <CardTitle id="heatmap-calendar-title">Discovery Activity</CardTitle>
+        <CardDescription id="heatmap-calendar-desc">
           {totalDiscovered.toLocaleString()} proxies discovered in the last 90 days
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto">
+        <div
+          role="img"
+          aria-labelledby="heatmap-calendar-title heatmap-calendar-desc"
+          className="overflow-x-auto"
+        >
           <div className="flex ml-8 mb-1">
             {months.map((month, i) => (
               <div
@@ -148,14 +148,14 @@ export function HeatmapCalendar({ proxies = [], stats }: HeatmapCalendarProps) {
               <span>Fri</span>
             </div>
 
-            <div className="flex gap-[2px]">
+            <div className="flex gap-[2px]" aria-hidden="true">
               {weeks.map((week, weekIndex) => (
                 <div key={weekIndex} className="flex flex-col gap-[2px]">
                   {week.map((day) => (
                     <div
                       key={day.key}
                       className="w-3 h-3 rounded-sm cursor-default"
-                      style={{ backgroundColor: getColorForCount(day.count, maxCount) }}
+                      style={{ backgroundColor: getHeatmapColor(day.count, maxCount) }}
                       title={getTooltipText(day.date, day.count)}
                     />
                   ))}
@@ -166,16 +166,33 @@ export function HeatmapCalendar({ proxies = [], stats }: HeatmapCalendarProps) {
 
           <div className="flex items-center justify-end gap-2 mt-4 text-xs text-muted-foreground">
             <span>Less</span>
-            <div className="flex gap-[2px]">
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: "hsl(var(--muted))" }} />
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: "#dcfce7" }} />
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: "#86efac" }} />
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: "#22c55e" }} />
-              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: "#15803d" }} />
+            <div className="flex gap-[2px]" aria-hidden="true">
+              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: CHART_COLORS.heatmapEmpty }} />
+              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: CHART_COLORS.heatmapLow }} />
+              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: CHART_COLORS.heatmapMidLow }} />
+              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: CHART_COLORS.heatmapMid }} />
+              <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: CHART_COLORS.heatmapHigh }} />
             </div>
             <span>More</span>
           </div>
         </div>
+        <table className="sr-only">
+          <caption>Daily proxy discovery counts for the last 90 days</caption>
+          <thead>
+            <tr>
+              <th scope="col">Date</th>
+              <th scope="col">Proxies discovered</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tableRows.map(([date, count]) => (
+              <tr key={date}>
+                <td>{date}</td>
+                <td>{count.toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </CardContent>
     </Card>
   )

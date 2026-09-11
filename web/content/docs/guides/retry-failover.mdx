@@ -43,7 +43,7 @@ policy = RetryPolicy(
 )
 
 rotator = ProxyWhirl(retry_policy=policy)
-response = rotator.request("GET", "https://httpbin.org/ip")
+response = rotator.get("https://httpbin.org/ip")
 ```
 
 ### Backoff strategies
@@ -115,7 +115,7 @@ rotator = ProxyWhirl(
 )
 
 try:
-    response = rotator.request("GET", "https://api.example.com/data")
+    response = rotator.get("https://api.example.com/data")
 except ProxyConnectionError as e:
     print(f"All retries exhausted: {e}")
 ```

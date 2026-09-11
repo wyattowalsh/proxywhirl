@@ -1,59 +1,101 @@
 {
-  "total": 9,
+  "total": 8,
+  "registered_names": 15,
   "items": [
     {
+      "name": "round-robin",
+      "aliases": [
+        "round-robin",
+        "round_robin"
+      ],
       "class": "RoundRobinStrategy",
-      "module": "proxywhirl.strategies",
+      "module": "proxywhirl.strategies.round_robin",
       "summary": "Round-robin proxy selection strategy with SelectionContext support.",
-      "line": 459
+      "source": "proxywhirl/strategies/round_robin.py",
+      "line": 17
     },
     {
+      "name": "random",
+      "aliases": [
+        "random"
+      ],
       "class": "RandomStrategy",
-      "module": "proxywhirl.strategies",
+      "module": "proxywhirl.strategies.random",
       "summary": "Random proxy selection strategy with SelectionContext support.",
-      "line": 559
+      "source": "proxywhirl/strategies/random.py",
+      "line": 16
     },
     {
+      "name": "weighted",
+      "aliases": [
+        "weighted"
+      ],
       "class": "WeightedStrategy",
-      "module": "proxywhirl.strategies",
+      "module": "proxywhirl.strategies.weighted",
       "summary": "Weighted proxy selection strategy with SelectionContext support.",
-      "line": 627
+      "source": "proxywhirl/strategies/weighted.py",
+      "line": 17
     },
     {
+      "name": "least-used",
+      "aliases": [
+        "least-used",
+        "least_used"
+      ],
       "class": "LeastUsedStrategy",
-      "module": "proxywhirl.strategies",
+      "module": "proxywhirl.strategies.least_used",
       "summary": "Least-used proxy selection strategy with SelectionContext support.",
-      "line": 877
+      "source": "proxywhirl/strategies/least_used.py",
+      "line": 16
     },
     {
+      "name": "performance-based",
+      "aliases": [
+        "performance-based",
+        "performance_based"
+      ],
       "class": "PerformanceBasedStrategy",
-      "module": "proxywhirl.strategies",
+      "module": "proxywhirl.strategies.performance",
       "summary": "Performance-based proxy selection using EMA response times.",
-      "line": 1041
+      "source": "proxywhirl/strategies/performance.py",
+      "line": 16
     },
     {
+      "name": "session",
+      "aliases": [
+        "session",
+        "session-persistence",
+        "session_persistence"
+      ],
       "class": "SessionPersistenceStrategy",
-      "module": "proxywhirl.strategies",
+      "module": "proxywhirl.strategies.session",
       "summary": "Session persistence strategy (sticky sessions).",
-      "line": 1408
+      "source": "proxywhirl/strategies/session.py",
+      "line": 243
     },
     {
+      "name": "geo-targeted",
+      "aliases": [
+        "geo-targeted",
+        "geo_targeted"
+      ],
       "class": "GeoTargetedStrategy",
-      "module": "proxywhirl.strategies",
+      "module": "proxywhirl.strategies.geo",
       "summary": "Geo-targeted proxy selection strategy.",
-      "line": 1605
+      "source": "proxywhirl/strategies/geo.py",
+      "line": 18
     },
     {
+      "name": "cost-aware",
+      "aliases": [
+        "cost-aware",
+        "cost_aware"
+      ],
       "class": "CostAwareStrategy",
-      "module": "proxywhirl.strategies",
+      "module": "proxywhirl.strategies.cost",
       "summary": "Cost-aware proxy selection strategy.",
-      "line": 1775
-    },
-    {
-      "class": "CompositeStrategy",
-      "module": "proxywhirl.strategies",
-      "summary": "Composite strategy that applies filtering and selection strategies in sequence.",
-      "line": 1937
+      "source": "proxywhirl/strategies/cost.py",
+      "line": 16
     }
   ]
 }

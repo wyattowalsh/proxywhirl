@@ -35,7 +35,7 @@ Use the system sans stack for UI and prose. Preserve a compact technical rhythm:
 | Data cards | Use small metric cards for source counts, strategy counts, API path counts, and live proxy stats.                                   |
 | Tables     | Use tables for generated reference surfaces; keep columns stable and sortable only when interaction adds value.                     |
 | Callouts   | Use Fumadocs-native callouts for warnings, migration notes, and operational caveats.                                                |
-| Navigation | Keep `/docs/` IA organized by user surfaces: quickstart, guides, concepts, API, MCP, sources, strategies, operations, project. |
+| Navigation | Keep `/docs/` IA aligned with `web/content/docs/meta.json`: index, quickstart, then Learn (guides, concepts), Interfaces (MCP, REST), Reference (generated Python/REST/CLI/sources/strategies + OpenAPI), Operations, Project. |
 
 ## Motion
 
@@ -43,7 +43,7 @@ Motion should support orientation, not decoration. Use subtle hover transitions,
 
 ## Accessibility
 
-All interactive controls need focus-visible states and text alternatives. Data visualizations must have textual summaries or adjacent tables. Color cannot be the only state indicator.
+All interactive controls need focus-visible states and text alternatives. Data visualizations must have textual summaries or adjacent tables (see analytics charts such as SourceRadar). Color cannot be the only state indicator. Docs and app shells expose a keyboard **Skip to content** link targeting `#nd-page` (docs) or `#main-content` (app).
 
 ## Implementation Rules
 

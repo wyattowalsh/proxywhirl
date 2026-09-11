@@ -8,18 +8,21 @@ Complete reference for ProxyWhirl configuration: TOML files, environment variabl
 
 ## Discovery Order
 
-1. Explicit `--config` path
-2. Project-local `./pyproject.toml` → `[tool.proxywhirl]`
-3. User-global `~/.config/proxywhirl/config.toml`
-4. Built-in defaults
+`discover_config()` resolves files in this priority (first match wins):
+
+1. Explicit path (`discover_config(explicit_path=...)` or CLI `--config`) — raises `FileNotFoundError` if missing
+2. Project-local `./.proxywhirl.toml`
+3. Project-local `./pyproject.toml` **only when** it contains a `[tool.proxywhirl]` table
+4. User-global `~/.config/proxywhirl/config.toml` (via platformdirs `user_config_dir`)
+5. `None` — callers use built-in defaults (`load_config(None)` / `CLIConfig` defaults)
 
 ```python
 from pathlib import Path
 from proxywhirl.config import discover_config, load_config
 
-config_path = discover_config()
-config = load_config(config_path)
-config = load_config(Path("./custom-config.toml"))  # explicit
+config_path = discover_config()  # may be None
+config = load_config(config_path)  # defaults when path is None
+config = load_config(Path("./custom-config.toml"))  # explicit file
 ```
 
 ProxyWhirl uses **TOML**, not YAML.
@@ -53,11 +56,16 @@ User-global config (`~/.config/proxywhirl/config.toml`) uses root-level keys wit
 
 | Variable | Purpose |
 | -------- | ------- |
-| `PROXYWHIRL_KEY` | Master Fernet key for credential encryption (default: `~/.config/proxywhirl/key.enc`) |
-| `PROXYWHIRL_CACHE_ENCRYPTION_KEY` | Optional cache-tier encryption key |
+| `PROXYWHIRL_KEY` | Master Fernet key for CLI/config credential encryption (default: `~/.config/proxywhirl/key.enc`) |
+| `PROXYWHIRL_CACHE_ENCRYPTION_KEY` | Canonical Fernet key for L2/L3 cache credential encryption (required when encrypting cache tiers) |
+| `PROXYWHIRL_ENCRYPTION_KEY` | **Deprecated** alias for `PROXYWHIRL_CACHE_ENCRYPTION_KEY`; used only when the canonical cache key is unset |
+| `PROXYWHIRL_CACHE_KEY_PREVIOUS` | Previous Fernet key for MultiFernet rotation (decrypt-only) |
+
+Canonical encryption env names are `PROXYWHIRL_KEY` and `PROXYWHIRL_CACHE_ENCRYPTION_KEY`. `PROXYWHIRL_ENCRYPTION_KEY` is a temporary bridge for older deploy templates.
 
 ```bash
 export PROXYWHIRL_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+export PROXYWHIRL_CACHE_ENCRYPTION_KEY=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
 ```
 
 ### REST API

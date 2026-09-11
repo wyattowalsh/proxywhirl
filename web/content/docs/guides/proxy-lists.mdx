@@ -119,8 +119,9 @@ lines = httpx.get("https://www.proxywhirl.com/proxy-lists/http.txt").text.splitl
 # Runtime validation (recommended for production)
 from proxywhirl import ProxyWhirl
 
+# Empty pool + default bootstrap: first request lazy-fetches from enabled ALL_SOURCES.
+# There is no rotator.bootstrap() method — pass bootstrap=False to disable auto-fetch.
 rotator = ProxyWhirl()
-rotator.bootstrap()
 response = rotator.get("https://api.example.com/data")
 ```
 

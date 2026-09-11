@@ -142,7 +142,8 @@ except ProxyPoolEmptyError:
     proxy = None  # graceful degradation
 
 try:
-    response = whirl.request("GET", url)
+    # Prefer method helpers: get/post/head (there is no whirl.request()).
+    response = whirl.get(url)
 except ProxyConnectionError as e:
     print(e.error_code, getattr(e, "retryable", False))
 ```
@@ -152,7 +153,7 @@ except ProxyConnectionError as e:
 | Scenario | Code | Quick fix |
 | -------- | ---- | --------- |
 | Connection timeout | `E020` | `config.timeout = 60`, switch proxy |
-| All breakers open | `E003` | Wait for HALF_OPEN or `reset_all()` |
+| All breakers open | `E003` | Wait for HALF_OPEN or `rotator.reset_circuit_breaker(proxy_id)` per proxy |
 | Database locked | `E051` | Enable WAL, use `AsyncProxyWhirl` |
 | Cache checksum mismatch | `E080` | Clear cache, verify `PROXYWHIRL_CACHE_ENCRYPTION_KEY` |
 

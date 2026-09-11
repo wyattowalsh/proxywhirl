@@ -58,7 +58,7 @@ export function Analytics({ stats, proxies, onCountryClick }: AnalyticsProps) {
 
 			<ErrorBoundary fallback={<ChartErrorFallback title="geographic map" />}>
 				<Suspense fallback={<Skeleton className="h-[400px] w-full rounded-lg" />}>
-					<GeoMap proxies={proxies} onCountryClick={onCountryClick} />
+					<GeoMap proxies={proxies} stats={stats} onCountryClick={onCountryClick} />
 				</Suspense>
 			</ErrorBoundary>
 		</section>

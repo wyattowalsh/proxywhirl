@@ -1,4 +1,5 @@
 import { useMemo } from "react"
+import { useReducedMotion } from "motion/react"
 import {
   RadarChart,
   PolarGrid,
@@ -27,10 +28,11 @@ interface SourceMetrics {
 }
 
 const COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6"]
+const METRIC_KEYS = ["volume", "reliability", "speed", "diversity", "freshness"] as const
 
 function buildRadarFromPrecomputed(
   sourceMetrics: NonNullable<Stats["aggregations"]>["source_metrics"],
-): { radarData: Record<string, string | number>[]; sourceNames: string[] } | null {
+): { radarData: Record<string, string | number>[]; sourceNames: string[]; metrics: SourceMetrics[] } | null {
   if (!sourceMetrics || sourceMetrics.length === 0) return null
 
   const topSources = [...sourceMetrics].sort((a, b) => b.count - a.count).slice(0, 6)
@@ -60,10 +62,11 @@ function buildRadarFromPrecomputed(
     { metric: "Freshness", ...Object.fromEntries(metrics.map((m) => [m.name, m.freshness])) },
   ]
 
-  return { radarData, sourceNames: metrics.map((m) => m.name) }
+  return { radarData, sourceNames: metrics.map((m) => m.name), metrics }
 }
 
 export function SourceRadar({ proxies = [], stats }: SourceRadarProps) {
+  const prefersReducedMotion = useReducedMotion()
   const data = useMemo(() => {
     const precomputed = buildRadarFromPrecomputed(stats?.aggregations?.source_metrics)
     if (precomputed) return precomputed
@@ -162,7 +165,7 @@ export function SourceRadar({ proxies = [], stats }: SourceRadarProps) {
       { metric: "Freshness", ...Object.fromEntries(metrics.map((m) => [m.name, m.freshness])) },
     ]
 
-    return { radarData, sourceNames: metrics.map((m) => m.name) }
+    return { radarData, sourceNames: metrics.map((m) => m.name), metrics }
   }, [proxies, stats])
 
   if (!data || !data.radarData || data.radarData.length === 0) {
@@ -181,11 +184,17 @@ export function SourceRadar({ proxies = [], stats }: SourceRadarProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Source Comparison</CardTitle>
-        <CardDescription>Top 6 sources compared across 5 metrics</CardDescription>
+        <CardTitle id="source-radar-title">Source Comparison</CardTitle>
+        <CardDescription id="source-radar-desc">
+          Top 6 sources compared across 5 metrics
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="h-[400px]">
+        <div
+          className="h-[400px]"
+          role="img"
+          aria-labelledby="source-radar-title source-radar-desc"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <RadarChart data={data.radarData} margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
               <PolarGrid className="stroke-muted" />
@@ -208,6 +217,7 @@ export function SourceRadar({ proxies = [], stats }: SourceRadarProps) {
                   fill={COLORS[i % COLORS.length]}
                   fillOpacity={0.1}
                   strokeWidth={2}
+                  isAnimationActive={!prefersReducedMotion}
                 />
               ))}
               <Tooltip
@@ -221,6 +231,29 @@ export function SourceRadar({ proxies = [], stats }: SourceRadarProps) {
             </RadarChart>
           </ResponsiveContainer>
         </div>
+        <table className="sr-only">
+          <caption>Source comparison across volume, reliability, speed, diversity, and freshness</caption>
+          <thead>
+            <tr>
+              <th scope="col">Source</th>
+              {METRIC_KEYS.map((key) => (
+                <th key={key} scope="col">
+                  {key.charAt(0).toUpperCase() + key.slice(1)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.metrics.map((row) => (
+              <tr key={row.name}>
+                <td>{row.name}</td>
+                {METRIC_KEYS.map((key) => (
+                  <td key={key}>{row[key]}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </CardContent>
     </Card>
   )

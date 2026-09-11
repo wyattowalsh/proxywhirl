@@ -43,7 +43,11 @@ vi.mock("@/lib/cache", async (importOriginal) => {
 const mockStats: Stats = {
 	generated_at: "2026-01-01T00:00:00Z",
 	sources: { total: 2 },
-	proxies: { total: 42, unique: 42, by_protocol: { http: 42 } },
+	proxies: {
+		total: 42,
+		unique: 42,
+		by_protocol: { http: 42, https: 0, socks4: 0, socks5: 0 },
+	},
 	file_sizes: {},
 	health: { healthy: 42, unhealthy: 0, dead: 0, unknown: 0 },
 	performance: {
@@ -81,6 +85,11 @@ const mockRich: RichProxyData = {
 			created_at: "2026-01-01T00:00:00Z",
 		},
 	],
+	aggregations: {
+		by_protocol: { http: 1 },
+		by_status: { healthy: 1 },
+		by_source: { test: 1 },
+	},
 };
 
 function DataProbe() {

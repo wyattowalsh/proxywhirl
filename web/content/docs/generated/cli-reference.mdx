@@ -5,7 +5,7 @@ description: Typer command inventory parsed from proxywhirl.cli.
 
 
 <div className="rounded-xl border border-fd-border bg-fd-muted/40 p-4 text-sm">
-<strong>Generated reference.</strong> This page is derived from Typer command declarations and docstrings in `proxywhirl/cli.py` during <code>pnpm --dir web run docs:generate</code>. Edit <code>web/scripts/generate-docs.mjs</code>, not this MDX file.
+<strong>Generated reference.</strong> This page is derived from Typer command declarations and docstrings in `proxywhirl/cli/_impl.py` during <code>pnpm --dir web run docs:generate</code>. Edit <code>web/scripts/generate-docs.mjs</code>, not this MDX file.
 </div>
 
 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -44,7 +44,7 @@ description: Typer command inventory parsed from proxywhirl.cli.
 | Command | Summary | Flags | Function |
 | --- | --- | --- | --- |
 | `proxywhirl request` | Make an HTTP request through a rotating proxy. | `--allow-private, --data, --header, --method, --proxy, --retries, -H, -X, -d, -p` | `request` |
-| `proxywhirl pool list` | List proxies in the active pool. | `--password, --username, -p, -u` | `_pool_list` |
+| `proxywhirl pool list` | List proxies in the active pool. | - | `_pool_list` |
 | `proxywhirl pool add` | Add a proxy URL to the pool. | `--password, --username, -p, -u` | `_pool_add` |
 | `proxywhirl pool remove` | Remove a proxy URL from the pool. | - | `_pool_remove` |
 | `proxywhirl pool test` | Test one proxy against a target URL. | `--allow-private, --target-url` | `_pool_test` |

@@ -1,45 +1,48 @@
 ---
-title: Migration v2
-description: Breaking changes and migration paths from ProxyWhirl v1.x to v2.0.
+title: Migration (future v2)
+description: Planned API shifts for a future ProxyWhirl v2 — not a released breaking change yet.
 ---
-ProxyWhirl v2.0 removes deprecated fields and consolidates configuration on strategies and granular request counters.
+> **Status: future / planning.** Current package versions still expose the fields described as “before” below.
+> Treat this page as a migration **preview**, not as instructions for an already-shipped v2.0 release.
+> Prefer the granular counters and strategy-scoped EMA **when writing new code**; do not delete v1 call sites until a real v2 release notes them as removed.
 
-## `total_requests` removed
+ProxyWhirl is converging request accounting onto granular counters and moving EMA smoothing onto strategy config. The snippets below show the intended end state.
 
-**Before (v1.x):**
+## Prefer granular request counters
 
-```python
-proxy = rotator.get_proxy()
-print(proxy.total_requests)
-```
-
-**After (v2.0):**
+`Proxy` still includes `total_requests` today. New code should prefer the granular fields that already exist alongside it:
 
 ```python
 proxy = rotator.get_proxy()
+# Present today — prefer these for new observability code:
 print(proxy.requests_completed)
 print(proxy.requests_started)
 print(proxy.requests_active)
+# Legacy aggregate (still on the model until a future v2 removal):
+print(proxy.total_requests)
 ```
 
-Use `requests_completed`, `requests_started`, and `requests_active` for selection and observability.
+A future v2 may remove `total_requests`. Track release notes before deleting call sites.
 
-## `ema_alpha` on Proxy removed
+## Prefer strategy-scoped `ema_alpha`
 
-EMA smoothing is strategy-scoped via `StrategyConfig.ema_alpha`:
+`Proxy.ema_alpha` still exists on the model. Adaptive strategies can also take `StrategyConfig.ema_alpha`:
 
 ```python
 from proxywhirl import ProxyWhirl, StrategyConfig
 from proxywhirl.strategies import PerformanceBasedStrategy
 
 config = StrategyConfig(ema_alpha=0.3)
-strategy = PerformanceBasedStrategy(config=config)
-rotator = ProxyWhirl(strategy=strategy)
+strategy = PerformanceBasedStrategy()
+strategy.configure(config)  # when the strategy supports configure()
+rotator = ProxyWhirl(bootstrap=False, strategy=strategy)
 ```
+
+A future v2 may drop per-proxy `ema_alpha` in favor of strategy config only.
 
 ## Validation
 
-After migrating call sites:
+When a real v2 cut lands, re-run:
 
 ```bash
 just quality-gates

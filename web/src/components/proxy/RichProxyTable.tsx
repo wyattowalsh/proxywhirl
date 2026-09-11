@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react"
+import { useReducedMotion } from "motion/react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { toast } from "sonner"
 import { useIsMobile } from "@/hooks/useMediaQuery"
@@ -49,6 +50,18 @@ const defaultFilters: ProxyFilters = {
 
 const ROW_HEIGHT = 48
 const CARD_HEIGHT = 80 // Mobile card height
+/** RV-029: cap for screen-reader / non-virtualized fallback tables */
+const A11Y_FALLBACK_MAX_ROWS = 200
+
+const SORT_FIELD_LABELS: Record<SortField, string> = {
+  ip: "IP address",
+  port: "Port",
+  protocol: "Protocol",
+  status: "Status",
+  response_time: "Response time",
+  source: "Source",
+  created_at: "Created date",
+}
 
 function exportProxies(proxies: Proxy[], format: "txt" | "json" | "csv") {
   let content: string
@@ -105,6 +118,8 @@ export function RichProxyTable({
 }: RichProxyTableProps) {
   const parentRef = useRef<HTMLDivElement>(null)
   const internalSearchRef = useRef<HTMLInputElement>(null)
+  const prefersReducedMotion = useReducedMotion()
+  const useVirtualizedList = !prefersReducedMotion
   const [internalSortField, setInternalSortField] = useState<SortField>("response_time")
   const [internalSortDirection, setInternalSortDirection] = useState<SortDirection>("asc")
   const [internalFilters, setInternalFilters] = useState<ProxyFilters>(defaultFilters)
@@ -127,14 +142,6 @@ export function RichProxyTable({
   // Local search state for immediate UI feedback, debounced for filtering
   const [localSearch, setLocalSearch] = useState(filters.search)
   const debouncedSearch = useDebounce(localSearch, 300)
-  
-  // Sync debounced search to filters
-  useEffect(() => {
-    if (debouncedSearch !== filters.search) {
-      setFilters({ ...filters, search: debouncedSearch })
-      virtualizer.scrollToIndex(0)
-    }
-  }, [debouncedSearch])
   
   // Sync external search changes to local state
   useEffect(() => {
@@ -176,6 +183,193 @@ export function RichProxyTable({
     overscan: 15,
   })
 
+  const scrollListToTop = () => {
+    if (useVirtualizedList) {
+      virtualizer.scrollToIndex(0)
+    }
+  }
+
+  // Sync debounced search to filters
+  useEffect(() => {
+    if (debouncedSearch !== filters.search) {
+      setFilters({ ...filters, search: debouncedSearch })
+      scrollListToTop()
+    }
+  }, [debouncedSearch, filters.search, setFilters])
+
+  const getSortButtonLabel = (field: SortField) => {
+    const name = SORT_FIELD_LABELS[field]
+    if (sortField !== field) {
+      return `Sort by ${name}`
+    }
+    const direction = sortDirection === "asc" ? "ascending" : "descending"
+    return `Sort by ${name}, currently sorted ${direction}`
+  }
+
+  const handleSort = (field: SortField) => {
+    const newDirection = sortField === field
+      ? (sortDirection === "asc" ? "desc" : "asc")
+      : "asc"
+
+    if (onSortChange) {
+      onSortChange(field, newDirection)
+    } else {
+      setInternalSortField(field)
+      setInternalSortDirection(newDirection)
+    }
+    scrollListToTop()
+  }
+
+  const getAriaSort = (field: SortField): "ascending" | "descending" | "none" => {
+    if (sortField !== field) return "none"
+    return sortDirection === "asc" ? "ascending" : "descending"
+  }
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
+    return sortDirection === "asc" ? (
+      <ArrowUp className="h-4 w-4" aria-hidden="true" />
+    ) : (
+      <ArrowDown className="h-4 w-4" aria-hidden="true" />
+    )
+  }
+
+  const rowActionVisibility =
+    "opacity-100 sm:opacity-70 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity motion-reduce:transition-none"
+
+  const a11yFallbackRows = sortedProxies.slice(0, A11Y_FALLBACK_MAX_ROWS)
+
+  const renderDesktopRow = (proxy: Proxy) => {
+    const proxyString = `${proxy.ip}:${proxy.port}:${proxy.protocol}`
+    const favorited = isFavorite?.(proxy.ip, proxy.port) ?? false
+    return (
+      <tr key={proxyString} className="border-b hover:bg-muted/50 group">
+        <td className="p-2 font-mono truncate">{proxy.ip}</td>
+        <td className="p-2 font-mono">{proxy.port}</td>
+        <td className="p-2">
+          <Badge variant={proxy.protocol as "http" | "https" | "socks4" | "socks5"}>
+            {proxy.protocol.toUpperCase()}
+          </Badge>
+        </td>
+        <td className="p-2 text-muted-foreground truncate">
+          {proxy.country_code ? (
+            <span
+              title={[
+                proxy.country,
+                proxy.city && proxy.region ? `${proxy.city}, ${proxy.region}` : (proxy.city || proxy.region),
+                proxy.timezone,
+              ].filter(Boolean).join("\n") || proxy.country_code}
+              className="cursor-help"
+            >
+              {proxy.country_code}
+              {proxy.city && (
+                <span className="text-xs ml-1 opacity-70">{proxy.city}</span>
+              )}
+            </span>
+          ) : proxy.is_private ? (
+            <span className="text-xs text-amber-500" title="Private IP address">Private</span>
+          ) : "—"}
+        </td>
+        <td className="p-2 font-mono text-muted-foreground">
+          {proxy.response_time !== null
+            ? `${proxy.response_time.toFixed(0)}ms`
+            : "—"}
+        </td>
+        <td className="p-2">
+          <div className="flex gap-1">
+            {onToggleFavorite && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-8 w-8 ${rowActionVisibility} ${favorited ? "opacity-100" : ""}`}
+                onClick={() => onToggleFavorite(proxy.ip, proxy.port, proxy.protocol)}
+                aria-label={favorited ? `Remove ${proxy.ip}:${proxy.port} from favorites` : `Add ${proxy.ip}:${proxy.port} to favorites`}
+                aria-pressed={favorited}
+              >
+                <Star className={`h-4 w-4 ${favorited ? "fill-yellow-500 text-yellow-500" : ""}`} aria-hidden="true" />
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 ${rowActionVisibility}`}
+              onClick={() => handleTestProxy(proxy)}
+              title="Copy test command"
+              aria-label={`Copy test command for ${proxy.ip}:${proxy.port}`}
+            >
+              <Terminal className="h-4 w-4" aria-hidden="true" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 ${rowActionVisibility}`}
+              onClick={() => handleCopyProxy(proxy)}
+              title="Copy proxy address"
+              aria-label={`Copy proxy address ${proxy.ip}:${proxy.port}`}
+            >
+              <Copy className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          </div>
+        </td>
+      </tr>
+    )
+  }
+
+  const tableHeaderRow = (
+    <tr className="border-b">
+      <th className="text-left p-2" aria-sort={getAriaSort("ip")} scope="col">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="font-medium"
+          onClick={() => handleSort("ip")}
+          aria-label={getSortButtonLabel("ip")}
+        >
+          IP <SortIcon field="ip" />
+        </Button>
+      </th>
+      <th className="text-left p-2" aria-sort={getAriaSort("port")} scope="col">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="font-medium"
+          onClick={() => handleSort("port")}
+          aria-label={getSortButtonLabel("port")}
+        >
+          Port <SortIcon field="port" />
+        </Button>
+      </th>
+      <th className="text-left p-2" aria-sort={getAriaSort("protocol")} scope="col">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="font-medium"
+          onClick={() => handleSort("protocol")}
+          aria-label={getSortButtonLabel("protocol")}
+        >
+          Protocol <SortIcon field="protocol" />
+        </Button>
+      </th>
+      <th className="text-left p-2" scope="col">
+        <span className="font-medium px-3">Country</span>
+      </th>
+      <th className="text-left p-2" aria-sort={getAriaSort("response_time")} scope="col">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="font-medium"
+          onClick={() => handleSort("response_time")}
+          aria-label={getSortButtonLabel("response_time")}
+        >
+          Response <SortIcon field="response_time" />
+        </Button>
+      </th>
+      <th className="text-left p-2" scope="col">
+        <span className="sr-only">Actions</span>
+      </th>
+    </tr>
+  )
+
   const handleCopyProxy = async (proxy: Proxy) => {
     const proxyString = `${proxy.ip}:${proxy.port}`
     const success = await copyToClipboard(proxyString)
@@ -207,40 +401,12 @@ export function RichProxyTable({
     }
   }
 
-  const handleSort = (field: SortField) => {
-    const newDirection = sortField === field 
-      ? (sortDirection === "asc" ? "desc" : "asc") 
-      : "asc"
-    
-    if (onSortChange) {
-      onSortChange(field, newDirection)
-    } else {
-      setInternalSortField(field)
-      setInternalSortDirection(newDirection)
-    }
-    virtualizer.scrollToIndex(0)
-  }
-
   const toggleProtocolFilter = (protocol: Protocol) => {
     const newProtocols = filters.protocols.includes(protocol)
       ? filters.protocols.filter((p) => p !== protocol)
       : [...filters.protocols, protocol]
     setFilters({ ...filters, protocols: newProtocols })
-    virtualizer.scrollToIndex(0)
-  }
-
-  const getAriaSort = (field: SortField): "ascending" | "descending" | "none" => {
-    if (sortField !== field) return "none"
-    return sortDirection === "asc" ? "ascending" : "descending"
-  }
-
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return <ArrowUpDown className="h-4 w-4" aria-hidden="true" />
-    return sortDirection === "asc" ? (
-      <ArrowUp className="h-4 w-4" aria-hidden="true" />
-    ) : (
-      <ArrowDown className="h-4 w-4" aria-hidden="true" />
-    )
+    scrollListToTop()
   }
 
   if (loading) {
@@ -382,7 +548,7 @@ export function RichProxyTable({
                       size="sm"
                       onClick={() => {
                         setFilters({ ...filters, countries: filters.countries.filter(c => c !== code) })
-                        virtualizer.scrollToIndex(0)
+                        scrollListToTop()
                       }}
                     >
                       {code}
@@ -403,7 +569,7 @@ export function RichProxyTable({
                           key={code}
                           onClick={() => {
                             setFilters({ ...filters, countries: [...filters.countries, code] })
-                            virtualizer.scrollToIndex(0)
+                            scrollListToTop()
                           }}
                         >
                           {code} ({count.toLocaleString()})
@@ -427,7 +593,7 @@ export function RichProxyTable({
                             key={code}
                             onClick={() => {
                               setFilters({ ...filters, countries: [...filters.countries, code] })
-                              virtualizer.scrollToIndex(0)
+                              scrollListToTop()
                             }}
                           >
                             {code} ({count.toLocaleString()})
@@ -446,7 +612,7 @@ export function RichProxyTable({
                   size="sm"
                   onClick={() => {
                     setFilters({ ...filters, protocols: [], countries: [] })
-                    virtualizer.scrollToIndex(0)
+                    scrollListToTop()
                   }}
                 >
                   Clear all
@@ -458,43 +624,56 @@ export function RichProxyTable({
       </CardHeader>
       <CardContent className="p-0">
         {isMobile ? (
-          /* Mobile: Card-based view */
           <div
             ref={parentRef}
             className="h-[500px] overflow-auto p-2"
           >
-            <div
-              style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative' }}
-            >
-              {virtualizer.getVirtualItems().map((virtualRow) => {
-                const proxy = sortedProxies[virtualRow.index]
-                return (
-                  <div
+            {useVirtualizedList ? (
+              <div
+                style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}
+              >
+                {virtualizer.getVirtualItems().map((virtualRow) => {
+                  const proxy = sortedProxies[virtualRow.index]
+                  return (
+                    <div
+                      key={`${proxy.ip}:${proxy.port}:${proxy.protocol}`}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: `${virtualRow.size}px`,
+                        transform: `translateY(${virtualRow.start}px)`,
+                        padding: "4px 0",
+                      }}
+                    >
+                      <ProxyCard
+                        proxy={proxy}
+                        onCopy={() => handleCopyProxy(proxy)}
+                        onTest={() => handleTestProxy(proxy)}
+                        isFavorite={isFavorite?.(proxy.ip, proxy.port)}
+                        onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(proxy.ip, proxy.port, proxy.protocol) : undefined}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {sortedProxies.map((proxy) => (
+                  <ProxyCard
                     key={`${proxy.ip}:${proxy.port}:${proxy.protocol}`}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: `${virtualRow.size}px`,
-                      transform: `translateY(${virtualRow.start}px)`,
-                      padding: '4px 0',
-                    }}
-                  >
-                    <ProxyCard
-                      proxy={proxy}
-                      onCopy={() => handleCopyProxy(proxy)}
-                      onTest={() => handleTestProxy(proxy)}
-                      isFavorite={isFavorite?.(proxy.ip, proxy.port)}
-                      onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(proxy.ip, proxy.port, proxy.protocol) : undefined}
-                    />
-                  </div>
-                )
-              })}
-            </div>
+                    proxy={proxy}
+                    onCopy={() => handleCopyProxy(proxy)}
+                    onTest={() => handleTestProxy(proxy)}
+                    isFavorite={isFavorite?.(proxy.ip, proxy.port)}
+                    onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(proxy.ip, proxy.port, proxy.protocol) : undefined}
+                  />
+                ))}
+              </div>
+            )}
           </div>
-        ) : (
-          /* Desktop: single virtualized table */
+        ) : useVirtualizedList ? (
           <div ref={parentRef} className="h-[600px] overflow-auto overflow-x-auto">
             <table className="w-full text-sm table-fixed">
               <colgroup>
@@ -506,54 +685,7 @@ export function RichProxyTable({
                 <col style={{ width: "20%" }} />
               </colgroup>
               <thead className="sticky top-0 bg-card z-10">
-                <tr className="border-b">
-                  <th className="text-left p-2" aria-sort={getAriaSort("ip")} scope="col">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="font-medium"
-                      onClick={() => handleSort("ip")}
-                    >
-                      IP <SortIcon field="ip" />
-                    </Button>
-                  </th>
-                  <th className="text-left p-2" aria-sort={getAriaSort("port")} scope="col">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="font-medium"
-                      onClick={() => handleSort("port")}
-                    >
-                      Port <SortIcon field="port" />
-                    </Button>
-                  </th>
-                  <th className="text-left p-2" aria-sort={getAriaSort("protocol")} scope="col">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="font-medium"
-                      onClick={() => handleSort("protocol")}
-                    >
-                      Protocol <SortIcon field="protocol" />
-                    </Button>
-                  </th>
-                  <th className="text-left p-2" scope="col">
-                    <span className="font-medium px-3">Country</span>
-                  </th>
-                  <th className="text-left p-2" aria-sort={getAriaSort("response_time")} scope="col">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="font-medium"
-                      onClick={() => handleSort("response_time")}
-                    >
-                      Response <SortIcon field="response_time" />
-                    </Button>
-                  </th>
-                  <th className="text-left p-2" scope="col">
-                    <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
+                {tableHeaderRow}
               </thead>
               <tbody
                 style={{
@@ -617,7 +749,7 @@ export function RichProxyTable({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className={`h-8 w-8 transition-opacity focus-visible:opacity-100 ${isFavorite?.(proxy.ip, proxy.port) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                              className={`h-8 w-8 ${rowActionVisibility} ${isFavorite?.(proxy.ip, proxy.port) ? "opacity-100" : ""}`}
                               onClick={() => onToggleFavorite(proxy.ip, proxy.port, proxy.protocol)}
                               aria-label={isFavorite?.(proxy.ip, proxy.port) ? `Remove ${proxy.ip}:${proxy.port} from favorites` : `Add ${proxy.ip}:${proxy.port} to favorites`}
                               aria-pressed={isFavorite?.(proxy.ip, proxy.port) ?? false}
@@ -628,7 +760,7 @@ export function RichProxyTable({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                            className={`h-8 w-8 ${rowActionVisibility}`}
                             onClick={() => handleTestProxy(proxy)}
                             title="Copy test command"
                             aria-label={`Copy test command for ${proxy.ip}:${proxy.port}`}
@@ -638,7 +770,7 @@ export function RichProxyTable({
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                            className={`h-8 w-8 ${rowActionVisibility}`}
                             onClick={() => handleCopyProxy(proxy)}
                             title="Copy proxy address"
                             aria-label={`Copy proxy address ${proxy.ip}:${proxy.port}`}
@@ -653,6 +785,49 @@ export function RichProxyTable({
               </tbody>
             </table>
           </div>
+        ) : (
+          <div ref={parentRef} className="h-[600px] overflow-auto overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-card z-10">
+                {tableHeaderRow}
+              </thead>
+              <tbody>
+                {sortedProxies.map((proxy) => renderDesktopRow(proxy))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {useVirtualizedList && !isMobile && sortedProxies.length > 0 && (
+          <table className="sr-only">
+            <caption>
+              Proxy list ({sortedProxies.length.toLocaleString()} rows
+              {sortedProxies.length > A11Y_FALLBACK_MAX_ROWS
+                ? `, first ${A11Y_FALLBACK_MAX_ROWS.toLocaleString()} shown`
+                : ""}
+              )
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">IP</th>
+                <th scope="col">Port</th>
+                <th scope="col">Protocol</th>
+                <th scope="col">Country</th>
+                <th scope="col">Response (ms)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {a11yFallbackRows.map((proxy) => (
+                <tr key={`${proxy.ip}:${proxy.port}:${proxy.protocol}`}>
+                  <td>{proxy.ip}</td>
+                  <td>{proxy.port}</td>
+                  <td>{proxy.protocol}</td>
+                  <td>{proxy.country_code ?? "—"}</td>
+                  <td>{proxy.response_time !== null ? proxy.response_time.toFixed(0) : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
 
         {sortedProxies.length === 0 && (

@@ -8,7 +8,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { siteNavLinks } from "@/lib/site-nav";
-import { BarChart3, BookOpen, Github, Menu, Moon, Sun } from "lucide-react";
+import { BarChart3, BookOpen, GitFork, Menu, Moon, Sun } from "lucide-react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
@@ -47,7 +47,7 @@ function ProxyWhirlLogo({ className }: { className?: string }) {
 const navIcons = {
 	Docs: BookOpen,
 	Analytics: BarChart3,
-	GitHub: Github,
+	GitHub: GitFork,
 } as const;
 
 function NavIcon({
@@ -128,7 +128,7 @@ export function Header() {
 							target="_blank"
 							rel="noopener noreferrer"
 						>
-							<Github className="h-5 w-5" aria-hidden="true" />
+							<GitFork className="h-5 w-5" aria-hidden="true" />
 							<span className="sr-only">GitHub</span>
 						</a>
 					</Button>

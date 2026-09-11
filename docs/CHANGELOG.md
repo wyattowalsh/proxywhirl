@@ -7,11 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0rc1] - 2026-08-12
+
 ### Added
 
 - **Source curator agent** — automated proxy source curation with `.claude` config integration
 - **BootstrapConfig model** — structured configuration for lazy proxy bootstrap
 - **Proxy source curation** — audit counts, hardened CI validation for proxy sources
+- Packaged Alembic migrations, async-safe proxy views, backend-parity fixtures, and
+  deterministic generated API/strategy documentation.
 
 ### Changed
 
@@ -20,6 +24,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `/api/request` now maps `ProxyAuthenticationError` to HTTP 502 (aligned with global
   API error handler).
 - Simplified strategy demo examples, merged retry cells, renamed pool variables
+- Converged split package facades, runtime lifecycle accounting, single-replica
+  deployment manifests, immutable workflow actions, and exact release-candidate gates.
+- Kept all 117 top-level exports, CLI commands/options, REST operation paths,
+  MCP actions/resources, and existing model/config fields compatible with `0.3.3`.
+  `ProxyValidator` retains its five released positional parameters; the new
+  `anonymity_test_url` option is keyword-only.
+- `safe_regex_match()` and `safe_regex_search()` continue to return native
+  `re.Match` objects with the released one-second default. Typed timeout and
+  complexity exceptions remain catchable as `typer.Exit(code=1)`.
+- `SQLiteStorage.load()` retains its released dictionary-row result. Runtime
+  adapters use the additive `load_models()` method for full-fidelity hydration.
+- Metrics `hours` queries continue to accept zero/negative and larger-than-
+  retention values; oversized positive inputs are bounded before timedelta use.
+
+### Security compatibility notes
+
+- API startup now fails closed when `PROXYWHIRL_BIND_HOST` is non-loopback unless
+  authentication mode and a usable `PROXYWHIRL_API_KEY` are configured. Use a
+  loopback bind or set `PROXYWHIRL_ALLOW_INSECURE_BIND=1` only for an explicitly
+  accepted local development exception.
+- File and SQLite storage refuse credential-bearing writes when no Fernet key
+  is configured. Pass key bytes explicitly to `FileStorage`; for
+  `SQLiteStorage`, set `PROXYWHIRL_CACHE_ENCRYPTION_KEY` (the deprecated
+  `PROXYWHIRL_ENCRYPTION_KEY` alias is temporarily accepted). Alternatively,
+  omit proxy username/password fields. Existing plaintext `0.3.3` rows remain
+  readable so they can be rewritten under encryption.
+- API, CLI, MCP, fetcher, redirect, and logging boundaries now redact
+  credential-bearing URLs, authorization headers, tokens, and password values.
 
 ### Fixed
 
@@ -29,6 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   corrupt ciphertext rows.
 - Test flakiness in performance strategy (increased iterations)
 - Mock return type for bootstrap candidates unpacking
+- Hardened API, CLI, MCP, fetcher, validator, browser, storage, migration, and
+  dependency-security boundaries while preserving the `0.3.3` public contract.
 
 ## [0.3.3] - 2026-03-03
 
@@ -322,7 +356,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Fixed**: Bug fixes
 - **Security**: Security fixes
 
-[Unreleased]: https://github.com/wyattowalsh/proxywhirl/compare/v0.3.3...HEAD
+[Unreleased]: https://github.com/wyattowalsh/proxywhirl/compare/v0.4.0rc1...HEAD
+[0.4.0rc1]: https://github.com/wyattowalsh/proxywhirl/compare/v0.3.3...v0.4.0rc1
 [0.3.3]: https://github.com/wyattowalsh/proxywhirl/compare/v0.3.2...v0.3.3
 [0.3.0]: https://github.com/wyattowalsh/proxywhirl/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/wyattowalsh/proxywhirl/compare/v0.1.0...v0.2.0

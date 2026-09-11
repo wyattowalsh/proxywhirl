@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Globe } from "lucide-react";
-import type { Proxy } from "@/types";
+import type { Proxy, Stats } from "@/types";
 import geoData from "@/assets/geo-data.json";
 
 const GEO_URL = geoData;
@@ -83,10 +83,11 @@ const NUMERIC_TO_ALPHA2: Record<string, string> = {
 
 interface GeoMapProps {
 	proxies: Proxy[];
+	stats?: Stats | null;
 	onCountryClick?: (countryCode: string) => void;
 }
 
-export function GeoMap({ proxies, onCountryClick }: GeoMapProps) {
+export function GeoMap({ proxies, stats, onCountryClick }: GeoMapProps) {
 	const [hoveredCountry, setHoveredCountry] = useState<string | null>(null);
 
 	const countryData = useMemo(() => {
@@ -96,8 +97,23 @@ export function GeoMap({ proxies, onCountryClick }: GeoMapProps) {
 				counts[proxy.country_code] = (counts[proxy.country_code] || 0) + 1;
 			}
 		});
+
+		if (Object.keys(counts).length === 0) {
+			const countryDetail = stats?.aggregations?.by_country_detail;
+			if (countryDetail && countryDetail.length > 0) {
+				countryDetail.forEach((entry) => {
+					counts[entry.code] = entry.count;
+				});
+			} else {
+				const topCountries = stats?.geographic?.top_countries;
+				topCountries?.forEach((entry) => {
+					counts[entry.code] = entry.count;
+				});
+			}
+		}
+
 		return counts;
-	}, [proxies]);
+	}, [proxies, stats]);
 
 	const maxCount = Math.max(...Object.values(countryData), 1);
 	const topCountries = Object.entries(countryData)
@@ -105,7 +121,8 @@ export function GeoMap({ proxies, onCountryClick }: GeoMapProps) {
 		.slice(0, 10);
 
 	const totalWithGeo = Object.values(countryData).reduce((a, b) => a + b, 0);
-	const uniqueCountries = Object.keys(countryData).length;
+	const uniqueCountries =
+		stats?.geographic?.total_countries ?? Object.keys(countryData).length;
 
 	const getCountryColor = (countryCode: string | undefined) => {
 		if (!countryCode) return "hsl(var(--muted))";
@@ -232,6 +249,7 @@ export function GeoMap({ proxies, onCountryClick }: GeoMapProps) {
 										key={code}
 										type="button"
 										className="flex w-full items-center gap-3 rounded px-1 -mx-1 text-left transition-colors motion-reduce:transition-none hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+										aria-label={`${code}: ${count.toLocaleString()} proxies (${pct}% of total). Filter proxy list by country.`}
 										onClick={() => onCountryClick?.(code)}
 										onMouseEnter={() => setHoveredCountry(code)}
 										onMouseLeave={() => setHoveredCountry(null)}

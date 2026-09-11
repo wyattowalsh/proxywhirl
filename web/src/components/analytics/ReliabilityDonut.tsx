@@ -1,6 +1,8 @@
 import { useMemo } from "react"
+import { useReducedMotion } from "motion/react"
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { RELIABILITY_TIER_COLORS } from "@/lib/chart-tokens"
 import type { Proxy, Stats } from "@/types"
 
 interface ReliabilityDonutProps {
@@ -16,10 +18,10 @@ interface Tier {
 }
 
 const TIERS: Tier[] = [
-  { name: "Elite", color: "#22c55e", min: 95, max: 100 },
-  { name: "Reliable", color: "#3b82f6", min: 75, max: 95 },
-  { name: "Moderate", color: "#f59e0b", min: 50, max: 75 },
-  { name: "Marginal", color: "#f97316", min: 0, max: 50 },
+  { name: "Elite", color: RELIABILITY_TIER_COLORS.Elite, min: 95, max: 100 },
+  { name: "Reliable", color: RELIABILITY_TIER_COLORS.Reliable, min: 75, max: 95 },
+  { name: "Moderate", color: RELIABILITY_TIER_COLORS.Moderate, min: 50, max: 75 },
+  { name: "Marginal", color: RELIABILITY_TIER_COLORS.Marginal, min: 0, max: 50 },
 ]
 
 function classifyProxy(successRate: number | null): string {
@@ -31,6 +33,7 @@ function classifyProxy(successRate: number | null): string {
 }
 
 export function ReliabilityDonut({ proxies = [], stats }: ReliabilityDonutProps) {
+  const prefersReducedMotion = useReducedMotion()
   const { data, total, elitePct } = useMemo(() => {
     const counts: Record<string, number> = {}
     for (const tier of TIERS) counts[tier.name] = 0
@@ -68,11 +71,15 @@ export function ReliabilityDonut({ proxies = [], stats }: ReliabilityDonutProps)
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Reliability Distribution</CardTitle>
-        <CardDescription>Per-proxy success rate tiers</CardDescription>
+        <CardTitle id="reliability-donut-title">Reliability Distribution</CardTitle>
+        <CardDescription id="reliability-donut-desc">Per-proxy success rate tiers</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="relative h-[250px]">
+        <div
+          className="relative h-[250px]"
+          role="img"
+          aria-labelledby="reliability-donut-title reliability-donut-desc"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
@@ -83,6 +90,7 @@ export function ReliabilityDonut({ proxies = [], stats }: ReliabilityDonutProps)
                 outerRadius={100}
                 paddingAngle={2}
                 dataKey="value"
+                isAnimationActive={!prefersReducedMotion}
               >
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
@@ -119,11 +127,23 @@ export function ReliabilityDonut({ proxies = [], stats }: ReliabilityDonutProps)
             </div>
           ))}
         </div>
-        {total > 0 && (
-          <p className="sr-only">
-            {total.toLocaleString()} proxies across {data.length} reliability tiers
-          </p>
-        )}
+        <table className="sr-only">
+          <caption>Reliability tier distribution</caption>
+          <thead>
+            <tr>
+              <th scope="col">Tier</th>
+              <th scope="col">Proxies</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.map((item) => (
+              <tr key={item.name}>
+                <td>{item.name}</td>
+                <td>{item.value.toLocaleString()}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </CardContent>
     </Card>
   )

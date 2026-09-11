@@ -47,12 +47,18 @@ When `PROXYWHIRL_REQUIRE_AUTH=true`, protected routes require `PROXYWHIRL_API_KE
 
 | Area | Examples |
 | ---- | -------- |
-| Health | `/api/health`, `/api/ready` |
+| Health | `/api/health`, `/api/ready`, `/api/status` |
 | Pool | `/api/proxies`, `/api/rotate` |
 | Config | `/api/config` |
-| Metrics | `/api/metrics`, `/api/stats` |
+| Metrics (OpenAPI) | `/api/stats`, `/api/metrics/retries`, `/api/metrics/circuit-breakers`, … |
+| Metrics (Prometheus, non-schema) | `GET /api/metrics` |
 
-For the full operation inventory, see [REST/OpenAPI Reference](/docs/generated/rest-api) and [OpenAPI pages](/docs/api/openapi).
+`GET /api/metrics` is the Prometheus text exposition. It is registered with
+`include_in_schema=False`, so it does **not** appear in the generated OpenAPI
+inventory even though the route is live. Auth follows `PROXYWHIRL_REQUIRE_AUTH`
+unless you explicitly set `PROXYWHIRL_PUBLIC_METRICS=true` for an internal scraper.
+
+For the full OpenAPI operation inventory, see [REST/OpenAPI Reference](/docs/generated/rest-api) and [OpenAPI pages](/docs/api/openapi).
 
 ## See Also
 

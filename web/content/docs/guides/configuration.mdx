@@ -24,15 +24,31 @@ uv add "proxywhirl[js]"
 uv add "proxywhirl[mcp]"
 ```
 
+| Extra | Purpose |
+| ----- | ------- |
+| `storage` | SQLModel persistence helpers |
+| `security` | Cryptography helpers for credential encryption |
+| `js` | Playwright for JS-rendered sources |
+| `mcp` | FastMCP server (`proxywhirl-mcp`) |
+| `docs` | **Legacy Sphinx quarantine** — not the published docs stack |
+
+Published documentation is Fumadocs under `web/` (`pnpm --dir web run docs:generate`). Do not recreate a Sphinx tree; the `docs` optional extra remains only so historical dependency pins do not break installs that still reference it.
+
+## Config Discovery
+
+`discover_config()` priority: explicit path → `./.proxywhirl.toml` → `./pyproject.toml` with `[tool.proxywhirl]` → `~/.config/proxywhirl/config.toml` → defaults. See [Configuration Reference](/docs/reference/configuration#discovery-order).
+
 ## Key Environment Variables
 
 | Variable | Component | Purpose |
 | -------- | --------- | ------- |
-| `PROXYWHIRL_KEY` | CLI/config | Master encryption key |
-| `PROXYWHIRL_CACHE_ENCRYPTION_KEY` | cache | Fernet key for L2 cache |
+| `PROXYWHIRL_KEY` | CLI/config | Master encryption key for stored credentials |
+| `PROXYWHIRL_CACHE_ENCRYPTION_KEY` | cache | Fernet key for L2/L3 cache encryption |
 | `PROXYWHIRL_STORAGE_PATH` | API | SQLite database path |
 | `PROXYWHIRL_API_KEY` | API | REST API authentication |
 | `PROXYWHIRL_MCP_API_KEY` | MCP | MCP server auth key |
+
+Canonical encryption env names are **`PROXYWHIRL_KEY`** and **`PROXYWHIRL_CACHE_ENCRYPTION_KEY`**. `PROXYWHIRL_ENCRYPTION_KEY` is a deprecated alias accepted only when the canonical cache key is unset.
 
 See [Configuration Reference](/docs/reference/configuration) for the full inventory.
 

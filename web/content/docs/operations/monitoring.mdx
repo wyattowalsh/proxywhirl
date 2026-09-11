@@ -4,14 +4,15 @@ description: Capacity planning, alerting thresholds, logging, and observability 
 ---
 ## Metrics and Dashboards
 
-- **Prometheus**: scrape API metrics on port `9090` (full stack compose maps host `9091`)
+- **Prometheus**: scrape the API's `/api/metrics` route on port `8000` (the full stack exposes
+  Prometheus itself on host port `9091`)
 - **Grafana**: dashboards under `deploy/monitoring/grafana-dashboards/`
 - **API**: `/api/stats`, `/api/metrics/*` for runtime counters; protected when API auth is enabled
 
 Example query:
 
 ```bash
-curl 'http://localhost:9091/api/v1/query?query=proxywhirl_available_proxies'
+curl 'http://localhost:9091/api/v1/query?query=proxywhirl_proxies_healthy'
 ```
 
 ## Alert Thresholds (starting points)
@@ -38,8 +39,8 @@ Aggregate logs with your platform standard (CloudWatch, Loki, ELK). Avoid shippi
 
 ## Capacity
 
-- Scale horizontally via Kubernetes HPA (`deploy/kubernetes/hpa.yaml`, Helm HPA template)
-- Vertical scaling: adjust CPU/memory requests in deployment manifests
+- The supported SQLite deployment is single-replica and uses `Recreate` rollouts
+- Scale vertically by adjusting CPU and memory requests in deployment manifests
 - Load-test before raising concurrency limits; see expanded pytest stress markers for regression probes
 
 ## Health Scripts

@@ -26,6 +26,7 @@
 | Unit tests | `pnpm --dir web run test:run` |
 | Build | `pnpm --dir web run build` |
 | E2E | `pnpm --dir web run test:e2e` |
+| E2E (CI) | `pnpm --dir web run test:e2e:ci` (wired in `.github/workflows/ci.yml` docs job) |
 
 ## Boundaries
 

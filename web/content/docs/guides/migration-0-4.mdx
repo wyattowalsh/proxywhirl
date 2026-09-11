@@ -1,0 +1,116 @@
+---
+title: Migrating from 0.3.3 to 0.4
+description: Compatibility guarantees and intentional security hardening in ProxyWhirl 0.4.
+---
+
+ProxyWhirl 0.4 keeps the released Python imports, CLI commands and options, REST
+operation paths, MCP actions/resources, and existing persisted schema readable.
+The release candidate also closes several security boundaries that require an
+explicit deployment check.
+
+## Configure authentication before a non-loopback bind
+
+Loopback development remains available without authentication. An API process
+configured with a non-loopback `PROXYWHIRL_BIND_HOST` now refuses to start when
+`PROXYWHIRL_REQUIRE_AUTH=false` or `PROXYWHIRL_API_KEY` is missing, empty, or a
+known placeholder.
+
+```bash
+export PROXYWHIRL_BIND_HOST=0.0.0.0
+export PROXYWHIRL_REQUIRE_AUTH=true
+export PROXYWHIRL_API_KEY='<generated-api-key>'
+```
+
+`PROXYWHIRL_ALLOW_INSECURE_BIND=1` is an explicit local-development escape
+hatch, not a production setting. MCP deployments exposed beyond the local
+machine should also set `PROXYWHIRL_MCP_API_KEY`.
+
+## Encrypt persisted proxy credentials
+
+Credential-free proxy rows continue to save without an encryption key. File
+and SQLite storage now refuse a new username/password write unless a Fernet key
+is configured, preventing accidental plaintext persistence. The two backends
+obtain that key differently.
+
+### FileStorage uses an explicit constructor key
+
+`FileStorage` does not read an encryption key from the environment. Pass Fernet
+key bytes directly to every instance that writes credentials or opens the
+resulting ciphertext. Generate the key once, retain it in your secret manager,
+and reuse it across process restarts.
+
+```python
+from cryptography.fernet import Fernet
+from proxywhirl import FileStorage
+
+file_key = Fernet.generate_key()  # Generate once, then retain securely.
+storage = FileStorage("proxies.json", encryption_key=file_key)
+await storage.save(proxies_with_credentials)
+```
+
+Existing trusted plaintext files remain readable with an unkeyed instance. Use
+two instances to rewrite a legacy file under encryption:
+
+```python
+legacy_proxies = await FileStorage("proxies.json").load()
+encrypted = FileStorage("proxies.json", encryption_key=file_key)
+await encrypted.save(legacy_proxies)
+```
+
+After the rewrite, reopen that file only with the retained constructor key.
+Setting `PROXYWHIRL_CACHE_ENCRYPTION_KEY` alone does not configure
+`FileStorage`.
+
+### SQLiteStorage uses the environment key
+
+`SQLiteStorage` discovers its credential-encryption key from the environment:
+
+```bash
+export PROXYWHIRL_CACHE_ENCRYPTION_KEY='<fernet-key>'
+```
+
+The deprecated `PROXYWHIRL_ENCRYPTION_KEY` alias is temporarily accepted by
+SQLite credential encryption when the canonical key is unset. Existing
+plaintext 0.3.3 SQLite rows remain readable; configure the canonical key and
+save those models again to rewrite their credentials. If credentials are
+unnecessary in either backend, omit username and password instead.
+
+## SQLite loading contracts
+
+Direct `SQLiteStorage.load()` callers still receive the 0.3.3 dictionary-row
+shape. Runtime adapters needing complete `Proxy` state use the additive
+`SQLiteStorage.load_models()` method:
+
+```python
+rows = await storage.load()          # released list[dict] contract
+proxies = await storage.load_models()  # full-fidelity Proxy models
+```
+
+`cleanup()` also retains its released `remove_never_validated=True` default;
+pass `False` explicitly when unchecked rows must be preserved.
+
+## Regex and validation compatibility
+
+`safe_regex_match()` and `safe_regex_search()` still return native `re.Match`
+objects and retain the one-second default timeout. Their typed timeout and
+complexity errors remain catchable as `typer.Exit(code=1)`.
+
+`ProxyValidator` preserves all five 0.3.3 positional parameters. The new
+anonymity endpoint override is keyword-only:
+
+```python
+from proxywhirl import ProxyValidator, ValidationLevel
+
+validator = ProxyValidator(
+    5.0,
+    None,
+    ValidationLevel.FULL,
+    50,
+    3600,
+    anonymity_test_url="https://example.test/ip",
+)
+```
+
+See [Configuration](/docs/guides/configuration),
+[Deployment](/docs/guides/deployment), and the
+[Changelog](/docs/project/changelog) for the complete candidate record.

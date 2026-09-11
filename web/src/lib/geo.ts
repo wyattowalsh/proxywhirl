@@ -153,7 +153,7 @@ export function getCountryName(code: string, short = false): string {
   return COUNTRY_NAMES[code] || code
 }
 
-// Get continent code for a country
+// Get continent code for a country (empty string when unmapped — do not invent a continent)
 export function getContinent(countryCode: string): string {
-  return COUNTRY_TO_CONTINENT[countryCode] || "AS" // Default to Asia if unknown
+  return COUNTRY_TO_CONTINENT[countryCode] || ""
 }

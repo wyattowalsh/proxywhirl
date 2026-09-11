@@ -76,3 +76,11 @@ description: FastAPI OpenAPI summary generated from proxywhirl.api.app.
 | GET | `/api/metrics/retries` | Get retry metrics summary |
 | GET | `/api/metrics/retries/timeseries` | Get time-series retry data |
 | GET | `/api/metrics/retries/by-proxy` | Get per-proxy retry statistics |
+
+## Non-schema endpoints
+
+OpenAPI generation only includes routes with `include_in_schema=True`.
+The Prometheus text endpoint `GET /api/metrics` is registered with
+`include_in_schema=False` and therefore **does not appear** in the inventory above.
+Scrape it directly (auth rules follow `PROXYWHIRL_REQUIRE_AUTH` / `PROXYWHIRL_PUBLIC_METRICS`).
+JSON metric surfaces that *are* in the schema include `/api/stats` and `/api/metrics/*` (retries, circuit breakers).

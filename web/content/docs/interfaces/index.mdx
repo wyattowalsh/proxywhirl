@@ -3,13 +3,15 @@ title: Interfaces
 description: Choose between Python, REST, CLI, and MCP interfaces for ProxyWhirl.
 ---
 
-ProxyWhirl exposes the same proxy rotation capabilities through language-native, HTTP, command-line, and agent-facing interfaces.
+ProxyWhirl exposes the same proxy rotation capabilities through language-native, HTTP, command-line, and agent-facing interfaces. Pick the surface that matches how your process talks to the pool — not a different feature set.
 
-| Interface | Use when |
-| --------- | -------- |
-| [MCP Server](/docs/interfaces/mcp) | AI assistants need structured proxy tools |
-| [REST API Deployment](/docs/interfaces/rest-api) | Services need HTTP access to pool management and rotation |
-| [Clients](/docs/guides/clients) | Python applications can import `ProxyWhirl` or `AsyncProxyWhirl` directly |
-| [CLI Reference](/docs/generated/cli-reference) | Operators need shell commands for fetch, source validation, and pool tasks |
+| Interface | Use when | Primary auth |
+| --------- | -------- | ------------ |
+| [Python clients](/docs/guides/clients) | You can import `ProxyWhirl` / `AsyncProxyWhirl` in-process | N/A (library) |
+| [REST API Deployment](/docs/interfaces/rest-api) | Another service needs HTTP pool management, rotation, and health | `PROXYWHIRL_API_KEY` when `PROXYWHIRL_REQUIRE_AUTH=true` |
+| [CLI Reference](/docs/generated/cli-reference) | Operators need shell workflows for fetch, validate, and pool tasks | Local config / env |
+| [MCP Server](/docs/interfaces/mcp) | AI assistants need structured proxy tools over MCP | `PROXYWHIRL_MCP_API_KEY` (HTTP/SSE); OAuth 2.1+PKCE planned for public remote |
 
-Start with Python clients for embedded applications, REST for service boundaries, and MCP for assistant workflows.
+**REST vs OpenAPI:** Deploy and operate the service with [REST API Deployment](/docs/interfaces/rest-api). Browse the generated route inventory at [REST/OpenAPI Reference](/docs/generated/rest-api) or per-operation pages under [OpenAPI Endpoints](/docs/api/openapi).
+
+Start with Python for embedded apps, REST for service boundaries, CLI for ops, and MCP for assistant workflows.

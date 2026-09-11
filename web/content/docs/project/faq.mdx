@@ -4,11 +4,13 @@ description: Frequently asked questions about ProxyWhirl installation, strategie
 ---
 ## General
 
-**What is ProxyWhirl?** A production-grade Python library for intelligent proxy rotation with nine strategies, 100+ built-in sources, circuit breakers, multi-tier caching, and Python, REST, CLI, and MCP interfaces.
+**What is ProxyWhirl?** A Python library for intelligent proxy rotation with nine strategies, built-in public sources (`ALL_SOURCES`), circuit breakers, multi-tier caching, and Python, REST, CLI, and MCP interfaces.
+
+**How many built-in sources?** `len(ALL_SOURCES)` from `proxywhirl.sources` is the single source of truth (currently updated in the generated [Proxy Sources](/docs/generated/proxy-sources) page and the README feature card).
 
 **Python versions?** 3.10+ (tested on 3.10–3.13).
 
-**Production ready?** Yes — circuit breakers, retries, health monitoring, and structured error handling are first-class.
+**Production ready?** Circuit breakers, retries, health monitoring, and structured error handling are first-class. Harden REST/MCP auth before exposing services beyond localhost — see [Deployment](/docs/guides/deployment).
 
 ## Installation
 
@@ -17,41 +19,71 @@ uv add proxywhirl
 uv run proxywhirl --help
 ```
 
-Core dependencies: httpx, pydantic, sqlmodel, loguru, tenacity. Optional: FastAPI (REST), Playwright (JS sources).
+Core dependencies include httpx, pydantic, sqlmodel, loguru, and tenacity. Optional extras: `mcp` (FastMCP), `js` (Playwright), `security` (cryptography helpers). The `docs` extra is a **legacy Sphinx quarantine** — published docs live in Fumadocs under `web/`.
 
-SQLite persistence is required; use `:memory:` for ephemeral runs.
+SQLite is the default persistence path; use an empty pool with lazy bootstrap or `bootstrap=False` for fully manual pools.
 
 ## Proxy sources
 
-Built-in public lists refresh on a configurable cache TTL. CI regenerates exported lists under `docs/proxy-lists/` every three hours. Run `proxywhirl fetch` locally to populate your own `proxywhirl.db` (gitignored). Add custom sources via `ProxySource` or the CLI pool commands.
+Built-in public lists are defined in `proxywhirl.sources`. CI regenerates exported lists under `docs/proxy-lists/` on a schedule. Run `uv run proxywhirl fetch` locally to populate your own `proxywhirl.db` (gitignored). Add custom proxies with `rotator.add_proxy(...)` or CLI `pool add` / `import-proxies`.
+
+Empty-pool rotators auto-fetch on first request unless you pass `bootstrap=False`:
+
+```python
+from proxywhirl import BootstrapConfig, ProxyWhirl
+
+rotator = ProxyWhirl()  # lazy bootstrap from enabled ALL_SOURCES
+rotator = ProxyWhirl(bootstrap=BootstrapConfig(sample_size=20, max_proxies=200))
+manual = ProxyWhirl(bootstrap=False)  # no auto-fetch
+```
 
 ## Strategies
 
 | Strategy | Use when |
 | -------- | -------- |
-| RoundRobin | Default, fastest, uniform load |
-| PerformanceBased | Latency-sensitive workloads |
-| Weighted / WeightedRandom | Success-rate bias |
-| SessionPersistent | Sticky sessions |
-| CostAware | Budget limits |
+| `round-robin` | Default, uniform load |
+| `random` | Unpredictable patterns |
+| `weighted` | Favor higher success-rate proxies |
+| `least-used` | Balance concurrent load |
+| `performance-based` | Prefer lower latency |
+| `session` / `session-persistence` | Sticky sessions |
+| `geo-targeted` | Filter by `SelectionContext.target_country` / `target_region` |
+| `cost-aware` | Budget-sensitive selection |
+| `composite` | Filter pipeline + selector |
 
-See [Rotation Strategies](/docs/concepts/rotation-strategies). Switch at runtime via config or `SelectionContext`.
+See [Rotation Strategies](/docs/concepts/rotation-strategies). Hot-swap with `rotator.set_strategy("performance-based")` or pass a strategy instance. `set_strategy` accepts a name string or `RotationStrategy` instance — it does **not** take a `preferences=` kwarg.
 
 ## HTTP clients
 
+`ProxyWhirl` / `AsyncProxyWhirl` are HTTP clients (`.get`, `.post`, …) that rotate proxies internally. To obtain a proxy URL for an external client:
+
 ```python
+from proxywhirl import Proxy, ProxyWhirl
 import httpx
 
-proxy = whirl.get()
-with httpx.Client(proxy=proxy.to_url()) as client:
+rotator = ProxyWhirl(bootstrap=False)
+rotator.add_proxy(Proxy(url="http://proxy.example.com:8080"))
+proxy = rotator.get_proxy()  # returns a Proxy model
+proxy_url = str(proxy.url)
+
+with httpx.Client(proxy=proxy_url) as client:
     client.get("https://example.com")
 ```
 
-Works similarly with `requests`, Selenium, and Playwright (`proxy={"server": proxy.to_url()}`).
+Works similarly with `requests` (`proxies={"http": proxy_url, "https": proxy_url}`) and Playwright (`proxy={"server": proxy_url}`).
 
 ## Caching and resilience
 
-Multi-tier L1/L2/L3 caching reduces selection latency from ~10ms to under 1ms. Clear with `whirl.cache_manager.clear()`. Circuit breakers exclude failing proxies; reset with `whirl.circuit_breaker.reset_all()` after upstream outages.
+Multi-tier L1/L2/L3 caching is configured via `CacheConfig` (see [Cache Architecture](/docs/concepts/cache-architecture)). There is no `rotator.cache_manager` attribute on the public rotator surface.
+
+Circuit breakers are tracked per proxy. Inspect and reset via:
+
+```python
+states = rotator.get_circuit_breaker_states()
+rotator.reset_circuit_breaker(proxy_id)  # per-proxy reset
+```
+
+Pool observability: `rotator.get_pool_stats()`, `rotator.get_statistics()`, `rotator.get_retry_metrics()`.
 
 ## Interfaces
 
@@ -62,16 +94,16 @@ Multi-tier L1/L2/L3 caching reduces selection latency from ~10ms to under 1ms. C
 
 ## Security
 
-Public proxies are untrusted. Credentials are Fernet-encrypted when `PROXYWHIRL_KEY` is set. Configure Loguru via [Configuration](/docs/reference/configuration).
+Public proxies are untrusted. Credential encryption uses **`PROXYWHIRL_KEY`**. L2 cache encryption uses **`PROXYWHIRL_CACHE_ENCRYPTION_KEY`**. `PROXYWHIRL_ENCRYPTION_KEY` is a deprecated alias for the cache key when the canonical name is unset. Configure Loguru via [Configuration](/docs/reference/configuration).
 
 ## Troubleshooting
 
 | Symptom | Fix |
 | ------- | --- |
-| Slow selection | Enable cache; prefer RoundRobin |
-| `ProxyPoolEmptyError` | Run bootstrap/fetch; add sources |
-| Timeouts | Increase `timeout_seconds`; validate sources |
-| All breakers open | Wait for half-open recovery or reset |
+| Slow selection | Prefer `round-robin` / `random` for low CPU; tune cache tiers |
+| `ProxyPoolEmptyError` | Allow bootstrap, run `proxywhirl fetch`, or `add_proxy` |
+| Timeouts | Increase timeouts; validate sources with `proxywhirl sources --validate` |
+| Breakers open | Wait for half-open recovery or `reset_circuit_breaker(proxy_id)` |
 
 Enable debug logging:
 

@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 const webRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const docsRoot = join(webRoot, "content", "docs");
 const baseUrl = process.env.PROXYWHIRL_SITE_URL ?? "https://www.proxywhirl.com";
-const generatedAt = new Date().toISOString();
 
 const PAGE_TITLE_OVERRIDES = {
 	"../api/openapi": "OpenAPI Endpoints",
@@ -139,8 +138,6 @@ const generatedReference = linksFromMeta(join(docsRoot, "reference"), {
 const content = `# ProxyWhirl
 
 > Production-grade Python proxy rotation library with live proxy lists, REST API, MCP server, and canonical Fumadocs documentation.
-
-Generated: ${generatedAt}
 
 ## Start Here
 

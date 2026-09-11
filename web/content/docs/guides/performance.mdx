@@ -4,53 +4,89 @@ description: Cache tiers, strategy latency tradeoffs, connection pooling, and th
 ---
 ## Cache tiers
 
-```python
-from proxywhirl import CacheConfig, ProxyConfiguration
+Configure tiers through nested `CacheTierConfig` objects on `CacheConfig` (not flat `l1_size` fields):
 
-config = ProxyConfiguration(
-    cache=CacheConfig(
-        l1_size=100,
-        l2_size=1000,
-        l3_enabled=True,
-        ttl_seconds=3600,
-        encryption=True,
-    )
+```python
+from proxywhirl import CacheConfig
+from proxywhirl.cache.models import CacheTierConfig
+
+config = CacheConfig(
+    l1_config=CacheTierConfig(enabled=True, max_entries=500, eviction_policy="lru"),
+    l2_config=CacheTierConfig(enabled=True, max_entries=5000, eviction_policy="lru"),
+    l3_config=CacheTierConfig(enabled=True, max_entries=None, eviction_policy="lru"),
+    default_ttl_seconds=3600,
+    l2_cache_dir=".cache/proxies",
+    encryption_key=None,  # prefer PROXYWHIRL_CACHE_ENCRYPTION_KEY in the environment
 )
 ```
 
-- **L1**: hot in-memory set (100–500 entries), sub-millisecond lookups
-- **L2**: disk-backed JSONL shard, survives restarts
-- **L3**: optional Redis for multi-instance deployments
+- **L1**: hot in-memory set (default `max_entries=1000`), sub-millisecond lookups
+- **L2**: disk-backed JSONL shards (default `max_entries=5000`), survives restarts
+- **L3**: SQLite cold tier for larger durable sets
 
-See [Cache Architecture](/docs/concepts/cache-architecture).
+Encrypt L2/L3 credentials with **`PROXYWHIRL_CACHE_ENCRYPTION_KEY`**. See [Cache Architecture](/docs/concepts/cache-architecture).
 
 ## Strategy characteristics
 
 | Strategy | CPU | Memory | Latency | Best for |
 | -------- | --- | ------ | ------- | -------- |
 | RoundRobin | Low | Low | Low | Uniform load |
-| Weighted | Medium | Low | Low | Heterogeneous pools |
-| PerformanceBased | High | Medium | Variable | Latency-sensitive |
 | Random | Low | Low | Low | Unpredictable patterns |
+| Weighted | Medium | Low | Low | Heterogeneous pools |
+| LeastUsed | Medium | Low | Low–medium | Concurrent balance |
+| PerformanceBased | Higher | Medium | Variable | Latency-sensitive |
 | CostAware | Medium | Low | Low | Budget caps |
+| GeoTargeted | Medium | Low | Low | Regional filters |
+| Session | Medium | Medium | Low | Sticky sessions |
+| Composite | Higher | Medium | Low–medium | Filter + select pipelines |
+
+Prefer simple strategies on the hot path; reserve performance-based and composite pipelines for when their feedback is worth the extra work.
 
 ## Connection reuse
 
-Reuse HTTP clients to avoid per-request TLS handshakes:
+`ProxyWhirl` / `AsyncProxyWhirl` reuse httpx clients internally. When you need an external client, select a proxy URL and keep the client warm:
 
 ```python
 import httpx
+from proxywhirl import AsyncProxyWhirl, Proxy
 
-async with httpx.AsyncClient(
-    limits=httpx.Limits(max_keepalive_connections=20, max_connections=40)
-) as client:
-    for _ in range(1000):
-        proxy = await whirl.get_proxy()
-        await client.get(url, proxy=proxy.to_url())
+async with AsyncProxyWhirl(bootstrap=False) as rotator:
+    await rotator.add_proxy(Proxy(url="http://proxy.example.com:8080"))
+    proxy_url = str((await rotator.get_proxy()).url)
+
+    async with httpx.AsyncClient(
+        proxy=proxy_url,
+        limits=httpx.Limits(max_keepalive_connections=20, max_connections=40),
+    ) as client:
+        for _ in range(100):
+            await client.get("https://example.com")
 ```
+
+For high concurrency inside ProxyWhirl, prefer `AsyncProxyWhirl` with a semaphore rather than spinning many sync rotators — see [Clients](/docs/guides/clients).
 
 ## Monitoring
 
-Use `MetricsCollector` and Grafana dashboards to track cache hit rate, selection latency, and circuit breaker state. Target >80% cache hit rate in steady state.
+Rotator-level stats:
 
-See [FAQ](/docs/project/faq) and [Operations](/docs/operations/monitoring).
+```python
+# ProxyWhirl
+print(rotator.get_pool_stats())
+print(rotator.get_statistics())
+
+# AsyncProxyWhirl: use the non-blocking pool snapshot methods
+print(await async_rotator.aget_pool_stats())
+print(await async_rotator.aget_statistics())
+
+print(rotator.get_retry_metrics())
+print(rotator.get_circuit_breaker_states())
+```
+
+Service deployments expose:
+
+- `GET /api/stats` — aggregate JSON stats (OpenAPI schema)
+- `GET /api/metrics/*` — retry and circuit-breaker JSON metrics (OpenAPI schema)
+- `GET /api/metrics` — Prometheus text exposition (**not** in OpenAPI; `include_in_schema=False`)
+
+Optional Grafana dashboards under `deploy/monitoring/grafana-dashboards/` scrape Prometheus. There is no public `MetricsCollector` export on `proxywhirl.__all__` for application code.
+
+See [Operations → Monitoring](/docs/operations/monitoring) and [REST API](/docs/interfaces/rest-api).

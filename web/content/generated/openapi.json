@@ -2307,12 +2307,10 @@
         },
         "type": "object",
         "title": "ConfigurationSettings",
-        "description": "API configuration settings.",
+        "description": "API configuration settings (defaults from ``config_core`` SSOT).",
         "example": {
           "auth_enabled": false,
-          "cors_origins": [
-            "*"
-          ],
+          "cors_origins": [],
           "max_retries": 3,
           "rate_limits": {
             "default_limit": 100,

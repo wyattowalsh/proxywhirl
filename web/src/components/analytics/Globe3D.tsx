@@ -67,9 +67,11 @@ const COUNTRY_CENTROIDS: Record<string, [number, number]> = {
 
 export function Globe3D({ proxies = [], stats }: Globe3DProps) {
   const globeRef = useRef<unknown>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const prefersReducedMotion = useReducedMotion()
   const [GlobeComponent, setGlobeComponent] = useState<ComponentType<Record<string, unknown>> | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [globeWidth, setGlobeWidth] = useState(800)
 
   useEffect(() => {
     let mounted = true
@@ -100,6 +102,21 @@ export function Globe3D({ proxies = [], stats }: Globe3DProps) {
       }
     }
   }, [GlobeComponent, prefersReducedMotion])
+
+  useEffect(() => {
+    const element = containerRef.current
+    if (!element) return
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (!entry) return
+      const nextWidth = Math.floor(entry.contentRect.width)
+      setGlobeWidth(Math.min(Math.max(nextWidth, 320), 1200))
+    })
+
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
 
   const points = useMemo((): GlobePoint[] => {
     const countryDetail = stats?.aggregations?.by_country_detail
@@ -209,6 +226,7 @@ export function Globe3D({ proxies = [], stats }: Globe3DProps) {
       </CardHeader>
       <CardContent className="p-0">
         <div
+          ref={containerRef}
           role="img"
           aria-labelledby="globe-3d-title globe-3d-desc"
           className="h-[500px] bg-zinc-950 relative"
@@ -234,7 +252,7 @@ export function Globe3D({ proxies = [], stats }: Globe3DProps) {
               }
               atmosphereColor={CHART_COLORS.atmosphere}
               atmosphereAltitude={0.15}
-              width={typeof window !== "undefined" ? Math.min(window.innerWidth - 100, 800) : 800}
+              width={globeWidth}
               height={500}
             />
           )}

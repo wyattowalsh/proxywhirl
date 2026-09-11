@@ -494,10 +494,10 @@ export function Home() {
 							{[...Array(4)].map((_, i) => (
 								<Card key={i}>
 									<CardHeader className="space-y-0 pb-2">
-										<div className="h-4 w-24 bg-muted animate-pulse rounded" />
+										<div className="h-4 w-24 bg-muted animate-pulse motion-reduce:animate-none rounded" />
 									</CardHeader>
 									<CardContent>
-										<div className="h-8 w-16 bg-muted animate-pulse rounded" />
+										<div className="h-8 w-16 bg-muted animate-pulse motion-reduce:animate-none rounded" />
 									</CardContent>
 								</Card>
 							))}
@@ -530,7 +530,7 @@ export function Home() {
 											<TabsTrigger
 												key={example.id}
 												value={example.id}
-												className="rounded-md px-3 py-1 text-xs font-medium text-zinc-500 transition-colors data-[state=active]:bg-zinc-700/80 data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm hover:bg-zinc-800/60 hover:text-zinc-300 focus-visible:ring-zinc-300"
+												className="rounded-md px-3 py-1 text-xs font-medium text-zinc-500 transition-colors data-[state=active]:bg-zinc-700/80 data-[state=active]:text-zinc-100 data-[state=active]:shadow-sm hover:bg-zinc-800/60 hover:text-zinc-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
 											>
 												{example.label}
 											</TabsTrigger>

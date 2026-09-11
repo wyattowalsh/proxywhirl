@@ -261,6 +261,7 @@ export const CONTINENT_COLORS: Record<string, string> = {
   AF: "#ef4444",  // red - Africa
   OC: "#06b6d4",  // cyan - Oceania
   AN: "#6b7280",  // gray - Antarctica
+  UN: "#9ca3af",  // gray-400 - Unknown / unmapped
 }
 
 export const CONTINENT_LABELS: Record<string, string> = {
@@ -271,6 +272,7 @@ export const CONTINENT_LABELS: Record<string, string> = {
   AF: "Africa",
   OC: "Oceania",
   AN: "Antarctica",
+  UN: "Unknown",
 }
 
 // Health status colors for charts

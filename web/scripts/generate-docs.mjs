@@ -123,15 +123,41 @@ function firstSentence(text) {
 
 function extractCommandFlags(lines, functionLine) {
   const flags = new Set()
+  const defLine = lines[functionLine] ?? ""
 
-  for (let scan = functionLine; scan < Math.min(lines.length, functionLine + 200); scan += 1) {
-    const line = lines[scan]
-    if (line.match(/^\s*\)\s*(?:->[^:]+)?:\s*$/)) break
-
+  // Collect flag tokens only from a single function signature — never from the body
+  // of this command or from the next command (which caused flag bleed for one-liners
+  // like `def _pool_list() -> None:` that never hit a standalone `):` closer).
+  const collect = (line) => {
     for (const match of line.matchAll(/"(--[\w-]+(?:\/--[\w-]+)?|-[a-zA-Z])"/g)) {
       const flag = match[1].split("/")[0]
       if (flag.startsWith("--") || /^-[a-zA-Z]$/.test(flag)) flags.add(flag)
     }
+  }
+
+  // Single-line signature: def name(...) -> T:  or  def name(...):
+  if (/^\s*def\s+[A-Za-z_]\w*\s*\(.*\)\s*(?:->[^:]+)?:\s*$/.test(defLine)) {
+    collect(defLine)
+    const sorted = Array.from(flags).sort()
+    return sorted.length > 0 ? sorted.join(", ") : "-"
+  }
+
+  for (let scan = functionLine; scan < Math.min(lines.length, functionLine + 200); scan += 1) {
+    const line = lines[scan]
+
+    // Stop before the next command/function so flags cannot bleed across defs.
+    if (scan > functionLine) {
+      if (/^\s*@(?:app|pool_app|config_app|sources_app)\./.test(line)) break
+      if (/^\s*def\s+/.test(line)) break
+    }
+
+    // Signature closer on its own line: `) -> None:` or `):`
+    if (scan > functionLine && /^\s*\)\s*(?:->[^:]+)?:\s*$/.test(line)) break
+
+    collect(line)
+
+    // Multi-param signature that closes on the same line as the last parameter is rare;
+    // the standalone `):` branch above is the normal Typer shape.
   }
 
   const sorted = Array.from(flags).sort()
@@ -301,31 +327,51 @@ print(json.dumps({
 const strategyData = runPython(String.raw`
 import inspect
 import json
-from proxywhirl import strategies
+from pathlib import Path
+
+from proxywhirl.strategies import BUILTIN_STRATEGY_CLASSES
 
 items = []
-for name, obj in inspect.getmembers(strategies, inspect.isclass):
-    if (
-        obj.__module__ == strategies.__name__
-        and name.endswith("Strategy")
-        and name != "RotationStrategy"
-    ):
-        try:
-            line_number = inspect.getsourcelines(obj)[1]
-        except OSError:
-            line_number = 0
-        items.append({
-            "class": name,
-            "module": obj.__module__,
-            "summary": (inspect.getdoc(obj) or "").split("\n")[0],
-            "line": line_number,
-        })
+seen = set()
+for registry_name, strategy_class in BUILTIN_STRATEGY_CLASSES.items():
+    if strategy_class in seen:
+        continue
+    seen.add(strategy_class)
 
-items.sort(key=lambda item: item["line"])
-print(json.dumps({"total": len(items), "items": items}))
+    aliases = [
+        alias
+        for alias, registered_class in BUILTIN_STRATEGY_CLASSES.items()
+        if registered_class is strategy_class
+    ]
+    try:
+        source_path = str(
+            Path(inspect.getsourcefile(strategy_class) or "")
+            .resolve()
+            .relative_to(Path.cwd())
+        )
+        line_number = inspect.getsourcelines(strategy_class)[1]
+    except (OSError, ValueError):
+        source_path = ""
+        line_number = 0
+
+    items.append({
+        "name": registry_name,
+        "aliases": aliases,
+        "class": strategy_class.__name__,
+        "module": strategy_class.__module__,
+        "summary": (inspect.getdoc(strategy_class) or "").split("\n")[0],
+        "source": source_path,
+        "line": line_number,
+    })
+
+print(json.dumps({
+    "total": len(items),
+    "registered_names": len(BUILTIN_STRATEGY_CLASSES),
+    "items": items,
+}))
 `)
 
-const cliSource = readFileSync(join(repoRoot, "proxywhirl", "cli.py"), "utf8")
+const cliSource = readFileSync(join(repoRoot, "proxywhirl", "cli", "_impl.py"), "utf8")
 const commands = extractCommands(cliSource)
 
 const statsPath = join(repoRoot, "docs", "proxy-lists", "stats.json")
@@ -474,6 +520,14 @@ writeFile(
       ["Method", "Path", "Operation"],
       operations.map((item) => [item.method, `\`${item.path}\``, item.summary]),
     ),
+    "",
+    "## Non-schema endpoints",
+    "",
+    "OpenAPI generation only includes routes with `include_in_schema=True`.",
+    "The Prometheus text endpoint `GET /api/metrics` is registered with",
+    "`include_in_schema=False` and therefore **does not appear** in the inventory above.",
+    "Scrape it directly (auth rules follow `PROXYWHIRL_REQUIRE_AUTH` / `PROXYWHIRL_PUBLIC_METRICS`).",
+    "JSON metric surfaces that *are* in the schema include `/api/stats` and `/api/metrics/*` (retries, circuit breakers).",
   ].join("\n"),
 )
 
@@ -482,7 +536,7 @@ writeFile(
   [
     frontmatter("CLI Reference", "Typer command inventory parsed from proxywhirl.cli."),
     "",
-    generatedNote("Typer command declarations and docstrings in `proxywhirl/cli.py`"),
+    generatedNote("Typer command declarations and docstrings in `proxywhirl/cli/_impl.py`"),
     "",
     statGrid([
       ["Commands", commands.length, "Typer command declarations"],
@@ -554,25 +608,30 @@ writeFile(
 writeFile(
   join(generatedDocsDir, "strategies.mdx"),
   [
-    frontmatter("Strategy Matrix", "Rotation strategy matrix generated from proxywhirl.strategies."),
+    frontmatter(
+      "Strategy Matrix",
+      "Rotation strategy matrix generated from the public built-in strategy registry.",
+    ),
     "",
-    generatedNote("exported strategy classes in `proxywhirl.strategies`"),
+    generatedNote("`proxywhirl.strategies.BUILTIN_STRATEGY_CLASSES`"),
     "",
     statGrid([
-      ["Strategies", strategyData.total, "Concrete rotation classes"],
-      ["Default", "RoundRobin", "Balanced first choice"],
-      ["Fastest", "PerformanceBased", "EMA latency preference"],
-      ["Composable", "Composite", "Filter and select pipeline"],
+      ["Strategies", strategyData.total, "Unique registered strategy classes"],
+      ["Registered names", strategyData.registered_names, "Canonical names plus aliases"],
+      ["Default", "round-robin", "Balanced first choice"],
+      ["Performance aware", "performance-based", "EMA latency preference"],
     ]),
     "",
     "## Strategy Selection",
     "",
     table(
-      ["Strategy", "Use When", "Source Summary"],
+      ["Registry Name", "Class", "Aliases", "Use When", "Module"],
       strategyData.items.map((item) => [
+        `\`${item.name}\``,
         `\`${item.class}\``,
+        item.aliases.map((alias) => `\`${alias}\``).join(", "),
         strategyUseWhen(item),
-        item.summary || "-",
+        `\`${item.module}\``,
       ]),
     ),
     "",

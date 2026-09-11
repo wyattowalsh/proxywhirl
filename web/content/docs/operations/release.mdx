@@ -21,7 +21,17 @@ just changelog   # regenerate changelog only
 
 ## GitHub Release
 
-Tagged pushes trigger [`.github/workflows/release.yml`](https://github.com/wyattowalsh/proxywhirl/blob/main/.github/workflows/release.yml) for PyPI publish and GitHub release artifacts.
+After the candidate is committed and the required remote gates pass on that
+exact SHA, explicitly dispatch
+[`.github/workflows/release.yml`](https://github.com/wyattowalsh/proxywhirl/blob/main/.github/workflows/release.yml)
+with the 40-character `candidate_sha` and the matching normalized version from
+`pyproject.toml`. The workflow revalidates the SHA, version, and exact-SHA CI,
+Security Scan, and Validate Proxy Sources runs before it builds artifacts. It
+then creates or verifies and pushes the immutable version tag before PyPI
+trusted publishing and GitHub Release creation.
+
+Dispatch, tag, publication, and release creation all require explicit release
+authority; a local green build does not authorize any of them.
 
 ## Production Deploy
 

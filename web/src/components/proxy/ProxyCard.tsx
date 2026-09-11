@@ -12,6 +12,8 @@ interface ProxyCardProps {
 }
 
 export function ProxyCard({ proxy, onCopy, onTest, isFavorite, onToggleFavorite }: ProxyCardProps) {
+  const endpoint = `${proxy.ip}:${proxy.port}`
+
   return (
     <div className="p-4 border rounded-lg hover:bg-muted/50 transition-colors">
       <div className="flex items-start justify-between gap-2">
@@ -19,7 +21,7 @@ export function ProxyCard({ proxy, onCopy, onTest, isFavorite, onToggleFavorite 
           {/* IP:Port and Protocol */}
           <div className="flex items-center gap-2 flex-wrap">
             <code className="text-sm font-mono truncate">
-              {proxy.ip}:{proxy.port}
+              {endpoint}
             </code>
             <Badge variant={proxy.protocol as Protocol}>
               {proxy.protocol.toUpperCase()}
@@ -48,7 +50,11 @@ export function ProxyCard({ proxy, onCopy, onTest, isFavorite, onToggleFavorite 
               size="icon"
               className="h-8 w-8"
               onClick={onToggleFavorite}
-              aria-label={isFavorite ? "Remove proxy from favorites" : "Add proxy to favorites"}
+              aria-label={
+                isFavorite
+                  ? `Remove ${endpoint} from favorites`
+                  : `Add ${endpoint} to favorites`
+              }
             >
               <Star className={`h-4 w-4 ${isFavorite ? "fill-yellow-500 text-yellow-500" : ""}`} aria-hidden="true" />
             </Button>
@@ -60,7 +66,7 @@ export function ProxyCard({ proxy, onCopy, onTest, isFavorite, onToggleFavorite 
               className="h-8 w-8"
               onClick={onTest}
               title="Copy test command"
-              aria-label="Copy test command"
+              aria-label={`Copy test command for ${endpoint}`}
             >
               <Terminal className="h-4 w-4" aria-hidden="true" />
             </Button>
@@ -70,7 +76,7 @@ export function ProxyCard({ proxy, onCopy, onTest, isFavorite, onToggleFavorite 
             size="icon"
             className="h-8 w-8"
             onClick={onCopy}
-            aria-label="Copy proxy address"
+            aria-label={`Copy proxy address ${endpoint}`}
           >
             <Copy className="h-4 w-4" aria-hidden="true" />
           </Button>

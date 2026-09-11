@@ -1,0 +1,34 @@
+---
+title: "007: MCP OAuth 2.1 + PKCE (Proposed)"
+description: Design-only ADR for OAuth 2.1 with PKCE on public remote MCP transports.
+---
+
+## Status
+
+**Proposed** — design only. Canonical write-up: [`docs/specs/mcp-oauth-2.1-pkce.md`](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/specs/mcp-oauth-2.1-pkce.md). No OAuth implementation in this change.
+
+## Context
+
+Networked MCP (HTTP / SSE / Streamable HTTP) must not expose tools anonymously. The MCP authorization specification for HTTP transports is based on OAuth 2.1 with PKCE, Protected Resource Metadata (RFC 9728), and Authorization Server Metadata (RFC 8414). Stdio remains an env-credential local transport.
+
+## Decision (summary)
+
+| Transport | Auth |
+| --------- | ---- |
+| stdio | Environment / config secrets — **no OAuth** |
+| HTTP/SSE (private) | `PROXYWHIRL_MCP_API_KEY` (current) |
+| HTTP/SSE (public remote) | **OAuth 2.1 + PKCE (`S256`)** as resource server; external AS |
+
+ProxyWhirl will advertise PRM, challenge with `WWW-Authenticate` + `resource_metadata`, and accept audience-bound bearer tokens. Full AS / DCR / consent UI are out of scope for v1.
+
+## Consequences
+
+- Aligns public remote MCP with current MCP auth guidance.
+- Keeps API keys for internal deployments until OAuth ships.
+- Implementation deferred to a dedicated epic; see the specs doc for the sketch and references.
+
+## References
+
+- [docs/specs/mcp-oauth-2.1-pkce.md](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/specs/mcp-oauth-2.1-pkce.md)
+- [MCP Authorization](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization)
+- [MCP interface docs](/docs/interfaces/mcp)
