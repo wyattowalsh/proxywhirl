@@ -19,107 +19,105 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-    - name: Set up Python
-      uses: actions/setup-python@v6
-      with:
-        python-version: '3.11'
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.11'
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v8.2.0
-      with:
-        version: "0.8.22"
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          version: "0.12.3"
 
-    - name: Install dependencies
-      run: |
-        uv venv
-        uv pip install -e .
+      - name: Install dependencies
+        run: uv sync --locked --python 3.11
 
-    - name: Validate proxy sources
-      run: |
-        uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
-
-    - name: Close resolved issue if sources are healthy
-      if: success()
-      uses: actions/github-script@v9
-      with:
-        script: |
-          const title = 'Unhealthy Proxy Sources Detected';
-          const issues = await github.rest.issues.listForRepo({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            state: 'open',
-            labels: 'proxy-sources,automated'
-          });
-
-          const existingIssue = issues.data.find(issue => issue.title === title);
-
-          if (existingIssue) {
-            await github.rest.issues.update({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: existingIssue.number,
-              state: 'closed',
-              state_reason: 'completed'
-            });
-          }
-
-    - name: Upsert issue if sources are unhealthy
-      if: failure()
-      uses: actions/github-script@v9
-      with:
-        script: |
-          const title = 'Unhealthy Proxy Sources Detected';
-          const body = `## Proxy Source Validation Failed
-
-          The weekly proxy source validation has detected one or more unhealthy sources.
-
-          **Run:** [${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
-          **Date:** ${new Date().toISOString()}
-
-          ### Action Required
-          1. Review the workflow logs to identify unhealthy sources
-          2. Run \`just validate-sources-ci\` locally to see details
-          3. Remove or update stale sources in \`proxywhirl/sources.py\`
-
-          ### Quick Commands
-          \`\`\`bash
-          # List all sources
-          just sources-list
-
-          # Validate sources locally
-          just validate-sources-ci
-
-          # Run with verbose output
+      - name: Validate proxy sources
+        run: |
           uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
-          \`\`\`
-          `;
 
-          // Check for existing open issue
-          const issues = await github.rest.issues.listForRepo({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            state: 'open',
-            labels: 'proxy-sources,automated'
-          });
-
-          const existingIssue = issues.data.find(issue => issue.title === title);
-
-          if (existingIssue) {
-            await github.rest.issues.update({
+      - name: Close resolved issue if sources are healthy
+        if: success()
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const title = 'Unhealthy Proxy Sources Detected';
+            const issues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: existingIssue.number,
-              body: body
+              state: 'open',
+              labels: 'proxy-sources,automated'
             });
-          } else {
-            // Create new issue
-            await github.rest.issues.create({
+
+            const existingIssue = issues.data.find(issue => issue.title === title);
+
+            if (existingIssue) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                state: 'closed',
+                state_reason: 'completed'
+              });
+            }
+
+      - name: Upsert issue if sources are unhealthy
+        if: failure()
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const title = 'Unhealthy Proxy Sources Detected';
+            const body = `## Proxy Source Validation Failed
+
+            The weekly proxy source validation has detected one or more unhealthy sources.
+
+            **Run:** [${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+            **Date:** ${new Date().toISOString()}
+
+            ### Action Required
+            1. Review the workflow logs to identify unhealthy sources
+            2. Run \`just validate-sources-ci\` locally to see details
+            3. Remove or update stale sources in \`proxywhirl/sources.py\`
+
+            ### Quick Commands
+            \`\`\`bash
+            # List all sources
+            just sources-list
+
+            # Validate sources locally
+            just validate-sources-ci
+
+            # Run with verbose output
+            uv run proxywhirl sources --validate --fail-on-unhealthy --timeout 5 --concurrency 5
+            \`\`\`
+            `;
+
+            // Check for existing open issue
+            const issues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: title,
-              body: body,
-              labels: ['proxy-sources', 'automated', 'maintenance']
+              state: 'open',
+              labels: 'proxy-sources,automated'
             });
-          }
+
+            const existingIssue = issues.data.find(issue => issue.title === title);
+
+            if (existingIssue) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body: body
+              });
+            } else {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['proxy-sources', 'automated', 'maintenance']
+              });
+            }

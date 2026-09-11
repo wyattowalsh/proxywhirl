@@ -1,3 +1,6 @@
+{{- if ne (int .Values.replicaCount) 1 }}
+{{- fail "ProxyWhirl supports exactly one application replica with its SQLite storage backend" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -5,12 +8,12 @@ metadata:
   labels:
     {{- include "proxywhirl.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
-  {{- end }}
   selector:
     matchLabels:
       {{- include "proxywhirl.selectorLabels" . | nindent 6 }}
+  strategy:
+    type: Recreate
   template:
     metadata:
       {{- with .Values.podAnnotations }}
@@ -40,11 +43,11 @@ spec:
         env:
         - name: PROXYWHIRL_LOG_LEVEL
           value: "{{ .Values.config.logging.level }}"
-        - name: PROXYWHIRL_ENCRYPTION_KEY
+        - name: PROXYWHIRL_CACHE_ENCRYPTION_KEY
           valueFrom:
             secretKeyRef:
               name: {{ .Values.secrets.existingSecret | default (printf "%s-secrets" (include "proxywhirl.fullname" .)) }}
-              key: encryption-key
+              key: cache-encryption-key
         - name: PROXYWHIRL_API_KEY
           valueFrom:
             secretKeyRef:
@@ -54,11 +57,16 @@ spec:
           value: "{{ .Values.config.auth.requireAuth }}"
         - name: PROXYWHIRL_PUBLIC_METRICS
           value: "{{ .Values.config.auth.publicMetrics }}"
+        - name: PROXYWHIRL_BIND_HOST
+          value: "{{ .Values.config.bindHost }}"
         - name: PROXYWHIRL_STORAGE_PATH
           value: "{{ .Values.persistence.mountPath }}/proxywhirl.db"
         {{- if .Values.redis.enabled }}
-        - name: REDIS_URL
-          value: "redis://{{ .Values.redis.host }}:{{ .Values.redis.port }}/{{ .Values.redis.database }}"
+        - name: PROXYWHIRL_REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.redis.existingSecret | default (.Values.secrets.existingSecret | default (printf "%s-secrets" (include "proxywhirl.fullname" .))) }}
+              key: redis-url
         {{- end }}
         livenessProbe:
           httpGet:

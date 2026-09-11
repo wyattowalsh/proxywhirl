@@ -38,9 +38,9 @@ main() {
     
     local failed=0
     
-    check_endpoint "/api/ready" "200" || ((failed++))
+    check_endpoint "/api/ready" "200" || failed=$((failed + 1))
     if [ -n "${PROXYWHIRL_API_KEY:-}" ] || [ "${PROXYWHIRL_PUBLIC_METRICS:-false}" = "true" ]; then
-        check_endpoint "/api/metrics" "200" || ((failed++))
+        check_endpoint "/api/metrics" "200" || failed=$((failed + 1))
     else
         echo -e "${YELLOW}!${NC} /api/metrics skipped (set PROXYWHIRL_API_KEY or PROXYWHIRL_PUBLIC_METRICS=true)"
     fi

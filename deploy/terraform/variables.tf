@@ -1,3 +1,6 @@
+# Variables for the partial ECS scaffold in main.tf.
+# Planned ALB/RDS/ElastiCache inputs from older revisions are not wired yet.
+
 variable "aws_region" {
   description = "AWS region"
   type        = string
@@ -7,119 +10,76 @@ variable "aws_region" {
 variable "environment" {
   description = "Environment name"
   type        = string
+  default     = "production"
+
   validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "Environment must be dev, staging, or prod."
+    condition     = contains(["dev", "staging", "production", "prod"], var.environment)
+    error_message = "Environment must be one of: dev, staging, production, prod."
   }
 }
 
-variable "vpc_cidr" {
-  description = "VPC CIDR block"
+variable "app_version" {
+  description = "Container image tag (semver or commit SHA). Must not be 'latest'."
   type        = string
-  default     = "10.0.0.0/16"
+
+  validation {
+    condition     = var.app_version != "latest" && var.app_version != ""
+    error_message = "app_version must be an explicit pin (semver/SHA), not 'latest'."
+  }
 }
 
-variable "availability_zones" {
-  description = "Availability zones"
+variable "docker_image" {
+  description = "Container image repository (without tag)"
+  type        = string
+  default     = "ghcr.io/wyattowalsh/proxywhirl"
+}
+
+variable "desired_count" {
+  description = "Desired ECS task count; SQLite deployments support one writer"
+  type        = number
+  default     = 1
+
+  validation {
+    condition     = var.desired_count == 1
+    error_message = "desired_count must remain 1 until shared/external storage is implemented."
+  }
+}
+
+variable "subnet_ids" {
+  description = "Subnet IDs for the Fargate service (prefer private)"
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b", "us-east-1c"]
 }
 
-variable "private_subnet_cidrs" {
-  description = "Private subnet CIDR blocks"
+variable "allowed_ingress_cidr_blocks" {
+  description = "CIDR blocks allowed to reach the API port (avoid 0.0.0.0/0 in production)"
   type        = list(string)
-  default     = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
 }
 
-variable "public_subnet_cidrs" {
-  description = "Public subnet CIDR blocks"
-  type        = list(string)
-  default     = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
+variable "assign_public_ip" {
+  description = "Assign public IPs to Fargate tasks. Default false — use private subnets + NAT/ALB."
+  type        = bool
+  default     = false
 }
 
-variable "container_image" {
-  description = "Docker image URI"
+variable "secrets_manager_secret_arn" {
+  description = "ARN of Secrets Manager secret JSON with keys: api-key and cache-encryption-key"
+  type        = string
+  default     = ""
+}
+
+variable "ssm_parameter_arn" {
+  description = "Fallback SSM Parameter Store ARN for the same secret JSON when Secrets Manager is unused"
+  type        = string
+  default     = ""
+}
+
+variable "ecs_execution_role_arn" {
+  description = "IAM role ARN for ECS task execution (must allow secretsmanager:GetSecretValue / ssm:GetParameters)"
   type        = string
 }
 
-variable "container_port" {
-  description = "Container port"
-  type        = number
-  default     = 8000
-}
-
-variable "ecs_desired_count" {
-  description = "Desired ECS task count"
-  type        = number
-  default     = 3
-}
-
-variable "ecs_min_count" {
-  description = "Minimum ECS task count"
-  type        = number
-  default     = 2
-}
-
-variable "ecs_max_count" {
-  description = "Maximum ECS task count"
-  type        = number
-  default     = 10
-}
-
-variable "ecs_cpu_target" {
-  description = "Target CPU utilization percentage"
-  type        = number
-  default     = 70
-}
-
-variable "ecs_memory_target" {
-  description = "Target memory utilization percentage"
-  type        = number
-  default     = 80
-}
-
-variable "rds_instance_class" {
-  description = "RDS instance type"
+variable "ecs_task_role_arn" {
+  description = "IAM role ARN for the running task"
   type        = string
-  default     = "db.t3.micro"
-}
-
-variable "rds_allocated_storage" {
-  description = "RDS allocated storage in GB"
-  type        = number
-  default     = 20
-}
-
-variable "rds_db_name" {
-  description = "RDS database name"
-  type        = string
-  default     = "proxywhirl"
-}
-
-variable "rds_username" {
-  description = "RDS master username"
-  type        = string
-  sensitive   = true
-}
-
-variable "redis_node_type" {
-  description = "Redis node type"
-  type        = string
-  default     = "cache.t3.micro"
-}
-
-variable "redis_num_nodes" {
-  description = "Number of Redis nodes"
-  type        = number
-  default     = 2
-}
-
-variable "acm_certificate_arn" {
-  description = "ACM certificate ARN for HTTPS"
-  type        = string
-}
-
-variable "alert_email" {
-  description = "Email for CloudWatch alerts"
-  type        = string
+  default     = null
 }

@@ -4,25 +4,8 @@ metadata:
   name: proxywhirl-config
   namespace: proxywhirl
 data:
-  proxywhirl.toml: |
-    [api]
-    host = "0.0.0.0"
-    port = 8000
-    workers = 4
-    
-    [storage]
-    type = "sqlite"
-    path = "/data/proxywhirl.db"
-    
-    [cache]
-    enabled = true
-    ttl = 3600
-    
-    [logging]
-    level = "INFO"
-    format = "json"
-    
-    [rotation]
-    strategy = "weighted"
-    timeout = 10
-    retries = 3
+  PROXYWHIRL_BIND_HOST: "0.0.0.0"
+  PROXYWHIRL_REQUIRE_AUTH: "true"
+  PROXYWHIRL_PUBLIC_METRICS: "false"
+  PROXYWHIRL_STORAGE_PATH: "/data/proxywhirl.db"
+  PROXYWHIRL_LOG_LEVEL: "INFO"

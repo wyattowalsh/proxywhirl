@@ -26,25 +26,23 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           # Fetch with token that has write access for pushing
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          version: "0.8.22"
+          version: "0.12.3"
 
       - name: Install dependencies
-        run: |
-          uv venv --clear --python 3.11
-          uv pip install -e .
+        run: uv sync --locked --python 3.11
 
       - name: Install Playwright browsers
         env:
@@ -55,9 +53,13 @@ jobs:
 
       - name: Download GeoLite2 database
         run: |
-          # Download GeoLite2-Country database for IP geolocation
-          if curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors https://github.com/P3TERX/GeoLite.mmdb/releases/latest/download/GeoLite2-Country.mmdb -o GeoLite2-Country.mmdb; then
+          # Download the repo-pinned GeoLite2-Country asset from the third-party mirror.
+          GEOLITE2_URL="$(jq -er '.country.url' .github/dependency-pins/geolite2.json)"
+          GEOLITE2_SHA256="$(jq -er '.country.sha256' .github/dependency-pins/geolite2.json)"
+          if curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "$GEOLITE2_URL" -o GeoLite2-Country.mmdb; then
             echo "Downloaded GeoLite2-Country.mmdb ($(stat --format=%s GeoLite2-Country.mmdb) bytes)"
+            echo "${GEOLITE2_SHA256}  GeoLite2-Country.mmdb" | sha256sum -c -
+            sha256sum GeoLite2-Country.mmdb | tee -a "$GITHUB_STEP_SUMMARY"
           else
             rm -f GeoLite2-Country.mmdb
             echo "GeoLite2 download failed after retries; continuing without geolocation database"
@@ -121,14 +123,14 @@ jobs:
           cp -r docs/proxy-lists/* web/public/proxy-lists/
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v6.0.8
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
         with:
-          version: 10
+          version: 10.13.1
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "24"
+          node-version: "24.19.0"
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
@@ -143,6 +145,10 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
+
+          # SAFETY: reset --hard to origin/main drops any concurrent commits on main that landed
+          # after checkout. Only generated paths are restored from this run's snapshot.
+          # Prefer merge/rebase strategies if main receives frequent non-generated commits.
 
           # Preserve this run's generated outputs before integrating remote changes.
           GENERATED_SNAPSHOT="$(mktemp -d)"
@@ -175,15 +181,10 @@ jobs:
           fi
 
       - name: Upload proxy lists as artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: proxy-lists-${{ github.run_number }}
           path: docs/proxy-lists/
           retention-days: 7
 
-      - name: Upload database as artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: proxywhirl-db-${{ github.run_number }}
-          path: proxywhirl.db
-          retention-days: 30
+      # Full SQLite DB artifacts are omitted (large, sensitive pool data). Use proxy-lists artifact only.

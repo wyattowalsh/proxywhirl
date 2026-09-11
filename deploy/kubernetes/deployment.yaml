@@ -7,15 +7,14 @@ metadata:
     app: proxywhirl
     version: v1
 spec:
-  replicas: 3
+  # ReadWriteOnce PVC: run a single writer replica unless using shared storage (RWX/ object store).
+  replicas: 1
   selector:
     matchLabels:
       app: proxywhirl
+  # Avoid overlapping SQLite writers during rollout.
   strategy:
-    type: RollingUpdate
-    rollingUpdate:
-      maxSurge: 1
-      maxUnavailable: 0
+    type: Recreate
   template:
     metadata:
       labels:
@@ -33,50 +32,64 @@ spec:
         runAsUser: 1000
       containers:
       - name: proxywhirl
-        image: ghcr.io/wyattowalsh/proxywhirl:latest
+        image: ghcr.io/wyattowalsh/proxywhirl:0.4.0rc1
         imagePullPolicy: IfNotPresent
         ports:
         - name: http
           containerPort: 8000
           protocol: TCP
-        
+
         env:
         - name: PROXYWHIRL_LOG_LEVEL
-          value: "INFO"
-        - name: PROXYWHIRL_ENCRYPTION_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: proxywhirl-config
+              key: PROXYWHIRL_LOG_LEVEL
+        - name: PROXYWHIRL_CACHE_ENCRYPTION_KEY
           valueFrom:
             secretKeyRef:
               name: proxywhirl-secrets
-              key: encryption-key
+              key: cache-encryption-key
         - name: PROXYWHIRL_API_KEY
           valueFrom:
             secretKeyRef:
               name: proxywhirl-secrets
               key: api-key
         - name: PROXYWHIRL_REQUIRE_AUTH
-          value: "true"
+          valueFrom:
+            configMapKeyRef:
+              name: proxywhirl-config
+              key: PROXYWHIRL_REQUIRE_AUTH
         - name: PROXYWHIRL_PUBLIC_METRICS
-          value: "true"
+          valueFrom:
+            configMapKeyRef:
+              name: proxywhirl-config
+              key: PROXYWHIRL_PUBLIC_METRICS
+        - name: PROXYWHIRL_BIND_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: proxywhirl-config
+              key: PROXYWHIRL_BIND_HOST
         - name: PROXYWHIRL_STORAGE_PATH
-          value: "/data/proxywhirl.db"
-        - name: REDIS_URL
-          value: "redis://redis:6379/0"
-        
+          valueFrom:
+            configMapKeyRef:
+              name: proxywhirl-config
+              key: PROXYWHIRL_STORAGE_PATH
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
             drop:
             - ALL
           readOnlyRootFilesystem: true
-        
+
         resources:
           requests:
-            cpu: 100m
+            cpu: 250m
             memory: 256Mi
           limits:
             cpu: 500m
             memory: 512Mi
-        
+
         livenessProbe:
           httpGet:
             path: /api/ready
@@ -85,7 +98,7 @@ spec:
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
-        
+
         readinessProbe:
           httpGet:
             path: /api/ready
@@ -94,20 +107,20 @@ spec:
           periodSeconds: 5
           timeoutSeconds: 3
           failureThreshold: 2
-        
+
         volumeMounts:
         - name: data
           mountPath: /data
         - name: tmp
           mountPath: /tmp
-      
+
       volumes:
       - name: data
         persistentVolumeClaim:
           claimName: proxywhirl-data
       - name: tmp
         emptyDir: {}
-      
+
       affinity:
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:

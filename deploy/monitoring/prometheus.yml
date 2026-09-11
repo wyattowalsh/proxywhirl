@@ -22,16 +22,6 @@ scrape_configs:
     scrape_timeout: 10s
     scheme: http
 
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['localhost:6379']
-    scrape_interval: 30s
-
-  - job_name: 'postgres'
-    static_configs:
-      - targets: ['localhost:5432']
-    scrape_interval: 30s
-
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']

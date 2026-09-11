@@ -26,22 +26,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          version: "0.8.22"
+          version: "0.12.3"
 
       - name: Install dependencies
-        run: |
-          uv venv --clear --python 3.11
-          uv pip install -e ".[dev]"
+        run: uv sync --locked --python 3.11 --group dev
 
       - name: Run Ruff linter
         id: lint
@@ -62,22 +60,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          version: "0.8.22"
+          version: "0.12.3"
 
       - name: Install dependencies
-        run: |
-          uv venv --clear --python 3.11
-          uv pip install -e ".[dev]"
+        run: uv sync --locked --python 3.11 --group dev
 
       - name: Run type checker
         id: typecheck
@@ -92,27 +88,27 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0 # Required for commit history
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          version: "0.8.22"
+          version: "0.12.3"
 
       - name: Install commitizen
-        run: uv pip install commitizen
+        run: uv tool install commitizen==4.13.10
 
       - name: Validate commit messages
         run: |
           # Check all commits in the PR
-          uv run cz check --rev-range origin/${{ github.base_ref }}..HEAD
+          cz check --rev-range origin/${{ github.base_ref }}..HEAD
 
   test:
     name: Test - Python ${{ matrix.python-version }}
@@ -127,20 +123,20 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          version: "0.8.22"
+          version: "0.12.3"
 
       - name: Cache pytest
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: |
             .pytest_cache
@@ -151,15 +147,13 @@ jobs:
             pytest-${{ runner.os }}-py${{ matrix.python-version }}-
 
       - name: Install dependencies
-        run: |
-          uv venv --clear --python ${{ matrix.python-version }}
-          uv pip install -e ".[dev]"
+        run: uv sync --locked --python ${{ matrix.python-version }} --group dev
 
       - name: Run non-slow tests
         id: test
         run: |
           echo "::group::Test Results"
-          uv run pytest tests/unit/ tests/integration/ tests/property/ -m "not slow and not stress" --timeout=120 -v
+          uv run pytest tests/ --ignore=tests/benchmarks -m "not slow and not stress and not network" --timeout=120 -v
           echo "::endgroup::"
 
       - name: Check coverage threshold
@@ -167,10 +161,9 @@ jobs:
         run: |
           echo "::group::Coverage Check"
           uv run pytest \
-            tests/unit/ \
-            tests/integration/ \
-            tests/property/ \
-            -m "not slow and not stress" \
+            tests/ \
+            --ignore=tests/benchmarks \
+            -m "not slow and not stress and not network" \
             --cov=proxywhirl.models \
             --cov=proxywhirl.strategies \
             --cov=proxywhirl.rotator \
@@ -179,6 +172,11 @@ jobs:
             --cov=proxywhirl.fetchers \
             --cov=proxywhirl.sources \
             --cov=proxywhirl.exceptions \
+            --cov=proxywhirl.api \
+            --cov=proxywhirl.security \
+            --cov=proxywhirl.mcp \
+            --cov=proxywhirl.credentials_manager \
+            --cov=proxywhirl.cache.crypto \
             --cov-report=term-missing \
             --cov-report=xml \
             --cov-report=json:coverage.json \
@@ -189,7 +187,7 @@ jobs:
           echo "::endgroup::"
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v6
         if: matrix.python-version == '3.11' && env.CODECOV_TOKEN_PRESENT == 'true'
         with:
           files: ./coverage.xml
@@ -199,7 +197,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: matrix.python-version == '3.11'
         with:
           name: coverage-data
@@ -213,20 +211,20 @@ jobs:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          version: "0.8.22"
+          version: "0.12.3"
 
       - name: Cache pytest
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: |
             .pytest_cache
@@ -237,12 +235,10 @@ jobs:
             pytest-extras-${{ runner.os }}-
 
       - name: Install dependencies with all extras
-        run: |
-          uv venv --clear --python 3.11
-          uv pip install -e ".[all,dev]"
+        run: uv sync --locked --python 3.11 --extra all --group dev
 
       - name: Run tests
-        run: uv run pytest tests/unit/ tests/integration/ tests/property/ -m "not slow and not stress" --timeout=120 -v
+        run: uv run pytest tests/unit/ tests/integration/ tests/property/ tests/api/ tests/contract/ -m "not slow and not stress and not network" --timeout=120 -v
 
   benchmark:
     name: Benchmark Performance Regression
@@ -251,22 +247,22 @@ jobs:
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           fetch-depth: 0 # Required to access baseline from git
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          version: "0.8.22"
+          version: "0.12.3"
 
       - name: Cache benchmark results
-        uses: actions/cache@v5
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: .benchmarks
           key: benchmarks-${{ runner.os }}-${{ github.sha }}
@@ -274,9 +270,7 @@ jobs:
             benchmarks-${{ runner.os }}-
 
       - name: Install dependencies
-        run: |
-          uv venv --clear --python 3.11
-          uv pip install -e ".[dev]"
+        run: uv sync --locked --python 3.11 --group dev
 
       - name: Run benchmarks with regression check
         id: benchmark
@@ -288,6 +282,7 @@ jobs:
           else
             echo "No benchmark baseline matching 0001 found; recording results without comparison."
           fi
+          # Non-blocking: records baselines without failing CI on first run or noisy benches.
           uv run pytest tests/benchmarks/ "${benchmark_args[@]}" || true
           echo "::endgroup::"
 
@@ -309,7 +304,7 @@ jobs:
 
       - name: Upload benchmark results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: benchmark-results
           path: |
@@ -323,28 +318,26 @@ jobs:
     needs: [lint, typecheck, test]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          version: "0.8.22"
+          version: "0.12.3"
 
       - name: Install build dependencies
-        run: |
-          uv venv --clear --python 3.11
-          uv pip install --python .venv/bin/python build
+        run: uv sync --locked --python 3.11
 
       - name: Build package
-        run: .venv/bin/python -m build
+        run: uv build
 
       - name: Store distribution packages
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: python-package-distributions
           path: dist/
@@ -354,27 +347,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          version: "0.8.22"
+          version: "0.12.3"
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v6.0.8
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
         with:
-          version: 10
+          version: 10.13.1
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: "24"
+          node-version: "24.19.0"
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
 
@@ -382,13 +375,15 @@ jobs:
         run: uv sync --locked --python 3.11
 
       - name: Install web dependencies
+        env:
+          NODE_OPTIONS: --disable-warning=DEP0169
         run: pnpm --dir web install --frozen-lockfile
 
       - name: Generate documentation references
         run: pnpm --dir web run docs:generate
 
       - name: Verify generated docs are committed
-        run: git diff --exit-code -- web/content/docs/generated web/content/generated
+        run: git diff --exit-code -- web/content/docs/generated web/content/docs/api/openapi web/content/generated web/public/llms.txt web/public/proxy-lists
 
       - name: Lint web documentation app
         run: pnpm --dir web run lint
@@ -398,6 +393,20 @@ jobs:
 
       - name: Build documentation site
         run: pnpm --dir web run build
+
+      - name: Install Playwright Chromium
+        run: pnpm --dir web exec playwright install --with-deps chromium
+
+      - name: Run web e2e (CI)
+        run: pnpm --dir web run test:e2e:ci
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7
 
       - name: Report workflow timing
         if: always()

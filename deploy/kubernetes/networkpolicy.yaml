@@ -14,10 +14,13 @@ spec:
   - from:
     - namespaceSelector:
         matchLabels:
-          name: proxywhirl
-    - podSelector:
+          kubernetes.io/metadata.name: proxywhirl
+    - namespaceSelector:
         matchLabels:
-          app: redis
+          kubernetes.io/metadata.name: ingress-nginx
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
     ports:
     - protocol: TCP
       port: 8000
@@ -30,14 +33,16 @@ spec:
     - protocol: UDP
       port: 53
   - to:
-    - podSelector:
-        matchLabels:
-          app: redis
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 100.64.0.0/10
+        - 127.0.0.0/8
+        - 169.254.0.0/16
+        - 172.16.0.0/12
+        - 192.168.0.0/16
     ports:
     - protocol: TCP
-      port: 6379
-  - to:
-    - namespaceSelector: {}
-    ports:
-    - protocol: TCP
-      port: 443
+      port: 1
+      endPort: 65535

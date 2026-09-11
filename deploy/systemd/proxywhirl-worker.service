@@ -1,6 +1,6 @@
 [Unit]
 Description=ProxyWhirl Background Health Check Service
-Documentation=https://proxywhirl.readthedocs.io
+Documentation=https://www.proxywhirl.com/docs/guides/deployment
 After=network-online.target proxywhirl.service
 Wants=network-online.target
 PartOf=proxywhirl.service

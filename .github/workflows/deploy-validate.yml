@@ -1,0 +1,232 @@
+name: Deploy Validate
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "feature/**"
+      - "fix/**"
+      - "enhancement/**"
+    paths:
+      - "deploy/**"
+      - "docker-compose.yml"
+      - "docker-compose-staging.yml"
+      - "Dockerfile"
+      - ".github/workflows/deploy-validate.yml"
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "deploy/**"
+      - "docker-compose.yml"
+      - "docker-compose-staging.yml"
+      - "Dockerfile"
+      - ".github/workflows/deploy-validate.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  env-contract:
+    name: Deploy Env Contract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Assert canonical encryption env names
+        run: |
+          set -euo pipefail
+
+          # Canonical app env (see proxywhirl/cache/crypto.py, settings/docs):
+          #   PROXYWHIRL_CACHE_ENCRYPTION_KEY  (preferred)
+          #   PROXYWHIRL_KEY                   (legacy master key)
+          # Deprecated deploy typo — must not appear in manifests:
+          #   PROXYWHIRL_ENCRYPTION_KEY
+          readonly CANONICAL='PROXYWHIRL_CACHE_ENCRYPTION_KEY'
+          readonly FORBIDDEN='PROXYWHIRL_ENCRYPTION_KEY'
+
+          mapfile -t MANIFESTS < <(
+            find deploy docker-compose.yml Dockerfile -type f \( \
+              -name '*.yml' -o -name '*.yaml' -o -name '.env.example' -o -name 'Dockerfile' \
+            \) 2>/dev/null | sort
+          )
+
+          if [ "${#MANIFESTS[@]}" -eq 0 ]; then
+            echo "::error::No deploy manifests found to validate"
+            exit 1
+          fi
+
+          echo "::group::Scanning manifests"
+          printf '%s\n' "${MANIFESTS[@]}"
+          echo "::endgroup::"
+
+          forbidden_hits="$(grep -RIn --fixed-strings "$FORBIDDEN" -- "${MANIFESTS[@]}" || true)"
+          if [ -n "$forbidden_hits" ]; then
+            echo "::error::Found deprecated $FORBIDDEN — replace with $CANONICAL"
+            echo "$forbidden_hits"
+            exit 1
+          fi
+
+          # Prod-oriented manifests that must wire cache encryption explicitly.
+          REQUIRED_PATHS=(
+            deploy/docker-compose.yml
+            deploy/helm/templates/deployment.yaml
+            deploy/kubernetes/deployment.yaml
+            deploy/.env.example
+          )
+
+          missing=0
+          for path in "${REQUIRED_PATHS[@]}"; do
+            if [ ! -f "$path" ]; then
+              echo "::error::Required manifest missing: $path"
+              missing=1
+              continue
+            fi
+            if ! grep -qF "$CANONICAL" "$path"; then
+              echo "::error::$path must set $CANONICAL (app-readable encryption env)"
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            exit 1
+          fi
+
+          echo "Env contract OK: $CANONICAL present; $FORBIDDEN absent."
+
+  helm-template:
+    name: Helm Template Smoke
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Install Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+        with:
+          version: "v4.2.3"
+
+      - name: Render chart (existing secret)
+        run: |
+          set -euo pipefail
+          helm template proxywhirl deploy/helm \
+            --set secrets.create=false \
+            --set secrets.existingSecret=proxywhirl-secrets \
+            --set ingress.enabled=false \
+            > /tmp/proxywhirl-helm-render.yaml
+          test -s /tmp/proxywhirl-helm-render.yaml
+          grep -q 'kind: Deployment' /tmp/proxywhirl-helm-render.yaml
+          grep -qF 'PROXYWHIRL_CACHE_ENCRYPTION_KEY' /tmp/proxywhirl-helm-render.yaml
+          grep -qF 'PROXYWHIRL_REQUIRE_AUTH' /tmp/proxywhirl-helm-render.yaml
+          echo "Helm template smoke OK ($(wc -l < /tmp/proxywhirl-helm-render.yaml) lines)"
+
+      - name: Upload rendered manifest
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: helm-template-render
+          path: /tmp/proxywhirl-helm-render.yaml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  deployment-artifacts:
+    name: Deployment Artifact Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Render Compose configurations
+        run: |
+          set -euo pipefail
+          for manifest in docker-compose.yml docker-compose-staging.yml deploy/docker-compose.yml; do
+            docker compose \
+              --env-file /dev/null \
+              -f "$manifest" \
+              config \
+              --quiet \
+              --no-interpolate \
+              --no-env-resolution
+          done
+
+      - name: Install verified kubeconform
+        env:
+          KUBECONFORM_VERSION: "0.7.0"
+          KUBECONFORM_SHA256: c31518ddd122663b3f3aa874cfe8178cb0988de944f29c74a0b9260920d115d3
+        run: |
+          set -euo pipefail
+          archive="kubeconform-linux-amd64.tar.gz"
+          curl --fail --silent --show-error --location \
+            "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/${archive}" \
+            --output "/tmp/${archive}"
+          printf '%s  %s\n' "$KUBECONFORM_SHA256" "/tmp/${archive}" | sha256sum --check
+          mkdir -p /tmp/kubeconform
+          tar -xzf "/tmp/${archive}" -C /tmp/kubeconform kubeconform
+          /tmp/kubeconform/kubeconform -v
+
+      - name: Validate Kubernetes and rendered Helm resources
+        run: |
+          set -euo pipefail
+          /tmp/kubeconform/kubeconform -strict -summary deploy/kubernetes
+          helm lint --strict deploy/helm
+          helm template proxywhirl deploy/helm > /tmp/proxywhirl-helm-render.yaml
+          /tmp/kubeconform/kubeconform -strict -summary /tmp/proxywhirl-helm-render.yaml
+
+          if helm template proxywhirl deploy/helm --set replicaCount=2 \
+            > /tmp/proxywhirl-helm-invalid.yaml 2> /tmp/proxywhirl-helm-invalid.err; then
+            echo "::error::Helm chart accepted unsupported replicaCount=2"
+            exit 1
+          fi
+          grep -qF 'supports exactly one application replica' /tmp/proxywhirl-helm-invalid.err
+
+      - name: Install verified promtool
+        env:
+          PROMETHEUS_VERSION: "3.12.0"
+          PROMETHEUS_SHA256: 20da47f8e5303f74aecb78edd7f7e39041dac08ac4939dba75efd7a900ae8867
+        run: |
+          set -euo pipefail
+          archive="prometheus-${PROMETHEUS_VERSION}.linux-amd64.tar.gz"
+          curl --fail --silent --show-error --location \
+            "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/${archive}" \
+            --output "/tmp/${archive}"
+          printf '%s  %s\n' "$PROMETHEUS_SHA256" "/tmp/${archive}" | sha256sum --check
+          tar -xzf "/tmp/${archive}" -C /tmp \
+            "prometheus-${PROMETHEUS_VERSION}.linux-amd64/promtool"
+
+      - name: Validate monitoring configuration
+        run: |
+          set -euo pipefail
+          promtool="/tmp/prometheus-3.12.0.linux-amd64/promtool"
+          "$promtool" check config deploy/monitoring/prometheus.yml
+          "$promtool" check rules deploy/monitoring/alert-rules.yml
+
+  terraform:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4
+        with:
+          terraform_version: "1.15.8"
+
+      - name: Check formatting
+        run: terraform -chdir=deploy/terraform fmt -check -diff
+
+      - name: Initialize without backend
+        run: terraform -chdir=deploy/terraform init -backend=false -lockfile=readonly -input=false
+
+      - name: Validate configuration
+        run: terraform -chdir=deploy/terraform validate -no-color

@@ -1,45 +1,35 @@
+# PromQL notes:
+# - Use rate() on counters (e.g. proxywhirl_requests_total), not raw counters, for error ratios.
+# - histogram_quantile() requires a rate() or increase() on the _bucket time series.
+# - Metric names must match proxywhirl/metrics_collector.py exports.
 groups:
   - name: proxywhirl
     interval: 30s
     rules:
       - alert: HighErrorRate
-        expr: rate(proxywhirl_errors_total[5m]) > 0.05
+        expr: |
+          sum(rate(proxywhirl_requests_total{status=~"5.."}[5m]))
+          /
+          sum(rate(proxywhirl_requests_total[5m])) > 0.05
         for: 5m
         annotations:
           summary: "High error rate detected"
-          description: "Error rate is {{ $value }}"
+          description: "Non-success request ratio is above 5%"
 
       - alert: LowProxyAvailability
-        expr: proxywhirl_available_proxies < 100
+        expr: proxywhirl_proxies_healthy < 100
         for: 5m
         annotations:
           summary: "Low proxy availability"
-          description: "Only {{ $value }} proxies available"
+          description: "Only {{ $value }} active proxies in pool"
 
       - alert: HighLatency
-        expr: histogram_quantile(0.95, proxywhirl_request_duration_seconds) > 10
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(proxywhirl_request_duration_seconds_bucket[5m])) by (le)
+          ) > 10
         for: 5m
         annotations:
           summary: "High request latency"
           description: "P95 latency is {{ $value }}s"
-
-      - alert: DatabaseConnectionFailure
-        expr: proxywhirl_database_connection_errors > 0
-        for: 2m
-        annotations:
-          summary: "Database connection failure"
-          description: "Database connection errors detected"
-
-      - alert: RedisDown
-        expr: up{job="redis"} == 0
-        for: 1m
-        annotations:
-          summary: "Redis instance is down"
-          description: "Redis is not responding"
-
-      - alert: PostgresDown
-        expr: up{job="postgres"} == 0
-        for: 1m
-        annotations:
-          summary: "PostgreSQL instance is down"
-          description: "PostgreSQL is not responding"

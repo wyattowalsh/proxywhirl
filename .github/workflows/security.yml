@@ -21,19 +21,20 @@ jobs:
       security-events: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
+        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
         with:
           languages: python
           queries: security-and-quality
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v4
+        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
         with:
           category: "/language:python"
 
+  # Primary dependency gate (PyPA). Failures block the workflow.
   pip-audit:
     name: Dependency Audit - Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
@@ -44,65 +45,84 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          version: "0.8.22"
+          version: "0.12.3"
 
       - name: Install dependencies
-        run: |
-          uv venv --clear --python ${{ matrix.python-version }}
-          uv pip install -e ".[dev]"
+        run: uv sync --locked --python ${{ matrix.python-version }} --group dev
 
       - name: Run pip-audit
         run: |
-          # Audit installed packages for known vulnerabilities
-          # Generate JSON output for artifacts (always runs)
-          uvx pip-audit \
+          set -euo pipefail
+
+          # Audit the locked project closure, including optional and development
+          # dependencies. A bare project-environment audit can report a false green
+          # environment and can therefore report a false green result.
+          uv export \
+            --frozen \
+            --all-extras \
+            --all-groups \
+            --no-hashes \
+            --no-emit-project \
+            --output-file audit-requirements.txt
+
+          # Generate JSON output for artifacts even when findings are present.
+          uvx --from pip-audit==2.10.1 pip-audit \
+            --requirement audit-requirements.txt \
+            --no-deps \
+            --disable-pip \
+            --strict \
             --format json \
             --output pip-audit-${{ matrix.python-version }}.json \
             || true
 
-          # Run with markdown output and fail on vulnerabilities
-          # This allows artifacts to be uploaded before failing
-          uvx pip-audit --format markdown
+          # Re-run as the blocking, human-readable gate.
+          uvx --from pip-audit==2.10.1 pip-audit \
+            --requirement audit-requirements.txt \
+            --no-deps \
+            --disable-pip \
+            --strict \
+            --format markdown
 
       - name: Upload audit results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: pip-audit-results-py${{ matrix.python-version }}
           path: pip-audit-*.json
           retention-days: 30
 
+  # Primary SAST gate. Failures block the workflow.
   bandit:
     name: Bandit Security Linter
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          version: "0.8.22"
+          version: "0.12.3"
 
       - name: Run Bandit security scan
         run: |
           # Artifact scan captures low+ severity findings for review.
-          uvx bandit \
+          uvx --from bandit==1.9.4 bandit \
             -r proxywhirl/ \
             -f json \
             -o bandit-report.json \
@@ -110,66 +130,163 @@ jobs:
             || true
 
           # Failing gate remains medium+ until existing low-severity findings are triaged.
-          # Local repro: uvx bandit -r proxywhirl/ -ll --format screen
-          uvx bandit -r proxywhirl/ -ll --format screen
+          # Local repro: uvx --from bandit==1.9.4 bandit -r proxywhirl/ -ll --format screen
+          uvx --from bandit==1.9.4 bandit -r proxywhirl/ -ll --format screen
 
       - name: Upload Bandit results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: bandit-results
           path: bandit-report.json
           retention-days: 30
 
+  # Independent blocking dependency gate. The unauthenticated legacy command is
+  # retained until Safety exposes an equivalent non-interactive scan interface.
   safety:
-    name: Safety Dependency Check
+    name: Safety Scan
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          version: "0.8.22"
+          version: "0.12.3"
 
       - name: Install dependencies
-        run: |
-          uv venv --clear --python 3.11
-          uv pip install -e ".[dev]"
+        run: uv sync --locked --python 3.11 --group dev
 
-      - name: Run Safety check
+      - name: Run Safety CLI 3 scan
         run: |
-          uv export --format requirements-txt --all-extras --no-dev --output-file safety-requirements.txt
+          set -euo pipefail
 
+          uv export \
+            --quiet \
+            --frozen \
+            --all-extras \
+            --all-groups \
+            --no-hashes \
+            --no-emit-project \
+            --output-file audit-requirements.txt \
+            >/dev/null
+
+          # Safety's unauthenticated JSON mode surrounds the document with a
+          # deprecation banner. Capture it off-log and normalize the embedded
+          # JSON while preserving Safety's blocking exit status.
           set +e
-          PYTHONWARNINGS="ignore::UserWarning" \
-            uvx --from "safety<3" --with "setuptools<81" \
-            safety check -r safety-requirements.txt --json > safety-report.json
-          json_status=$?
-
-          PYTHONWARNINGS="ignore::UserWarning" \
-            uvx --from "safety<3" --with "setuptools<81" \
-            safety check -r safety-requirements.txt
-          screen_status=$?
+          PYTHONWARNINGS=ignore SAFETY_API_KEY='' CI=1 NO_COLOR=1 \
+            uvx --from safety==3.8.1 safety --disable-optional-telemetry check \
+            --file audit-requirements.txt \
+            --output json \
+            > safety-report.raw \
+            2> safety-report.stderr
+          safety_status=$?
           set -e
 
-          if [ "$json_status" -ne 0 ] || [ "$screen_status" -ne 0 ]; then
-            exit 1
+          uv run python - <<'PY'
+          import json
+          from pathlib import Path
+          import re
+
+          raw = Path("safety-report.raw").read_text()
+          marker = '{\n    "report_meta"'
+          start = raw.find(marker)
+          if start < 0:
+              raise SystemExit("Safety produced no JSON report")
+          report, _ = json.JSONDecoder().raw_decode(raw[start:])
+          Path("safety-report.json").write_text(json.dumps(report, indent=2) + "\n")
+          stderr = Path("safety-report.stderr").read_text()
+          expected_warning = re.compile(
+              r"^.*safety/auth/main\.py:5: AuthlibDeprecationWarning: "
+              r"authlib\.jose module is deprecated, please use joserfc instead\.\n"
+              r"It will be compatible before version 2\.0\.0\.\n"
+              r"  from authlib\.jose\.errors import ExpiredTokenError\n$"
+          )
+          if stderr and expected_warning.fullmatch(stderr) is None:
+              raise SystemExit("Safety emitted unexpected stderr; inspect safety-report.stderr")
+          if stderr:
+              print("Safety emitted only its reviewed Authlib deprecation warning")
+          print(
+              "Safety scanned "
+              f"{len(report.get('scanned_packages', {}))} packages; "
+              f"vulnerabilities={len(report.get('vulnerabilities', []))}"
+          )
+          PY
+
+          if [ "$safety_status" -ne 0 ]; then
+            echo "::error::Safety reported vulnerabilities or failed to scan the frozen closure."
+            exit "$safety_status"
           fi
 
       - name: Upload Safety results
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: safety-results
-          path: safety-report.json
+          path: |
+            safety-report.json
+            safety-report.stderr
           retention-days: 30
+
+  geolite2-checksum:
+    name: GeoLite2 Checksum Policy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Download and verify GeoLite2-Country.mmdb
+        run: |
+          set -euo pipefail
+          GEOLITE2_URL="$(jq -er '.country.url' .github/dependency-pins/geolite2.json)"
+          GEOLITE2_SHA256="$(jq -er '.country.sha256' .github/dependency-pins/geolite2.json)"
+          GEOLITE2_RELEASE="$(jq -er '.country.release' .github/dependency-pins/geolite2.json)"
+
+          curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors \
+            "$GEOLITE2_URL" -o GeoLite2-Country.mmdb
+
+          echo "Downloaded GeoLite2-Country.mmdb ($(stat --format=%s GeoLite2-Country.mmdb) bytes)"
+          echo "${GEOLITE2_SHA256}  GeoLite2-Country.mmdb" | sha256sum -c -
+          sha256sum GeoLite2-Country.mmdb | tee -a "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## GeoLite2 checksum"
+            echo ""
+            echo "Verified \`GeoLite2-Country.mmdb\` release \`${GEOLITE2_RELEASE}\` against the repository pin."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  pnpm-audit:
+    name: pnpm audit (web)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@0e279bb959325dab635dd2c09392533439d90093 # v6.0.8
+        with:
+          version: 10.13.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24.19.0"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install web dependencies
+        env:
+          NODE_OPTIONS: --disable-warning=DEP0169
+        run: pnpm --dir web install --frozen-lockfile
+
+      - name: Run pnpm audit
+        run: pnpm --dir web audit --audit-level=moderate
 
   dependency-review:
     name: Dependency Review
@@ -180,10 +297,10 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
       - name: Dependency Review
-        uses: actions/dependency-review-action@v5
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0 (v5 branch)
         with:
           fail-on-severity: moderate
           comment-summary-in-pr: true

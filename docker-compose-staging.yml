@@ -1,88 +1,37 @@
-version: '3.8'
+# Staging stack for the supported ProxyWhirl API runtime.
+# Required values fail closed; provide them through the shell or an explicit env file.
 
 services:
   proxywhirl-api:
     build:
       context: .
-      dockerfile: Dockerfile.staging
+      dockerfile: Dockerfile
+    image: proxywhirl-api:0.4.0rc1
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
-      ENV: staging
-      DATABASE_URL: postgresql://user:password@postgres:5432/proxywhirl
-      REDIS_URL: redis://redis:6379/0
-      LOG_LEVEL: info
-    depends_on:
-      - postgres
-      - redis
+      PROXYWHIRL_BIND_HOST: "0.0.0.0"
+      PROXYWHIRL_REQUIRE_AUTH: "true"
+      PROXYWHIRL_PUBLIC_METRICS: "false"
+      PROXYWHIRL_API_KEY: ${PROXYWHIRL_API_KEY:?Set PROXYWHIRL_API_KEY}
+      PROXYWHIRL_CACHE_ENCRYPTION_KEY: ${PROXYWHIRL_CACHE_ENCRYPTION_KEY:?Set PROXYWHIRL_CACHE_ENCRYPTION_KEY}
+      PROXYWHIRL_STORAGE_PATH: /data/proxywhirl.db
+      PROXYWHIRL_LOG_LEVEL: INFO
     volumes:
-      - ./logs:/app/logs
-      - ./config:/app/config
-    networks:
-      - proxywhirl
-
-  proxywhirl-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile.staging
-    command: proxywhirl worker start
-    environment:
-      ENV: staging
-      DATABASE_URL: postgresql://user:password@postgres:5432/proxywhirl
-      REDIS_URL: redis://redis:6379/0
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - proxywhirl
-
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_DB: proxywhirl
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - proxywhirl
-
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-    networks:
-      - proxywhirl
-
-  prometheus:
-    image: prom/prometheus:latest
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    ports:
-      - "9090:9090"
-    networks:
-      - proxywhirl
-
-  grafana:
-    image: grafana/grafana:latest
-    environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
-    ports:
-      - "3000:3000"
-    depends_on:
-      - prometheus
-    volumes:
-      - grafana_data:/var/lib/grafana
-    networks:
-      - proxywhirl
+      - proxywhirl-staging-data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/ready', timeout=5)",
+        ]
+      interval: 30s
+      timeout: 10s
+      start_period: 10s
+      retries: 3
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
-  redis_data:
-  prometheus_data:
-  grafana_data:
-
-networks:
-  proxywhirl:
-    driver: bridge
+  proxywhirl-staging-data:

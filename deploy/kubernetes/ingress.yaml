@@ -5,7 +5,8 @@ metadata:
   namespace: proxywhirl
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
   ingressClassName: nginx
   tls:
@@ -22,4 +23,4 @@ spec:
           service:
             name: proxywhirl
             port:
-              number: 80
+              number: 8000

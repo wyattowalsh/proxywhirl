@@ -198,19 +198,24 @@ def get_test_file_count() -> int:
 
 
 def get_dependency_count() -> int:
-    """Count dependencies from pyproject.toml."""
+    """Count runtime dependencies from pyproject.toml using TOML parsing."""
     pyproject_path = Path("pyproject.toml")
     if not pyproject_path.exists():
         return 0
 
-    content = pyproject_path.read_text()
-    # Match lines in dependencies array
-    match = re.search(r"dependencies\s*=\s*\[(.*?)\]", content, re.DOTALL)
-    if match:
-        deps_block = match.group(1)
-        # Count quoted strings (each dependency)
-        deps = re.findall(r'"[^"]+[>=<][^"]*"', deps_block)
-        return len(deps)
+    try:
+        try:
+            import tomllib
+        except ImportError:
+            import tomli as tomllib  # type: ignore[no-redef]
+
+        data = tomllib.loads(pyproject_path.read_text())
+        deps = data.get("project", {}).get("dependencies", [])
+        if isinstance(deps, list):
+            return len(deps)
+    except Exception:
+        pass
+
     return 0
 
 
@@ -460,7 +465,7 @@ def generate_stats_svg(stats: ProjectStats, dry_run: bool = False) -> list[str]:
     </circle>
     <text x="35" y="38" text-anchor="middle" font-family="system-ui" font-size="9" font-weight="bold" fill="#22c55e">{stats.test_count}</text>
     <text x="70" y="32" font-family="system-ui" font-size="13" font-weight="600" class="text-main">Tests</text>
-    <text x="70" y="48" font-family="system-ui" font-size="10" class="text-sub">all passing</text>
+    <text x="70" y="48" font-family="system-ui" font-size="10" class="text-sub">unit tests</text>
     <g transform="translate(20, 65)">
       <rect width="135" height="4" rx="2" fill="#334155"/>
       <rect width="0" height="4" rx="2" fill="url(#greenGrad)">
@@ -469,7 +474,7 @@ def generate_stats_svg(stats: ProjectStats, dry_run: bool = False) -> list[str]:
     </g>
     <text x="155" y="80" text-anchor="end" font-family="monospace" font-size="9" fill="#22c55e">
       <animate attributeName="opacity" values="0;1" dur="0.5s" begin="1.9s" fill="freeze"/>
-      100%
+      {stats.coverage_percent:.0f}% cov
     </text>
   </g>
 

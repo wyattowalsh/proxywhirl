@@ -3,71 +3,73 @@ name: Release to PyPI
 on:
   workflow_dispatch:
     inputs:
-      version_bump:
-        description: 'Version bump type'
+      candidate_sha:
+        description: 'Exact 40-character main SHA that already passed remote assurance'
         required: true
-        default: 'patch'
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-          - custom
-      custom_version:
-        description: 'Custom version (only if version_bump is "custom")'
-        required: false
+        type: string
+      version:
+        description: 'Exact normalized PEP 440 version already present in pyproject.toml'
+        required: true
         type: string
 
 jobs:
   release:
     name: Build and Release
     runs-on: ubuntu-latest
+    environment: pypi
     # Required for trusted publishing (OIDC)
     permissions:
+      actions: read
       id-token: write
       contents: write
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@1cce3390c2bfda521930d01229c073c7ff920824 # v6.0.2
         with:
+          ref: ${{ inputs.candidate_sha }}
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.11"
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v8.2.0
+        uses: astral-sh/setup-uv@7390f777b051d6c47c9cb905ff80e7d5d85a7068 # v8.2.0
         with:
-          version: "0.8.22"
+          version: "0.12.3"
 
       - name: Install dependencies
-        run: |
-          uv venv --clear --python 3.11
-          uv pip install -e ".[dev]"
-          uv pip install build twine
+        run: uv sync --locked --python 3.11 --group dev
 
-      - name: Get current version
-        id: current_version
-        run: |
-          CURRENT=$(grep -m1 '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-          echo "version=$CURRENT" >> "$GITHUB_OUTPUT"
-          echo "Current version: $CURRENT"
-
-      - name: Calculate new version
-        id: new_version
+      - name: Validate immutable release candidate
+        id: release_metadata
         env:
-          CURRENT_VERSION: ${{ steps.current_version.outputs.version }}
-          VERSION_BUMP: ${{ inputs.version_bump }}
-          CUSTOM_VERSION: ${{ inputs.custom_version }}
+          EXPECTED_SHA: ${{ inputs.candidate_sha }}
+          EXPECTED_VERSION: ${{ inputs.version }}
         run: |
+          set -euo pipefail
+          if ! [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::candidate_sha must be a lowercase 40-character commit SHA."
+            exit 1
+          fi
+          if [ "$(git rev-parse HEAD)" != "$EXPECTED_SHA" ]; then
+            echo "::error::Checked-out commit does not match candidate_sha."
+            exit 1
+          fi
+          git fetch --no-tags origin main
+          if [ "$(git rev-parse origin/main)" != "$EXPECTED_SHA" ]; then
+            echo "::error::candidate_sha is not the current origin/main head."
+            exit 1
+          fi
+
           uv run python - <<'PY'
-          from pathlib import Path
           import os
           import sys
+          import tomllib
+          from pathlib import Path
 
           from packaging.version import InvalidVersion, Version
 
@@ -90,82 +92,105 @@ jobs:
               return version
 
 
-          current = pep440_version(os.environ["CURRENT_VERSION"], "Current version")
-          bump = os.environ["VERSION_BUMP"]
-          custom = os.environ.get("CUSTOM_VERSION", "").strip()
-
-          if bump == "custom":
-              version_text = str(pep440_version(custom, "custom_version"))
-          else:
-              if bump not in {"major", "minor", "patch"}:
-                  fail("version_bump must be one of: major, minor, patch, custom.")
-              release = list(current.release)
-              release.extend([0] * (3 - len(release)))
-              major, minor, patch = release[:3]
-              if bump == "major":
-                  version_text = f"{major + 1}.0.0"
-              elif bump == "minor":
-                  version_text = f"{major}.{minor + 1}.0"
-              else:
-                  version_text = f"{major}.{minor}.{patch + 1}"
-              pep440_version(version_text, "Calculated version")
+          expected = pep440_version(os.environ["EXPECTED_VERSION"], "version")
+          with Path("pyproject.toml").open("rb") as project_file:
+              project = tomllib.load(project_file)
+          actual = pep440_version(project["project"]["version"], "project.version")
+          commitizen = pep440_version(project["tool"]["commitizen"]["version"], "commitizen.version")
+          if actual != expected or commitizen != expected:
+              fail(
+                  "version input, project.version, and tool.commitizen.version must match "
+                  f"exactly (input={expected}, project={actual}, commitizen={commitizen})."
+              )
 
           with Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as output:
-              output.write(f"version={version_text}\n")
-          print(f"New version: {version_text}")
+              output.write(f"version={expected}\n")
+              output.write(f"prerelease={'true' if expected.is_prerelease else 'false'}\n")
+          print(f"Validated release candidate v{expected}")
           PY
 
-      - name: Update version in pyproject.toml
+      - name: Require exact-SHA remote assurance
         env:
-          NEW_VERSION: ${{ steps.new_version.outputs.version }}
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SHA: ${{ inputs.candidate_sha }}
         run: |
-          sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" pyproject.toml
-          # Also update version in __init__.py if it exists
-          if [ -f "proxywhirl/__init__.py" ]; then
-            sed -i "s/__version__ = \".*\"/__version__ = \"$NEW_VERSION\"/" proxywhirl/__init__.py
-          fi
-          echo "Updated to version $NEW_VERSION"
-          grep -m1 '^version = ' pyproject.toml
+          set -euo pipefail
+          runs_file="$RUNNER_TEMP/exact-sha-runs.json"
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$EXPECTED_SHA&per_page=100" > "$runs_file"
+          for workflow in "CI" "Security Scan" "Validate Proxy Sources"; do
+            conclusion="$(jq -r --arg workflow "$workflow" '
+              [.workflow_runs[] | select(.name == $workflow)]
+              | sort_by(.run_number)
+              | last
+              | .conclusion // "missing"
+            ' "$runs_file")"
+            run_id="$(jq -r --arg workflow "$workflow" '
+              [.workflow_runs[] | select(.name == $workflow)]
+              | sort_by(.run_number)
+              | last
+              | .id // "missing"
+            ' "$runs_file")"
+            echo "$workflow: run=$run_id conclusion=$conclusion" | tee -a "$GITHUB_STEP_SUMMARY"
+            if [ "$conclusion" != "success" ]; then
+              echo "::error::$workflow must have a latest successful run on $EXPECTED_SHA (got $conclusion)."
+              exit 1
+            fi
+          done
 
-      - name: Run tests
-        run: uv run pytest -m "not slow" -q
+      - name: Re-run non-slow candidate tests
+        run: uv run pytest tests/ --ignore=tests/benchmarks -m "not slow and not stress and not network" --timeout=120 -q
 
       - name: Build package
-        run: uv run python -m build
+        run: uv build
 
       - name: Check package
-        run: uv run twine check dist/*
+        run: uvx --from twine==6.2.0 twine check dist/*
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        # Uses trusted publishing (OIDC) - no API token needed
-        # Configure at: https://pypi.org/manage/project/proxywhirl/settings/publishing/
-
-      - name: Commit version bump
+      - name: Create or verify release tag
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          VERSION: ${{ steps.release_metadata.outputs.version }}
         run: |
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pyproject.toml proxywhirl/__init__.py 2>/dev/null || git add pyproject.toml
-          git commit -m "chore(release): bump version to ${{ steps.new_version.outputs.version }}"
-          git push
+          git fetch --tags origin
+          if git show-ref --verify --quiet "refs/tags/v${VERSION}"; then
+            if [ "$(git rev-list -n 1 "v${VERSION}")" != "$CANDIDATE_SHA" ]; then
+              echo "::error::Existing v${VERSION} tag does not point to candidate_sha."
+              exit 1
+            fi
+            echo "Verified existing v${VERSION} tag at $CANDIDATE_SHA."
+          else
+            git tag -a "v${VERSION}" "$CANDIDATE_SHA" -m "Release v${VERSION}"
+          fi
+
+      - name: Push release tag
+        env:
+          VERSION: ${{ steps.release_metadata.outputs.version }}
+        run: git push origin "refs/tags/v${VERSION}"
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # release/v1
+        # Trusted publishing (OIDC): https://pypi.org/manage/project/proxywhirl/settings/publishing/
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
-          tag_name: v${{ steps.new_version.outputs.version }}
-          name: Release v${{ steps.new_version.outputs.version }}
+          tag_name: v${{ steps.release_metadata.outputs.version }}
+          name: Release v${{ steps.release_metadata.outputs.version }}
           body: |
-            ## proxywhirl v${{ steps.new_version.outputs.version }}
+            ## proxywhirl v${{ steps.release_metadata.outputs.version }}
 
             ### Changes
             See [CHANGELOG](https://github.com/wyattowalsh/proxywhirl/blob/main/docs/CHANGELOG.md) for details.
 
             ### Installation
             ```bash
-            pip install proxywhirl==${{ steps.new_version.outputs.version }}
+            pip install proxywhirl==${{ steps.release_metadata.outputs.version }}
             ```
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.release_metadata.outputs.prerelease }}
           files: |
             dist/*.whl
             dist/*.tar.gz

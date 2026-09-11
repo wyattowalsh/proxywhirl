@@ -14,14 +14,7 @@ spec:
     app: proxywhirl
   ports:
   - name: http
-    port: 80
-    targetPort: http
-    protocol: TCP
-  - name: metrics
     port: 8000
     targetPort: http
     protocol: TCP
-  sessionAffinity: ClientIP
-  sessionAffinityConfig:
-    clientIP:
-      timeoutSeconds: 3600
+  sessionAffinity: None

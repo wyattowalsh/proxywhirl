@@ -1,8 +1,10 @@
-replicaCount: 3
+# External Redis is optional and is not bundled as a subchart.
+# ReadWriteOnce SQLite storage is intentionally single-replica.
+replicaCount: 1
 
 image:
-  repository: proxywhirl
-  tag: latest
+  repository: ghcr.io/wyattowalsh/proxywhirl
+  tag: "0.4.0rc1"
   pullPolicy: IfNotPresent
 
 service:
@@ -14,21 +16,19 @@ config:
   auth:
     requireAuth: true
     publicMetrics: false
+  bindHost: "0.0.0.0"
   logging:
     level: INFO
 
 secrets:
   create: false
   existingSecret: proxywhirl-secrets
-  encryptionKey: ""
+  cacheEncryptionKey: ""
   apiKey: ""
-
-persistence:
-  enabled: true
-  mountPath: /data
+  redisUrl: ""
 
 ingress:
-  enabled: true
+  enabled: false
   className: "nginx"
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
@@ -50,24 +50,36 @@ resources:
     cpu: 250m
     memory: 256Mi
 
-postgresql:
-  enabled: true
-  auth:
-    username: proxywhirl
-    existingSecret: proxywhirl-postgresql
-    database: proxywhirl
-
 redis:
-  enabled: true
-  host: redis
-  port: 6379
-  database: 0
-  auth:
-    enabled: false
+  enabled: false
+  existingSecret: proxywhirl-secrets
 
-autoscaling:
+serviceAccount:
+  create: true
+  automount: false
+  annotations: {}
+  name: ""
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+podAnnotations: {}
+imagePullSecrets: []
+affinity: {}
+
+persistence:
   enabled: true
-  minReplicas: 2
-  maxReplicas: 10
-  targetCPUUtilizationPercentage: 80
-  targetMemoryUtilizationPercentage: 80
+  mountPath: /data
+  accessModes:
+    - ReadWriteOnce
+  size: 10Gi
+  storageClassName: ""

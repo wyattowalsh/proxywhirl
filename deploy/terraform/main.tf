@@ -1,17 +1,44 @@
 # ProxyWhirl Terraform Module for AWS Deployment
+#
+# Hardening defaults:
+# - assign_public_ip = false (private subnets + NAT / ALB ingress)
+# - app_version must be an explicit semver/tag (not "latest")
+# - API/cache secrets injected from AWS Secrets Manager or SSM Parameter Store ARNs
 
 terraform {
   required_version = ">= 1.0"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.0"
     }
   }
 }
 
 provider "aws" {
   region = var.aws_region
+}
+
+locals {
+  tags = {
+    Environment = var.environment
+    Project     = "proxywhirl"
+    Terraform   = "true"
+  }
+
+  # Prefer Secrets Manager; fall back to SSM Parameter Store ARN pattern.
+  secrets_arn = (
+    var.secrets_manager_secret_arn != "" ? var.secrets_manager_secret_arn :
+    var.ssm_parameter_arn != "" ? var.ssm_parameter_arn :
+    null
+  )
+}
+
+check "secrets_backend_configured" {
+  assert {
+    condition     = local.secrets_arn != null
+    error_message = "Set secrets_manager_secret_arn or ssm_parameter_arn for API/cache secrets."
+  }
 }
 
 # ECS Cluster
@@ -33,6 +60,8 @@ resource "aws_ecs_task_definition" "proxywhirl" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = "256"
   memory                   = "512"
+  execution_role_arn       = var.ecs_execution_role_arn
+  task_role_arn            = var.ecs_task_role_arn
 
   container_definitions = jsonencode([{
     name      = "proxywhirl"
@@ -47,8 +76,37 @@ resource "aws_ecs_task_definition" "proxywhirl" {
       {
         name  = "ENVIRONMENT"
         value = var.environment
+      },
+      {
+        name  = "PROXYWHIRL_REQUIRE_AUTH"
+        value = "true"
+      },
+      {
+        name  = "PROXYWHIRL_PUBLIC_METRICS"
+        value = "false"
+      },
+      {
+        name  = "PROXYWHIRL_BIND_HOST"
+        value = "0.0.0.0"
       }
     ]
+    secrets = [
+      {
+        name      = "PROXYWHIRL_API_KEY"
+        valueFrom = "${local.secrets_arn}:api-key::"
+      },
+      {
+        name      = "PROXYWHIRL_CACHE_ENCRYPTION_KEY"
+        valueFrom = "${local.secrets_arn}:cache-encryption-key::"
+      }
+    ]
+    healthCheck = {
+      command     = ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/ready', timeout=5)\""]
+      interval    = 30
+      timeout     = 10
+      retries     = 3
+      startPeriod = 10
+    }
     logConfiguration = {
       logDriver = "awslogs"
       options = {
@@ -73,61 +131,10 @@ resource "aws_ecs_service" "proxywhirl" {
   network_configuration {
     subnets          = var.subnet_ids
     security_groups  = [aws_security_group.proxywhirl.id]
-    assign_public_ip = true
+    assign_public_ip = var.assign_public_ip
   }
 
   tags = local.tags
-}
-
-# Auto Scaling
-resource "aws_appautoscaling_target" "proxywhirl_target" {
-  max_capacity       = var.max_capacity
-  min_capacity       = var.min_capacity
-  resource_id        = "service/${aws_ecs_cluster.proxywhirl.name}/${aws_ecs_service.proxywhirl.name}"
-  scalable_dimension = "ecs:service:DesiredCount"
-  service_namespace  = "ecs"
-}
-
-# Variables
-variable "aws_region" {
-  default = "us-east-1"
-}
-
-variable "environment" {
-  default = "production"
-}
-
-variable "app_version" {
-  default = "latest"
-}
-
-variable "docker_image" {
-  default = "proxywhirl"
-}
-
-variable "desired_count" {
-  default = 3
-}
-
-variable "min_capacity" {
-  default = 2
-}
-
-variable "max_capacity" {
-  default = 10
-}
-
-variable "subnet_ids" {
-  type = list(string)
-}
-
-# Tags
-locals {
-  tags = {
-    Environment = var.environment
-    Project     = "proxywhirl"
-    Terraform   = "true"
-  }
 }
 
 # CloudWatch Log Group
@@ -146,7 +153,7 @@ resource "aws_security_group" "proxywhirl" {
     from_port   = 8000
     to_port     = 8000
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.allowed_ingress_cidr_blocks
   }
 
   egress {

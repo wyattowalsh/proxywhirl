@@ -62,6 +62,9 @@ lerna-debug.log*
 
 ### dotenv ###
 .env
+# Local CLI config may contain encrypted credentials / pool paths
+.proxywhirl.toml
+**/.proxywhirl.toml
 
 ### Git ###
 # Created by git for backups. To disable backups in Git:
@@ -480,6 +483,7 @@ web/playwright-report/
 web/test-results/
 web/public/README.md
 web/public/docs/
+.terraform/
 .cli-test-data*/
 .cli-test-config*/
 .cli-test-home*/
