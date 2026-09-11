@@ -4,12 +4,14 @@ import asyncio
 import inspect
 import json
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
 
 from proxywhirl.circuit_breaker import CircuitBreaker
+from proxywhirl.exceptions import ProxyPoolEmptyError
 from proxywhirl.mcp.auth import MCPAuth
 from proxywhirl.mcp.server import (
     ProxyWhirlMCPServer,
@@ -29,15 +31,15 @@ from proxywhirl.models import HealthStatus, Proxy, ProxyPool, ProxySource
 from proxywhirl.rotator import AsyncProxyWhirl
 
 
-async def list_proxies(api_key: str | None = None) -> dict[str, object]:
+async def list_proxies(api_key: str | None = None) -> dict[str, Any]:
     return await _proxywhirl_tool(action="list", api_key=api_key)
 
 
-async def rotate_proxy(api_key: str | None = None) -> dict[str, object]:
+async def rotate_proxy(api_key: str | None = None) -> dict[str, Any]:
     return await _proxywhirl_tool(action="rotate", api_key=api_key)
 
 
-async def proxy_status(proxy_id: str, api_key: str | None = None) -> dict[str, object]:
+async def proxy_status(proxy_id: str, api_key: str | None = None) -> dict[str, Any]:
     return await _proxywhirl_tool(action="status", proxy_id=proxy_id, api_key=api_key)
 
 
@@ -45,8 +47,8 @@ async def recommend_proxy(
     region: str | None = None,
     performance: str | None = "medium",
     api_key: str | None = None,
-) -> dict[str, object]:
-    criteria: dict[str, object] = {}
+) -> dict[str, Any]:
+    criteria: dict[str, Any] = {}
     if region is not None:
         criteria["region"] = region
     if performance is not None:
@@ -73,6 +75,43 @@ def test_sanitize_error_text_redacts_url_credentials_and_sensitive_query_params(
     assert "api_key=***" in sanitized
     assert "token=***" in sanitized
     assert "page=1" in sanitized
+
+
+@pytest.mark.parametrize(
+    ("error", "sensitive_markers"),
+    [
+        (
+            "request failed with Authorization: Bearer bearer_probe_marker",
+            ("bearer_probe_marker",),
+        ),
+        ("request failed with api_key=api_key_probe_marker", ("api_key_probe_marker",)),
+        ("request failed with token=token_probe_marker", ("token_probe_marker",)),
+        ("request failed with password=password_probe_marker", ("password_probe_marker",)),
+        (
+            "failed via http://url_user_marker:url_pass_marker@proxy.example.com:8080/"
+            "?api_key=query_probe_marker and Authorization: Bearer bearer_probe_marker "
+            "token=token_probe_marker password=password_probe_marker",
+            (
+                "url_user_marker",
+                "url_pass_marker",
+                "query_probe_marker",
+                "bearer_probe_marker",
+                "token_probe_marker",
+                "password_probe_marker",
+            ),
+        ),
+    ],
+)
+def test_sanitize_error_text_redacts_standalone_and_mixed_secrets(
+    error: str,
+    sensitive_markers: tuple[str, ...],
+) -> None:
+    """Model-visible failures redact secrets outside URL-shaped substrings too."""
+    sanitized = _sanitize_error_text(error)
+
+    assert "***" in sanitized
+    for marker in sensitive_markers:
+        assert marker not in sanitized
 
 
 @pytest.fixture
@@ -241,13 +280,27 @@ class TestGetSetRotator:
 class TestGetSetAuth:
     """Test get_auth and set_auth functions."""
 
+    def test_get_auth_loads_mcp_settings_api_key(self) -> None:
+        """get_auth must load PROXYWHIRL_MCP_API_KEY via MCPSettings when unset."""
+        from pydantic import SecretStr
+
+        set_auth(None)
+        mock_settings = MagicMock()
+        mock_settings.api_key = SecretStr("from-env-key")
+        with patch("proxywhirl.mcp.server.MCPSettings", return_value=mock_settings) as settings_cls:
+            auth = get_auth()
+        settings_cls.assert_called_once()
+        assert auth.api_key == "from-env-key"
+
     def test_get_auth_creates_new_instance(self) -> None:
         """Test that get_auth creates a new instance when none exists."""
         # Clear the global auth
         set_auth(None)
 
-        # Get auth should create a new instance
-        auth = get_auth()
+        # Get auth should create a new instance (no env key → open)
+        with patch("proxywhirl.mcp.server.MCPSettings") as settings_cls:
+            settings_cls.return_value.api_key = None
+            auth = get_auth()
         assert auth is not None
         assert isinstance(auth, MCPAuth)
         assert auth.api_key is None  # Default: no auth required
@@ -321,7 +374,7 @@ class TestListProxiesTool:
             health_status=HealthStatus.HEALTHY,
             source=ProxySource.USER,
         )
-        mock_rotator.pool.add_proxy(proxy)
+        await mock_rotator.pool.aadd_proxy(proxy)
 
         result = await list_proxies()
 
@@ -350,17 +403,19 @@ class TestRotateProxyTool:
         result = await rotate_proxy()
 
         assert "proxy" in result
-        assert "id" in result["proxy"]
-        assert "url" in result["proxy"]
-        assert "status" in result["proxy"]
-        assert "success_rate" in result["proxy"]
-        assert "avg_latency_ms" in result["proxy"]
-        assert "region" in result["proxy"]
+        proxy = result["proxy"]
+        assert isinstance(proxy, dict)
+        assert "id" in proxy
+        assert "url" in proxy
+        assert "status" in proxy
+        assert "success_rate" in proxy
+        assert "avg_latency_ms" in proxy
+        assert "region" in proxy
 
     async def test_rotate_proxy_empty_pool(self) -> None:
         """Test rotate_proxy with empty pool."""
-        empty_rotator = AsyncProxyWhirl()
-        empty_rotator.pool = ProxyPool(name="empty_pool", proxies=[])
+        empty_rotator = AsyncMock(spec=AsyncProxyWhirl)
+        empty_rotator.get_proxy.side_effect = ProxyPoolEmptyError("Proxy pool is empty")
         await set_rotator(empty_rotator)
 
         result = await rotate_proxy()
@@ -375,7 +430,9 @@ class TestRotateProxyTool:
         result = await rotate_proxy()
 
         assert "error" in result
-        assert "Failed to select proxy" in result["error"]
+        error = result["error"]
+        assert isinstance(error, str)
+        assert "Failed to select proxy" in error
 
 
 class TestProxyStatusTool:
@@ -383,7 +440,7 @@ class TestProxyStatusTool:
 
     async def test_proxy_status_valid_id(self, mock_rotator) -> None:
         """Test proxy_status with valid proxy ID."""
-        proxy_id = str(mock_rotator.pool.proxies[0].id)
+        proxy_id = str((await mock_rotator.pool.aget_all_proxies())[0].id)
         result = await proxy_status(proxy_id)
 
         assert result["proxy_id"] == proxy_id
@@ -435,14 +492,14 @@ class TestProxyStatusTool:
 
     async def test_proxy_status_with_circuit_breaker(self, mock_rotator) -> None:
         """Test proxy_status includes circuit breaker state."""
-        proxy_id = str(mock_rotator.pool.proxies[0].id)
+        proxy_id = str((await mock_rotator.pool.aget_all_proxies())[0].id)
         result = await proxy_status(proxy_id)
 
         assert result["health"]["circuit_breaker"] in ["closed", "open", "half_open"]
 
     async def test_proxy_status_without_circuit_breaker(self, mock_rotator) -> None:
         """Test proxy_status when no circuit breaker exists."""
-        proxy_id = str(mock_rotator.pool.proxies[1].id)
+        proxy_id = str((await mock_rotator.pool.aget_all_proxies())[1].id)
         result = await proxy_status(proxy_id)
 
         assert result["health"]["circuit_breaker"] == "unknown"
@@ -805,7 +862,7 @@ class TestToolAuthentication:
     async def test_proxy_status_with_valid_auth(self, mock_rotator) -> None:
         """Test proxy_status succeeds with valid API key."""
         set_auth(MCPAuth(api_key="valid-key"))
-        proxy_id = str(mock_rotator.pool.proxies[0].id)
+        proxy_id = str((await mock_rotator.pool.aget_all_proxies())[0].id)
 
         result = await proxy_status(proxy_id, api_key="valid-key")
 
@@ -815,7 +872,7 @@ class TestToolAuthentication:
     async def test_proxy_status_with_invalid_auth(self, mock_rotator) -> None:
         """Test proxy_status fails with invalid API key."""
         set_auth(MCPAuth(api_key="valid-key"))
-        proxy_id = str(mock_rotator.pool.proxies[0].id)
+        proxy_id = str((await mock_rotator.pool.aget_all_proxies())[0].id)
 
         result = await proxy_status(proxy_id, api_key="invalid-key")
 
@@ -1002,7 +1059,7 @@ class TestUnifiedProxywhirlTool:
 
     async def test_proxywhirl_status_action(self, mock_rotator) -> None:
         """Test proxywhirl(action='status', proxy_id=...) returns proxy details."""
-        proxy_id = str(mock_rotator.pool.proxies[0].id)
+        proxy_id = str((await mock_rotator.pool.aget_all_proxies())[0].id)
         result = await _proxywhirl_tool(action="status", proxy_id=proxy_id)
 
         assert result["proxy_id"] == proxy_id
@@ -1049,7 +1106,7 @@ class TestUnifiedProxywhirlTool:
 
     async def test_proxywhirl_reset_cb_action(self, mock_rotator) -> None:
         """Test proxywhirl(action='reset_cb', proxy_id=...) resets circuit breaker."""
-        proxy_id = str(mock_rotator.pool.proxies[0].id)
+        proxy_id = str((await mock_rotator.pool.aget_all_proxies())[0].id)
         result = await _proxywhirl_tool(action="reset_cb", proxy_id=proxy_id)
 
         assert result["success"] is True
@@ -1064,15 +1121,15 @@ class TestUnifiedProxywhirlTool:
         assert "proxy_id required" in result["error"]
         assert result["code"] == 400
 
-    async def test_proxywhirl_unknown_action(self) -> None:
-        """Test that unknown action returns error."""
-        # Note: Due to Literal type, we need to use the internal function
-        # to test with an invalid action
+    async def test_proxywhirl_unknown_action(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Unknown actions fail closed (401) without auth before handler returns 400."""
+        set_auth(MCPAuth())
+        monkeypatch.delenv("PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES", raising=False)
         result = await _proxywhirl_tool(action="invalid")  # type: ignore[arg-type]
 
         assert "error" in result
-        assert "Unknown action" in result["error"]
-        assert result["code"] == 400
+        assert "Authentication required" in result["error"]
+        assert result["code"] == 401
 
     async def test_proxywhirl_with_api_key(self, mock_rotator) -> None:
         """Test proxywhirl passes api_key correctly to underlying implementations."""
@@ -1133,7 +1190,7 @@ class TestUnifiedProxywhirlTool:
     async def test_proxywhirl_reset_cb_no_circuit_breaker(self, mock_rotator) -> None:
         """Test reset_cb when no circuit breaker exists for proxy."""
         # proxy2 does not have a circuit breaker
-        proxy_id = str(mock_rotator.pool.proxies[1].id)
+        proxy_id = str((await mock_rotator.pool.aget_all_proxies())[1].id)
         result = await _proxywhirl_tool(action="reset_cb", proxy_id=proxy_id)
 
         assert "error" in result
@@ -1142,6 +1199,15 @@ class TestUnifiedProxywhirlTool:
 
 class TestCleanupRotator:
     """Test cleanup_rotator function."""
+
+    async def test_cleanup_rotator_uses_rotator_close_contract(self, mock_rotator) -> None:
+        """Cleanup must close the primary client and pooled clients through aclose()."""
+        await set_rotator(mock_rotator)
+
+        with patch.object(mock_rotator, "aclose", new_callable=AsyncMock) as close:
+            await cleanup_rotator()
+
+        close.assert_awaited_once_with()
 
     async def test_cleanup_rotator_clears_global(self, mock_rotator) -> None:
         """Test cleanup_rotator clears the global rotator."""
@@ -1211,6 +1277,37 @@ class TestMCPLifespan:
 class TestAutoLoadFromDatabase:
     """Test auto-load from database functionality."""
 
+    async def test_get_rotator_skips_auto_fetch_without_api_key(
+        self, tmp_path, monkeypatch
+    ) -> None:
+        """RV-030: empty pool must not auto-fetch without API key or AUTO_FETCH=1."""
+        await set_rotator(None)
+        monkeypatch.delenv("PROXYWHIRL_MCP_API_KEY", raising=False)
+        monkeypatch.delenv("PROXYWHIRL_MCP_AUTO_FETCH", raising=False)
+        db_path = tmp_path / "missing.db"
+        monkeypatch.setattr(
+            "proxywhirl.mcp.server._mcp_db_path",
+            db_path,
+        )
+        with patch(
+            "proxywhirl.mcp.server._auto_fetch_proxies", new_callable=AsyncMock
+        ) as mock_fetch:
+            rotator = await get_rotator()
+            mock_fetch.assert_not_called()
+            assert await rotator.pool.asize() == 0
+
+    async def test_get_rotator_auto_fetch_with_env_override(self, tmp_path, monkeypatch) -> None:
+        """RV-030: PROXYWHIRL_MCP_AUTO_FETCH=1 allows cold-start fetch without API key."""
+        await set_rotator(None)
+        monkeypatch.delenv("PROXYWHIRL_MCP_API_KEY", raising=False)
+        monkeypatch.setenv("PROXYWHIRL_MCP_AUTO_FETCH", "1")
+        monkeypatch.setattr("proxywhirl.mcp.server._mcp_db_path", tmp_path / "missing.db")
+        with patch(
+            "proxywhirl.mcp.server._auto_fetch_proxies", new_callable=AsyncMock
+        ) as mock_fetch:
+            await get_rotator()
+            mock_fetch.assert_called_once()
+
     async def test_get_rotator_creates_instance_without_db(self, tmp_path, monkeypatch) -> None:
         """Test get_rotator creates instance when no database exists."""
         import os
@@ -1231,16 +1328,13 @@ class TestAutoLoadFromDatabase:
                 assert rotator is not None
                 assert isinstance(rotator, AsyncProxyWhirl)
                 # Pool should be empty since no DB exists and auto-fetch is mocked
-                assert rotator.pool.size == 0
+                assert await rotator.pool.asize() == 0
         finally:
             os.chdir(original_cwd)
             await cleanup_rotator()
 
-    @pytest.mark.skip(reason="Test environment issue with global MCP rotator state and auto-fetch")
     async def test_get_rotator_auto_loads_when_db_exists(self, tmp_path, monkeypatch) -> None:
         """Test get_rotator auto-loads proxies when proxywhirl.db exists."""
-        import os
-
         # Clear the global rotator first
         await cleanup_rotator()
 
@@ -1263,10 +1357,7 @@ class TestAutoLoadFromDatabase:
         )
         await storage.save([test_proxy])
         await storage.close()
-
-        # Change to tmp_path where our test DB exists
-        original_cwd = os.getcwd()
-        os.chdir(tmp_path)
+        monkeypatch.setattr("proxywhirl.mcp.server._mcp_db_path", db_path)
 
         try:
             rotator = await get_rotator()
@@ -1274,12 +1365,11 @@ class TestAutoLoadFromDatabase:
             assert rotator is not None
             assert isinstance(rotator, AsyncProxyWhirl)
             # Pool should have the proxy we saved
-            assert rotator.pool.size == 1
-            loaded_proxies = rotator.pool.get_all_proxies()
+            assert await rotator.pool.asize() == 1
+            loaded_proxies = await rotator.pool.aget_all_proxies()
             assert len(loaded_proxies) == 1
             assert str(loaded_proxies[0].url) == "http://test-db-proxy.example.com:8080"
         finally:
-            os.chdir(original_cwd)
             await cleanup_rotator()
 
     async def test_get_rotator_handles_db_error_gracefully(self, tmp_path, monkeypatch) -> None:
@@ -1315,7 +1405,7 @@ class TestAddProxyAction:
         """Test successfully adding a proxy."""
         await set_rotator(mock_rotator)
         try:
-            initial_size = mock_rotator.pool.size
+            initial_size = await mock_rotator.pool.asize()
             result = await _proxywhirl_tool(
                 action="add",
                 proxy_url="http://newproxy.example.com:8080",
@@ -1386,9 +1476,9 @@ class TestRemoveProxyAction:
         await set_rotator(mock_rotator)
         try:
             # Get a proxy ID from the pool
-            proxies = mock_rotator.pool.get_all_proxies()
+            proxies = await mock_rotator.pool.aget_all_proxies()
             proxy_id = str(proxies[0].id)
-            initial_size = mock_rotator.pool.size
+            initial_size = await mock_rotator.pool.asize()
 
             with patch.object(
                 mock_rotator, "remove_proxy", wraps=mock_rotator.remove_proxy
@@ -1499,7 +1589,7 @@ class TestValidateProxyAction:
         """Test validating a single proxy."""
         await set_rotator(mock_rotator)
         try:
-            proxies = mock_rotator.pool.get_all_proxies()
+            proxies = await mock_rotator.pool.aget_all_proxies()
             proxy_id = str(proxies[0].id)
 
             # Mock httpx to avoid actual network calls
@@ -1843,11 +1933,36 @@ class TestEdgeCases:
         finally:
             await cleanup_rotator()
 
+    async def test_validate_proxy_uses_tls_verification_by_default(
+        self, mock_rotator: AsyncProxyWhirl
+    ) -> None:
+        """MCP validate must use verify=True by default on the HTTP client."""
+        await set_rotator(mock_rotator)
+        try:
+            proxies = await mock_rotator.pool.aget_all_proxies()
+            proxy_id = str(proxies[0].id)
+
+            with patch("httpx.AsyncClient") as mock_client:
+                mock_instance = MagicMock()
+                mock_response = MagicMock()
+                mock_response.status_code = 200
+                mock_instance.get = AsyncMock(return_value=mock_response)
+                mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+                mock_instance.__aexit__ = AsyncMock(return_value=None)
+                mock_client.return_value = mock_instance
+
+                await _proxywhirl_tool(action="validate", proxy_id=proxy_id)
+
+                _, kwargs = mock_client.call_args
+                assert kwargs.get("verify") is True
+        finally:
+            await cleanup_rotator()
+
     async def test_validate_proxy_connection_failure(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test validate proxy handles connection failures."""
         await set_rotator(mock_rotator)
         try:
-            proxies = mock_rotator.pool.get_all_proxies()
+            proxies = await mock_rotator.pool.aget_all_proxies()
             proxy_id = str(proxies[0].id)
 
             with patch("httpx.AsyncClient") as mock_client:
@@ -1882,7 +1997,7 @@ class TestEdgeCases:
         """Test remove_proxy also removes circuit breaker."""
         await set_rotator(mock_rotator)
         try:
-            proxies = mock_rotator.pool.get_all_proxies()
+            proxies = await mock_rotator.pool.aget_all_proxies()
             proxy = proxies[0]
             proxy_id = str(proxy.id)
 
@@ -2009,6 +2124,26 @@ class TestAuthMiddleware:
         result = await middleware.on_call_tool(mock_context, mock_call_next)
 
         assert result == call_next_result
+
+    async def test_middleware_on_call_tool_unknown_write_fail_closed(self, mock_rotator) -> None:
+        """Unknown mutating actions must fail closed at middleware when unauthenticated."""
+        from proxywhirl.mcp.server import ProxyWhirlAuthMiddleware
+
+        set_auth(MCPAuth())
+        middleware = ProxyWhirlAuthMiddleware()
+
+        mock_message = MagicMock()
+        mock_message.params = MagicMock()
+        mock_message.params.arguments = {"action": "destroy_pool"}
+        mock_context = MagicMock()
+        mock_context.message = mock_message
+
+        async def mock_call_next(ctx):
+            return {"success": True}
+
+        result = await middleware.on_call_tool(mock_context, mock_call_next)
+        assert result["code"] == 401
+        assert "Authentication required" in result["error"]
 
     async def test_middleware_on_call_tool_missing_params(self, mock_rotator) -> None:
         """Test on_call_tool handles missing params gracefully."""

@@ -87,12 +87,13 @@ class TestAuthenticationRotation:
 
         rotator = ProxyWhirl(proxies=proxies)
 
-        # Make requests through all proxies
-        for i in range(3):
+        # Make requests through all proxies (order follows UUID-stable round-robin)
+        for _ in range(3):
             response = rotator.get("https://httpbin.org/test")
             assert response.status_code == 200
-            # Verify correct proxy was used based on round-robin
-            assert proxies[i].total_requests == 1
+
+        assert sum(p.total_requests for p in proxies) == 3
+        assert all(p.total_requests == 1 for p in proxies)
 
     @respx.mock
     def test_credential_isolation_between_proxies(

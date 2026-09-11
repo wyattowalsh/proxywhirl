@@ -10,7 +10,12 @@ import pytest
 import respx
 from httpx import Response
 
-from proxywhirl.geo import batch_geolocate, enrich_proxies_with_geo
+from proxywhirl.geo import (
+    batch_geolocate,
+    continent_for_country,
+    enrich_proxies_with_geo,
+    reset_geo_cache,
+)
 
 
 @pytest.mark.asyncio
@@ -69,9 +74,44 @@ async def test_batch_geolocate_multiple_batches(monkeypatch) -> None:
 def test_enrich_proxies_with_geo() -> None:
     """Proxy dicts should get country fields from geo data."""
     proxies = [{"ip": "1.1.1.1"}, {"ip": "2.2.2.2"}]
-    geo_data = {"1.1.1.1": {"country": "A", "countryCode": "AA"}}
+    geo_data = {
+        "1.1.1.1": {"country": "United States", "countryCode": "US", "continentCode": "NA"},
+    }
 
     enriched = enrich_proxies_with_geo(proxies, geo_data)
-    assert enriched[0]["country"] == "A"
-    assert enriched[0]["country_code"] == "AA"
+    assert enriched[0]["country"] == "United States"
+    assert enriched[0]["country_code"] == "US"
+    assert enriched[0]["continent_code"] == "NA"
     assert enriched[1]["country"] is None
+
+
+def test_continent_for_country_mapping() -> None:
+    assert continent_for_country("de") == "EU"
+    assert continent_for_country("ZZ") == "AS"
+
+
+@pytest.mark.asyncio
+@respx.mock
+async def test_batch_geolocate_api_sets_continent(monkeypatch) -> None:
+    """External API results should include continent codes."""
+    reset_geo_cache()
+    route = respx.post("https://ip-api.com/batch?fields=query,country,countryCode,status")
+    route.return_value = Response(
+        200,
+        json=[
+            {
+                "query": "8.8.8.8",
+                "status": "success",
+                "country": "United States",
+                "countryCode": "US",
+            }
+        ],
+    )
+
+    result = await batch_geolocate(
+        ["8.8.8.8"],
+        allow_external_api=True,
+        db_path=Path("/does/not/exist.mmdb"),
+    )
+
+    assert result["8.8.8.8"]["continentCode"] == "NA"

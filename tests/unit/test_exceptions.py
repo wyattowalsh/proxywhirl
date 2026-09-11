@@ -447,11 +447,7 @@ class TestCacheStorageError:
 
 
 class TestCacheValidationError:
-    """Tests for CacheValidationError.
-
-    Note: CacheValidationError has multiple inheritance (ValueError, ProxyWhirlError)
-    which causes issues with super().__init__. We test what we can.
-    """
+    """Tests for CacheValidationError's ValueError and rich-error contracts."""
 
     def test_class_inherits_from_value_error(self) -> None:
         """Test CacheValidationError class inherits from ValueError."""
@@ -463,17 +459,20 @@ class TestCacheValidationError:
         assert CacheValidationError.error_code == ProxyErrorCode.CACHE_VALIDATION_FAILED
 
     def test_instantiation_with_message_only(self) -> None:
-        """Test that instantiation works with just a message (no kwargs due to MRO issue)."""
-        # Due to multiple inheritance, super().__init__ goes to ValueError first
-        # which doesn't accept keyword arguments. This tests current behavior.
-        try:
-            # Try with just message - might work depending on how MRO resolves
-            error = CacheValidationError("Schema mismatch")
-            # If it works, check message is set
-            assert "Schema mismatch" in str(error)
-        except TypeError:
-            # Expected due to MRO issues with multiple inheritance
-            pytest.skip("CacheValidationError has MRO issues with multiple inheritance")
+        """Instantiation initializes the rich ProxyWhirl error state."""
+        error = CacheValidationError(
+            "Schema mismatch",
+            tier="l2",
+            operation="deserialize",
+            cache_slot="public-value",
+        )
+
+        assert "Schema mismatch" in str(error)
+        assert error.tier == "l2"
+        assert error.retry_recommended is False
+        assert error.operation == "deserialize"
+        assert error.metadata == {"cache_slot": "public-value"}
+        assert error.to_dict()["error_code"] == "CACHE_VALIDATION_FAILED"
 
 
 class TestExceptionInheritance:
@@ -491,7 +490,7 @@ class TestExceptionInheritance:
             ProxyStorageError("test"),
             CacheCorruptionError(),
             CacheStorageError(),
-            # CacheValidationError excluded due to MRO issues with multiple inheritance
+            CacheValidationError("test"),
         ]
         for exc in exceptions:
             assert isinstance(exc, ProxyWhirlError)

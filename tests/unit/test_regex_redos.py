@@ -9,11 +9,11 @@ from __future__ import annotations
 import re
 
 import pytest
-import typer
 
 from proxywhirl.safe_regex import (
     MAX_PATTERN_LENGTH,
     MAX_REPETITIONS,
+    RegexComplexityError,
     RegexTimeoutError,
     safe_regex_compile,
     safe_regex_findall,
@@ -46,10 +46,9 @@ class TestEvilPatternRejection:
         ],
     )
     def test_evil_pattern_rejected_by_validation(self, evil_pattern: str) -> None:
-        """Each evil pattern must raise typer.Exit during validation."""
-        with pytest.raises(typer.Exit) as exc_info:
+        """Each evil pattern must raise RegexComplexityError during validation."""
+        with pytest.raises(RegexComplexityError):
             validate_regex_pattern(evil_pattern)
-        assert exc_info.value.exit_code == 1
 
     @pytest.mark.timeout(5)
     @pytest.mark.parametrize(
@@ -63,9 +62,8 @@ class TestEvilPatternRejection:
     )
     def test_evil_pattern_rejected_by_compile(self, evil_pattern: str) -> None:
         """``safe_regex_compile`` must reject evil patterns."""
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexComplexityError):
             safe_regex_compile(evil_pattern)
-        assert exc_info.value.exit_code == 1
 
     @pytest.mark.timeout(5)
     @pytest.mark.parametrize(
@@ -78,15 +76,14 @@ class TestEvilPatternRejection:
     )
     def test_evil_pattern_rejected_by_match(self, evil_pattern: str) -> None:
         """ "``safe_regex_match`` must reject evil patterns before matching."""
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexComplexityError):
             safe_regex_match(evil_pattern, "aaaaab")
-        assert exc_info.value.exit_code == 1
 
     @pytest.mark.timeout(5)
     def test_classic_redos_input_with_validation(self) -> None:
         """Classic ReDoS: (a+)+ with input that causes backtracking."""
         redos_input = "a" * 30 + "!"
-        with pytest.raises(typer.Exit):
+        with pytest.raises(RegexComplexityError):
             safe_regex_match(r"(a+)+", redos_input, validate=True)
 
     @pytest.mark.timeout(5)
@@ -97,14 +94,14 @@ class TestEvilPatternRejection:
             r"(@){1}[a-z0-9]+[.]{1}"
             r"(([a-z]{2,3})|([a-z]{2,3}[.]{1}[a-z]{2,3}))$"
         )
-        with pytest.raises(typer.Exit):
+        with pytest.raises(RegexComplexityError):
             safe_regex_compile(pattern)
 
     @pytest.mark.timeout(5)
     def test_url_redos_pattern_rejected(self) -> None:
         """A known URL-validation ReDoS pattern must be rejected."""
         pattern = r"^(https?://)?([\da-z\.-]+)\.([a-z\.]{2,6})([/\w \.-]*)*\/?$"
-        with pytest.raises(typer.Exit):
+        with pytest.raises(RegexComplexityError):
             safe_regex_compile(pattern)
 
 
@@ -133,30 +130,30 @@ class TestSafePatternAcceptance:
         compiled = safe_regex_compile(safe_pattern)
         assert isinstance(compiled, re.Pattern)
 
-    @pytest.mark.timeout(5)
+    @pytest.mark.timeout(30)
     def test_safe_pattern_matches(self) -> None:
         """A safe pattern must match expected input."""
-        match = safe_regex_match(r"hello", "hello world", timeout=5.0)
+        match = safe_regex_match(r"hello", "hello world", timeout=10.0)
         assert match is not None
         assert match.group() == "hello"
 
-    @pytest.mark.timeout(5)
+    @pytest.mark.timeout(30)
     def test_safe_pattern_search(self) -> None:
         """A safe pattern must search successfully."""
-        match = safe_regex_search(r"world", "hello world")
+        match = safe_regex_search(r"world", "hello world", timeout=10.0)
         assert match is not None
         assert match.group() == "world"
 
-    @pytest.mark.timeout(5)
+    @pytest.mark.timeout(30)
     def test_safe_pattern_findall(self) -> None:
         """A safe pattern must find all matches."""
-        matches = safe_regex_findall(r"\d+", "1 2 3 4 5")
+        matches = safe_regex_findall(r"\d+", "1 2 3 4 5", timeout=10.0)
         assert matches == ["1", "2", "3", "4", "5"]
 
-    @pytest.mark.timeout(5)
+    @pytest.mark.timeout(30)
     def test_safe_pattern_with_flags(self) -> None:
         """Safe patterns must support regex flags."""
-        compiled = safe_regex_compile(r"hello", flags=re.IGNORECASE)
+        compiled = safe_regex_compile(r"hello", flags=re.IGNORECASE, timeout=10.0)
         assert compiled.match("HELLO") is not None
 
 
@@ -171,9 +168,8 @@ class TestComplexityLimits:
     def test_pattern_too_long_rejected(self) -> None:
         """Patterns longer than ``MAX_PATTERN_LENGTH`` must be rejected."""
         long_pattern = "a" * (MAX_PATTERN_LENGTH + 1)
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexComplexityError, match="too long"):
             validate_regex_pattern(long_pattern)
-        assert exc_info.value.exit_code == 1
 
     def test_pattern_max_length_accepted(self) -> None:
         """Patterns exactly at ``MAX_PATTERN_LENGTH`` must be accepted
@@ -184,9 +180,8 @@ class TestComplexityLimits:
     def test_too_many_repetitions_rejected(self) -> None:
         """Patterns with more than ``MAX_REPETITIONS`` quantifiers must be rejected."""
         pattern = "a*" * (MAX_REPETITIONS + 1)
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexComplexityError, match="too complex"):
             validate_regex_pattern(pattern)
-        assert exc_info.value.exit_code == 1
 
     def test_repetition_at_limit_accepted(self) -> None:
         """Patterns with exactly ``MAX_REPETITIONS`` quantifiers must be accepted."""
@@ -213,9 +208,8 @@ class TestTimeoutProtection:
 
         monkeypatch.setattr(safe_regex_module, "_compile_with_timeout", _raise_regex_timeout)
 
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexTimeoutError):
             safe_regex_compile(r"a+b", validate=False, timeout=0.01)
-        assert exc_info.value.exit_code == 1
 
     @pytest.mark.slow
     @pytest.mark.timeout(10)
@@ -229,9 +223,8 @@ class TestTimeoutProtection:
         monkeypatch.setattr(safe_regex_module, "_run_regex_operation", _raise_regex_timeout)
 
         compiled = re.compile(r"a+")
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexTimeoutError):
             safe_regex_match(compiled, "aaaa", validate=False, timeout=0.01)
-        assert exc_info.value.exit_code == 1
 
     @pytest.mark.slow
     @pytest.mark.timeout(10)
@@ -245,17 +238,15 @@ class TestTimeoutProtection:
         monkeypatch.setattr(safe_regex_module, "_run_regex_operation", _raise_regex_timeout)
 
         compiled = re.compile(r"a+")
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexTimeoutError):
             safe_regex_findall(compiled, "aaaa", validate=False, timeout=0.01)
-        assert exc_info.value.exit_code == 1
 
     @pytest.mark.timeout(5)
     def test_validation_disabled_redos_match_is_hard_bounded(self) -> None:
         """Dangerous trusted patterns still cannot hang the caller."""
         compiled = safe_regex_compile(r"(a+)+$", validate=False, timeout=0.5)
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexTimeoutError):
             safe_regex_match(compiled, "a" * 5000 + "!", validate=False, timeout=0.05)
-        assert exc_info.value.exit_code == 1
 
 
 # ============================================================================

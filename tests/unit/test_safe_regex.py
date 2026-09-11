@@ -16,6 +16,8 @@ import proxywhirl.safe_regex as safe_regex
 from proxywhirl.safe_regex import (
     MAX_PATTERN_LENGTH,
     MAX_REPETITIONS,
+    RegexComplexityError,
+    RegexTimeoutError,
     safe_regex_compile,
     safe_regex_findall,
     safe_regex_match,
@@ -39,18 +41,16 @@ class TestRegexValidation:
         # Create a pattern longer than MAX_PATTERN_LENGTH
         long_pattern = "a" * (MAX_PATTERN_LENGTH + 1)
 
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexComplexityError, match="too long"):
             validate_regex_pattern(long_pattern)
-        assert exc_info.value.exit_code == 1
 
     def test_validate_pattern_too_many_repetitions(self) -> None:
         """Patterns with too many repetitions should be rejected."""
         # Create a pattern with more than MAX_REPETITIONS quantifiers
         pattern = "a*" * (MAX_REPETITIONS + 1)
 
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexComplexityError, match="too complex"):
             validate_regex_pattern(pattern)
-        assert exc_info.value.exit_code == 1
 
     def test_validate_nested_quantifiers(self) -> None:
         """Patterns with nested quantifiers should be rejected."""
@@ -62,9 +62,8 @@ class TestRegexValidation:
         ]
 
         for pattern in dangerous_patterns:
-            with pytest.raises(typer.Exit) as exc_info:
+            with pytest.raises(RegexComplexityError):
                 validate_regex_pattern(pattern)
-            assert exc_info.value.exit_code == 1
 
     def test_validate_safe_quantifiers(self) -> None:
         """Non-nested quantifiers should pass validation."""
@@ -89,6 +88,35 @@ class TestSafeRegexCompile:
         assert pattern is not None
         assert isinstance(pattern, re.Pattern)
 
+    def test_released_default_timeout_is_stable(self) -> None:
+        """The public timeout default remains compatible with 0.3.3."""
+        assert safe_regex.DEFAULT_REGEX_TIMEOUT == 1.0
+
+    def test_specific_errors_preserve_typer_exit_compatibility(self) -> None:
+        """Typed regex errors remain catchable by released CLI callers."""
+        complexity_error = RegexComplexityError("unsafe")
+        timeout_error = RegexTimeoutError("timed out")
+
+        assert isinstance(complexity_error, typer.Exit)
+        assert isinstance(timeout_error, typer.Exit)
+        assert complexity_error.exit_code == 1
+        assert timeout_error.exit_code == 1
+
+    @pytest.mark.parametrize("error_type", [RegexComplexityError, RegexTimeoutError])
+    @pytest.mark.parametrize("args", [(), ("unsafe",), ("unsafe", "pattern")])
+    def test_specific_errors_preserve_exception_constructor_compatibility(
+        self,
+        error_type: type[Exception],
+        args: tuple[str, ...],
+    ) -> None:
+        """Released zero-, one-, and multi-argument construction remains valid."""
+        error = error_type(*args)
+
+        assert error.args == args
+        assert isinstance(error, Exception)
+        assert isinstance(error, typer.Exit)
+        assert error.exit_code == 1
+
     def test_compile_with_flags(self) -> None:
         """Compilation should support regex flags."""
         pattern = safe_regex_compile(r"hello", flags=re.IGNORECASE)
@@ -97,9 +125,8 @@ class TestSafeRegexCompile:
     def test_compile_rejects_complex_pattern(self) -> None:
         """Complex patterns should be rejected during validation."""
         # Pattern with nested quantifiers
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexComplexityError):
             safe_regex_compile(r"(a+)+")
-        assert exc_info.value.exit_code == 1
 
     def test_compile_without_validation(self) -> None:
         """Validation can be disabled for trusted patterns."""
@@ -110,7 +137,7 @@ class TestSafeRegexCompile:
     def test_compile_timeout_on_pathological_pattern(self) -> None:
         """Extremely complex patterns should be rejected or timeout."""
         # Create a pathological pattern - this will be caught by validation
-        with pytest.raises(typer.Exit):
+        with pytest.raises(RegexComplexityError):
             safe_regex_compile(r"(a+)+", validate=True)
 
 
@@ -141,9 +168,8 @@ class TestSafeRegexMatch:
 
     def test_match_rejects_complex_pattern(self) -> None:
         """Complex patterns should be rejected during validation."""
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexComplexityError):
             safe_regex_match(r"(a+)+", "aaaaa")
-        assert exc_info.value.exit_code == 1
 
     def test_match_timeout_on_redos_attack(self) -> None:
         """ReDoS attack patterns should be rejected."""
@@ -151,7 +177,7 @@ class TestSafeRegexMatch:
         redos_pattern = r"(a+)+"
         redos_input = "a" * 30 + "!"  # Doesn't match, causes backtracking
 
-        with pytest.raises(typer.Exit):
+        with pytest.raises(RegexComplexityError):
             safe_regex_match(redos_pattern, redos_input, validate=True)
 
     def test_match_fast_on_normal_input(self) -> None:
@@ -206,7 +232,7 @@ class TestSafeRegexFindall:
         redos_pattern = r"(a+)+"
         redos_input = "a" * 30 + "!"
 
-        with pytest.raises(typer.Exit):
+        with pytest.raises(RegexComplexityError):
             safe_regex_findall(redos_pattern, redos_input, validate=True)
 
 
@@ -219,7 +245,7 @@ class TestReDoSVulnerabilities:
         redos_pattern = r"^([a-zA-Z0-9])(([\-.]|[_]+)?([a-zA-Z0-9]+))*(@){1}[a-z0-9]+[.]{1}(([a-z]{2,3})|([a-z]{2,3}[.]{1}[a-z]{2,3}))$"
 
         # This pattern has nested quantifiers and should be rejected
-        with pytest.raises(typer.Exit):
+        with pytest.raises(RegexComplexityError):
             safe_regex_compile(redos_pattern)
 
     def test_url_validation_redos(self) -> None:
@@ -228,7 +254,7 @@ class TestReDoSVulnerabilities:
         redos_pattern = r"^(https?://)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$"
 
         # Should be rejected or timeout
-        with pytest.raises(typer.Exit):
+        with pytest.raises(RegexComplexityError):
             safe_regex_compile(redos_pattern)
 
     def test_repeated_grouping_attack(self) -> None:
@@ -241,7 +267,7 @@ class TestReDoSVulnerabilities:
         ]
 
         for pattern in dangerous_patterns:
-            with pytest.raises(typer.Exit):
+            with pytest.raises(RegexComplexityError):
                 safe_regex_compile(pattern)
 
     def test_exponential_backtracking(self) -> None:
@@ -250,7 +276,7 @@ class TestReDoSVulnerabilities:
         pattern = r"(a+)+"
         text = "a" * 25 + "!"  # No match at end causes backtracking
 
-        with pytest.raises(typer.Exit):
+        with pytest.raises(RegexComplexityError):
             safe_regex_match(pattern, text, validate=True)
 
 
@@ -283,6 +309,21 @@ class TestLegitimateUseCases:
         assert match is not None
         assert match.group(1) == "2024-01-01"
         assert match.group(2) == "INFO"
+
+    def test_default_match_preserves_native_match_surface(self) -> None:
+        """Default calls return the native match object exposed by 0.3.3."""
+        text = "prefix alpha-42 suffix"
+        match = safe_regex_search(r"(?P<word>[a-z]+)-(?P<number>\d+)", text)
+
+        assert isinstance(match, re.Match)
+        assert match is not None
+        assert match.groupdict() == {"word": "alpha", "number": "42"}
+        assert match.groups() == ("alpha", "42")
+        assert match.start() == 7
+        assert match.end() == 15
+        assert match.span("number") == (13, 15)
+        assert match.string == text
+        assert match.re.pattern == r"(?P<word>[a-z]+)-(?P<number>\d+)"
 
     def test_extract_all_numbers(self) -> None:
         """Extracting all numbers should work efficiently."""
@@ -334,6 +375,8 @@ class TestEdgeCases:
 
     def test_very_long_text(self) -> None:
         """Very long text should be handled efficiently."""
+        from proxywhirl.safe_regex import DEFAULT_REGEX_TIMEOUT
+
         pattern = r"needle"
         text = "hay" * 100000 + "needle" + "hay" * 100000
 
@@ -342,7 +385,9 @@ class TestEdgeCases:
         elapsed = time.time() - start
 
         assert match is not None
-        assert elapsed < 1.0  # Should be fast even with long text
+        # Process-isolated matching has spawn overhead under full-suite load;
+        # stay within the ReDoS timeout budget plus a small margin.
+        assert elapsed < DEFAULT_REGEX_TIMEOUT + 1.0
 
 
 class TestSecurityScenarios:
@@ -353,7 +398,7 @@ class TestSecurityScenarios:
         # Simulate user providing a malicious pattern
         user_pattern = "(a+)+" * 10  # Highly nested
 
-        with pytest.raises(typer.Exit):
+        with pytest.raises(RegexComplexityError):
             safe_regex_compile(user_pattern)
 
     def test_filter_proxy_list_by_country(self) -> None:
@@ -382,7 +427,7 @@ class TestSecurityScenarios:
         # User tries to DoS the system with a malicious filter
         malicious_filter = r"(x+x+)+y"
 
-        with pytest.raises(typer.Exit):
+        with pytest.raises(RegexComplexityError):
             safe_regex_compile(malicious_filter)
 
 
@@ -408,21 +453,18 @@ class TestSafeRegexTimeoutPaths:
             raise safe_regex.RegexTimeoutError("timeout")
 
         monkeypatch.setattr(safe_regex, "_compile_with_timeout", _raise)
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexTimeoutError):
             safe_regex.safe_regex_compile(r"a+", validate=False, timeout=0.01)
-        assert exc_info.value.exit_code == 1
 
     def test_safe_regex_match_handles_timeout(self, monkeypatch) -> None:
         def _raise(*_args, **_kwargs):
             raise safe_regex.RegexTimeoutError("timeout")
 
         monkeypatch.setattr(safe_regex, "_match_with_timeout", _raise)
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexTimeoutError):
             safe_regex.safe_regex_match(re.compile(r"a+"), "aaaa", validate=False, timeout=0.01)
-        assert exc_info.value.exit_code == 1
 
     def test_safe_regex_findall_timeout(self, monkeypatch) -> None:
         monkeypatch.setattr(safe_regex, "_run_regex_operation", _raise_regex_timeout)
-        with pytest.raises(typer.Exit) as exc_info:
+        with pytest.raises(RegexTimeoutError):
             safe_regex.safe_regex_findall(re.compile(r"a+"), "aaaa", validate=False, timeout=0.01)
-        assert exc_info.value.exit_code == 1

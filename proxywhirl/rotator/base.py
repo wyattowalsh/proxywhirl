@@ -7,6 +7,7 @@ reducing code duplication and ensuring consistent behavior.
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -46,6 +47,16 @@ class ProxyRotatorBase:
     - Circuit breaker state checking
     - Proxy selection with circuit breaker filtering
     - Common attribute initialization
+
+    Concurrency notes:
+    - Pool and strategy mutations use ``threading`` locks. Sync rotators may
+      call helpers directly. Async rotators should offload
+      ``_select_proxy_with_circuit_breaker`` (and pool mutations) via
+      ``asyncio.to_thread`` or ``ProxyPool`` ``a*`` helpers so the event loop
+      is not blocked.
+    - Circuit eligibility for selection uses ``is_eligible()`` (no probe
+      reservation). Probe acquisition happens at request time via
+      ``try_acquire_probe`` / ``should_attempt_request``.
 
     Attributes:
         pool: Proxy pool instance
@@ -143,7 +154,7 @@ class ProxyRotatorBase:
         """
         circuit_breaker = self.circuit_breakers.get(str(proxy.id))
         if circuit_breaker:
-            return circuit_breaker.should_attempt_request()
+            return circuit_breaker.is_eligible()
         # If no circuit breaker exists, allow the request
         return True
 
@@ -155,8 +166,13 @@ class ProxyRotatorBase:
         Select a proxy while respecting circuit breaker states.
 
         This method filters the proxy pool to only include proxies
-        whose circuit breakers are not open, then uses the rotation
-        strategy to select from the available proxies.
+        whose circuit breakers are eligible (not open / not mid-probe),
+        then uses the rotation strategy to select from the available proxies.
+
+        Eligibility filtering is intentionally non-mutating (``is_eligible``).
+        Half-open probe reservation happens when a request is actually
+        attempted (see RetryExecutor), so multiple selection passes cannot
+        consume the single probe slot.
 
         Args:
             context: Optional selection context for strategy-aware filtering
@@ -168,8 +184,8 @@ class ProxyRotatorBase:
             ProxyPoolEmptyError: If no healthy proxies available or all circuit breakers open
 
         Note:
-            The method takes a snapshot of proxies to avoid race conditions
-            during iteration in multi-threaded/async environments.
+            Takes a pool snapshot under the pool RLock. From async code, call
+            via ``asyncio.to_thread(self._select_proxy_with_circuit_breaker, ...)``.
         """
         # Take a snapshot to avoid race conditions during iteration
         # For sync rotator, use get_all_proxies(); for async, use proxies directly
@@ -193,7 +209,7 @@ class ProxyRotatorBase:
                 continue
 
             circuit_breaker = self.circuit_breakers.get(str(proxy.id))
-            if circuit_breaker is None or circuit_breaker.should_attempt_request():
+            if circuit_breaker is None or circuit_breaker.is_eligible():
                 available_proxies.append(proxy)
 
         if expired_count > 0:
@@ -211,6 +227,13 @@ class ProxyRotatorBase:
 
         # Select from available proxies using strategy
         return self.strategy.select(temp_pool, context)
+
+    async def _aselect_proxy_with_circuit_breaker(
+        self,
+        context: SelectionContext | None = None,
+    ) -> Proxy:
+        """Async-safe proxy selection; offloads thread-locked pool work."""
+        return await asyncio.to_thread(self._select_proxy_with_circuit_breaker, context)
 
     def _init_circuit_breakers_for_proxies(self, proxies: list[Proxy]) -> None:
         """

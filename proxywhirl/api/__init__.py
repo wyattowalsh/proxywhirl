@@ -11,15 +11,18 @@ This package provides the FastAPI-based REST API for ProxyWhirl, including:
 Usage:
     from proxywhirl.api import app
 
-    # Run with uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    # Local default (loopback). Non-loopback binds require auth or an explicit
+    # insecure override; lifespan refuses open binds without authentication.
+    uvicorn.run(app, host="127.0.0.1", port=8000)
 
 Environment Variables:
     PROXYWHIRL_STORAGE_PATH: Path to SQLite database
     PROXYWHIRL_STRATEGY: Rotation strategy (default: round-robin)
     PROXYWHIRL_TIMEOUT: Request timeout in seconds (default: 30)
     PROXYWHIRL_MAX_RETRIES: Max retry attempts (default: 3)
-    PROXYWHIRL_REQUIRE_AUTH: Require API key auth (default: false)
+    PROXYWHIRL_REQUIRE_AUTH: Require API key auth (default: false for local;
+        set true + PROXYWHIRL_API_KEY for non-loopback / production binds)
+    PROXYWHIRL_BIND_HOST: Bind address (default: 127.0.0.1)
     PROXYWHIRL_CORS_ORIGINS: Comma-separated CORS origins
 """
 

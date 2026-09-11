@@ -15,7 +15,11 @@ class TestAnonymityDetection:
 
     async def test_anonymity_transparent(self) -> None:
         """T016: Test detection of transparent proxy (leaks real IP)."""
-        validator = ProxyValidator(level=ValidationLevel.FULL, test_url=TEST_URL)
+        validator = ProxyValidator(
+            level=ValidationLevel.FULL,
+            test_url=TEST_URL,
+            anonymity_test_url=TEST_URL,
+        )
 
         # Mock response that reveals real IP in headers
         with respx.mock:
@@ -34,7 +38,11 @@ class TestAnonymityDetection:
 
     async def test_anonymity_anonymous(self) -> None:
         """T017: Test detection of anonymous proxy (hides IP but reveals proxy use)."""
-        validator = ProxyValidator(level=ValidationLevel.FULL, test_url=TEST_URL)
+        validator = ProxyValidator(
+            level=ValidationLevel.FULL,
+            test_url=TEST_URL,
+            anonymity_test_url=TEST_URL,
+        )
 
         # Mock response that hides real IP but shows proxy headers
         with respx.mock:
@@ -52,7 +60,11 @@ class TestAnonymityDetection:
 
     async def test_anonymity_elite(self) -> None:
         """T018: Test detection of elite proxy (completely hides proxy use)."""
-        validator = ProxyValidator(level=ValidationLevel.FULL, test_url=TEST_URL)
+        validator = ProxyValidator(
+            level=ValidationLevel.FULL,
+            test_url=TEST_URL,
+            anonymity_test_url=TEST_URL,
+        )
 
         # Mock response with no proxy-revealing headers
         with respx.mock:
@@ -70,7 +82,11 @@ class TestAnonymityDetection:
 
     async def test_anonymity_check_with_x_real_ip(self) -> None:
         """Test transparent detection via X-Real-IP header."""
-        validator = ProxyValidator(level=ValidationLevel.FULL, test_url=TEST_URL)
+        validator = ProxyValidator(
+            level=ValidationLevel.FULL,
+            test_url=TEST_URL,
+            anonymity_test_url=TEST_URL,
+        )
 
         with respx.mock:
             mock_response_data = {
@@ -87,7 +103,11 @@ class TestAnonymityDetection:
 
     async def test_anonymity_check_with_proxy_connection(self) -> None:
         """Test anonymous detection via Proxy-Connection header."""
-        validator = ProxyValidator(level=ValidationLevel.FULL, test_url=TEST_URL)
+        validator = ProxyValidator(
+            level=ValidationLevel.FULL,
+            test_url=TEST_URL,
+            anonymity_test_url=TEST_URL,
+        )
 
         with respx.mock:
             mock_response_data = {
@@ -104,7 +124,11 @@ class TestAnonymityDetection:
 
     async def test_anonymity_check_network_error(self) -> None:
         """Test anonymity check gracefully handles network errors."""
-        validator = ProxyValidator(level=ValidationLevel.FULL, test_url=TEST_URL)
+        validator = ProxyValidator(
+            level=ValidationLevel.FULL,
+            test_url=TEST_URL,
+            anonymity_test_url=TEST_URL,
+        )
 
         with respx.mock:
             respx.get(TEST_URL).mock(side_effect=httpx.NetworkError("Network unreachable"))
@@ -116,7 +140,12 @@ class TestAnonymityDetection:
 
     async def test_anonymity_check_timeout(self) -> None:
         """Test anonymity check handles timeout gracefully."""
-        validator = ProxyValidator(level=ValidationLevel.FULL, timeout=2.0, test_url=TEST_URL)
+        validator = ProxyValidator(
+            level=ValidationLevel.FULL,
+            timeout=2.0,
+            test_url=TEST_URL,
+            anonymity_test_url=TEST_URL,
+        )
 
         with respx.mock:
             respx.get(TEST_URL).mock(side_effect=httpx.TimeoutException("Request timed out"))

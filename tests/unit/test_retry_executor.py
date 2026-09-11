@@ -213,13 +213,13 @@ class TestIsRetryableMethod:
         """OPTIONS should be retryable."""
         assert executor._is_retryable_method("OPTIONS") is True
 
-    def test_delete_is_retryable(self, executor):
-        """DELETE should be retryable."""
-        assert executor._is_retryable_method("DELETE") is True
+    def test_delete_is_not_retryable_conservative(self, executor):
+        """DELETE is not in the conservative idempotent set."""
+        assert executor._is_retryable_method("DELETE") is False
 
-    def test_put_is_retryable(self, executor):
-        """PUT should be retryable."""
-        assert executor._is_retryable_method("PUT") is True
+    def test_put_is_not_retryable_conservative(self, executor):
+        """PUT is not in the conservative idempotent set."""
+        assert executor._is_retryable_method("PUT") is False
 
     def test_post_is_not_retryable(self, executor):
         """POST should not be retryable."""
@@ -611,6 +611,34 @@ class TestRecordProxySuccess:
 
         # Should not raise
         executor._record_proxy_success(proxy)
+
+
+class TestCircuitOpenStopsRetryLoop:
+    """RetryExecutor must stop when circuit opens mid-loop (P-B-06)."""
+
+    def test_stops_after_circuit_opens_between_attempts(self):
+        policy = RetryPolicy(max_attempts=5, base_delay=0.01, max_backoff_delay=0.01)
+        proxy = Proxy(url="http://proxy.example.com:8080")
+        circuit_breaker = CircuitBreaker(proxy_id=str(proxy.id), failure_threshold=1)
+        circuit_breakers = {str(proxy.id): circuit_breaker}
+        metrics = RetryMetrics()
+        executor = RetryExecutor(policy, circuit_breakers, metrics)
+        attempts = {"n": 0}
+
+        def request_fn() -> httpx.Response:
+            attempts["n"] += 1
+            raise httpx.ConnectError("connection failed")
+
+        with pytest.raises(ProxyConnectionError, match="Circuit breaker open"):
+            executor.execute_with_retry(
+                request_fn,
+                proxy,
+                "GET",
+                "https://example.com",
+            )
+
+        assert attempts["n"] == 1
+        assert circuit_breaker.state == CircuitBreakerState.OPEN
 
 
 class TestRecordAttempt:

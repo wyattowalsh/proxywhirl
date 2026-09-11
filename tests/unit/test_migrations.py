@@ -6,23 +6,23 @@ Tests follow ProxyWhirl's test-first development approach with:
 - Property-based testing for edge cases
 - Security testing for migration safety
 
-NOTE: These tests use Alembic migrations which reference the old 76-column schema.
-With the v1 normalized schema, tables are created directly via SQLModel.initialize(),
-not Alembic migrations. These tests are skipped until Alembic migrations are updated.
+Alembic is the schema SSOT; normalized proxy tables are created by revision
+``d4e5f6a7b8c9`` while legacy tables from earlier revisions may remain.
 """
 
+import asyncio
+import importlib.machinery
+import sys
 import tempfile
+import threading
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
-
-pytestmark = pytest.mark.skip(
-    reason="Alembic migrations reference old 76-column schema; "
-    "normalized schema uses SQLModel.initialize() directly"
-)
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
+import proxywhirl.migrations as migrations_module
 from proxywhirl.migrations import (
     check_pending_migrations,
     downgrade_migrations,
@@ -36,7 +36,7 @@ from proxywhirl.migrations import (
 
 
 @pytest.fixture
-async def temp_database_url() -> str:
+async def temp_database_url() -> AsyncIterator[str]:
     """Create a temporary SQLite database URL for testing."""
     temp_file = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
     temp_file.close()
@@ -72,9 +72,11 @@ class TestMigrationInitialization:
 
         await engine.dispose()
 
-        assert "proxies" in tables
-        assert "cache_entries" in tables
         assert "alembic_version" in tables
+        assert "proxy_identities" in tables
+        assert "proxy_statuses" in tables
+        assert "validation_results" in tables
+        assert "proxies_audit" in tables
 
     async def test_initialize_sets_revision(self, temp_database_url: str) -> None:
         """Test that initialization stamps database with head revision."""
@@ -158,6 +160,36 @@ class TestMigrationExecution:
 
         assert revision_before == revision_after
 
+    async def test_run_migrations_preserves_mcp_sdk_import_resolution(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        temp_database_url: str,
+        tmp_path: Path,
+    ) -> None:
+        """Packaged migrations must not make ``proxywhirl.mcp`` shadow the MCP SDK."""
+        sdk_package = tmp_path / "sdk" / "mcp"
+        sdk_package.mkdir(parents=True)
+        (sdk_package / "__init__.py").write_text('"""Test MCP SDK stand-in."""\n')
+        (sdk_package / "client.py").write_text('"""Client marker."""\n')
+        monkeypatch.syspath_prepend(str(sdk_package.parent))
+
+        package_dir = str(Path(migrations_module.__file__).resolve().parent)
+        before = importlib.machinery.PathFinder.find_spec("mcp")
+
+        assert before is not None
+        assert before.origin is not None
+        assert package_dir not in sys.path
+
+        await run_migrations(temp_database_url, "head")
+
+        after = importlib.machinery.PathFinder.find_spec("mcp")
+        assert package_dir not in sys.path
+        assert after is not None
+        assert after.origin == before.origin
+        assert importlib.machinery.PathFinder.find_spec(
+            "mcp.client", after.submodule_search_locations
+        )
+
     async def test_downgrade_migrations_to_base(self, initialized_database: str) -> None:
         """Test downgrading all migrations to base."""
         await downgrade_migrations(initialized_database, "base")
@@ -171,8 +203,7 @@ class TestMigrationExecution:
         await downgrade_migrations(initialized_database, "-1")
         current = await get_current_revision(initialized_database)
 
-        # After downgrade, should be at different revision
-        # (None in this case since we only have one migration)
+        assert current is not None
         assert current != head
 
     async def test_upgrade_after_downgrade(self, initialized_database: str) -> None:
@@ -252,55 +283,85 @@ class TestErrorHandling:
         with pytest.raises(Exception):
             await run_migrations("invalid://url")
 
-    async def test_missing_alembic_config(self, temp_database_url: str, tmp_path) -> None:
-        """Test that missing alembic.ini is handled gracefully."""
-        # This test would require mocking or moving alembic.ini
-        # Skip for now as it would break other tests
-        pass
+    async def test_run_migrations_uses_packaged_resources_without_repo_root(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        temp_database_url: str,
+        tmp_path: Path,
+    ) -> None:
+        """Installed-wheel migrations must not require the checkout's Alembic tree."""
+        package_dir = Path(migrations_module.__file__).resolve().parent
+        repo_root = package_dir.parent
+        repo_ini = repo_root / "alembic.ini"
+        repo_scripts = repo_root / "alembic"
+        path_exists = Path.exists
+
+        def exists_without_repo_alembic(path: Path) -> bool:
+            resolved = path.resolve()
+            if resolved in (repo_ini, repo_scripts) or repo_scripts in resolved.parents:
+                return False
+            return path_exists(path)
+
+        monkeypatch.setattr(Path, "exists", exists_without_repo_alembic)
+        monkeypatch.chdir(tmp_path)
+
+        await run_migrations(temp_database_url, "head")
+
+        assert await get_current_revision(temp_database_url) == "d4e5f6a7b8c9"
+        config = migrations_module._get_alembic_config(temp_database_url)
+        script_location = Path(config.get_main_option("script_location")).resolve()
+        assert config.config_file_name is None
+        assert script_location == package_dir / "_alembic"
+        assert (script_location / "env.py").is_file()
+        assert (script_location / "versions").is_dir()
 
 
 class TestConcurrentMigrations:
     """Tests for concurrent migration safety."""
 
-    @pytest.mark.xfail(
-        reason="Concurrent SQLite migrations have non-deterministic outcomes due to file locking",
-        strict=False,
-    )
-    async def test_migrations_thread_safe(self, temp_database_url: str) -> None:
-        """Test that migrations handle concurrent access safely.
+    async def test_migration_commands_are_serialized(
+        self, monkeypatch: pytest.MonkeyPatch, temp_database_url: str
+    ) -> None:
+        """Concurrent calls must never execute Alembic environments in parallel."""
+        state_lock = threading.Lock()
+        second_entered = threading.Event()
+        active = 0
+        max_active = 0
+        calls = 0
 
-        SQLite serializes writes automatically, so multiple migration
-        attempts should either succeed or fail gracefully (due to locking).
-        What matters is that the final state is consistent.
-        """
-        import asyncio
+        def tracked_upgrade(*_args: object) -> None:
+            nonlocal active, calls, max_active
+            with state_lock:
+                active += 1
+                calls += 1
+                call_number = calls
+                max_active = max(max_active, active)
 
-        results = await asyncio.gather(
+            if call_number == 1:
+                second_entered.wait(timeout=0.25)
+            else:
+                second_entered.set()
+
+            with state_lock:
+                active -= 1
+
+        monkeypatch.setattr(migrations_module.command, "upgrade", tracked_upgrade)
+
+        await asyncio.gather(
             run_migrations(temp_database_url, "head"),
             run_migrations(temp_database_url, "head"),
-            return_exceptions=True,
         )
 
-        # Check that no catastrophic failures occurred (both failing is OK with SQLite locking)
-        # At least verify no unexpected exception types
-        for r in results:
-            if isinstance(r, Exception):
-                error_msg = str(r).lower()
-                # Database lock errors and "already exists" are expected with concurrent SQLite access
-                is_expected = (
-                    "database is locked" in error_msg
-                    or "lock" in error_msg
-                    or "serial" in error_msg
-                    or "already exists" in error_msg
-                    or not str(r)
-                )
-                assert is_expected, f"Unexpected error: {r}"
+        assert calls == 2
+        assert max_active == 1
 
-        # If both failed, run migration once more to complete it
-        if all(isinstance(r, Exception) for r in results):
-            await run_migrations(temp_database_url, "head")
+    async def test_migrations_thread_safe(self, temp_database_url: str) -> None:
+        """Concurrent upgrades both succeed and leave one consistent head."""
+        await asyncio.gather(
+            run_migrations(temp_database_url, "head"),
+            run_migrations(temp_database_url, "head"),
+        )
 
-        # Final state should be consistent
         current = await get_current_revision(temp_database_url)
         head = await get_head_revision(temp_database_url)
         assert current == head
@@ -332,3 +393,97 @@ async def test_migration_target_formats(temp_database_url: str, revision: str) -
         # Some operations might fail logically (e.g., +1 from head)
         # but should not raise unexpected errors
         assert "Invalid" not in str(e) or "not found" in str(e).lower()
+
+
+class TestNormalizedSchemaSSOT:
+    """Wave 2F: Alembic-only normalized schema contracts."""
+
+    async def test_head_revision_is_normalized_schema(self, temp_database_url: str) -> None:
+        """Head revision must be the normalized proxy schema migration."""
+        head = await get_head_revision(temp_database_url)
+        assert head == "d4e5f6a7b8c9"
+
+    async def test_normalized_schema_has_expires_at(self, initialized_database: str) -> None:
+        """proxy_identities must include expires_at from Alembic (not runtime ALTER)."""
+        engine: AsyncEngine = create_async_engine(initialized_database)
+        async with engine.connect() as conn:
+            result = await conn.execute(text("PRAGMA table_info(proxy_identities)"))
+            columns = {row[1] for row in result}
+        await engine.dispose()
+        assert "expires_at" in columns
+
+    async def test_supplemental_indexes_created_by_migration(
+        self, initialized_database: str
+    ) -> None:
+        """Composite indexes live in Alembic, not SQLiteStorage.initialize()."""
+        engine: AsyncEngine = create_async_engine(initialized_database)
+        async with engine.connect() as conn:
+            result = await conn.execute(text("SELECT name FROM sqlite_master WHERE type='index'"))
+            indexes = {row[0] for row in result}
+        await engine.dispose()
+
+        assert "idx_validation_proxy_time" in indexes
+        assert "idx_proxy_status_health" in indexes
+        assert "ix_proxy_identities_expires_at" in indexes
+
+    async def test_legacy_proxies_copied_into_normalized(self, temp_database_url: str) -> None:
+        """Upgrade from legacy proxies table populates identity/status rows."""
+        # Stop at the revision before normalized schema so ``proxies`` exists.
+        await run_migrations(temp_database_url, "43cb4a16de9d")
+
+        engine: AsyncEngine = create_async_engine(temp_database_url)
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    """
+                    INSERT INTO proxies (
+                        url, protocol, health_status, source,
+                        total_requests, total_successes, total_failures,
+                        consecutive_failures, metadata_json, created_at, updated_at
+                    ) VALUES (
+                        'http://legacy.example.com:8080', 'http', 'healthy',
+                        'fetched', 0, 0, 0, 0, '{}',
+                        CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+                    )
+                    """
+                )
+            )
+        await engine.dispose()
+
+        await run_migrations(temp_database_url, "head")
+
+        engine = create_async_engine(temp_database_url)
+        async with engine.connect() as conn:
+            identity = (
+                await conn.execute(
+                    text(
+                        "SELECT url, protocol FROM proxy_identities "
+                        "WHERE url = 'http://legacy.example.com:8080'"
+                    )
+                )
+            ).first()
+            status = (
+                await conn.execute(
+                    text(
+                        "SELECT health_status FROM proxy_statuses "
+                        "WHERE proxy_url = 'http://legacy.example.com:8080'"
+                    )
+                )
+            ).first()
+            # Legacy table retained
+            legacy_count = (await conn.execute(text("SELECT COUNT(*) FROM proxies"))).scalar()
+        await engine.dispose()
+
+        assert identity is not None
+        assert identity[0] == "http://legacy.example.com:8080"
+        assert identity[1] == "http"
+        assert status is not None
+        assert status[0] == "healthy"
+        assert legacy_count == 1
+
+    async def test_run_migrations_is_upgrade_entry_point(self, temp_database_url: str) -> None:
+        """Documented upgrade path reaches head without storage helpers."""
+        await run_migrations(temp_database_url, "head")
+        current = await get_current_revision(temp_database_url)
+        head = await get_head_revision(temp_database_url)
+        assert current == head == "d4e5f6a7b8c9"

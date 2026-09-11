@@ -999,62 +999,53 @@ class TestProxyPoolConcurrentAccess:
         modify it does not cause race conditions or data corruption.
         """
         import threading
-
-        from tests.conftest import ProxyFactory
+        from uuid import uuid4
 
         pool = ProxyPool(name="test_pool", max_pool_size=500)
 
-        # Pre-populate pool with 100 proxies
-        for _ in range(100):
-            pool.add_proxy(ProxyFactory.build())
+        # Pre-populate pool with 100 proxies (lightweight URLs; avoid factory overhead)
+        for i in range(100):
+            pool.add_proxy(Proxy(url=f"http://seed{i}.example.com:8080"))
 
-        errors = []
-        iteration_counts = []
+        errors: list[tuple[str, BaseException]] = []
+        iteration_counts: list[int] = []
 
-        def iterate_pool():
+        def iterate_pool() -> None:
             """Iterate over pool multiple times."""
             for _ in range(10):
                 try:
                     count = 0
                     for proxy in pool.get_all_proxies():
                         count += 1
-                        # Access proxy properties to ensure data is valid
                         _ = proxy.url
                         _ = proxy.health_status
                     iteration_counts.append(count)
                 except Exception as e:
                     errors.append(("iterate", e))
 
-        def modify_pool():
+        def modify_pool() -> None:
             """Add and remove proxies concurrently."""
             for _ in range(20):
                 try:
-                    # Add a proxy
-                    pool.add_proxy(ProxyFactory.build())
-
-                    # Try to remove a proxy
+                    pool.add_proxy(Proxy(url=f"http://x{uuid4().hex[:10]}.example.com:8080"))
                     all_proxies = pool.get_all_proxies()
                     if all_proxies:
                         pool.remove_proxy(all_proxies[0].id)
                 except Exception as e:
                     errors.append(("modify", e))
 
-        # Create 3 iterator threads and 3 modifier threads
         threads = [threading.Thread(target=iterate_pool) for _ in range(3)]
         threads += [threading.Thread(target=modify_pool) for _ in range(3)]
 
-        # Start all threads
         for t in threads:
             t.start()
 
-        # Wait for completion
+        # Bounded join: unbounded join hangs the suite if a worker stalls under load.
         for t in threads:
-            t.join()
+            t.join(timeout=15)
+            assert not t.is_alive(), f"Worker thread {t.name} did not finish in time"
 
-        # Verify no errors
         assert not errors, f"Concurrent iteration/modification had errors: {errors}"
-
-        # Verify we got valid iteration counts (all should be reasonable)
         assert len(iteration_counts) == 30, (
             f"Expected 30 iteration counts, got {len(iteration_counts)}"
         )

@@ -534,8 +534,10 @@ class TestJsonlCacheTier:
             for line in tier._get_shard_path(0).read_text().splitlines()
             if line.strip()
         ]
-        assert tier.size() <= config.max_entries
-        assert len(shard_rows) <= config.max_entries
+        max_entries = config.max_entries
+        assert max_entries is not None
+        assert tier.size() <= max_entries
+        assert len(shard_rows) <= max_entries
 
     def test_shard_path(self, tier_config: CacheTierConfig, tmp_path: Path) -> None:
         """Test shard path generation."""
@@ -1023,6 +1025,51 @@ class TestDiskCacheTier:
         db_path = tmp_path / "l2_cache.db"
         assert db_path.exists()
 
+    def test_max_entries_eviction(self, tmp_path: Path) -> None:
+        """Disk cache should evict LRU rows when max_entries is exceeded."""
+        config = CacheTierConfig(enabled=True, max_entries=2)
+        tier = DiskCacheTier(config, TierType.L2_FILE, tmp_path)
+        now = datetime.now(timezone.utc)
+
+        entry1 = CacheEntry(
+            key="disk-key1",
+            proxy_url="http://proxy1.com:8080",
+            source="test",
+            fetch_time=now - timedelta(hours=2),
+            last_accessed=now - timedelta(hours=2),
+            ttl_seconds=3600,
+            expires_at=now + timedelta(hours=1),
+        )
+        entry2 = CacheEntry(
+            key="disk-key2",
+            proxy_url="http://proxy2.com:8080",
+            source="test",
+            fetch_time=now - timedelta(hours=1),
+            last_accessed=now - timedelta(hours=1),
+            ttl_seconds=3600,
+            expires_at=now + timedelta(hours=1),
+        )
+        entry3 = CacheEntry(
+            key="disk-key3",
+            proxy_url="http://proxy3.com:8080",
+            source="test",
+            fetch_time=now,
+            last_accessed=now,
+            ttl_seconds=3600,
+            expires_at=now + timedelta(hours=1),
+        )
+
+        tier.put(entry1.key, entry1)
+        tier.put(entry2.key, entry2)
+        assert tier.size() == 2
+
+        tier.put(entry3.key, entry3)
+        assert tier.size() == 2
+        assert tier.get("disk-key1") is None
+        assert tier.get("disk-key2") is not None
+        assert tier.get("disk-key3") is not None
+        tier.close()
+
     def test_cleanup_expired(self, tier_config: CacheTierConfig, tmp_path: Path) -> None:
         """Disk cache should remove expired entries."""
         tier = DiskCacheTier(tier_config, TierType.L2_FILE, tmp_path)
@@ -1325,7 +1372,7 @@ class TestSQLiteCacheTier:
     def test_migrate_health_columns_existing_db(
         self, tier_config: CacheTierConfig, tmp_path: Path
     ) -> None:
-        """Test migration adds health columns to existing database."""
+        """Stale L3 schemas are recreated (no runtime ALTER TABLE)."""
         db_path = tmp_path / "cache.db"
 
         # Create database without health columns
@@ -1348,35 +1395,44 @@ class TestSQLiteCacheTier:
                 updated_at REAL NOT NULL
             )
         """)
+        conn.execute(
+            "INSERT INTO cache_entries "
+            "(key, proxy_url, source, fetch_time, last_accessed, ttl_seconds, "
+            "expires_at, created_at, updated_at) "
+            "VALUES ('old', 'http://p', 't', 0, 0, 1, 1, 0, 0)"
+        )
         conn.commit()
         conn.close()
 
-        # Create tier which should trigger migration
+        # Create tier which should recreate schema instead of ALTER
         SQLiteCacheTier(tier_config, TierType.L3_SQLITE, db_path)
 
-        # Verify health columns exist
+        # Verify health columns exist and stale row was dropped
         conn = sqlite3.connect(str(db_path))
         cursor = conn.execute("PRAGMA table_info(cache_entries)")
         columns = {row[1] for row in cursor.fetchall()}
+        count = conn.execute("SELECT COUNT(*) FROM cache_entries").fetchone()[0]
         conn.close()
 
         assert "last_health_check" in columns
         assert "consecutive_health_failures" in columns
         assert "consecutive_health_successes" in columns
+        assert count == 0
 
     def test_migrate_catches_operational_error(
         self, tier_config: CacheTierConfig, tmp_path: Path
     ) -> None:
-        """Test migration handles concurrent column addition gracefully."""
+        """Re-opening an already-current L3 schema is idempotent."""
         db_path = tmp_path / "cache.db"
 
         # Create tier normally first
         SQLiteCacheTier(tier_config, TierType.L3_SQLITE, db_path)
 
-        # Create another tier - migration should not fail even though columns exist
+        # Create another tier - schema ensure should not fail
         tier2 = SQLiteCacheTier(tier_config, TierType.L3_SQLITE, db_path)
 
         assert tier2 is not None
+        assert not hasattr(tier2, "_migrate_health_columns")
 
     def test_creates_parent_directory(self, tier_config: CacheTierConfig, tmp_path: Path) -> None:
         """Test tier creates parent directory if it doesn't exist."""

@@ -16,9 +16,9 @@ import pytest
 
 # Skip entire module if Playwright not installed
 playwright = pytest.importorskip("playwright", reason="Playwright not installed")
-from playwright.async_api import Error as PlaywrightError  # noqa: E402
+from playwright.async_api import Error as PlaywrightError
 
-from proxywhirl.browser import BrowserRenderer  # noqa: E402
+from proxywhirl.browser import BrowserRenderer
 
 
 @pytest.mark.integration

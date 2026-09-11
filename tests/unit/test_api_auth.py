@@ -47,6 +47,14 @@ def auth_app() -> FastAPI:
     def metrics() -> dict[str, float]:
         return {"requests_total": 42.0}
 
+    @app.post("/api/request")
+    def proxied_request() -> dict[str, str]:
+        return {"status": "ok"}
+
+    @app.get("/api/proxies")
+    def list_proxies() -> dict[str, str]:
+        return {"status": "ok"}
+
     return app
 
 
@@ -73,6 +81,18 @@ class TestAPIKeyMiddleware:
             response = auth_client.post("/api/proxies")
             assert response.status_code == 503
             assert _error_message(response) == "API authentication not configured"
+
+    def test_force_auth_request_endpoint_without_key(self, auth_client: TestClient) -> None:
+        """POST /api/request requires a configured API key when global auth is disabled."""
+        with patch.dict(os.environ, {}, clear=True):
+            response = auth_client.post("/api/request")
+            assert response.status_code == 503
+
+    def test_force_auth_list_proxies_wrong_key(self, auth_client: TestClient) -> None:
+        """GET /api/proxies rejects invalid keys under force-auth policy."""
+        with patch.dict(os.environ, {"PROXYWHIRL_API_KEY": "secret-key-123"}, clear=True):
+            response = auth_client.get("/api/proxies", headers={"X-API-Key": "wrong"})
+            assert response.status_code == 401
 
     def test_write_accepts_key_even_when_global_auth_disabled(
         self, auth_client: TestClient
@@ -185,17 +205,21 @@ class TestAPIKeyMiddleware:
 class TestMonitoringAuthContract:
     """Contract for secure-by-default monitoring exposure."""
 
-    def test_stats_reachable_without_key_when_auth_disabled(self, auth_client: TestClient) -> None:
-        """/api/stats requires no key when PROXYWHIRL_REQUIRE_AUTH is unset/false."""
-        response = auth_client.get("/api/stats")
-        assert response.status_code == 200
+    def test_stats_require_key_when_auth_disabled(self, auth_client: TestClient) -> None:
+        """/api/stats is force-authed even when PROXYWHIRL_REQUIRE_AUTH is false."""
+        with patch.dict(os.environ, {"PROXYWHIRL_API_KEY": "secret-key-123"}, clear=True):
+            response = auth_client.get("/api/stats")
+            assert response.status_code == 401
+            assert _error_message(response) == "Invalid or missing API key"
+            ok = auth_client.get("/api/stats", headers={"X-API-Key": "secret-key-123"})
+            assert ok.status_code == 200
 
-    def test_metrics_reachable_without_key_when_auth_disabled(
-        self, auth_client: TestClient
-    ) -> None:
-        """/api/metrics requires no key when PROXYWHIRL_REQUIRE_AUTH is unset/false."""
-        response = auth_client.get("/api/metrics")
-        assert response.status_code == 200
+    def test_metrics_require_key_when_auth_disabled(self, auth_client: TestClient) -> None:
+        """/api/metrics is force-authed unless PROXYWHIRL_PUBLIC_METRICS is set."""
+        with patch.dict(os.environ, {"PROXYWHIRL_API_KEY": "secret-key-123"}, clear=True):
+            response = auth_client.get("/api/metrics")
+            assert response.status_code == 401
+            assert _error_message(response) == "Invalid or missing API key"
 
     def test_stats_rejects_missing_key_when_auth_enabled(self, auth_client: TestClient) -> None:
         """/api/stats is protected when PROXYWHIRL_REQUIRE_AUTH is true."""

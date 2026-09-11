@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 
-import proxywhirl.api.routes.proxies as proxy_routes
 from proxywhirl.api import APIKeyAuth, app, create_api_key
 from proxywhirl.api.core import get_rotator
 from proxywhirl.models import Proxy
@@ -65,8 +66,22 @@ def test_openapi_uses_unversioned_api_paths() -> None:
     assert all(not path.endswith("/metrics") or path.startswith("/api/metrics") for path in paths)
 
 
-def test_rotate_returns_sanitized_proxy_resource() -> None:
+def test_metrics_hours_openapi_preserves_released_unconstrained_parameter() -> None:
+    """The 0.3.3 metrics contract accepted zero and negative hour windows."""
+    schema = app.openapi()
+    for path in (
+        "/api/metrics/circuit-breakers",
+        "/api/metrics/retries/timeseries",
+        "/api/metrics/retries/by-proxy",
+    ):
+        parameters = schema["paths"][path]["get"]["parameters"]
+        hours = next(parameter for parameter in parameters if parameter["name"] == "hours")
+        assert "minimum" not in hours["schema"]
+
+
+def test_rotate_returns_sanitized_proxy_resource(monkeypatch: pytest.MonkeyPatch) -> None:
     """GET /api/rotate returns the public proxy representation without credentials."""
+    monkeypatch.setenv("PROXYWHIRL_API_KEY", "openapi-test-key")
     rotator = ProxyWhirl(
         proxies=[Proxy(url="http://user:pass@proxy.example.com:8080")],
         bootstrap=False,
@@ -74,7 +89,7 @@ def test_rotate_returns_sanitized_proxy_resource() -> None:
     app.dependency_overrides[get_rotator] = lambda: rotator
 
     try:
-        response = TestClient(app).get("/api/rotate")
+        response = TestClient(app).get("/api/rotate", headers={"X-API-Key": "openapi-test-key"})
     finally:
         app.dependency_overrides.pop(get_rotator, None)
 
@@ -86,43 +101,36 @@ def test_rotate_returns_sanitized_proxy_resource() -> None:
     assert "pass" not in data["data"]["url"]
 
 
-def test_proxied_request_returns_sanitized_proxy_used(monkeypatch) -> None:
+def test_proxied_request_returns_sanitized_proxy_used(monkeypatch: pytest.MonkeyPatch) -> None:
     """POST /api/request never exposes proxy credentials in the response."""
-
-    class FakeAsyncClient:
-        def __init__(self, **kwargs):
-            self.proxy = kwargs["proxy"]
-
-        async def __aenter__(self):
-            return self
-
-        async def __aexit__(self, exc_type, exc, traceback):
-            return False
-
-        async def request(self, **kwargs):
-            return httpx.Response(
-                status_code=200,
-                headers={"content-type": "text/plain"},
-                text="ok",
-            )
+    monkeypatch.setenv("PROXYWHIRL_API_KEY", "openapi-test-key")
 
     rotator = ProxyWhirl(
         proxies=[Proxy(url="http://user:pass@proxy.example.com:8080")],
         bootstrap=False,
     )
     app.dependency_overrides[get_rotator] = lambda: rotator
-    monkeypatch.setattr(proxy_routes.httpx, "AsyncClient", FakeAsyncClient)
+
+    def _fake_make_request(*_args: object, **_kwargs: object) -> httpx.Response:
+        rotator._last_used_proxy = rotator.pool.get_all_proxies()[0]
+        return httpx.Response(
+            status_code=200,
+            headers={"content-type": "text/plain"},
+            text="ok",
+        )
 
     try:
-        response = TestClient(app).post(
-            "/api/request",
-            json={
-                "url": "https://example.com",
-                "method": "GET",
-                "headers": {},
-                "timeout": 30,
-            },
-        )
+        with patch.object(rotator, "_make_request", side_effect=_fake_make_request):
+            response = TestClient(app).post(
+                "/api/request",
+                json={
+                    "url": "https://example.com",
+                    "method": "GET",
+                    "headers": {},
+                    "timeout": 30,
+                },
+                headers={"X-API-Key": "openapi-test-key"},
+            )
     finally:
         app.dependency_overrides.pop(get_rotator, None)
 
@@ -156,11 +164,12 @@ def test_api_key_auth_expiration_is_timezone_safe() -> None:
         name="active-key",
         expires_at=datetime.now(timezone.utc) + timedelta(days=1),
     )
+    # Naive UTC wall-clock time (no tzinfo) — exercise is_expired naive branch without utcnow().
     naive_expired = APIKeyAuth(
         key_id="naive-expired",
         key_secret="secret",
         name="naive-expired-key",
-        expires_at=datetime.utcnow() - timedelta(seconds=1),
+        expires_at=(datetime.now(timezone.utc) - timedelta(seconds=1)).replace(tzinfo=None),
     )
 
     assert expired.is_expired is True

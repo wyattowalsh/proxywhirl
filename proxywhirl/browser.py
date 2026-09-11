@@ -80,8 +80,11 @@ from __future__ import annotations
 
 import asyncio
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import urlparse
 
 from loguru import logger
+
+from proxywhirl.security import validate_source_url_safety
 
 if TYPE_CHECKING:
     from playwright.async_api import Browser, BrowserContext, Page
@@ -202,7 +205,11 @@ class BrowserRenderer:
         # Context pool for concurrent rendering
         self._context_pool: asyncio.Queue[BrowserContext] | None = None
         self._all_contexts: list[BrowserContext] = []
-        self._pool_lock: asyncio.Lock | None = None
+        # One stable lock serializes lifecycle publication and pool leases. It is
+        # intentionally never replaced: swapping locks during close/start races
+        # would allow each operation to mutate the same resource graph independently.
+        self._pool_lock = asyncio.Lock()
+        self._leased_context_ids: set[int] = set()
 
     @staticmethod
     def _validate_browser_args(args: list[str]) -> list[str]:
@@ -245,48 +252,102 @@ class BrowserRenderer:
             ImportError: If playwright is not installed
             RuntimeError: If browser fails to start
         """
-        if self._is_started:
-            return  # Already started
+        async with self._pool_lock:
+            if self._is_started:
+                return  # Already started
 
+            try:
+                from playwright.async_api import async_playwright
+            except ImportError as e:
+                raise ImportError(
+                    "Playwright is required for browser rendering. "
+                    "Install with: pip install 'proxywhirl[browser]' or pip install playwright"
+                ) from e
+
+            try:
+                # Start playwright
+                self._playwright = await async_playwright().start()
+
+                # Launch browser
+                browser_launcher = getattr(self._playwright, self.browser_type)
+                launch_options: dict[str, Any] = {"headless": self.headless}
+                if self.extra_args:
+                    launch_options["args"] = self.extra_args
+                self._browser = await browser_launcher.launch(**launch_options)
+
+                # Initialize pool infrastructure
+                self._context_pool = asyncio.Queue(maxsize=self.max_contexts)
+                self._all_contexts = []
+                self._leased_context_ids.clear()
+
+                # Pre-create contexts for the pool
+                context_options = self._get_context_options()
+                for i in range(self.max_contexts):
+                    context = await self._browser.new_context(**context_options)
+                    self._all_contexts.append(context)
+                    await self._context_pool.put(context)
+                    logger.debug(f"Created browser context {i + 1}/{self.max_contexts} for pool")
+
+                # Keep legacy single context for backwards compatibility
+                self._context = self._all_contexts[0] if self._all_contexts else None
+                self._is_started = True
+                logger.info(f"BrowserRenderer started with {self.max_contexts} pooled contexts")
+            except BaseException:
+                resources = self._take_resource_snapshot_locked()
+                await self._close_resource_snapshot(*resources)
+                raise
+
+    def _take_resource_snapshot_locked(
+        self,
+    ) -> tuple[list[BrowserContext], Browser | None, Any | None]:
+        """Detach all owned browser resources while the lifecycle lock is held."""
+        contexts = list(self._all_contexts)
+        if self._context is not None and not any(context is self._context for context in contexts):
+            contexts.append(self._context)
+        browser = self._browser
+        playwright = self._playwright
+        self._all_contexts = []
+        self._context_pool = None
+        self._leased_context_ids.clear()
+        self._context = None
+        self._browser = None
+        self._playwright = None
+        self._is_started = False
+        return contexts, browser, playwright
+
+    @staticmethod
+    async def _close_resource_snapshot(
+        contexts: list[BrowserContext], browser: Browser | None, playwright: Any | None
+    ) -> None:
+        """Drain a detached browser graph without abandoning cleanup on cancellation."""
+        resources = [context.close() for context in contexts]
+        if browser is not None:
+            resources.append(browser.close())
+        if playwright is not None:
+            resources.append(playwright.stop())
+
+        if not resources:
+            return
+
+        async def cleanup() -> list[BaseException | None]:
+            results = await asyncio.gather(*resources, return_exceptions=True)
+            return [result if isinstance(result, BaseException) else None for result in results]
+
+        cleanup_task = asyncio.create_task(cleanup())
+        externally_cancelled = False
         try:
-            from playwright.async_api import async_playwright
-        except ImportError as e:
-            raise ImportError(
-                "Playwright is required for browser rendering. "
-                "Install with: pip install 'proxywhirl[browser]' or pip install playwright"
-            ) from e
+            results = await asyncio.shield(cleanup_task)
+        except asyncio.CancelledError:
+            externally_cancelled = True
+            results = await cleanup_task
 
-        try:
-            # Start playwright
-            self._playwright = await async_playwright().start()
-
-            # Launch browser
-            browser_launcher = getattr(self._playwright, self.browser_type)
-            launch_options: dict[str, Any] = {"headless": self.headless}
-            if self.extra_args:
-                launch_options["args"] = self.extra_args
-            self._browser = await browser_launcher.launch(**launch_options)
-
-            # Initialize pool infrastructure
-            self._context_pool = asyncio.Queue(maxsize=self.max_contexts)
-            self._all_contexts = []
-            self._pool_lock = asyncio.Lock()
-
-            # Pre-create contexts for the pool
-            context_options = self._get_context_options()
-            for i in range(self.max_contexts):
-                context = await self._browser.new_context(**context_options)
-                self._all_contexts.append(context)
-                await self._context_pool.put(context)
-                logger.debug(f"Created browser context {i + 1}/{self.max_contexts} for pool")
-
-            # Keep legacy single context for backwards compatibility
-            self._context = self._all_contexts[0] if self._all_contexts else None
-            self._is_started = True
-            logger.info(f"BrowserRenderer started with {self.max_contexts} pooled contexts")
-        except Exception:
-            await self.close()
-            raise
+        if externally_cancelled:
+            raise asyncio.CancelledError
+        for result in results:
+            if isinstance(result, asyncio.CancelledError):
+                raise result
+            if result is not None:
+                logger.warning("Error closing browser resource: {}", result)
 
     def _get_context_options(self) -> dict[str, Any]:
         """Get context creation options.
@@ -305,47 +366,23 @@ class BrowserRenderer:
         Closes all browser contexts in the pool and the browser itself.
         Safe to call multiple times.
         """
-        if (
-            not self._is_started
-            and not self._all_contexts
-            and self._context_pool is None
-            and self._context is None
-            and self._browser is None
-            and self._playwright is None
-        ):
-            return
+        # Snapshot and clear state before awaiting cleanup so concurrent render
+        # finalizers cannot put closed contexts back into a live pool. The empty
+        # check belongs under the same stable lock: startup can hold the lock
+        # while awaiting its first resource, before any observable field is set.
+        async with self._pool_lock:
+            if (
+                not self._is_started
+                and not self._all_contexts
+                and self._context_pool is None
+                and self._context is None
+                and self._browser is None
+                and self._playwright is None
+            ):
+                return
+            resources = self._take_resource_snapshot_locked()
+        await self._close_resource_snapshot(*resources)
 
-        # Close all pooled contexts
-        contexts = list(self._all_contexts)
-        if self._context is not None and not any(context is self._context for context in contexts):
-            contexts.append(self._context)
-
-        for context in contexts:
-            try:
-                await context.close()
-            except Exception as e:
-                logger.warning(f"Error closing browser context: {e}")
-
-        self._all_contexts = []
-        self._context_pool = None
-        self._pool_lock = None
-        self._context = None
-
-        if self._browser:
-            try:
-                await self._browser.close()
-            except Exception as e:
-                logger.warning(f"Error closing browser: {e}")
-            self._browser = None
-
-        if self._playwright:
-            try:
-                await self._playwright.stop()
-            except Exception as e:
-                logger.warning(f"Error stopping playwright: {e}")
-            self._playwright = None
-
-        self._is_started = False
         logger.debug("BrowserRenderer closed and all contexts cleaned up")
 
     async def acquire_context(self, timeout: float | None = None) -> BrowserContext:
@@ -364,12 +401,20 @@ class BrowserRenderer:
             RuntimeError: If browser is not started
             asyncio.TimeoutError: If timeout expires before a context is available
         """
-        if not self._is_started or self._context_pool is None:
-            raise RuntimeError("Browser not started. Call start() or use as context manager.")
-
+        async with self._pool_lock:
+            if not self._is_started or self._context_pool is None:
+                raise RuntimeError("Browser not started. Call start() or use as context manager.")
+            pool = self._context_pool
         if timeout is not None:
-            return await asyncio.wait_for(self._context_pool.get(), timeout=timeout)
-        return await self._context_pool.get()
+            context = await asyncio.wait_for(pool.get(), timeout=timeout)
+        else:
+            context = await pool.get()
+
+        async with self._pool_lock:
+            if not self._is_started or self._context_pool is not pool:
+                raise RuntimeError("Browser context pool closed during acquisition")
+            self._leased_context_ids.add(id(context))
+        return context
 
     async def release_context(self, context: BrowserContext) -> None:
         """Release a browser context back to the pool.
@@ -383,13 +428,21 @@ class BrowserRenderer:
             RuntimeError: If browser is not started
             ValueError: If context is not from this pool
         """
-        if not self._is_started or self._context_pool is None:
-            raise RuntimeError("Browser not started or already closed.")
-
-        if context not in self._all_contexts:
-            raise ValueError("Context does not belong to this pool")
-
-        await self._context_pool.put(context)
+        async with self._pool_lock:
+            pool = self._context_pool
+            if not self._is_started or pool is None:
+                raise RuntimeError("Browser not started or already closed.")
+            if context not in self._all_contexts:
+                raise ValueError("Context does not belong to this pool")
+            context_id = id(context)
+            if context_id not in self._leased_context_ids:
+                raise ValueError("Context was not acquired or was already released")
+            self._leased_context_ids.remove(context_id)
+            try:
+                pool.put_nowait(context)
+            except asyncio.QueueFull as exc:
+                self._leased_context_ids.add(context_id)
+                raise RuntimeError("Browser context pool is unexpectedly full") from exc
         logger.debug("Browser context released back to pool")
 
     @property
@@ -404,11 +457,18 @@ class BrowserRenderer:
         """Total capacity of the context pool."""
         return self.max_contexts
 
+    @staticmethod
+    def _assert_renderable_url(url: str) -> None:
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"}:
+            raise ValueError(f"Browser rendering only supports http/https URLs, got: {url!r}")
+
     async def render(
         self,
         url: str,
         wait_for_selector: str | None = None,
         wait_for_timeout: int | None = None,
+        max_content_bytes: int | None = None,
     ) -> str:
         """Render a page and return its fully-loaded HTML content.
 
@@ -431,6 +491,9 @@ class BrowserRenderer:
                 or additional network activity to complete.
                 Default: None (no additional wait)
                 Example: 2000 (wait 2 seconds after selector appears)
+            max_content_bytes: Optional UTF-8 byte cap for returned HTML. When set
+                to a positive value, serialization is truncated inside the browser
+                before the HTML crosses into Python. Default: None.
 
         Returns:
             str: Complete rendered HTML as a string, including all JavaScript-
@@ -497,15 +560,52 @@ class BrowserRenderer:
         if not self._is_started or self._context_pool is None:
             raise RuntimeError("Browser not started. Call start() or use as context manager.")
 
+        self._assert_renderable_url(url)
+
         # Acquire context from pool
-        context = await self.acquire_context()
+        context = await self.acquire_context(timeout=max(self.timeout / 1000, 0.001))
         page: Page | None = None
+        blocked_reason: str | None = None
 
         try:
             page = await context.new_page()
 
+            async def enforce_outbound_policy(route: Any, request: Any) -> None:
+                nonlocal blocked_reason
+                request_url = str(request.url)
+                request_scheme = urlparse(request_url).scheme.lower()
+                if request_scheme in {"about", "blob", "data"}:
+                    if not request.is_navigation_request():
+                        await route.continue_()
+                        return
+                    blocked_reason = (
+                        f"Browser navigation scheme must be http or https, got {request_scheme!r}"
+                    )
+                    await route.abort("blockedbyclient")
+                    return
+                safe, reason = await asyncio.to_thread(
+                    validate_source_url_safety,
+                    request_url,
+                )
+                if not safe:
+                    blocked_reason = reason
+                    await route.abort("blockedbyclient")
+                    return
+                await route.continue_()
+
+            await page.route("**/*", enforce_outbound_policy)
+
             # Navigate to page
-            await page.goto(url, timeout=self.timeout, wait_until=self.wait_until)
+            try:
+                await page.goto(url, timeout=self.timeout, wait_until=self.wait_until)
+            except Exception as exc:
+                if blocked_reason is not None:
+                    raise ValueError(
+                        f"Browser request blocked by SSRF protection: {blocked_reason}"
+                    ) from exc
+                raise
+            if blocked_reason is not None:
+                raise ValueError(f"Browser request blocked by SSRF protection: {blocked_reason}")
 
             # Wait for selector if provided
             if wait_for_selector:
@@ -515,19 +615,41 @@ class BrowserRenderer:
             if wait_for_timeout:
                 await page.wait_for_timeout(wait_for_timeout)
 
-            # Get rendered HTML
-            html: str = await page.content()
+            if max_content_bytes is not None and max_content_bytes > 0:
+                html: str = await page.evaluate(
+                    """
+                    maxBytes => {
+                        const html = document.documentElement?.outerHTML ?? "";
+                        const buffer = new Uint8Array(maxBytes);
+                        const {read, written} = new TextEncoder().encodeInto(html, buffer);
+                        if (read === html.length) return html;
+                        return new TextDecoder("utf-8").decode(buffer.subarray(0, written));
+                    }
+                    """,
+                    max_content_bytes,
+                )
+            else:
+                html = await page.content()
             return html
 
         finally:
             # Always close the page
+            cancellation: asyncio.CancelledError | None = None
             if page:
                 try:
                     await page.close()
+                except asyncio.CancelledError as exc:
+                    cancellation = exc
                 except Exception as e:
                     logger.warning(f"Error closing browser page: {e}")
             # Always release context back to pool
-            await self.release_context(context)
+            try:
+                await self.release_context(context)
+            except RuntimeError:
+                if self._is_started:
+                    raise
+            if cancellation is not None:
+                raise cancellation
 
     async def __aenter__(self) -> BrowserRenderer:
         """Context manager entry - starts the browser."""

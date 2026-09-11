@@ -7,6 +7,7 @@ Includes all health, readiness, status, stats, and metrics endpoints.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 
@@ -14,7 +15,7 @@ from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from prometheus_client import REGISTRY, generate_latest
 
-from proxywhirl._proxy_views import list_proxy_views
+from proxywhirl._proxy_views import list_proxy_views_async
 from proxywhirl.api.models import (
     APIResponse,
     HealthResponse,
@@ -28,7 +29,7 @@ from proxywhirl.api.runtime import (
     get_last_rotation_time,
     get_rotator,
     get_storage,
-    update_prometheus_metrics,
+    update_prometheus_metrics_async,
 )
 from proxywhirl.models import HealthStatus
 from proxywhirl.rotator import ProxyWhirl
@@ -58,16 +59,13 @@ async def health_check(
     """
     uptime_seconds = int((datetime.now(timezone.utc) - get_app_start_time()).total_seconds())
 
-    # Determine health based on proxy pool (use thread-safe property)
-    total_proxies = rotator.pool.size
+    total_proxies, healthy_proxies, unhealthy_proxies = await asyncio.to_thread(
+        lambda: (rotator.pool.size, rotator.pool.healthy_count, rotator.pool.unhealthy_count)
+    )
     if total_proxies == 0:
         health_status = "unhealthy"
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
     else:
-        # Check actual health of proxies
-        healthy_proxies = rotator.pool.healthy_count
-        unhealthy_proxies = rotator.pool.unhealthy_count
-
         if healthy_proxies == 0:
             health_status = "unhealthy"
             status_code = status.HTTP_503_SERVICE_UNAVAILABLE
@@ -112,11 +110,12 @@ async def readiness_check(
     Returns:
         Readiness status response
     """
-    checks = {
-        "proxy_pool_initialized": rotator is not None,
-        "storage_connected": storage is not None if storage else True,
-    }
     api_settings = APISettings()
+    checks: dict[str, bool] = {
+        "proxy_pool_initialized": rotator is not None,
+    }
+    if api_settings.storage_path is not None:
+        checks["storage_connected"] = storage is not None
     if api_settings.require_auth:
         checks["auth_configured"] = api_settings.api_key is not None
 
@@ -157,7 +156,7 @@ async def get_status(
     """
     from proxywhirl.api.models import ProxyPoolStats
 
-    proxy_views = list_proxy_views(rotator)
+    proxy_views = await list_proxy_views_async(rotator)
     total = len(proxy_views)
     failed = sum(1 for view in proxy_views if view.status == "failed")
     healthy = sum(1 for view in proxy_views if view.health == HealthStatus.HEALTHY.value)
@@ -213,7 +212,7 @@ async def get_stats(
     """
     from proxywhirl.api.models import ProxyStats
 
-    proxy_views = list_proxy_views(rotator)
+    proxy_views = await list_proxy_views_async(rotator)
     total_requests = sum(view.total_requests for view in proxy_views)
     total_completed = sum(view.successful_requests for view in proxy_views)
     total_failed = sum(view.failed_requests for view in proxy_views)
@@ -266,7 +265,7 @@ async def get_stats(
 )
 async def metrics() -> StreamingResponse:
     """Expose Prometheus metrics in text format."""
-    update_prometheus_metrics()
+    await update_prometheus_metrics_async()
     metrics_output = generate_latest(REGISTRY)
 
     async def _metrics_stream() -> AsyncIterator[bytes]:

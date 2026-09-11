@@ -170,6 +170,109 @@ class TestBrowserRendererLifecycle:
 
             await renderer.close()
 
+    async def test_concurrent_start_creates_one_resource_graph(self) -> None:
+        """Concurrent starts serialize and publish exactly one browser graph."""
+        from proxywhirl.browser import BrowserRenderer
+
+        renderer = BrowserRenderer(max_contexts=1)
+        mock_playwright = MagicMock()
+        mock_browser = AsyncMock()
+        mock_context = AsyncMock()
+        mock_playwright.chromium.launch = AsyncMock(return_value=mock_browser)
+        mock_playwright.stop = AsyncMock()
+        mock_browser.new_context = AsyncMock(return_value=mock_context)
+        mock_playwright_cm = MagicMock()
+        mock_playwright_cm.start = AsyncMock(return_value=mock_playwright)
+        mock_module = MagicMock()
+        mock_module.async_playwright.return_value = mock_playwright_cm
+
+        with patch.dict("sys.modules", {"playwright.async_api": mock_module}):
+            await asyncio.gather(renderer.start(), renderer.start())
+
+        mock_playwright_cm.start.assert_awaited_once()
+        mock_playwright.chromium.launch.assert_awaited_once()
+        mock_browser.new_context.assert_awaited_once()
+        assert renderer._is_started is True
+        await renderer.close()
+
+    async def test_close_waits_for_inflight_start_then_drains_resources(self) -> None:
+        """A close racing startup cannot orphan or republish browser resources."""
+        from proxywhirl.browser import BrowserRenderer
+
+        renderer = BrowserRenderer(max_contexts=1)
+        launch_entered = asyncio.Event()
+        allow_launch = asyncio.Event()
+        mock_playwright = MagicMock()
+        mock_browser = AsyncMock()
+        mock_context = AsyncMock()
+
+        async def launch(**_kwargs):
+            launch_entered.set()
+            await allow_launch.wait()
+            return mock_browser
+
+        mock_playwright.chromium.launch = AsyncMock(side_effect=launch)
+        mock_playwright.stop = AsyncMock()
+        mock_browser.new_context = AsyncMock(return_value=mock_context)
+        mock_playwright_cm = MagicMock()
+        mock_playwright_cm.start = AsyncMock(return_value=mock_playwright)
+        mock_module = MagicMock()
+        mock_module.async_playwright.return_value = mock_playwright_cm
+
+        with patch.dict("sys.modules", {"playwright.async_api": mock_module}):
+            start_task = asyncio.create_task(renderer.start())
+            await launch_entered.wait()
+            close_task = asyncio.create_task(renderer.close())
+            await asyncio.sleep(0)
+            assert close_task.done() is False
+            allow_launch.set()
+            await asyncio.gather(start_task, close_task)
+
+        assert renderer._is_started is False
+        assert renderer._all_contexts == []
+        mock_context.close.assert_awaited_once()
+        mock_browser.close.assert_awaited_once()
+        mock_playwright.stop.assert_awaited_once()
+
+    async def test_close_waits_for_start_before_first_resource_is_published(self) -> None:
+        """The empty fast path must not bypass a startup holding the lifecycle lock."""
+        from proxywhirl.browser import BrowserRenderer
+
+        renderer = BrowserRenderer(max_contexts=1)
+        start_entered = asyncio.Event()
+        allow_start = asyncio.Event()
+        mock_playwright = MagicMock()
+        mock_browser = AsyncMock()
+        mock_context = AsyncMock()
+
+        async def start_playwright():
+            start_entered.set()
+            await allow_start.wait()
+            return mock_playwright
+
+        mock_playwright.chromium.launch = AsyncMock(return_value=mock_browser)
+        mock_playwright.stop = AsyncMock()
+        mock_browser.new_context = AsyncMock(return_value=mock_context)
+        mock_playwright_cm = MagicMock()
+        mock_playwright_cm.start = AsyncMock(side_effect=start_playwright)
+        mock_module = MagicMock()
+        mock_module.async_playwright.return_value = mock_playwright_cm
+
+        with patch.dict("sys.modules", {"playwright.async_api": mock_module}):
+            start_task = asyncio.create_task(renderer.start())
+            await start_entered.wait()
+            close_task = asyncio.create_task(renderer.close())
+            await asyncio.sleep(0)
+            assert close_task.done() is False
+            allow_start.set()
+            await asyncio.gather(start_task, close_task)
+
+        assert renderer._is_started is False
+        assert renderer._all_contexts == []
+        mock_context.close.assert_awaited_once()
+        mock_browser.close.assert_awaited_once()
+        mock_playwright.stop.assert_awaited_once()
+
     async def test_browser_close_cleans_up(self) -> None:
         """close() properly cleans up resources including all pooled contexts."""
         from proxywhirl.browser import BrowserRenderer
@@ -518,12 +621,44 @@ class TestBrowserRendererContextPool:
         renderer._context_pool = asyncio.Queue(maxsize=1)
         renderer._all_contexts = [mock_context]
 
-        # Pool is empty
+        await renderer._context_pool.put(mock_context)
+        acquired = await renderer.acquire_context()
+        assert acquired is mock_context
         assert renderer.pool_size == 0
 
-        await renderer.release_context(mock_context)
+        await renderer.release_context(acquired)
 
         assert renderer.pool_size == 1
+
+    async def test_release_context_rejects_double_release_without_blocking(self) -> None:
+        """A duplicate release must fail immediately instead of waiting on a full queue."""
+        from proxywhirl.browser import BrowserRenderer
+
+        renderer = BrowserRenderer(max_contexts=1)
+        mock_context = AsyncMock()
+        renderer._is_started = True
+        renderer._context_pool = asyncio.Queue(maxsize=1)
+        renderer._all_contexts = [mock_context]
+        await renderer._context_pool.put(mock_context)
+
+        acquired = await renderer.acquire_context()
+        await renderer.release_context(acquired)
+
+        with pytest.raises(ValueError, match="already released"):
+            await asyncio.wait_for(renderer.release_context(acquired), timeout=0.1)
+
+    async def test_render_bounds_internal_context_acquisition(self) -> None:
+        """Rendering must not wait forever when all pooled contexts are leased."""
+        from proxywhirl.browser import BrowserRenderer
+
+        renderer = BrowserRenderer(max_contexts=1, timeout=10)
+        mock_context = AsyncMock()
+        renderer._is_started = True
+        renderer._context_pool = asyncio.Queue(maxsize=1)
+        renderer._all_contexts = [mock_context]
+
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(renderer.render("https://example.com"), timeout=0.2)
 
     async def test_release_context_not_started(self) -> None:
         """release_context() raises RuntimeError if not started."""

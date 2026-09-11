@@ -16,7 +16,7 @@ from typing import Any
 from loguru import logger
 
 from proxywhirl.geo import batch_geolocate, enrich_proxies_with_geo
-from proxywhirl.sources import ALL_HTTP_SOURCES, ALL_SOCKS4_SOURCES, ALL_SOCKS5_SOURCES
+from proxywhirl.sources import ALL_HTTP_SOURCES, ALL_SOCKS4_SOURCES, ALL_SOCKS5_SOURCES, ALL_SOURCES
 from proxywhirl.storage import SQLiteStorage
 from proxywhirl.utils import parse_proxy_url as parse_proxy_url_components
 
@@ -105,7 +105,7 @@ async def generate_rich_proxies(
     if max_age_hours > 0:
         proxies_data = await storage.load_validated(max_age_hours)
     else:
-        proxies_data = await storage.load()
+        proxies_data = await storage.query()
 
     proxies = []
     seen_addresses: set[str] = set()  # Track unique IP:port combinations
@@ -231,14 +231,30 @@ async def generate_rich_proxies(
             if 0 <= days_ago <= 90:
                 discovery_by_date[created_dt.date().isoformat()] += 1
 
+    geo_meta: dict[str, Any] = {
+        "enabled": include_geo,
+        "sample_limit": geo_sample_size,
+        "proxies_total": len(proxies),
+        "ips_requested": 0,
+        "ips_geolocated": 0,
+        "is_sampled": False,
+        "external_api_allowed": allow_external_geo,
+        "country_aggregates_complete": not include_geo,
+    }
+
     # Add geo data if requested
     if include_geo and proxies:
-        ips = [p["ip"] for p in proxies[:geo_sample_size]]
+        sample_proxies = proxies[:geo_sample_size]
+        ips = [p["ip"] for p in sample_proxies]
+        geo_meta["ips_requested"] = len(ips)
+        geo_meta["is_sampled"] = len(proxies) > len(sample_proxies)
         geo_data = await batch_geolocate(
             ips,
             max_batches=50,  # Up to 5000 IPs
             allow_external_api=allow_external_geo,
         )
+        geo_meta["ips_geolocated"] = len(geo_data)
+        geo_meta["country_aggregates_complete"] = not geo_meta["is_sampled"]
         proxies = enrich_proxies_with_geo(proxies, geo_data)
 
         # Count countries and continents, build source flow
@@ -351,6 +367,7 @@ async def generate_rich_proxies(
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "total": len(proxies),
         "proxies": proxies,
+        "geo": geo_meta,
         "aggregations": {
             "by_protocol": dict(protocol_counts),
             "by_status": dict(status_counts),
@@ -464,12 +481,31 @@ def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
         "samples": perf_agg.get("samples", 0),
     }
 
-    # Validation stats
+    # Validation stats — prefer check-based success rate from rich proxies when available
+    rich_proxies = rich_data.get("proxies", [])
+    total_checks = sum(int(p.get("total_checks") or 0) for p in rich_proxies)
+    total_successes = 0
+    for proxy in rich_proxies:
+        checks = int(proxy.get("total_checks") or 0)
+        rate = proxy.get("success_rate")
+        if checks > 0 and rate is not None:
+            total_successes += round((float(rate) / 100.0) * checks)
+
+    if total_checks > 0:
+        success_rate_pct = round(total_successes / total_checks * 100, 1)
+        validation_basis = "check_history"
+    elif total_validated > 0:
+        success_rate_pct = round(health["healthy"] / total_validated * 100, 1)
+        validation_basis = "health_status_fallback"
+    else:
+        success_rate_pct = 0.0
+        validation_basis = "none"
+
     validation = {
         "total_validated": total_validated,
-        "success_rate_pct": round(health["healthy"] / total_validated * 100, 1)
-        if total_validated > 0
-        else 0,
+        "total_checks": total_checks,
+        "success_rate_pct": success_rate_pct,
+        "basis": validation_basis,
     }
 
     # Geographic stats
@@ -510,11 +546,17 @@ def generate_stats_from_files(proxy_dir: Path) -> dict[str, Any]:
 
     metadata_generated_at = metadata.get("generated_at")
 
+    catalog_total = metadata.get("source_catalog_total")
+    if catalog_total is None:
+        catalog_total = metadata.get("total_sources", 0)
+
     return {
         "generated_at": metadata_generated_at or datetime.now(timezone.utc).isoformat(),
         "metadata_generated_at": metadata_generated_at,
         "sources": {
-            "total": metadata.get("total_sources", 0),
+            "total": catalog_total,
+            "catalog_total": catalog_total,
+            "legacy_total_sources": metadata.get("total_sources", 0),
         },
         "proxies": {
             "total": unique_count,
@@ -577,7 +619,7 @@ async def generate_proxy_lists(
     if max_age_hours > 0:
         proxies_data = await storage.load_validated(max_age_hours)
     else:
-        proxies_data = await storage.load()
+        proxies_data = await storage.query()
 
     # Group proxies by protocol, tracking response time for sorting
     # Maps protocol -> {addr: best_response_time_ms} (None = unknown)
@@ -604,11 +646,15 @@ async def generate_proxy_lists(
                 proxies_by_protocol[protocol][addr] = response_time
 
     timestamp = datetime.now(timezone.utc).isoformat()
-    total_sources = len(ALL_HTTP_SOURCES) + len(ALL_SOCKS4_SOURCES) + len(ALL_SOCKS5_SOURCES)
+    source_catalog_total = len(ALL_SOURCES)
+    protocol_source_total = (
+        len(ALL_HTTP_SOURCES) + len(ALL_SOCKS4_SOURCES) + len(ALL_SOCKS5_SOURCES)
+    )
 
     metadata = {
         "generated_at": timestamp,
-        "total_sources": total_sources,
+        "total_sources": protocol_source_total,
+        "source_catalog_total": source_catalog_total,
         "counts": {protocol: len(addrs) for protocol, addrs in proxies_by_protocol.items()},
     }
 

@@ -142,18 +142,26 @@ class TestRoundRobinProperties:
 
     @given(st.integers(min_value=1, max_value=20))
     def test_deterministic_order(self, num_proxies: int):
-        """Property: Given the same pool, selections are deterministic and predictable."""
-        # Create two identical pools
+        """Property: Given the same pool IDs, selections are deterministic."""
+        from uuid import UUID
+
+        # Create two pools with identical proxy IDs (round-robin orders by UUID)
         pool1 = ProxyPool(name="test-pool-1")
         pool2 = ProxyPool(name="test-pool-2")
 
         for i in range(num_proxies):
-            proxy1 = Proxy(url=f"http://proxy{i}.example.com:8080")
-            proxy1.health_status = HealthStatus.HEALTHY
+            proxy_id = UUID(int=i + 1)
+            proxy1 = Proxy(
+                id=proxy_id,
+                url=f"http://proxy{i}.example.com:8080",
+                health_status=HealthStatus.HEALTHY,
+            )
+            proxy2 = Proxy(
+                id=proxy_id,
+                url=f"http://proxy{i}.example.com:8080",
+                health_status=HealthStatus.HEALTHY,
+            )
             pool1.add_proxy(proxy1)
-
-            proxy2 = Proxy(url=f"http://proxy{i}.example.com:8080")
-            proxy2.health_status = HealthStatus.HEALTHY
             pool2.add_proxy(proxy2)
 
         strategy1 = RoundRobinStrategy()
@@ -170,7 +178,6 @@ class TestRoundRobinProperties:
             selections1.append(proxy1.url)
             selections2.append(proxy2.url)
 
-        # Both should have the same selection order (by URL since IDs will differ)
         assert selections1 == selections2, "Selection order should be deterministic"
 
     @given(st.integers(min_value=2, max_value=10))

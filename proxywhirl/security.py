@@ -12,14 +12,16 @@ This module provides:
 
 from __future__ import annotations
 
-import concurrent.futures
 import hashlib
 import hmac
 import ipaddress
 import logging
 import os
+import queue
 import re
 import socket
+import threading
+import time
 from enum import Enum
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse
@@ -121,8 +123,17 @@ def is_ip_blocked(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> tuple[bo
     return False, ""
 
 
+_DNS_RESOLUTION_SLOTS = threading.BoundedSemaphore(value=8)
+
+
 def _resolve_hostname_addresses_with_timeout(hostname: str, timeout: float = 2.0) -> set[str]:
-    """Resolve a hostname to all IPv4/IPv6 addresses without mutating socket timeouts."""
+    """Resolve all addresses within ``timeout`` without global socket mutation.
+
+    ``getaddrinfo`` is a blocking OS call and cannot be safely interrupted from
+    Python. Resolution therefore runs in a bounded daemon worker. A timed-out
+    worker may finish later, but it cannot keep process shutdown alive and the
+    semaphore caps the number of outstanding resolver threads.
+    """
 
     def _resolve_all() -> set[str]:
         addresses: set[str] = set()
@@ -131,12 +142,115 @@ def _resolve_hostname_addresses_with_timeout(hostname: str, timeout: float = 2.0
                 addresses.add(sockaddr[0])
         return addresses
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_resolve_all)
+    deadline = time.monotonic() + max(timeout, 0.0)
+    if not _DNS_RESOLUTION_SLOTS.acquire(timeout=max(timeout, 0.0)):
+        raise TimeoutError(f"DNS resolution timed out for {hostname}")
+
+    results: queue.Queue[set[str] | BaseException] = queue.Queue(maxsize=1)
+
+    def resolve_in_worker() -> None:
         try:
-            return future.result(timeout=timeout)
-        except concurrent.futures.TimeoutError as exc:
-            raise TimeoutError(f"DNS resolution timed out for {hostname}") from exc
+            result: set[str] | BaseException = _resolve_all()
+        except BaseException as exc:
+            result = exc
+        finally:
+            _DNS_RESOLUTION_SLOTS.release()
+        results.put_nowait(result)
+
+    worker = threading.Thread(
+        target=resolve_in_worker,
+        daemon=True,
+        name="proxywhirl-dns-resolver",
+    )
+    try:
+        worker.start()
+    except BaseException:
+        _DNS_RESOLUTION_SLOTS.release()
+        raise
+
+    remaining = max(0.0, deadline - time.monotonic())
+    try:
+        result = results.get(timeout=remaining)
+    except queue.Empty as exc:
+        raise TimeoutError(f"DNS resolution timed out for {hostname}") from exc
+
+    # Resolution has completed, so this only finalizes the worker lifecycle; a
+    # timeout path deliberately does not join because that would defeat the API.
+    worker.join(timeout=0.1)
+    if isinstance(result, BaseException):
+        raise result
+    return result
+
+
+# ============================================================================
+# BIND / SECRET FOOTGUN HELPERS
+# ============================================================================
+
+_PLACEHOLDER_SECRET_VALUES = frozenset(
+    {
+        "",
+        "changeme",
+        "change_me",
+        "change-me",
+        "password",
+        "secret",
+        "default",
+        "admin",
+        "proxywhirl",
+        "your-api-key-here",
+        "xxx",
+        "todo",
+        "replace-me",
+        "replace_me",
+    }
+)
+
+_PLACEHOLDER_SECRET_PREFIXES = (
+    "change_me",
+    "changeme",
+    "replace_me",
+    "replace-me",
+    "your_",
+    "your-",
+    "example",
+    "test-only",
+)
+
+
+def is_placeholder_secret(value: str | None) -> bool:
+    """Return True if a secret looks like a template/placeholder default.
+
+    Used to refuse production deploy templates that ship ``changeme``-style values.
+    """
+    if value is None:
+        return True
+    normalized = value.strip().lower()
+    if not normalized:
+        return True
+    if normalized in _PLACEHOLDER_SECRET_VALUES:
+        return True
+    if any(normalized.startswith(prefix) for prefix in _PLACEHOLDER_SECRET_PREFIXES):
+        return True
+    return "change_me" in normalized or "changeme" in normalized
+
+
+def is_loopback_host(host: str | None) -> bool:
+    """Return True if host is loopback (localhost / 127.0.0.0/8 / ::1)."""
+    if host is None or not str(host).strip():
+        return False
+    candidate = str(host).strip().lower().strip("[]")
+    if candidate in {"localhost", "ip6-localhost", "ip6-loopback"}:
+        return True
+    try:
+        return bool(ipaddress.ip_address(candidate).is_loopback)
+    except ValueError:
+        return False
+
+
+def allow_insecure_bind() -> bool:
+    """Return True when non-loopback bind without auth is explicitly allowed."""
+    raw = os.environ.get("PROXYWHIRL_ALLOW_INSECURE_BIND", "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
 
 
 def validate_proxy_url_safety(url: str) -> tuple[bool, str]:
@@ -151,13 +265,36 @@ def validate_proxy_url_safety(url: str) -> tuple[bool, str]:
     Returns:
         Tuple of (is_safe, reason)
     """
+    return _validate_outbound_url_safety(url, purpose="proxy")
+
+
+def validate_source_url_safety(url: str) -> tuple[bool, str]:
+    """Validate that a proxy-list *source* URL is safe to fetch (SSRF preflight).
+
+    Same host/IP blocklists as :func:`validate_proxy_url_safety`, but requires an
+    ``http``/``https`` scheme so file/gopher/etc. schemes cannot be used as sources.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception as e:
+        return False, f"Invalid URL format: {e}"
+
+    scheme = (parsed.scheme or "").lower()
+    if scheme not in {"http", "https"}:
+        return False, f"Source URL scheme must be http or https, got {scheme!r}"
+
+    return _validate_outbound_url_safety(url, purpose="source")
+
+
+def _validate_outbound_url_safety(url: str, *, purpose: str = "url") -> tuple[bool, str]:
+    """Shared host/DNS/IP blocklist checks for proxy and source URLs."""
     try:
         parsed = urlparse(url)
     except Exception as e:
         return False, f"Invalid URL format: {e}"
 
     if not parsed.hostname:
-        return False, "URL must include a valid hostname"
+        return False, f"{purpose.capitalize()} URL must include a valid hostname"
 
     # Try to parse as IP first (faster path)
     try:
@@ -574,6 +711,7 @@ __all__ = [
     "BlocklistCategory",
     "is_ip_blocked",
     "validate_proxy_url_safety",
+    "validate_source_url_safety",
     "redact_url",
     "redact_dict",
     "RedactionFilter",
@@ -583,4 +721,8 @@ __all__ = [
     "validate_proxy_credentials",
     "derive_key_pbkdf2",
     "verify_pbkdf2_key",
+    "is_placeholder_secret",
+    "is_loopback_host",
+    "allow_insecure_bind",
+    "_resolve_hostname_addresses_with_timeout",
 ]

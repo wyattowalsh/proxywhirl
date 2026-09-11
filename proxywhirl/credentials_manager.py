@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from loguru import logger
+from pydantic import SecretStr
 
 from proxywhirl.utils import decrypt_credentials, encrypt_credentials
 
@@ -15,8 +16,8 @@ class Credential:
     """Single credential entry."""
 
     name: str
-    username: str
-    password: str
+    username: SecretStr
+    password: SecretStr
     extra_fields: dict[str, Any] = field(default_factory=dict)
     description: str = ""
     tags: list[str] = field(default_factory=list)
@@ -29,8 +30,8 @@ class Credential:
         """
         return {
             "name": self.name,
-            "username": self.username,
-            "password": self.password,
+            "username": self.username.get_secret_value(),
+            "password": self.password.get_secret_value(),
             "extra_fields": self.extra_fields,
             "description": self.description,
             "tags": self.tags,
@@ -128,7 +129,7 @@ class CredentialsManager:
         if not self._encryption_key:
             raise ValueError("Encryption key not set")
 
-        data = f"{credential.username}:{credential.password}"
+        data = f"{credential.username.get_secret_value()}:{credential.password.get_secret_value()}"
         return encrypt_credentials(data, self._encryption_key)
 
     def decrypt_credential(self, encrypted: str) -> tuple[str, str] | None:
@@ -192,7 +193,10 @@ class CredentialsManager:
             cred_dict = credential.to_dict()
 
             if encrypt and self._encryption_key:
-                password_str = f"{credential.username}:{credential.password}"
+                password_str = (
+                    f"{credential.username.get_secret_value()}:"
+                    f"{credential.password.get_secret_value()}"
+                )
                 cred_dict["password"] = encrypt_credentials(
                     password_str,
                     self._encryption_key,

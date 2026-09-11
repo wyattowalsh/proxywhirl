@@ -113,6 +113,26 @@ class TestSQLiteStorage:
             # Load all
             loaded = await storage.load()
             assert len(loaded) == 10
+            assert set(loaded[0]) == {
+                "url",
+                "protocol",
+                "host",
+                "port",
+                "username",
+                "password",
+                "country_code",
+                "source",
+                "source_url",
+                "discovered_at",
+                "expires_at",
+                "health_status",
+                "last_check_at",
+                "last_success_at",
+                "last_failure_at",
+                "avg_response_time_ms",
+                "total_checks",
+                "total_successes",
+            }
 
             await storage.close()
 
@@ -183,8 +203,8 @@ class TestSQLiteStorage:
             assert (added, skipped) == (1, 0)
 
             loaded = {row["url"]: row for row in await storage.load()}
-            assert loaded[single_proxy.url]["source"] == "api"
-            assert loaded[batch_proxy.url]["source"] == "api"
+            assert loaded[single_proxy.url]["source"] == ProxySource.API.value
+            assert loaded[batch_proxy.url]["source"] == ProxySource.API.value
             assert loaded[single_proxy.url]["source_url"] == str(single_proxy.source_url)
             assert loaded[batch_proxy.url]["source_url"] == str(batch_proxy.source_url)
             assert loaded[single_proxy.url]["country_code"] == "US"
@@ -291,7 +311,7 @@ class TestSQLiteStorage:
             # Should have only 1 proxy (status stays unknown since save() doesn't update status)
             loaded = await storage.load()
             assert len(loaded) == 1
-            assert loaded[0]["health_status"] == "unknown"
+            assert loaded[0]["health_status"] == HealthStatus.UNKNOWN.value
 
             await storage.close()
 
@@ -316,5 +336,196 @@ class TestSQLiteStorage:
             # Verify all saved
             loaded = await storage.load()
             assert len(loaded) == 5
+
+            await storage.close()
+
+
+class TestSQLiteStorageWave2:
+    """Wave 2 storage/Alembic behavior (TM-STORE)."""
+
+    async def test_delete_returns_false_when_missing(self) -> None:
+        from proxywhirl.storage import SQLiteStorage
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+
+            assert await storage.delete("http://missing.example.com:8080") is False
+
+            await storage.close()
+
+    async def test_expires_at_persisted_on_save(self) -> None:
+        from datetime import datetime, timedelta, timezone
+
+        from proxywhirl.storage import SQLiteStorage
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=2)
+            proxy = Proxy(
+                url="http://ttl.example.com:8080",
+                expires_at=expires_at,
+                allow_local=True,
+            )
+            await storage.save([proxy])
+            restored = (await storage.load_models())[0]
+            assert restored.expires_at is not None
+            assert abs((restored.expires_at - expires_at).total_seconds()) < 2
+
+            await storage.close()
+
+    async def test_update_identity_upserts_metadata(self) -> None:
+        from proxywhirl.storage import SQLiteStorage
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+
+            url = "http://identity.example.com:8080"
+            await storage.add_proxy(
+                Proxy(url=url, country_code="US", allow_local=True),
+            )
+            updated = Proxy(url=url, country_code="CA", region="ON", allow_local=True)
+            assert await storage.update_identity(updated) is True
+
+            rows = await storage.load()
+            assert rows[0]["country_code"] == "CA"
+
+            await storage.close()
+
+    async def test_cross_process_credential_roundtrip_fixed_key(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from cryptography.fernet import Fernet
+        from pydantic import SecretStr
+
+        from proxywhirl.storage import SQLiteStorage
+
+        key = Fernet.generate_key()
+        monkeypatch.setenv("PROXYWHIRL_CACHE_ENCRYPTION_KEY", key.decode())
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            writer = SQLiteStorage(db_path)
+            await writer.initialize()
+            proxy = Proxy(
+                url="http://secure.example.com:8080",
+                username=SecretStr("writer-user"),
+                password=SecretStr("writer-pass"),
+                allow_local=True,
+            )
+            await writer.add_proxy(proxy)
+            await writer.close()
+
+            reader = SQLiteStorage(db_path)
+            await reader.initialize()
+            rows = await reader.load()
+            await reader.close()
+
+            assert rows[0]["username"] == "writer-user"
+            assert rows[0]["password"] == "writer-pass"
+
+    async def test_busy_timeout_pragma_on_connection(self) -> None:
+        from sqlalchemy import text
+
+        from proxywhirl.storage import SQLiteStorage
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+
+            async with storage.engine.connect() as conn:
+                result = await conn.execute(text("PRAGMA busy_timeout"))
+                timeout_ms = result.scalar()
+
+            assert timeout_ms == 5000
+            await storage.close()
+
+    async def test_success_rate_7d_updated_after_validation(self) -> None:
+        from sqlmodel.ext.asyncio.session import AsyncSession
+
+        from proxywhirl.storage import ProxyStatusTable, SQLiteStorage
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+
+            url = "http://rate.example.com:8080"
+            await storage.add_proxy(Proxy(url=url, allow_local=True))
+            await storage.record_validation(url, True, 50.0)
+            await storage.record_validation(url, False, None, error_type="timeout")
+
+            async with AsyncSession(storage.engine) as session:
+                status = await session.get(ProxyStatusTable, url)
+                assert status is not None
+                assert status.success_rate_7d == pytest.approx(0.5)
+
+            await storage.close()
+
+    async def test_initialize_alembic_only_no_runtime_alter_helpers(self) -> None:
+        """SQLiteStorage.initialize must not own schema ALTER helpers."""
+        from proxywhirl.storage import SQLiteStorage
+
+        assert not hasattr(SQLiteStorage, "_migrate_normalized_schema")
+        assert not hasattr(SQLiteStorage, "_ensure_supplemental_indexes")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+
+            from sqlalchemy import text
+
+            async with storage.engine.connect() as conn:
+                rev = (await conn.execute(text("SELECT version_num FROM alembic_version"))).scalar()
+                cols = {
+                    row[1]
+                    for row in (await conn.execute(text("PRAGMA table_info(proxy_identities)")))
+                }
+            assert rev == "d4e5f6a7b8c9"
+            assert "expires_at" in cols
+            await storage.close()
+
+    async def test_rejects_plaintext_credential_writes_without_key(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Credential writes must fail closed when encryption is unavailable."""
+        from pydantic import SecretStr
+
+        from proxywhirl.exceptions import ProxyStorageError
+        from proxywhirl.storage import SQLiteStorage
+
+        monkeypatch.delenv("PROXYWHIRL_CACHE_ENCRYPTION_KEY", raising=False)
+        monkeypatch.delenv("PROXYWHIRL_ENCRYPTION_KEY", raising=False)
+        monkeypatch.delenv("PROXYWHIRL_KEY", raising=False)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+
+            proxy = Proxy(
+                url="http://plain.example.com:8080",
+                username=SecretStr("user"),
+                password=SecretStr("pass"),
+                allow_local=True,
+            )
+            with pytest.raises(ProxyStorageError, match="ENCRYPTION_KEY|Fernet key"):
+                await storage.add_proxy(proxy)
+            with pytest.raises(ProxyStorageError, match="ENCRYPTION_KEY|Fernet key"):
+                await storage.save([proxy])
+
+            # Proxies without credentials still work
+            await storage.add_proxy(Proxy(url="http://open.example.com:8080", allow_local=True))
+            rows = await storage.load()
+            assert len(rows) == 1
+            assert rows[0]["url"] == "http://open.example.com:8080"
 
             await storage.close()

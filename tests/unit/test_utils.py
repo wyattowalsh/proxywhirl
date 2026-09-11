@@ -216,7 +216,7 @@ class TestProxyValidation:
 
     def test_validate_valid_proxy(self):
         """Test validation of valid proxy returns empty error list."""
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
         errors = validate_proxy_model(proxy)
         assert len(errors) == 0
 
@@ -228,13 +228,13 @@ class TestProxyValidation:
             url="http://proxy.example.com:8080",
             username=SecretStr("user"),
             password=SecretStr("pass"),
-        )  # type: ignore
+        )
         errors = validate_proxy_model(proxy)
         assert len(errors) == 0
 
     def test_validate_proxy_inconsistent_stats(self):
         """Test validation detects inconsistent statistics."""
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
         proxy.total_requests = 5
         proxy.total_successes = 3
         proxy.total_failures = 4  # 3 + 4 > 5, inconsistent!
@@ -245,7 +245,7 @@ class TestProxyValidation:
 
     def test_validate_proxy_negative_consecutive_failures(self):
         """Test validation detects negative consecutive failures."""
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
         proxy.consecutive_failures = -1
 
         errors = validate_proxy_model(proxy)
@@ -262,7 +262,7 @@ class TestProxyDictConversion:
             url="http://proxy.example.com:8080",
             health_status=HealthStatus.HEALTHY,
             source=ProxySource.USER,
-        )  # type: ignore
+        )
         result = proxy_to_dict(proxy)
 
         assert result["url"] == "http://proxy.example.com:8080"
@@ -273,7 +273,7 @@ class TestProxyDictConversion:
 
     def test_proxy_to_dict_redacts_url_userinfo(self):
         """URL-embedded credentials must not leak through public dict conversion."""
-        proxy = Proxy(url="http://user:pass@proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://user:pass@proxy.example.com:8080")
 
         result = proxy_to_dict(proxy)
 
@@ -283,7 +283,7 @@ class TestProxyDictConversion:
 
     def test_proxy_to_dict_with_tags(self):
         """Test proxy to dict includes tags."""
-        proxy = Proxy(url="http://proxy.example.com:8080", tags={"fast", "us"})  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080", tags={"fast", "us"})
         result = proxy_to_dict(proxy)
 
         assert "tags" in result
@@ -291,7 +291,7 @@ class TestProxyDictConversion:
 
     def test_proxy_to_dict_without_stats(self):
         """Test proxy to dict without stats."""
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
         result = proxy_to_dict(proxy, include_stats=False)
 
         assert "stats" not in result
@@ -299,7 +299,7 @@ class TestProxyDictConversion:
 
     def test_proxy_to_dict_with_stats(self):
         """Test proxy to dict includes detailed stats."""
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
         proxy.record_success(100.0)
         proxy.record_failure()
 
@@ -547,6 +547,25 @@ class TestLoggingUtilities:
         assert "pass" not in redacted
 
 
+class TestSensitiveTextRedaction:
+    """Bearer / Basic header redaction for logs and free text."""
+
+    def test_redact_bearer_token(self) -> None:
+        from proxywhirl.utils import _redact_sensitive_text
+
+        text = "Authorization: Bearer super-secret-token-value"
+        redacted = _redact_sensitive_text(text)
+        assert "super-secret-token-value" not in redacted
+        assert "Bearer ***" in redacted or "bearer ***" in redacted.lower()
+
+    def test_redact_basic_auth_header(self) -> None:
+        from proxywhirl.utils import _redact_sensitive_text
+
+        text = "authorization: Basic dXNlcjpwYXNz"
+        redacted = _redact_sensitive_text(text)
+        assert "dXNlcjpwYXNz" not in redacted
+
+
 class TestEncryptionUtilities:
     """Test encryption utility functions (optional cryptography dependency)."""
 
@@ -615,14 +634,13 @@ class TestEncryptionUtilities:
         except ImportError:
             pytest.skip("cryptography package not installed")
 
-    def test_encrypt_without_explicit_key(self):
-        """Test that encryption can generate key if none provided."""
+    def test_encrypt_without_explicit_key_raises(self):
+        """Test that encryption requires an explicit key (no ephemeral keys)."""
         try:
             from proxywhirl.utils import encrypt_credentials
 
-            # Should not raise even without explicit key
-            encrypted = encrypt_credentials("test-data")
-            assert isinstance(encrypted, str)
+            with pytest.raises(ValueError, match="requires an explicit key"):
+                encrypt_credentials("test-data")
         except ImportError:
             pytest.skip("cryptography package not installed")
 

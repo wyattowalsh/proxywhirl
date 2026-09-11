@@ -304,7 +304,7 @@ async def bootstrap_pool_if_empty_async(
     Returns:
         Number of proxies added to the pool.
     """
-    if pool.size > 0:
+    if await pool.asize() > 0:
         return 0
 
     if config is not None and not config.enabled:

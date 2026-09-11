@@ -1,11 +1,11 @@
 """Offline proxy metadata enrichment using local databases.
 
-This module provides 100% offline enrichment of proxy data using:
-1. MaxMind GeoLite2 local database (optional, requires download)
-2. Python stdlib ipaddress for IP property analysis
-3. Port signature analysis
+Canonical offline geo pipeline (see also ``proxywhirl.geo``):
+1. ``OfflineEnricher`` / ``AsyncOfflineEnricher`` — GeoLite2-City MMDB when installed,
+   plus stdlib IP traits and port-signature analysis (no external HTTP).
+2. ``proxywhirl.geo.batch_geolocate`` — GeoLite2-Country lookups for export batches.
 
-No external API calls - all lookups are local.
+No external API calls in this module.
 """
 
 from __future__ import annotations
@@ -55,6 +55,7 @@ class AsyncOfflineEnricher:
                        If None, looks in default locations.
         """
         self.geoip_reader: Any = None
+        self.geoip_lookup_errors: int = 0
         self._init_geoip(geoip_path)
 
     def _init_geoip(self, geoip_path: Path | None) -> None:
@@ -154,8 +155,9 @@ class AsyncOfflineEnricher:
                 result["longitude"] = response.location.longitude
                 result["timezone"] = response.location.time_zone
 
-        except Exception:
-            pass
+        except Exception as exc:
+            self.geoip_lookup_errors += 1
+            logger.debug(f"GeoIP lookup failed for {ip}: {exc}")
 
         return result
 
@@ -227,6 +229,7 @@ class OfflineEnricher:
                        If None, looks in default locations.
         """
         self.geoip_reader: Any = None
+        self.geoip_lookup_errors: int = 0
         self._init_geoip(geoip_path)
 
     def _init_geoip(self, geoip_path: Path | None) -> None:
@@ -336,9 +339,9 @@ class OfflineEnricher:
                 result["longitude"] = response.location.longitude
                 result["timezone"] = response.location.time_zone
 
-        except Exception:
-            # IP not found in database or invalid - that's OK
-            pass
+        except Exception as exc:
+            self.geoip_lookup_errors += 1
+            logger.debug(f"GeoIP lookup failed for {ip}: {exc}")
 
         return result
 

@@ -413,18 +413,21 @@ class TestProxyWhirlInterfaceParity:
         selected = await rotator.get_proxy()
         assert selected.id == healthy_proxy.id
 
-    async def test_sync_bootstrap_from_running_loop_avoids_asyncio_run_error(self) -> None:
+    async def test_sync_bootstrap_from_running_loop_avoids_asyncio_run_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         """Sync bootstrap should work when invoked while an event loop is already running."""
-        rotator = ProxyWhirl()
-        bootstrap_proxy = Proxy(url="http://bootstrap-loop.example.com:8080")
+        monkeypatch.setattr("proxywhirl.models.core._PROXY_POOL_EVENT_LOOP_LOCK_WARNED", False)
 
-        with patch(
-            "proxywhirl.rotator._bootstrap._fetch_bootstrap_candidates",
-            new=AsyncMock(return_value=([bootstrap_proxy], 1)),
-        ):
-            rotator._ensure_bootstrap_for_empty_pool()
-
-        assert rotator.pool.size == 1
+        with pytest.warns(RuntimeWarning, match="threading.RLock"):
+            rotator = ProxyWhirl()
+            bootstrap_proxy = Proxy(url="http://bootstrap-loop.example.com:8080")
+            with patch(
+                "proxywhirl.rotator._bootstrap._fetch_bootstrap_candidates",
+                new=AsyncMock(return_value=([bootstrap_proxy], 1)),
+            ):
+                rotator._ensure_bootstrap_for_empty_pool()
+            assert rotator.pool.size == 1
 
 
 class TestAuthenticationErrors:
@@ -605,6 +608,25 @@ class TestProxyChains:
 
         entry_proxy_id = str(chain.entry_proxy.id)
         assert entry_proxy_id in rotator.circuit_breakers
+
+    def test_add_chain_duplicate_entry_does_not_add_circuit_breaker(self) -> None:
+        """Duplicate chain entry URLs must not register another circuit breaker."""
+        rotator = ProxyWhirl()
+        entry_url = "http://proxy1.example.com:8080"
+        first = ProxyChain(
+            proxies=[Proxy(url=entry_url), Proxy(url="http://proxy2.example.com:8080")],
+            name="chain-a",
+        )
+        rotator.add_chain(first)
+        initial_cb_count = len(rotator.circuit_breakers)
+
+        second = ProxyChain(
+            proxies=[Proxy(url=entry_url), Proxy(url="http://proxy3.example.com:8080")],
+            name="chain-b",
+        )
+        rotator.add_chain(second)
+
+        assert len(rotator.circuit_breakers) == initial_cb_count
 
     def test_remove_chain_removes_circuit_breaker(self) -> None:
         """Test that removing a chain removes circuit breaker."""

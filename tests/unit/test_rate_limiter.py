@@ -1,5 +1,7 @@
 """Unit tests for rate_limiting.limiter module."""
 
+import asyncio
+
 import pytest
 
 from proxywhirl.rate_limiting import (
@@ -472,14 +474,25 @@ class TestAsyncRateLimiter:
         assert result is True
 
     async def test_get_lock_creates_lock_lazily(self) -> None:
-        """Test that _get_lock creates lock lazily."""
+        """Test that _get_lock creates lock lazily and reuses it on same loop."""
         limiter = AsyncRateLimiter()
         assert limiter._lock is None
 
         lock = limiter._get_lock()
         assert lock is not None
         assert limiter._lock is lock
+        assert limiter._loop is asyncio.get_running_loop()
 
         # Second call returns same lock
         lock2 = limiter._get_lock()
         assert lock2 is lock
+
+    async def test_get_lock_requires_running_loop(self) -> None:
+        """_get_lock outside a running loop must raise RuntimeError."""
+        limiter = AsyncRateLimiter()
+
+        def call_get_lock() -> None:
+            limiter._get_lock()
+
+        with pytest.raises(RuntimeError):
+            await asyncio.to_thread(call_get_lock)

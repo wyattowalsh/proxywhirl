@@ -16,9 +16,9 @@ class TestProxyPoolIDIndex:
     def test_index_initialized_with_initial_proxies(self):
         """Test that ID index is built from initial proxies."""
         proxies = [
-            Proxy(url="http://proxy1.example.com:8080"),  # type: ignore
-            Proxy(url="http://proxy2.example.com:8080"),  # type: ignore
-            Proxy(url="http://proxy3.example.com:8080"),  # type: ignore
+            Proxy(url="http://proxy1.example.com:8080"),
+            Proxy(url="http://proxy2.example.com:8080"),
+            Proxy(url="http://proxy3.example.com:8080"),
         ]
         pool = ProxyPool(name="test-pool", proxies=proxies)
 
@@ -36,7 +36,7 @@ class TestProxyPoolIDIndex:
     def test_index_updated_on_add_proxy(self):
         """Test that index is updated when adding a proxy."""
         pool = ProxyPool(name="test-pool")
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
 
         pool.add_proxy(proxy)
 
@@ -48,7 +48,7 @@ class TestProxyPoolIDIndex:
     def test_index_updated_on_remove_proxy(self):
         """Test that index is updated when removing a proxy."""
         pool = ProxyPool(name="test-pool")
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
         pool.add_proxy(proxy)
 
         assert proxy.id in pool._id_index
@@ -62,8 +62,8 @@ class TestProxyPoolIDIndex:
     def test_index_rebuilt_on_clear_unhealthy(self):
         """Test that index is rebuilt when clearing unhealthy proxies."""
         pool = ProxyPool(name="test-pool")
-        healthy = Proxy(url="http://healthy.example.com:8080", health_status=HealthStatus.HEALTHY)  # type: ignore
-        dead = Proxy(url="http://dead.example.com:8080", health_status=HealthStatus.DEAD)  # type: ignore
+        healthy = Proxy(url="http://healthy.example.com:8080", health_status=HealthStatus.HEALTHY)
+        dead = Proxy(url="http://dead.example.com:8080", health_status=HealthStatus.DEAD)
 
         pool.add_proxy(healthy)
         pool.add_proxy(dead)
@@ -88,8 +88,8 @@ class TestProxyPoolIDIndex:
         expired = Proxy(
             url="http://expired.example.com:8080",
             expires_at=datetime.now(timezone.utc) - timedelta(hours=1),
-        )  # type: ignore
-        valid = Proxy(url="http://valid.example.com:8080")  # type: ignore
+        )
+        valid = Proxy(url="http://valid.example.com:8080")
 
         pool.add_proxy(expired)
         pool.add_proxy(valid)
@@ -106,8 +106,8 @@ class TestProxyPoolIDIndex:
     def test_get_proxy_by_id_uses_index(self):
         """Test that get_proxy_by_id returns proxy from index."""
         pool = ProxyPool(name="test-pool")
-        proxy1 = Proxy(url="http://proxy1.example.com:8080")  # type: ignore
-        proxy2 = Proxy(url="http://proxy2.example.com:8080")  # type: ignore
+        proxy1 = Proxy(url="http://proxy1.example.com:8080")
+        proxy2 = Proxy(url="http://proxy2.example.com:8080")
 
         pool.add_proxy(proxy1)
         pool.add_proxy(proxy2)
@@ -122,7 +122,7 @@ class TestProxyPoolIDIndex:
     def test_get_proxy_by_id_returns_none_when_not_found(self):
         """Test that get_proxy_by_id returns None for missing ID."""
         pool = ProxyPool(name="test-pool")
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
 
         result = pool.get_proxy_by_id(proxy.id)
         assert result is None
@@ -134,7 +134,7 @@ class TestProxyPoolIDIndex:
         # Add multiple proxies
         proxies = []
         for i in range(10):
-            proxy = Proxy(url=f"http://proxy{i}.example.com:8080")  # type: ignore
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080")
             pool.add_proxy(proxy)
             proxies.append(proxy)
 
@@ -158,8 +158,8 @@ class TestProxyPoolIDIndex:
     def test_index_handles_duplicate_urls_correctly(self):
         """Test that index handles duplicate URL additions correctly."""
         pool = ProxyPool(name="test-pool")
-        proxy1 = Proxy(url="http://proxy.example.com:8080")  # type: ignore
-        proxy2 = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy1 = Proxy(url="http://proxy.example.com:8080")
+        proxy2 = Proxy(url="http://proxy.example.com:8080")
 
         pool.add_proxy(proxy1)
         pool.add_proxy(proxy2)  # Should be ignored as duplicate URL
@@ -180,10 +180,10 @@ class TestProxyPoolIDIndex:
         for i in range(5):
             healthy = Proxy(
                 url=f"http://healthy{i}.example.com:8080", health_status=HealthStatus.HEALTHY
-            )  # type: ignore
+            )
             unhealthy = Proxy(
                 url=f"http://unhealthy{i}.example.com:8080", health_status=HealthStatus.DEAD
-            )  # type: ignore
+            )
             pool.add_proxy(healthy)
             pool.add_proxy(unhealthy)
             healthy_proxies.append(healthy)

@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import secrets
 from datetime import datetime, timezone
@@ -156,7 +157,40 @@ def update_prometheus_metrics() -> None:
 
             proxywhirl_circuit_breaker_state.labels(proxy_id=proxy_id).set(state_value)
     except Exception as exc:
-        logger.warning(f"Failed to update circuit breaker metrics: {exc}")
+        logger.bind(error_type=type(exc).__name__).warning(
+            "Failed to update circuit breaker metrics"
+        )
+
+
+async def update_prometheus_metrics_async() -> None:
+    """Update Prometheus metrics without taking pool locks on the event loop."""
+    rotator = get_current_rotator()
+    if not rotator:
+        return
+
+    total, healthy, circuit_breakers = await asyncio.to_thread(
+        lambda: (
+            rotator.pool.size,
+            rotator.pool.healthy_count,
+            rotator.get_circuit_breaker_states(),
+        )
+    )
+    proxywhirl_proxies_total.set(total)
+    proxywhirl_proxies_healthy.set(healthy)
+
+    try:
+        for proxy_id, circuit_breaker in circuit_breakers.items():
+            state_value = 0
+            if circuit_breaker.state.value == "open":
+                state_value = 1
+            elif circuit_breaker.state.value == "half_open":
+                state_value = 2
+
+            proxywhirl_circuit_breaker_state.labels(proxy_id=proxy_id).set(state_value)
+    except Exception as exc:
+        logger.bind(error_type=type(exc).__name__).warning(
+            "Failed to update circuit breaker metrics"
+        )
 
 
 def get_rate_limit_key(request: Request) -> str:
@@ -173,12 +207,75 @@ def get_rate_limit_key(request: Request) -> str:
 limiter = Limiter(key_func=get_rate_limit_key, default_limits=[APISettings().rate_limit])
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
+# Routes that always require a configured API key (even when PROXYWHIRL_REQUIRE_AUTH=false).
+# /api/health and /api/ready stay open. Prometheus /api/metrics may still be public via
+# PROXYWHIRL_PUBLIC_METRICS (middleware short-circuit), but JSON metrics/CB reads are forced.
+FORCE_AUTH_EXACT_ROUTES: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("POST", "/api/request"),
+        ("GET", "/api/rotate"),
+        ("POST", "/api/rotate"),
+        ("POST", "/api/proxies/health-check"),
+        ("POST", "/api/proxies/test"),
+        ("GET", "/api/proxies"),
+        ("GET", "/api/proxies/stream"),
+        ("GET", "/api/proxies/export"),
+        ("POST", "/api/proxies"),
+        ("GET", "/api/status"),
+        ("GET", "/api/stats"),
+        ("GET", "/api/config"),
+        ("PUT", "/api/config"),
+        ("GET", "/api/circuit-breakers"),
+        ("GET", "/api/metrics"),
+        ("GET", "/api/metrics/retries"),
+        ("GET", "/api/metrics/retries/timeseries"),
+        ("GET", "/api/metrics/retries/by-proxy"),
+        ("GET", "/api/metrics/circuit-breakers"),
+        ("GET", "/api/retry/policy"),
+        ("PUT", "/api/retry/policy"),
+    }
+)
+FORCE_AUTH_PREFIX_ROUTES: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("DELETE", "/api/proxies/"),
+        ("POST", "/api/circuit-breakers/"),
+        ("GET", "/api/circuit-breakers/"),
+        ("GET", "/api/proxies/"),
+        ("GET", "/api/metrics/"),
+    }
+)
 
-def verify_api_key(api_key: str | None = Depends(api_key_header)) -> None:
-    """Verify API key if authentication is required."""
+
+def secure_compare_digest(provided: str | None, expected: str) -> bool:
+    """Constant-time comparison that rejects length mismatches without raising."""
+    if not provided or not expected:
+        return False
+    if len(provided) != len(expected):
+        return False
+    return secrets.compare_digest(provided, expected)
+
+
+def request_requires_api_key(method: str, path: str, *, require_auth: bool) -> bool:
+    """Return True when the route must present a valid API key."""
+    if require_auth:
+        return True
+    if (method, path) in FORCE_AUTH_EXACT_ROUTES:
+        return True
+    return any(
+        method == route_method and path.startswith(prefix)
+        for route_method, prefix in FORCE_AUTH_PREFIX_ROUTES
+    )
+
+
+def verify_api_key(
+    request: Request,
+    api_key: str | None = Depends(api_key_header),
+) -> None:
+    """Verify API key when global or per-route force-auth policy applies."""
     api_settings = APISettings()
+    path = request.url.path
 
-    if not api_settings.require_auth:
+    if not request_requires_api_key(request.method, path, require_auth=api_settings.require_auth):
         return
 
     expected_key = api_settings.api_key.get_secret_value() if api_settings.api_key else None
@@ -188,7 +285,7 @@ def verify_api_key(api_key: str | None = Depends(api_key_header)) -> None:
             detail="API authentication not configured",
         )
 
-    if not api_key or not secrets.compare_digest(api_key, expected_key):
+    if not secure_compare_digest(api_key, expected_key):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or missing API key",
@@ -205,3 +302,14 @@ def validate_proxied_request_url(request_data: ProxiedRequest) -> ProxiedRequest
             detail="URL is blocked by security policy (SSRF protection)",
         )
     return request_data
+
+
+def revalidate_proxied_target_url(url: str) -> None:
+    """Re-run SSRF validation immediately before an outbound proxied request (DNS rebinding)."""
+    try:
+        validate_target_url_safe(url, allow_private=False)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="URL is blocked by security policy (SSRF protection)",
+        )

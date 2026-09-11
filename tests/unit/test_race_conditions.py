@@ -132,7 +132,7 @@ class TestConcurrentProxyPoolModifications:
 
     def test_threaded_proxy_pool_pop(self) -> None:
         """Multiple threads popping proxies from a ``ProxyPool``."""
-        pool = ProxyPool(name="thread_pop", proxies=[ProxyFactory.build() for _ in range(100)])
+        pool = ProxyPool(name="thread_pop", proxies=ProxyFactory.batch(100))
         lock = threading.Lock()
         popped: list[Proxy] = []
         errors: list[Exception] = []
@@ -160,37 +160,34 @@ class TestConcurrentProxyPoolModifications:
     async def test_async_proxy_pool_append(self) -> None:
         """Multiple async tasks appending proxies to a ``ProxyPool``."""
         pool = ProxyPool(name="async_append", proxies=[])
-        lock = asyncio.Lock()
 
         async def add_proxy(task_id: int) -> None:
             for i in range(5):
                 proxy = ProxyFactory.build()
-                async with lock:
-                    pool.proxies.append(proxy)
+                await pool.aadd_proxy(proxy)
                 await asyncio.sleep(0)
 
         await asyncio.gather(*[add_proxy(i) for i in range(10)])
-        assert len(pool.proxies) == 50
+        assert await pool.asize() == 50
 
     @pytest.mark.asyncio
     async def test_async_proxy_pool_mixed_ops(self) -> None:
         """Async tasks performing mixed append/pop on a ``ProxyPool``."""
         pool = ProxyPool(name="async_mixed", proxies=[ProxyFactory.build() for _ in range(20)])
-        lock = asyncio.Lock()
 
         async def modify(task_id: int) -> None:
             for i in range(5):
-                async with lock:
-                    if i % 2 == 0 and pool.proxies:
-                        pool.proxies.pop(0)
-                    else:
-                        pool.proxies.append(ProxyFactory.build())
+                proxies = await pool.aget_all_proxies()
+                if i % 2 == 0 and proxies:
+                    await pool.aremove_proxy(proxies[0].id)
+                else:
+                    await pool.aadd_proxy(ProxyFactory.build())
                 await asyncio.sleep(0)
 
         await asyncio.gather(*[modify(i) for i in range(4)])
         # Pool should still be valid regardless of exact count
         assert isinstance(pool, ProxyPool)
-        assert len(pool.proxies) >= 0
+        assert await pool.asize() >= 0
 
     def test_threaded_read_during_write(self) -> None:
         """Threads reading proxy count while others are appending."""
@@ -229,23 +226,20 @@ class TestConcurrentProxyPoolModifications:
     async def test_async_read_during_write(self) -> None:
         """Async tasks reading while others are writing."""
         pool = ProxyPool(name="async_read_write", proxies=[])
-        lock = asyncio.Lock()
         read_counts: list[int] = []
 
         async def writer() -> None:
             for _ in range(20):
-                async with lock:
-                    pool.proxies.append(ProxyFactory.build())
+                await pool.aadd_proxy(ProxyFactory.build())
                 await asyncio.sleep(0)
 
         async def reader() -> None:
             for _ in range(20):
-                async with lock:
-                    read_counts.append(len(pool.proxies))
+                read_counts.append(await pool.asize())
                 await asyncio.sleep(0)
 
         await asyncio.gather(writer(), writer(), reader(), reader())
-        assert len(pool.proxies) == 40
+        assert await pool.asize() == 40
 
     def test_proxy_pool_concurrent_selection(self) -> None:
         """Multiple threads selecting proxies concurrently."""
@@ -278,14 +272,13 @@ class TestConcurrentProxyPoolModifications:
     async def test_async_proxy_pool_selection(self) -> None:
         """Multiple async tasks selecting proxies concurrently."""
         pool = ProxyPool(name="async_select", proxies=[ProxyFactory.healthy() for _ in range(10)])
-        lock = asyncio.Lock()
         selected: list[Proxy] = []
 
         async def select(task_id: int) -> None:
             for _ in range(5):
-                async with lock:
-                    if pool.proxies:
-                        selected.append(pool.proxies[0])
+                proxies = await pool.aget_all_proxies()
+                if proxies:
+                    selected.append(proxies[0])
                 await asyncio.sleep(0)
 
         await asyncio.gather(*[select(i) for i in range(5)])

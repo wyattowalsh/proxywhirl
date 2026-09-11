@@ -10,6 +10,8 @@ Covers gaps identified in openspec/changes/audit-remediation/artifacts/phase-r/r
 from __future__ import annotations
 
 import asyncio
+import threading
+import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -38,7 +40,7 @@ class TestAsyncTeardownClientPool:
         """__aexit__ closes every pooled per-proxy client via _close_all_clients."""
         rotator = AsyncProxyWhirl()
         await rotator.add_proxy("http://45.33.32.156:8080")
-        proxy = rotator.pool.get_all_proxies()[0]
+        proxy = (await rotator.pool.aget_all_proxies())[0]
 
         async with rotator:
             proxy_dict = rotator._get_proxy_dict(proxy)
@@ -58,7 +60,7 @@ class TestCloseAllClientsIdempotency:
         """Calling _close_all_clients() a second time on an empty pool is a no-op."""
         rotator = AsyncProxyWhirl()
         await rotator.add_proxy("http://45.33.32.156:8080")
-        proxy = rotator.pool.get_all_proxies()[0]
+        proxy = (await rotator.pool.aget_all_proxies())[0]
         proxy_dict = rotator._get_proxy_dict(proxy)
         await rotator._get_or_create_client(proxy, proxy_dict)
 
@@ -93,7 +95,7 @@ class TestCancellationDuringRequest:
         await rotator.add_proxy("http://45.33.32.156:8080")
 
         async with rotator:
-            proxy = rotator.pool.get_all_proxies()[0]
+            proxy = (await rotator.pool.aget_all_proxies())[0]
             proxy_dict = rotator._get_proxy_dict(proxy)
             client = await rotator._get_or_create_client(proxy, proxy_dict)
 
@@ -130,29 +132,91 @@ class TestAggregationThreadShutdown:
         await rotator.__aexit__(None, None, None)
 
         assert rotator._stop_event.is_set()
+        # Daemon Timer exits promptly after cancel; allow a brief join window.
+        assert thread is not None
+        if thread.is_alive():
+            thread.join(timeout=2.0)
         assert not thread.is_alive()
 
     @pytest.mark.asyncio
     async def test_exit_joins_thread_even_when_client_is_none(self) -> None:
-        """__aexit__ still stops the aggregation thread if __aenter__ was never called."""
+        """__aexit__ still stops aggregation when a timer was started without __aenter__."""
         rotator = AsyncProxyWhirl()
         assert rotator._client is None
+        rotator._start_aggregation_timer()
         thread = rotator._aggregation_thread
+        assert thread is not None
         assert thread.is_alive()
 
         await rotator.__aexit__(None, None, None)
 
         assert rotator._stop_event.is_set()
+        if thread.is_alive():
+            thread.join(timeout=2.0)
         assert not thread.is_alive()
 
     def test_del_stops_thread_without_context_manager_usage(self) -> None:
         """__del__ provides a cleanup safety net when used without `async with`."""
         rotator = AsyncProxyWhirl()
+        # Aggregation is deferred until context entry; start explicitly for this test.
+        rotator._start_aggregation_timer()
         thread = rotator._aggregation_thread
+        assert thread is not None
         assert thread.is_alive()
 
         rotator.__del__()
 
         assert rotator._stop_event.is_set()
-        thread.join(timeout=2.0)
+        if thread.is_alive():
+            thread.join(timeout=2.0)
         assert not thread.is_alive()
+
+    @pytest.mark.asyncio
+    async def test_aclose_joins_timer_and_clears_both_references(self) -> None:
+        """Normal async close waits for its timer and clears compatibility state."""
+        rotator = AsyncProxyWhirl()
+        started = threading.Event()
+        finished = threading.Event()
+
+        def aggregate() -> None:
+            started.set()
+            time.sleep(0.05)
+            finished.set()
+
+        timer = threading.Timer(0, aggregate)
+        rotator._aggregation_timer = timer
+        rotator._aggregation_thread = timer
+        timer.start()
+        assert started.wait(timeout=1.0)
+
+        await rotator.aclose()
+
+        assert finished.is_set()
+        assert not timer.is_alive()
+        assert rotator._aggregation_timer is None
+        assert rotator._aggregation_thread is None
+
+    def test_aclose_from_aggregation_timer_does_not_self_join(self) -> None:
+        """A callback-triggered async close must not join its own Timer thread."""
+        rotator = AsyncProxyWhirl()
+        completed = threading.Event()
+        errors: list[BaseException] = []
+
+        def close_from_timer() -> None:
+            try:
+                asyncio.run(rotator.aclose())
+            except BaseException as exc:
+                errors.append(exc)
+            finally:
+                completed.set()
+
+        timer = threading.Timer(0.01, close_from_timer)
+        rotator._aggregation_timer = timer
+        rotator._aggregation_thread = timer
+        timer.start()
+
+        assert completed.wait(timeout=1.0)
+        timer.join(timeout=1.0)
+        assert errors == []
+        assert rotator._aggregation_timer is None
+        assert rotator._aggregation_thread is None

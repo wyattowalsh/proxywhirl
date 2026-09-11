@@ -126,8 +126,8 @@ class TestAsyncProxyWhirlContextManager:
 
         # Thread should be stopped and joined
         assert rotator._stop_event.is_set()
-        # Thread should have finished or be close to finishing
-        assert not rotator._aggregation_thread.is_alive() or rotator._aggregation_thread.daemon
+        assert rotator._aggregation_timer is None
+        assert rotator._aggregation_thread is None
 
 
 class TestAsyncProxyWhirlProxyManagement:
@@ -140,7 +140,7 @@ class TestAsyncProxyWhirlProxyManagement:
 
         await rotator.add_proxy(proxy)
 
-        assert rotator.pool.size == 1
+        assert await rotator.pool.asize() == 1
         assert str(proxy.id) in rotator.circuit_breakers
 
     async def test_add_proxy_with_url_string(self) -> None:
@@ -149,7 +149,7 @@ class TestAsyncProxyWhirlProxyManagement:
 
         await rotator.add_proxy("http://proxy.example.com:8080")
 
-        assert rotator.pool.size == 1
+        assert await rotator.pool.asize() == 1
 
     async def test_remove_proxy(self) -> None:
         """Test removing proxy by ID."""
@@ -158,11 +158,11 @@ class TestAsyncProxyWhirlProxyManagement:
 
         await rotator.remove_proxy(str(proxy.id))
 
-        assert rotator.pool.size == 0
+        assert await rotator.pool.asize() == 0
 
     async def test_get_proxy_with_empty_pool_raises(self) -> None:
         """Test get_proxy with empty pool raises ProxyPoolEmptyError."""
-        rotator = AsyncProxyWhirl()
+        rotator = AsyncProxyWhirl(bootstrap=False)
 
         with pytest.raises(ProxyPoolEmptyError):
             await rotator.get_proxy()
@@ -331,7 +331,7 @@ class TestAsyncProxyWhirlClearUnhealthy:
         removed = await rotator.clear_unhealthy_proxies()
 
         assert removed == 2
-        assert rotator.pool.size == 1
+        assert await rotator.pool.asize() == 1
 
 
 class TestAsyncProxyWhirlGetProxyDict:

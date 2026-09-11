@@ -15,6 +15,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urljoin
 
 import httpx
 
@@ -27,6 +28,7 @@ from proxywhirl.fetchers import (
     PlainTextParser,
 )
 from proxywhirl.models import ProxySourceConfig
+from proxywhirl.security import validate_source_url_safety
 from proxywhirl.utils import parse_proxy_url
 
 SOURCE_VALIDATION_PARSERS: dict[str, type[Any]] = {
@@ -38,6 +40,8 @@ SOURCE_VALIDATION_PARSERS: dict[str, type[Any]] = {
     "html": HTMLTableParser,
 }
 SOURCE_VALIDATION_MAX_BYTES = 256_000
+SOURCE_VALIDATION_MAX_REDIRECTS = 5
+_REDIRECT_STATUS_CODES = frozenset({301, 302, 303, 307, 308})
 
 # =============================================================================
 # API-Based Sources (JSON/CSV formats)
@@ -1178,21 +1182,51 @@ async def _fetch_validation_content(
         timeout, connect=timeout, read=timeout, write=timeout, pool=timeout
     )
 
-    async with client.stream("GET", str(source.url), timeout=request_timeout) as response:
-        if response.status_code != 200:
-            return response.status_code, 0, 0, None
+    current_url = str(source.url)
+    safe, reason = validate_source_url_safety(current_url)
+    if not safe:
+        return 0, 0, 0, f"Source URL blocked: {reason}"[:100]
 
-        content, content_length, parse_error = await _read_validation_content(source, response)
-        if parse_error is not None:
-            return response.status_code, content_length, 0, parse_error
+    # Manual redirect following so each hop is SSRF-checked before the request.
+    for _ in range(SOURCE_VALIDATION_MAX_REDIRECTS + 1):
+        async with client.stream(
+            "GET",
+            current_url,
+            timeout=request_timeout,
+            follow_redirects=False,
+        ) as response:
+            if response.status_code in _REDIRECT_STATUS_CODES:
+                location = response.headers.get("location")
+                if not location:
+                    return response.status_code, 0, 0, "Redirect missing Location header"
+                next_url = urljoin(str(response.url), location)
+                safe, reason = validate_source_url_safety(next_url)
+                if not safe:
+                    return (
+                        response.status_code,
+                        0,
+                        0,
+                        f"Redirect target blocked: {reason}"[:100],
+                    )
+                current_url = next_url
+                continue
 
-        try:
-            proxy_count = _count_parseable_proxies(source, content)
-        except (ProxyFetchError, ValueError, TypeError) as exception:
-            proxy_count = 0
-            parse_error = f"Parse error: {exception}"[:100]
+            if response.status_code != 200:
+                return response.status_code, 0, 0, None
 
-        return response.status_code, content_length, proxy_count, parse_error
+            content, content_length, parse_error = await _read_validation_content(source, response)
+            if parse_error is not None:
+                return response.status_code, content_length, 0, parse_error
+
+            try:
+                proxy_count = _count_parseable_proxies(source, content)
+            except (ProxyFetchError, ValueError, TypeError) as exception:
+                proxy_count = 0
+                parse_error = f"Parse error: {exception}"[:100]
+
+            return response.status_code, content_length, proxy_count, parse_error
+
+    return 0, 0, 0, f"Too many redirects (>{SOURCE_VALIDATION_MAX_REDIRECTS})"
 
 
 def _get_source_name(source: ProxySourceConfig) -> str:
@@ -1259,7 +1293,7 @@ async def validate_source(
         elapsed_ms = (time.perf_counter() - start) * 1000
         try:
             if client is None:
-                async with httpx.AsyncClient(follow_redirects=True) as c:
+                async with httpx.AsyncClient(follow_redirects=False) as c:
                     (
                         status_code,
                         content_length,
@@ -1345,7 +1379,7 @@ async def validate_sources(
         async with semaphore:
             return await validate_source(source, timeout=timeout, client=client)
 
-    async with httpx.AsyncClient(follow_redirects=True) as client:
+    async with httpx.AsyncClient(follow_redirects=False) as client:
         tasks = [validate_with_semaphore(src, client) for src in sources]
         results = await asyncio.gather(*tasks)
 

@@ -38,7 +38,7 @@ class TestAsyncContextManager:
 
             # Should be able to add proxies inside context
             await rotator.add_proxy("http://proxy1.example.com:8080")
-            proxies = rotator.pool.get_all_proxies()
+            proxies = await rotator.pool.aget_all_proxies()
             assert len(proxies) > 0
 
     @pytest.mark.asyncio
@@ -49,7 +49,7 @@ class TestAsyncContextManager:
 
         async with rotator:
             # Context entered successfully
-            assert rotator.pool.get_all_proxies()
+            assert await rotator.pool.aget_all_proxies()
 
         # Should be cleaned up after exit
 
@@ -95,14 +95,14 @@ class TestAsyncContextManager:
         """Test that state is preserved across async context."""
         rotator = AsyncProxyWhirl()
         await rotator.add_proxy("http://proxy1.example.com:8080")
-        initial_count = len(rotator.pool.get_all_proxies())
+        initial_count = len(await rotator.pool.aget_all_proxies())
 
         async with rotator:
             await rotator.add_proxy("http://proxy2.example.com:8080")
-            assert len(rotator.pool.get_all_proxies()) == initial_count + 1
+            assert len(await rotator.pool.aget_all_proxies()) == initial_count + 1
 
         # State should be preserved
-        assert len(rotator.pool.get_all_proxies()) == initial_count + 1
+        assert len(await rotator.pool.aget_all_proxies()) == initial_count + 1
 
     @pytest.mark.asyncio
     async def test_async_with_concurrent_operations(self):
@@ -112,7 +112,7 @@ class TestAsyncContextManager:
             tasks = [rotator.add_proxy(f"http://proxy{i}.example.com:808{i}") for i in range(5)]
             await asyncio.gather(*tasks)
 
-            assert len(rotator.pool.get_all_proxies()) == 5
+            assert len(await rotator.pool.aget_all_proxies()) == 5
 
     @pytest.mark.asyncio
     async def test_aenter_returns_instance(self):

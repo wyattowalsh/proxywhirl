@@ -212,12 +212,10 @@ class TestAsyncCircuitBreakerShouldAttemptRequest:
             await cb.record_failure()
 
         with patch("time.time", return_value=101.0):
-            await cb.should_attempt_request()
-
-        assert cb.state == CircuitBreakerState.HALF_OPEN
-
-        # Second request should be blocked (pending flag set)
-        assert await cb.should_attempt_request() is False
+            assert await cb.should_attempt_request() is True
+            assert cb.state == CircuitBreakerState.HALF_OPEN
+            # Second request should be blocked (pending flag set)
+            assert await cb.should_attempt_request() is False
 
 
 class TestAsyncCircuitBreakerReset:

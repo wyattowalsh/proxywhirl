@@ -124,8 +124,9 @@ class TestRaceConditions:
 
         async def async_select(task_id: int) -> None:
             for _ in range(5):
-                if pool.proxies:
-                    proxy = pool.proxies[0]
+                proxies = await pool.aget_all_proxies()
+                if proxies:
+                    proxy = proxies[0]
                     results.append(proxy.url)
                 await asyncio.sleep(0.001)
 
@@ -209,8 +210,8 @@ class TestCacheCoherence:
                 cache.put(entry_key, _cache_entry(entry_key, f"value_{i}"))
                 await asyncio.sleep(0.001)
 
-        async def reader(task_id: int) -> None:
-            results = []
+        async def reader(task_id: int) -> list[object]:
+            results: list[object] = []
             for _ in range(10):
                 for i in range(3):
                     value = cache.get(f"{key}_{i}")
@@ -317,10 +318,11 @@ class TestConcurrentPoolUpdates:
 
         async def modify_pool(task_id: int) -> None:
             for i in range(3):
-                if pool.proxies and i % 2 == 0:
-                    pool.proxies.pop(0)
+                proxies = await pool.aget_all_proxies()
+                if proxies and i % 2 == 0:
+                    await pool.aremove_proxy(proxies[0].id)
                 else:
-                    pool.proxies.append(ProxyFactory.build())
+                    await pool.aadd_proxy(ProxyFactory.build())
                 await asyncio.sleep(0.001)
 
         tasks = [modify_pool(i) for i in range(3)]

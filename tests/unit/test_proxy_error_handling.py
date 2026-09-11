@@ -253,4 +253,6 @@ class TestProxyResponseTimeFields:
     def test_very_high_response_time(self):
         """Test very high response time."""
         proxy = Proxy(url="http://proxy.example.com:8080", average_response_time_ms=999999999.99)
-        assert proxy.average_response_time_ms > 0
+        latency = proxy.average_response_time_ms
+        assert latency is not None
+        assert latency > 0

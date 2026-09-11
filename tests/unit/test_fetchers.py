@@ -11,10 +11,43 @@ Tests cover:
 """
 
 import json
+from collections.abc import AsyncIterator
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from proxywhirl.exceptions import ProxyFetchError, ProxyValidationError
+
+
+def _mock_httpx_stream_client(
+    body: str,
+    *,
+    raise_on_enter: Exception | None = None,
+    raise_on_status: Exception | None = None,
+) -> MagicMock:
+    """Build a mock AsyncClient whose ``stream()`` yields bounded response bytes."""
+
+    async def _aiter_bytes(chunk_size: int = 65536) -> AsyncIterator[bytes]:
+        yield body.encode("utf-8")
+
+    mock_response = MagicMock()
+    mock_response.encoding = "utf-8"
+    mock_response.aiter_bytes = _aiter_bytes
+    if raise_on_status is not None:
+        mock_response.raise_for_status = MagicMock(side_effect=raise_on_status)
+    else:
+        mock_response.raise_for_status = MagicMock()
+
+    stream_cm = AsyncMock()
+    if raise_on_enter is not None:
+        stream_cm.__aenter__ = AsyncMock(side_effect=raise_on_enter)
+    else:
+        stream_cm.__aenter__ = AsyncMock(return_value=mock_response)
+    stream_cm.__aexit__ = AsyncMock(return_value=None)
+
+    mock_client = MagicMock()
+    mock_client.stream = MagicMock(return_value=stream_cm)
+    return mock_client
 
 
 # T088: JSON Parser Tests
@@ -436,6 +469,27 @@ class TestProxyValidator:
 
         with pytest.raises(ValueError, match="concurrency"):
             ProxyValidator(concurrency=0)
+
+    def test_constructor_preserves_033_positional_contract(self) -> None:
+        """The five released positional arguments retain their 0.3.3 meaning."""
+        from proxywhirl.fetchers import ProxyValidator
+        from proxywhirl.fetchers.validator import DEFAULT_ANONYMITY_TEST_URL
+        from proxywhirl.models import ValidationLevel
+
+        validator = ProxyValidator(5.0, None, ValidationLevel.FULL, 7, 123)
+
+        assert validator.level is ValidationLevel.FULL
+        assert validator.concurrency == 7
+        assert validator._cache_ttl_seconds == 123
+        assert validator.anonymity_test_url == DEFAULT_ANONYMITY_TEST_URL
+
+    def test_constructor_accepts_keyword_only_anonymity_endpoint(self) -> None:
+        """The new endpoint remains configurable without shifting old arguments."""
+        from proxywhirl.fetchers import ProxyValidator
+
+        validator = ProxyValidator(anonymity_test_url="http://echo.example/headers")
+
+        assert validator.anonymity_test_url == "http://echo.example/headers"
 
 
 class TestJSONParserEdgeCases:
@@ -1564,20 +1618,15 @@ class TestProxyFetcher:
 
     async def test_fetch_from_source_json(self) -> None:
         """Test fetching from JSON source."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, patch
 
         from proxywhirl.fetchers import ProxyFetcher, ProxySourceConfig
 
         source = ProxySourceConfig(url="http://example.com/proxies.json", format="json")
         fetcher = ProxyFetcher()
 
-        mock_response = MagicMock()
-        mock_response.text = '[{"host": "proxy1.com", "port": 8080}]'
-        mock_response.raise_for_status = MagicMock()
-
         with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = AsyncMock()
-            mock_instance.get = AsyncMock(return_value=mock_response)
+            mock_instance = _mock_httpx_stream_client('[{"host": "proxy1.com", "port": 8080}]')
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock(return_value=None)
             mock_client.return_value = mock_instance
@@ -1585,7 +1634,7 @@ class TestProxyFetcher:
             proxies = await fetcher.fetch_from_source(source)
 
         assert len(proxies) == 1
-        assert proxies[0]["host"] == "proxy1.com"
+        assert proxies[0]["url"] == "http://proxy1.com:8080"
 
     def test_unsupported_format_rejected_by_validation(self) -> None:
         """Test that unsupported format is rejected by Pydantic validation."""
@@ -1608,16 +1657,9 @@ class TestProxyFetcher:
         source = ProxySourceConfig(url="http://example.com/proxies.json", format="json")
         fetcher = ProxyFetcher()
 
-        mock_response = MagicMock()
-        mock_response.raise_for_status = MagicMock(
-            side_effect=httpx.HTTPStatusError(
-                "Not found", request=MagicMock(), response=MagicMock()
-            )
-        )
-
+        status_error = httpx.HTTPStatusError("Not found", request=MagicMock(), response=MagicMock())
         with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = AsyncMock()
-            mock_instance.get = AsyncMock(return_value=mock_response)
+            mock_instance = _mock_httpx_stream_client("[]", raise_on_status=status_error)
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock(return_value=None)
             mock_client.return_value = mock_instance
@@ -1637,8 +1679,10 @@ class TestProxyFetcher:
         fetcher = ProxyFetcher()
 
         with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = AsyncMock()
-            mock_instance.get = AsyncMock(side_effect=httpx.RequestError("Connection failed"))
+            mock_instance = _mock_httpx_stream_client(
+                "[]",
+                raise_on_enter=httpx.RequestError("Connection failed"),
+            )
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock(return_value=None)
             mock_client.return_value = mock_instance
@@ -1648,7 +1692,7 @@ class TestProxyFetcher:
 
     async def test_fetch_from_source_custom_parser(self) -> None:
         """Test fetching with custom parser."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, patch
 
         from proxywhirl.fetchers import ProxyFetcher, ProxySourceConfig
 
@@ -1663,13 +1707,8 @@ class TestProxyFetcher:
         )
         fetcher = ProxyFetcher()
 
-        mock_response = MagicMock()
-        mock_response.text = "custom data"
-        mock_response.raise_for_status = MagicMock()
-
         with patch("httpx.AsyncClient") as mock_client:
-            mock_instance = AsyncMock()
-            mock_instance.get = AsyncMock(return_value=mock_response)
+            mock_instance = _mock_httpx_stream_client("custom data")
             mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
             mock_instance.__aexit__ = AsyncMock(return_value=None)
             mock_client.return_value = mock_instance
@@ -1824,7 +1863,7 @@ class TestProxyFetcher:
         # Remove the browser module from sys.modules if it exists
         original = sys.modules.get("proxywhirl.browser")
         try:
-            sys.modules["proxywhirl.browser"] = None  # type: ignore
+            sys.modules["proxywhirl.browser"] = None  # type: ignore[assignment]
             with pytest.raises(ProxyFetchError, match="Browser rendering requires Playwright"):
                 await fetcher.fetch_from_source(source)
         finally:
@@ -2074,23 +2113,19 @@ class TestProxyFetcherClientPool:
         await fetcher.close()
         assert fetcher._client is None
 
-    async def test_close_cleans_up_validator_client(self) -> None:
-        """Test close also closes validator's clients."""
-        from unittest.mock import AsyncMock, patch
+    async def test_close_closes_injected_validator_by_transfer_contract(self) -> None:
+        """Passing a validator transfers its cleanup ownership to the fetcher."""
+        from unittest.mock import AsyncMock, MagicMock
 
         from proxywhirl.fetchers import ProxyFetcher, ProxyValidator
 
-        validator = ProxyValidator()
+        validator = MagicMock(spec=ProxyValidator)
+        validator.close = AsyncMock()
         fetcher = ProxyFetcher(validator=validator)
 
-        # Create validator's client
-        await validator._get_client()
-        assert validator._client is not None
+        await fetcher.close()
 
-        # Mock the validator's close method to verify it's called
-        with patch.object(validator, "close", new_callable=AsyncMock) as mock_close:
-            await fetcher.close()
-            mock_close.assert_called_once()
+        validator.close.assert_awaited_once()
 
     async def test_context_manager_cleanup(self) -> None:
         """Test async context manager properly cleans up."""
@@ -2105,31 +2140,23 @@ class TestProxyFetcherClientPool:
 
     async def test_fetch_from_source_uses_shared_client(self) -> None:
         """Test fetch_from_source uses shared client instead of creating new one."""
-        from unittest.mock import AsyncMock, MagicMock, patch
+        from unittest.mock import AsyncMock, patch
 
         from proxywhirl.fetchers import ProxyFetcher, ProxySourceConfig
 
         source = ProxySourceConfig(url="http://example.com/proxies.json", format="json")
         fetcher = ProxyFetcher()
 
-        mock_response = MagicMock()
-        mock_response.text = '[{"host": "proxy1.com", "port": 8080}]'
-        mock_response.raise_for_status = MagicMock()
-
-        # Mock _get_client to verify it's called
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
+        mock_client = _mock_httpx_stream_client('[{"host": "proxy1.com", "port": 8080}]')
 
         with patch.object(fetcher, "_get_client", new_callable=AsyncMock) as mock_get_client:
             mock_get_client.return_value = mock_client
 
-            # Fetch twice from the same source
             await fetcher.fetch_from_source(source)
             await fetcher.fetch_from_source(source)
 
-            # The second fetch is served from the request cache.
             assert mock_get_client.call_count == 1
-            assert mock_client.get.call_count == 1
+            assert mock_client.stream.call_count == 1
 
         await fetcher.close()
 
@@ -2145,3 +2172,94 @@ class TestProxyFetcherClientPool:
         assert isinstance(client, __import__("httpx").AsyncClient)
 
         await fetcher.close()
+
+
+class TestWave1FetchHardening:
+    """Wave 1 fetch/sources/safe_regex pack regressions (P-D-01..P-D-11)."""
+
+    async def test_validate_rejects_unsafe_proxy_url(self) -> None:
+        from unittest.mock import patch
+
+        from proxywhirl.fetchers import ProxyValidator
+
+        validator = ProxyValidator()
+        with patch(
+            "proxywhirl.fetchers.validate_proxy_url_safety",
+            return_value=(False, "loopback blocked"),
+        ):
+            result = await validator.validate({"url": "http://127.0.0.1:8080"})
+        assert result.is_valid is False
+
+    async def test_basic_validation_stops_after_tcp(self) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        from proxywhirl.fetchers import ProxyValidator
+        from proxywhirl.models import ValidationLevel
+
+        validator = ProxyValidator(level=ValidationLevel.BASIC)
+        with patch(
+            "proxywhirl.fetchers.validate_proxy_url_safety",
+            return_value=(True, ""),
+        ):
+            with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
+                mock_writer = AsyncMock()
+                mock_writer.close = MagicMock()
+                mock_writer.wait_closed = AsyncMock()
+                mock_open.return_value = (AsyncMock(), mock_writer)
+                result = await validator.validate({"url": "http://93.184.216.34:8080"})
+        assert result.is_valid is True
+
+    def test_normalize_host_port_json_rows(self) -> None:
+        from proxywhirl.fetchers import normalize_parsed_proxy_rows
+        from proxywhirl.models import ProxySourceConfig
+
+        source = ProxySourceConfig(url="http://example.com/proxies.json", format="json")
+        rows = normalize_parsed_proxy_rows(
+            [{"host": "93.184.216.34", "port": 8080}],
+            source,
+        )
+        assert rows[0]["url"] == "http://93.184.216.34:8080"
+
+    def test_html_parser_row_cap(self) -> None:
+        from proxywhirl.fetchers import HTMLTableParser
+
+        rows = "".join(f"<tr><td>1.2.3.{i}</td><td>8080</td></tr>" for i in range(50))
+        html = f"<table><tr><th>ip</th><th>port</th></tr>{rows}</table>"
+        parser = HTMLTableParser(column_indices={"host": 0, "port": 1}, max_rows=5)
+        proxies = parser.parse(html)
+        assert len(proxies) <= 5
+
+    async def test_trusted_sources_skip_validation(self) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        from proxywhirl.fetchers import ProxyFetcher, ProxySourceConfig
+
+        source = ProxySourceConfig(
+            url="http://example.com/proxies.json",
+            format="json",
+            trusted=True,
+        )
+        fetcher = ProxyFetcher(sources=[source])
+        with patch.object(fetcher, "fetch_from_source", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = [
+                {"url": "http://203.0.113.2:8080", "from_trusted_source": True}
+            ]
+            with patch.object(
+                fetcher.validator, "validate_batch", new_callable=AsyncMock
+            ) as mock_validate:
+                result = await fetcher.fetch_all(validate=True)
+        mock_validate.assert_not_awaited()
+        assert result[0]["url"] == "http://203.0.113.2:8080"
+
+    def test_anonymity_test_url_configurable(self) -> None:
+        from proxywhirl.fetchers import ProxyValidator
+
+        validator = ProxyValidator(anonymity_test_url="http://echo.example/headers")
+        assert validator.anonymity_test_url == "http://echo.example/headers"
+
+    def test_browser_rejects_non_http_scheme(self) -> None:
+        from proxywhirl.browser import BrowserRenderer
+
+        renderer = BrowserRenderer()
+        with pytest.raises(ValueError, match="http/https"):
+            renderer._assert_renderable_url("file:///etc/passwd")

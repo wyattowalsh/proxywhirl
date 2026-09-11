@@ -385,7 +385,8 @@ class TestFallbackStrategies:
         with pytest.raises(RetryableError):
             await failing_async_strategy()
 
-        fallback_proxy = pool.proxies[0]
+        proxies = await pool.aget_all_proxies()
+        fallback_proxy = proxies[0]
         assert fallback_proxy is not None
 
 

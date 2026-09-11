@@ -32,9 +32,16 @@ from proxywhirl.sources import (
 class MockSourceStream:
     """Async context manager matching httpx.AsyncClient.stream for source tests."""
 
-    def __init__(self, status_code: int = 200, text: str = "", chunks: list[bytes] | None = None):
+    def __init__(
+        self,
+        status_code: int = 200,
+        text: str = "",
+        chunks: list[bytes] | None = None,
+        url: str = "http://example.com/proxies.txt",
+    ):
         self.status_code = status_code
         self.encoding = "utf-8"
+        self.url = httpx.URL(url)
         self._chunks = chunks if chunks is not None else [text.encode()]
         self.started = False
 

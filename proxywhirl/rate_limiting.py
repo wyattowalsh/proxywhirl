@@ -50,7 +50,16 @@ class _TokenBucketLimiter:
         self._lock = threading.RLock()
 
     def try_acquire(self, _key: str) -> None:
-        """Acquire one token or raise when the bucket is empty."""
+        """Acquire one token immediately or raise when the bucket is empty.
+
+        This is the low-level, non-blocking primitive used by ``check_limit`` /
+        ``acquire`` on the public limiter classes. The ``_key`` argument is
+        reserved for logging and multi-bucket call sites (for example ``"global"``
+        vs a proxy id); token accounting is per-bucket instance, not per key.
+
+        Raises:
+            _RateLimitExceededError: When no token is available right now.
+        """
         with self._lock:
             now = self._time_fn()
             elapsed = max(0.0, now - self._updated_at)
@@ -148,6 +157,9 @@ class AsyncRateLimiter:
 
     This class provides an async-safe interface using asyncio.Lock.
     Use this class when calling from async functions to avoid blocking the event loop.
+
+    The lock is bound to the running event loop. If the limiter is reused on a
+    different loop (common in tests), a fresh lock is created for that loop.
     """
 
     def __init__(
@@ -158,15 +170,18 @@ class AsyncRateLimiter:
         self.global_limit = global_limit
         self._proxy_limiters: dict[str, _TokenBucketLimiter] = {}
         self._global_limiter: _TokenBucketLimiter | None = None
-        self._lock: asyncio.Lock | None = None  # Lazy-initialized
+        self._lock: asyncio.Lock | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
         if global_limit:
             self._global_limiter = _make_limiter(global_limit)
 
     def _get_lock(self) -> asyncio.Lock:
-        """Get or create async lock. Lazy initialization to avoid event loop issues."""
-        if self._lock is None:
+        """Get or create an async lock bound to the current running loop."""
+        loop = asyncio.get_running_loop()
+        if self._lock is None or self._loop is not loop:
             self._lock = asyncio.Lock()
+            self._loop = loop
         return self._lock
 
     async def set_proxy_limit(self, proxy_id: str, limit: RateLimit) -> None:

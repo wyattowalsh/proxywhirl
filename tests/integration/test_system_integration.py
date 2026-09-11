@@ -360,9 +360,10 @@ class TestEndToEndIntegration:
             bootstrap=False,
         )
 
-        for _ in range(5):
-            proxy = await rotator.get_proxy()
-            assert proxy is not None
+        async with rotator:
+            for _ in range(5):
+                proxy = await rotator.get_proxy()
+                assert proxy is not None
 
     @pytest.mark.integration
     @pytest.mark.asyncio
@@ -400,7 +401,7 @@ class TestEndToEndIntegration:
         validator = ProxyValidator()
 
         # Validate proxies
-        for proxy in pool.proxies:
+        for proxy in await pool.aget_all_proxies():
             with patch("asyncio.open_connection", side_effect=OSError("network unavailable")):
                 result = await validator.validate({"url": proxy.url})
                 assert result.is_valid is False
@@ -417,19 +418,23 @@ class TestEndToEndIntegration:
         pool = ProxyPool(name="pipeline_pool", proxies=proxies)
 
         try:
+            pool_proxies = await pool.aget_all_proxies()
+
             # Store
-            await storage.save(pool.proxies, validated=True)
-            cache.put(str(pool.id), _cache_entry(str(pool.id), pool.proxies[0].url))
+            await storage.save(pool_proxies, validated=True)
+            cache.put(str(pool.id), _cache_entry(str(pool.id), pool_proxies[0].url))
 
             # Load
             loaded = await storage.load()
-            assert {row["url"] for row in loaded} == {proxy.url for proxy in pool.proxies}
+            assert {row["url"] for row in loaded} == {proxy.url for proxy in pool_proxies}
 
-            # Create rotator with loaded pool
-            rotator = ProxyWhirl(proxies=pool.proxies, bootstrap=False)
+            def rotate_once() -> Proxy:
+                """Run the synchronous rotator without blocking the event loop."""
+                with ProxyWhirl(proxies=pool_proxies, bootstrap=False) as rotator:
+                    return rotator.strategy.select(rotator.pool)
 
             # Rotate
-            selected = rotator.strategy.select(rotator.pool)
+            selected = await asyncio.to_thread(rotate_once)
             assert selected is not None
         finally:
             await storage.clear()

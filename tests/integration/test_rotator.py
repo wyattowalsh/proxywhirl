@@ -24,8 +24,8 @@ class TestProxyWhirlBasics:
     def test_init_with_proxies(self):
         """Test creating rotator with initial proxies."""
         proxies = [
-            Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY),  # type: ignore
-            Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY),  # type: ignore
+            Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY),
+            Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY),
         ]
         rotator = ProxyWhirl(proxies=proxies)
         assert rotator.pool.size == 2
@@ -39,14 +39,14 @@ class TestProxyWhirlBasics:
     def test_add_proxy_from_proxy_object(self):
         """Test adding proxy from Proxy object."""
         rotator = ProxyWhirl()
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
         rotator.add_proxy(proxy)
         assert rotator.pool.size == 1
 
     def test_remove_proxy(self):
         """Test removing proxy."""
         rotator = ProxyWhirl()
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
         rotator.add_proxy(proxy)
         assert rotator.pool.size == 1
 
@@ -211,7 +211,7 @@ class TestProxyWhirlWithCredentials:
     def test_get_proxy_dict_without_credentials(self):
         """Test proxy dict generation without credentials."""
         rotator = ProxyWhirl()
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
 
         proxy_dict = rotator._get_proxy_dict(proxy)
 
@@ -228,7 +228,7 @@ class TestProxyWhirlWithCredentials:
             url="http://proxy.example.com:8080",
             username=SecretStr("user"),
             password=SecretStr("pass"),
-        )  # type: ignore
+        )
 
         proxy_dict = rotator._get_proxy_dict(proxy)
 

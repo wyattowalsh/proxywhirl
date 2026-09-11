@@ -46,12 +46,12 @@ class TestRateLimit:
     def test_rate_limit_requires_max_requests(self):
         """Test that max_requests is required."""
         with pytest.raises(ValueError):
-            RateLimit(time_window=60)  # type: ignore
+            RateLimit(time_window=60)
 
     def test_rate_limit_requires_time_window(self):
         """Test that time_window is required."""
         with pytest.raises(ValueError):
-            RateLimit(max_requests=100)  # type: ignore
+            RateLimit(max_requests=100)
 
 
 class TestRateLimitEvent:

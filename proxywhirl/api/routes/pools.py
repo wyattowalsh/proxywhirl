@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from loguru import logger
 
 from proxywhirl.api.models import (
@@ -36,6 +36,18 @@ from proxywhirl.api.runtime import (
 from proxywhirl.rotator import ProxyWhirl
 
 router = APIRouter()
+
+
+def _bounded_metrics_hours(hours: int, retention_hours: int) -> int:
+    """Preserve released window semantics without allowing timedelta overflow.
+
+    Non-positive windows produced empty responses in 0.3.3. Positive windows
+    larger than the retained data were equivalent to the retention horizon, so
+    clamp them before constructing a timedelta.
+    """
+    if hours <= 0:
+        return 0
+    return min(hours, max(retention_hours, 0))
 
 
 @router.get(
@@ -108,7 +120,7 @@ async def update_configuration(
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid rotation strategy: {str(e)}",
+                detail="Invalid rotation strategy",
             ) from e
 
     if update_data.timeout is not None:
@@ -259,7 +271,7 @@ async def update_retry_policy(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid policy configuration: {e}",
+            detail="Invalid policy configuration",
         ) from e
 
 
@@ -286,7 +298,7 @@ async def list_circuit_breakers(
             detail="Rotator not initialized",
         )
 
-    circuit_breakers = rotator.get_circuit_breaker_states()
+    circuit_breakers = await asyncio.to_thread(rotator.get_circuit_breaker_states)
 
     responses = []
     for proxy_id, cb in circuit_breakers.items():
@@ -315,7 +327,7 @@ async def list_circuit_breakers(
     summary="Get circuit breaker metrics",
 )
 async def get_circuit_breaker_metrics(
-    hours: int = 24,
+    hours: int = Query(24),
     api_key: None = Depends(verify_api_key),
 ) -> APIResponse[list[CircuitBreakerEventResponse]]:
     """Get circuit breaker state change events.
@@ -336,19 +348,23 @@ async def get_circuit_breaker_metrics(
         )
 
     metrics = rotator.get_retry_metrics()
+    hours = _bounded_metrics_hours(hours, metrics.retention_hours)
     cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
 
-    events = [
-        CircuitBreakerEventResponse(
-            proxy_id=event.proxy_id,
-            from_state=event.from_state.value,
-            to_state=event.to_state.value,
-            timestamp=event.timestamp,
-            failure_count=event.failure_count,
-        )
-        for event in metrics.circuit_breaker_events
-        if event.timestamp >= cutoff
-    ]
+    def _collect_events() -> list[CircuitBreakerEventResponse]:
+        return [
+            CircuitBreakerEventResponse(
+                proxy_id=event.proxy_id,
+                from_state=event.from_state.value,
+                to_state=event.to_state.value,
+                timestamp=event.timestamp,
+                failure_count=event.failure_count,
+            )
+            for event in metrics.circuit_breaker_events
+            if event.timestamp >= cutoff
+        ]
+
+    events = await asyncio.to_thread(_collect_events)
 
     return APIResponse.success(data=events)
 
@@ -380,7 +396,7 @@ async def get_circuit_breaker(
             detail="Rotator not initialized",
         )
 
-    circuit_breakers = rotator.get_circuit_breaker_states()
+    circuit_breakers = await asyncio.to_thread(rotator.get_circuit_breaker_states)
 
     if proxy_id not in circuit_breakers:
         raise HTTPException(
@@ -436,10 +452,10 @@ async def reset_circuit_breaker(
         )
 
     try:
-        rotator.reset_circuit_breaker(proxy_id)
+        await asyncio.to_thread(rotator.reset_circuit_breaker, proxy_id)
 
         # Get updated state
-        circuit_breakers = rotator.get_circuit_breaker_states()
+        circuit_breakers = await asyncio.to_thread(rotator.get_circuit_breaker_states)
         cb = circuit_breakers[proxy_id]
 
         response = CircuitBreakerResponse(
@@ -461,7 +477,7 @@ async def reset_circuit_breaker(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Circuit breaker not found for proxy: {proxy_id}",
-        )
+        ) from None
 
 
 @router.get(
@@ -508,7 +524,7 @@ async def get_retry_metrics(
     summary="Get time-series retry data",
 )
 async def get_retry_timeseries(
-    hours: int = 24,
+    hours: int = Query(24),
     api_key: None = Depends(verify_api_key),
 ) -> APIResponse[TimeSeriesResponse]:
     """Get hourly retry metrics for the specified time range.
@@ -529,6 +545,7 @@ async def get_retry_timeseries(
         )
 
     metrics = rotator.get_retry_metrics()
+    hours = _bounded_metrics_hours(hours, metrics.retention_hours)
     # Use asyncio.to_thread to avoid blocking event loop with threading.Lock
     timeseries_data = await asyncio.to_thread(metrics.get_timeseries, hours=hours)
 
@@ -555,7 +572,7 @@ async def get_retry_timeseries(
     summary="Get per-proxy retry statistics",
 )
 async def get_retry_stats_by_proxy(
-    hours: int = 24,
+    hours: int = Query(24),
     api_key: None = Depends(verify_api_key),
 ) -> APIResponse[ProxyRetryStatsResponse]:
     """Get retry statistics grouped by proxy.
@@ -576,6 +593,7 @@ async def get_retry_stats_by_proxy(
         )
 
     metrics = rotator.get_retry_metrics()
+    hours = _bounded_metrics_hours(hours, metrics.retention_hours)
     # Use asyncio.to_thread to avoid blocking event loop with threading.Lock
     stats_by_proxy = await asyncio.to_thread(metrics.get_by_proxy, hours=hours)
 

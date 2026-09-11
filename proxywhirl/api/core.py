@@ -17,6 +17,7 @@ The API uses:
 
 from __future__ import annotations
 
+import asyncio
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -32,6 +33,11 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from proxywhirl.api.middleware.auth import APIKeyMiddleware
+from proxywhirl.api.middleware.body_limit import (
+    _BODY_LIMIT_EXCEEDED_STATE_KEY,
+    RequestBodyLimitMiddleware,
+    _RequestBodyTooLargeError,
+)
 from proxywhirl.api.models import APIResponse, ErrorCode
 from proxywhirl.api.runtime import (
     _get_proxy_id,
@@ -49,13 +55,15 @@ from proxywhirl.api.runtime import (
     set_rotator,
     set_storage,
     update_prometheus_metrics,
+    update_prometheus_metrics_async,
     validate_proxied_request_url,
     verify_api_key,
 )
-from proxywhirl.exceptions import ProxyWhirlError
+from proxywhirl.exceptions import ProxyWhirlError, redact_url
 from proxywhirl.rotator import ProxyWhirl
+from proxywhirl.security import allow_insecure_bind, is_loopback_host, is_placeholder_secret
 from proxywhirl.settings import APISettings
-from proxywhirl.storage import SQLiteStorage, dict_to_proxy
+from proxywhirl.storage import SQLiteStorage
 
 __all__ = [
     "_get_proxy_id",
@@ -73,6 +81,7 @@ __all__ = [
     "set_rotator",
     "set_storage",
     "update_prometheus_metrics",
+    "update_prometheus_metrics_async",
     "validate_proxied_request_url",
     "verify_api_key",
 ]
@@ -93,73 +102,106 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     api_settings = APISettings()
     storage = None
 
+    # PROXYWHIRL_BIND_HOST is the declared listen-host SSOT for this guard. Launch
+    # surfaces must keep it equal to the effective server bind. Non-loopback binds
+    # require both auth mode and usable secret material unless the operator selects
+    # the explicit local-development override.
+    api_key = api_settings.api_key.get_secret_value() if api_settings.api_key else None
+    if (
+        not is_loopback_host(api_settings.bind_host)
+        and not allow_insecure_bind()
+        and (not api_settings.require_auth or is_placeholder_secret(api_key))
+    ):
+        raise RuntimeError(
+            "Refusing to start API on non-loopback bind "
+            f"({api_settings.bind_host!r}) without usable authentication. "
+            "Set PROXYWHIRL_BIND_HOST to 127.0.0.1/localhost (and match uvicorn --host), "
+            "enable PROXYWHIRL_REQUIRE_AUTH=true with a usable PROXYWHIRL_API_KEY, or set "
+            "PROXYWHIRL_ALLOW_INSECURE_BIND=1 for explicit local-only override."
+        )
+
     if not api_settings.require_auth:
         logger.warning(
-            "ProxyWhirl API starting with authentication DISABLED "
-            "(PROXYWHIRL_REQUIRE_AUTH=false). All endpoints, including write operations, "
-            "pool management, and monitoring endpoints are reachable without an API key. "
-            "This is intended for local development only. For production deployments, set "
+            "ProxyWhirl API starting with PROXYWHIRL_REQUIRE_AUTH=false. "
+            "Force-auth still protects intel/mutating routes (proxies, rotate, config, "
+            "stats, circuit breakers, metrics JSON). /api/health and /api/ready stay open. "
+            "This is intended for local development only. For production, set "
             "PROXYWHIRL_REQUIRE_AUTH=true and PROXYWHIRL_API_KEY. "
             "See https://www.proxywhirl.com/docs/guides/deployment for hardening guidance."
         )
 
-    # Initialize storage if configured
-    if api_settings.storage_path:
-        logger.info(f"Initializing SQLiteStorage: {api_settings.storage_path}")
-        storage = SQLiteStorage(str(api_settings.storage_path))
-        await storage.initialize()
-    set_storage(storage)
+    rotator = None
+    try:
+        # Initialize storage if configured. The encompassing finally also covers
+        # startup failures after a resource has been created.
+        if api_settings.storage_path:
+            logger.info(f"Initializing SQLiteStorage: {api_settings.storage_path}")
+            storage = SQLiteStorage(str(api_settings.storage_path))
+            await storage.initialize()
+        set_storage(storage)
 
-    # Initialize rotator
-    logger.info("Initializing ProxyWhirl...")
-    rotator = ProxyWhirl()
-    set_rotator(rotator)
+        # Initialize rotator
+        logger.info("Initializing ProxyWhirl...")
+        rotator = await asyncio.to_thread(ProxyWhirl)
+        set_rotator(rotator)
 
-    # Load proxies from storage if available
-    if storage:
+        # Load proxies from storage if available
+        if storage:
+            try:
+                stored_proxies = await storage.load_models()
+                for proxy in stored_proxies:
+                    await asyncio.to_thread(rotator.add_proxy, proxy)
+                logger.info(f"Loaded {len(stored_proxies)} proxies from storage")
+            except Exception as exc:
+                logger.bind(error_type=type(exc).__name__).warning(
+                    "Failed to load proxies from storage"
+                )
+
+        # Load initial configuration
+        set_config(
+            {
+                "rotation_strategy": api_settings.strategy,
+                "timeout": api_settings.timeout,
+                "max_retries": api_settings.max_retries,
+                "rate_limits": {
+                    "default_limit": 100,
+                    "request_endpoint_limit": 50,
+                },
+                "auth_enabled": api_settings.require_auth,
+                "cors_origins": api_settings.cors_origins,
+            }
+        )
+
+        logger.info("ProxyWhirl API initialized successfully")
+        yield
+    finally:
+        # Shutdown
+        logger.info("Shutting down ProxyWhirl API...")
+
+        active_storage = get_storage() or storage
+        active_rotator = get_current_rotator() or rotator
         try:
-            stored_proxies = await storage.load()
-            for row in stored_proxies:
-                rotator.add_proxy(dict_to_proxy(row))
-            logger.info(f"Loaded {len(stored_proxies)} proxies from storage")
-        except Exception as e:
-            logger.warning(f"Failed to load proxies from storage: {e}")
+            if active_storage and active_rotator:
+                logger.info("Saving proxy pool state...")
+                await active_storage.save(await active_rotator.pool.aget_all_proxies())
+        finally:
+            try:
+                if active_rotator:
+                    await asyncio.to_thread(active_rotator.close)
+            finally:
+                try:
+                    if active_storage:
+                        await active_storage.close()
+                finally:
+                    set_rotator(None)
+                    set_storage(None)
 
-    # Load initial configuration
-    set_config(
-        {
-            "rotation_strategy": api_settings.strategy,
-            "timeout": api_settings.timeout,
-            "max_retries": api_settings.max_retries,
-            "rate_limits": {
-                "default_limit": 100,
-                "request_endpoint_limit": 50,
-            },
-            "auth_enabled": api_settings.require_auth,
-            "cors_origins": api_settings.cors_origins,
-        }
-    )
+        logger.info("ProxyWhirl API shutdown complete")
 
-    logger.info("ProxyWhirl API initialized successfully")
 
-    yield
-
-    # Shutdown
-    logger.info("Shutting down ProxyWhirl API...")
-
-    # Save state if storage configured
-    storage = get_storage()
-    rotator = get_current_rotator()
-    if storage and rotator:
-        logger.info("Saving proxy pool state...")
-        # Use thread-safe snapshot for saving
-        await storage.save(rotator.pool.get_all_proxies())
-
-    if storage:
-        await storage.close()
-
-    logger.info("ProxyWhirl API shutdown complete")
-
+# Docs gated by PROXYWHIRL_EXPOSE_DOCS (default: off when require_auth).
+_api_settings_for_app = APISettings()
+_docs_enabled = _api_settings_for_app.docs_enabled
 
 # Create FastAPI app
 app = FastAPI(
@@ -171,9 +213,9 @@ app = FastAPI(
         "requests, and monitor system health through RESTful endpoints."
     ),
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
-    openapi_url="/openapi.json",
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
 )
 
 
@@ -182,7 +224,7 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
 
-api_settings = APISettings()
+api_settings = _api_settings_for_app
 
 # CORS middleware
 # Security: Default to no CORS (empty list = CORS disabled)
@@ -337,23 +379,45 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
         return "read"
 
     def _redact_api_key(self, api_key: str | None) -> str:
-        """Redact API key for safe logging (show first/last 4 chars)."""
+        """Record API-key presence without exposing any key material."""
         if not api_key:
             return "none"
-        if len(api_key) <= 8:
-            return "***"
-        return f"{api_key[:4]}...{api_key[-4:]}"
+        return "***REDACTED***"
+
+    def _is_sensitive_field_name(self, field_name: str) -> bool:
+        """Recognize exact and compound sensitive field names."""
+        import re
+
+        normalized = re.sub(r"[^a-z0-9]+", "_", field_name.lower()).strip("_")
+        return normalized in self.SENSITIVE_FIELDS or any(
+            part in self.SENSITIVE_FIELDS for part in normalized.split("_")
+        )
 
     def _redact_body(self, body: dict[str, Any]) -> dict[str, Any]:
         """Recursively redact sensitive fields in request body."""
+        from proxywhirl.security import redact_url
+        from proxywhirl.utils import _redact_sensitive_text
+
         redacted = {}
         for key, value in body.items():
-            if key.lower() in self.SENSITIVE_FIELDS:
+            if self._is_sensitive_field_name(key):
                 redacted[key] = "***REDACTED***"
             elif isinstance(value, dict):
                 redacted[key] = self._redact_body(value)
             elif isinstance(value, list):
-                redacted[key] = [self._redact_body(v) if isinstance(v, dict) else v for v in value]
+                redacted[key] = [
+                    self._redact_body(v)
+                    if isinstance(v, dict)
+                    else _redact_sensitive_text(v)
+                    if isinstance(v, str)
+                    else v
+                    for v in value
+                ]
+            elif isinstance(value, str):
+                if key.lower() in {"url", "proxy_url", "target_url", "href", "link"}:
+                    redacted[key] = redact_url(value)
+                else:
+                    redacted[key] = _redact_sensitive_text(value)
             else:
                 redacted[key] = value
         return redacted
@@ -395,7 +459,11 @@ class AuditLoggingMiddleware(BaseHTTPMiddleware):
 
                     body = json.loads(body_bytes)
                     body_summary = self._redact_body(body)
+            except _RequestBodyTooLargeError:
+                raise
             except Exception:
+                if request.scope.get("state", {}).get(_BODY_LIMIT_EXCEEDED_STATE_KEY):
+                    raise _RequestBodyTooLargeError from None
                 body_summary = {"_parse_error": "Could not parse request body"}
 
         # Emit audit log before processing
@@ -455,6 +523,13 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     - Sensitive data redaction (passwords, tokens, API keys)
     """
 
+    @staticmethod
+    def _redact_query_string(query_string: str) -> str:
+        """Redact secret-like query values using the shared URL sanitizer."""
+        redacted_url = redact_url(f"http://localhost/?{query_string}")
+        separator = redacted_url.find("?")
+        return redacted_url[separator + 1 :] if separator >= 0 else ""
+
     async def dispatch(self, request: Request, call_next: Any) -> Any:
         """Process request and log details."""
         start_time = time.time()
@@ -466,15 +541,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         path = str(request.url.path)
         query_string = str(request.url.query) if request.url.query else ""
         if query_string:
-            # Redact sensitive query parameters
-            import re
-
-            query_string = re.sub(
-                r"(password|token|key|secret|auth|api_key|api-key)=[^&]*",
-                r"\1=***",
-                query_string,
-                flags=re.IGNORECASE,
-            )
+            query_string = self._redact_query_string(query_string)
             full_path = f"{path}?{query_string}"
         else:
             full_path = path
@@ -545,8 +612,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 client_ip=client_ip,
                 duration_ms=duration_ms,
                 error_type=type(exc).__name__,
-                error_message=str(exc),
-            ).error(f"{request.method} {path} - Failed ({duration_ms}ms): {exc}")
+            ).error(f"{request.method} {path} - Failed ({duration_ms}ms)")
 
             # Re-raise to let FastAPI handle it
             raise
@@ -557,6 +623,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(AuditLoggingMiddleware)  # Runs first (added last)
 app.add_middleware(APIKeyMiddleware)
+app.add_middleware(RequestBodyLimitMiddleware)
 
 
 @app.exception_handler(404)
@@ -581,7 +648,7 @@ async def validation_error_handler(request: Request, exc: Any) -> JSONResponse:
     which is more semantically appropriate than 422 Unprocessable Entity.
     """
     # Extract validation errors and make them more user-friendly
-    errors = exc.errors() if hasattr(exc, "errors") else [{"msg": str(exc)}]
+    errors = exc.errors() if hasattr(exc, "errors") else [{"msg": "Validation failed"}]
 
     # Format error messages to be more helpful
     formatted_errors = []
@@ -617,7 +684,6 @@ async def validation_error_handler(request: Request, exc: Any) -> JSONResponse:
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Handle FastAPI HTTPException with the APIResponse envelope."""
-    detail = exc.detail if isinstance(exc.detail, str) else str(exc.detail)
     if exc.status_code == status.HTTP_503_SERVICE_UNAVAILABLE:
         code = ErrorCode.SERVICE_UNAVAILABLE
     elif exc.status_code == status.HTTP_409_CONFLICT:
@@ -628,6 +694,11 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         code = ErrorCode.INTERNAL_ERROR
     else:
         code = ErrorCode.VALIDATION_ERROR
+
+    if exc.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR:
+        detail = "Internal server error"
+    else:
+        detail = exc.detail if isinstance(exc.detail, str) else "Request failed"
 
     response: APIResponse[None] = APIResponse.error_response(
         code=code,
@@ -644,8 +715,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 @app.exception_handler(500)
 async def internal_error_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handle 500 Internal Server errors (without exposing stack traces)."""
-    # Log full error with stack trace for debugging (internal logs only)
-    logger.error(f"Internal server error: {exc}", exc_info=True)
+    logger.bind(error_type=type(exc).__name__).error("Internal server error")
 
     # Return generic error message to client (no stack trace exposure)
     response: APIResponse[None] = APIResponse.error_response(
@@ -662,14 +732,12 @@ async def internal_error_handler(request: Request, exc: Exception) -> JSONRespon
 @app.exception_handler(ProxyWhirlError)
 async def proxy_error_handler(request: Request, exc: ProxyWhirlError) -> JSONResponse:
     """Handle ProxyWhirlError exceptions (with safe error details)."""
-    # Log the error with full context (internal logs only)
     logger.bind(
         error_code=exc.error_code.value if hasattr(exc, "error_code") else "UNKNOWN",
         error_type=type(exc).__name__,
-        proxy_url=exc.proxy_url if hasattr(exc, "proxy_url") else None,
         attempt_count=exc.attempt_count if hasattr(exc, "attempt_count") else None,
         retry_recommended=exc.retry_recommended if hasattr(exc, "retry_recommended") else False,
-    ).error(f"Proxy error: {exc}", exc_info=True)
+    ).error("Proxy operation failed")
 
     # Determine HTTP status code based on error type
     status_code_map = {
@@ -694,19 +762,19 @@ async def proxy_error_handler(request: Request, exc: ProxyWhirlError) -> JSONRes
     if hasattr(exc, "attempt_count") and exc.attempt_count is not None:
         error_details["attempt_count"] = exc.attempt_count
 
-    # Only include safe metadata (never include credentials, URLs, or internal state)
-    if hasattr(exc, "metadata") and exc.metadata:
-        # Filter out sensitive keys from metadata
-        safe_metadata = {
-            k: v
-            for k, v in exc.metadata.items()
-            if k not in {"url", "proxy_url", "password", "token", "credential", "key", "secret"}
-        }
-        error_details.update(safe_metadata)
+    safe_message_map = {
+        "ProxyPoolEmptyError": "No proxies are available",
+        "ProxyValidationError": "Proxy validation failed",
+        "ProxyAuthenticationError": "Proxy authentication failed",
+        "ProxyConnectionError": "Proxy connection failed",
+        "ProxyFetchError": "Proxy fetch failed",
+        "ProxyStorageError": "Proxy storage operation failed",
+    }
+    safe_message = safe_message_map.get(type(exc).__name__, "Proxy operation failed")
 
     response: APIResponse[None] = APIResponse.error_response(
         code=ErrorCode.PROXY_ERROR,
-        message=str(exc),
+        message=safe_message,
         details=error_details,
     )
     return JSONResponse(
@@ -743,13 +811,17 @@ app.openapi_tags = [
 # Root endpoint
 @app.get("/", include_in_schema=False)
 async def root() -> dict[str, str]:
-    """Root endpoint - redirect to docs."""
-    return {
-        "message": "ProxyWhirl API",
-        "docs": "/docs",
-        "redoc": "/redoc",
-        "openapi": "/openapi.json",
-    }
+    """Root endpoint with optional docs links when exposed."""
+    payload: dict[str, str] = {"message": "ProxyWhirl API"}
+    if APISettings().docs_enabled:
+        payload.update(
+            {
+                "docs": "/docs",
+                "redoc": "/redoc",
+                "openapi": "/openapi.json",
+            }
+        )
+    return payload
 
 
 # =============================================================================

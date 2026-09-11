@@ -24,8 +24,8 @@ class TestProxyPoolBasics:
     def test_pool_with_initial_proxies(self):
         """Test creating pool with initial proxies."""
         proxies = [
-            Proxy(url="http://proxy1.example.com:8080"),  # type: ignore
-            Proxy(url="http://proxy2.example.com:8080"),  # type: ignore
+            Proxy(url="http://proxy1.example.com:8080"),
+            Proxy(url="http://proxy2.example.com:8080"),
         ]
         pool = ProxyPool(name="test-pool", proxies=proxies)
         assert pool.size == 2
@@ -33,15 +33,15 @@ class TestProxyPoolBasics:
     def test_add_proxy(self):
         """Test adding proxy to pool."""
         pool = ProxyPool(name="test-pool")
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
         pool.add_proxy(proxy)
         assert pool.size == 1
 
     def test_add_duplicate_proxy_ignored(self):
         """Test that adding duplicate proxy is silently ignored."""
         pool = ProxyPool(name="test-pool")
-        proxy1 = Proxy(url="http://proxy.example.com:8080")  # type: ignore
-        proxy2 = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy1 = Proxy(url="http://proxy.example.com:8080")
+        proxy2 = Proxy(url="http://proxy.example.com:8080")
 
         pool.add_proxy(proxy1)
         pool.add_proxy(proxy2)
@@ -52,16 +52,16 @@ class TestProxyPoolBasics:
     def test_add_proxy_exceeds_max_pool_size_raises_error(self):
         """Test that exceeding max_pool_size raises ValueError."""
         pool = ProxyPool(name="test-pool", max_pool_size=2)
-        pool.add_proxy(Proxy(url="http://proxy1.example.com:8080"))  # type: ignore
-        pool.add_proxy(Proxy(url="http://proxy2.example.com:8080"))  # type: ignore
+        pool.add_proxy(Proxy(url="http://proxy1.example.com:8080"))
+        pool.add_proxy(Proxy(url="http://proxy2.example.com:8080"))
 
         with pytest.raises(ValueError, match="maximum capacity"):
-            pool.add_proxy(Proxy(url="http://proxy3.example.com:8080"))  # type: ignore
+            pool.add_proxy(Proxy(url="http://proxy3.example.com:8080"))
 
     def test_remove_proxy(self):
         """Test removing proxy from pool."""
         pool = ProxyPool(name="test-pool")
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
         pool.add_proxy(proxy)
         assert pool.size == 1
 
@@ -78,7 +78,7 @@ class TestProxyPoolBasics:
     def test_get_proxy_by_id(self):
         """Test getting proxy by ID."""
         pool = ProxyPool(name="test-pool")
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
         pool.add_proxy(proxy)
 
         found = pool.get_proxy_by_id(proxy.id)
@@ -99,8 +99,8 @@ class TestProxyPoolFiltering:
     def test_filter_by_tags_single_tag(self):
         """Test filtering by single tag."""
         pool = ProxyPool(name="test-pool")
-        proxy1 = Proxy(url="http://proxy1.example.com:8080", tags={"fast", "us"})  # type: ignore
-        proxy2 = Proxy(url="http://proxy2.example.com:8080", tags={"slow", "eu"})  # type: ignore
+        proxy1 = Proxy(url="http://proxy1.example.com:8080", tags={"fast", "us"})
+        proxy2 = Proxy(url="http://proxy2.example.com:8080", tags={"slow", "eu"})
         pool.add_proxy(proxy1)
         pool.add_proxy(proxy2)
 
@@ -111,8 +111,8 @@ class TestProxyPoolFiltering:
     def test_filter_by_tags_multiple_tags(self):
         """Test filtering by multiple tags (AND logic)."""
         pool = ProxyPool(name="test-pool")
-        proxy1 = Proxy(url="http://proxy1.example.com:8080", tags={"fast", "us"})  # type: ignore
-        proxy2 = Proxy(url="http://proxy2.example.com:8080", tags={"fast"})  # type: ignore
+        proxy1 = Proxy(url="http://proxy1.example.com:8080", tags={"fast", "us"})
+        proxy2 = Proxy(url="http://proxy2.example.com:8080", tags={"fast"})
         pool.add_proxy(proxy1)
         pool.add_proxy(proxy2)
 
@@ -123,7 +123,7 @@ class TestProxyPoolFiltering:
     def test_filter_by_tags_no_matches(self):
         """Test filtering by tags with no matches."""
         pool = ProxyPool(name="test-pool")
-        proxy = Proxy(url="http://proxy.example.com:8080", tags={"slow"})  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080", tags={"slow"})
         pool.add_proxy(proxy)
 
         results = pool.filter_by_tags({"fast"})
@@ -132,8 +132,8 @@ class TestProxyPoolFiltering:
     def test_filter_by_source(self):
         """Test filtering by proxy source."""
         pool = ProxyPool(name="test-pool")
-        proxy1 = Proxy(url="http://proxy1.example.com:8080", source=ProxySource.USER)  # type: ignore
-        proxy2 = Proxy(url="http://proxy2.example.com:8080", source=ProxySource.FETCHED)  # type: ignore
+        proxy1 = Proxy(url="http://proxy1.example.com:8080", source=ProxySource.USER)
+        proxy2 = Proxy(url="http://proxy2.example.com:8080", source=ProxySource.FETCHED)
         pool.add_proxy(proxy1)
         pool.add_proxy(proxy2)
 
@@ -144,8 +144,8 @@ class TestProxyPoolFiltering:
     def test_get_healthy_proxies(self):
         """Test getting only healthy proxies."""
         pool = ProxyPool(name="test-pool")
-        proxy1 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)  # type: ignore
-        proxy2 = Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.DEAD)  # type: ignore
+        proxy1 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy2 = Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.DEAD)
         pool.add_proxy(proxy1)
         pool.add_proxy(proxy2)
 
@@ -156,7 +156,7 @@ class TestProxyPoolFiltering:
     def test_get_healthy_proxies_empty(self):
         """Test getting healthy proxies from pool with none."""
         pool = ProxyPool(name="test-pool")
-        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.DEAD)  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.DEAD)
         pool.add_proxy(proxy)
 
         results = pool.get_healthy_proxies()
@@ -169,8 +169,8 @@ class TestProxyPoolClearUnhealthy:
     def test_clear_unhealthy_removes_dead_proxies(self):
         """Test that clear_unhealthy removes DEAD proxies."""
         pool = ProxyPool(name="test-pool")
-        proxy1 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)  # type: ignore
-        proxy2 = Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.DEAD)  # type: ignore
+        proxy1 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy2 = Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.DEAD)
         pool.add_proxy(proxy1)
         pool.add_proxy(proxy2)
 
@@ -182,8 +182,8 @@ class TestProxyPoolClearUnhealthy:
     def test_clear_unhealthy_removes_unhealthy_proxies(self):
         """Test that clear_unhealthy removes UNHEALTHY proxies."""
         pool = ProxyPool(name="test-pool")
-        proxy1 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)  # type: ignore
-        proxy2 = Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.UNHEALTHY)  # type: ignore
+        proxy1 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
+        proxy2 = Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.UNHEALTHY)
         pool.add_proxy(proxy1)
         pool.add_proxy(proxy2)
 
@@ -194,8 +194,8 @@ class TestProxyPoolClearUnhealthy:
     def test_clear_unhealthy_keeps_degraded_proxies(self):
         """Test that clear_unhealthy keeps DEGRADED proxies."""
         pool = ProxyPool(name="test-pool")
-        proxy1 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.DEGRADED)  # type: ignore
-        proxy2 = Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.DEAD)  # type: ignore
+        proxy1 = Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.DEGRADED)
+        proxy2 = Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.DEAD)
         pool.add_proxy(proxy1)
         pool.add_proxy(proxy2)
 
@@ -207,7 +207,7 @@ class TestProxyPoolClearUnhealthy:
     def test_clear_unhealthy_returns_zero_when_all_healthy(self):
         """Test that clear_unhealthy returns 0 when all proxies are healthy."""
         pool = ProxyPool(name="test-pool")
-        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
         pool.add_proxy(proxy)
 
         removed_count = pool.clear_unhealthy()
@@ -223,11 +223,11 @@ class TestProxyPoolStats:
         pool = ProxyPool(name="test-pool")
         pool.add_proxy(
             Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
-        )  # type: ignore
+        )
         pool.add_proxy(
             Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.HEALTHY)
-        )  # type: ignore
-        pool.add_proxy(Proxy(url="http://proxy3.example.com:8080", health_status=HealthStatus.DEAD))  # type: ignore
+        )
+        pool.add_proxy(Proxy(url="http://proxy3.example.com:8080", health_status=HealthStatus.DEAD))
 
         assert pool.healthy_count == 2
 
@@ -236,19 +236,19 @@ class TestProxyPoolStats:
         pool = ProxyPool(name="test-pool")
         pool.add_proxy(
             Proxy(url="http://proxy1.example.com:8080", health_status=HealthStatus.HEALTHY)
-        )  # type: ignore
-        pool.add_proxy(Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.DEAD))  # type: ignore
+        )
+        pool.add_proxy(Proxy(url="http://proxy2.example.com:8080", health_status=HealthStatus.DEAD))
         pool.add_proxy(
             Proxy(url="http://proxy3.example.com:8080", health_status=HealthStatus.DEGRADED)
-        )  # type: ignore
+        )
 
         assert pool.unhealthy_count == 2
 
     def test_total_requests(self):
         """Test total requests across all proxies."""
         pool = ProxyPool(name="test-pool")
-        proxy1 = Proxy(url="http://proxy1.example.com:8080")  # type: ignore
-        proxy2 = Proxy(url="http://proxy2.example.com:8080")  # type: ignore
+        proxy1 = Proxy(url="http://proxy1.example.com:8080")
+        proxy2 = Proxy(url="http://proxy2.example.com:8080")
         proxy1.record_success(100.0)
         proxy1.record_success(100.0)
         proxy2.record_success(100.0)
@@ -261,8 +261,8 @@ class TestProxyPoolStats:
     def test_overall_success_rate(self):
         """Test overall success rate calculation."""
         pool = ProxyPool(name="test-pool")
-        proxy1 = Proxy(url="http://proxy1.example.com:8080")  # type: ignore
-        proxy2 = Proxy(url="http://proxy2.example.com:8080")  # type: ignore
+        proxy1 = Proxy(url="http://proxy1.example.com:8080")
+        proxy2 = Proxy(url="http://proxy2.example.com:8080")
 
         # proxy1: 2 successes, 0 failures
         proxy1.record_success(100.0)
@@ -297,7 +297,7 @@ class TestProxyPoolThreadSafety:
             """Add proxies from a thread."""
             count = 0
             for i in range(proxies_per_thread):
-                proxy = Proxy(url=f"http://proxy-{thread_id}-{i}.example.com:8080")  # type: ignore
+                proxy = Proxy(url=f"http://proxy-{thread_id}-{i}.example.com:8080")
                 pool.add_proxy(proxy)
                 count += 1
             return count
@@ -318,7 +318,7 @@ class TestProxyPoolThreadSafety:
         # Add proxies first
         proxy_ids = []
         for i in range(num_proxies):
-            proxy = Proxy(url=f"http://proxy{i}.example.com:8080")  # type: ignore
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080")
             pool.add_proxy(proxy)
             proxy_ids.append(proxy.id)
 
@@ -349,7 +349,7 @@ class TestProxyPoolThreadSafety:
             """Add proxies continuously."""
             barrier.wait()  # Wait for both threads to be ready
             for i in range(num_operations):
-                proxy = Proxy(url=f"http://add-proxy{i}.example.com:8080")  # type: ignore
+                proxy = Proxy(url=f"http://add-proxy{i}.example.com:8080")
                 pool.add_proxy(proxy)
                 with lock:
                     proxy_ids.append(proxy.id)
@@ -387,7 +387,7 @@ class TestProxyPoolThreadSafety:
         # Add proxies
         proxy_ids = []
         for i in range(num_proxies):
-            proxy = Proxy(url=f"http://proxy{i}.example.com:8080")  # type: ignore
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080")
             pool.add_proxy(proxy)
             proxy_ids.append(proxy.id)
 
@@ -412,7 +412,7 @@ class TestProxyPoolThreadSafety:
         for i in range(50):
             tags = {"fast"} if i % 2 == 0 else {"slow"}
             source = ProxySource.USER if i % 3 == 0 else ProxySource.FETCHED
-            proxy = Proxy(url=f"http://proxy{i}.example.com:8080", tags=tags, source=source)  # type: ignore
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080", tags=tags, source=source)
             pool.add_proxy(proxy)
 
         def filter_by_tags():
@@ -442,7 +442,7 @@ class TestProxyPoolThreadSafety:
         # Add proxies with different health statuses
         for i in range(100):
             status = HealthStatus.HEALTHY if i % 2 == 0 else HealthStatus.DEAD
-            proxy = Proxy(url=f"http://proxy{i}.example.com:8080", health_status=status)  # type: ignore
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080", health_status=status)
             proxy.total_requests = 10
             proxy.total_successes = 8
             pool.add_proxy(proxy)
@@ -473,7 +473,7 @@ class TestProxyPoolThreadSafety:
         # Add mixed health status proxies
         for i in range(100):
             status = HealthStatus.HEALTHY if i < 60 else HealthStatus.DEAD
-            proxy = Proxy(url=f"http://proxy{i}.example.com:8080", health_status=status)  # type: ignore
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080", health_status=status)
             pool.add_proxy(proxy)
 
         def get_healthy():
@@ -495,7 +495,7 @@ class TestProxyPoolThreadSafety:
         # Add mixed health status proxies
         for i in range(100):
             status = HealthStatus.HEALTHY if i < 60 else HealthStatus.DEAD
-            proxy = Proxy(url=f"http://proxy{i}.example.com:8080", health_status=status)  # type: ignore
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080", health_status=status)
             pool.add_proxy(proxy)
 
         assert pool.size == 100
@@ -520,7 +520,7 @@ class TestProxyPoolThreadSafety:
 
         # Add initial proxies
         for i in range(50):
-            proxy = Proxy(url=f"http://initial{i}.example.com:8080")  # type: ignore
+            proxy = Proxy(url=f"http://initial{i}.example.com:8080")
             pool.add_proxy(proxy)
 
         snapshots = []
@@ -535,7 +535,7 @@ class TestProxyPoolThreadSafety:
             """Modify the pool while snapshots are being taken."""
             barrier.wait()
             for i in range(50):
-                proxy = Proxy(url=f"http://new{i}.example.com:8080")  # type: ignore
+                proxy = Proxy(url=f"http://new{i}.example.com:8080")
                 pool.add_proxy(proxy)
 
         snapshot_thread = threading.Thread(target=lambda: snapshots.append(get_snapshot()))
@@ -566,7 +566,7 @@ class TestProxyPoolThreadSafety:
                 source = ProxySource.FETCHED
             else:
                 source = ProxySource.API
-            proxy = Proxy(url=f"http://proxy{i}.example.com:8080", source=source)  # type: ignore
+            proxy = Proxy(url=f"http://proxy{i}.example.com:8080", source=source)
             pool.add_proxy(proxy)
 
         def get_breakdown():
@@ -592,7 +592,7 @@ class TestProxyPoolThreadSafety:
             """Try to add duplicate proxies."""
             for i in range(10):
                 # Each thread tries to add the same 10 proxy URLs
-                proxy = Proxy(url=f"http://proxy{i}.example.com:8080")  # type: ignore
+                proxy = Proxy(url=f"http://proxy{i}.example.com:8080")
                 pool.add_proxy(proxy)
 
         with ThreadPoolExecutor(max_workers=num_threads) as executor:

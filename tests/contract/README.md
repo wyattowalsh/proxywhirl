@@ -199,5 +199,5 @@ Solutions:
 
 - [AGENTS.md](/AGENTS.md) - Agent development guidelines
 - [Testing Guide](../README.md) - Overall testing strategy
-- [ProxyFetcher](/proxywhirl/fetchers.py) - Fetcher implementation
+- [ProxyFetcher](../../proxywhirl/fetchers/) - Fetcher implementation
 - [Proxy Sources](/proxywhirl/sources.py) - Source configurations

@@ -4,6 +4,8 @@ Tests verify that circuit breakers are properly cleaned up when proxies are remo
 preventing unbounded memory growth.
 """
 
+from unittest.mock import MagicMock, patch
+
 from proxywhirl.models import HealthStatus, Proxy
 from proxywhirl.rotator import AsyncProxyWhirl, ProxyWhirl
 
@@ -112,6 +114,28 @@ class TestCircuitBreakerCleanup:
 
         for unhealthy_id in unhealthy_ids:
             assert unhealthy_id not in rotator.circuit_breakers
+
+    @patch("httpx.Client")
+    def test_sync_clear_unhealthy_closes_pooled_clients(self, mock_client_class: MagicMock) -> None:
+        """Sync clear_unhealthy_proxies should close LRU client pool entries (P-R-03)."""
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+
+        dead = Proxy(
+            url="http://192.168.1.9:8080",
+            health_status=HealthStatus.DEAD,
+            allow_local=True,
+        )
+        rotator = ProxyWhirl(proxies=[dead])
+        rotator._get_or_create_client(dead, rotator._get_proxy_dict(dead))
+        proxy_id = str(dead.id)
+        assert proxy_id in rotator._client_pool
+
+        removed = rotator.clear_unhealthy_proxies()
+
+        assert removed == 1
+        assert proxy_id not in rotator._client_pool
+        mock_client.close.assert_called()
 
     async def test_async_multiple_removes_prevent_memory_leak(self) -> None:
         """Test that multiple proxy removals don't cause unbounded memory growth."""

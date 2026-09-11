@@ -205,22 +205,26 @@ class TestBatchValidationPerformance:
         """Benchmark setup for parallel batch validation."""
         config = ProxyConfiguration()
         rotator = AsyncProxyWhirl(config=config)
+        try:
+            # Add 100 proxies
+            for i in range(100):
+                await rotator.add_proxy(
+                    Proxy(url=f"http://proxy{i}.example.com:8000", protocol="http")
+                )
 
-        # Add 100 proxies
-        for i in range(100):
-            await rotator.add_proxy(Proxy(url=f"http://proxy{i}.example.com:8000", protocol="http"))
+            # Verify pool can be batch queried without blocking the event loop.
+            pool = rotator.pool
+            assert await pool.asize() == 100
 
-        # Verify pool can be batch queried
-        pool = rotator.pool
-        assert pool.size == 100
+            # Check membership for 100 proxies (O(1) each)
+            start = time.time()
+            for i in range(100):
+                assert await pool.ahas_proxy_url(f"http://proxy{i}.example.com:8000")
+            elapsed = time.time() - start
 
-        # Check membership for 100 proxies (O(1) each)
-        start = time.time()
-        for i in range(100):
-            assert pool.has_proxy_url(f"http://proxy{i}.example.com:8000")
-        elapsed = time.time() - start
-
-        assert elapsed < 0.1  # 100 checks should be very fast
+            assert elapsed < 0.1  # 100 checks should be very fast
+        finally:
+            await rotator.aclose()
 
 
 class TestWALModePerformance:

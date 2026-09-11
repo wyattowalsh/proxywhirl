@@ -3,6 +3,8 @@ Credential encryption utilities for cache storage.
 
 Provides Fernet symmetric encryption for proxy credentials at rest (L2/L3 tiers).
 Uses environment variable PROXYWHIRL_CACHE_ENCRYPTION_KEY for key management.
+Accepts deprecated PROXYWHIRL_ENCRYPTION_KEY as a temporary alias when the
+canonical cache key is unset (deploy-template bridge).
 Supports key rotation via MultiFernet with PROXYWHIRL_CACHE_KEY_PREVIOUS.
 """
 
@@ -50,25 +52,33 @@ def get_encryption_keys() -> list[bytes]:
     keys: list[bytes] = []
     cache_settings = CacheSettings()
 
-    # Get current key
+    # Get current key — never invent a process-local key for durable storage.
+    # Canonical: PROXYWHIRL_CACHE_ENCRYPTION_KEY (via CacheSettings).
+    # Deprecated alias: PROXYWHIRL_ENCRYPTION_KEY (deploy templates still set this).
     current_key_str = _secret_value(cache_settings.encryption_key)
-    if current_key_str:
-        current_key = (
-            current_key_str.encode("utf-8") if isinstance(current_key_str, str) else current_key_str
+    if not current_key_str:
+        current_key_str = os.environ.get("PROXYWHIRL_ENCRYPTION_KEY") or None
+    if not current_key_str:
+        raise ValueError(
+            "PROXYWHIRL_CACHE_ENCRYPTION_KEY is not set. "
+            "Refusing to generate an ephemeral Fernet key (credentials would be "
+            "unrecoverable after process restart). Set PROXYWHIRL_CACHE_ENCRYPTION_KEY "
+            "(preferred) or deprecated PROXYWHIRL_ENCRYPTION_KEY. Generate a key with: "
+            "python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
         )
-        try:
-            # Validate key format
-            Fernet(current_key)
-            keys.append(current_key)
-        except Exception as e:
-            raise ValueError(
-                f"Invalid Fernet key format in PROXYWHIRL_CACHE_ENCRYPTION_KEY: {e}. "
-                "Key must be 32 url-safe base64-encoded bytes. "
-                "Generate a valid key with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
-            ) from e
-    else:
-        # No current key, generate one
-        keys.append(Fernet.generate_key())
+    current_key = (
+        current_key_str.encode("utf-8") if isinstance(current_key_str, str) else current_key_str
+    )
+    try:
+        # Validate key format
+        Fernet(current_key)
+        keys.append(current_key)
+    except Exception as e:
+        raise ValueError(
+            f"Invalid Fernet key format in PROXYWHIRL_CACHE_ENCRYPTION_KEY: {e}. "
+            "Key must be 32 url-safe base64-encoded bytes. "
+            "Generate a valid key with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
+        ) from e
 
     # Get previous key if exists
     previous_key_str = _secret_value(cache_settings.key_previous)
@@ -149,13 +159,17 @@ def rotate_key(new_key: str) -> None:
             "Generate a valid key with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'"
         ) from e
 
-    # Move current key to previous
-    current_key = os.environ.get("PROXYWHIRL_CACHE_ENCRYPTION_KEY")
+    # Move current key to previous (canonical env, then deprecated alias)
+    current_key = os.environ.get("PROXYWHIRL_CACHE_ENCRYPTION_KEY") or os.environ.get(
+        "PROXYWHIRL_ENCRYPTION_KEY"
+    )
     if current_key:
         os.environ["PROXYWHIRL_CACHE_KEY_PREVIOUS"] = current_key
 
-    # Set new key as current
+    # Set new key as current (always write canonical name)
     os.environ["PROXYWHIRL_CACHE_ENCRYPTION_KEY"] = new_key
+    # Drop deprecated alias so subsequent reads use the canonical env var
+    os.environ.pop("PROXYWHIRL_ENCRYPTION_KEY", None)
 
 
 class CredentialEncryptor:
@@ -181,18 +195,18 @@ class CredentialEncryptor:
         Args:
             key: Optional Fernet key (32 url-safe base64-encoded bytes).
                 If None, uses get_encryption_keys() to load current and
-                previous keys from environment variables. If no env vars set,
-                generates a new key (WARNING: regenerated keys cannot decrypt
-                existing cached data).
+                previous keys from environment variables. Raises if no key is
+                configured (ephemeral keys are not generated).
 
         Raises:
-            ValueError: If provided key is invalid for Fernet
+            ValueError: If provided key is invalid for Fernet, or no key is configured
         """
         if key is None:
-            # Use MultiFernet with all available keys
-            self._cipher = create_multi_fernet()
-            # Store the current (first) key for backward compatibility
+            # Use MultiFernet with all available keys (requires configured env key)
             keys = get_encryption_keys()
+            fernets = [Fernet(k) for k in keys]
+            self._cipher = MultiFernet(fernets)
+            # Single source of truth: first key is current encrypt key
             self.key = keys[0]
         else:
             # Single key provided, use regular Fernet

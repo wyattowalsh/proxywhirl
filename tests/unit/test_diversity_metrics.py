@@ -23,3 +23,4 @@ def test_diversity_analyzer_uses_current_proxy_geo_fields() -> None:
     assert metrics.as_count == 2
     assert metrics.city_count == 2
     assert metrics.country_distribution == {"US": 1, "GB": 1}
+    assert metrics.geo_coverage_pct == 100.0

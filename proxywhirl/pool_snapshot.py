@@ -35,14 +35,16 @@ class PoolSnapshot:
 
     def add_proxy_state(self, proxy: Proxy) -> None:
         """Add a proxy's state to the snapshot."""
+        last_checked = proxy.last_health_check or proxy.updated_at
         self.proxies.append(
             {
+                "id": str(proxy.id),
                 "url": proxy.url,
-                "status": proxy.status,
-                "last_checked": proxy.last_checked.isoformat() if proxy.last_checked else None,
-                "failure_count": proxy.failure_count,
-                "success_count": proxy.success_count,
-                "tags": list(proxy.tags) if proxy.tags else [],
+                "health_status": proxy.health_status.value,
+                "last_checked": last_checked.isoformat() if last_checked else None,
+                "total_failures": proxy.total_failures,
+                "total_successes": proxy.total_successes,
+                "tags": sorted(proxy.tags) if proxy.tags else [],
             }
         )
 

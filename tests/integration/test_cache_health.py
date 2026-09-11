@@ -7,6 +7,7 @@ Tests the complete health invalidation workflow including:
 - Health status persistence across tiers
 """
 
+from collections.abc import Iterator
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -20,7 +21,7 @@ from proxywhirl.cache.models import CacheConfig, CacheEntry, HealthStatus
 
 
 @pytest.fixture
-def temp_cache_dir() -> Path:
+def temp_cache_dir() -> Iterator[Path]:
     """Create temporary directory for cache files."""
     with TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)

@@ -18,8 +18,18 @@ from cryptography.fernet import Fernet
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
+from proxywhirl.config_core import (
+    DEFAULT_CLI_STORAGE_BACKEND,
+    DEFAULT_FOLLOW_REDIRECTS,
+    DEFAULT_HEALTH_CHECK_INTERVAL_SECONDS,
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_RATE_LIMIT,
+    DEFAULT_ROTATION_STRATEGY,
+    DEFAULT_TIMEOUT,
+    DEFAULT_VERIFY_SSL,
+)
 from proxywhirl.strategies import BUILTIN_STRATEGY_CLASSES
-from proxywhirl.utils import parse_proxy_url
+from proxywhirl.utils import parse_proxy_url, public_proxy_url
 
 try:
     import tomllib  # Python 3.11+
@@ -54,7 +64,11 @@ def expand_env_vars(value: str) -> str:
     def replace_braced(match: re.Match[str]) -> str:
         var_name = match.group(1)
         default = match.group(2)
-        return os.environ.get(var_name, default or "")
+        if default is not None:
+            return os.environ.get(var_name, default)
+        if var_name not in os.environ:
+            raise ValueError(f"Environment variable {var_name} not set and no default provided")
+        return os.environ[var_name]
 
     result = re.sub(r"\$\{([^}:]+)(?::([^}]*))?\}", replace_braced, value)
 
@@ -300,25 +314,29 @@ class CLIConfig(BaseModel):
     proxy_file: Path | None = Field(None, description="Path to proxy list file")
 
     # Rotation settings
-    rotation_strategy: str = Field("round-robin", description="Rotation strategy")
+    rotation_strategy: str = Field(DEFAULT_ROTATION_STRATEGY, description="Rotation strategy")
     health_check_interval: int = Field(
-        300, ge=0, description="Seconds between health checks (0=disabled)"
+        DEFAULT_HEALTH_CHECK_INTERVAL_SECONDS,
+        ge=0,
+        description="Seconds between health checks (0=disabled)",
     )
 
     # Request settings
-    timeout: int = Field(30, gt=0, description="Request timeout in seconds")
-    max_retries: int = Field(3, ge=0, description="Max retry attempts per request")
-    follow_redirects: bool = Field(True, description="Follow HTTP redirects")
-    verify_ssl: bool = Field(True, description="Verify SSL certificates")
+    timeout: int = Field(DEFAULT_TIMEOUT, gt=0, description="Request timeout in seconds")
+    max_retries: int = Field(
+        DEFAULT_MAX_RETRIES, ge=0, description="Max retry attempts per request"
+    )
+    follow_redirects: bool = Field(DEFAULT_FOLLOW_REDIRECTS, description="Follow HTTP redirects")
+    verify_ssl: bool = Field(DEFAULT_VERIFY_SSL, description="Verify SSL certificates")
 
     # Output settings
     default_format: str = Field("text", description="Default output format")
     color: bool = Field(True, description="Enable colored output")
     verbose: bool = Field(False, description="Verbose output mode")
 
-    # Storage settings
+    # Storage settings (CLI defaults to on-disk; library/env SSOT remains memory)
     storage_backend: Literal["memory", "sqlite", "file"] = Field(
-        "file", description="Storage backend type"
+        DEFAULT_CLI_STORAGE_BACKEND, description="Storage backend type"
     )
     storage_path: Path | None = Field(None, description="Path for file/sqlite storage")
 
@@ -352,10 +370,11 @@ class CLIConfig(BaseModel):
         True, description="Enable per-API-key rate limiting (prevents X-Forwarded-For bypass)"
     )
     rate_limit_per_key: str = Field(
-        "100/minute", description="Rate limit per API key (format: 'N/minute' or 'N/hour')"
+        DEFAULT_RATE_LIMIT,
+        description="Rate limit per API key (format: 'N/minute' or 'N/hour')",
     )
     rate_limit_per_ip: str = Field(
-        "100/minute",
+        DEFAULT_RATE_LIMIT,
         description=(
             "Rate limit per IP address when no API key provided (format: 'N/minute' or 'N/hour')"
         ),
@@ -435,9 +454,10 @@ def discover_config(explicit_path: Path | None = None) -> Path | None:
 
     Priority:
         1. Explicit path provided by user
-        2. ./pyproject.toml (project-local)
-        3. ~/.config/proxywhirl/config.toml (user-global)
-        4. None (use defaults)
+        2. ./.proxywhirl.toml (project-local)
+        3. ./pyproject.toml (project-local, ``[tool.proxywhirl]`` section)
+        4. ~/.config/proxywhirl/config.toml (user-global)
+        5. None (use defaults)
     """
     # 1. Explicit path
     if explicit_path:
@@ -446,7 +466,12 @@ def discover_config(explicit_path: Path | None = None) -> Path | None:
             return explicit_path
         raise FileNotFoundError(f"Config file not found: {explicit_path}")
 
-    # 2. Project-local pyproject.toml
+    # 2. Project-local .proxywhirl.toml
+    local_config = Path.cwd() / ".proxywhirl.toml"
+    if local_config.exists():
+        return local_config
+
+    # 3. Project-local pyproject.toml
     project_config = Path.cwd() / "pyproject.toml"
     if project_config.exists():
         # Check if it has [tool.proxywhirl] section
@@ -455,13 +480,13 @@ def discover_config(explicit_path: Path | None = None) -> Path | None:
             if "tool" in data and "proxywhirl" in data["tool"]:
                 return project_config
 
-    # 3. User-global config
+    # 4. User-global config
     config_dir = Path(user_config_dir("proxywhirl", "proxywhirl"))
     user_config = config_dir / "config.toml"
     if user_config.exists():
         return user_config
 
-    # 4. No config found
+    # 5. No config found
     return None
 
 
@@ -499,7 +524,11 @@ def load_config(path: Path | None = None) -> CLIConfig:
     # Decrypt credentials if needed
     config = CLIConfig(**config_data)
     if config.encrypt_credentials:
-        config = decrypt_credentials(config)
+        try:
+            config = decrypt_credentials(config)
+        except ValueError as exc:
+            logger.warning(f"Credential decryption failed for {path}: {exc}")
+            raise
 
     return config
 
@@ -673,6 +702,7 @@ def decrypt_credentials(config: CLIConfig) -> CLIConfig:
     decrypted_proxies = []
     for proxy in config.proxies:
         decrypted_proxy = proxy.model_copy()
+        safe_url = public_proxy_url(proxy.url)
         if proxy.username:
             try:
                 decrypted_username = fernet.decrypt(
@@ -680,9 +710,13 @@ def decrypt_credentials(config: CLIConfig) -> CLIConfig:
                 ).decode()
                 decrypted_proxy.username = SecretStr(decrypted_username)
             except Exception as e:
-                # Not encrypted or invalid encryption - use as-is
+                if config.encrypt_credentials:
+                    raise ValueError(
+                        f"Failed to decrypt username for proxy {safe_url}: "
+                        "invalid or corrupted ciphertext"
+                    ) from e
                 logger.warning(
-                    f"Failed to decrypt username for proxy {proxy.url}: {e}. "
+                    f"Failed to decrypt username for proxy {safe_url}: {e}. "
                     "Using value as-is (may be plaintext or encrypted with different key)."
                 )
         if proxy.password:
@@ -692,9 +726,13 @@ def decrypt_credentials(config: CLIConfig) -> CLIConfig:
                 ).decode()
                 decrypted_proxy.password = SecretStr(decrypted_password)
             except Exception as e:
-                # Not encrypted or invalid encryption - use as-is
+                if config.encrypt_credentials:
+                    raise ValueError(
+                        f"Failed to decrypt password for proxy {safe_url}: "
+                        "invalid or corrupted ciphertext"
+                    ) from e
                 logger.warning(
-                    f"Failed to decrypt password for proxy {proxy.url}: {e}. "
+                    f"Failed to decrypt password for proxy {safe_url}: {e}. "
                     "Using value as-is (may be plaintext or encrypted with different key)."
                 )
         decrypted_proxies.append(decrypted_proxy)

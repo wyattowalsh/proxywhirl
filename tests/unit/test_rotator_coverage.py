@@ -3,6 +3,8 @@ Unit tests for ProxyWhirl error paths and edge cases.
 These tests target uncovered lines to improve coverage from 78% to 90%+.
 """
 
+import threading
+import time
 from unittest.mock import MagicMock, Mock, patch
 
 import httpx
@@ -151,7 +153,7 @@ class TestRotatorCircuitBreakerEdgeCases:
         states = rotator.get_circuit_breaker_states()
         assert len(states) == 1
         # Verify it's a copy
-        states["new_key"] = None  # type: ignore
+        states["new_key"] = None
         assert "new_key" not in rotator.circuit_breakers
 
 
@@ -203,8 +205,10 @@ class TestRotatorDestructor:
         assert len(rotator._client_pool) == 0
 
     def test_destructor_cancels_timer(self) -> None:
-        """Test that __del__ cancels aggregation timer."""
+        """Test that __del__ cancels an explicitly started aggregation timer."""
         rotator = ProxyWhirl()
+        assert rotator._aggregation_timer is None
+        rotator._start_aggregation_timer()
         timer = rotator._aggregation_timer
 
         # Call destructor
@@ -212,6 +216,52 @@ class TestRotatorDestructor:
 
         # Timer should be cancelled (we can check it's not running)
         assert timer is not None
+        assert rotator._aggregation_timer is None
+
+    def test_close_joins_running_aggregation_timer(self) -> None:
+        """Normal close waits for a currently executing aggregation callback."""
+        rotator = ProxyWhirl()
+        started = threading.Event()
+        finished = threading.Event()
+
+        def aggregate() -> None:
+            started.set()
+            time.sleep(0.05)
+            finished.set()
+
+        timer = threading.Timer(0, aggregate)
+        rotator._aggregation_timer = timer
+        timer.start()
+        assert started.wait(timeout=1.0)
+
+        rotator.close()
+
+        assert finished.is_set()
+        assert not timer.is_alive()
+        assert rotator._aggregation_timer is None
+
+    def test_close_from_aggregation_timer_does_not_self_join(self) -> None:
+        """A callback-triggered close must not attempt to join its own thread."""
+        rotator = ProxyWhirl()
+        completed = threading.Event()
+        errors: list[BaseException] = []
+
+        def close_from_timer() -> None:
+            try:
+                rotator.close()
+            except BaseException as exc:
+                errors.append(exc)
+            finally:
+                completed.set()
+
+        timer = threading.Timer(0.01, close_from_timer)
+        rotator._aggregation_timer = timer
+        timer.start()
+
+        assert completed.wait(timeout=1.0)
+        timer.join(timeout=1.0)
+        assert errors == []
+        assert rotator._aggregation_timer is None
 
     def test_close_all_clients_handles_exceptions(self) -> None:
         """Test that _close_all_clients handles exceptions gracefully."""
@@ -446,11 +496,11 @@ class TestRotatorContextManager:
     def test_context_manager_cancels_timer(self) -> None:
         """Test context manager cancels aggregation timer on exit."""
         rotator = ProxyWhirl()
-        timer = rotator._aggregation_timer
-        assert timer is not None
+        assert rotator._aggregation_timer is None
 
         with rotator:
-            pass
+            timer = rotator._aggregation_timer
+            assert timer is not None
 
         # Timer should be cancelled after exit
         assert rotator._aggregation_timer is None

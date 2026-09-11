@@ -21,6 +21,7 @@ from proxywhirl.exceptions import (
     ProxyPoolEmptyError,
     RateLimitExceededError,
     RequestQueueFullError,
+    redact_url,
 )
 from proxywhirl.logging_config import configure_logging
 from proxywhirl.models import BootstrapConfig, Proxy, ProxyChain, ProxyPool
@@ -31,15 +32,13 @@ from proxywhirl.orchestration import (
 )
 from proxywhirl.retry import NonRetryableError, RetryExecutor, RetryMetrics, RetryPolicy
 from proxywhirl.rotator._bootstrap import bootstrap_pool_if_empty_sync
+from proxywhirl.rotator._wiring import resolve_strategy
 from proxywhirl.rotator.base import CircuitBreakerSnapshot, ProxyRotatorBase
 from proxywhirl.rotator.client_pool import (
     LRUClientPool,  # noqa: F401 - re-export for backward compatibility
 )
 from proxywhirl.settings import ProxyConfiguration
-from proxywhirl.strategies import (
-    RotationStrategy,
-    resolve_builtin_strategy,
-)
+from proxywhirl.strategies import RotationStrategy
 from proxywhirl.utils import mask_proxy_url
 
 if TYPE_CHECKING:
@@ -54,15 +53,53 @@ class _QueueRequestForProxyError(Exception):
         super().__init__(str(proxy.id))
 
 
-def _resolve_strategy(strategy: RotationStrategy | str | None) -> RotationStrategy:
-    """Resolve a strategy instance from either a strategy object or known string name."""
-    if strategy is None:
-        return resolve_builtin_strategy("round-robin")
+_RESPONSE_TRUNCATED_EXTENSION = "proxywhirl_response_truncated"
 
-    if not isinstance(strategy, str):
-        return strategy
 
-    return resolve_builtin_strategy(strategy)
+def _request_with_bounded_response(
+    client: httpx.Client,
+    method: str,
+    url: str,
+    max_response_bytes: int,
+    request_kwargs: dict[str, Any],
+) -> httpx.Response:
+    """Send a streaming request and retain at most ``max_response_bytes`` decoded bytes."""
+    if max_response_bytes <= 0:
+        raise ValueError("max_response_bytes must be positive")
+
+    build_kwargs = dict(request_kwargs)
+    send_kwargs: dict[str, Any] = {"stream": True}
+    for option in ("auth", "follow_redirects"):
+        if option in build_kwargs:
+            send_kwargs[option] = build_kwargs.pop(option)
+
+    request = client.build_request(method, url, **build_kwargs)
+    streamed_response = client.send(request, **send_kwargs)
+    content = bytearray()
+    truncated = False
+    chunk_size = min(65_536, max_response_bytes + 1)
+
+    try:
+        for chunk in streamed_response.iter_bytes(chunk_size=chunk_size):
+            remaining = max_response_bytes + 1 - len(content)
+            content.extend(chunk[:remaining])
+            if len(content) > max_response_bytes:
+                truncated = True
+                break
+    finally:
+        streamed_response.close()
+
+    extensions = dict(streamed_response.extensions)
+    extensions[_RESPONSE_TRUNCATED_EXTENSION] = truncated
+    return httpx.Response(
+        streamed_response.status_code,
+        headers=streamed_response.headers,
+        content=bytes(content[:max_response_bytes]),
+        request=streamed_response.request,
+        extensions=extensions,
+        history=list(streamed_response.history),
+        default_encoding=streamed_response.default_encoding,
+    )
 
 
 class ProxyWhirl(ProxyRotatorBase):
@@ -116,7 +153,7 @@ class ProxyWhirl(ProxyRotatorBase):
         self.pool = ProxyPool(name="default", proxies=proxies or [])
         self.chains: list[ProxyChain] = []  # Track registered proxy chains
 
-        self.strategy = _resolve_strategy(strategy)
+        self.strategy = resolve_strategy(strategy)
 
         self.config = config or ProxyConfiguration()
         self._client: httpx.Client | None = None
@@ -171,9 +208,10 @@ class ProxyWhirl(ProxyRotatorBase):
         self._bootstrap_attempted = False
         self._bootstrap_error_message: str | None = None
 
-        # Start periodic metrics aggregation timer (every 5 minutes)
+        # Periodic metrics aggregation belongs to the explicit context lifetime.
+        self._aggregation_stop_event = threading.Event()
+        self._aggregation_lock = threading.Lock()
         self._aggregation_timer: threading.Timer | None = None
-        self._start_aggregation_timer()
 
         # Configure logging
         if hasattr(logger, "_core") and not logger._core.handlers:
@@ -185,46 +223,59 @@ class ProxyWhirl(ProxyRotatorBase):
 
     def __enter__(self) -> ProxyWhirl:
         """Enter context manager."""
-        self._client = httpx.Client(
-            timeout=self.config.timeout,
-            verify=self.config.verify_ssl,
-            follow_redirects=self.config.follow_redirects,
-            limits=httpx.Limits(
-                max_connections=self.config.pool_connections,
-                max_keepalive_connections=self.config.pool_max_keepalive,
-            ),
-            http2=True,
-        )
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.Client(
+                timeout=self.config.timeout,
+                verify=self.config.verify_ssl,
+                follow_redirects=self.config.follow_redirects,
+                limits=httpx.Limits(
+                    max_connections=self.config.pool_connections,
+                    max_keepalive_connections=self.config.pool_max_keepalive,
+                ),
+                http2=True,
+            )
+        self._aggregation_stop_event.clear()
+        if self._aggregation_timer is None:
+            self._start_aggregation_timer()
         return self
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Exit context manager."""
-        if self._client:
-            self._client.close()
+        self.close()
+
+    def close(self) -> None:
+        """Close owned clients and background work; safe to call repeatedly."""
+        stop_event = getattr(self, "_aggregation_stop_event", None)
+        if stop_event is not None:
+            stop_event.set()
+
+        self._cancel_aggregation_timer()
+
+        client = getattr(self, "_client", None)
+        if client is not None:
             self._client = None
+            try:
+                client.close()
+            except Exception as exc:
+                logger.bind(error_type=type(exc).__name__).warning(
+                    "Error closing shared HTTP client"
+                )
 
-        # Close all pooled clients
         self._close_all_clients()
-
-        # Cancel aggregation timer
-        if self._aggregation_timer:
-            self._aggregation_timer.cancel()
-            self._aggregation_timer = None
 
     def __del__(self) -> None:
         """Destructor to ensure clients are closed."""
-        # Only cleanup if initialization completed
-        if hasattr(self, "_client_pool"):
-            self._close_all_clients()
-
-        # Cancel aggregation timer
-        if hasattr(self, "_aggregation_timer") and self._aggregation_timer:
-            self._aggregation_timer.cancel()
+        try:
+            self.close()
+        except Exception:
+            # Destructors may run after interpreter/module teardown.
+            pass
 
     def _close_all_clients(self) -> None:
         """Close all pooled clients and clear the pool."""
-        if hasattr(self, "_client_pool"):
-            self._client_pool.clear()
+        client_pool = getattr(self, "_client_pool", None)
+        if client_pool is not None:
+            client_pool.clear()
 
     def add_proxy(self, proxy: Proxy | str) -> None:
         """
@@ -372,6 +423,22 @@ class ProxyWhirl(ProxyRotatorBase):
                 self._bootstrap_error_message = msg
                 raise ProxyPoolEmptyError(msg)
 
+    def get_proxy(self) -> Proxy:
+        """
+        Get the next proxy from the pool using the rotation strategy.
+
+        Triggers the same one-time lazy bootstrap as request execution when the
+        pool is empty (parity with AsyncProxyWhirl.get_proxy).
+
+        Returns:
+            Next proxy to use
+
+        Raises:
+            ProxyPoolEmptyError: If bootstrap fails or no healthy proxies available
+        """
+        self._ensure_bootstrap_for_empty_pool()
+        return self._select_proxy_with_circuit_breaker()
+
     def add_chain(self, chain: ProxyChain) -> None:
         """
         Add a proxy chain to the rotator.
@@ -414,11 +481,14 @@ class ProxyWhirl(ProxyRotatorBase):
         entry_proxy.metadata["chain_length"] = chain.chain_length
         entry_proxy.metadata["chain_urls"] = chain.get_chain_urls()
 
-        # Add to pool
+        # Add to pool (skip circuit breaker when duplicate URL is ignored)
+        already_present = self.pool.has_proxy_url(entry_proxy.url)
         self.pool.add_proxy(entry_proxy)
 
-        # Initialize circuit breaker for the entry proxy
-        self.circuit_breakers[str(entry_proxy.id)] = CircuitBreaker(proxy_id=str(entry_proxy.id))
+        if not already_present:
+            self.circuit_breakers[str(entry_proxy.id)] = CircuitBreaker(
+                proxy_id=str(entry_proxy.id)
+            )
 
         logger.info(
             "Added proxy chain to rotator",
@@ -452,8 +522,10 @@ class ProxyWhirl(ProxyRotatorBase):
                 entry_proxy_id = str(chain.entry_proxy.id)
                 try:
                     self.remove_proxy(entry_proxy_id)
-                except Exception as e:
-                    logger.warning(f"Could not remove entry proxy: {e}")
+                except Exception as exc:
+                    logger.bind(error_type=type(exc).__name__).warning(
+                        "Could not remove entry proxy"
+                    )
 
                 # Remove the chain
                 self.chains.pop(i)
@@ -500,7 +572,7 @@ class ProxyWhirl(ProxyRotatorBase):
         start_time = time.perf_counter()
 
         # Parse strategy string or use provided instance
-        new_strategy = _resolve_strategy(strategy) if isinstance(strategy, str) else strategy
+        new_strategy = resolve_strategy(strategy) if isinstance(strategy, str) else strategy
 
         # Store old strategy for logging
         old_strategy_name = self.strategy.__class__.__name__
@@ -610,8 +682,9 @@ class ProxyWhirl(ProxyRotatorBase):
 
         removed_count = self.pool.clear_unhealthy()
 
-        # Clean up circuit breakers for removed proxies to prevent memory leak
+        # Clean up circuit breakers and pooled clients for removed proxies
         for proxy_id in removed_proxy_ids:
+            self._client_pool.remove(proxy_id)
             if proxy_id in self.circuit_breakers:
                 del self.circuit_breakers[proxy_id]
                 logger.debug(f"Removed circuit breaker for unhealthy proxy: {proxy_id}")
@@ -662,18 +735,19 @@ class ProxyWhirl(ProxyRotatorBase):
             http2=True,
         )
 
-        # Store in LRU pool (automatically evicts LRU if at capacity)
-        self._client_pool.put(proxy_id, client)
+        # Publish atomically so racing creators converge on one live client.
+        canonical_client = self._client_pool.put_if_absent(proxy_id, client)
 
-        logger.debug(
-            "Created new pooled client for proxy",
-            proxy_id=proxy_id,
-            pool_connections=self.config.pool_connections,
-            pool_max_keepalive=self.config.pool_max_keepalive,
-            client_pool_size=len(self._client_pool),
-        )
+        if canonical_client is client:
+            logger.debug(
+                "Created new pooled client for proxy",
+                proxy_id=proxy_id,
+                pool_connections=self.config.pool_connections,
+                pool_max_keepalive=self.config.pool_max_keepalive,
+                client_pool_size=len(self._client_pool),
+            )
 
-        return client
+        return canonical_client
 
     def _get_proxy_dict(self, proxy: Proxy) -> dict[str, str]:
         """
@@ -718,6 +792,7 @@ class ProxyWhirl(ProxyRotatorBase):
         method: str,
         url: str,
         retry_policy: RetryPolicy | None = None,
+        _response_body_limit_bytes: int | None = None,
         **kwargs: Any,
     ) -> httpx.Response:
         """
@@ -727,6 +802,7 @@ class ProxyWhirl(ProxyRotatorBase):
             method: HTTP method
             url: URL to request
             retry_policy: Optional per-request retry policy override
+            _response_body_limit_bytes: Internal decoded-response byte cap for API requests
             **kwargs: Additional request parameters
 
         Returns:
@@ -739,6 +815,7 @@ class ProxyWhirl(ProxyRotatorBase):
         """
         self._ensure_bootstrap_for_empty_pool()
         active_proxy: Proxy | None = None
+        safe_target_url = redact_url(url)
 
         def on_proxy_selected(proxy: Proxy) -> None:
             nonlocal active_proxy
@@ -765,14 +842,23 @@ class ProxyWhirl(ProxyRotatorBase):
             proxy_dict = self._get_proxy_dict(proxy)
             masked_url = mask_proxy_url(str(proxy.url))
             logger.info(
-                f"Making {method} request to {url}",
+                f"Making {method} request to {safe_target_url}",
                 proxy_id=str(proxy.id),
                 proxy_url=masked_url,
             )
             client = self._get_or_create_client(proxy, proxy_dict)
 
             def request_fn() -> httpx.Response:
-                response = client.request(method, url, **kwargs)
+                if _response_body_limit_bytes is None:
+                    response = client.request(method, url, **kwargs)
+                else:
+                    response = _request_with_bounded_response(
+                        client,
+                        method,
+                        url,
+                        _response_body_limit_bytes,
+                        kwargs,
+                    )
                 if response.status_code in (401, 407):
                     logger.error(
                         f"Proxy authentication failed: {masked_url}",
@@ -796,50 +882,40 @@ class ProxyWhirl(ProxyRotatorBase):
                 on_proxy_selected=on_proxy_selected,
             )
         except _QueueRequestForProxyError as queue_exc:
-            return self._queue_request(method, url, queue_exc.proxy, retry_policy, **kwargs)
+            return self._queue_request(
+                method,
+                url,
+                queue_exc.proxy,
+                retry_policy,
+                _response_body_limit_bytes,
+                **kwargs,
+            )
         except ProxyPoolEmptyError:
             logger.error("No healthy proxies available or all circuit breakers open")
             raise
         except RateLimitExceededError:
             raise
-        except ProxyAuthenticationError as e:
-            if active_proxy is not None:
-                self.strategy.record_result(active_proxy, success=False, response_time_ms=0.0)
+        except ProxyAuthenticationError:
             logger.error(
                 f"Authentication error for proxy {active_proxy.id if active_proxy else 'unknown'}",
                 proxy_id=str(active_proxy.id) if active_proxy else None,
-                error=str(e),
             )
             raise
         except NonRetryableError as e:
             if isinstance(e.__cause__, ProxyAuthenticationError):
-                if active_proxy is not None:
-                    self.strategy.record_result(active_proxy, success=False, response_time_ms=0.0)
                 raise e.__cause__
-            if active_proxy is not None:
-                self.strategy.record_result(active_proxy, success=False, response_time_ms=0.0)
             raise ProxyConnectionError(f"Request failed: {e}") from e
-        except ProxyConnectionError as e:
-            if active_proxy is not None:
-                self.strategy.record_result(active_proxy, success=False, response_time_ms=0.0)
+        except ProxyConnectionError:
             logger.warning(
-                f"Request failed after retries: {method} {url}",
+                f"Request failed after retries: {method} {safe_target_url}",
                 proxy_id=str(active_proxy.id) if active_proxy else None,
-                error=str(e),
             )
             raise
         except Exception as e:
-            if active_proxy is not None:
-                self.strategy.record_result(active_proxy, success=False, response_time_ms=0.0)
             raise ProxyConnectionError(f"Request failed: {e}") from e
 
-        self.strategy.record_result(
-            result.proxy,
-            success=True,
-            response_time_ms=result.response_time_ms,
-        )
         logger.info(
-            f"Request successful: {method} {url}",
+            f"Request successful: {method} {safe_target_url}",
             proxy_id=str(result.proxy.id),
             status_code=result.response.status_code,
             response_time_ms=result.response_time_ms,
@@ -853,6 +929,7 @@ class ProxyWhirl(ProxyRotatorBase):
         url: str,
         proxy: Proxy,
         retry_policy: RetryPolicy | None = None,
+        _response_body_limit_bytes: int | None = None,
         **kwargs: Any,
     ) -> httpx.Response:
         """
@@ -863,6 +940,7 @@ class ProxyWhirl(ProxyRotatorBase):
             url: URL to request
             proxy: Proxy to use
             retry_policy: Optional retry policy
+            _response_body_limit_bytes: Internal decoded-response byte cap for API requests
             **kwargs: Additional request parameters
 
         Returns:
@@ -892,6 +970,7 @@ class ProxyWhirl(ProxyRotatorBase):
             "url": url,
             "proxy": proxy,
             "retry_policy": retry_policy,
+            "response_body_limit_bytes": _response_body_limit_bytes,
             "kwargs": kwargs,
         }
 
@@ -903,7 +982,7 @@ class ProxyWhirl(ProxyRotatorBase):
             logger.info(
                 "Request queued",
                 method=method,
-                url=url,
+                url=redact_url(url),
                 queue_size=self._request_queue.qsize(),
                 proxy_id=str(proxy.id),
             )
@@ -941,12 +1020,13 @@ class ProxyWhirl(ProxyRotatorBase):
         url = request_data["url"]
         proxy = request_data["proxy"]
         retry_policy = request_data["retry_policy"]
+        response_body_limit_bytes = request_data["response_body_limit_bytes"]
         kwargs = request_data["kwargs"]
 
         logger.info(
             "Processing queued request",
             method=method,
-            url=url,
+            url=redact_url(url),
             remaining_queue_size=self._request_queue.qsize(),
         )
 
@@ -957,7 +1037,16 @@ class ProxyWhirl(ProxyRotatorBase):
             client = self._get_or_create_client(selected_proxy, proxy_dict)
 
             def request_fn() -> httpx.Response:
-                response = client.request(method, url, **kwargs)
+                if response_body_limit_bytes is None:
+                    response = client.request(method, url, **kwargs)
+                else:
+                    response = _request_with_bounded_response(
+                        client,
+                        method,
+                        url,
+                        response_body_limit_bytes,
+                        kwargs,
+                    )
                 if response.status_code in (401, 407):
                     logger.error(
                         f"Proxy authentication failed: {masked_url}",
@@ -981,27 +1070,18 @@ class ProxyWhirl(ProxyRotatorBase):
                 pinned_proxy=proxy,
             )
         except ProxyAuthenticationError:
-            self.strategy.record_result(proxy, success=False, response_time_ms=0.0)
             raise
         except NonRetryableError as e:
-            self.strategy.record_result(proxy, success=False, response_time_ms=0.0)
             raise ProxyConnectionError(f"Queued request failed: {e}") from e
         except Exception as e:
-            self.strategy.record_result(proxy, success=False, response_time_ms=0.0)
             logger.warning(
-                f"Queued request failed: {method} {url}",
+                f"Queued request failed: {method} {redact_url(url)}",
                 proxy_id=str(proxy.id),
-                error=str(e),
             )
             raise ProxyConnectionError(f"Queued request failed: {e}") from e
 
-        self.strategy.record_result(
-            result.proxy,
-            success=True,
-            response_time_ms=result.response_time_ms,
-        )
         logger.info(
-            f"Queued request successful: {method} {url}",
+            f"Queued request successful: {method} {redact_url(url)}",
             proxy_id=str(result.proxy.id),
             status_code=result.response.status_code,
             response_time_ms=result.response_time_ms,
@@ -1274,13 +1354,55 @@ class ProxyWhirl(ProxyRotatorBase):
     def _start_aggregation_timer(self) -> None:
         """Start periodic metrics aggregation timer (every 5 minutes)."""
 
-        def aggregate() -> None:
-            self.retry_metrics.aggregate_hourly()
-            self._start_aggregation_timer()  # Schedule next aggregation
+        stop_event = getattr(self, "_aggregation_stop_event", None)
+        aggregation_lock = getattr(self, "_aggregation_lock", None)
+        if stop_event is None or aggregation_lock is None:
+            return
 
-        self._aggregation_timer = threading.Timer(300.0, aggregate)  # 5 minutes
-        self._aggregation_timer.daemon = True
-        self._aggregation_timer.start()
+        def aggregate() -> None:
+            try:
+                if stop_event.is_set():
+                    return
+                try:
+                    self.retry_metrics.aggregate_hourly()
+                except Exception as exc:
+                    logger.bind(error_type=type(exc).__name__).warning("Metrics aggregation failed")
+            finally:
+                current = threading.current_thread()
+                with aggregation_lock:
+                    if self._aggregation_timer is current:
+                        self._aggregation_timer = None
+                if not stop_event.is_set():
+                    self._start_aggregation_timer()
+
+        with aggregation_lock:
+            if stop_event.is_set() or self._aggregation_timer is not None:
+                return
+            timer = threading.Timer(300.0, aggregate)  # 5 minutes
+            timer.daemon = True
+            self._aggregation_timer = timer
+            try:
+                timer.start()
+            except BaseException:
+                self._aggregation_timer = None
+                raise
+
+    def _cancel_aggregation_timer(self) -> None:
+        """Cancel and join the current timer without ever joining this thread."""
+        aggregation_lock = getattr(self, "_aggregation_lock", None)
+        if aggregation_lock is None:
+            timer = getattr(self, "_aggregation_timer", None)
+            self._aggregation_timer = None
+        else:
+            with aggregation_lock:
+                timer = getattr(self, "_aggregation_timer", None)
+                self._aggregation_timer = None
+
+        if timer is None:
+            return
+        timer.cancel()
+        if timer is not threading.current_thread() and timer.is_alive():
+            timer.join(timeout=5.0)
 
     def get_circuit_breaker_states(self) -> dict[str, CircuitBreakerSnapshot]:
         """

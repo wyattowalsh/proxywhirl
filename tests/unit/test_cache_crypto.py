@@ -57,13 +57,14 @@ class TestCredentialEncryptor:
         encryptor = CredentialEncryptor()
         assert encryptor.key == test_key, "Should load key from env var"
 
-    def test_encryptor_generates_key_if_no_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test encryptor generates key if env var not set."""
+    def test_encryptor_requires_key_if_no_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test encryptor refuses ephemeral keys when env var is unset."""
         monkeypatch.delenv("PROXYWHIRL_CACHE_ENCRYPTION_KEY", raising=False)
+        monkeypatch.delenv("PROXYWHIRL_ENCRYPTION_KEY", raising=False)
+        monkeypatch.delenv("PROXYWHIRL_CACHE_KEY_PREVIOUS", raising=False)
 
-        encryptor = CredentialEncryptor()
-        assert encryptor.key is not None, "Should generate key"
-        assert len(encryptor.key) == 44, "Fernet key should be 44 bytes (base64 encoded)"
+        with pytest.raises(ValueError, match="PROXYWHIRL_CACHE_ENCRYPTION_KEY"):
+            CredentialEncryptor()
 
     def test_invalid_key_raises_error(self) -> None:
         """Test invalid Fernet key raises ValueError."""
@@ -88,8 +89,8 @@ class TestCredentialEncryptor:
 
     def test_decrypt_with_wrong_key_raises_error(self) -> None:
         """Test decrypting with wrong key raises ValueError."""
-        encryptor1 = CredentialEncryptor()
-        encryptor2 = CredentialEncryptor()  # Different key
+        encryptor1 = CredentialEncryptor(key=Fernet.generate_key())
+        encryptor2 = CredentialEncryptor(key=Fernet.generate_key())
 
         encrypted = encryptor1.encrypt(SecretStr("secret"))
 
@@ -191,8 +192,8 @@ class TestCacheCryptoModule:
         """Test decryption with wrong key fails."""
         from proxywhirl.cache.crypto import CredentialEncryptor as CacheEncryptor
 
-        encryptor1 = CacheEncryptor()
-        encryptor2 = CacheEncryptor()  # Different auto-generated key
+        encryptor1 = CacheEncryptor(key=Fernet.generate_key())
+        encryptor2 = CacheEncryptor(key=Fernet.generate_key())
 
         encrypted = encryptor1.encrypt(SecretStr("secret"))
 
@@ -211,15 +212,16 @@ class TestCacheCryptoModule:
         encryptor = CacheEncryptor()
         assert encryptor.key == test_key
 
-    def test_cache_crypto_generates_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test key generation when no env var."""
+    def test_cache_crypto_requires_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test encryptor refuses ephemeral keys when no env var is set."""
         from proxywhirl.cache.crypto import CredentialEncryptor as CacheEncryptor
 
         monkeypatch.delenv("PROXYWHIRL_CACHE_ENCRYPTION_KEY", raising=False)
+        monkeypatch.delenv("PROXYWHIRL_ENCRYPTION_KEY", raising=False)
+        monkeypatch.delenv("PROXYWHIRL_CACHE_KEY_PREVIOUS", raising=False)
 
-        encryptor = CacheEncryptor()
-        assert encryptor.key is not None
-        assert len(encryptor.key) == 44  # Fernet base64 key length
+        with pytest.raises(ValueError, match="PROXYWHIRL_CACHE_ENCRYPTION_KEY"):
+            CacheEncryptor()
 
     def test_cache_crypto_none_secret(self) -> None:
         """Test encrypt with None-like secret returns empty bytes."""
@@ -270,14 +272,41 @@ class TestKeyRotation:
         assert keys[0] == current_key
         assert keys[1] == previous_key
 
-    def test_get_encryption_keys_generates_if_none(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Test get_encryption_keys generates key if no env vars set."""
+    def test_get_encryption_keys_requires_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Test get_encryption_keys refuses ephemeral keys when no env vars set."""
+        monkeypatch.delenv("PROXYWHIRL_CACHE_ENCRYPTION_KEY", raising=False)
+        monkeypatch.delenv("PROXYWHIRL_ENCRYPTION_KEY", raising=False)
+        monkeypatch.delenv("PROXYWHIRL_CACHE_KEY_PREVIOUS", raising=False)
+
+        with pytest.raises(ValueError, match="PROXYWHIRL_CACHE_ENCRYPTION_KEY"):
+            get_encryption_keys()
+
+    def test_get_encryption_keys_accepts_deprecated_alias(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Deprecated PROXYWHIRL_ENCRYPTION_KEY maps when canonical is unset."""
+        test_key = Fernet.generate_key()
         monkeypatch.delenv("PROXYWHIRL_CACHE_ENCRYPTION_KEY", raising=False)
         monkeypatch.delenv("PROXYWHIRL_CACHE_KEY_PREVIOUS", raising=False)
+        monkeypatch.setenv("PROXYWHIRL_ENCRYPTION_KEY", test_key.decode())
 
         keys = get_encryption_keys()
         assert len(keys) == 1
-        assert len(keys[0]) == 44  # Fernet base64 key length
+        assert keys[0] == test_key
+
+    def test_get_encryption_keys_canonical_wins_over_alias(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Canonical CACHE_ENCRYPTION_KEY takes precedence over deprecated alias."""
+        canonical = Fernet.generate_key()
+        alias = Fernet.generate_key()
+        monkeypatch.setenv("PROXYWHIRL_CACHE_ENCRYPTION_KEY", canonical.decode())
+        monkeypatch.setenv("PROXYWHIRL_ENCRYPTION_KEY", alias.decode())
+        monkeypatch.delenv("PROXYWHIRL_CACHE_KEY_PREVIOUS", raising=False)
+
+        keys = get_encryption_keys()
+        assert keys[0] == canonical
+        assert keys[0] != alias
 
     def test_get_encryption_keys_invalid_current_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """Test get_encryption_keys raises error for invalid current key."""
@@ -370,6 +399,23 @@ class TestKeyRotation:
         assert os.environ["PROXYWHIRL_CACHE_ENCRYPTION_KEY"] == new_key
         # Previous key should not be set since there was no current key
         assert "PROXYWHIRL_CACHE_KEY_PREVIOUS" not in os.environ
+
+    def test_rotate_key_from_deprecated_alias(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """rotate_key promotes alias current key into previous, writes canonical."""
+        import os
+
+        alias_key = Fernet.generate_key().decode()
+        new_key = Fernet.generate_key().decode()
+
+        monkeypatch.delenv("PROXYWHIRL_CACHE_ENCRYPTION_KEY", raising=False)
+        monkeypatch.setenv("PROXYWHIRL_ENCRYPTION_KEY", alias_key)
+        monkeypatch.delenv("PROXYWHIRL_CACHE_KEY_PREVIOUS", raising=False)
+
+        rotate_key(new_key)
+
+        assert os.environ["PROXYWHIRL_CACHE_ENCRYPTION_KEY"] == new_key
+        assert os.environ["PROXYWHIRL_CACHE_KEY_PREVIOUS"] == alias_key
+        assert "PROXYWHIRL_ENCRYPTION_KEY" not in os.environ
 
     def test_rotate_key_invalid_key(self) -> None:
         """Test rotate_key raises error for invalid new key."""

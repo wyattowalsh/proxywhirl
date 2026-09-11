@@ -425,7 +425,10 @@ class CacheValidationError(ValueError, ProxyWhirlError):
     ) -> None:
         """Initialize with cache validation-specific defaults."""
         self.tier = tier
-        super().__init__(message, retry_recommended=False, **kwargs)
+        # ValueError precedes ProxyWhirlError in the public inheritance contract.
+        # Calling super() here would therefore route ProxyWhirlError's keyword
+        # metadata into ValueError.__init__. Initialize the rich base explicitly.
+        ProxyWhirlError.__init__(self, message, retry_recommended=False, **kwargs)
 
 
 class RequestQueueFullError(ProxyWhirlError):

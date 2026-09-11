@@ -19,6 +19,12 @@ class TestConfigTemplateManager:
         templates = manager.list_templates()
         assert len(templates) == 5
 
+    def test_templates_marked_experimental_in_module_doc(self):
+        """Template module documents experimental status."""
+        import proxywhirl.cli_config_templates as module
+
+        assert "experimental" in (module.__doc__ or "").lower()
+
     def test_merge_template(self):
         """Test merging template with custom config."""
         manager = ConfigTemplateManager()

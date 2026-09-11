@@ -211,11 +211,13 @@ class TestCircuitBreakerShouldAttemptRequest:
         with patch("time.time", return_value=101.0):
             result = cb.should_attempt_request()
 
-        assert cb.state == CircuitBreakerState.HALF_OPEN
-        assert result is True
+            assert cb.state == CircuitBreakerState.HALF_OPEN
+            assert result is True
 
-        # Second call returns False (one test request already pending)
-        assert cb.should_attempt_request() is False
+            # Second call returns False (one test request already pending).
+            # Keep time patched so half_open_probe_timeout does not treat the
+            # mocked acquire timestamp as stale against wall-clock time.
+            assert cb.should_attempt_request() is False
 
 
 class TestCircuitBreakerStateTransitions:
@@ -413,16 +415,15 @@ class TestCircuitBreakerHalfOpenRaceCondition:
         with patch("time.time", return_value=105.0):
             first_result = cb.should_attempt_request()
 
-        assert cb.state == CircuitBreakerState.HALF_OPEN
-        assert first_result is True
+            assert cb.state == CircuitBreakerState.HALF_OPEN
+            assert first_result is True
 
-        # Second request should be blocked (pending flag is set)
-        second_result = cb.should_attempt_request()
-        assert second_result is False
+            # Subsequent requests blocked while probe is pending (same clock).
+            second_result = cb.should_attempt_request()
+            assert second_result is False
 
-        # Third request should also be blocked
-        third_result = cb.should_attempt_request()
-        assert third_result is False
+            third_result = cb.should_attempt_request()
+            assert third_result is False
 
     def test_concurrent_threads_blocked_when_one_is_testing(self):
         """Test that concurrent threads are blocked when one is testing.
@@ -489,21 +490,21 @@ class TestCircuitBreakerHalfOpenRaceCondition:
         with patch("time.time", return_value=105.0):
             assert cb.should_attempt_request() is True
 
-        assert cb.state == CircuitBreakerState.HALF_OPEN
-        assert cb._half_open_pending is True
+            assert cb.state == CircuitBreakerState.HALF_OPEN
+            assert cb._half_open_pending is True
 
-        # Second request blocked
-        assert cb.should_attempt_request() is False
+            # Second request blocked (same mocked clock)
+            assert cb.should_attempt_request() is False
 
-        # Record success - should reset flag and close circuit
-        cb.record_success()
+            # Record success - should reset flag and close circuit
+            cb.record_success()
 
-        assert cb.state == CircuitBreakerState.CLOSED
-        assert cb._half_open_pending is False
+            assert cb.state == CircuitBreakerState.CLOSED
+            assert cb._half_open_pending is False
 
-        # Now requests should be allowed again
-        assert cb.should_attempt_request() is True
-        assert cb.should_attempt_request() is True
+            # Now requests should be allowed again
+            assert cb.should_attempt_request() is True
+            assert cb.should_attempt_request() is True
 
     def test_half_open_pending_flag_resets_on_failure(self):
         """Test that _half_open_pending flag resets when recording failure.
@@ -526,11 +527,11 @@ class TestCircuitBreakerHalfOpenRaceCondition:
         with patch("time.time", return_value=105.0):
             assert cb.should_attempt_request() is True
 
-        assert cb.state == CircuitBreakerState.HALF_OPEN
-        assert cb._half_open_pending is True
+            assert cb.state == CircuitBreakerState.HALF_OPEN
+            assert cb._half_open_pending is True
 
-        # Second request blocked
-        assert cb.should_attempt_request() is False
+            # Second request blocked (same mocked clock)
+            assert cb.should_attempt_request() is False
 
         # Record failure - should reset flag and reopen circuit
         with patch("time.time", return_value=105.5):

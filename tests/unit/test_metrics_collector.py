@@ -432,6 +432,15 @@ class TestMetricsValidation:
         # Should record without raising exception
         assert True  # Recording succeeded
 
+    def test_proxy_id_cardinality_is_bounded(self, metrics_collector):
+        """Proxy metric labels should not grow without bound."""
+        from proxywhirl.metrics_collector import MAX_TRACKED_PROXY_IDS
+
+        for i in range(MAX_TRACKED_PROXY_IDS + 5):
+            metrics_collector.record_request("success", 0.1, f"proxy-{i}")
+
+        assert len(metrics_collector._tracked_proxy_ids) == MAX_TRACKED_PROXY_IDS
+
     def test_special_characters_in_proxy_id(self, metrics_collector):
         """Test that special characters in proxy IDs are handled."""
         # Prometheus labels should handle most characters

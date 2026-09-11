@@ -917,6 +917,64 @@ class TestConfigCommandAdvanced:
             assert result.exit_code == 0
             assert load_config(config_path).verify_ssl is False
 
+    @pytest.mark.parametrize(
+        ("key", "value"),
+        [
+            ("timeout", "0"),
+            ("default_format", "xml"),
+            ("rotation_strategy", "not-a-strategy"),
+        ],
+    )
+    def test_config_set_rejects_values_that_would_break_reload(
+        self,
+        key: str,
+        value: str,
+    ) -> None:
+        """Config set must validate the reconstructed model before persisting it."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / ".proxywhirl.toml"
+            original = CLIConfig(encrypt_credentials=False)
+            save_config(original, config_path)
+
+            result = runner.invoke(
+                app,
+                [
+                    "--no-lock",
+                    "--config",
+                    str(config_path),
+                    "config",
+                    "set",
+                    key,
+                    value,
+                ],
+            )
+
+            assert result.exit_code == 1
+            assert f"Invalid value for {key}" in result.stdout
+            assert load_config(config_path) == original
+
+    def test_config_set_accepts_valid_zero_retry_boundary(self) -> None:
+        """Config set should preserve valid numeric boundary values."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / ".proxywhirl.toml"
+            save_config(CLIConfig(encrypt_credentials=False), config_path)
+
+            result = runner.invoke(
+                app,
+                [
+                    "--no-lock",
+                    "--config",
+                    str(config_path),
+                    "config",
+                    "set",
+                    "max_retries",
+                    "0",
+                ],
+            )
+
+            assert result.exit_code == 0
+            assert load_config(config_path).max_retries == 0
+
     def test_config_set_invalid_key(self) -> None:
         """Config set should reject unknown keys."""
         result = runner.invoke(
@@ -992,6 +1050,40 @@ class TestConfigCommandAdvanced:
 
 class TestHealthCommandAdvanced:
     """Advanced tests for health command."""
+
+    @patch("httpx.Client")
+    def test_health_strips_credentials_from_output(self, mock_client_class: Mock) -> None:
+        """RV-020: health output uses public_proxy_url (no embedded credentials)."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_client = MagicMock()
+        mock_client.__enter__.return_value = mock_client
+        mock_client.get.return_value = mock_response
+        mock_client_class.return_value = mock_client
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / ".proxywhirl.toml"
+            config_path.write_text(
+                'proxies = [{ url = "http://user:pass@proxy.example.com:8080" }]\n'
+                "encrypt_credentials = false\n"
+            )
+            result = runner.invoke(
+                app,
+                [
+                    "--no-lock",
+                    "--config",
+                    str(config_path),
+                    "--format",
+                    "json",
+                    "health",
+                ],
+            )
+            assert result.exit_code == 0
+            payload = json.loads(result.stdout)
+            proxy_url = payload["proxies"][0]["url"]
+            assert "user" not in proxy_url
+            assert "pass" not in proxy_url
+            assert proxy_url == "http://proxy.example.com:8080"
 
     @patch("httpx.Client")
     def test_health_check_with_proxies(self, mock_client_class: Mock) -> None:
@@ -1102,6 +1194,43 @@ class TestValidateProxyCommand:
         assert output_data["proxy"] == "http://proxy.com:8080"
         assert "user" not in result.stdout
         assert "pass" not in result.stdout
+
+    def test_validate_proxy_invalid_url_does_not_echo_credentials(self) -> None:
+        """Invalid proxy input must be redacted before it is echoed."""
+        result = runner.invoke(
+            app,
+            [
+                "--no-lock",
+                "validate-proxy",
+                "http://probe_user_marker:probe_pass_marker@",
+            ],
+        )
+
+        assert result.exit_code == 1
+        assert "Invalid proxy URL" in result.stdout
+        assert "probe_user_marker" not in result.stdout
+        assert "probe_pass_marker" not in result.stdout
+
+    @pytest.mark.parametrize("output_format", ["text", "json"])
+    @patch("httpx.get")
+    def test_validate_proxy_connect_error_redacts_credentials(
+        self,
+        mock_get: Mock,
+        output_format: str,
+    ) -> None:
+        """Connection failures must redact credentialed URLs in every output format."""
+        credential_url = "http://probe_user_marker:probe_pass_marker@proxy.example.com:8080"
+        mock_get.side_effect = httpx.ConnectError(f"failed via {credential_url}")
+        args = ["--no-lock"]
+        if output_format == "json":
+            args.extend(["--format", "json"])
+        args.extend(["validate-proxy", credential_url])
+
+        result = runner.invoke(app, args)
+
+        assert result.exit_code == 1
+        assert "probe_user_marker" not in result.stdout
+        assert "probe_pass_marker" not in result.stdout
 
     @patch("httpx.get")
     def test_validate_proxy_connect_error_json(self, mock_get: Mock) -> None:
@@ -1273,6 +1402,37 @@ class TestImportProxiesCommand:
             updated_config = load_config(config_path)
             assert [proxy.url for proxy in updated_config.proxies] == ["http://proxy-one.com:8080"]
 
+    def test_import_proxies_verbose_errors_redact_credentials(self) -> None:
+        """Verbose JSON import failures must not echo credentials from invalid entries."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            config_path = tmp_path / ".proxywhirl.toml"
+            proxy_file = tmp_path / "proxies.txt"
+            save_config(CLIConfig(encrypt_credentials=False), config_path)
+            proxy_file.write_text(
+                "http://proxy-one.com:8080\nhttp://probe_user_marker:probe_pass_marker@\n"
+            )
+
+            result = runner.invoke(
+                app,
+                [
+                    "--no-lock",
+                    "--verbose",
+                    "--format",
+                    "json",
+                    "--config",
+                    str(config_path),
+                    "import-proxies",
+                    str(proxy_file),
+                    "--format",
+                    "text",
+                ],
+            )
+
+            assert result.exit_code == 0
+            assert "probe_user_marker" not in result.stdout
+            assert "probe_pass_marker" not in result.stdout
+
     def test_import_proxies_empty_file_reports_specific_message(self) -> None:
         """Import-proxies should not wrap empty-file exits in a generic error."""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1394,6 +1554,28 @@ class TestExportCommand:
             )
 
             assert result.exit_code in (0, 1)
+
+    @patch("proxywhirl.exports.export_for_web", new_callable=AsyncMock)
+    def test_export_error_redacts_credentialed_urls(self, mock_export: AsyncMock) -> None:
+        """Export failures must not echo credentials embedded in exception text."""
+        credential_url = "http://probe_user_marker:probe_pass_marker@proxy.example.com:8080"
+        mock_export.side_effect = RuntimeError(f"failed via {credential_url}")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = runner.invoke(
+                app,
+                [
+                    "--no-lock",
+                    "export",
+                    "--output",
+                    tmpdir,
+                ],
+            )
+
+        assert result.exit_code == 1
+        assert "Export failed" in result.stdout
+        assert "probe_user_marker" not in result.stdout
+        assert "probe_pass_marker" not in result.stdout
 
 
 class TestFetchCommand:

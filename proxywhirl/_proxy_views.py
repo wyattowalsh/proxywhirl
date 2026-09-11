@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
@@ -73,10 +75,36 @@ def list_proxy_result(rotator: Any, query: ProxyListQuery | None = None) -> Prox
     return ProxyListResult(items=page, total=len(filtered), offset=query.offset, limit=query.limit)
 
 
+async def list_proxy_result_async(
+    rotator: Any,
+    query: ProxyListQuery | None = None,
+) -> ProxyListResult:
+    """Return a filtered, paginated proxy pool snapshot without blocking an event loop."""
+    query = query or ProxyListQuery()
+    filtered = await list_proxy_views_async(rotator, query)
+    page = filtered[query.offset : query.offset + query.limit]
+
+    return ProxyListResult(items=page, total=len(filtered), offset=query.offset, limit=query.limit)
+
+
 def list_proxy_views(rotator: Any, query: ProxyListQuery | None = None) -> list[ProxyView]:
     """Return matching credential-safe proxy views from a rotator."""
     query = query or ProxyListQuery()
     views = [proxy_to_view(rotator, proxy) for proxy in _pool_snapshot(rotator)]
+    return [view for view in views if _matches_query(view, query)]
+
+
+async def list_proxy_views_async(
+    rotator: Any,
+    query: ProxyListQuery | None = None,
+) -> list[ProxyView]:
+    """Return matching views using the pool's event-loop-safe snapshot helper."""
+    query = query or ProxyListQuery()
+    proxies, circuit_breakers = await asyncio.gather(
+        _pool_snapshot_async(rotator),
+        _circuit_breakers_async(rotator),
+    )
+    views = [proxy_to_view(rotator, proxy, circuit_breakers=circuit_breakers) for proxy in proxies]
     return [view for view in views if _matches_query(view, query)]
 
 
@@ -93,10 +121,29 @@ def find_proxy(rotator: Any, proxy_ref: UUID | str) -> Proxy | None:
     return None
 
 
+async def find_proxy_async(rotator: Any, proxy_ref: UUID | str) -> Proxy | None:
+    """Find a proxy without taking a synchronous pool lock on the event loop."""
+    proxy_id = _coerce_uuid(proxy_ref)
+    proxy_url = str(proxy_ref)
+
+    for proxy in await _pool_snapshot_async(rotator):
+        if proxy_id is not None and proxy.id == proxy_id:
+            return proxy
+        if _urls_match(proxy.url, proxy_url):
+            return proxy
+    return None
+
+
 def find_proxy_view(rotator: Any, proxy_ref: UUID | str) -> ProxyView | None:
     """Find a proxy by UUID or URL, returning a credential-safe view."""
     proxy = find_proxy(rotator, proxy_ref)
     return proxy_to_view(rotator, proxy) if proxy else None
+
+
+async def find_proxy_view_async(rotator: Any, proxy_ref: UUID | str) -> ProxyView | None:
+    """Find a proxy view without taking a synchronous pool lock on the event loop."""
+    proxy = await find_proxy_async(rotator, proxy_ref)
+    return await proxy_to_view_async(rotator, proxy) if proxy else None
 
 
 def add_proxy_to_rotator(rotator: Any, proxy: Proxy | str) -> ProxyView:
@@ -110,7 +157,8 @@ async def add_proxy_to_rotator_async(rotator: Any, proxy: Proxy | str) -> ProxyV
     """Normalize and add a proxy through an async rotator."""
     proxy_model = _normalize_proxy(proxy)
     await rotator.add_proxy(proxy_model)
-    return proxy_to_view(rotator, find_proxy(rotator, proxy_model.id) or proxy_model)
+    stored_proxy = await find_proxy_async(rotator, proxy_model.id)
+    return await proxy_to_view_async(rotator, stored_proxy or proxy_model)
 
 
 def remove_proxy_from_rotator(rotator: Any, proxy_ref: UUID | str) -> ProxyView | None:
@@ -126,11 +174,11 @@ def remove_proxy_from_rotator(rotator: Any, proxy_ref: UUID | str) -> ProxyView 
 
 async def remove_proxy_from_rotator_async(rotator: Any, proxy_ref: UUID | str) -> ProxyView | None:
     """Remove a proxy through an async rotator by UUID or URL."""
-    proxy = find_proxy(rotator, proxy_ref)
+    proxy = await find_proxy_async(rotator, proxy_ref)
     if proxy is None:
         return None
 
-    view = proxy_to_view(rotator, proxy)
+    view = await proxy_to_view_async(rotator, proxy)
     await rotator.remove_proxy(str(proxy.id))
     return view
 
@@ -145,12 +193,19 @@ def select_proxy_view(rotator: Any) -> ProxyView:
 
 async def select_proxy_view_async(rotator: Any) -> ProxyView:
     """Select the next proxy from an async rotator and return its public view."""
-    return proxy_to_view(rotator, await rotator.get_proxy())
+    return await proxy_to_view_async(rotator, await rotator.get_proxy())
 
 
-def proxy_to_view(rotator: Any, proxy: Proxy) -> ProxyView:
+def proxy_to_view(
+    rotator: Any,
+    proxy: Proxy,
+    *,
+    circuit_breakers: dict[str, Any] | None = None,
+) -> ProxyView:
     """Return a credential-safe public view for a proxy."""
-    circuit_breaker = _circuit_breakers(rotator).get(str(proxy.id))
+    if circuit_breakers is None:
+        circuit_breakers = _circuit_breakers(rotator)
+    circuit_breaker = circuit_breakers.get(str(proxy.id))
     health = proxy.health_status.value if proxy.health_status else HealthStatus.UNKNOWN.value
     total_requests = max(proxy.total_requests, proxy.requests_started, proxy.requests_completed)
     successful_requests = max(proxy.total_successes, proxy.requests_completed)
@@ -176,8 +231,21 @@ def proxy_to_view(rotator: Any, proxy: Proxy) -> ProxyView:
     )
 
 
+async def proxy_to_view_async(rotator: Any, proxy: Proxy) -> ProxyView:
+    """Return a public view while moving sync rotator state reads off the event loop."""
+    circuit_breakers = await _circuit_breakers_async(rotator)
+    return proxy_to_view(rotator, proxy, circuit_breakers=circuit_breakers)
+
+
 def _pool_snapshot(rotator: Any) -> list[Proxy]:
     return rotator.pool.get_all_proxies()
+
+
+async def _pool_snapshot_async(rotator: Any) -> list[Proxy]:
+    async_snapshot = getattr(rotator.pool, "aget_all_proxies", None)
+    if async_snapshot is not None and inspect.iscoroutinefunction(async_snapshot):
+        return await async_snapshot()
+    return await asyncio.to_thread(_pool_snapshot, rotator)
 
 
 def _circuit_breakers(rotator: Any) -> dict[str, Any]:
@@ -185,6 +253,10 @@ def _circuit_breakers(rotator: Any) -> dict[str, Any]:
     if get_states is None:
         return {}
     return get_states()
+
+
+async def _circuit_breakers_async(rotator: Any) -> dict[str, Any]:
+    return await asyncio.to_thread(_circuit_breakers, rotator)
 
 
 def _normalize_proxy(proxy: Proxy | str) -> Proxy:

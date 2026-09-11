@@ -80,10 +80,11 @@ def valid_regex_text(draw: Any) -> str:
 # ============================================================================
 
 
-def compile_safe_no_exit(pattern: str, timeout: float = 1.0) -> re.Pattern[str] | None:
+def compile_safe_no_exit(pattern: str, timeout: float = 5.0) -> re.Pattern[str] | None:
     """Wrapper around _compile_with_timeout that returns None instead of exiting.
 
     This is needed for property tests since typer.Exit breaks hypothesis.
+    Default timeout budget includes process-isolation spawn overhead.
     """
     try:
         with warnings.catch_warnings():
@@ -97,13 +98,11 @@ def compile_safe_no_exit(pattern: str, timeout: float = 1.0) -> re.Pattern[str] 
         return None
 
 
-def match_safe_no_exit(
-    pattern: str, text: str, timeout: float = 1.0
-) -> re.Match[str] | None | bool:
+def match_safe_no_exit(pattern: str, text: str, timeout: float = 5.0) -> object | None | bool:
     """Wrapper around _match_with_timeout that returns False instead of exiting.
 
     Returns:
-        Match object if successful, None if no match, False if error
+        Match-like object if successful, None if no match, False if error
     """
     try:
         compiled = _compile_with_timeout(pattern, 0, timeout)
@@ -128,7 +127,7 @@ class TestCompilationSafety:
     )
     def test_compile_never_hangs(self, pattern: str):
         """Property: compile_safe never hangs regardless of input."""
-        result = compile_safe_no_exit(pattern, timeout=1.0)
+        result = compile_safe_no_exit(pattern, timeout=5.0)
         # Result should be Pattern or None
         assert result is None or isinstance(result, re.Pattern)
 
@@ -138,7 +137,7 @@ class TestCompilationSafety:
     @example(pattern=r"[a-zA-Z0-9]+")
     def test_simple_patterns_always_compile(self, pattern: str):
         """Property: Simple patterns should compile without timeout."""
-        compiled = compile_safe_no_exit(pattern, timeout=1.0)
+        compiled = compile_safe_no_exit(pattern, timeout=5.0)
         assert compiled is not None, f"Pattern {pattern!r} failed to compile"
 
     @given(st.text(min_size=MAX_PATTERN_LENGTH + 1, max_size=MAX_PATTERN_LENGTH + 100))
@@ -173,7 +172,7 @@ class TestMatchingSafety:
     )
     def test_match_always_terminates(self, pattern: str, text: str):
         """Property: match_safe always terminates."""
-        result = match_safe_no_exit(pattern, text, timeout=1.0)
+        result = match_safe_no_exit(pattern, text, timeout=5.0)
         # Result should be Match, None, or False (error)
         assert result is None or result is False or hasattr(result, "group")
 
@@ -182,12 +181,12 @@ class TestMatchingSafety:
     @example(pattern="abc", text="abc")
     def test_simple_matches_work(self, pattern: str, text: str):
         """Property: Simple literal patterns should match correctly."""
-        compiled = compile_safe_no_exit(pattern, timeout=1.0)
+        compiled = compile_safe_no_exit(pattern, timeout=5.0)
         if compiled is None:
             # Pattern might be invalid, skip
             assume(False)
 
-        result = match_safe_no_exit(pattern, text, timeout=1.0)
+        result = match_safe_no_exit(pattern, text, timeout=5.0)
         # Should get a result (Match or None), not error
         assert result is not False
 
@@ -195,11 +194,11 @@ class TestMatchingSafety:
     def test_empty_pattern_behavior(self, text: str):
         """Property: Empty pattern behavior should be consistent."""
         # Empty pattern is actually valid in Python regex (matches everything)
-        result = compile_safe_no_exit("", timeout=1.0)
+        result = compile_safe_no_exit("", timeout=5.0)
         assert result is not None  # Empty patterns should compile successfully
         # And should match any position in text
         if result is not None:
-            match_result = match_safe_no_exit("", text, timeout=1.0)
+            match_result = match_safe_no_exit("", text, timeout=5.0)
             assert match_result is not False  # Should either match or return None, not error
 
 
@@ -289,21 +288,21 @@ class TestEdgeCases:
     @given(st.text(alphabet=" \t\n\r", min_size=1, max_size=50))
     def test_whitespace_only_patterns(self, pattern: str):
         """Property: Whitespace-only patterns should be handled."""
-        result = compile_safe_no_exit(pattern, timeout=1.0)
+        result = compile_safe_no_exit(pattern, timeout=5.0)
         # Should either compile or fail
         assert result is None or isinstance(result, re.Pattern)
 
     @given(st.text(alphabet="\\", min_size=1, max_size=10))
     def test_backslash_heavy_patterns(self, pattern: str):
         """Property: Backslash-heavy patterns should not crash."""
-        result = compile_safe_no_exit(pattern, timeout=1.0)
+        result = compile_safe_no_exit(pattern, timeout=5.0)
         # Most will be invalid, but shouldn't crash
         assert result is None or isinstance(result, re.Pattern)
 
     @given(st.text(alphabet="()[]{}", min_size=1, max_size=20))
     def test_bracket_heavy_patterns(self, pattern: str):
         """Property: Bracket-heavy patterns should be handled."""
-        result = compile_safe_no_exit(pattern, timeout=1.0)
+        result = compile_safe_no_exit(pattern, timeout=5.0)
         # Should handle gracefully
         assert result is None or isinstance(result, re.Pattern)
 
@@ -312,7 +311,7 @@ class TestEdgeCases:
         special_chars = r".*+?[]{}()|^$\\"
         for char in special_chars:
             # Try each special character
-            result = compile_safe_no_exit(char, timeout=1.0)
+            result = compile_safe_no_exit(char, timeout=5.0)
             # Should either compile or fail, but not crash
             assert result is None or isinstance(result, re.Pattern)
 
@@ -374,7 +373,7 @@ class TestValidationConsistency:
     @given(simple_regex_patterns())
     def test_compiled_pattern_reusable(self, pattern: str):
         """Property: Compiled patterns should be reusable for multiple matches."""
-        compiled = compile_safe_no_exit(pattern, timeout=1.0)
+        compiled = compile_safe_no_exit(pattern, timeout=5.0)
         if compiled is None:
             assume(False)
 
@@ -382,7 +381,7 @@ class TestValidationConsistency:
         texts = ["test", "abc", "123", ""]
         for text in texts:
             try:
-                result = _match_with_timeout(compiled, text, timeout=1.0)
+                result = _match_with_timeout(compiled, text, timeout=5.0)
                 assert result is None or hasattr(result, "group")
             except RegexTimeoutError:
                 pass  # Acceptable - timeout is a valid safety mechanism

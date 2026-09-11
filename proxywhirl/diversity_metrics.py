@@ -26,6 +26,7 @@ class DiversityMetrics:
         city_distribution: Count of proxies per city
         shannon_entropy: Shannon entropy of country distribution (0-1)
         geographic_spread: Percentage of unique countries vs total proxies
+        geo_coverage_pct: Percentage of proxies with a known country code
     """
 
     country_count: int
@@ -36,6 +37,7 @@ class DiversityMetrics:
     city_distribution: dict[str, int]
     shannon_entropy: float
     geographic_spread: float
+    geo_coverage_pct: float
 
 
 class DiversityAnalyzer:
@@ -61,6 +63,7 @@ class DiversityAnalyzer:
                 city_distribution={},
                 shannon_entropy=0.0,
                 geographic_spread=0.0,
+                geo_coverage_pct=0.0,
             )
 
         countries = []
@@ -92,6 +95,7 @@ class DiversityAnalyzer:
 
         shannon = DiversityAnalyzer._calculate_shannon_entropy(country_dist, len(proxies))
         geographic_spread = len(country_dist) / len(proxies) * 100 if len(proxies) > 0 else 0
+        geo_coverage_pct = len(countries) / len(proxies) * 100 if len(proxies) > 0 else 0
 
         return DiversityMetrics(
             country_count=len(country_dist),
@@ -102,6 +106,7 @@ class DiversityAnalyzer:
             city_distribution=city_dist,
             shannon_entropy=shannon,
             geographic_spread=geographic_spread,
+            geo_coverage_pct=geo_coverage_pct,
         )
 
     @staticmethod

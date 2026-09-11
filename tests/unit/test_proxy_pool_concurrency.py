@@ -39,9 +39,18 @@ class SimpleProxyPool:
             if proxy in self.proxies:
                 self.proxies.remove(proxy)
 
+    def get_all_proxies(self) -> list[str]:
+        """Return a lock-protected snapshot of the pool."""
+        with self._lock:
+            return self.proxies.copy()
+
     async def get_proxy_async(self) -> str | None:
         """Get proxy asynchronously."""
-        return self.get_proxy()
+        return await asyncio.to_thread(self.get_proxy)
+
+    async def get_all_proxies_async(self) -> list[str]:
+        """Return a snapshot without taking the thread lock on the event loop."""
+        return await asyncio.to_thread(self.get_all_proxies)
 
 
 class TestProxyPoolConcurrency:
@@ -123,9 +132,10 @@ class TestProxyPoolConcurrency:
 
         all_results = await asyncio.gather(*[worker() for _ in range(3)])
         flat = [p for results in all_results for p in results]
+        known_proxies = await pool.get_all_proxies_async()
 
         assert len(flat) == 15
-        assert all(p in pool.proxies for p in flat)
+        assert all(p in known_proxies for p in flat)
 
     def test_thread_pool_executor(self, pool) -> None:
         """Test using thread pool executor."""
@@ -213,14 +223,8 @@ class TestProxyPoolConcurrency:
                 results.append(await pool.get_proxy_async())
             return results
 
-        # Run sync in thread
-        thread = threading.Thread(target=sync_worker)
-        thread.start()
-
-        # Run async
-        async_results = await async_worker()
-
-        thread.join()
+        # Exercise both call styles without joining a thread on the event loop.
+        async_results, _ = await asyncio.gather(async_worker(), asyncio.to_thread(sync_worker))
 
         assert len(sync_results) == 5
         assert len(async_results) == 5

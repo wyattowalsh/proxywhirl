@@ -797,31 +797,37 @@ class JsonlCacheTier(CacheTier):
             now = datetime.now(timezone.utc)
 
             for shard_id in range(self.num_shards):
-                entries = self._read_shard(shard_id)
-                original_count = len(entries)
+                shard_path = self._get_shard_path(shard_id)
+                if not shard_path.exists():
+                    continue
 
-                # Filter out expired entries
-                valid_entries = {}
-                for key, data in entries.items():
-                    expires_at_str = data.get("expires_at")
-                    if expires_at_str:
-                        try:
-                            expires_at = datetime.fromisoformat(expires_at_str)
-                            if expires_at >= now:
+                with portalocker.Lock(self._get_shard_lock_path(shard_id), "a+", timeout=5):
+                    entries = self._read_shard(shard_id)
+                    original_count = len(entries)
+
+                    valid_entries: dict[str, dict] = {}
+                    expired_keys: list[str] = []
+                    for key, data in entries.items():
+                        expires_at_str = data.get("expires_at")
+                        if expires_at_str:
+                            try:
+                                expires_at = datetime.fromisoformat(expires_at_str)
+                                if expires_at >= now:
+                                    valid_entries[key] = data
+                                else:
+                                    expired_keys.append(key)
+                                    removed += 1
+                            except ValueError:
                                 valid_entries[key] = data
-                            else:
+                        else:
+                            valid_entries[key] = data
+
+                    if len(valid_entries) < original_count:
+                        self._write_shard(shard_id, valid_entries)
+                        with self._state_lock:
+                            for key in expired_keys:
                                 self._index.pop(key, None)
                                 self._access_order.pop(key, None)
-                                removed += 1
-                        except ValueError:
-                            # Invalid timestamp - keep entry
-                            valid_entries[key] = data
-                    else:
-                        valid_entries[key] = data
-
-                # Write back if entries were removed
-                if len(valid_entries) < original_count:
-                    self._write_shard(shard_id, valid_entries)
 
             self.reset_failures()
             return removed
@@ -1075,6 +1081,26 @@ class DiskCacheTier(CacheTier):
 
             with self._op_lock:
                 conn = self._get_connection()
+                if self.config.max_entries:
+                    cursor = conn.execute("SELECT 1 FROM l2_cache WHERE key = ?", (entry.key,))
+                    is_new_key = cursor.fetchone() is None
+                    if is_new_key:
+                        cursor = conn.execute("SELECT COUNT(*) FROM l2_cache")
+                        row = cursor.fetchone()
+                        count = int(row[0]) if row else 0
+                        while count >= self.config.max_entries:
+                            conn.execute(
+                                """
+                                DELETE FROM l2_cache
+                                WHERE key = (
+                                    SELECT key FROM l2_cache
+                                    ORDER BY last_accessed ASC
+                                    LIMIT 1
+                                )
+                                """
+                            )
+                            count -= 1
+
                 conn.execute(
                     """
                     INSERT OR REPLACE INTO l2_cache (
@@ -1433,6 +1459,7 @@ class SQLiteCacheTier(CacheTier):
         self.db_path = db_path
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.encryptor = encryptor or CredentialEncryptor()
+        self._op_lock = threading.RLock()
         self._init_db()
 
     def _init_db(self) -> None:
@@ -1448,13 +1475,17 @@ class SQLiteCacheTier(CacheTier):
         Side Effects:
             - Creates cache_entries table if not exists.
             - Creates health_history table if not exists.
-            - Migrates existing tables to add health monitoring columns.
+            - Recreates cache tables when an older on-disk schema is missing required
+              health columns (ephemeral L3 cache; no runtime ALTER TABLE).
             - Creates performance indexes.
             - Commits schema changes.
         """
-        with closing(sqlite3.connect(str(self.db_path))) as conn:
-            # Create cache_entries table
-            conn.execute("""
+        with self._op_lock:
+            with closing(sqlite3.connect(str(self.db_path))) as conn:
+                self._ensure_current_cache_schema(conn)
+
+                # Create cache_entries table
+                conn.execute("""
                 CREATE TABLE IF NOT EXISTS cache_entries (
                     key TEXT PRIMARY KEY,
                     proxy_url TEXT NOT NULL,
@@ -1481,88 +1512,76 @@ class SQLiteCacheTier(CacheTier):
                     total_health_check_failures INTEGER DEFAULT 0,
                     evicted_from_l1 INTEGER DEFAULT 0
                 )
-            """)
+                """)
 
-            # Migrate existing tables to add health columns (T008)
-            self._migrate_health_columns(conn)
+                # Create health_history table (T007)
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS health_history (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        proxy_key TEXT NOT NULL,
+                        check_time REAL NOT NULL,
+                        status TEXT NOT NULL,
+                        response_time_ms REAL,
+                        error_message TEXT,
+                        check_url TEXT NOT NULL,
+                        FOREIGN KEY (proxy_key) REFERENCES cache_entries(key) ON DELETE CASCADE
+                    )
+                """)
 
-            # Create health_history table (T007)
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS health_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    proxy_key TEXT NOT NULL,
-                    check_time REAL NOT NULL,
-                    status TEXT NOT NULL,
-                    response_time_ms REAL,
-                    error_message TEXT,
-                    check_url TEXT NOT NULL,
-                    FOREIGN KEY (proxy_key) REFERENCES cache_entries(key) ON DELETE CASCADE
+                # Create indexes
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_expires_at ON cache_entries(expires_at)"
                 )
-            """)
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_source ON cache_entries(source)")
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_health_status ON cache_entries(health_status)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_last_accessed ON cache_entries(last_accessed)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_health_history_proxy ON health_history(proxy_key)"
+                )
+                conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_health_history_time ON health_history(check_time)"
+                )
 
-            # Create indexes
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_expires_at ON cache_entries(expires_at)")
-            conn.execute("CREATE INDEX IF NOT EXISTS idx_source ON cache_entries(source)")
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_health_status ON cache_entries(health_status)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_last_accessed ON cache_entries(last_accessed)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_health_history_proxy ON health_history(proxy_key)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_health_history_time ON health_history(check_time)"
-            )
+                conn.commit()
 
-            conn.commit()
+    def _ensure_current_cache_schema(self, conn: sqlite3.Connection) -> None:
+        """Drop stale L3 tables when required health columns are missing.
 
-    def _migrate_health_columns(self, conn: sqlite3.Connection) -> None:
-        """Add health monitoring columns to existing cache_entries table if they don't exist (T008).
-
-        Provides backward compatibility by adding new health monitoring columns to
-        existing databases without data loss.
-
-        Args:
-            conn: Active SQLite connection to the cache database.
-
-        Side Effects:
-            - Adds missing health monitoring columns to cache_entries table.
-            - Uses whitelisted column names to prevent SQL injection.
-            - Silently ignores OperationalError if columns already exist (race condition safety).
-
-        Note:
-            Column names are from a hardcoded whitelist, not user input, making
-            f-string SQL safe in this specific context.
-
+        L3 cache is ephemeral rebuildable state. Prefer recreate over runtime
+        ``ALTER TABLE`` so schema lives in ``CREATE TABLE`` only.
         """
-        # Get existing columns
+        cursor = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='cache_entries'"
+        )
+        if cursor.fetchone() is None:
+            return
+
         cursor = conn.execute("PRAGMA table_info(cache_entries)")
         existing_columns = {row[1] for row in cursor.fetchall()}
+        required_columns = {
+            "last_health_check",
+            "consecutive_health_failures",
+            "consecutive_health_successes",
+            "recovery_attempt",
+            "next_check_time",
+            "last_health_error",
+            "total_health_checks",
+            "total_health_check_failures",
+            "evicted_from_l1",
+        }
+        if required_columns.issubset(existing_columns):
+            return
 
-        # Define health columns to add (whitelist to prevent injection)
-        health_columns = [
-            ("last_health_check", "REAL"),
-            ("consecutive_health_failures", "INTEGER DEFAULT 0"),
-            ("consecutive_health_successes", "INTEGER DEFAULT 0"),
-            ("recovery_attempt", "INTEGER DEFAULT 0"),
-            ("next_check_time", "REAL"),
-            ("last_health_error", "TEXT"),
-            ("total_health_checks", "INTEGER DEFAULT 0"),
-            ("total_health_check_failures", "INTEGER DEFAULT 0"),
-            ("evicted_from_l1", "INTEGER DEFAULT 0"),
-        ]
-
-        # Add missing columns - safe because column names are from whitelist
-        for col_name, col_type in health_columns:
-            if col_name not in existing_columns:
-                try:
-                    # Column names from whitelist, not user input
-                    conn.execute(f"ALTER TABLE cache_entries ADD COLUMN {col_name} {col_type}")
-                except sqlite3.OperationalError:
-                    # Column may already exist in a concurrent process
-                    pass
+        logger.warning(
+            "L3 cache schema missing health columns; recreating ephemeral cache tables at {}",
+            self.db_path,
+        )
+        conn.execute("DROP TABLE IF EXISTS health_history")
+        conn.execute("DROP TABLE IF EXISTS cache_entries")
 
     def get(self, key: str) -> CacheEntry | None:
         """Retrieve entry from SQLite database with decrypted credentials.
@@ -1584,71 +1603,72 @@ class SQLiteCacheTier(CacheTier):
 
         """
         try:
-            with closing(sqlite3.connect(str(self.db_path))) as conn:
-                cursor = conn.execute("SELECT * FROM cache_entries WHERE key = ?", (key,))
-                row = cursor.fetchone()
+            with self._op_lock:
+                with closing(sqlite3.connect(str(self.db_path))) as conn:
+                    cursor = conn.execute("SELECT * FROM cache_entries WHERE key = ?", (key,))
+                    row = cursor.fetchone()
 
-            if not row:
-                return None
+                if not row:
+                    return None
 
-            # Map row to dict
-            columns = [
-                "key",
-                "proxy_url",
-                "username_encrypted",
-                "password_encrypted",
-                "source",
-                "fetch_time",
-                "last_accessed",
-                "access_count",
-                "ttl_seconds",
-                "expires_at",
-                "health_status",
-                "failure_count",
-                "created_at",
-                "updated_at",
-                # Health monitoring fields
-                "last_health_check",
-                "consecutive_health_failures",
-                "consecutive_health_successes",
-                "recovery_attempt",
-                "next_check_time",
-                "last_health_error",
-                "total_health_checks",
-                "total_health_check_failures",
-                "evicted_from_l1",
-            ]
-            data = dict(zip(columns, row, strict=True))
+                # Map row to dict
+                columns = [
+                    "key",
+                    "proxy_url",
+                    "username_encrypted",
+                    "password_encrypted",
+                    "source",
+                    "fetch_time",
+                    "last_accessed",
+                    "access_count",
+                    "ttl_seconds",
+                    "expires_at",
+                    "health_status",
+                    "failure_count",
+                    "created_at",
+                    "updated_at",
+                    # Health monitoring fields
+                    "last_health_check",
+                    "consecutive_health_failures",
+                    "consecutive_health_successes",
+                    "recovery_attempt",
+                    "next_check_time",
+                    "last_health_error",
+                    "total_health_checks",
+                    "total_health_check_failures",
+                    "evicted_from_l1",
+                ]
+                data = dict(zip(columns, row, strict=True))
 
-            # Decrypt credentials
-            if data["username_encrypted"]:
-                data["username"] = self.encryptor.decrypt(data["username_encrypted"])
-            if data["password_encrypted"]:
-                data["password"] = self.encryptor.decrypt(data["password_encrypted"])
+                # Decrypt credentials
+                if data["username_encrypted"]:
+                    data["username"] = self.encryptor.decrypt(data["username_encrypted"])
+                if data["password_encrypted"]:
+                    data["password"] = self.encryptor.decrypt(data["password_encrypted"])
 
-            # Convert timestamps
-            for field in [
-                "fetch_time",
-                "last_accessed",
-                "expires_at",
-                "created_at",
-                "updated_at",
-                "last_health_check",
-                "next_check_time",
-            ]:
-                if data.get(field) is not None:
-                    data[field] = datetime.fromtimestamp(data[field], tz=timezone.utc)
+                # Convert timestamps
+                for field in [
+                    "fetch_time",
+                    "last_accessed",
+                    "expires_at",
+                    "created_at",
+                    "updated_at",
+                    "last_health_check",
+                    "next_check_time",
+                ]:
+                    if data.get(field) is not None:
+                        data[field] = datetime.fromtimestamp(data[field], tz=timezone.utc)
 
-            # Convert boolean
-            if data.get("evicted_from_l1") is not None:
-                data["evicted_from_l1"] = bool(data["evicted_from_l1"])
+                # Convert boolean
+                if data.get("evicted_from_l1") is not None:
+                    data["evicted_from_l1"] = bool(data["evicted_from_l1"])
 
-            # Remove encrypted fields
-            data.pop("username_encrypted")
-            data.pop("password_encrypted")
+                # Remove encrypted fields
+                data.pop("username_encrypted")
+                data.pop("password_encrypted")
 
-            self.reset_failures()
-            return CacheEntry(**data)
+                self.reset_failures()
+                return CacheEntry(**data)
         except Exception as e:
             self.handle_failure(e)
             return None
@@ -1691,47 +1711,48 @@ class SQLiteCacheTier(CacheTier):
             def to_timestamp(dt: datetime | None) -> float | None:
                 return dt.timestamp() if dt is not None else None
 
-            with closing(sqlite3.connect(str(self.db_path))) as conn:
-                conn.execute(
-                    """
-                    INSERT OR REPLACE INTO cache_entries (
-                        key, proxy_url, username_encrypted, password_encrypted,
-                        source, fetch_time, last_accessed, access_count,
-                        ttl_seconds, expires_at, health_status, failure_count,
-                        created_at, updated_at,
-                        last_health_check, consecutive_health_failures, consecutive_health_successes,
-                        recovery_attempt, next_check_time, last_health_error,
-                        total_health_checks, total_health_check_failures, evicted_from_l1
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                    (
-                        entry.key,
-                        entry.proxy_url,
-                        username_encrypted,
-                        password_encrypted,
-                        entry.source,
-                        entry.fetch_time.timestamp(),
-                        entry.last_accessed.timestamp(),
-                        entry.access_count,
-                        entry.ttl_seconds,
-                        entry.expires_at.timestamp(),
-                        entry.health_status.value,
-                        entry.failure_count,
-                        now,
-                        now,
-                        # Health monitoring fields
-                        to_timestamp(entry.last_health_check),
-                        entry.consecutive_health_failures,
-                        entry.consecutive_health_successes,
-                        entry.recovery_attempt,
-                        to_timestamp(entry.next_check_time),
-                        entry.last_health_error,
-                        entry.total_health_checks,
-                        entry.total_health_check_failures,
-                        int(entry.evicted_from_l1),
-                    ),
-                )
-                conn.commit()
+            with self._op_lock:
+                with closing(sqlite3.connect(str(self.db_path))) as conn:
+                    conn.execute(
+                        """
+                        INSERT OR REPLACE INTO cache_entries (
+                            key, proxy_url, username_encrypted, password_encrypted,
+                            source, fetch_time, last_accessed, access_count,
+                            ttl_seconds, expires_at, health_status, failure_count,
+                            created_at, updated_at,
+                            last_health_check, consecutive_health_failures, consecutive_health_successes,
+                            recovery_attempt, next_check_time, last_health_error,
+                            total_health_checks, total_health_check_failures, evicted_from_l1
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                        (
+                            entry.key,
+                            entry.proxy_url,
+                            username_encrypted,
+                            password_encrypted,
+                            entry.source,
+                            entry.fetch_time.timestamp(),
+                            entry.last_accessed.timestamp(),
+                            entry.access_count,
+                            entry.ttl_seconds,
+                            entry.expires_at.timestamp(),
+                            entry.health_status.value,
+                            entry.failure_count,
+                            now,
+                            now,
+                            # Health monitoring fields
+                            to_timestamp(entry.last_health_check),
+                            entry.consecutive_health_failures,
+                            entry.consecutive_health_successes,
+                            entry.recovery_attempt,
+                            to_timestamp(entry.next_check_time),
+                            entry.last_health_error,
+                            entry.total_health_checks,
+                            entry.total_health_check_failures,
+                            int(entry.evicted_from_l1),
+                        ),
+                    )
+                    conn.commit()
 
             self.reset_failures()
             return True
@@ -1758,10 +1779,11 @@ class SQLiteCacheTier(CacheTier):
 
         """
         try:
-            with closing(sqlite3.connect(str(self.db_path))) as conn:
-                cursor = conn.execute("DELETE FROM cache_entries WHERE key = ?", (key,))
-                deleted = cursor.rowcount > 0
-                conn.commit()
+            with self._op_lock:
+                with closing(sqlite3.connect(str(self.db_path))) as conn:
+                    cursor = conn.execute("DELETE FROM cache_entries WHERE key = ?", (key,))
+                    deleted = cursor.rowcount > 0
+                    conn.commit()
             return deleted
         except Exception as e:
             self.handle_failure(e)
@@ -1785,11 +1807,12 @@ class SQLiteCacheTier(CacheTier):
 
         """
         try:
-            with closing(sqlite3.connect(str(self.db_path))) as conn:
-                cursor = conn.execute("SELECT COUNT(*) FROM cache_entries")
-                count: int = int(cursor.fetchone()[0])
-                conn.execute("DELETE FROM cache_entries")
-                conn.commit()
+            with self._op_lock:
+                with closing(sqlite3.connect(str(self.db_path))) as conn:
+                    cursor = conn.execute("SELECT COUNT(*) FROM cache_entries")
+                    count: int = int(cursor.fetchone()[0])
+                    conn.execute("DELETE FROM cache_entries")
+                    conn.commit()
             return count
         except Exception as e:
             self.handle_failure(e)
@@ -1810,9 +1833,10 @@ class SQLiteCacheTier(CacheTier):
 
         """
         try:
-            with closing(sqlite3.connect(str(self.db_path))) as conn:
-                cursor = conn.execute("SELECT COUNT(*) FROM cache_entries")
-                result = cursor.fetchone()
+            with self._op_lock:
+                with closing(sqlite3.connect(str(self.db_path))) as conn:
+                    cursor = conn.execute("SELECT COUNT(*) FROM cache_entries")
+                    result = cursor.fetchone()
             return int(result[0]) if result else 0
         except Exception as e:
             self.handle_failure(e)
@@ -1833,9 +1857,10 @@ class SQLiteCacheTier(CacheTier):
 
         """
         try:
-            with closing(sqlite3.connect(str(self.db_path))) as conn:
-                cursor = conn.execute("SELECT key FROM cache_entries")
-                result = [str(row[0]) for row in cursor.fetchall()]
+            with self._op_lock:
+                with closing(sqlite3.connect(str(self.db_path))) as conn:
+                    cursor = conn.execute("SELECT key FROM cache_entries")
+                    result = [str(row[0]) for row in cursor.fetchall()]
             return result
         except Exception as e:
             self.handle_failure(e)
@@ -1853,13 +1878,14 @@ class SQLiteCacheTier(CacheTier):
         """
         try:
             now = datetime.now(timezone.utc).timestamp()
-            with closing(sqlite3.connect(str(self.db_path))) as conn:
-                cursor = conn.execute(
-                    "DELETE FROM cache_entries WHERE expires_at < ?",
-                    (now,),
-                )
-                removed = cursor.rowcount
-                conn.commit()
+            with self._op_lock:
+                with closing(sqlite3.connect(str(self.db_path))) as conn:
+                    cursor = conn.execute(
+                        "DELETE FROM cache_entries WHERE expires_at < ?",
+                        (now,),
+                    )
+                    removed = cursor.rowcount
+                    conn.commit()
             self.reset_failures()
             return removed
         except Exception as e:

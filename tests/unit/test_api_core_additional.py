@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import socket
+from collections.abc import Iterator
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -56,15 +57,21 @@ from proxywhirl.exceptions import ProxyValidationError
 from proxywhirl.models import HealthStatus, Proxy
 from proxywhirl.retry import RetryPolicy
 
+_UNIT_API_KEY = "unit-test-api-key"
+_AUTH_HEADERS = {"X-API-Key": _UNIT_API_KEY}
+
 
 @pytest.fixture
-def client() -> TestClient:
-    """Create a test client for the FastAPI app."""
-    return TestClient(app)
+def client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    """Create a test client with a configured API key for force-auth routes."""
+    monkeypatch.setenv("PROXYWHIRL_API_KEY", _UNIT_API_KEY)
+    test_client = TestClient(app)
+    test_client.headers.update(_AUTH_HEADERS)
+    return test_client
 
 
 @pytest.fixture(autouse=True)
-def reset_api_state() -> None:
+def reset_api_state() -> Iterator[None]:
     """Reset API globals between tests to avoid cross-test pollution."""
     api_runtime.reset_api_state()
     yield
@@ -99,6 +106,7 @@ class DummyRetryMetrics:
         self._timeseries = timeseries
         self._by_proxy = by_proxy
         self.circuit_breaker_events = events or []
+        self.retention_hours = int(summary.get("retention_hours", 24))
 
     def get_summary(self) -> dict[str, object]:
         return self._summary
@@ -177,22 +185,17 @@ async def test_lifespan_initializes_and_saves(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("PROXYWHIRL_STORAGE_PATH", str(db_path))
     monkeypatch.setenv("PROXYWHIRL_CORS_ORIGINS", "http://example.com, ,")
 
-    proxy_row = {
-        "url": "http://proxy.example.com:8080",
-        "protocol": "http",
-        "host": "proxy.example.com",
-        "port": 8080,
-    }
+    stored_proxy = Proxy(url="http://proxy.example.com:8080", protocol="http")
     with patch.object(api_core.SQLiteStorage, "initialize", AsyncMock()) as initialize_mock:
         with patch.object(
-            api_core.SQLiteStorage, "load", AsyncMock(return_value=[proxy_row])
+            api_core.SQLiteStorage, "load_models", AsyncMock(return_value=[stored_proxy])
         ) as load_mock:
             with patch.object(api_core.SQLiteStorage, "save", AsyncMock()) as save_mock:
                 async with api_core.lifespan(app):
                     rotator = api_runtime.get_current_rotator()
                     assert rotator is not None
                     assert api_runtime.get_storage() is not None
-                    assert rotator.pool.size == 1
+                    assert await rotator.pool.asize() == 1
                     assert api_runtime.get_config()["cors_origins"] == ["http://example.com"]
                 initialize_mock.assert_awaited_once()
                 load_mock.assert_awaited_once()
@@ -215,9 +218,28 @@ async def test_lifespan_initializes_empty_storage_without_load_warning(
             rotator = api_runtime.get_current_rotator()
             assert storage is not None
             assert rotator is not None
-            assert rotator.pool.size == 0
+            assert await rotator.pool.asize() == 0
         messages = [call.args[0] for call in warning_mock.call_args_list]
         assert not any("Failed to load proxies" in message for message in messages)
+
+
+@pytest.mark.asyncio
+async def test_lifespan_closes_rotator_and_clears_runtime_state(monkeypatch) -> None:
+    """Shutdown must release rotator resources and remove stale global references."""
+    monkeypatch.delenv("PROXYWHIRL_STORAGE_PATH", raising=False)
+    monkeypatch.setenv("PROXYWHIRL_REQUIRE_AUTH", "true")
+    monkeypatch.setenv("PROXYWHIRL_API_KEY", "test-key")
+
+    async with api_core.lifespan(app):
+        rotator = api_runtime.get_current_rotator()
+        assert rotator is not None
+
+    assert rotator._client is None
+    assert len(rotator._client_pool) == 0
+    assert rotator._aggregation_timer is None
+    assert rotator._aggregation_stop_event.is_set()
+    assert api_runtime.get_current_rotator() is None
+    assert api_runtime.get_storage() is None
 
 
 @pytest.mark.asyncio
@@ -231,7 +253,7 @@ async def test_lifespan_warns_when_auth_disabled(monkeypatch) -> None:
             pass
 
     messages = [call.args[0] for call in warning_mock.call_args_list]
-    assert any("authentication DISABLED" in message for message in messages)
+    assert any("PROXYWHIRL_REQUIRE_AUTH=false" in message for message in messages)
 
 
 @pytest.mark.asyncio
@@ -245,7 +267,7 @@ async def test_lifespan_does_not_warn_when_auth_enabled(monkeypatch) -> None:
             pass
 
     messages = [call.args[0] for call in warning_mock.call_args_list]
-    assert not any("authentication DISABLED" in message for message in messages)
+    assert not any("PROXYWHIRL_REQUIRE_AUTH=false" in message for message in messages)
 
 
 @pytest.mark.asyncio
@@ -256,10 +278,34 @@ async def test_lifespan_handles_load_failure(tmp_path, monkeypatch) -> None:
 
     with patch.object(api_core.SQLiteStorage, "initialize", AsyncMock()):
         with patch.object(
-            api_core.SQLiteStorage, "load", AsyncMock(side_effect=RuntimeError("boom"))
+            api_core.SQLiteStorage, "load_models", AsyncMock(side_effect=RuntimeError("boom"))
         ):
             async with api_core.lifespan(app):
                 assert api_runtime.get_current_rotator() is not None
+
+
+@pytest.mark.asyncio
+async def test_lifespan_closes_storage_when_rotator_startup_fails(tmp_path, monkeypatch) -> None:
+    """Storage initialized before a later startup failure must still be closed."""
+    db_path = tmp_path / "proxywhirl.db"
+    monkeypatch.setenv("PROXYWHIRL_STORAGE_PATH", str(db_path))
+    monkeypatch.setenv("PROXYWHIRL_REQUIRE_AUTH", "true")
+    monkeypatch.setenv("PROXYWHIRL_API_KEY", "test-key")
+    storage = SimpleNamespace(
+        initialize=AsyncMock(),
+        close=AsyncMock(),
+    )
+    monkeypatch.setattr(api_core, "SQLiteStorage", lambda _path: storage)
+    monkeypatch.setattr(api_core, "ProxyWhirl", MagicMock(side_effect=RuntimeError("startup")))
+
+    with pytest.raises(RuntimeError, match="startup"):
+        async with api_core.lifespan(app):
+            pytest.fail("lifespan yielded after startup failure")
+
+    storage.initialize.assert_awaited_once_with()
+    storage.close.assert_awaited_once_with()
+    assert api_runtime.get_current_rotator() is None
+    assert api_runtime.get_storage() is None
 
 
 def test_update_prometheus_metrics_no_rotator() -> None:
@@ -658,8 +704,15 @@ async def test_check_proxy_health_success(monkeypatch) -> None:
         async def __aexit__(self, *_: object) -> None:
             return None
 
-        async def get(self, _: str) -> httpx.Response:
-            return httpx.Response(200, text="ok")
+        def stream(self, _method: str, _url: str):
+            class StreamContext:
+                async def __aenter__(self) -> httpx.Response:
+                    return httpx.Response(200)
+
+                async def __aexit__(self, *_: object) -> None:
+                    return None
+
+            return StreamContext()
 
     monkeypatch.setattr(httpx, "AsyncClient", DummyClient)
     result = await _check_proxy_health(proxy, "https://example.com")
@@ -681,13 +734,13 @@ async def test_check_proxy_health_failure(monkeypatch) -> None:
         async def __aexit__(self, *_: object) -> None:
             return None
 
-        async def get(self, _: str) -> httpx.Response:
+        def stream(self, _method: str, _url: str):
             raise RuntimeError("boom")
 
     monkeypatch.setattr(httpx, "AsyncClient", DummyClient)
     result = await _check_proxy_health(proxy, "https://example.com")
     assert result.status == "failed"
-    assert result.error == "boom"
+    assert result.error == "Proxy validation failed"
 
 
 @pytest.mark.asyncio
@@ -892,6 +945,7 @@ async def test_retry_policy_endpoints() -> None:
     with pytest.raises(HTTPException) as exc_info:
         await update_retry_policy(invalid_request, None)
     assert exc_info.value.status_code == 400
+    assert exc_info.value.detail == "Invalid policy configuration"
 
 
 @pytest.mark.asyncio

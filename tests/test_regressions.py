@@ -80,10 +80,10 @@ class TestConcurrency:
         pool = ProxyPool()
         for i in range(5):
             proxy = Proxy(url=f"http://proxy{i}:8080")
-            pool.add_proxy(proxy)
+            await pool.aadd_proxy(proxy)
 
         async def select_proxy():
-            return pool.select()
+            return await asyncio.to_thread(pool.select)
 
         tasks = [select_proxy() for _ in range(10)]
         results = await asyncio.gather(*tasks)

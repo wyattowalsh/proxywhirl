@@ -2,9 +2,22 @@
 
 > Extends: [../../AGENTS.md](../../AGENTS.md)
 
-## Module
+## Modules
 
-`core.py` — `RotationStrategy` (Protocol), `StrategyRegistry`, all implementations
+| File | Contents |
+|------|----------|
+| `__init__.py` | Public re-exports (SemVer facade) |
+| `base.py` | `ProxyMetrics`, `StrategyState`, `RotationStrategy` |
+| `registry.py` | `StrategyRegistry`, `BUILTIN_STRATEGY_CLASSES`, `resolve_builtin_strategy` |
+| `round_robin.py` | `RoundRobinStrategy` |
+| `random.py` | `RandomStrategy` |
+| `weighted.py` | `WeightedStrategy` |
+| `least_used.py` | `LeastUsedStrategy` |
+| `performance.py` | `PerformanceBasedStrategy` |
+| `session.py` | `SessionManager`, `SessionPersistenceStrategy` |
+| `geo.py` | `GeoTargetedStrategy` |
+| `cost.py` | `CostAwareStrategy` |
+| `composite.py` | `CompositeStrategy` |
 
 ## Strategies (9)
 

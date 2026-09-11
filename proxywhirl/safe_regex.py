@@ -8,14 +8,19 @@ Service (ReDoS) attacks.
 from __future__ import annotations
 
 import multiprocessing as mp
+import os
 import re
+import sys
 from re import Pattern
 from typing import Any, cast
 
 import typer
 
-# Maximum regex compilation/matching time in seconds
+# Maximum regex compilation/matching time in seconds.
+# Keep the released default stable. Callers that opt into process isolation on
+# a spawn-based platform can pass a larger explicit budget when needed.
 DEFAULT_REGEX_TIMEOUT = 1.0
+
 
 # Maximum regex pattern length to prevent extremely long patterns
 MAX_PATTERN_LENGTH = 1000
@@ -24,16 +29,39 @@ MAX_PATTERN_LENGTH = 1000
 MAX_REPETITIONS = 10
 
 
-class RegexTimeoutError(Exception):
-    """Raised when regex compilation or matching exceeds timeout."""
+class RegexTimeoutError(typer.Exit):
+    """Raised when regex compilation or matching exceeds timeout.
 
-    pass
+    The exception remains catchable as ``typer.Exit`` for 0.3.3 callers while
+    providing a specific library exception and a useful error message.
+    """
+
+    def __init__(self, *args: object) -> None:
+        super().__init__(code=1)
+        # ``Exception`` accepted arbitrary constructor arguments in 0.3.3.
+        # Click's Exit constructor only accepts an exit code, so restore the
+        # released ``BaseException.args`` surface after establishing code 1.
+        self.args = args
 
 
-class RegexComplexityError(Exception):
-    """Raised when regex pattern is too complex or dangerous."""
+class RegexComplexityError(typer.Exit):
+    """Raised when regex pattern is too complex or dangerous.
 
-    pass
+    The specific type improves programmatic handling without removing the
+    released ``typer.Exit(code=1)`` compatibility surface.
+    """
+
+    def __init__(self, *args: object) -> None:
+        super().__init__(code=1)
+        self.args = args
+
+
+_NESTED_QUANTIFIER_PATTERNS = (
+    r"\([^)]*[*+?{][^)]*\)[*+?{]",  # (...)+ or (...)*
+    r"\([^)]*[*+?]\)[*+?]",  # Simpler nested quantifier detection
+    r"[*+]{2,}",  # **, ++, etc.
+    r"\(.*\|.*\)[*+]",  # (a|a)* or similar
+)
 
 
 def _count_repetitions(pattern: str) -> int:
@@ -54,6 +82,34 @@ def _count_repetitions(pattern: str) -> int:
     return count
 
 
+def _static_has_nested_quantifiers(pattern: str) -> bool:
+    """Detect nested quantifiers with trusted, fixed detector patterns.
+
+    Detectors are constant and simple; the *user* pattern is only the haystack.
+    This stays in-process so validation never depends on process isolation
+    (which is flaky under pytest-cov / multi-threaded parents).
+    """
+    for dangerous_pattern in _NESTED_QUANTIFIER_PATTERNS:
+        try:
+            if re.search(dangerous_pattern, pattern) is not None:
+                return True
+        except re.error:
+            continue
+    return False
+
+
+def _pattern_has_nested_quantifiers(
+    pattern: str,
+    timeout: float = DEFAULT_REGEX_TIMEOUT,
+) -> bool:
+    """Detect nested quantifiers that may cause catastrophic backtracking.
+
+    ``timeout`` is retained for API compatibility; detection is static.
+    """
+    del timeout  # API compatibility only
+    return _static_has_nested_quantifiers(pattern)
+
+
 def validate_regex_pattern(pattern: str, max_length: int = MAX_PATTERN_LENGTH) -> None:
     """Validate a regex pattern for safety.
 
@@ -63,52 +119,22 @@ def validate_regex_pattern(pattern: str, max_length: int = MAX_PATTERN_LENGTH) -
 
     Raises:
         RegexComplexityError: If pattern is too complex or dangerous
-        typer.Exit: If pattern is rejected
     """
-    # Check pattern length
     if len(pattern) > max_length:
-        typer.secho(
-            f"Error: Regex pattern too long ({len(pattern)} chars, max {max_length})",
-            err=True,
-            fg="red",
+        raise RegexComplexityError(
+            f"Regex pattern too long ({len(pattern)} chars, max {max_length})"
         )
-        raise typer.Exit(code=1)
 
-    # Check for excessive repetition quantifiers (potential catastrophic backtracking)
     repetition_count = _count_repetitions(pattern)
     if repetition_count > MAX_REPETITIONS:
-        typer.secho(
-            f"Error: Regex pattern too complex ({repetition_count} repetitions, max {MAX_REPETITIONS})",
-            err=True,
-            fg="red",
+        raise RegexComplexityError(
+            f"Regex pattern too complex ({repetition_count} repetitions, max {MAX_REPETITIONS})"
         )
-        typer.secho(
-            "This pattern may cause performance issues (ReDoS attack)",
-            err=True,
-            fg="yellow",
-        )
-        raise typer.Exit(code=1)
 
-    # Check for nested quantifiers (e.g., (a+)+ or (a*)*) which are particularly dangerous
-    nested_patterns = [
-        r"\([^)]*[*+?{][^)]*\)[*+?{]",  # (...)+ or (...)*
-        r"\([^)]*[*+?]\)[*+?]",  # Simpler nested quantifier detection
-        r"[*+]{2,}",  # **, ++, etc.
-        r"\(.*\|.*\)[*+]",  # (a|a)* or similar
-    ]
-    for dangerous_pattern in nested_patterns:
-        if re.search(dangerous_pattern, pattern):
-            typer.secho(
-                "Error: Regex pattern contains nested quantifiers",
-                err=True,
-                fg="red",
-            )
-            typer.secho(
-                "Nested quantifiers like (a+)+ can cause catastrophic backtracking",
-                err=True,
-                fg="yellow",
-            )
-            raise typer.Exit(code=1)
+    if _pattern_has_nested_quantifiers(pattern):
+        raise RegexComplexityError(
+            "Regex pattern contains nested quantifiers that may cause catastrophic backtracking"
+        )
 
 
 def _findall_limited(compiled_pattern: Pattern[str], text: str, max_results: int) -> list[Any]:
@@ -161,19 +187,107 @@ def _regex_worker(
 
 
 def _regex_process_context() -> Any:
-    """Use fork when available to keep per-call isolation practical."""
-    if "fork" in mp.get_all_start_methods():
+    """Return a process context for isolated regex execution.
+
+    Prefer ``fork`` only while the parent is still single-threaded (fast path).
+    Once other threads exist (pytest, coverage, aggregation timers), use
+    ``spawn``/``forkserver`` — forking a multi-threaded process has segfaulted
+    during quality-gates coverage on macOS.
+    """
+    import threading
+
+    methods = mp.get_all_start_methods()
+    # Main thread only → fork is safe and much faster for per-call isolation.
+    if len(threading.enumerate()) <= 1 and "fork" in methods:
         return mp.get_context("fork")
+    if "spawn" in methods:
+        return mp.get_context("spawn")
+    if "forkserver" in methods:
+        return mp.get_context("forkserver")
     return mp.get_context()
 
 
 def _stop_regex_process(process: Any) -> None:
-    """Terminate a regex worker that exceeded its budget."""
+    """Terminate a regex worker that exceeded its budget.
+
+    Never join without a timeout: an uninterruptible child (or a stuck
+    wait on macOS under suite load / coverage) previously hung the parent
+    long enough for pytest-timeout to fire during quality-gates coverage.
+    """
     process.terminate()
     process.join(0.2)
     if process.is_alive():
         process.kill()
-        process.join()
+        process.join(0.5)
+
+
+def _coverage_active() -> bool:
+    """True when coverage is *actively* measuring this process.
+
+    Merely having ``coverage`` / ``pytest_cov`` importable (or imported by a
+    plugin) is not enough — that is true for nearly every pytest run and used
+    to disable process isolation unconditionally, leaving in-process ReDoS
+    matches unbounded.
+    """
+    if bool(os.environ.get("COVERAGE_RUN")) or bool(os.environ.get("COVERAGE_PROCESS_START")):
+        return True
+    if bool(os.environ.get("COV_CORE_SOURCE")) or bool(os.environ.get("COV_CORE_DATAFILE")):
+        return True
+    # Active tracer (coverage.py sets one while collecting).
+    return sys.gettrace() is not None
+
+
+def _process_isolation_enabled() -> bool:
+    """Whether to run match/search/findall in a killable child process.
+
+    Static complexity checks reject nested quantifiers at validate time.
+    Process isolation is optional defense-in-depth for residual catastrophic
+    backtracking (including ``validate=False`` trusted patterns).
+
+    Default is **off** — spawn isolation costs multi-hundred-ms per call on
+    macOS and is flaky under multi-threaded parents. Opt in with
+    ``PROXYWHIRL_REGEX_PROCESS_ISOLATION=1``. When isolation is off, nested
+    quantifiers are refused in-process (cannot interrupt CPython ``re``)
+    instead of hanging the caller.
+    """
+    flag = os.environ.get("PROXYWHIRL_REGEX_PROCESS_ISOLATION", "").strip().lower()
+    if flag in {"0", "false", "no", "off"}:
+        return False
+    if flag in {"1", "true", "yes", "on"}:
+        return not _coverage_active()
+    # Default: in-process with static nested-quantifier refusal.
+    return False
+
+
+def _run_regex_inprocess(
+    operation: str,
+    pattern: str,
+    flags: int,
+    text: str = "",
+    max_results: int = 0,
+) -> Any:
+    """Execute a regex op in-process (used under coverage / isolation fallback).
+
+    Mirrors ``_regex_worker`` semantics.
+
+    CPython ``re`` cannot be interrupted mid-match from another thread, so
+    nested-quantifier patterns are refused here rather than allowed to hang.
+    """
+    if operation != "compile" and _static_has_nested_quantifiers(pattern):
+        raise RegexTimeoutError(
+            f"Regex {operation} refused nested quantifiers without process isolation"
+        )
+
+    compiled = re.compile(pattern, flags)
+    if operation == "compile":
+        return True
+    if operation == "match":
+        return compiled.match(text) is not None
+    if operation == "search":
+        return compiled.search(text) is not None
+    if operation == "findall":
+        return _findall_limited(compiled, text, max_results if max_results > 0 else 10000)
+    raise ValueError(f"Unknown regex operation: {operation}")
 
 
 def _run_regex_operation(
@@ -187,6 +301,12 @@ def _run_regex_operation(
     """Run a regex operation in a killable process with a hard timeout."""
     if timeout <= 0:
         raise RegexTimeoutError(f"Regex {operation} timed out after {timeout}s")
+
+    if not _process_isolation_enabled():
+        try:
+            return _run_regex_inprocess(operation, pattern, flags, text, max_results)
+        except re.error as exc:
+            raise re.error(str(exc)) from exc
 
     ctx = _regex_process_context()
     parent_conn, child_conn = ctx.Pipe(duplex=False)
@@ -247,7 +367,11 @@ def _compile_with_timeout(pattern: str, flags: int, timeout: float) -> Pattern[s
     return re.compile(pattern, flags)
 
 
-def _match_with_timeout(pattern: Pattern[str], text: str, timeout: float) -> re.Match[str] | None:
+def _match_with_timeout(
+    pattern: Pattern[str],
+    text: str,
+    timeout: float,
+) -> re.Match[str] | None:
     """Search regex with timeout using a killable worker process.
 
     Args:
@@ -256,7 +380,7 @@ def _match_with_timeout(pattern: Pattern[str], text: str, timeout: float) -> re.
         timeout: Timeout in seconds
 
     Returns:
-        Match object or None
+        Match-like object or None
 
     Raises:
         RegexTimeoutError: If matching exceeds timeout
@@ -264,13 +388,23 @@ def _match_with_timeout(pattern: Pattern[str], text: str, timeout: float) -> re.
     try:
         matched = cast(
             bool,
-            _run_regex_operation("search", pattern.pattern, pattern.flags, text, timeout),
+            _run_regex_operation(
+                "search",
+                pattern.pattern,
+                pattern.flags,
+                text,
+                timeout,
+                max_results=0,
+            ),
         )
     except RegexTimeoutError as e:
         raise RegexTimeoutError(f"Regex matching timed out after {timeout}s") from e
 
     if not matched:
         return None
+    # The bounded worker has proved the deterministic pattern/text pair
+    # completes. Re-run it to return the native, non-picklable Match object
+    # exposed by the released API.
     return pattern.search(text)
 
 
@@ -293,27 +427,12 @@ def safe_regex_compile(
 
     Raises:
         RegexTimeoutError: If compilation exceeds timeout
-        typer.Exit: If pattern is rejected during validation
+        RegexComplexityError: If pattern is rejected during validation
     """
-    # Validate pattern complexity
     if validate:
         validate_regex_pattern(pattern)
 
-    # Compile with timeout
-    try:
-        return _compile_with_timeout(pattern, flags, timeout)
-    except RegexTimeoutError as e:
-        typer.secho(
-            f"Error: {e}",
-            err=True,
-            fg="red",
-        )
-        typer.secho(
-            "This pattern may be too complex or malicious (ReDoS attack)",
-            err=True,
-            fg="yellow",
-        )
-        raise typer.Exit(code=1)
+    return _compile_with_timeout(pattern, flags, timeout)
 
 
 def safe_regex_match(
@@ -337,29 +456,14 @@ def safe_regex_match(
 
     Raises:
         RegexTimeoutError: If matching exceeds timeout
-        typer.Exit: If pattern is rejected during validation
+        RegexComplexityError: If pattern is rejected during validation
     """
-    # Compile pattern if needed
     if isinstance(pattern, str):
         compiled_pattern = safe_regex_compile(pattern, flags, timeout, validate)
     else:
         compiled_pattern = pattern
 
-    # Match with timeout
-    try:
-        return _match_with_timeout(compiled_pattern, text, timeout)
-    except RegexTimeoutError as e:
-        typer.secho(
-            f"Error: {e}",
-            err=True,
-            fg="red",
-        )
-        typer.secho(
-            "The input text may trigger pathological backtracking",
-            err=True,
-            fg="yellow",
-        )
-        raise typer.Exit(code=1)
+    return _match_with_timeout(compiled_pattern, text, timeout)
 
 
 def safe_regex_search(
@@ -385,7 +489,7 @@ def safe_regex_search(
 
     Raises:
         RegexTimeoutError: If searching exceeds timeout
-        typer.Exit: If pattern is rejected during validation
+        RegexComplexityError: If pattern is rejected during validation
     """
     return safe_regex_match(pattern, text, flags, timeout, validate)
 
@@ -413,7 +517,7 @@ def safe_regex_findall(
 
     Raises:
         RegexTimeoutError: If searching exceeds timeout
-        typer.Exit: If pattern is rejected during validation
+        RegexComplexityError: If pattern is rejected during validation
     """
     if isinstance(pattern, str):
         if validate:
@@ -424,27 +528,14 @@ def safe_regex_findall(
         pattern_text = pattern.pattern
         pattern_flags = pattern.flags
 
-    try:
-        return cast(
-            list[str],
-            _run_regex_operation(
-                "findall",
-                pattern_text,
-                pattern_flags,
-                text,
-                timeout,
-                max_results,
-            ),
-        )
-    except RegexTimeoutError as e:
-        typer.secho(
-            f"Error: Regex findall timed out after {timeout}s",
-            err=True,
-            fg="red",
-        )
-        typer.secho(
-            "The input text may trigger pathological backtracking",
-            err=True,
-            fg="yellow",
-        )
-        raise typer.Exit(code=1) from e
+    return cast(
+        list[str],
+        _run_regex_operation(
+            "findall",
+            pattern_text,
+            pattern_flags,
+            text,
+            timeout,
+            max_results,
+        ),
+    )

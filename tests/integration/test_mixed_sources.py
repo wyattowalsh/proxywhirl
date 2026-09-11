@@ -8,14 +8,21 @@ Tests cover:
 """
 
 import random
+from unittest.mock import patch
 
 import httpx
 import respx
 
 from proxywhirl.fetchers import ProxyFetcher, ProxySourceConfig
 from proxywhirl.models import HealthStatus, Proxy, ProxySource, StrategyConfig
-from proxywhirl.rotator import ProxyWhirl
+from proxywhirl.rotator import AsyncProxyWhirl, ProxyWhirl
 from proxywhirl.strategies import WeightedStrategy
+
+# Integration fixtures use example hostnames that must not require real DNS.
+_SSRF_ALLOW = patch(
+    "proxywhirl.fetchers.fetcher.validate_source_url_safety",
+    return_value=(True, ""),
+)
 
 
 class TestMixedProxySources:
@@ -34,11 +41,11 @@ class TestMixedProxySources:
         )
 
         # Create rotator and add user-provided proxies
-        rotator = ProxyWhirl()
+        rotator = AsyncProxyWhirl()
         user_proxy1 = Proxy(url="http://user1.example.com:8080")
         user_proxy2 = Proxy(url="http://user2.example.com:3128")
-        rotator.add_proxy(user_proxy1)
-        rotator.add_proxy(user_proxy2)
+        await rotator.add_proxy(user_proxy1)
+        await rotator.add_proxy(user_proxy2)
 
         # Fetch and add auto-fetched proxies
         source = ProxySourceConfig(
@@ -46,7 +53,8 @@ class TestMixedProxySources:
             format="json",
         )
         fetcher = ProxyFetcher(sources=[source])
-        fetched_proxies = await fetcher.fetch_all(validate=False)
+        with _SSRF_ALLOW:
+            fetched_proxies = await fetcher.fetch_all(validate=False)
 
         # Add fetched proxies to rotator
         for proxy_dict in fetched_proxies:
@@ -54,10 +62,10 @@ class TestMixedProxySources:
                 url=proxy_dict["url"],
                 source=ProxySource.FETCHED,
             )
-            rotator.add_proxy(fetched_proxy)
+            await rotator.add_proxy(fetched_proxy)
 
         # Verify pool contains both types
-        all_proxies = rotator.pool.get_all_proxies()
+        all_proxies = await rotator.pool.aget_all_proxies()
         assert len(all_proxies) == 4
 
         # Verify source tags
@@ -70,6 +78,7 @@ class TestMixedProxySources:
         # Verify distinct tags
         assert all(p.source == ProxySource.USER for p in user_proxies)
         assert all(p.source == ProxySource.FETCHED for p in fetched_proxies_list)
+        await rotator.aclose()
 
     def test_weighted_rotation_prefers_explicit_weights_across_sources(self) -> None:
         """T115/SC2: Weighted rotation follows configured weights across mixed sources."""
@@ -175,27 +184,29 @@ class TestMixedProxySources:
         route = respx.get("https://proxy-source.example.com/api")
         route.mock(return_value=httpx.Response(200, json=json_data_initial))
 
-        rotator = ProxyWhirl()
+        rotator = AsyncProxyWhirl()
 
         # Add user proxy (should persist)
         user_proxy = Proxy(url="http://user.example.com:8080", source=ProxySource.USER)
-        rotator.add_proxy(user_proxy)
+        await rotator.add_proxy(user_proxy)
 
         # Fetch initial proxies
         source = ProxySourceConfig(url="https://proxy-source.example.com/api", format="json")
         fetcher = ProxyFetcher(sources=[source])
-        initial_proxies = await fetcher.fetch_all(validate=False)
+        with _SSRF_ALLOW:
+            initial_proxies = await fetcher.fetch_all(validate=False)
 
         for proxy_dict in initial_proxies:
-            rotator.add_proxy(Proxy(url=proxy_dict["url"], source=ProxySource.FETCHED))
+            await rotator.add_proxy(Proxy(url=proxy_dict["url"], source=ProxySource.FETCHED))
 
-        assert rotator.pool.size == 2
+        assert await rotator.pool.asize() == 2
 
         # Simulate refresh with different proxies
         route.mock(return_value=httpx.Response(200, json=json_data_refresh))
 
         # User proxy should still exist
-        all_proxies = rotator.pool.get_all_proxies()
+        all_proxies = await rotator.pool.aget_all_proxies()
         user_proxies = [p for p in all_proxies if p.source == ProxySource.USER]
         assert len(user_proxies) == 1
         assert user_proxies[0].url == "http://user.example.com:8080"
+        await rotator.aclose()

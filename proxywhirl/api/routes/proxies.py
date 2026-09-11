@@ -24,9 +24,9 @@ from proxywhirl._proxy_views import (
     ProxyListQuery,
     ProxyView,
     add_proxy_to_rotator,
-    find_proxy,
-    find_proxy_view,
-    list_proxy_views,
+    find_proxy_async,
+    find_proxy_view_async,
+    list_proxy_views_async,
     proxy_to_view,
     remove_proxy_from_rotator,
     select_proxy_view,
@@ -46,6 +46,7 @@ from proxywhirl.api.runtime import (
     get_storage,
     limiter,
     record_rotation,
+    revalidate_proxied_target_url,
     validate_proxied_request_url,
     verify_api_key,
 )
@@ -58,9 +59,44 @@ from proxywhirl.exceptions import (
 from proxywhirl.models import HealthStatus, Proxy
 from proxywhirl.rotator import ProxyWhirl
 from proxywhirl.security import validate_proxy_url_safety
+from proxywhirl.settings import APISettings
 from proxywhirl.utils import public_proxy_url
 
 router = APIRouter()
+
+_HOP_BY_HOP_HEADERS = frozenset(
+    {
+        "connection",
+        "keep-alive",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailers",
+        "transfer-encoding",
+        "upgrade",
+    }
+)
+
+
+def _sanitize_outbound_headers(headers: dict[str, str] | None) -> dict[str, str]:
+    """Remove hop-by-hop headers before forwarding to the target origin."""
+    if not headers:
+        return {}
+    return {key: value for key, value in headers.items() if key.lower() not in _HOP_BY_HOP_HEADERS}
+
+
+def _truncate_response_body(
+    text: str,
+    max_bytes: int,
+    *,
+    upstream_truncated: bool = False,
+) -> str:
+    """Truncate proxied response bodies to a configured byte limit (UTF-8 safe)."""
+    encoded = text.encode("utf-8", errors="replace")
+    if len(encoded) <= max_bytes and not upstream_truncated:
+        return text
+    truncated = encoded[:max_bytes].decode("utf-8", errors="ignore")
+    return f"{truncated}\n...[truncated]"
 
 
 def _get_proxy_id(proxy) -> str:
@@ -104,22 +140,30 @@ def _proxy_resource_from_view(view: ProxyView) -> ProxyResource:
     )
 
 
-def _proxy_views_for_status(rotator: ProxyWhirl, status_filter: str | None) -> list[ProxyView]:
+async def _proxy_views_for_status(
+    rotator: ProxyWhirl,
+    status_filter: str | None,
+) -> list[ProxyView]:
     """Return credential-safe proxy views for API list/stream/export endpoints."""
     if not status_filter:
-        return list_proxy_views(rotator)
+        return await list_proxy_views_async(rotator)
 
     status_lower = status_filter.lower()
     if status_lower == "healthy":
-        return list_proxy_views(rotator, ProxyListQuery(health=HealthStatus.HEALTHY))
+        return await list_proxy_views_async(
+            rotator,
+            ProxyListQuery(health=HealthStatus.HEALTHY),
+        )
     if status_lower == "active":
-        return [view for view in list_proxy_views(rotator) if view.status != "failed"]
+        return [view for view in await list_proxy_views_async(rotator) if view.status != "failed"]
     if status_lower == "unhealthy":
         return [
-            view for view in list_proxy_views(rotator) if view.health != HealthStatus.HEALTHY.value
+            view
+            for view in await list_proxy_views_async(rotator)
+            if view.health != HealthStatus.HEALTHY.value
         ]
 
-    return list_proxy_views(rotator)
+    return await list_proxy_views_async(rotator)
 
 
 @router.post(
@@ -161,9 +205,12 @@ async def make_proxied_request(
     """
     start_time = time.time()
     record_rotation()
+    api_settings = APISettings()
+    target_url = str(request_data.url)
+    revalidate_proxied_target_url(target_url)
 
     request_kwargs: dict[str, Any] = {
-        "headers": request_data.headers,
+        "headers": _sanitize_outbound_headers(request_data.headers),
         "timeout": request_data.timeout,
         "follow_redirects": False,
     }
@@ -174,7 +221,8 @@ async def make_proxied_request(
         response = await asyncio.to_thread(
             rotator._make_request,
             request_data.method.upper(),
-            str(request_data.url),
+            target_url,
+            _response_body_limit_bytes=api_settings.max_proxied_response_bytes,
             **request_kwargs,
         )
     except ProxyPoolEmptyError as e:
@@ -193,13 +241,13 @@ async def make_proxied_request(
             detail="Proxy authentication failed",
         ) from e
     except ProxyWhirlError as e:
-        logger.error(f"ProxyWhirl error in proxied request: {e}")
+        logger.bind(error_type=type(e).__name__).error("ProxyWhirl error in proxied request")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Proxy service temporarily unavailable",
         ) from e
     except Exception as e:
-        logger.error(f"Unexpected error in proxied request: {e}", exc_info=True)
+        logger.bind(error_type=type(e).__name__).error("Unexpected error in proxied request")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred",
@@ -213,7 +261,16 @@ async def make_proxied_request(
     response_data = ProxiedResponse(
         status_code=response.status_code,
         headers=dict(response.headers),
-        body=response.text,
+        body=_truncate_response_body(
+            response.text,
+            api_settings.max_proxied_response_bytes,
+            upstream_truncated=bool(
+                getattr(response, "extensions", {}).get(
+                    "proxywhirl_response_truncated",
+                    False,
+                )
+            ),
+        ),
         proxy_used=proxy_used,
         elapsed_ms=elapsed_ms,
     )
@@ -251,7 +308,7 @@ async def list_proxies(
     if page_size < 1 or page_size > 100:
         raise HTTPException(status_code=400, detail="Page size must be between 1 and 100")
 
-    all_views = _proxy_views_for_status(rotator, status_filter)
+    all_views = await _proxy_views_for_status(rotator, status_filter)
 
     # Calculate pagination
     total = len(all_views)
@@ -286,7 +343,7 @@ async def rotate_proxy(
 ) -> APIResponse[ProxyResource]:
     """Select the next proxy without making an outbound target request."""
     try:
-        view = select_proxy_view(rotator)
+        view = await asyncio.to_thread(select_proxy_view, rotator)
     except ProxyWhirlError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -314,8 +371,8 @@ async def _stream_proxies_async(
         try:
             resource_dict = _proxy_resource_from_view(view).model_dump(mode="json")
             yield json.dumps(resource_dict) + "\n"
-        except Exception as e:
-            logger.warning(f"Failed to stream proxy: {e}")
+        except Exception as exc:
+            logger.bind(error_type=type(exc).__name__).warning("Failed to stream proxy")
             continue
 
 
@@ -342,7 +399,7 @@ async def stream_proxies(
     Returns:
         StreamingResponse with NDJSON content
     """
-    proxy_views = _proxy_views_for_status(rotator, status_filter)
+    proxy_views = await _proxy_views_for_status(rotator, status_filter)
 
     return StreamingResponse(
         _stream_proxies_async(proxy_views),
@@ -377,7 +434,7 @@ async def export_proxies(
     Returns:
         StreamingResponse with NDJSON content
     """
-    proxy_views = _proxy_views_for_status(rotator, status_filter)
+    proxy_views = await _proxy_views_for_status(rotator, status_filter)
 
     return StreamingResponse(
         _stream_proxies_async(proxy_views),
@@ -416,7 +473,7 @@ async def add_proxy(
     """
     # Check for duplicate (thread-safe snapshot)
     proxy_url_str = str(proxy_data.url)
-    if find_proxy_view(rotator, proxy_url_str) is not None:
+    if await find_proxy_view_async(rotator, proxy_url_str) is not None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Proxy already exists: {public_proxy_url(proxy_url_str)}",
@@ -436,14 +493,14 @@ async def add_proxy(
             password=proxy_data.password,
         )
 
-        view = add_proxy_to_rotator(rotator, new_proxy)
+        view = await asyncio.to_thread(add_proxy_to_rotator, rotator, new_proxy)
         if storage:
             await storage.save([new_proxy])
 
         return APIResponse.success(data=_proxy_resource_from_view(view))
 
     except Exception as e:
-        logger.error(f"Error adding proxy: {e}", exc_info=True)
+        logger.bind(error_type=type(e).__name__).error("Error adding proxy")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid proxy configuration",
@@ -477,24 +534,25 @@ async def _check_proxy_health(
             proxy=str(proxy.url),
             timeout=timeout,
         ) as client:
-            response = await client.get(test_url)
+            async with client.stream("GET", test_url) as response:
+                response_status = response.status_code
 
         latency_ms = int((time.time() - start_time) * 1000)
 
         return HealthCheckResult(
             proxy_id=_get_proxy_id(proxy),
-            status="working" if response.status_code == 200 else "failed",
+            status="working" if response_status == 200 else "failed",
             latency_ms=latency_ms,
             error=None,
             tested_at=datetime.now(timezone.utc),
         )
-    except Exception as e:
+    except Exception:
         latency_ms = int((time.time() - start_time) * 1000)
         return HealthCheckResult(
             proxy_id=_get_proxy_id(proxy),
             status="failed",
             latency_ms=latency_ms,
-            error=str(e),
+            error="Proxy validation failed",
             tested_at=datetime.now(timezone.utc),
         )
 
@@ -520,18 +578,29 @@ async def health_check_proxies(
     Returns:
         List of health check results
     """
-    # Determine which proxies to check (thread-safe snapshot)
-    all_proxies = rotator.pool.get_all_proxies()
+    api_settings = APISettings()
+    all_proxies = await asyncio.to_thread(rotator.pool.get_all_proxies)
     proxies_to_check = all_proxies
     if request_data.proxy_ids:
         proxies_to_check = [p for p in all_proxies if _get_proxy_id(p) in request_data.proxy_ids]
 
-    test_url = "https://httpbin.org/get"
+    if len(proxies_to_check) > api_settings.health_check_max_proxies:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"Too many proxies requested for health check "
+                f"(max {api_settings.health_check_max_proxies})"
+            ),
+        )
 
-    # Run health checks concurrently
-    # Note: Each proxy check creates its own client since httpx requires
-    # proxy configuration at client instantiation time (not per-request)
-    tasks = [_check_proxy_health(proxy, test_url) for proxy in proxies_to_check]
+    test_url = "https://httpbin.org/get"
+    semaphore = asyncio.Semaphore(api_settings.health_check_concurrency)
+
+    async def _bounded_health_check(proxy) -> HealthCheckResult:
+        async with semaphore:
+            return await _check_proxy_health(proxy, test_url)
+
+    tasks = [_bounded_health_check(proxy) for proxy in proxies_to_check]
     results = await asyncio.gather(*tasks, return_exceptions=False)
 
     return APIResponse.success(data=results)
@@ -592,7 +661,7 @@ async def get_proxy(
         Proxy resource
     """
     # Find proxy by ID (thread-safe snapshot)
-    view = find_proxy_view(rotator, proxy_id)
+    view = await find_proxy_view_async(rotator, proxy_id)
     if view is not None:
         if proxy_id != view.id:
             view = view.model_copy(update={"id": proxy_id})
@@ -624,8 +693,8 @@ async def delete_proxy(
         storage: Optional storage dependency
         api_key: API key verification
     """
-    stored_proxy = find_proxy(rotator, proxy_id)
-    removed = remove_proxy_from_rotator(rotator, proxy_id)
+    stored_proxy = await find_proxy_async(rotator, proxy_id)
+    removed = await asyncio.to_thread(remove_proxy_from_rotator, rotator, proxy_id)
     if removed is not None:
         # Persist if storage configured
         if storage:

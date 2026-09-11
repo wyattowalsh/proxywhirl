@@ -378,29 +378,16 @@ class TestQueueEdgeCases:
         stats = rotator.get_queue_stats()
         assert stats["size"] <= 100  # Should not exceed max size
 
-    @pytest.mark.skip(
-        reason="Test makes actual network requests - needs refactoring to mock HTTP layer"
-    )
     def test_queue_timeout_handling(self) -> None:
-        """Test timeout handling during queue operations."""
-        import asyncio
-
+        """A full queue rejects locally before any HTTP request is attempted."""
         config = ProxyConfiguration(queue_enabled=True, queue_size=1)
-
-        # Mock rate limiter
         mock_rate_limiter = MagicMock(spec=RateLimiter)
-
-        rotator = ProxyWhirl(config=config, rate_limiter=mock_rate_limiter)
+        mock_rate_limiter.check_limit.return_value = False
         proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
-        rotator.add_proxy(proxy)
+        with ProxyWhirl(config=config, rate_limiter=mock_rate_limiter) as rotator:
+            rotator.add_proxy(proxy)
+            assert rotator._request_queue is not None
+            rotator._request_queue.put_nowait({"test": "data"})
 
-        # Fill the queue
-        asyncio.run(rotator._request_queue.put({"test": "data"}))
-
-        # Now the queue is full, next request should raise RequestQueueFullError
-        with patch("asyncio.run") as mock_async_run:
-            mock_async_run.return_value = False  # check_limit returns False
-
-            # Should raise because queue is full (backpressure)
             with pytest.raises(RequestQueueFullError):
                 rotator.get("https://httpbin.org/get")

@@ -253,7 +253,7 @@ class TestErrorAggregation:
             def __enter__(self) -> ErrorCollector:
                 return self
 
-            def __exit__(self, exc_type, exc_val, exc_tb):  # type: ignore
+            def __exit__(self, exc_type, exc_val, exc_tb):
                 if exc_type is not None and exc_val is not None:
                     self.aggregator.add_error(exc_val)
                 return False
@@ -270,11 +270,11 @@ class TestErrorAggregation:
     def test_aggregator_preserves_error_metadata(self) -> None:
         """Test aggregator preserves error metadata."""
         error = ProxyConnectionError("Connection failed")
-        error.metadata = {"attempt": 3, "timeout": 30}  # type: ignore
+        error.metadata = {"attempt": 3, "timeout": 30}
 
         aggregator = ErrorAggregator()
         aggregator.add_error(error)
 
         retrieved_error = aggregator.get_errors()[0]
         assert hasattr(retrieved_error, "metadata")
-        assert retrieved_error.metadata == {"attempt": 3, "timeout": 30}  # type: ignore
+        assert retrieved_error.metadata == {"attempt": 3, "timeout": 30}

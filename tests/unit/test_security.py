@@ -366,7 +366,7 @@ class TestInputValidation:
     def test_validate_string_non_string_input(self):
         """Test non-string input is rejected."""
         with pytest.raises(ValueError, match="Expected string"):
-            validate_input_string(123)  # type: ignore
+            validate_input_string(123)
 
     def test_validate_port_valid(self):
         """Test valid port numbers are accepted."""

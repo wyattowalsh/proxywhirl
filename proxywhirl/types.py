@@ -9,12 +9,14 @@ for common string constants (actions, log levels, etc.).
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Literal, TypeAlias
+from typing import TYPE_CHECKING, Literal, TypeAlias
 
 import httpx
 
-from proxywhirl.cache.models import CacheEntry
 from proxywhirl.models import Proxy, ProxyPool, Session
+
+if TYPE_CHECKING:
+    from proxywhirl.cache.models import CacheEntry
 
 # ============================================================================
 # STRING LITERAL TYPES
@@ -76,10 +78,10 @@ AsyncHttpRequestCallback: TypeAlias = Callable[[], Awaitable[httpx.Response]]
 # CACHE CALLBACKS
 # ============================================================================
 
-CacheEvictionCallback: TypeAlias = Callable[[str, CacheEntry], None]
+CacheEvictionCallback: TypeAlias = Callable[[str, "CacheEntry"], None]
 """Cache eviction callback: (key, entry) -> None"""
 
-CacheHitCallback: TypeAlias = Callable[[str, CacheEntry], None]
+CacheHitCallback: TypeAlias = Callable[[str, "CacheEntry"], None]
 """Cache hit callback: (key, entry) -> None"""
 
 CacheMissCallback: TypeAlias = Callable[[str], None]

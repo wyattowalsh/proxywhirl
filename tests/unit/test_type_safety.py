@@ -42,7 +42,7 @@ class TestProxyProtocolLiterals:
     def test_invalid_protocol_rejected(self) -> None:
         """Test that invalid protocols are rejected by Pydantic validation."""
         with pytest.raises(Exception):
-            Proxy(url="invalid://localhost:8080", protocol="invalid")  # type: ignore
+            Proxy(url="invalid://localhost:8080", protocol="invalid")
 
 
 class TestEnumConstants:
@@ -171,7 +171,7 @@ class TestModelValidation:
         proxy = Proxy(url="http://example.com:8080", allow_local=False)
         # Check if model is frozen by attempting to set attribute
         try:
-            proxy.url = "http://different:9090"  # type: ignore
+            proxy.url = "http://different:9090"
             # If no error, model is not frozen (which is also acceptable)
         except Exception:
             # If error is raised, model is frozen (expected behavior)

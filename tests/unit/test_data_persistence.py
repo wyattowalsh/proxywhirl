@@ -72,6 +72,15 @@ def test_pickle_requires_explicit_opt_in(tmp_path) -> None:
     assert persistence.load_pickle("item") == {"value": 1}
 
 
+def test_pickle_allowed_via_env(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("PROXYWHIRL_ALLOW_PICKLE", "1")
+    persistence = DataPersistence(tmp_path)
+
+    persistence.save_pickle("item", {"value": 1})
+
+    assert persistence.load_pickle("item") == {"value": 1}
+
+
 def test_save_pickle_rejects_nested_name_when_pickle_allowed(tmp_path) -> None:
     persistence = DataPersistence(tmp_path, allow_pickle=True)
 

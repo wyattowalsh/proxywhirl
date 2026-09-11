@@ -20,33 +20,21 @@ from proxywhirl.exceptions import (
     ProxyConnectionError,
     ProxyPoolEmptyError,
     RateLimitExceededError,
+    redact_url,
 )
 from proxywhirl.logging_config import configure_logging
 from proxywhirl.models import BootstrapConfig, Proxy, ProxyPool
 from proxywhirl.orchestration import FailoverPolicy, ProxyRotationCallback, RequestOrchestration
 from proxywhirl.retry import NonRetryableError, RetryExecutor, RetryMetrics, RetryPolicy
 from proxywhirl.rotator._bootstrap import bootstrap_pool_if_empty_async
+from proxywhirl.rotator._wiring import resolve_strategy
 from proxywhirl.rotator.base import CircuitBreakerSnapshot, ProxyRotatorBase
 from proxywhirl.settings import ProxyConfiguration
-from proxywhirl.strategies import (
-    RotationStrategy,
-    resolve_builtin_strategy,
-)
+from proxywhirl.strategies import RotationStrategy
 from proxywhirl.utils import mask_proxy_url
 
 if TYPE_CHECKING:
     from proxywhirl.rate_limiting import AsyncRateLimiter
-
-
-def _resolve_strategy(strategy: RotationStrategy | str | None) -> RotationStrategy:
-    """Resolve a strategy instance from either a strategy object or known string name."""
-    if strategy is None:
-        return resolve_builtin_strategy("round-robin")
-
-    if not isinstance(strategy, str):
-        return strategy
-
-    return resolve_builtin_strategy(strategy)
 
 
 class LRUAsyncClientPool:
@@ -111,13 +99,69 @@ class LRUAsyncClientPool:
                             evicted_proxy_id=lru_proxy_id,
                             pool_size=len(self._clients),
                         )
-                    except Exception as e:
-                        logger.warning(
-                            f"Error closing evicted async client for proxy {lru_proxy_id}: {e}"
-                        )
+                    except Exception as exc:
+                        logger.bind(
+                            proxy_id=lru_proxy_id,
+                            error_type=type(exc).__name__,
+                        ).warning("Error closing evicted async client")
 
                 # Add new client
                 self._clients[proxy_id] = client
+
+    async def put_if_absent(
+        self,
+        proxy_id: str,
+        client: httpx.AsyncClient,
+    ) -> httpx.AsyncClient:
+        """Atomically publish ``client`` or return the existing canonical client."""
+        duplicate: httpx.AsyncClient | None = None
+        evicted: tuple[str, httpx.AsyncClient] | None = None
+        async with self._lock:
+            existing = self._clients.get(proxy_id)
+            if existing is not None:
+                self._clients.move_to_end(proxy_id)
+                duplicate = client
+                canonical = existing
+            else:
+                if len(self._clients) >= self._maxsize:
+                    evicted = self._clients.popitem(last=False)
+                self._clients[proxy_id] = client
+                canonical = client
+
+        if duplicate is not None and duplicate is not canonical:
+            await self._close_client(duplicate, proxy_id=proxy_id, reason="duplicate")
+        if evicted is not None:
+            evicted_proxy_id, evicted_client = evicted
+            await self._close_client(
+                evicted_client,
+                proxy_id=evicted_proxy_id,
+                reason="evicted",
+            )
+        return canonical
+
+    @staticmethod
+    async def _close_client(
+        client: httpx.AsyncClient,
+        *,
+        proxy_id: str,
+        reason: str,
+    ) -> None:
+        """Close a discarded client without disturbing the canonical pool entry."""
+        try:
+            await client.aclose()
+            logger.debug(
+                "Closed non-canonical pooled async client",
+                proxy_id=proxy_id,
+                reason=reason,
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.bind(
+                proxy_id=proxy_id,
+                reason=reason,
+                error_type=type(exc).__name__,
+            ).warning("Error closing non-canonical async client")
 
     async def remove(self, proxy_id: str) -> None:
         """
@@ -132,19 +176,32 @@ class LRUAsyncClientPool:
                 try:
                     await client.aclose()
                     logger.debug("Removed async client from pool", proxy_id=proxy_id)
-                except Exception as e:
-                    logger.warning(f"Error closing async client for proxy {proxy_id}: {e}")
+                except Exception as exc:
+                    logger.bind(
+                        proxy_id=proxy_id,
+                        error_type=type(exc).__name__,
+                    ).warning("Error closing async client")
 
     async def clear(self) -> None:
         """Close all clients and clear the pool."""
         async with self._lock:
-            for proxy_id, client in self._clients.items():
-                try:
-                    await client.aclose()
-                    logger.debug("Closed pooled async client", proxy_id=proxy_id)
-                except Exception as e:
-                    logger.warning(f"Error closing async client for proxy {proxy_id}: {e}")
+            clients = list(self._clients.items())
             self._clients.clear()
+
+        cancellation: asyncio.CancelledError | None = None
+        for proxy_id, client in clients:
+            try:
+                await client.aclose()
+                logger.debug("Closed pooled async client", proxy_id=proxy_id)
+            except asyncio.CancelledError as exc:
+                cancellation = cancellation or exc
+            except Exception as exc:
+                logger.bind(
+                    proxy_id=proxy_id,
+                    error_type=type(exc).__name__,
+                ).warning("Error closing async client")
+        if cancellation is not None:
+            raise cancellation
 
     def __len__(self) -> int:
         """Return number of clients in pool."""
@@ -218,7 +275,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         """
         self.pool = ProxyPool(name="default", proxies=proxies or [])
 
-        self.strategy = _resolve_strategy(strategy)
+        self.strategy = resolve_strategy(strategy)
 
         self.config = config or ProxyConfiguration()
         self._client: httpx.AsyncClient | None = None
@@ -258,21 +315,21 @@ class AsyncProxyWhirl(ProxyRotatorBase):
 
         # Initialize circuit breakers for existing proxies (all start CLOSED per FR-021)
         # Use thread-safe snapshot for initialization
-        for proxy in self.pool.get_all_proxies():
+        # The pool is not published yet, so its freshly validated list is safe to
+        # inspect without acquiring a threading.RLock on the caller's event loop.
+        for proxy in self.pool.proxies:
             self.circuit_breakers[str(proxy.id)] = CircuitBreaker(proxy_id=str(proxy.id))
 
         # Note: Strategy swapping is atomic via Python's reference assignment semantics.
         # No explicit lock needed as self.strategy = new_strategy is a single atomic operation.
 
-        # Start periodic metrics aggregation thread (every 5 minutes)
+        # Periodic metrics aggregation (daemon timer, same pattern as sync ProxyWhirl).
+        # Deferred until ``__aenter__`` so bare ``AsyncProxyWhirl()`` construction in
+        # unit tests does not schedule a Timer per instance (full-suite thread pressure).
         self._stop_event = threading.Event()
-        self._aggregation_thread = threading.Thread(
-            target=type(self)._aggregation_loop,
-            args=(self._stop_event, self.retry_metrics),
-            daemon=True,
-            name="proxywhirl-metrics-aggregation",
-        )
-        self._aggregation_thread.start()
+        self._aggregation_lock = threading.Lock()
+        self._aggregation_timer: threading.Timer | None = None
+        self._aggregation_thread: threading.Thread | None = None  # compat for tests
 
         # Configure logging
         if hasattr(logger, "_core") and not logger._core.handlers:
@@ -284,56 +341,84 @@ class AsyncProxyWhirl(ProxyRotatorBase):
 
     async def __aenter__(self) -> AsyncProxyWhirl:
         """Enter async context manager."""
-        self._client = httpx.AsyncClient(
-            timeout=self.config.timeout,
-            verify=self.config.verify_ssl,
-            follow_redirects=self.config.follow_redirects,
-            limits=httpx.Limits(
-                max_connections=self.config.pool_connections,
-                max_keepalive_connections=self.config.pool_max_keepalive,
-            ),
-            http2=True,
-        )
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(
+                timeout=self.config.timeout,
+                verify=self.config.verify_ssl,
+                follow_redirects=self.config.follow_redirects,
+                limits=httpx.Limits(
+                    max_connections=self.config.pool_connections,
+                    max_keepalive_connections=self.config.pool_max_keepalive,
+                ),
+                http2=True,
+            )
+        self._stop_event.clear()
+        # Start aggregation only for context-managed lifetime.
+        if self._aggregation_timer is None:
+            self._start_aggregation_timer()
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Exit async context manager."""
-        if self._client:
-            await self._client.aclose()
+        await self.aclose()
+
+    async def aclose(self) -> None:
+        """Close all owned resources; idempotent and cancellation-safe."""
+        stop_event = getattr(self, "_stop_event", None)
+        if stop_event is not None:
+            stop_event.set()
+
+        cancel_timer = getattr(self, "_cancel_aggregation_timer", None)
+        if callable(cancel_timer):
+            cancel_timer()
+
+        first_error: BaseException | None = None
+        client = getattr(self, "_client", None)
+        if client is not None:
             self._client = None
+            try:
+                await client.aclose()
+            except BaseException as exc:
+                first_error = exc
 
-        # Close all pooled clients
-        await self._close_all_clients()
+        client_pool = getattr(self, "_client_pool", None)
+        if client_pool is not None:
+            try:
+                await client_pool.clear()
+            except BaseException as exc:
+                if first_error is None:
+                    first_error = exc
+                else:
+                    logger.bind(error_type=type(exc).__name__).warning(
+                        "Additional error closing async client pool"
+                    )
 
-        # Stop aggregation thread
-        self._stop_event.set()
-        if self._aggregation_thread and self._aggregation_thread.is_alive():
-            self._aggregation_thread.join(timeout=5.0)
+        if first_error is not None:
+            raise first_error
 
     def __del__(self) -> None:
         """
-        Destructor to ensure cleanup when not used as context manager.
+        Destructor safety net when not used as a context manager.
 
-        This method provides a safety net for resource cleanup when the object
-        is garbage collected without proper context manager usage. It ensures
-        that the background aggregation thread is stopped to prevent resource leaks.
+        Only signals stop and cancels the daemon timer. Never joins or logs here:
+        ``__del__`` can run during unrelated GC under a full pytest suite, and
+        blocking work has been observed to hang the main thread.
 
         Note:
-            Using AsyncProxyWhirl as a context manager (async with) is strongly
-            recommended for proper async cleanup of httpx clients.
+            Prefer ``async with AsyncProxyWhirl()`` for full httpx client cleanup.
         """
-        if hasattr(self, "_stop_event"):
-            self._stop_event.set()
-        if hasattr(self, "_aggregation_thread") and self._aggregation_thread.is_alive():
-            self._aggregation_thread.join(timeout=1.0)
-            logger.debug(
-                "AsyncProxyWhirl cleanup via __del__ - context manager usage recommended",
-                thread_name=self._aggregation_thread.name,
-            )
+        stop_event = getattr(self, "_stop_event", None)
+        if stop_event is not None:
+            stop_event.set()
+        cancel = getattr(self, "_cancel_aggregation_timer", None)
+        if callable(cancel):
+            cancel(join=False)
 
     async def _close_all_clients(self) -> None:
         """Close all pooled clients and clear the pool."""
-        await self._client_pool.clear()
+        client_pool = getattr(self, "_client_pool", None)
+        if client_pool is not None:
+            await client_pool.clear()
 
     async def add_proxy(self, proxy: Proxy | str) -> None:
         """
@@ -347,12 +432,12 @@ class AsyncProxyWhirl(ProxyRotatorBase):
 
             proxy = create_proxy_from_url(proxy)
 
-        if self.pool.has_proxy_url(proxy.url):
+        if await self.pool.ahas_proxy_url(proxy.url):
             masked_url = mask_proxy_url(proxy.url)
             logger.debug(f"Skipped duplicate proxy: {masked_url}", proxy_id=str(proxy.id))
             return
 
-        self.pool.add_proxy(proxy)
+        await self.pool.aadd_proxy(proxy)
 
         # Initialize circuit breaker for new proxy (starts CLOSED per FR-021)
         self.circuit_breakers[str(proxy.id)] = CircuitBreaker(proxy_id=str(proxy.id))
@@ -377,7 +462,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
             del self.circuit_breakers[proxy_id]
             logger.debug(f"Removed circuit breaker for proxy: {proxy_id}")
 
-        self.pool.remove_proxy(UUID(proxy_id))
+        await self.pool.aremove_proxy(UUID(proxy_id))
         logger.info(f"Removed proxy from pool: {proxy_id}")
 
     async def _bootstrap_pool_if_empty(self) -> int:
@@ -390,11 +475,11 @@ class AsyncProxyWhirl(ProxyRotatorBase):
 
     async def _ensure_request_bootstrap(self) -> None:
         """Run one-time lazy bootstrap for async request path when pool starts empty."""
-        if self.pool.size > 0:
+        if await self.pool.asize() > 0:
             return
 
         async with self._bootstrap_lock:
-            if self.pool.size > 0:
+            if await self.pool.asize() > 0:
                 return
             if self._bootstrap_error_message is not None:
                 raise ProxyPoolEmptyError(self._bootstrap_error_message)
@@ -409,7 +494,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
                 raise
 
             # If pool is still empty after bootstrap (e.g., bootstrap disabled)
-            if self.pool.size == 0:
+            if await self.pool.asize() == 0:
                 if not self._bootstrap_config.enabled:
                     msg = (
                         "Proxy pool is empty and auto-bootstrap is disabled. "
@@ -425,13 +510,18 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         """
         Get the next proxy from the pool using the rotation strategy.
 
+        Triggers one-time lazy bootstrap when the pool is empty (parity with sync
+        ProxyWhirl.get_proxy and request execution paths).
+
         Returns:
             Next proxy to use
 
         Raises:
-            ProxyPoolEmptyError: If no healthy proxies available
+            ProxyPoolEmptyError: If bootstrap fails or no healthy proxies available
         """
-        return self._select_proxy_with_circuit_breaker()
+        if await self.pool.asize() == 0:
+            await self._ensure_request_bootstrap()
+        return await asyncio.to_thread(self._select_proxy_with_circuit_breaker)
 
     def set_strategy(self, strategy: RotationStrategy | str, *, atomic: bool = True) -> None:
         """
@@ -470,7 +560,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         start_time = time.perf_counter()
 
         # Parse strategy string or use provided instance
-        new_strategy = _resolve_strategy(strategy) if isinstance(strategy, str) else strategy
+        new_strategy = resolve_strategy(strategy) if isinstance(strategy, str) else strategy
 
         # Store old strategy for logging
         old_strategy_name = self.strategy.__class__.__name__
@@ -499,6 +589,43 @@ class AsyncProxyWhirl(ProxyRotatorBase):
                 swap_time_ms=elapsed_ms,
             )
 
+    @staticmethod
+    def _pool_stats_from_snapshot(proxies_snapshot: list[Proxy]) -> dict[str, Any]:
+        """Build pool statistics from one consistent proxy snapshot."""
+        from proxywhirl.models import HealthStatus
+
+        healthy_count = sum(
+            1
+            for proxy in proxies_snapshot
+            if proxy.health_status
+            in (HealthStatus.HEALTHY, HealthStatus.UNKNOWN, HealthStatus.DEGRADED)
+        )
+        unhealthy_count = sum(
+            1 for proxy in proxies_snapshot if proxy.health_status == HealthStatus.UNHEALTHY
+        )
+        dead_count = sum(
+            1 for proxy in proxies_snapshot if proxy.health_status == HealthStatus.DEAD
+        )
+        total_requests = sum(proxy.total_requests for proxy in proxies_snapshot)
+        total_successes = sum(proxy.total_successes for proxy in proxies_snapshot)
+        total_failures = sum(proxy.total_failures for proxy in proxies_snapshot)
+        success_rates = [
+            proxy.success_rate for proxy in proxies_snapshot if proxy.total_requests > 0
+        ]
+
+        return {
+            "total_proxies": len(proxies_snapshot),
+            "healthy_proxies": healthy_count,
+            "unhealthy_proxies": unhealthy_count,
+            "dead_proxies": dead_count,
+            "total_requests": total_requests,
+            "total_successes": total_successes,
+            "total_failures": total_failures,
+            "average_success_rate": (
+                sum(success_rates) / len(success_rates) if success_rates else 0.0
+            ),
+        }
+
     def get_pool_stats(self) -> dict[str, Any]:
         """
         Get statistics about the proxy pool.
@@ -508,40 +635,11 @@ class AsyncProxyWhirl(ProxyRotatorBase):
             unhealthy_proxies, dead_proxies, total_requests, total_successes,
             total_failures, and average_success_rate.
         """
-        from proxywhirl.models import HealthStatus
+        return self._pool_stats_from_snapshot(self.pool.get_all_proxies())
 
-        # Use thread-safe snapshot for all calculations
-        proxies_snapshot = self.pool.get_all_proxies()
-
-        healthy_count = sum(
-            1
-            for p in proxies_snapshot
-            if p.health_status
-            in (HealthStatus.HEALTHY, HealthStatus.UNKNOWN, HealthStatus.DEGRADED)
-        )
-        unhealthy_count = sum(
-            1 for p in proxies_snapshot if p.health_status == HealthStatus.UNHEALTHY
-        )
-        dead_count = sum(1 for p in proxies_snapshot if p.health_status == HealthStatus.DEAD)
-
-        total_requests = sum(p.total_requests for p in proxies_snapshot)
-        total_successes = sum(p.total_successes for p in proxies_snapshot)
-        total_failures = sum(p.total_failures for p in proxies_snapshot)
-
-        # Calculate average success rate
-        success_rates = [p.success_rate for p in proxies_snapshot if p.total_requests > 0]
-        avg_success_rate = sum(success_rates) / len(success_rates) if success_rates else 0.0
-
-        return {
-            "total_proxies": self.pool.size,
-            "healthy_proxies": healthy_count,
-            "unhealthy_proxies": unhealthy_count,
-            "dead_proxies": dead_count,
-            "total_requests": total_requests,
-            "total_successes": total_successes,
-            "total_failures": total_failures,
-            "average_success_rate": avg_success_rate,
-        }
+    async def aget_pool_stats(self) -> dict[str, Any]:
+        """Get proxy-pool statistics without blocking the event loop."""
+        return self._pool_stats_from_snapshot(await self.pool.aget_all_proxies())
 
     def get_statistics(self) -> dict[str, Any]:
         """
@@ -553,6 +651,12 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         """
         stats = self.get_pool_stats()
         stats["source_breakdown"] = self.pool.get_source_breakdown()
+        return stats
+
+    async def aget_statistics(self) -> dict[str, Any]:
+        """Get comprehensive statistics without blocking the event loop."""
+        stats = await self.aget_pool_stats()
+        stats["source_breakdown"] = await self.pool.aget_source_breakdown()
         return stats
 
     async def clear_unhealthy_proxies(self) -> int:
@@ -567,11 +671,11 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         # Capture IDs of proxies to be removed before clearing (thread-safe snapshot)
         removed_proxy_ids = [
             str(p.id)
-            for p in self.pool.get_all_proxies()
+            for p in await self.pool.aget_all_proxies()
             if p.health_status in (HealthStatus.DEAD, HealthStatus.UNHEALTHY)
         ]
 
-        removed_count = self.pool.clear_unhealthy()
+        removed_count = await self.pool.aclear_unhealthy()
 
         # Clean up circuit breakers and pooled clients for removed proxies to prevent memory leak
         for proxy_id in removed_proxy_ids:
@@ -586,7 +690,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         logger.info(
             "Cleared unhealthy proxies from pool",
             removed_count=removed_count,
-            remaining_proxies=self.pool.size,
+            remaining_proxies=await self.pool.asize(),
         )
 
         return removed_count
@@ -603,7 +707,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         Returns:
             List of health check result dictionaries
         """
-        targets = proxies if proxies is not None else self.pool.get_all_proxies()
+        targets = proxies if proxies is not None else await self.pool.aget_all_proxies()
         if not targets:
             return []
 
@@ -676,18 +780,19 @@ class AsyncProxyWhirl(ProxyRotatorBase):
             http2=True,
         )
 
-        # Store in LRU pool (automatically evicts LRU if at capacity)
-        await self._client_pool.put(proxy_id, client)
+        # Publish atomically so racing creators converge on one live client.
+        canonical_client = await self._client_pool.put_if_absent(proxy_id, client)
 
-        logger.debug(
-            "Created new pooled async client for proxy",
-            proxy_id=proxy_id,
-            pool_connections=self.config.pool_connections,
-            pool_max_keepalive=self.config.pool_max_keepalive,
-            client_pool_size=len(self._client_pool),
-        )
+        if canonical_client is client:
+            logger.debug(
+                "Created new pooled async client for proxy",
+                proxy_id=proxy_id,
+                pool_connections=self.config.pool_connections,
+                pool_max_keepalive=self.config.pool_max_keepalive,
+                client_pool_size=len(self._client_pool),
+            )
 
-        return client
+        return canonical_client
 
     def _get_proxy_dict(self, proxy: Proxy) -> dict[str, str]:
         """
@@ -750,7 +855,7 @@ class AsyncProxyWhirl(ProxyRotatorBase):
             ProxyPoolEmptyError: If no healthy proxies available
             ProxyConnectionError: If all retry attempts fail
         """
-        if self.pool.size == 0:
+        if await self.pool.asize() == 0:
             await self._ensure_request_bootstrap()
 
         active_proxy: Proxy | None = None
@@ -817,42 +922,29 @@ class AsyncProxyWhirl(ProxyRotatorBase):
             )
         except RateLimitExceededError:
             raise
-        except ProxyAuthenticationError as e:
-            if active_proxy is not None:
-                self.strategy.record_result(active_proxy, success=False, response_time_ms=0.0)
+        except ProxyAuthenticationError as exc:
             logger.error(
                 f"Authentication error for proxy {active_proxy.id if active_proxy else 'unknown'}",
                 proxy_id=str(active_proxy.id) if active_proxy else None,
-                error=str(e),
+                error_type=type(exc).__name__,
             )
             raise
         except NonRetryableError as e:
-            if active_proxy is not None:
-                self.strategy.record_result(active_proxy, success=False, response_time_ms=0.0)
             if isinstance(e.__cause__, ProxyAuthenticationError):
                 raise e.__cause__
             raise ProxyConnectionError(f"Request failed: {e}") from e
-        except ProxyConnectionError as e:
-            if active_proxy is not None:
-                self.strategy.record_result(active_proxy, success=False, response_time_ms=0.0)
+        except ProxyConnectionError as exc:
             logger.warning(
-                f"Request failed after retries: {method} {url}",
+                f"Request failed after retries: {method} {redact_url(url)}",
                 proxy_id=str(active_proxy.id) if active_proxy else None,
-                error=str(e),
+                error_type=type(exc).__name__,
             )
             raise
         except Exception as e:
-            if active_proxy is not None:
-                self.strategy.record_result(active_proxy, success=False, response_time_ms=0.0)
             raise ProxyConnectionError(f"Request failed: {e}") from e
 
-        self.strategy.record_result(
-            result.proxy,
-            success=True,
-            response_time_ms=result.response_time_ms,
-        )
         logger.info(
-            f"Request successful: {method} {url}",
+            f"Request successful: {method} {redact_url(url)}",
             proxy_id=str(result.proxy.id),
             status_code=result.response.status_code,
             response_time_ms=result.response_time_ms,
@@ -888,19 +980,68 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         """Make async OPTIONS request."""
         return await self._make_request("OPTIONS", url, **kwargs)
 
-    @staticmethod
-    def _aggregation_loop(stop_event: threading.Event, retry_metrics: RetryMetrics) -> None:
-        """
-        Persistent thread loop for periodic metrics aggregation.
+    def _start_aggregation_timer(self) -> None:
+        """Schedule the next metrics aggregation tick (every 5 minutes)."""
 
-        Runs every 5 minutes until stop event is set.
-        Uses threading.Event.wait() for interruptible sleep.
-        """
-        while not stop_event.wait(timeout=300.0):  # 5 minutes
+        def aggregate() -> None:
             try:
-                retry_metrics.aggregate_hourly()
-            except Exception as e:
-                logger.warning(f"Metrics aggregation failed: {e}")
+                if self._stop_event.is_set():
+                    return
+                try:
+                    self.retry_metrics.aggregate_hourly()
+                except Exception as exc:
+                    logger.bind(error_type=type(exc).__name__).warning("Metrics aggregation failed")
+            finally:
+                current = threading.current_thread()
+                with self._aggregation_lock:
+                    if self._aggregation_timer is current:
+                        self._aggregation_timer = None
+                    if self._aggregation_thread is current:
+                        self._aggregation_thread = None
+                if not self._stop_event.is_set():
+                    self._start_aggregation_timer()
+
+        with self._aggregation_lock:
+            if self._stop_event.is_set() or self._aggregation_timer is not None:
+                return
+            timer = threading.Timer(300.0, aggregate)
+            timer.daemon = True
+            timer.name = "proxywhirl-metrics-aggregation"
+            self._aggregation_timer = timer
+            # Expose timer as _aggregation_thread for existing teardown tests.
+            self._aggregation_thread = timer
+            try:
+                timer.start()
+            except BaseException:
+                self._aggregation_timer = None
+                self._aggregation_thread = None
+                raise
+
+    def _cancel_aggregation_timer(self, *, join: bool = True) -> None:
+        """Cancel the scheduled timer and optionally join it outside destructors."""
+        aggregation_lock = getattr(self, "_aggregation_lock", None)
+        if aggregation_lock is None:
+            timer = getattr(self, "_aggregation_timer", None)
+            aggregation_thread = getattr(self, "_aggregation_thread", None)
+            self._aggregation_timer = None
+            self._aggregation_thread = None
+        else:
+            with aggregation_lock:
+                timer = getattr(self, "_aggregation_timer", None)
+                aggregation_thread = getattr(self, "_aggregation_thread", None)
+                self._aggregation_timer = None
+                self._aggregation_thread = None
+
+        threads = {thread for thread in (timer, aggregation_thread) if thread is not None}
+        for thread in threads:
+            if isinstance(thread, threading.Timer):
+                thread.cancel()
+        if not join:
+            return
+        current = threading.current_thread()
+        for thread in threads:
+            if thread is not current and thread.is_alive():
+                thread.join(timeout=5.0)
 
     def get_circuit_breaker_states(self) -> dict[str, CircuitBreakerSnapshot]:
         """

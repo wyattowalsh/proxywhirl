@@ -900,6 +900,66 @@ class TestCacheManagerGetStatistics:
 class TestCacheManagerDestructor:
     """Test CacheManager cleanup on deletion."""
 
+    def test_close_releases_ttl_and_closeable_tiers(self, tmp_path: Path) -> None:
+        """Explicit close should deterministically release every owned resource once."""
+        from unittest.mock import Mock
+
+        config = CacheConfig(
+            l2_cache_dir=str(tmp_path / "cache"),
+            l3_database_path=str(tmp_path / "cache.db"),
+            enable_background_cleanup=True,
+            cleanup_interval_seconds=5,
+        )
+        manager = CacheManager(config)
+        assert manager.ttl_manager is not None
+        ttl_manager = manager.ttl_manager
+        l2_close = Mock()
+        l3_close = Mock()
+        manager.l2_tier.close = l2_close  # type: ignore[attr-defined]
+        manager.l3_tier.close = l3_close  # type: ignore[attr-defined]
+
+        manager.close()
+        manager.close()
+
+        assert ttl_manager.enabled is False
+        assert ttl_manager.cleanup_thread is None
+        l2_close.assert_called_once_with()
+        l3_close.assert_called_once_with()
+
+    def test_context_manager_closes_resources(self, tmp_path: Path) -> None:
+        """The synchronous context protocol should close the manager on exit."""
+        config = CacheConfig(
+            l2_cache_dir=str(tmp_path / "cache"),
+            l3_database_path=str(tmp_path / "cache.db"),
+        )
+
+        with CacheManager(config) as manager:
+            assert manager is not None
+            assert manager._closed is False
+
+        assert manager._closed is True
+
+    def test_closed_manager_rejects_operations_without_reopening_tiers(
+        self, tmp_path: Path
+    ) -> None:
+        """A closed manager must not permit an operation to reopen owned resources."""
+        config = CacheConfig(
+            l2_cache_dir=str(tmp_path / "cache"),
+            l3_database_path=str(tmp_path / "cache.db"),
+        )
+        manager = CacheManager(config)
+        manager.close()
+
+        operations = (
+            lambda: manager.get("closed"),
+            lambda: manager.delete("closed"),
+            manager.clear,
+            manager.get_statistics,
+        )
+        for operation in operations:
+            with pytest.raises(RuntimeError, match="CacheManager is closed"):
+                operation()
+
     def test_destructor_stops_ttl_manager(self, tmp_path: Path) -> None:
         """Test that __del__ stops the TTL manager if running."""
         config = CacheConfig(

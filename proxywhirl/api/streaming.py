@@ -49,8 +49,8 @@ async def stream_proxies_as_jsonl(
         try:
             line = json.dumps(proxy) + "\n"
             yield line
-        except Exception as e:
-            logger.warning(f"Failed to serialize proxy: {e}")
+        except Exception as exc:
+            logger.bind(error_type=type(exc).__name__).warning("Failed to serialize proxy")
             continue
 
 

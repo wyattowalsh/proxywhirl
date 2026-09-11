@@ -4,6 +4,7 @@ import json
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 import pytest
 import sqlalchemy as sa
@@ -188,6 +189,72 @@ class TestFileStorage:
 
 class TestFileStorageEncryption:
     """Tests for credential encryption in FileStorage (T046-T048)."""
+
+    async def test_credential_write_without_constructor_key_is_rejected(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        """FileStorage never persists credentials unless its constructor received a key."""
+        from cryptography.fernet import Fernet
+
+        from proxywhirl.exceptions import ProxyStorageError
+        from proxywhirl.storage import FileStorage
+
+        monkeypatch.setenv("PROXYWHIRL_CACHE_ENCRYPTION_KEY", Fernet.generate_key().decode())
+        storage_path = tmp_path / "credentials.json"
+        storage = FileStorage(storage_path)
+        proxy = Proxy(
+            url="http://proxy.example.com:8080",
+            username="testuser",
+            password="secret-password",
+        )
+
+        with pytest.raises(ProxyStorageError, match="requires encryption_key"):
+            await storage.save([proxy])
+
+        assert not storage_path.exists()
+
+    async def test_legacy_plaintext_credentials_can_be_rewritten_with_constructor_key(
+        self, tmp_path: Path
+    ) -> None:
+        """A trusted legacy file can be read plainly and rewritten as Fernet ciphertext."""
+        from cryptography.fernet import Fernet
+
+        from proxywhirl.storage import FileStorage
+
+        storage_path = tmp_path / "legacy-credentials.json"
+        storage_path.write_text(
+            json.dumps(
+                [
+                    {
+                        "url": "http://proxy.example.com:8080",
+                        "username": "legacy-user",
+                        "password": "legacy-password",
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+
+        legacy_storage = FileStorage(storage_path)
+        loaded = await legacy_storage.load()
+        assert loaded[0].username is not None
+        assert loaded[0].password is not None
+        assert loaded[0].username.get_secret_value() == "legacy-user"
+        assert loaded[0].password.get_secret_value() == "legacy-password"
+
+        key = Fernet.generate_key()
+        encrypted_storage = FileStorage(storage_path, encryption_key=key)
+        await encrypted_storage.save(loaded)
+
+        ciphertext = storage_path.read_bytes()
+        assert b"legacy-user" not in ciphertext
+        assert b"legacy-password" not in ciphertext
+
+        reloaded = await FileStorage(storage_path, encryption_key=key).load()
+        assert reloaded[0].username is not None
+        assert reloaded[0].password is not None
+        assert reloaded[0].username.get_secret_value() == "legacy-user"
+        assert reloaded[0].password.get_secret_value() == "legacy-password"
 
     async def test_encrypt_decrypt_credentials(self) -> None:
         """T046: Test that credentials are encrypted when saved and decrypted when loaded."""
@@ -460,6 +527,216 @@ class TestFileStorageErrorHandling:
                 await storage.load()
 
 
+class TestStorageBackendParity:
+    """Differential contracts shared by file and SQLite storage backends."""
+
+    @staticmethod
+    def _round_trip_corpus() -> list[Proxy]:
+        """Return deterministic models covering every persisted Proxy field."""
+        from uuid import UUID
+
+        from proxywhirl.models import HealthStatus
+
+        created_at = datetime(2026, 4, 5, 12, 0, tzinfo=timezone.utc)
+        updated_at = created_at + timedelta(minutes=15)
+        return [
+            Proxy(
+                id=UUID("11111111-2222-4333-8444-555555555555"),
+                url="https://parity-one.example.com:8443",
+                protocol="https",
+                username="roundtrip-user",
+                password="roundtrip-password",
+                health_status=HealthStatus.DEGRADED,
+                last_success_at=created_at + timedelta(minutes=2),
+                last_failure_at=created_at + timedelta(minutes=10),
+                requests_started=13,
+                requests_completed=11,
+                requests_active=2,
+                total_requests=11,
+                total_successes=9,
+                total_failures=2,
+                average_response_time_ms=87.5,
+                ema_response_time_ms=82.25,
+                ema_alpha=0.35,
+                window_start=created_at,
+                window_duration_seconds=7200,
+                country_code="US",
+                region="New York",
+                consecutive_failures=2,
+                last_health_check=created_at + timedelta(minutes=12),
+                consecutive_successes=4,
+                recovery_attempt=1,
+                next_check_time=created_at + timedelta(minutes=20),
+                last_health_error="sanitized timeout",
+                total_checks=17,
+                total_health_failures=3,
+                tags={"parity", "premium"},
+                source=ProxySource.FETCHED,
+                source_url="https://sources.example.com/proxies",
+                metadata={"nested": {"enabled": True}, "weights": [1, 2, 3]},
+                created_at=created_at,
+                updated_at=updated_at,
+                ttl=3600,
+                expires_at=created_at + timedelta(hours=1),
+            ),
+            Proxy(
+                id=UUID("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee"),
+                url="socks5://parity-two.example.com:1080",
+                protocol="socks5",
+                source=ProxySource.USER,
+                created_at=created_at + timedelta(days=1),
+                updated_at=updated_at + timedelta(days=1),
+            ),
+        ]
+
+    async def test_file_and_sqlite_round_trip_same_proxy_corpus(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """Both StorageBackend implementations must return equivalent Proxy models."""
+        from cryptography.fernet import Fernet
+
+        from proxywhirl.storage import FileStorage, SQLiteStorage
+
+        encryption_key = Fernet.generate_key()
+        monkeypatch.setenv("PROXYWHIRL_CACHE_ENCRYPTION_KEY", encryption_key.decode())
+        corpus = self._round_trip_corpus()
+        file_storage = FileStorage(tmp_path / "parity.json", encryption_key=encryption_key)
+        sqlite_storage = SQLiteStorage(tmp_path / "parity.db")
+        await sqlite_storage.initialize()
+
+        try:
+            await file_storage.save(corpus)
+            await sqlite_storage.save(corpus)
+
+            async with sqlite_storage.engine.connect() as conn:
+                identity_credentials = (
+                    await conn.execute(
+                        sa.text(
+                            "SELECT username, password FROM proxy_identities "
+                            "WHERE url = 'https://parity-one.example.com:8443'"
+                        )
+                    )
+                ).one()
+                sidecar_credentials = (
+                    await conn.execute(
+                        sa.text(
+                            "SELECT username, password FROM proxies "
+                            "WHERE url = 'https://parity-one.example.com:8443'"
+                        )
+                    )
+                ).one()
+            assert "roundtrip-user" not in repr(identity_credentials)
+            assert "roundtrip-password" not in repr(identity_credentials)
+            assert "roundtrip-user" not in repr(sidecar_credentials)
+            assert "roundtrip-password" not in repr(sidecar_credentials)
+
+            file_loaded = await file_storage.load()
+            sqlite_loaded = await sqlite_storage.load_models()
+
+            assert all(isinstance(proxy, Proxy) for proxy in sqlite_loaded)
+            assert [proxy.model_dump(mode="json") for proxy in sqlite_loaded] == [
+                proxy.model_dump(mode="json") for proxy in file_loaded
+            ]
+            assert sqlite_loaded[0].username is not None
+            assert sqlite_loaded[0].password is not None
+            assert sqlite_loaded[0].username.get_secret_value() == "roundtrip-user"
+            assert sqlite_loaded[0].password.get_secret_value() == "roundtrip-password"
+        finally:
+            await sqlite_storage.close()
+
+    async def test_file_load_validation_error_does_not_expose_credentials(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Malformed file rows fail without echoing secret-bearing input values."""
+        from proxywhirl.storage import FileStorage
+
+        secret = "must-not-appear-in-storage-error"
+        path = tmp_path / "malformed.json"
+        path.write_text(
+            json.dumps([{"url": "http://malformed.example.com:8080", "password": secret}])
+        )
+
+        with pytest.raises(ValueError, match="Failed to load proxies") as exc_info:
+            await FileStorage(path).load()
+
+        assert secret not in str(exc_info.value)
+
+    async def test_sqlite_load_sanitizes_malformed_sidecar_and_partial_credentials(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """Malformed compatibility data is omitted without leaking its contents."""
+        from unittest.mock import patch
+
+        from proxywhirl.storage import SQLiteStorage
+
+        storage = SQLiteStorage(tmp_path / "malformed.db")
+        await storage.initialize()
+        await storage.save([Proxy(url="http://malformed.example.com:8080")])
+        secret = "must-not-appear-in-storage-log"
+
+        async with storage.engine.begin() as conn:
+            await conn.execute(
+                sa.text(
+                    "UPDATE proxy_identities SET username = :secret, password = NULL "
+                    "WHERE url = :url"
+                ),
+                {"secret": secret, "url": "http://malformed.example.com:8080"},
+            )
+            await conn.execute(
+                sa.text(
+                    "UPDATE proxies SET id = :bad_id, tags_json = :bad_tags, "
+                    "metadata_json = :bad_metadata WHERE url = :url"
+                ),
+                {
+                    "bad_id": f"invalid-{secret}",
+                    "bad_tags": f"not-json-{secret}",
+                    "bad_metadata": f"not-json-{secret}",
+                    "url": "http://malformed.example.com:8080",
+                },
+            )
+
+        try:
+            with patch("proxywhirl.storage.logger") as mock_logger:
+                loaded = await storage.load_models()
+
+            assert len(loaded) == 1
+            assert loaded[0].username is None
+            assert loaded[0].password is None
+            assert loaded[0].tags == set()
+            assert loaded[0].metadata == {}
+            assert secret not in str(mock_logger.method_calls)
+        finally:
+            await storage.close()
+
+    async def test_sqlite_load_wraps_backend_errors_without_sensitive_details(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """Database failures expose a stable sanitized storage error."""
+        from proxywhirl.exceptions import ProxyStorageError
+        from proxywhirl.storage import SQLiteStorage
+
+        storage = SQLiteStorage(tmp_path / "errors.db")
+        await storage.initialize()
+        secret = "password=must-not-leak"
+
+        async def fail_query(*_args: object, **_kwargs: object) -> Any:
+            raise RuntimeError(secret)
+
+        monkeypatch.setattr(storage, "_timed_exec", fail_query)
+        try:
+            with pytest.raises(ProxyStorageError, match="Failed to load proxies") as exc_info:
+                await storage.load()
+            assert secret not in str(exc_info.value)
+        finally:
+            await storage.close()
+
+
 class TestSQLiteStorage:
     """Test SQLiteStorage implementation."""
 
@@ -540,32 +817,46 @@ class TestSQLiteStorage:
             await storage.close()
 
     async def test_sqlite_storage_initialize_preserves_legacy_proxies_table(self) -> None:
-        """initialize() must not destructively drop pre-existing legacy data."""
+        """initialize() upgrades through Alembic and keeps legacy ``proxies`` rows."""
+        from proxywhirl.migrations import run_migrations
         from proxywhirl.storage import SQLiteStorage
 
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = Path(tmpdir) / "proxies.db"
-            storage = SQLiteStorage(db_path)
+            db_url = f"sqlite+aiosqlite:///{db_path.resolve()}"
 
+            # Build a pre-normalized schema (revision before d4e5f6a7b8c9)
+            await run_migrations(db_url, "43cb4a16de9d")
+
+            storage = SQLiteStorage(db_path)
             async with storage.engine.begin() as conn:
                 await conn.execute(
-                    sa.text("CREATE TABLE proxies (url TEXT PRIMARY KEY, note TEXT)")
-                )
-                await conn.execute(
                     sa.text(
-                        "INSERT INTO proxies (url, note) "
-                        "VALUES ('http://legacy.example.com:8080', 'preserve')"
+                        "INSERT INTO proxies (url, health_status, total_requests, "
+                        "total_successes, total_failures, consecutive_failures, "
+                        "source, metadata_json, created_at, updated_at) "
+                        "VALUES ("
+                        "'http://legacy.example.com:8080', 'unknown', 0, 0, 0, 0, "
+                        "'fetched', '{}', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP"
+                        ")"
                     )
                 )
 
             await storage.initialize()
 
             async with storage.engine.connect() as conn:
-                result = await conn.execute(
-                    sa.text("SELECT note FROM proxies WHERE url = 'http://legacy.example.com:8080'")
+                legacy = await conn.execute(
+                    sa.text("SELECT url FROM proxies WHERE url = 'http://legacy.example.com:8080'")
+                )
+                identity = await conn.execute(
+                    sa.text(
+                        "SELECT url FROM proxy_identities "
+                        "WHERE url = 'http://legacy.example.com:8080'"
+                    )
                 )
 
-            assert result.scalar_one() == "preserve"
+            assert legacy.scalar_one() == "http://legacy.example.com:8080"
+            assert identity.scalar_one() == "http://legacy.example.com:8080"
 
             await storage.close()
 
@@ -796,7 +1087,7 @@ class TestSQLiteStorage:
             loaded = await storage.load()
             assert len(loaded) == 1
             # Status remains unknown since save() only adds identity, not updates status
-            assert loaded[0]["health_status"] == "unknown"
+            assert loaded[0]["health_status"] == HealthStatus.UNKNOWN.value
 
             await storage.close()
 
@@ -844,17 +1135,16 @@ class TestSQLiteStorage:
             await storage.save(proxies)
 
             # Load and verify
-            loaded = await storage.load()
+            loaded = await storage.load_models()
             assert len(loaded) == 2
-            urls = [p["url"] for p in loaded]
+            urls = [p.url for p in loaded]
             assert "http://proxy1.example.com:8080" in urls
             assert "http://proxy2.example.com:8080" in urls
 
-            # With normalized schema, health_status starts as 'unknown'
-            proxy1 = next(p for p in loaded if p["url"] == "http://proxy1.example.com:8080")
-            proxy2 = next(p for p in loaded if p["url"] == "http://proxy2.example.com:8080")
-            assert proxy1["health_status"] == "unknown"
-            assert proxy2["health_status"] == "unknown"
+            proxy1 = next(p for p in loaded if p.url == "http://proxy1.example.com:8080")
+            proxy2 = next(p for p in loaded if p.url == "http://proxy2.example.com:8080")
+            assert proxy1.health_status == HealthStatus.HEALTHY
+            assert proxy2.health_status == HealthStatus.DEGRADED
 
             await storage.close()
 
@@ -874,12 +1164,13 @@ class TestSQLiteStorage:
             )
 
             await storage.save([proxy])
-            loaded = await storage.load()
+            loaded = await storage.load_models()
 
             assert len(loaded) == 1
-            # With normalized schema, credentials are stored as strings (possibly encrypted)
-            assert loaded[0]["username"] == "testuser"
-            assert loaded[0]["password"] == "testpass"
+            assert loaded[0].username is not None
+            assert loaded[0].password is not None
+            assert loaded[0].username.get_secret_value() == "testuser"
+            assert loaded[0].password.get_secret_value() == "testpass"
 
             await storage.close()
 
@@ -2313,7 +2604,7 @@ class TestSQLiteStorageConnectionPooling:
             await storage.save(proxies)
 
             # Run concurrent queries (within pool size)
-            async def query_proxy(i: int) -> list[Proxy]:
+            async def query_proxy(i: int) -> list[dict[str, object]]:
                 return await storage.load()
 
             # Execute 5 concurrent queries (exactly pool_size)
@@ -2348,7 +2639,7 @@ class TestSQLiteStorageConnectionPooling:
             await storage.save(proxies)
 
             # Run more concurrent operations than pool_size but within pool_size + max_overflow
-            async def slow_query(i: int) -> list[Proxy]:
+            async def slow_query(i: int) -> list[dict[str, object]]:
                 await asyncio.sleep(0.1)  # Simulate slow query
                 return await storage.load()
 
@@ -2748,6 +3039,16 @@ class TestNormalizedSchema:
         dead = await storage.get_proxies_by_status("dead")
         assert len(dead) == 0
 
+    async def test_cleanup_defaults_run_vacuum_on_async_connection(self, storage):
+        """The public default cleanup path must await async execution options."""
+        counts = await storage.cleanup()
+
+        assert counts["dead"] == 0
+        assert counts["stale"] == 0
+        assert counts["never_validated"] == 0
+        async with storage.engine.connect() as conn:
+            assert (await conn.execute(sa.text("SELECT 1"))).scalar_one() == 1
+
     async def test_cleanup_preserves_never_validated_when_requested(self, storage):
         """Stale cleanup should not delete never-validated proxies through a null timestamp."""
         unchecked = Proxy(url="http://1.2.3.5:8080", protocol="http", allow_local=True)
@@ -2778,7 +3079,7 @@ class TestNormalizedSchema:
 
         assert counts["stale"] == 1
         remaining = await storage.load()
-        assert [row["url"] for row in remaining] == [unchecked.url]
+        assert [proxy["url"] for proxy in remaining] == [unchecked.url]
         cached_after = await storage.get_stats_cached()
         assert cached_after["total_proxies"] == 1
 

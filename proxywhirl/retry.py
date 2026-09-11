@@ -753,6 +753,8 @@ class RetryExecutor:
             error_message=str(error),
             failover_round=ctx.failover_round,
         )
+        # Release half-open probe slots (try_acquire_probe may have reserved one).
+        self._record_proxy_failure(proxy)
         raise NonRetryableError(str(error)) from error
 
     def _run_one_attempt(
@@ -766,6 +768,7 @@ class RetryExecutor:
     ) -> httpx.Response:
         """Execute one synchronous attempt; raise RetryableError to trigger tenacity retry."""
         self._check_attempt_timeout(request_id, attempt, proxy, ctx)
+        self._ensure_circuit_allows_request(proxy, request_id, attempt, ctx.failover_round)
 
         attempt_start = _current_time()
         try:
@@ -804,6 +807,7 @@ class RetryExecutor:
     ) -> httpx.Response:
         """Execute one asynchronous attempt; raise RetryableError to trigger tenacity retry."""
         self._check_attempt_timeout(request_id, attempt, proxy, ctx)
+        self._ensure_circuit_allows_request(proxy, request_id, attempt, ctx.failover_round)
 
         attempt_start = _current_time()
         try:
@@ -842,6 +846,7 @@ class RetryExecutor:
         failover_round: int = 0,
     ) -> httpx.Response:
         """Execute a single request attempt without retry."""
+        self._ensure_circuit_allows_request(proxy, request_id, attempt, failover_round)
         attempt_start = _current_time()
         try:
             response = request_fn()
@@ -901,6 +906,7 @@ class RetryExecutor:
         failover_round: int = 0,
     ) -> httpx.Response:
         """Execute a single async request attempt without retry."""
+        self._ensure_circuit_allows_request(proxy, request_id, attempt, failover_round)
         attempt_start = _current_time()
         try:
             response = await request_fn()
@@ -950,9 +956,39 @@ class RetryExecutor:
             raise
 
     def _is_retryable_method(self, method: str) -> bool:
-        """Check if HTTP method is safe to retry (idempotent)."""
-        idempotent_methods = {"GET", "HEAD", "OPTIONS", "DELETE", "PUT"}
+        """Check if HTTP method is safe to retry (conservative idempotent set)."""
+        idempotent_methods = {"GET", "HEAD", "OPTIONS"}
         return method.upper() in idempotent_methods
+
+    def _ensure_circuit_allows_request(
+        self,
+        proxy: Proxy,
+        request_id: str,
+        attempt: int,
+        failover_round: int,
+    ) -> None:
+        """Acquire a circuit breaker probe before executing a request attempt."""
+        circuit_breaker = self.circuit_breakers.get(str(proxy.id))
+        if circuit_breaker is None:
+            return
+        if not circuit_breaker.is_eligible():
+            self._record_attempt(
+                request_id,
+                attempt,
+                str(proxy.id),
+                RetryOutcome.CIRCUIT_OPEN,
+                0.0,
+                0.0,
+                error_message="Circuit breaker open",
+                failover_round=failover_round,
+            )
+            raise ProxyConnectionError(
+                f"Circuit breaker open for proxy {proxy.id}; request not attempted"
+            )
+        if not circuit_breaker.try_acquire_probe():
+            raise ProxyConnectionError(
+                f"Circuit breaker probe unavailable for proxy {proxy.id}; request not attempted"
+            )
 
     def _is_retryable_error(self, error: Exception) -> bool:
         """Determine if an error should trigger a retry."""
@@ -994,7 +1030,12 @@ class RetryExecutor:
         self.retry_metrics.record_attempt(attempt)
 
     def _record_proxy_failure(self, proxy: Proxy) -> None:
-        """Record a proxy failure in circuit breaker."""
+        """Record a proxy failure in the circuit breaker only.
+
+        Proxy model counters are updated once via strategy.record_result /
+        complete_request on the rotator/orchestration final outcome path so
+        per-attempt CB trips do not double-count total_failures.
+        """
         circuit_breaker = self.circuit_breakers.get(str(proxy.id))
         if circuit_breaker:
             old_state = circuit_breaker.state
@@ -1017,7 +1058,7 @@ class RetryExecutor:
                 )
 
     def _record_proxy_success(self, proxy: Proxy) -> None:
-        """Record a proxy success in circuit breaker."""
+        """Record a proxy success in the circuit breaker only (see failure note)."""
         circuit_breaker = self.circuit_breakers.get(str(proxy.id))
         if circuit_breaker:
             old_state = circuit_breaker.state
@@ -1066,7 +1107,7 @@ class RetryExecutor:
                 continue
 
             circuit_breaker = self.circuit_breakers.get(str(proxy.id))
-            if circuit_breaker and not circuit_breaker.should_attempt_request():
+            if circuit_breaker and not circuit_breaker.is_eligible():
                 continue
 
             candidates.append(proxy)

@@ -18,10 +18,26 @@ from proxywhirl.config import (
     decrypt_credentials,
     discover_config,
     encrypt_credentials,
+    expand_env_vars,
     get_encryption_key,
     load_config,
     save_config,
 )
+
+
+class TestExpandEnvVars:
+    """Test environment variable expansion in config strings."""
+
+    def test_braced_unset_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Unset ${VAR} (braced form) must raise."""
+        monkeypatch.delenv("PROXYWHIRL_TEST_UNSET", raising=False)
+        with pytest.raises(ValueError, match="PROXYWHIRL_TEST_UNSET"):
+            expand_env_vars("prefix-${PROXYWHIRL_TEST_UNSET}-suffix")
+
+    def test_braced_with_default_uses_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """${VAR:default} uses default when unset."""
+        monkeypatch.delenv("PROXYWHIRL_TEST_DEFAULT", raising=False)
+        assert expand_env_vars("${PROXYWHIRL_TEST_DEFAULT:fallback}") == "fallback"
 
 
 class TestProxyConfig:
@@ -200,6 +216,24 @@ class TestDiscoverConfig:
         with patch("proxywhirl.config.user_config_dir", return_value=str(tmp_path / "config")):
             result = discover_config()
             assert result is None
+
+    def test_project_local_proxywhirl_toml(self, tmp_path: Path, monkeypatch) -> None:
+        """RV-019: discovery prefers ./.proxywhirl.toml in the project directory."""
+        monkeypatch.chdir(tmp_path)
+        local_config = tmp_path / ".proxywhirl.toml"
+        local_config.write_text("timeout = 45\n")
+
+        result = discover_config()
+        assert result == local_config
+
+    def test_proxywhirl_toml_precedes_pyproject(self, tmp_path: Path, monkeypatch) -> None:
+        """RV-019: .proxywhirl.toml wins over pyproject.toml when both exist."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / ".proxywhirl.toml").write_text("timeout = 11\n")
+        (tmp_path / "pyproject.toml").write_text("[tool.proxywhirl]\ntimeout = 22\n")
+
+        result = discover_config()
+        assert result == tmp_path / ".proxywhirl.toml"
 
     def test_project_local_pyproject(self, tmp_path: Path, monkeypatch) -> None:
         """Test discovery finds pyproject.toml with proxywhirl section."""
@@ -474,9 +508,10 @@ class TestCredentialEncryption:
             assert decrypted.proxies[0].password.get_secret_value() == "testpass"
 
     def test_decrypt_handles_unencrypted_values(self) -> None:
-        """Test that decryption gracefully handles unencrypted values."""
+        """Test that decryption gracefully handles unencrypted values when not strict."""
         test_key = Fernet.generate_key().decode()
         config = CLIConfig(
+            encrypt_credentials=False,
             encryption_key_env="DECRYPT_KEY",
             proxies=[
                 ProxyConfig(
@@ -494,10 +529,11 @@ class TestCredentialEncryption:
             assert decrypted.proxies[0].password.get_secret_value() == "plainpass"
 
     def test_decrypt_with_wrong_key(self) -> None:
-        """Test that decryption gracefully handles wrong encryption key."""
+        """Test that decryption gracefully handles wrong encryption key when not strict."""
         encrypt_key = Fernet.generate_key().decode()
         decrypt_key = Fernet.generate_key().decode()  # Different key
         config = CLIConfig(
+            encrypt_credentials=False,
             encryption_key_env="ENCRYPT_KEY",
             proxies=[
                 ProxyConfig(
@@ -520,6 +556,29 @@ class TestCredentialEncryption:
             # Should not raise, should keep encrypted values as-is
             assert decrypted.proxies[0].username.get_secret_value() == encrypted_username
             assert decrypted.proxies[0].password.get_secret_value() == encrypted_password
+
+    def test_decrypt_with_wrong_key_strict_raises(self) -> None:
+        """D13: encrypt_credentials=True must error on decrypt failure, not return ciphertext."""
+        encrypt_key = Fernet.generate_key().decode()
+        decrypt_key = Fernet.generate_key().decode()
+        config = CLIConfig(
+            encrypt_credentials=True,
+            encryption_key_env="ENCRYPT_KEY",
+            proxies=[
+                ProxyConfig(
+                    url="http://proxy.example.com:8080",
+                    username=SecretStr("testuser"),
+                    password=SecretStr("testpass"),
+                )
+            ],
+        )
+
+        with patch.dict(os.environ, {"ENCRYPT_KEY": encrypt_key}):
+            encrypted = encrypt_credentials(config)
+
+        with patch.dict(os.environ, {"ENCRYPT_KEY": decrypt_key}):
+            with pytest.raises(ValueError, match="Failed to decrypt"):
+                decrypt_credentials(encrypted)
 
     def test_encrypt_without_credentials(self) -> None:
         """Test encryption with proxy that has no credentials."""

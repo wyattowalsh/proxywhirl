@@ -1,10 +1,12 @@
 """Integration tests for MCP server."""
 
+from unittest.mock import AsyncMock
 from uuid import uuid4
 
 import pytest
 
 from proxywhirl.circuit_breaker import CircuitBreaker
+from proxywhirl.exceptions import ProxyPoolEmptyError
 from proxywhirl.mcp.auth import MCPAuth
 from proxywhirl.mcp.server import (
     _proxywhirl_tool,
@@ -139,7 +141,8 @@ class TestMCPFullWorkflow:
 
     async def test_mcp_circuit_breaker_workflow(self, mcp_rotator) -> None:
         """Test circuit breaker management workflow."""
-        proxy_id = str(mcp_rotator.pool.proxies[0].id)
+        proxies = await mcp_rotator.pool.aget_all_proxies()
+        proxy_id = str(proxies[0].id)
 
         # Check initial status
         status_result = await proxywhirl(action="status", proxy_id=proxy_id)
@@ -277,8 +280,8 @@ class TestMCPEmptyPool:
 
     async def test_mcp_rotate_empty_pool(self) -> None:
         """Test rotate action with empty pool returns error."""
-        empty_rotator = AsyncProxyWhirl()
-        empty_rotator.pool = ProxyPool(name="empty_pool", proxies=[])
+        empty_rotator = AsyncMock(spec=AsyncProxyWhirl)
+        empty_rotator.get_proxy.side_effect = ProxyPoolEmptyError("Proxy pool is empty")
         await set_rotator(empty_rotator)
         set_auth(MCPAuth())
 
@@ -341,7 +344,8 @@ class TestMCPErrorHandling:
     async def test_mcp_reset_cb_nonexistent_proxy(self, mcp_rotator) -> None:
         """Test reset_cb action with proxy that has no circuit breaker."""
         # proxy3 (index 2) doesn't have a circuit breaker
-        proxy_id = str(mcp_rotator.pool.proxies[2].id)
+        proxies = await mcp_rotator.pool.aget_all_proxies()
+        proxy_id = str(proxies[2].id)
         result = await proxywhirl(action="reset_cb", proxy_id=proxy_id)
 
         assert "error" in result
@@ -387,7 +391,8 @@ class TestMCPConcurrentAccess:
         """Test mixed concurrent operations."""
         import asyncio
 
-        proxy_id = str(mcp_rotator.pool.proxies[0].id)
+        proxies = await mcp_rotator.pool.aget_all_proxies()
+        proxy_id = str(proxies[0].id)
 
         tasks = [
             proxywhirl(action="list"),

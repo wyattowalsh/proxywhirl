@@ -42,16 +42,16 @@ def test_circuit_breaker_state_invariants(
                 cb.record_failure()
                 consecutive_failures += 1
 
-        # Invariant 1: If failures >= threshold, circuit should be OPEN or HALF_OPEN
-        if consecutive_failures >= failure_threshold:
-            assert cb.state in (CircuitBreakerState.OPEN, CircuitBreakerState.HALF_OPEN)
+            # Invariant 1: windowed failures at/over threshold must open the circuit
+            if not is_success and cb.failure_count >= failure_threshold:
+                assert cb.state in (CircuitBreakerState.OPEN, CircuitBreakerState.HALF_OPEN)
 
-        # Invariant 2: Failure count should never exceed window size
-        assert cb.failure_count <= len(failure_sequence)
+            # Invariant 2: Failure count should never exceed window size
+            assert cb.failure_count <= len(failure_sequence)
 
-        # Invariant 3: If state is CLOSED, should allow requests
-        if cb.state == CircuitBreakerState.CLOSED:
-            assert cb.should_attempt_request() is True
+            # Invariant 3: If state is CLOSED, should allow requests (same clock)
+            if cb.state == CircuitBreakerState.CLOSED:
+                assert cb.should_attempt_request() is True
 
         current_time += 1.0
 

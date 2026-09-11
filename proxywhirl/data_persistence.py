@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import pickle
 from dataclasses import dataclass
 from pathlib import Path
@@ -120,8 +121,13 @@ class DataPersistence:
         raise ValueError(f"Unsupported persistence format: {format_type}")
 
     def _ensure_pickle_allowed(self) -> None:
-        """Reject pickle operations unless explicitly enabled by trusted callers."""
-        if not self.allow_pickle:
+        """Reject pickle unless opted in via constructor or PROXYWHIRL_ALLOW_PICKLE=1."""
+        env_allowed = os.environ.get("PROXYWHIRL_ALLOW_PICKLE", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+        if not (self.allow_pickle or env_allowed):
             raise ValueError("Pickle persistence is disabled by default")
 
     def save_json(self, name: str, data: Any) -> None:

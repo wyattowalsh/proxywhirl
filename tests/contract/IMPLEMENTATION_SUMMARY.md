@@ -229,7 +229,7 @@ Potential improvements for future iterations:
 - **Documentation:** `/tests/contract/README.md`
 - **Pytest Config:** `/pyproject.toml` (markers section)
 - **Proxy Sources:** `/proxywhirl/sources.py`
-- **Fetchers:** `/proxywhirl/fetchers.py`
+- **Fetchers:** [proxywhirl/fetchers/](../../proxywhirl/fetchers/)
 
 ---
 

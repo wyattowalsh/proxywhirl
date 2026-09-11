@@ -4,7 +4,10 @@
 
 ## Modules
 
-`core.py` (1,300+ lines) — all Pydantic models; `__init__.py` — re-exports
+| File | Contents |
+|------|----------|
+| `__init__.py` | Public re-exports (SemVer facade) |
+| `core.py` | All Pydantic domain models and enums |
 
 ## Key Models
 
@@ -14,7 +17,6 @@
 | `ProxyPool` | Thread-safe proxy collection | Yes |
 | `ProxyChain` | Multi-hop proxy chain | No |
 | `Session` | Sticky session binding | No |
-| `ProxyConfiguration` | Rotator config (BaseSettings) | No |
 | `StrategyConfig` | Strategy parameters | No |
 | `CircuitBreakerConfig` | CB thresholds/timing | No |
 | `ProxySourceConfig` | Source URL/format config | No |

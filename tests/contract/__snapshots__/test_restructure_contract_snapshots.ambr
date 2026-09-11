@@ -338,8 +338,8 @@
       'error': 'proxy_id required for status action',
     }),
     'unknown_action': dict({
-      'code': 400,
-      'error': 'Unknown action: unknown',
+      'code': 401,
+      'error': 'Authentication required for MCP action: unknown',
     }),
   })
 # ---

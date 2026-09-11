@@ -362,19 +362,16 @@ class TestEncodingEdgeCases:
 class TestEmptyPoolStrategies:
     """Test strategy behavior with empty proxy pools."""
 
-    @pytest.mark.asyncio
-    async def test_rotation_with_empty_pool(self) -> None:
+    def test_rotation_with_empty_pool(self) -> None:
         """Test rotation when pool is empty."""
-        rotator = ProxyWhirl(
+        with ProxyWhirl(
             proxies=[],  # Empty pool
             strategy="round-robin",
-        )
+        ) as rotator:
+            with pytest.raises(ProxyPoolEmptyError):
+                rotator.strategy.select(rotator.pool)
 
-        with pytest.raises(ProxyPoolEmptyError):
-            rotator.strategy.select(rotator.pool)
-
-    @pytest.mark.asyncio
-    async def test_empty_pool_with_bootstrap(self) -> None:
+    def test_empty_pool_with_bootstrap(self) -> None:
         """Test automatic bootstrap when pool is empty."""
         # Would test auto-bootstrap behavior if configured
         pool = ProxyPool(proxies=[])

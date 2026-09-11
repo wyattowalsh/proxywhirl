@@ -1,34 +1,50 @@
 """Integration tests for health/monitoring endpoints (US3)."""
 
+from __future__ import annotations
+
 import pytest
 from httpx import AsyncClient
 
-from proxywhirl.api import app
+
+@pytest.mark.integration
+async def test_health_endpoint(async_api_client: AsyncClient, api_test_rotator) -> None:
+    """GET /api/health returns structured health payload when the pool is usable."""
+    response = await async_api_client.get("/api/health")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "success"
+    assert body["data"]["status"] in {"healthy", "degraded"}
 
 
-@pytest.fixture
-async def api_client():
-    """Create an async HTTP client for the FastAPI app."""
-    async with AsyncClient(app=app, base_url="http://test") as client:
-        yield client
+@pytest.mark.integration
+async def test_readiness_endpoint(async_api_client: AsyncClient, api_test_rotator) -> None:
+    """GET /api/ready reports readiness when the rotator is initialized."""
+    response = await async_api_client.get("/api/ready")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "success"
+    assert body["data"]["ready"] is True
 
 
-# T046-T049: Integration tests for US3 - All skipped (implementation pending)
-@pytest.mark.skip(reason="Integration tests pending implementation")
-async def test_health_endpoint(api_client: AsyncClient):
-    """T046: Test /api/health endpoint."""
+@pytest.mark.integration
+async def test_status_endpoint(
+    async_api_client: AsyncClient, api_test_rotator, api_auth_headers: dict[str, str]
+) -> None:
+    """GET /api/status exposes pool aggregates."""
+    response = await async_api_client.get("/api/status", headers=api_auth_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "success"
+    assert body["data"]["pool_stats"]["total"] >= 2
 
 
-@pytest.mark.skip(reason="Integration tests pending implementation")
-async def test_readiness_endpoint(api_client: AsyncClient):
-    """T047: Test /api/ready endpoint."""
-
-
-@pytest.mark.skip(reason="Integration tests pending implementation")
-async def test_status_endpoint(api_client: AsyncClient):
-    """T048: Test /api/status endpoint."""
-
-
-@pytest.mark.skip(reason="Integration tests pending implementation")
-async def test_stats_endpoint(api_client: AsyncClient):
-    """T049: Test /api/stats endpoint (renamed from /api/metrics)."""
+@pytest.mark.integration
+async def test_stats_endpoint(
+    async_api_client: AsyncClient, api_test_rotator, api_auth_headers: dict[str, str]
+) -> None:
+    """GET /api/stats returns performance statistics."""
+    response = await async_api_client.get("/api/stats", headers=api_auth_headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "success"
+    assert "requests_total" in body["data"]

@@ -6,9 +6,13 @@ from __future__ import annotations
 
 import asyncio
 import threading
+import warnings
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, runtime_checkable
+from urllib.parse import quote
 from uuid import UUID, uuid4
 
 from loguru import logger
@@ -25,6 +29,9 @@ from pydantic import (
 )
 
 from proxywhirl.exceptions import ProxyPoolEmptyError
+
+# Emit at most one event-loop + thread-lock warning per process.
+_PROXY_POOL_EVENT_LOOP_LOCK_WARNED = False
 
 if TYPE_CHECKING:
     import httpx
@@ -762,13 +769,12 @@ class Proxy(BaseModel):
             # Increment completed count
             self.requests_completed += 1
 
-        # Delegate to existing success/failure recording
-        # Note: record_success() calls update_metrics() which updates both
-        # average_response_time_ms and ema_response_time_ms consistently
-        if success:
-            self.record_success(response_time_ms, alpha=alpha)
-        else:
-            self.record_failure()
+            # Delegate under the same lock so lifecycle counters and outcome stats
+            # stay consistent for concurrent complete_request callers (RV-012).
+            if success:
+                self.record_success(response_time_ms, alpha=alpha)
+            else:
+                self.record_failure()
 
     def reset_window(self) -> None:
         """Reset the sliding window counters.
@@ -849,6 +855,11 @@ class Proxy(BaseModel):
         from proxywhirl.security import redact_url
 
         return redact_url(url)
+
+    @field_serializer("tags", when_used="json")
+    def serialize_tags(self, tags: set[str]) -> list[str]:
+        """Serialize set-valued tags deterministically for storage and exports."""
+        return sorted(tags)
 
 
 class ProxyChain(BaseModel):
@@ -987,8 +998,16 @@ class SourceStats(BaseModel):
 class ProxyPool(BaseModel):
     """Collection of proxies with management capabilities.
 
-    Thread-safe proxy pool with RLock protection for concurrent access.
-    All mutating operations are automatically protected by a reentrant lock.
+    Thread-safe proxy pool protected by ``threading.RLock``. Sync callers may
+    use methods directly. From async code, prefer the ``a*`` helpers (or
+    ``asyncio.to_thread``) so the event loop is not blocked while the thread
+    lock is held.
+
+    Concurrency contract:
+    - Sync: ``add_proxy`` / ``get_all_proxies`` / etc. are safe across threads.
+    - Async: use ``aadd_proxy``, ``aget_all_proxies``, … or wrap mutations in
+      ``asyncio.to_thread(...)``. Holding this pool's RLock on the event-loop
+      thread can stall other coroutines.
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -1041,34 +1060,58 @@ class ProxyPool(BaseModel):
         # O(1) URL-based membership check
         object.__setattr__(self, "_url_index", url_index)
 
+    def _pool_lock(self) -> threading.RLock:
+        """Return the pool RLock after an optional event-loop safety warning."""
+        self._warn_if_thread_lock_on_event_loop()
+        return self._lock
+
+    @staticmethod
+    def _warn_if_thread_lock_on_event_loop() -> None:
+        """Warn once if a thread lock is taken while an event loop is running."""
+        global _PROXY_POOL_EVENT_LOOP_LOCK_WARNED
+        if _PROXY_POOL_EVENT_LOOP_LOCK_WARNED:
+            return
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        _PROXY_POOL_EVENT_LOOP_LOCK_WARNED = True
+        warnings.warn(
+            "ProxyPool uses threading.RLock; prefer async helpers "
+            "(aget_all_proxies / aadd_proxy / …) or asyncio.to_thread from "
+            "async code to avoid blocking the event loop.",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+
     @property
     def size(self) -> int:
         """Get pool size (thread-safe)."""
-        with self._lock:
+        with self._pool_lock():
             return len(self.proxies)
 
     @property
     def healthy_count(self) -> int:
         """Count healthy proxies (thread-safe)."""
-        with self._lock:
+        with self._pool_lock():
             return sum(1 for p in self.proxies if p.is_healthy)
 
     @property
     def unhealthy_count(self) -> int:
         """Count unhealthy proxies (thread-safe)."""
-        with self._lock:
+        with self._pool_lock():
             return sum(1 for p in self.proxies if not p.is_healthy)
 
     @property
     def total_requests(self) -> int:
         """Sum of all proxy requests (thread-safe)."""
-        with self._lock:
+        with self._pool_lock():
             return sum(p.total_requests for p in self.proxies)
 
     @property
     def overall_success_rate(self) -> float:
         """Weighted average success rate (thread-safe)."""
-        with self._lock:
+        with self._pool_lock():
             if not self.proxies:
                 return 0.0
 
@@ -1109,8 +1152,10 @@ class ProxyPool(BaseModel):
             - Automatically updates both ID and URL indexes
             - Timestamps updated on successful addition
         """
-        with self._lock:
-            if self.size >= self.max_pool_size:
+        with self._pool_lock():
+            # Use len(self.proxies) under the held lock (not self.size property)
+            # so capacity checks never re-enter for clarity under high contention.
+            if len(self.proxies) >= self.max_pool_size:
                 raise ValueError(f"Pool at maximum capacity ({self.max_pool_size})")
 
             # Check for duplicates using O(1) URL index
@@ -1151,7 +1196,7 @@ class ProxyPool(BaseModel):
             - Does not raise error if proxy not found
             - Timestamps updated on removal
         """
-        with self._lock:
+        with self._pool_lock():
             # Find and remove proxy
             proxy_to_remove = self._id_index.get(proxy_id) if proxy_id in self._id_index else None
 
@@ -1192,7 +1237,7 @@ class ProxyPool(BaseModel):
             - Thread-safe: uses RLock
             - Performs exact URL matching
         """
-        with self._lock:
+        with self._pool_lock():
             return proxy_url in self._url_index
 
     def get_proxy_by_id(self, proxy_id: UUID) -> Proxy | None:
@@ -1220,7 +1265,7 @@ class ProxyPool(BaseModel):
             - Thread-safe: uses RLock
             - Returns None if proxy ID not in pool
         """
-        with self._lock:
+        with self._pool_lock():
             return self._id_index.get(proxy_id)
 
     def filter_by_tags(self, tags: set[str]) -> list[Proxy]:
@@ -1248,7 +1293,7 @@ class ProxyPool(BaseModel):
             - Uses set intersection for matching
             - Returns empty list if no matches found
         """
-        with self._lock:
+        with self._pool_lock():
             return [p for p in self.proxies if tags.issubset(p.tags)]
 
     def filter_by_source(self, source: ProxySource) -> list[Proxy]:
@@ -1275,7 +1320,7 @@ class ProxyPool(BaseModel):
             - Thread-safe: uses RLock
             - Returns empty list if no proxies from source found
         """
-        with self._lock:
+        with self._pool_lock():
             return [p for p in self.proxies if p.source == source]
 
     def get_healthy_proxies(self) -> list[Proxy]:
@@ -1300,7 +1345,7 @@ class ProxyPool(BaseModel):
             - Filters out expired proxies (if TTL set)
             - Returns copy to prevent external modification
         """
-        with self._lock:
+        with self._pool_lock():
             return [
                 p
                 for p in self.proxies
@@ -1338,7 +1383,7 @@ class ProxyPool(BaseModel):
             - Updates timestamp
             - Preferred over manual removal for batches
         """
-        with self._lock:
+        with self._pool_lock():
             initial_count = self.size
             self.proxies = [
                 p
@@ -1373,7 +1418,7 @@ class ProxyPool(BaseModel):
             - Rebuilds ID index after bulk removal
             - Updates timestamp
         """
-        with self._lock:
+        with self._pool_lock():
             initial_count = self.size
             self.proxies = [p for p in self.proxies if not p.is_expired]
             # Rebuild indexes after bulk removal
@@ -1403,7 +1448,7 @@ class ProxyPool(BaseModel):
             - Returns a copy to prevent external modification
             - Safe to iterate while other threads modify pool
         """
-        with self._lock:
+        with self._pool_lock():
             return self.proxies.copy()
 
     def get_source_breakdown(self) -> dict[str, int]:
@@ -1428,12 +1473,56 @@ class ProxyPool(BaseModel):
             - Uses source.value for readable source names
             - Useful for analytics and monitoring
         """
-        with self._lock:
+        with self._pool_lock():
             breakdown: dict[str, int] = {}
             for proxy in self.proxies:
                 source_key = proxy.source.value
                 breakdown[source_key] = breakdown.get(source_key, 0) + 1
             return breakdown
+
+    # ------------------------------------------------------------------
+    # Async helpers (event-loop safe via asyncio.to_thread)
+    # ------------------------------------------------------------------
+
+    async def aget_all_proxies(self) -> list[Proxy]:
+        """Async-safe copy of all proxies (offloads the RLock to a worker thread)."""
+        return await asyncio.to_thread(self.get_all_proxies)
+
+    async def aget_healthy_proxies(self) -> list[Proxy]:
+        """Async-safe healthy-proxy snapshot."""
+        return await asyncio.to_thread(self.get_healthy_proxies)
+
+    async def aadd_proxy(self, proxy: Proxy) -> None:
+        """Async-safe proxy add."""
+        await asyncio.to_thread(self.add_proxy, proxy)
+
+    async def aremove_proxy(self, proxy_id: UUID) -> None:
+        """Async-safe proxy remove."""
+        await asyncio.to_thread(self.remove_proxy, proxy_id)
+
+    async def ahas_proxy_url(self, proxy_url: str) -> bool:
+        """Async-safe URL membership check."""
+        return await asyncio.to_thread(self.has_proxy_url, proxy_url)
+
+    async def aget_proxy_by_id(self, proxy_id: UUID) -> Proxy | None:
+        """Async-safe ID lookup."""
+        return await asyncio.to_thread(self.get_proxy_by_id, proxy_id)
+
+    async def asize(self) -> int:
+        """Async-safe pool size."""
+        return await asyncio.to_thread(lambda: self.size)
+
+    async def aclear_unhealthy(self) -> int:
+        """Async-safe unhealthy purge."""
+        return await asyncio.to_thread(self.clear_unhealthy)
+
+    async def aclear_expired(self) -> int:
+        """Async-safe expired purge."""
+        return await asyncio.to_thread(self.clear_expired)
+
+    async def aget_source_breakdown(self) -> dict[str, int]:
+        """Async-safe source breakdown."""
+        return await asyncio.to_thread(self.get_source_breakdown)
 
 
 # ============================================================================
@@ -1486,6 +1575,28 @@ class StorageBackend(Protocol):
 # ============================================================================
 
 
+class _HealthValidationResult(Protocol):
+    """Validation result surface consumed by ``HealthMonitor``."""
+
+    @property
+    def is_valid(self) -> bool:
+        """Whether the proxy passed validation."""
+        ...
+
+    @property
+    def response_time_ms(self) -> float | None:
+        """Successful validation latency, when measured."""
+        ...
+
+
+class _HealthValidator(Protocol):
+    """Validator surface used by a health-check cycle."""
+
+    async def validate(self, proxy: dict[str, Any]) -> _HealthValidationResult:
+        """Validate one proxy payload."""
+        ...
+
+
 class HealthMonitor:
     """Continuous health monitoring for proxy pools with auto-eviction.
 
@@ -1500,6 +1611,9 @@ class HealthMonitor:
         >>> # ... proxies are monitored continuously ...
         >>> await monitor.stop()  # Stop monitoring
     """
+
+    _VALIDATION_TIMEOUT_SECONDS = 5.0
+    _MAX_CONCURRENT_CHECKS = 20
 
     def __init__(
         self,
@@ -1550,23 +1664,35 @@ class HealthMonitor:
 
         Cancels the background task and waits for graceful shutdown.
         Idempotent - safe to call when not running.
+
+        Raises:
+            RuntimeError: If the background task failed before shutdown completed.
         """
-        if not self.is_running:
+        task = self._task
+        if not self.is_running and task is None:
             return  # Not running
 
         self.is_running = False
 
-        if self._task and not self._task.done():
-            self._task.cancel()
+        try:
+            if task is None:
+                return
+            if not task.done():
+                task.cancel()
             try:
-                await self._task
+                await task
             except asyncio.CancelledError:
                 pass  # Expected when cancelling
-            except Exception:
-                pass  # Other errors also ignored during shutdown
-
-        self._task = None
-        self._start_time = None
+            except Exception as exc:
+                logger.bind(error_type=type(exc).__name__).error(
+                    "Health monitor background task failed during shutdown"
+                )
+                raise RuntimeError(
+                    "Health monitor background task failed during shutdown"
+                ) from None
+        finally:
+            self._task = None
+            self._start_time = None
 
     async def _check_health_loop(self) -> None:
         """Main health check loop - runs periodically."""
@@ -1575,18 +1701,140 @@ class HealthMonitor:
         while self.is_running:
             try:
                 await self._run_health_checks()
-            except Exception:
-                # Log error but keep running
-                pass
+            except Exception as exc:
+                logger.bind(error_type=type(exc).__name__).error(
+                    "Health monitor health-check cycle failed"
+                )
 
             # Sleep until next check
             await asyncio.sleep(self.check_interval)
 
     async def _run_health_checks(self) -> None:
-        """Run health checks on all proxies in pool."""
-        # This will be implemented with actual TCP/HTTP checks
-        # For now, just a placeholder
-        pass
+        """Run one bounded health-check cycle over an async-safe pool snapshot."""
+        proxies = await self.pool.aget_all_proxies()
+        if not proxies:
+            return
+
+        semaphore = asyncio.Semaphore(self._MAX_CONCURRENT_CHECKS)
+
+        async with self._validator_context() as validator:
+
+            async def check_proxy(proxy: Proxy) -> None:
+                async with semaphore:
+                    await self._check_proxy_health(validator, proxy)
+
+            await asyncio.gather(*(check_proxy(proxy) for proxy in proxies))
+
+    @asynccontextmanager
+    async def _validator_context(self) -> AsyncIterator[_HealthValidator]:
+        """Create and reliably close the validator used for one check cycle."""
+        # Imported lazily to avoid the fetchers -> models package cycle at import time.
+        from proxywhirl.fetchers import ProxyValidator
+
+        async with ProxyValidator(
+            timeout=self._VALIDATION_TIMEOUT_SECONDS,
+            concurrency=self._MAX_CONCURRENT_CHECKS,
+            cache_ttl_seconds=0,
+        ) as validator:
+            yield validator
+
+    @staticmethod
+    def _validation_payload(proxy: Proxy) -> dict[str, Any]:
+        """Build a validator payload, injecting URL-encoded credentials when present."""
+        proxy_url = proxy.url
+        if proxy.username is not None and proxy.password is not None:
+            username = quote(proxy.username.get_secret_value(), safe="")
+            password = quote(proxy.password.get_secret_value(), safe="")
+            scheme, remainder = proxy_url.split("://", 1)
+            proxy_url = f"{scheme}://{username}:{password}@{remainder}"
+
+        return {"url": proxy_url, "protocol": proxy.protocol}
+
+    async def _check_proxy_health(
+        self,
+        validator: _HealthValidator,
+        proxy: Proxy,
+    ) -> None:
+        """Validate and apply one proxy's health result without request accounting."""
+        try:
+            result = await validator.validate(self._validation_payload(proxy))
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logger.debug(
+                "Health validation raised {} for proxy id {}",
+                type(exc).__name__,
+                proxy.id,
+            )
+            await self._record_health_failure(
+                proxy,
+                error=f"{type(exc).__name__}: validation raised unexpectedly",
+            )
+            return
+
+        checked_at = datetime.now(timezone.utc)
+        if result.is_valid:
+            self._record_health_success(proxy, result.response_time_ms, checked_at)
+            return
+
+        await self._record_health_failure(
+            proxy,
+            error="Proxy validation failed",
+            checked_at=checked_at,
+        )
+
+    def _record_health_success(
+        self,
+        proxy: Proxy,
+        response_time_ms: float | None,
+        checked_at: datetime,
+    ) -> None:
+        """Apply health-only success telemetry and reset monitor failure state."""
+        proxy.last_health_check = checked_at
+        proxy.next_check_time = checked_at + timedelta(seconds=self.check_interval)
+        proxy.total_checks += 1
+        proxy.consecutive_successes += 1
+        proxy.recovery_attempt = 0
+        proxy.last_health_error = None
+        proxy.health_status = HealthStatus.HEALTHY
+        proxy.updated_at = checked_at
+        if response_time_ms is not None:
+            proxy.latency_ms = response_time_ms
+
+        self._record_success(proxy)
+
+    async def _record_health_failure(
+        self,
+        proxy: Proxy,
+        error: str,
+        checked_at: datetime | None = None,
+    ) -> None:
+        """Apply health-only failure telemetry and asynchronously evict at threshold."""
+        now = checked_at or datetime.now(timezone.utc)
+        failure_count = self._increment_failure_count(proxy)
+
+        proxy.last_health_check = now
+        proxy.next_check_time = now + timedelta(seconds=self.check_interval)
+        proxy.total_checks += 1
+        proxy.total_health_failures += 1
+        proxy.consecutive_successes = 0
+        proxy.recovery_attempt += 1
+        proxy.last_health_error = error
+        proxy.updated_at = now
+
+        if failure_count >= self.failure_threshold:
+            proxy.health_status = HealthStatus.DEAD
+            await self._aevict_proxy(proxy)
+        elif failure_count == 1:
+            proxy.health_status = HealthStatus.DEGRADED
+        else:
+            proxy.health_status = HealthStatus.UNHEALTHY
+
+    def _increment_failure_count(self, proxy: Proxy) -> int:
+        """Increment and return the monitor's consecutive failure count."""
+        failure_count = self._failure_counts.get(proxy.url, 0) + 1
+        self._failure_counts[proxy.url] = failure_count
+        return failure_count
 
     def _record_failure(self, proxy: Proxy) -> None:
         """Record a health check failure for a proxy.
@@ -1594,11 +1842,10 @@ class HealthMonitor:
         Args:
             proxy: Proxy that failed health check
         """
-        url = proxy.url
-        self._failure_counts[url] = self._failure_counts.get(url, 0) + 1
+        failure_count = self._increment_failure_count(proxy)
 
         # Check if threshold reached
-        if self._failure_counts[url] >= self.failure_threshold:
+        if failure_count >= self.failure_threshold:
             self._evict_proxy(proxy)
 
     def _record_success(self, proxy: Proxy) -> None:
@@ -1629,6 +1876,16 @@ class HealthMonitor:
         # Clean up failure count
         if proxy_url in self._failure_counts:
             del self._failure_counts[proxy_url]
+
+    async def _aevict_proxy(self, proxy: Proxy) -> None:
+        """Async-safe counterpart to ``_evict_proxy`` for event-loop callers."""
+        proxy_url = proxy.url
+        for candidate in await self.pool.aget_all_proxies():
+            if candidate.url == proxy_url:
+                await self.pool.aremove_proxy(candidate.id)
+                break
+
+        self._failure_counts.pop(proxy_url, None)
 
     def get_status(self) -> dict[str, Any]:
         """Get current monitoring status.

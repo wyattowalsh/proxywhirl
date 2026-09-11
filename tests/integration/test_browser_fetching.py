@@ -39,7 +39,12 @@ class TestBrowserFetching:
             proxies = await fetcher.fetch_from_source(source)
 
             # Verify browser was used (URL is converted to string)
-            mock_renderer.render.assert_called_once_with(str(source.url))
+            mock_renderer.render.assert_called_once_with(
+                str(source.url),
+                wait_for_selector=None,
+                wait_for_timeout=None,
+                max_content_bytes=256000,
+            )
 
             # Verify proxies were parsed
             assert len(proxies) == 1
@@ -110,9 +115,15 @@ class TestBrowserFetching:
         mock_browser_module = MagicMock()
         mock_browser_module.BrowserRenderer = MagicMock(return_value=mock_renderer)
 
-        with patch.dict("sys.modules", {"proxywhirl.browser": mock_browser_module}):
-            with pytest.raises(ProxyFetchError, match="Browser timeout"):
-                await fetcher.fetch_from_source(source)
+        with (
+            patch.dict("sys.modules", {"proxywhirl.browser": mock_browser_module}),
+            patch(
+                "proxywhirl.fetchers.fetcher.validate_source_url_safety",
+                return_value=(True, ""),
+            ),
+            pytest.raises(ProxyFetchError, match="Browser timeout"),
+        ):
+            await fetcher.fetch_from_source(source)
 
     async def test_browser_runtime_error_handling(self) -> None:
         """ProxyFetcher handles browser runtime errors gracefully."""
@@ -136,9 +147,15 @@ class TestBrowserFetching:
         mock_browser_module = MagicMock()
         mock_browser_module.BrowserRenderer = MagicMock(return_value=mock_renderer)
 
-        with patch.dict("sys.modules", {"proxywhirl.browser": mock_browser_module}):
-            with pytest.raises(ProxyFetchError, match="Browser error"):
-                await fetcher.fetch_from_source(source)
+        with (
+            patch.dict("sys.modules", {"proxywhirl.browser": mock_browser_module}),
+            patch(
+                "proxywhirl.fetchers.fetcher.validate_source_url_safety",
+                return_value=(True, ""),
+            ),
+            pytest.raises(ProxyFetchError, match="Browser error|Browser crashed|crashed"),
+        ):
+            await fetcher.fetch_from_source(source)
 
     async def test_fetch_all_with_mixed_render_modes(self) -> None:
         """ProxyFetcher handles sources with different render modes."""
@@ -178,7 +195,13 @@ class TestBrowserFetching:
             mock_browser_module = MagicMock()
             mock_browser_module.BrowserRenderer = MagicMock(return_value=mock_renderer)
 
-            with patch.dict("sys.modules", {"proxywhirl.browser": mock_browser_module}):
+            with (
+                patch.dict("sys.modules", {"proxywhirl.browser": mock_browser_module}),
+                patch(
+                    "proxywhirl.fetchers.fetcher.validate_source_url_safety",
+                    return_value=(True, ""),
+                ),
+            ):
                 proxies = await fetcher.fetch_all(validate=False, deduplicate=False)
 
                 # Should get proxies from both sources

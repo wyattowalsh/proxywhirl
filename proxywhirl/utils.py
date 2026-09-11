@@ -124,8 +124,19 @@ def _redact_sensitive_data(data: Any) -> Any:
 
 
 def _redact_sensitive_text(text: str) -> str:
-    """Redact URL credentials and token-like key/value fragments in text."""
+    """Redact URL credentials, Bearer/Basic headers, and token-like fragments."""
     text = _redact_url_credentials(text)
+    # Authorization: Bearer <token> / Basic <blob>
+    text = re.sub(
+        r"(?i)\b(authorization\s*[:=]\s*)(bearer|basic)\s+\S+",
+        r"\1\2 ***",
+        text,
+    )
+    text = re.sub(
+        r"(?i)\b(bearer)\s+[A-Za-z0-9\-._~+/]+=*",
+        r"\1 ***",
+        text,
+    )
     return re.sub(
         r"(?i)(password|token|api_?key|secret|credential)([\"']?\s*[:=]\s*[\"']?)([^\"'\s&,]+)",
         r"\1\2***",
@@ -379,19 +390,27 @@ def validate_target_url_safe(url: str, allow_private: bool = False) -> None:
                 "Access to localhost is not allowed. This is blocked to prevent SSRF attacks."
             )
 
-        # Resolve hostname and validate the resolved IP address
-        # This prevents bypasses via decimal/octal IP notation, IPv6-mapped IPv4,
-        # DNS rebinding, and other SSRF evasion techniques
+        # Resolve hostname with timeout and validate the resolved IP address.
+        # Prevents decimal/octal IP notation, IPv6-mapped IPv4, slow DNS DoS,
+        # and other SSRF evasion techniques.
+        from proxywhirl.security import _resolve_hostname_addresses_with_timeout
+
         try:
-            resolved_addresses = socket.getaddrinfo(
-                parsed.hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM
+            resolved_ip_strings = _resolve_hostname_addresses_with_timeout(
+                parsed.hostname, timeout=2.0
             )
-        except socket.gaierror as exception:
+        except TimeoutError as exception:
+            raise ValueError(
+                f"DNS resolution timed out for hostname: {parsed.hostname}"
+            ) from exception
+        except (socket.gaierror, OSError) as exception:
             raise ValueError(f"Cannot resolve hostname: {parsed.hostname}") from exception
 
+        if not resolved_ip_strings:
+            raise ValueError(f"Cannot resolve hostname: {parsed.hostname}")
+
         checked_addresses: set[ipaddress.IPv4Address | ipaddress.IPv6Address] = set()
-        for address_info in resolved_addresses:
-            resolved_ip = address_info[4][0]
+        for resolved_ip in resolved_ip_strings:
             try:
                 address = _normalize_target_ip_address(resolved_ip)
             except ValueError as exception:
@@ -572,13 +591,14 @@ def encrypt_credentials(plaintext: str, key: str | None = None) -> str:
 
     Args:
         plaintext: Plaintext to encrypt
-        key: Optional encryption key (base64-encoded). If None, generates new key.
+        key: Required encryption key (base64-encoded Fernet key).
 
     Returns:
         Encrypted text (base64-encoded)
 
     Raises:
         ImportError: If cryptography package not installed
+        ValueError: If key is missing (ephemeral key generation is not allowed)
     """
     try:
         from cryptography.fernet import Fernet
@@ -588,10 +608,14 @@ def encrypt_credentials(plaintext: str, key: str | None = None) -> str:
             "Install with: pip install 'proxywhirl[security]'"
         )
 
-    if key is None:
-        key = Fernet.generate_key().decode()
+    if key is None or not str(key).strip():
+        raise ValueError(
+            "encrypt_credentials requires an explicit key. "
+            "Generating and discarding a key would make ciphertext unrecoverable. "
+            "Use generate_encryption_key() and persist the key, then pass it here."
+        )
 
-    cipher = Fernet(key.encode())
+    cipher = Fernet(key.encode() if isinstance(key, str) else key)
     encrypted = cipher.encrypt(plaintext.encode())
     return str(encrypted.decode())
 

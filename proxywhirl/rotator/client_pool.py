@@ -84,6 +84,47 @@ class LRUClientPool:
                 # Add new client
                 self._clients[proxy_id] = client
 
+    def put_if_absent(self, proxy_id: str, client: httpx.Client) -> httpx.Client:
+        """Atomically publish ``client`` or return the existing canonical client.
+
+        Client construction happens outside the pool lock. Concurrent creators for
+        one proxy therefore converge here: the winner remains cached and every
+        duplicate is closed before this method returns.
+        """
+        duplicate: httpx.Client | None = None
+        evicted: tuple[str, httpx.Client] | None = None
+        with self._lock:
+            existing = self._clients.get(proxy_id)
+            if existing is not None:
+                self._clients.move_to_end(proxy_id)
+                duplicate = client
+                canonical = existing
+            else:
+                if len(self._clients) >= self._maxsize:
+                    evicted = self._clients.popitem(last=False)
+                self._clients[proxy_id] = client
+                canonical = client
+
+        if duplicate is not None and duplicate is not canonical:
+            self._close_client(duplicate, proxy_id=proxy_id, reason="duplicate")
+        if evicted is not None:
+            evicted_proxy_id, evicted_client = evicted
+            self._close_client(evicted_client, proxy_id=evicted_proxy_id, reason="evicted")
+        return canonical
+
+    @staticmethod
+    def _close_client(client: httpx.Client, *, proxy_id: str, reason: str) -> None:
+        """Close a discarded client without disturbing the pool's canonical entry."""
+        try:
+            client.close()
+            logger.debug(
+                "Closed non-canonical pooled client",
+                proxy_id=proxy_id,
+                reason=reason,
+            )
+        except Exception as exc:
+            logger.warning(f"Error closing {reason} client for proxy {proxy_id}: {exc}")
+
     def remove(self, proxy_id: str) -> None:
         """
         Remove and close a client from the pool.

@@ -28,9 +28,9 @@ class TestStrategySwitching:
         # Start with round-robin
         strategy = RoundRobinStrategy()
 
-        # Verify round-robin behavior - deterministic order
+        # Verify round-robin behavior - deterministic UUID order
         first_sequence = [strategy.select(pool).url for _ in range(3)]
-        expected_urls = [p.url for p in proxies]
+        expected_urls = [p.url for p in sorted(proxies, key=lambda p: str(p.id))]
         assert first_sequence == expected_urls, "Round-robin should follow predictable order"
 
         # Switch to random strategy

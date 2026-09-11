@@ -268,6 +268,7 @@ class TestOfflineEnricherGeoIPLookup:
 
         result = enricher._geoip_lookup("invalid-ip")
         assert result == {}
+        assert enricher.geoip_lookup_errors == 1
 
         enricher.close()
 

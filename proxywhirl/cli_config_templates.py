@@ -1,6 +1,9 @@
 """Configuration templates for the CLI.
 
 Provides predefined config templates for different use cases.
+
+.. warning::
+    Templates are **experimental** — field names and structure may change between releases.
 """
 
 from __future__ import annotations
@@ -11,7 +14,7 @@ from typing import Any
 
 
 class ConfigTemplate(str, Enum):
-    """Available configuration templates."""
+    """Available configuration templates (experimental)."""
 
     MINIMAL = "minimal"
     STANDARD = "standard"

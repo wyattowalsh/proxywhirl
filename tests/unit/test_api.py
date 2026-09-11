@@ -18,11 +18,17 @@ from proxywhirl.retry import (
     RetryOutcome,
 )
 
+_UNIT_API_KEY = "unit-test-api-key"
+_AUTH_HEADERS = {"X-API-Key": _UNIT_API_KEY}
+
 
 @pytest.fixture
-def client():
-    """Create a test client for the FastAPI app."""
-    return TestClient(app)
+def client(monkeypatch: pytest.MonkeyPatch):
+    """Create a test client with a configured API key for force-auth routes."""
+    monkeypatch.setenv("PROXYWHIRL_API_KEY", _UNIT_API_KEY)
+    test_client = TestClient(app)
+    test_client.headers.update(_AUTH_HEADERS)
+    return test_client
 
 
 @pytest.fixture
@@ -139,6 +145,34 @@ class TestRetryMetricsEndpoint:
             data = response.json()
             assert data["status"] == "success"
             assert "data_points" in data["data"]
+
+    @pytest.mark.parametrize(
+        ("path", "empty_value"),
+        [
+            ("/api/metrics/circuit-breakers?hours=0", []),
+            ("/api/metrics/retries/timeseries?hours=0", {"data_points": []}),
+            ("/api/metrics/retries/by-proxy?hours=0", {"proxies": {}}),
+        ],
+    )
+    def test_zero_hour_windows_preserve_released_empty_results(
+        self, client, mock_rotator, path, empty_value
+    ):
+        """Zero remains a valid query and returns the released empty shape."""
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
+            response = client.get(path)
+
+        assert response.status_code == 200
+        assert response.json()["data"] == empty_value
+
+    def test_large_metrics_window_is_bounded_to_retention(self, client, mock_rotator):
+        """Huge integers cannot overflow while retaining 0.3.3 response semantics."""
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
+            response = client.get(
+                "/api/metrics/retries/timeseries?hours=999999999999999999999999999999"
+            )
+
+        assert response.status_code == 200
+        assert "data_points" in response.json()["data"]
 
     def test_get_retry_metrics_prometheus_format(self, client, mock_rotator):
         """Test canonical Prometheus metrics endpoint."""
@@ -294,14 +328,21 @@ class TestCircuitBreakerMetricsEndpoint:
 class TestAPIAuthentication:
     """Tests for API key authentication on metrics endpoints."""
 
-    def test_retry_metrics_without_auth_when_disabled(self, client, mock_rotator):
-        """Test that metrics endpoints work without auth when auth is disabled."""
-        with (
-            patch("proxywhirl.api.runtime._rotator", mock_rotator),
-            patch.dict("os.environ", {"PROXYWHIRL_REQUIRE_AUTH": "false"}),
-        ):
+    def test_retry_metrics_force_auth_when_global_auth_disabled(
+        self, client, mock_rotator, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Force-auth still applies to metrics when REQUIRE_AUTH is false."""
+        monkeypatch.setenv("PROXYWHIRL_REQUIRE_AUTH", "false")
+        monkeypatch.setenv("PROXYWHIRL_API_KEY", _UNIT_API_KEY)
+        with patch("proxywhirl.api.runtime._rotator", mock_rotator):
+            # Default client headers include a valid key
             response = client.get("/api/metrics/retries")
             assert response.status_code == 200
+
+            # Missing key is rejected
+            unauth = TestClient(app)
+            response = unauth.get("/api/metrics/retries")
+            assert response.status_code == 401
 
     def test_retry_metrics_with_valid_api_key(self, client, mock_rotator):
         """Test that metrics endpoints work with valid API key."""
@@ -352,7 +393,8 @@ class TestAPIAuthentication:
             ),
         ):
             # Without API key
-            response = client.get("/api/metrics/circuit-breakers")
+            unauth = TestClient(app)
+            response = unauth.get("/api/metrics/circuit-breakers")
             assert response.status_code == 401
 
             # With valid API key
@@ -1524,12 +1566,12 @@ class TestAuditLoggingMiddleware:
 
         # Test with normal length key
         redacted = middleware._redact_api_key("super-secret-api-key-12345")
-        assert redacted == "supe...2345"
+        assert redacted == "***REDACTED***"
         assert "super-secret-api-key-12345" not in redacted
 
         # Test with short key
         redacted_short = middleware._redact_api_key("short")
-        assert redacted_short == "***"
+        assert redacted_short == "***REDACTED***"
 
         # Test with None
         redacted_none = middleware._redact_api_key(None)
@@ -1601,15 +1643,15 @@ class TestAuditLoggingMiddleware:
             patch("proxywhirl.api.runtime._rotator", mock_rotator),
             caplog.at_level(logging.INFO),
         ):
-            # Make a write operation
+            # Make a write operation (client fixture already supplies a valid API key)
             response = client.post(
                 "/api/request",
                 json={
                     "url": "http://example.com",
                     "method": "GET",
                 },
-                headers={"X-API-Key": "test-key-123"},
             )
+            assert response.status_code == 200
 
             # Verify audit logs were created
             # Check that structured logging occurred

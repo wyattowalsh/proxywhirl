@@ -103,7 +103,7 @@ class TestAsyncRequestBootstrap:
 
                     await rotator.get("https://httpbin.org/get")
 
-        assert rotator.pool.size == 3
+        assert await rotator.pool.asize() == 3
 
     async def test_bootstrap_skipped_when_pool_not_empty(self) -> None:
         """Bootstrap should be skipped when pool already has proxies."""

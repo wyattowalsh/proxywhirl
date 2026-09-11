@@ -21,11 +21,26 @@ from rich.console import Console
 from rich.table import Table
 from typer.core import TyperGroup
 
-from proxywhirl.config import CLIConfig, discover_config, load_config
+from proxywhirl.config import CLIConfig, discover_config
 from proxywhirl.formatters import OutputFormat as FormatterOutputFormat
 from proxywhirl.models import RequestResult
 from proxywhirl.types import ConfigAction, PoolAction
-from proxywhirl.utils import CLILock, mask_proxy_url, public_proxy_url
+from proxywhirl.utils import CLILock, _redact_sensitive_text, mask_proxy_url, public_proxy_url
+
+
+def _cli_getaddrinfo(*args, **kwargs):
+    """Patch-compatible getaddrinfo via ``proxywhirl.cli.socket``."""
+    from proxywhirl import cli as cli_pkg
+
+    return cli_pkg.socket.getaddrinfo(*args, **kwargs)
+
+
+def _cli_load_config(*args, **kwargs):
+    """Patch-compatible load_config via ``proxywhirl.cli.load_config``."""
+    from proxywhirl import cli as cli_pkg
+
+    return cli_pkg.load_config(*args, **kwargs)
+
 
 # Typer app instance
 app = typer.Typer(
@@ -86,8 +101,8 @@ def _safe_config_value(value: Any) -> Any:
         return safe
     if isinstance(value, list):
         return [_safe_config_value(item) for item in value]
-    if isinstance(value, str) and "://" in value and "@" in value:
-        return public_proxy_url(value)
+    if isinstance(value, str):
+        return _redact_sensitive_text(value)
     return value
 
 
@@ -222,7 +237,11 @@ def validate_target_url(url: str, allow_private: bool = False) -> None:
     try:
         parsed = urlparse(url)
     except Exception as e:
-        typer.secho(f"Error: Invalid URL format: {e}", err=True, fg="red")
+        typer.secho(
+            f"Error: Invalid URL format: {_safe_config_value(str(e))}",
+            err=True,
+            fg="red",
+        )
         raise typer.Exit(code=1) from e
 
     # Validate scheme (only http/https allowed for target URLs)
@@ -281,7 +300,7 @@ def validate_target_url(url: str, allow_private: bool = False) -> None:
             _reject_forbidden_target_address(address, parsed.hostname)
         else:
             try:
-                resolved_addresses = socket.getaddrinfo(
+                resolved_addresses = _cli_getaddrinfo(
                     parsed.hostname,
                     None,
                     socket.AF_UNSPEC,
@@ -432,9 +451,9 @@ def main(
 
     # Load configuration (defaults if no file found)
     try:
-        config = load_config(config_file)
+        config = _cli_load_config(config_file)
     except Exception as e:
-        typer.secho(f"Error loading config: {e}", err=True, fg="red")
+        typer.secho(f"Error loading config: {_safe_config_value(str(e))}", err=True, fg="red")
         raise typer.Exit(code=1) from e
 
     # Initialize console with TTY detection
@@ -688,7 +707,11 @@ def request(
             proxy_url = selected_proxy.url
         except Exception as e:
             if ctx.verbose:
-                typer.secho(f"Proxy selection failed: {e}", err=True, fg="yellow")
+                typer.secho(
+                    f"Proxy selection failed: {_safe_config_value(str(e))}",
+                    err=True,
+                    fg="yellow",
+                )
             # Fallback to first proxy if selection fails
             proxy_url = ctx.config.proxies[0].url
 
@@ -777,7 +800,7 @@ def request(
             last_error = e
             if ctx.verbose:
                 typer.secho(
-                    f"Attempt {attempt + 1}/{retries + 1} failed: {e}",
+                    f"Attempt {attempt + 1}/{retries + 1} failed: {_safe_config_value(str(e))}",
                     err=True,
                     fg="yellow",
                 )
@@ -787,7 +810,11 @@ def request(
     # All retries exhausted
     typer.secho(f"Request failed after {retries + 1} attempts", err=True, fg="red")
     if last_error:
-        typer.secho(f"Last error: {last_error}", err=True, fg="red")
+        typer.secho(
+            f"Last error: {_safe_config_value(str(last_error))}",
+            err=True,
+            fg="red",
+        )
     raise typer.Exit(code=1)
 
 
@@ -935,7 +962,15 @@ def pool(
                 sys.stdout, fieldnames=["url", "health", "response_time_ms", "success_rate"]
             )
             writer.writeheader()
-            writer.writerows([ps.model_dump() for ps in proxy_statuses])
+            writer.writerows(
+                {
+                    "url": status.url,
+                    "health": status.health,
+                    "response_time_ms": status.response_time_ms,
+                    "success_rate": status.success_rate,
+                }
+                for status in proxy_statuses
+            )
         else:  # TEXT
             command_ctx.console.print("\n[bold]Proxy Pool Summary[/bold]")
             command_ctx.console.print(f"Total Proxies: {summary.total_proxies}")
@@ -1050,7 +1085,9 @@ def pool(
                     f"[yellow]![/yellow] Proxy returned status {response.status_code}"
                 )
         except Exception as e:
-            command_ctx.console.print(f"[red]✗[/red] Proxy test failed: {mask_proxy_url(str(e))}")
+            command_ctx.console.print(
+                f"[red]✗[/red] Proxy test failed: {_safe_config_value(str(e))}"
+            )
             raise typer.Exit(code=1) from e
 
     elif action == "stats":
@@ -1126,6 +1163,8 @@ def config(
     """
     from pathlib import Path
 
+    from pydantic import ValidationError
+
     from proxywhirl.config import CLIConfig, save_config
 
     command_ctx = get_context()
@@ -1138,10 +1177,10 @@ def config(
             if not typer.confirm("Overwrite?"):
                 raise typer.Exit(code=0)
 
-        # Create default config (uses CLIConfig field defaults;
-        # only override encrypt_credentials so users don't need
-        # PROXYWHIRL_KEY set up before first use)
-        default_config = CLIConfig(encrypt_credentials=False)
+        from proxywhirl.config import get_encryption_key
+
+        default_config = CLIConfig(encrypt_credentials=True)
+        get_encryption_key(default_config)
         save_config(default_config, config_path)
         command_ctx.console.print(f"[green]✓[/green] Created config file: {config_path}")
 
@@ -1219,11 +1258,25 @@ def config(
             else:
                 new_value = value
 
-            setattr(command_ctx.config, key, new_value)
-            save_config(command_ctx.config, command_ctx.config_path)
+            global _context
+            config_data = command_ctx.config.model_dump(mode="python")
+            config_data[key] = new_value
+            updated_config = CLIConfig.model_validate(config_data)
+            save_config(updated_config, command_ctx.config_path)
+            if _context is not None:
+                _context = CommandContext(
+                    config=updated_config,
+                    config_path=command_ctx.config_path,
+                    format=command_ctx.format,
+                    verbose=command_ctx.verbose,
+                    console=command_ctx.console,
+                    lock=command_ctx.lock,
+                )
             command_ctx.console.print(f"[green]✓[/green] Set {key} = {new_value}")
-        except ValueError as e:
-            command_ctx.console.print(f"[red]Invalid value for {key}: {e}[/red]")
+        except (ValueError, ValidationError) as e:
+            command_ctx.console.print(
+                f"[red]Invalid value for {key}: {_safe_config_value(str(e))}[/red]"
+            )
             raise typer.Exit(code=1) from e
 
 
@@ -1361,7 +1414,7 @@ def export(
                 command_ctx.console.print(f"  {export_type}: {path}")
 
     except Exception as e:
-        command_ctx.console.print(f"[red]Export failed:[/red] {e}")
+        command_ctx.console.print(f"[red]Export failed:[/red] {_safe_config_value(str(e))}")
         raise typer.Exit(code=1) from e
 
 
@@ -1837,7 +1890,9 @@ def fetch(
             )
             proxies = valid_proxies
         except Exception as e:
-            command_ctx.console.print(f"[red]Re-validation failed:[/red] {e}")
+            command_ctx.console.print(
+                f"[red]Re-validation failed:[/red] {_safe_config_value(str(e))}"
+            )
             raise typer.Exit(code=1) from e
     else:
         # Normal mode: fetch from sources
@@ -1851,7 +1906,7 @@ def fetch(
                 )
             )
         except Exception as e:
-            command_ctx.console.print(f"[red]Fetch failed:[/red] {e}")
+            command_ctx.console.print(f"[red]Fetch failed:[/red] {_safe_config_value(str(e))}")
             raise typer.Exit(code=1) from e
 
         # Dual-validate HTTP proxies for HTTPS/CONNECT support
@@ -1926,7 +1981,8 @@ def fetch(
                         )
                 except Exception as e:
                     command_ctx.console.print(
-                        f"[yellow]HTTPS dual-validation skipped:[/yellow] {e}"
+                        "[yellow]HTTPS dual-validation skipped:[/yellow] "
+                        f"{_safe_config_value(str(e))}"
                     )
 
         # Display summary
@@ -1939,7 +1995,7 @@ def fetch(
                 asyncio.run(_save_results(proxies, Path("proxywhirl.db")))
                 command_ctx.console.print("[green]✓[/green] Saved to database")
             except Exception as e:
-                command_ctx.console.print(f"[red]Save failed:[/red] {e}")
+                command_ctx.console.print(f"[red]Save failed:[/red] {_safe_config_value(str(e))}")
                 raise typer.Exit(code=1) from e
 
     # Export if requested
@@ -1954,7 +2010,7 @@ def fetch(
             )
             command_ctx.console.print("[green]✓[/green] Exported to docs/proxy-lists")
         except Exception as e:
-            command_ctx.console.print(f"[red]Export failed:[/red] {e}")
+            command_ctx.console.print(f"[red]Export failed:[/red] {_safe_config_value(str(e))}")
             raise typer.Exit(code=1) from e
 
 
@@ -2135,9 +2191,10 @@ def health(
                 proxy.total_requests += 1
                 proxy.average_response_time_ms = elapsed_ms
 
+                display_url = public_proxy_url(str(proxy.url))
                 results.append(
                     ProxyStatus(
-                        url=proxy.url,
+                        url=display_url,
                         health=proxy.health_status,
                         response_time_ms=elapsed_ms,
                         success_rate=proxy.success_rate,
@@ -2146,7 +2203,7 @@ def health(
 
                 if command_ctx.verbose:
                     command_ctx.console.print(
-                        f"✓ {proxy.url}: {response.status_code} ({elapsed_ms:.0f}ms)"
+                        f"✓ {display_url}: {response.status_code} ({elapsed_ms:.0f}ms)"
                     )
 
             except Exception as e:
@@ -2157,9 +2214,10 @@ def health(
                 proxy.total_requests += 1
                 proxy.consecutive_failures += 1
 
+                display_url = public_proxy_url(str(proxy.url))
                 results.append(
                     ProxyStatus(
-                        url=proxy.url,
+                        url=display_url,
                         health=HealthStatus.UNHEALTHY,
                         response_time_ms=0,
                         success_rate=proxy.success_rate,
@@ -2167,13 +2225,14 @@ def health(
                 )
 
                 if command_ctx.verbose:
-                    command_ctx.console.print(f"✗ {proxy.url}: {e}")
+                    command_ctx.console.print(f"✗ {display_url}: {_safe_config_value(str(e))}")
 
         return results
 
     # Single check mode
     if not continuous:
-        command_ctx.console.print("\n[bold]Checking proxy health...[/bold]\n")
+        if command_ctx.format == FormatterOutputFormat.TEXT:
+            command_ctx.console.print("\n[bold]Checking proxy health...[/bold]\n")
         results = check_health()
 
         # Display results
@@ -2199,7 +2258,15 @@ def health(
                 sys.stdout, fieldnames=["url", "health", "response_time_ms", "success_rate"]
             )
             writer.writeheader()
-            writer.writerows([r.model_dump() for r in results])
+            writer.writerows(
+                {
+                    "url": result.url,
+                    "health": result.health,
+                    "response_time_ms": result.response_time_ms,
+                    "success_rate": result.success_rate,
+                }
+                for result in results
+            )
         else:  # TEXT
             command_ctx.console.print("[bold]Health Check Results[/bold]")
             command_ctx.console.print(
@@ -2287,7 +2354,9 @@ def validate_proxy(
         # Parse proxy URL
         parsed = urlparse(proxy_url)
         if not parsed.scheme or not parsed.hostname:
-            command_ctx.console.print(f"[red]Invalid proxy URL: {proxy_url}[/red]")
+            command_ctx.console.print(
+                f"[red]Invalid proxy URL: {_safe_config_value(proxy_url)}[/red]"
+            )
             raise typer.Exit(code=1)
 
         proxy_string = f"{parsed.scheme}://{parsed.netloc}"
@@ -2322,22 +2391,24 @@ def validate_proxy(
                 command_ctx.console.print(f"Response Time: {result['response_time_ms']}ms")
 
         except httpx.ConnectError as e:
+            safe_error = _safe_config_value(str(e))
             result = {
                 "proxy": display_proxy,
                 "status": "UNHEALTHY",
-                "error": str(e),
+                "error": safe_error,
                 "reason": "Connection failed",
             }
             if command_ctx.format == FormatterOutputFormat.JSON:
                 render_json(result)
             else:
-                command_ctx.console.print(f"[red]✗ Proxy connection failed: {e}[/red]")
+                command_ctx.console.print(f"[red]✗ Proxy connection failed: {safe_error}[/red]")
             raise typer.Exit(code=1)
         except httpx.TimeoutException as e:
+            safe_error = _safe_config_value(str(e))
             result = {
                 "proxy": display_proxy,
                 "status": "UNHEALTHY",
-                "error": str(e),
+                "error": safe_error,
                 "reason": "Timeout",
             }
             if command_ctx.format == FormatterOutputFormat.JSON:
@@ -2349,7 +2420,9 @@ def validate_proxy(
     except typer.Exit:
         raise
     except Exception as e:
-        command_ctx.console.print(f"[red]Error validating proxy: {e}[/red]")
+        command_ctx.console.print(
+            f"[red]Error validating proxy: {_safe_config_value(str(e))}[/red]"
+        )
         raise typer.Exit(code=1)
 
 
@@ -2451,7 +2524,12 @@ def import_proxies(
                 imported += 1
             except Exception as e:
                 failed += 1
-                errors.append({"proxy": proxy_str, "error": str(e)})
+                errors.append(
+                    {
+                        "proxy": _safe_config_value(proxy_str),
+                        "error": _safe_config_value(str(e)),
+                    }
+                )
 
         save_config(command_ctx.config, command_ctx.config_path)
 
@@ -2478,7 +2556,9 @@ def import_proxies(
     except typer.Exit:
         raise
     except Exception as e:
-        command_ctx.console.print(f"[red]Error importing proxies: {e}[/red]")
+        command_ctx.console.print(
+            f"[red]Error importing proxies: {_safe_config_value(str(e))}[/red]"
+        )
         raise typer.Exit(code=1)
 
 

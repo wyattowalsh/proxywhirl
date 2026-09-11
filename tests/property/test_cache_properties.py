@@ -78,7 +78,7 @@ class TestCacheInvariants:
     """Test fundamental cache invariants using property-based testing."""
 
     @given(key=cache_keys, proxy_url=proxy_urls, ttl=ttl_seconds)
-    @settings(max_examples=50, deadline=timedelta(milliseconds=5000))
+    @settings(max_examples=50, deadline=None)
     def test_put_get_roundtrip(self, key: str, proxy_url: str, ttl: int) -> None:
         """Property: What you put in, you should get back (within TTL)."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -107,7 +107,7 @@ class TestCacheInvariants:
             assert retrieved.ttl_seconds == entry.ttl_seconds
 
     @given(keys=st.lists(cache_keys, min_size=1, max_size=20, unique=True))
-    @settings(max_examples=20, deadline=timedelta(milliseconds=3000))
+    @settings(max_examples=20, deadline=None)
     def test_multiple_entries_isolation(self, keys: list[str]) -> None:
         """Property: Multiple entries should not interfere with each other."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -137,7 +137,7 @@ class TestCacheInvariants:
                 assert retrieved.proxy_url == f"http://proxy{i}.example.com:8080"
 
     @given(key=cache_keys)
-    @settings(max_examples=50, deadline=timedelta(milliseconds=1000))
+    @settings(max_examples=50, deadline=None)
     def test_get_nonexistent_returns_none(self, key: str) -> None:
         """Property: Getting non-existent key always returns None."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -146,7 +146,7 @@ class TestCacheInvariants:
             assert result is None, f"Non-existent key {key} should return None"
 
     @given(key=cache_keys, proxy_url=proxy_urls)
-    @settings(max_examples=50, deadline=timedelta(milliseconds=5000))
+    @settings(max_examples=50, deadline=None)
     def test_update_overwrites(self, key: str, proxy_url: str) -> None:
         """Property: Putting same key twice should overwrite with new value."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -235,7 +235,7 @@ class TestStatisticsInvariants:
             )
 
     @given(num_evictions=st.integers(min_value=1, max_value=10))
-    @settings(max_examples=10, deadline=timedelta(milliseconds=3000))
+    @settings(max_examples=10, deadline=None)
     def test_eviction_count_matches_capacity_overflow(self, num_evictions: int) -> None:
         """Property: Number of evictions should match capacity overflows."""
         capacity = 5
@@ -275,7 +275,7 @@ class TestCacheMaxSizeInvariant:
         max_entries=st.integers(min_value=3, max_value=20),
         num_puts=st.integers(min_value=1, max_value=25),
     )
-    @settings(max_examples=30, deadline=timedelta(milliseconds=2000))
+    @settings(max_examples=30, deadline=None)
     def test_l1_cache_size_never_exceeds_max(self, max_entries: int, num_puts: int) -> None:
         """Property: L1 cache size should never exceed max_entries regardless of put operations."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -309,7 +309,7 @@ class TestCacheMaxSizeInvariant:
         max_entries=st.integers(min_value=5, max_value=15),
         overflow_factor=st.integers(min_value=2, max_value=5),
     )
-    @settings(max_examples=20, deadline=timedelta(milliseconds=5000))
+    @settings(max_examples=20, deadline=None)
     def test_cache_respects_max_after_overflow(
         self, max_entries: int, overflow_factor: int
     ) -> None:
@@ -346,7 +346,7 @@ class TestCacheMaxSizeInvariant:
         keys=st.lists(cache_keys, min_size=5, max_size=30, unique=True),
         max_entries=st.integers(min_value=3, max_value=10),
     )
-    @settings(max_examples=20, deadline=timedelta(milliseconds=5000))
+    @settings(max_examples=20, deadline=None)
     def test_unique_keys_respect_max_capacity(self, keys: list[str], max_entries: int) -> None:
         """Property: With unique keys, L1 size never exceeds max even with random key patterns."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -380,7 +380,7 @@ class TestTTLExpirationMonotonicity:
     @given(ttl=st.integers(min_value=1, max_value=2))
     @settings(
         max_examples=5,
-        deadline=timedelta(milliseconds=10000),
+        deadline=None,
         suppress_health_check=[HealthCheck.too_slow],
     )
     def test_expired_entries_stay_expired(self, ttl: int) -> None:

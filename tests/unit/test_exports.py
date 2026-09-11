@@ -178,7 +178,7 @@ class TestGenerateRichProxies:
     async def test_empty_storage(self) -> None:
         """Test with empty storage returns empty proxies list."""
         mock_storage = AsyncMock()
-        mock_storage.load.return_value = []
+        mock_storage.query.return_value = []
 
         result = await generate_rich_proxies(mock_storage, max_age_hours=0)
 
@@ -191,7 +191,7 @@ class TestGenerateRichProxies:
 
     async def test_single_proxy(self) -> None:
         """Test with single proxy returns correct data."""
-        # With normalized schema, load() returns dicts
+        # Export row APIs remain dictionary-oriented.
         mock_proxy = {
             "url": "http://192.168.1.1:8080",
             "protocol": "http",
@@ -207,7 +207,7 @@ class TestGenerateRichProxies:
         }
 
         mock_storage = AsyncMock()
-        mock_storage.load.return_value = [mock_proxy]
+        mock_storage.query.return_value = [mock_proxy]
 
         result = await generate_rich_proxies(mock_storage, max_age_hours=0)
 
@@ -228,7 +228,7 @@ class TestGenerateRichProxies:
     async def test_invalid_proxy_urls_are_skipped(self) -> None:
         """Test rich export skips malformed proxy URLs instead of emitting :0 records."""
         mock_storage = AsyncMock()
-        mock_storage.load.return_value = [
+        mock_storage.query.return_value = [
             {"url": "http://192.168.1.1", "protocol": "http"},
             {"url": "http://:8080", "protocol": "http"},
             {"url": "http://192.168.1.2:8080", "protocol": "http"},
@@ -257,7 +257,7 @@ class TestGenerateRichProxies:
         }
 
         mock_storage = AsyncMock()
-        mock_storage.load.return_value = [mock_proxy]
+        mock_storage.query.return_value = [mock_proxy]
 
         result = await generate_rich_proxies(mock_storage, max_age_hours=0)
 
@@ -282,7 +282,7 @@ class TestGenerateRichProxies:
         }
 
         mock_storage = AsyncMock()
-        mock_storage.load.return_value = [mock_proxy]
+        mock_storage.query.return_value = [mock_proxy]
 
         result = await generate_rich_proxies(mock_storage, max_age_hours=0)
 
@@ -325,7 +325,7 @@ class TestGenerateRichProxies:
         proxies.append(socks_proxy)
 
         mock_storage = AsyncMock()
-        mock_storage.load.return_value = proxies
+        mock_storage.query.return_value = proxies
 
         result = await generate_rich_proxies(mock_storage, max_age_hours=0)
 

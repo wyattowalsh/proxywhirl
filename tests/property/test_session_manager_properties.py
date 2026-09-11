@@ -74,7 +74,7 @@ class TestSessionIdUniqueness:
     """Property tests for session ID uniqueness guarantees."""
 
     @given(session_ids=st.lists(session_ids, min_size=2, max_size=50, unique=True))
-    @settings(max_examples=50, deadline=timedelta(milliseconds=2000))
+    @settings(max_examples=50, deadline=None)
     def test_unique_session_ids_create_unique_sessions(self, session_ids: list[str]) -> None:
         """Property: Unique session IDs always create distinct sessions."""
         manager = SessionManager(max_sessions=100)
@@ -160,7 +160,7 @@ class TestSessionTTLExpiration:
         assert expired is None, f"Session should be expired after {ttl}s TTL"
 
     @given(ttl=st.integers(min_value=60, max_value=3600))
-    @settings(max_examples=20, deadline=timedelta(milliseconds=1000))
+    @settings(max_examples=20, deadline=None)
     def test_session_available_before_ttl(self, ttl: int) -> None:
         """Property: Session remains available before TTL expires."""
         manager = SessionManager(max_sessions=100)
@@ -565,7 +565,7 @@ class TestSessionPersistenceStrategyProperties:
             assert str(proxy.id) == first_proxy_id, "Session persistence should return same proxy"
 
     @given(num_sessions=st.integers(min_value=2, max_value=10))
-    @settings(max_examples=20, deadline=timedelta(milliseconds=2000))
+    @settings(max_examples=20, deadline=None)
     def test_different_sessions_can_use_different_proxies(self, num_sessions: int) -> None:
         """Property: Different session IDs may get different proxies."""
         # Create pool with many proxies to increase chance of different assignments

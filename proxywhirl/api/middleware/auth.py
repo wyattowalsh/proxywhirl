@@ -6,13 +6,12 @@ layer to the existing dependency-based authentication.
 
 from __future__ import annotations
 
-import secrets
-
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from proxywhirl.api.models import APIResponse, ErrorCode
+from proxywhirl.api.runtime import request_requires_api_key, secure_compare_digest
 from proxywhirl.settings import APISettings
 
 
@@ -24,36 +23,22 @@ def _api_error(status_code: int, code: ErrorCode, message: str) -> JSONResponse:
 class APIKeyMiddleware(BaseHTTPMiddleware):
     """Middleware to enforce API key authentication on protected routes.
 
-    Skips authentication for public paths (health, readiness, docs, root).
+    Skips authentication for public paths (health, readiness, root).
+    Docs surfaces (/docs, /redoc, /openapi.json) are skipped only when exposed.
     When PROXYWHIRL_REQUIRE_AUTH is enabled, validates the X-API-Key header
     against the PROXYWHIRL_API_KEY environment variable.
     """
 
-    # Paths that never require authentication
+    # Paths that never require authentication (docs added dynamically when exposed)
     PUBLIC_PATHS: frozenset[str] = frozenset(
         {
             "/",
-            "/docs",
-            "/redoc",
-            "/openapi.json",
             "/api/health",
             "/api/ready",
         }
     )
+    DOCS_PATHS: frozenset[str] = frozenset({"/docs", "/redoc", "/openapi.json"})
     PUBLIC_METRICS_PATHS: frozenset[str] = frozenset({"/api/metrics"})
-    PROTECTED_EXACT_ROUTES: frozenset[tuple[str, str]] = frozenset(
-        {
-            ("POST", "/api/proxies"),
-            ("PUT", "/api/config"),
-            ("PUT", "/api/retry/policy"),
-        }
-    )
-    PROTECTED_PREFIX_ROUTES: frozenset[tuple[str, str]] = frozenset(
-        {
-            ("DELETE", "/api/proxies/"),
-            ("POST", "/api/circuit-breakers/"),
-        }
-    )
 
     async def dispatch(self, request: Request, call_next):
         """Validate API key for protected requests."""
@@ -63,21 +48,20 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS":
             return await call_next(request)
 
-        # Skip public paths. Prometheus exposition is public only by explicit opt-in.
-        if path in self.PUBLIC_PATHS or (
-            api_settings.public_metrics and path in self.PUBLIC_METRICS_PATHS
+        # Skip public paths. Docs are public only when PROXYWHIRL_EXPOSE_DOCS enables them.
+        # Prometheus exposition is public only by explicit PROXYWHIRL_PUBLIC_METRICS opt-in.
+        if (
+            path in self.PUBLIC_PATHS
+            or (api_settings.docs_enabled and path in self.DOCS_PATHS)
+            or (api_settings.public_metrics and path in self.PUBLIC_METRICS_PATHS)
         ):
             return await call_next(request)
 
-        auth_required = (
-            api_settings.require_auth
-            or (request.method, path) in self.PROTECTED_EXACT_ROUTES
-            or any(
-                request.method == method and path.startswith(prefix)
-                for method, prefix in self.PROTECTED_PREFIX_ROUTES
-            )
-        )
-        if not auth_required:
+        if not request_requires_api_key(
+            request.method,
+            path,
+            require_auth=api_settings.require_auth,
+        ):
             return await call_next(request)
 
         expected_key = api_settings.api_key.get_secret_value() if api_settings.api_key else None
@@ -89,7 +73,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             )
 
         api_key = request.headers.get("X-API-Key")
-        if not api_key or not secrets.compare_digest(api_key, expected_key):
+        if not secure_compare_digest(api_key, expected_key):
             return _api_error(
                 status.HTTP_401_UNAUTHORIZED,
                 ErrorCode.VALIDATION_ERROR,

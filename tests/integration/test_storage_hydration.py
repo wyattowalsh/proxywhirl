@@ -47,8 +47,8 @@ def test_dict_to_proxy_round_trip() -> None:
 
 
 @pytest.mark.asyncio
-async def test_load_preserves_last_check_at() -> None:
-    """SQLiteStorage.load must emit last_check_at for dict_to_proxy hydration."""
+async def test_load_models_preserves_last_check_at() -> None:
+    """Model hydration must preserve normalized last_check_at state."""
     proxy_url = "http://hydration-last-check.example.com:8080"
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = Path(tmpdir) / "proxies.db"
@@ -57,18 +57,15 @@ async def test_load_preserves_last_check_at() -> None:
         await storage.save([Proxy(url=proxy_url)])
         await storage.record_validation(proxy_url, is_valid=True, response_time_ms=42.0)
 
-        rows = await storage.load()
-        row = next(item for item in rows if item["url"] == proxy_url)
-        restored = dict_to_proxy(row)
+        restored = next(item for item in await storage.load_models() if item.url == proxy_url)
 
-        assert row.get("last_check_at") is not None
         assert restored.last_health_check is not None
         await storage.close()
 
 
 @pytest.mark.asyncio
-async def test_load_preserves_expires_at() -> None:
-    """expires_at on identity rows must round-trip through load and dict_to_proxy."""
+async def test_load_models_preserves_expires_at() -> None:
+    """expires_at on identity rows must round-trip through model hydration."""
     proxy_url = "http://hydration-expires.example.com:8080"
     expires_at = datetime.now(timezone.utc) + timedelta(hours=2)
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -83,10 +80,7 @@ async def test_load_preserves_expires_at() -> None:
                 {"expires_at": expires_at, "url": proxy_url},
             )
 
-        rows = await storage.load()
-        row = next(item for item in rows if item["url"] == proxy_url)
-        restored = dict_to_proxy(row)
+        restored = next(item for item in await storage.load_models() if item.url == proxy_url)
 
-        assert row.get("expires_at") == expires_at
         assert restored.expires_at == expires_at
         await storage.close()

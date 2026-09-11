@@ -240,10 +240,12 @@ class TestCircuitBreakerEdgeCases:
             proxy_id="proxy1",
             failure_threshold=1,
             window_duration=0.001,  # 1ms window
+            timeout_duration=0.001,  # allow OPEN → eligible after short wait
         )
 
         cb._do_record_failure()
         time.sleep(0.01)
+        assert cb._do_is_eligible(time.time()) is True
         assert cb.failure_count == 0  # Old failure should be purged
 
     def test_large_failure_threshold(self) -> None:

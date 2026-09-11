@@ -42,7 +42,7 @@ class TestAsyncRotationWorkflow:
             await rotator.add_proxy(proxy2)
 
             # Verify proxies were added
-            assert rotator.pool.size == 2
+            assert await rotator.pool.asize() == 2
 
             # Get proxy (circuit breakers should allow selection)
             selected = await rotator.get_proxy()
@@ -50,7 +50,7 @@ class TestAsyncRotationWorkflow:
             assert selected.url in ["http://test-proxy1:8080", "http://test-proxy2:8080"]
 
             # Verify pool stats
-            stats = rotator.get_pool_stats()
+            stats = await rotator.aget_pool_stats()
             assert stats["total_proxies"] == 2
             assert stats["healthy_proxies"] >= 1  # At least one should be healthy/unknown
 
@@ -59,12 +59,12 @@ class TestAsyncRotationWorkflow:
         async with AsyncProxyWhirl() as rotator:
             # Add proxy from URL string
             await rotator.add_proxy("http://proxy1.example.com:8080")
-            assert rotator.pool.size == 1
+            assert await rotator.pool.asize() == 1
 
             # Add proxy from Proxy object
             proxy = Proxy(url="http://proxy2.example.com:8080", protocol="http")
             await rotator.add_proxy(proxy)
-            assert rotator.pool.size == 2
+            assert await rotator.pool.asize() == 2
 
             # Verify circuit breakers were created
             assert len(rotator.circuit_breakers) == 2
@@ -77,13 +77,13 @@ class TestAsyncRotationWorkflow:
             await rotator.add_proxy(proxy)
             proxy_id = str(proxy.id)
 
-            assert rotator.pool.size == 1
+            assert await rotator.pool.asize() == 1
             assert proxy_id in rotator.circuit_breakers
 
             # Remove proxy
             await rotator.remove_proxy(proxy_id)
 
-            assert rotator.pool.size == 0
+            assert await rotator.pool.asize() == 0
             assert proxy_id not in rotator.circuit_breakers
 
     async def test_async_statistics_workflow(self):
@@ -97,7 +97,7 @@ class TestAsyncRotationWorkflow:
             await rotator.add_proxy(proxy2)
 
             # Get comprehensive statistics
-            stats = rotator.get_statistics()
+            stats = await rotator.aget_statistics()
 
             assert stats["total_proxies"] == 2
             assert "source_breakdown" in stats
@@ -127,7 +127,7 @@ class TestAsyncRequestWithRetry:
             assert response.json()["origin"] == "1.2.3.4"
 
             # Verify success was recorded
-            stats = rotator.get_pool_stats()
+            stats = await rotator.aget_pool_stats()
             assert stats["total_successes"] == 1
 
     @respx.mock
@@ -183,7 +183,8 @@ class TestAsyncRequestWithRetry:
                 await rotator.get("https://httpbin.org/ip")
 
             # Verify failures were recorded
-            assert rotator.pool.proxies[0].total_failures > 0
+            proxies = await rotator.pool.aget_all_proxies()
+            assert proxies[0].total_failures > 0
 
     @respx.mock
     async def test_async_request_authentication_error(self):
@@ -334,7 +335,7 @@ class TestAsyncConcurrentRequests:
             assert all(r.status_code == 200 for r in responses)
 
             # Verify stats
-            stats = rotator.get_pool_stats()
+            stats = await rotator.aget_pool_stats()
             assert stats["total_successes"] == 10
 
     @respx.mock
@@ -453,18 +454,17 @@ class TestAsyncContextManagerCleanup:
         """
         rotator = AsyncProxyWhirl()
 
-        # Thread should be running
-        assert rotator._aggregation_thread.is_alive()
+        # Aggregation timer is deferred until context entry.
+        assert rotator._aggregation_thread is None or not rotator._aggregation_thread.is_alive()
 
         async with rotator:
-            pass
+            assert rotator._aggregation_thread is not None
+            assert rotator._aggregation_thread.is_alive()
 
-        # Wait a bit for thread to stop (INTENTIONAL: verifies thread cleanup timing)
+        # Wait a bit for timer cancel to take effect (INTENTIONAL: cleanup timing)
         await asyncio.sleep(0.1)
 
-        # Thread should be stopped (or at least stopping)
-        # Note: Thread may still be alive briefly after context exit
-        # so we check the stop event instead
+        # Stop event must be set after context exit
         assert rotator._stop_event.is_set()
 
     async def test_async_client_pool_cleanup(self):
@@ -540,7 +540,7 @@ class TestAsyncHTTPMethods:
             assert response_options.status_code == 200
 
             # Verify all requests were counted
-            stats = rotator.get_pool_stats()
+            stats = await rotator.aget_pool_stats()
             assert stats["total_successes"] == 7
 
 
@@ -604,16 +604,16 @@ class TestAsyncUnhealthyProxyCleanup:
             await rotator.add_proxy(unhealthy)
             await rotator.add_proxy(dead)
 
-            assert rotator.pool.size == 3
+            assert await rotator.pool.asize() == 3
 
             # Clear unhealthy
             removed_count = await rotator.clear_unhealthy_proxies()
 
             assert removed_count == 2  # unhealthy + dead
-            assert rotator.pool.size == 1
+            assert await rotator.pool.asize() == 1
 
             # Only healthy proxy should remain
-            remaining_proxy = rotator.pool.proxies[0]
+            remaining_proxy = (await rotator.pool.aget_all_proxies())[0]
             assert remaining_proxy.health_status == HealthStatus.HEALTHY
 
     async def test_async_clear_unhealthy_removes_circuit_breakers(self):

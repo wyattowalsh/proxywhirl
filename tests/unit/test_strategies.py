@@ -28,7 +28,7 @@ class TestRoundRobinStrategy:
     """Unit tests for RoundRobinStrategy with SelectionContext support."""
 
     def test_select_cycles_through_proxies_in_order(self):
-        """Test that round-robin selects proxies in sequential order."""
+        """Test that round-robin selects proxies in stable UUID order."""
         # Arrange
         pool = ProxyPool(name="test-pool")
         proxies = [
@@ -40,17 +40,14 @@ class TestRoundRobinStrategy:
 
         strategy = RoundRobinStrategy()
         context = SelectionContext()
+        expected = [p.url for p in sorted(proxies, key=lambda p: str(p.id))]
 
         # Act - Select 6 times to see full 2 cycles
         selections = [strategy.select(pool, context) for _ in range(6)]
 
-        # Assert - Should cycle: 0,1,2,0,1,2
-        assert selections[0].url == "http://proxy0.com:8080"
-        assert selections[1].url == "http://proxy1.com:8080"
-        assert selections[2].url == "http://proxy2.com:8080"
-        assert selections[3].url == "http://proxy0.com:8080"
-        assert selections[4].url == "http://proxy1.com:8080"
-        assert selections[5].url == "http://proxy2.com:8080"
+        # Assert - Should cycle through UUID-sorted order twice
+        assert [s.url for s in selections[:3]] == expected
+        assert [s.url for s in selections[3:]] == expected
 
     def test_select_skips_unhealthy_proxies(self):
         """Test that round-robin skips unhealthy proxies."""
@@ -66,15 +63,14 @@ class TestRoundRobinStrategy:
 
         strategy = RoundRobinStrategy()
         context = SelectionContext()
+        expected = [p.url for p in sorted([proxy0, proxy2], key=lambda p: str(p.id))]
 
         # Act - Select 4 times
         selections = [strategy.select(pool, context) for _ in range(4)]
 
-        # Assert - Should skip proxy1 (DEAD): 0,2,0,2
-        assert selections[0].url == "http://proxy0.com:8080"
-        assert selections[1].url == "http://proxy2.com:8080"
-        assert selections[2].url == "http://proxy0.com:8080"
-        assert selections[3].url == "http://proxy2.com:8080"
+        # Assert - Should skip proxy1 (DEAD) and cycle UUID-sorted healthy peers
+        assert [s.url for s in selections[:2]] == expected
+        assert [s.url for s in selections[2:]] == expected
 
     def test_select_raises_when_pool_empty(self):
         """Test that selecting from empty pool raises ProxyPoolEmptyError."""
@@ -182,16 +178,17 @@ class TestRoundRobinStrategy:
 
         strategy = RoundRobinStrategy()
         context = SelectionContext()
+        expected = [p.url for p in sorted(proxies, key=lambda p: str(p.id))]
 
         # Act - Select to get to last proxy, then wrap
-        _ = strategy.select(pool, context)  # proxy0
-        _ = strategy.select(pool, context)  # proxy1
-        last = strategy.select(pool, context)  # proxy2
-        first_again = strategy.select(pool, context)  # should wrap to proxy0
+        first = strategy.select(pool, context)
+        second = strategy.select(pool, context)
+        last = strategy.select(pool, context)
+        first_again = strategy.select(pool, context)
 
-        # Assert
-        assert last.url == "http://proxy2.com:8080"
-        assert first_again.url == "http://proxy0.com:8080"
+        # Assert - UUID-sorted cycle wraps to the first ordered proxy
+        assert [first.url, second.url, last.url] == expected
+        assert first_again.url == expected[0]
 
     def test_metadata_updated_on_selection(self):
         """Test that proxy metadata is updated when selected."""
@@ -1445,6 +1442,7 @@ class TestPerformanceBasedStrategy:
         pool.add_proxy(without_ema)
 
         strategy = PerformanceBasedStrategy(exploration_count=5)
+        strategy.configure(StrategyConfig(metadata={"exploration_probability": 1.0}))
         context = SelectionContext()
 
         # Act
@@ -1584,7 +1582,7 @@ class TestPerformanceBasedStrategy:
         assert counts["http://proxy2.com:8080"] > counts["http://proxy3.com:8080"]
 
     def test_cold_start_new_proxies_get_exploration_trials(self):
-        """Test that new proxies without EMA data are selected for exploration."""
+        """Test that new proxies receive exploration trials (probabilistic, not exclusive)."""
         # Arrange
         pool = ProxyPool(name="test-pool")
 
@@ -1606,11 +1604,12 @@ class TestPerformanceBasedStrategy:
         strategy = PerformanceBasedStrategy(exploration_count=5)
         context = SelectionContext()
 
-        # Act - Select proxy
-        selected = strategy.select(pool, context)
+        # Act - Many selections should include both exploration and exploitation
+        selections = [strategy.select(pool, context) for _ in range(80)]
+        urls = {s.url for s in selections}
 
-        # Assert - Should select new proxy for exploration
-        assert selected.url == "http://new.com:8080", "New proxy should be selected for exploration"
+        assert "http://new.com:8080" in urls
+        assert "http://established.com:8080" in urls
 
     def test_cold_start_exploration_count_threshold(self):
         """Test that proxies transition from exploration to exploitation after threshold."""
@@ -1633,16 +1632,15 @@ class TestPerformanceBasedStrategy:
         pool.add_proxy(exploiting_proxy)
 
         strategy = PerformanceBasedStrategy(exploration_count=5)
+        strategy.configure(
+            StrategyConfig(metadata={"exploration_probability": 1.0}),
+        )
         context = SelectionContext()
 
-        # Act - Make multiple selections
+        # Act - With exploration_probability=1.0, cold proxy is always preferred
         selections = [strategy.select(pool, context) for _ in range(10)]
 
-        # Assert - Should always select exploring proxy until threshold reached
-        # (Since it has fewer requests than exploration_count)
-        assert all(s.url == "http://exploring.com:8080" for s in selections), (
-            "Proxy below exploration threshold should always be selected"
-        )
+        assert all(s.url == "http://exploring.com:8080" for s in selections)
 
     def test_cold_start_multiple_new_proxies(self):
         """Test that multiple new proxies share exploration opportunities."""
@@ -1754,8 +1752,11 @@ class TestPerformanceBasedStrategy:
         pool.add_proxy(new_proxy)
         pool.add_proxy(established_proxy)
 
-        # Configure with exploration_count = 3
-        config = StrategyConfig(exploration_count=3)
+        # Configure with exploration_count = 3 and force exploration
+        config = StrategyConfig(
+            exploration_count=3,
+            metadata={"exploration_probability": 1.0},
+        )
         strategy = PerformanceBasedStrategy()
         strategy.configure(config)
 
@@ -1812,6 +1813,98 @@ class TestPerformanceBasedStrategy:
 
         # Assert - Should select new_proxy2 (new_proxy1 is filtered)
         assert selected.url == "http://new2.com:8080"
+
+
+class TestWave1StrategyFixes:
+    """Wave 1 rotator/strategy remediation (P-R-06..P-R-10)."""
+
+    def test_round_robin_stable_cursor_by_proxy_id_under_subset_churn(self) -> None:
+        pool = ProxyPool(name="test-pool")
+        proxies = [
+            Proxy(url=f"http://proxy{i}.com:8080", health_status=HealthStatus.HEALTHY)
+            for i in range(3)
+        ]
+        for proxy in proxies:
+            pool.add_proxy(proxy)
+
+        strategy = RoundRobinStrategy()
+        ordered_ids = sorted(str(p.id) for p in proxies)
+
+        first = strategy.select(pool, SelectionContext())
+        second = strategy.select(pool, SelectionContext())
+        assert str(second.id) == ordered_ids[(ordered_ids.index(str(first.id)) + 1) % 3]
+
+        # Simulate circuit-breaker subset churn: only two proxies remain selectable
+        shrunk = ProxyPool(name="shrunk", proxies=[proxies[0], proxies[2]])
+        third = strategy.select(shrunk, SelectionContext())
+        assert str(third.id) in {str(proxies[0].id), str(proxies[2].id)}
+
+    def test_weighted_strategy_resolves_custom_weight_by_id_before_url(self) -> None:
+        pool = ProxyPool(name="test-pool")
+        heavy = Proxy(url="http://heavy.com:8080", health_status=HealthStatus.HEALTHY)
+        light = Proxy(url="http://light.com:8080", health_status=HealthStatus.HEALTHY)
+        pool.add_proxy(heavy)
+        pool.add_proxy(light)
+
+        config = StrategyConfig(
+            weights={
+                str(heavy.id): 10.0,
+                heavy.url: 1.0,
+                str(light.id): 1.0,
+            }
+        )
+        strategy = WeightedStrategy()
+        strategy.configure(config)
+
+        healthy = pool.get_healthy_proxies()
+        weights = strategy._calculate_weights(healthy)
+        heavy_idx = 0 if healthy[0].id == heavy.id else 1
+        light_idx = 1 - heavy_idx
+        assert weights[heavy_idx] == pytest.approx(10.0 / 11.0)
+        assert weights[light_idx] == pytest.approx(1.0 / 11.0)
+
+    def test_session_persistence_keeps_degraded_sticky_proxy(self) -> None:
+        from proxywhirl.strategies import SessionPersistenceStrategy
+
+        pool = ProxyPool(name="test-pool")
+        degraded = Proxy(
+            url="http://degraded.com:8080",
+            health_status=HealthStatus.DEGRADED,
+        )
+        pool.add_proxy(degraded)
+
+        strategy = SessionPersistenceStrategy()
+        context = SelectionContext(session_id="sess-degraded")
+        first = strategy.select(pool, context)
+        second = strategy.select(pool, context)
+
+        assert first.url == second.url == "http://degraded.com:8080"
+
+    def test_composite_geo_filter_documents_context_driven_narrowing(self) -> None:
+        from proxywhirl.strategies import CompositeStrategy, GeoTargetedStrategy
+
+        pool = ProxyPool(name="test-pool")
+        us_proxy = Proxy(
+            url="http://us.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            country_code="US",
+        )
+        gb_proxy = Proxy(
+            url="http://gb.com:8080",
+            health_status=HealthStatus.HEALTHY,
+            country_code="GB",
+        )
+        pool.add_proxy(us_proxy)
+        pool.add_proxy(gb_proxy)
+
+        strategy = CompositeStrategy(
+            filters=[GeoTargetedStrategy()],
+            selector=RoundRobinStrategy(),
+        )
+        selected = strategy.select(pool, SelectionContext(target_country="US"))
+        assert selected.country_code == "US"
+        doc = CompositeStrategy.__doc__ or ""
+        assert "Geo honesty" in doc or "geo-constraint" in doc
 
 
 class TestPluginArchitecture:

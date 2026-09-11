@@ -59,7 +59,7 @@ class TestProxySourceConfig:
     def test_source_config_defaults(self):
         """Test ProxySourceConfig with defaults."""
         config = ProxySourceConfig(
-            url="http://proxy-list.example.com/proxies.json",  # type: ignore
+            url="http://proxy-list.example.com/proxies.json",
             format=ProxyFormat.JSON,
         )
         assert config.render_mode == RenderMode.AUTO
@@ -70,7 +70,7 @@ class TestProxySourceConfig:
     def test_source_config_with_custom_values(self):
         """Test ProxySourceConfig with custom values."""
         config = ProxySourceConfig(
-            url="http://proxy-list.example.com/proxies.html",  # type: ignore
+            url="http://proxy-list.example.com/proxies.html",
             format=ProxyFormat.HTML_TABLE,
             render_mode=RenderMode.JAVASCRIPT,
             wait_selector=".proxy-table",
@@ -90,7 +90,7 @@ class TestProxySourceConfig:
     def test_source_config_with_auth(self):
         """Test ProxySourceConfig with authentication."""
         config = ProxySourceConfig(
-            url="http://proxy-list.example.com/proxies.json",  # type: ignore
+            url="http://proxy-list.example.com/proxies.json",
             format=ProxyFormat.JSON,
             auth=("username", "password"),
         )
@@ -99,7 +99,7 @@ class TestProxySourceConfig:
     def test_source_config_with_metadata(self):
         """Test ProxySourceConfig with metadata."""
         config = ProxySourceConfig(
-            url="http://proxy-list.example.com/proxies.json",  # type: ignore
+            url="http://proxy-list.example.com/proxies.json",
             format=ProxyFormat.JSON,
             metadata={"provider": "example", "region": "us-east"},
         )
@@ -167,7 +167,7 @@ class TestProxyConfigurationStorage:
         """Test that configuration is immutable (frozen)."""
         config = ProxyConfiguration()
         with pytest.raises(ValidationError):
-            config.timeout = 60  # type: ignore
+            config.timeout = 60
 
 
 class TestProxyRecordMethods:
@@ -178,27 +178,27 @@ class TestProxyRecordMethods:
         proxy = Proxy(
             url="http://proxy.example.com:8080",
             health_status=HealthStatus.DEGRADED,
-        )  # type: ignore
+        )
         proxy.record_success(100.0)
         assert proxy.health_status == HealthStatus.HEALTHY
 
     def test_record_success_from_unknown_to_healthy(self):
         """Test that success from unknown state goes to healthy."""
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
         assert proxy.health_status == HealthStatus.UNKNOWN
         proxy.record_success(100.0)
         assert proxy.health_status == HealthStatus.HEALTHY
 
     def test_record_failure_with_error_message(self):
         """Test recording failure with custom error message."""
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
         proxy.record_failure(error="Connection refused")
         assert len(proxy.metadata["last_errors"]) == 1
         assert proxy.metadata["last_errors"][0]["error"] == "Connection refused"
 
     def test_record_failure_without_error_message(self):
         """Test recording failure without error message."""
-        proxy = Proxy(url="http://proxy.example.com:8080")  # type: ignore
+        proxy = Proxy(url="http://proxy.example.com:8080")
         proxy.record_failure()
         assert "last_errors" not in proxy.metadata or len(proxy.metadata["last_errors"]) == 0
 
@@ -210,14 +210,14 @@ class TestProxyPoolEdgeCases:
         """Test pool size property."""
         pool = ProxyPool(name="test")
         assert pool.size == 0
-        pool.add_proxy(Proxy(url="http://proxy1.example.com:8080"))  # type: ignore
+        pool.add_proxy(Proxy(url="http://proxy1.example.com:8080"))
         assert pool.size == 1
 
     def test_pool_get_proxy_by_id_with_multiple_proxies(self):
         """Test getting specific proxy by ID from multiple."""
         pool = ProxyPool(name="test")
-        proxy1 = Proxy(url="http://proxy1.example.com:8080")  # type: ignore
-        proxy2 = Proxy(url="http://proxy2.example.com:8080")  # type: ignore
+        proxy1 = Proxy(url="http://proxy1.example.com:8080")
+        proxy2 = Proxy(url="http://proxy2.example.com:8080")
         pool.add_proxy(proxy1)
         pool.add_proxy(proxy2)
 

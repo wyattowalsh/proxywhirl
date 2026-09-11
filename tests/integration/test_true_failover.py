@@ -50,3 +50,5 @@ class TestTrueFailover:
         assert response.status_code == 200
         assert len(attempted_ids) >= 2
         assert len(set(attempted_ids)) >= 2, "Failover should try multiple distinct proxy IDs"
+        assert proxy1.requests_active == 0
+        assert proxy2.requests_active == 0

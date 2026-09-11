@@ -11,6 +11,8 @@ This module provides:
 
 from __future__ import annotations
 
+import os
+import socket
 from collections.abc import AsyncGenerator, Generator
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -19,6 +21,7 @@ from uuid import uuid4
 import httpx
 import pytest
 import respx
+from cryptography.fernet import Fernet
 from faker import Faker
 from polyfactory.factories.pydantic_factory import ModelFactory
 from pydantic import SecretStr
@@ -32,10 +35,31 @@ from proxywhirl.models import (
     Session,
     StrategyConfig,
 )
+from proxywhirl.rotator import ProxyWhirl
+
+# Durable crypto policy refuses ephemeral keys. Provide a stable test-session key
+# so cache/storage suites can construct CredentialEncryptor without inventing keys
+# inside production code.
+if not os.environ.get("PROXYWHIRL_CACHE_ENCRYPTION_KEY"):
+    os.environ["PROXYWHIRL_CACHE_ENCRYPTION_KEY"] = Fernet.generate_key().decode()
 
 # ============================================================================
 # POLYFACTORY FACTORIES
 # ============================================================================
+
+# Shared Faker instance — constructing Faker() per field made bulk ProxyFactory.build()
+# slow enough to flake under full-suite pytest-timeout pressure.
+_FAKER = Faker()
+_PROXY_URL_COUNTER = 0
+
+
+def _next_proxy_url() -> str:
+    """Deterministic unique proxy URL without per-call Faker construction."""
+    global _PROXY_URL_COUNTER
+    _PROXY_URL_COUNTER += 1
+    host_n = (_PROXY_URL_COUNTER % 999) + 1
+    port = 1024 + (_PROXY_URL_COUNTER % 64511)
+    return f"http://proxy{host_n}.example.com:{port}"
 
 
 class ProxyFactory(ModelFactory[Proxy]):
@@ -45,24 +69,24 @@ class ProxyFactory(ModelFactory[Proxy]):
     __randomize_collection_length__ = False
 
     # Override specific fields with sensible defaults
-    id = lambda: uuid4()  # noqa: E731
-    url = lambda: (
-        f"http://proxy{Faker().random_int(1, 999)}.example.com:{Faker().random_int(1024, 65535)}"
-    )  # noqa: E731
-    protocol = lambda: Faker().random_element(["http", "https", "socks5"])  # noqa: E731
-    health_status = lambda: HealthStatus.UNKNOWN  # noqa: E731
-    source = lambda: ProxySource.FETCHED  # noqa: E731
-    tags = lambda: set()  # noqa: E731
-    metadata = lambda: {}  # noqa: E731
-    # Ensure numeric fields have valid non-negative values
-    latency_ms = lambda: Faker().pyfloat(min_value=0, max_value=5000)  # noqa: E731
-    success_rate = lambda: Faker().pyfloat(min_value=0, max_value=1)  # noqa: E731
-    ema_response_time_ms = lambda: Faker().pyfloat(min_value=0, max_value=5000)  # noqa: E731
-    average_response_time_ms = lambda: Faker().pyfloat(min_value=0, max_value=5000)  # noqa: E731
-    total_requests = lambda: Faker().random_int(min=0, max=1000)  # noqa: E731
-    total_successes = lambda: Faker().random_int(min=0, max=1000)  # noqa: E731
-    total_failures = lambda: Faker().random_int(min=0, max=100)  # noqa: E731
-    consecutive_failures = lambda: Faker().random_int(min=0, max=10)  # noqa: E731
+    id = lambda: uuid4()
+    url = _next_proxy_url
+    protocol = "http"
+    health_status = HealthStatus.UNKNOWN
+    source = ProxySource.FETCHED
+    # Prevent polyfactory from inventing random HttpUrl values for optional fields
+    source_url = None
+    tags = lambda: set()
+    metadata = lambda: {}
+    # Ensure numeric fields have valid non-negative values (shared Faker)
+    latency_ms = lambda: _FAKER.pyfloat(min_value=0, max_value=5000)
+    success_rate = lambda: _FAKER.pyfloat(min_value=0, max_value=1)
+    ema_response_time_ms = lambda: _FAKER.pyfloat(min_value=0, max_value=5000)
+    average_response_time_ms = lambda: _FAKER.pyfloat(min_value=0, max_value=5000)
+    total_requests = lambda: _FAKER.random_int(min=0, max=1000)
+    total_successes = lambda: _FAKER.random_int(min=0, max=1000)
+    total_failures = lambda: _FAKER.random_int(min=0, max=100)
+    consecutive_failures = lambda: _FAKER.random_int(min=0, max=10)
     # Credentials must be both None or both set - default to None
     username = None
     password = None
@@ -72,11 +96,11 @@ class ProxyFactory(ModelFactory[Proxy]):
         """Create a healthy proxy."""
         return cls.build(
             health_status=HealthStatus.HEALTHY,
-            total_requests=Faker().random_int(10, 100),
-            total_successes=Faker().random_int(8, 100),
-            total_failures=Faker().random_int(0, 2),
+            total_requests=_FAKER.random_int(10, 100),
+            total_successes=_FAKER.random_int(8, 100),
+            total_failures=_FAKER.random_int(0, 2),
             consecutive_failures=0,
-            average_response_time_ms=Faker().pyfloat(min_value=50, max_value=500),
+            average_response_time_ms=_FAKER.pyfloat(min_value=50, max_value=500),
             **kwargs,
         )
 
@@ -85,8 +109,8 @@ class ProxyFactory(ModelFactory[Proxy]):
         """Create an unhealthy proxy."""
         return cls.build(
             health_status=HealthStatus.UNHEALTHY,
-            total_failures=Faker().random_int(5, 20),
-            consecutive_failures=Faker().random_int(3, 5),
+            total_failures=_FAKER.random_int(5, 20),
+            consecutive_failures=_FAKER.random_int(3, 5),
             **kwargs,
         )
 
@@ -104,9 +128,14 @@ class ProxyFactory(ModelFactory[Proxy]):
         """Create a proxy with geo-location data."""
         return cls.build(
             country_code=country_code,
-            region=region or Faker().state(),
+            region=region or _FAKER.state(),
             **kwargs,
         )
+
+    @classmethod
+    def batch(cls, size: int = 10, **kwargs: Any) -> list[Proxy]:
+        """Create a list of proxies quickly for concurrency/load tests."""
+        return [cls.build(**kwargs) for _ in range(size)]
 
 
 class ProxyPoolFactory(ModelFactory[ProxyPool]):
@@ -114,9 +143,9 @@ class ProxyPoolFactory(ModelFactory[ProxyPool]):
 
     __model__ = ProxyPool
 
-    name = lambda: f"pool_{Faker().slug()}"  # noqa: E731
-    proxies = lambda: []  # noqa: E731
-    max_pool_size = lambda: 100  # noqa: E731
+    name = lambda: f"pool_{Faker().slug()}"
+    proxies = lambda: []
+    max_pool_size = lambda: 100
 
     @classmethod
     def with_proxies(cls, count: int = 5, **kwargs: Any) -> ProxyPool:
@@ -165,8 +194,8 @@ class SessionFactory(ModelFactory[Session]):
 
     __model__ = Session
 
-    session_id = lambda: str(uuid4())  # noqa: E731
-    proxy_id = lambda: str(uuid4())  # noqa: E731
+    session_id = lambda: str(uuid4())
+    proxy_id = lambda: str(uuid4())
 
     @classmethod
     def expired(cls, **kwargs: Any) -> Session:
@@ -241,6 +270,13 @@ async def respx_mock_async() -> AsyncGenerator[respx.MockRouter, None]:
 
 
 @pytest.fixture
+def respx_mock_strict() -> Generator[respx.MockRouter, None, None]:
+    """RESPX router that fails the test when a registered route was not used."""
+    with respx.mock(assert_all_called=True) as router:
+        yield router
+
+
+@pytest.fixture
 def mock_proxy_validation(respx_mock: respx.MockRouter) -> respx.MockRouter:
     """Set up mock responses for proxy validation endpoints."""
     # Mock common proxy validation endpoints
@@ -260,9 +296,25 @@ def mock_proxy_sources(respx_mock: respx.MockRouter) -> respx.MockRouter:
     return respx_mock
 
 
+_BOOTSTRAP_FETCH_EXEMPT = (
+    "test_sources.py",
+    "test_async_request_bootstrap.py",
+    "test_sync_request_bootstrap.py",
+    "test_bootstrap_config.py",
+)
+
+
 @pytest.fixture(autouse=True)
-def mock_lazy_bootstrap_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Keep lazy bootstrap tests/network deterministic by mocking source fetches."""
+def mock_lazy_bootstrap_fetch(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Mock lazy bootstrap fetches except in suites that assert real orchestration."""
+
+    node_path = str(request.fspath)
+    if any(name in node_path for name in _BOOTSTRAP_FETCH_EXEMPT):
+        return
+    if request.node.get_closest_marker("network"):
+        return
 
     async def _fetch_all_sources_mock(*args: Any, **kwargs: Any) -> list[dict[str, Any]]:
         return []
@@ -271,6 +323,102 @@ def mock_lazy_bootstrap_fetch(monkeypatch: pytest.MonkeyPatch) -> None:
         "proxywhirl.rotator._bootstrap.fetch_all_sources",
         _fetch_all_sources_mock,
     )
+
+
+# ============================================================================
+# API RUNTIME FIXTURES
+# ============================================================================
+
+_API_TEST_PATH_MARKERS = (
+    "/tests/api/",
+    "/tests/integration/test_api_",
+    "/tests/contract/test_api_",
+)
+
+
+@pytest.fixture(autouse=True)
+def deterministic_public_dns(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Resolve example.com hostnames to a public address for SSRF validation in API tests."""
+    if not any(marker in str(request.fspath) for marker in _API_TEST_PATH_MARKERS):
+        return
+
+    original_getaddrinfo = socket.getaddrinfo
+
+    def _getaddrinfo(
+        host: object,
+        port: object,
+        family: int = socket.AF_UNSPEC,
+        type: int = socket.SOCK_STREAM,
+        *args: object,
+        **kwargs: object,
+    ) -> list[tuple]:
+        host_text = str(host).rstrip(".").lower()
+        if host_text.endswith(".example.com") or host_text == "example.com":
+            return [(socket.AF_INET, type, 0, "", ("93.184.216.34", port or 80))]
+        return original_getaddrinfo(host, port, family, type, *args, **kwargs)
+
+    monkeypatch.setattr(socket, "getaddrinfo", _getaddrinfo)
+
+
+@pytest.fixture(autouse=True)
+def reset_api_runtime_state(request: pytest.FixtureRequest) -> Generator[None, None, None]:
+    """Reset global API runtime between API-scoped tests to avoid cross-test pollution."""
+    from proxywhirl.api import app
+    from proxywhirl.api import runtime as api_runtime
+
+    if not any(marker in str(request.fspath) for marker in _API_TEST_PATH_MARKERS):
+        yield
+        return
+
+    api_runtime.reset_api_state()
+    app.dependency_overrides.clear()
+    yield
+    api_runtime.reset_api_state()
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def async_api_client() -> AsyncGenerator[httpx.AsyncClient, None]:
+    """Async HTTP client wired to the FastAPI ASGI app."""
+    from httpx import ASGITransport, AsyncClient
+
+    from proxywhirl.api import app
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+
+
+_API_TEST_KEY = "integration-test-api-key"
+
+
+@pytest.fixture
+def api_auth_headers(monkeypatch: pytest.MonkeyPatch) -> dict[str, str]:
+    """Headers and env for routes that require configured API authentication."""
+    monkeypatch.setenv("PROXYWHIRL_API_KEY", _API_TEST_KEY)
+    return {"X-API-Key": _API_TEST_KEY}
+
+
+@pytest.fixture
+def api_test_rotator() -> Generator[ProxyWhirl, None, None]:
+    """Process-global rotator with two healthy proxies for API integration tests."""
+    from proxywhirl.api import runtime as api_runtime
+    from proxywhirl.models import HealthStatus
+
+    rotator = ProxyWhirl(
+        proxies=[
+            ProxyFactory.healthy(url="http://proxy1.example.com:8080"),
+            ProxyFactory.healthy(url="http://proxy2.example.com:8080"),
+        ],
+        bootstrap=False,
+    )
+    for proxy in rotator.pool.get_all_proxies():
+        proxy.health_status = HealthStatus.HEALTHY
+    api_runtime.set_rotator(rotator)
+    yield rotator
+    api_runtime.set_rotator(None)
 
 
 # ============================================================================
@@ -388,6 +536,39 @@ def snapshot_json(snapshot):
     return snapshot.use_extension(extension_class=None)
 
 
+class _AmbrSnapshotItem(pytest.Item):
+    """Trivial item so explicit ``pytest path/to/*.ambr`` invocations collect cleanly.
+
+    Agent stop-hooks often re-run modified paths under ``tests/``; syrupy snapshot
+    files (``.ambr``) are data, not modules. Collect them as a presence check so
+    those runs do not fail with ``ERROR: not found: ...ambr``.
+    """
+
+    def runtest(self) -> None:
+        assert self.path.is_file(), f"Missing syrupy snapshot file: {self.path}"
+        text = self.path.read_text(encoding="utf-8")
+        assert text.startswith("# serializer version:"), (
+            f"Unexpected syrupy snapshot header in {self.path}"
+        )
+
+    def reportinfo(self) -> tuple[Any, int | None, str]:
+        return self.path, None, f"ambr:{self.name}"
+
+
+class _AmbrSnapshotFile(pytest.File):
+    """Collector for syrupy ``.ambr`` snapshot files."""
+
+    def collect(self) -> Any:
+        yield _AmbrSnapshotItem.from_parent(self, name=self.path.name)
+
+
+def pytest_collect_file(file_path: Any, parent: Any) -> Any:
+    """Collect ``.ambr`` snapshot files when passed as explicit pytest paths."""
+    if file_path.suffix == ".ambr":
+        return _AmbrSnapshotFile.from_parent(parent, path=file_path)
+    return None
+
+
 # ============================================================================
 # HYPOTHESIS CONFIGURATION
 # ============================================================================
@@ -419,6 +600,12 @@ settings.register_profile(
 import os
 
 settings.load_profile(os.getenv("HYPOTHESIS_PROFILE", "dev"))
+
+# Reproducibility notes:
+# - `faker` seeds Faker at 12345 for stable synthetic URLs and labels.
+# - CI sets HYPOTHESIS_PROFILE=ci (see justfile coverage / GitHub Actions test job).
+# - `@pytest.mark.flaky(reruns=N)` is honored by pytest-rerunfailures; pair with
+#   `just test-rerun` locally when debugging ordering-sensitive integration tests.
 
 
 # ============================================================================

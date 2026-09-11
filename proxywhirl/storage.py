@@ -2,21 +2,24 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
+import os
+import stat
 import time
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from enum import Enum
 from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
+from uuid import UUID
 
 import aiofiles
 from cryptography.fernet import Fernet
 from loguru import logger
 from pydantic import SecretStr
-from sqlalchemy import delete, event, text
+from sqlalchemy import UniqueConstraint, delete, event, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlmodel import Field, SQLModel, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -73,33 +76,92 @@ def _decrypt_stored_credential(
         return None
 
 
-def dict_to_proxy(row: dict[str, Any]) -> Proxy:
-    """Convert a storage row dictionary to a :class:`~proxywhirl.models.Proxy`.
+def _decode_json_object(value: Any, field_name: str) -> dict[str, Any]:
+    """Decode a stored JSON object without exposing malformed content."""
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return dict(value)
+    if not isinstance(value, str):
+        logger.warning("Stored proxy {} is not a JSON object; omitting it", field_name)
+        return {}
+    try:
+        decoded = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("Stored proxy {} is malformed JSON; omitting it", field_name)
+        return {}
+    if not isinstance(decoded, dict):
+        logger.warning("Stored proxy {} is not a JSON object; omitting it", field_name)
+        return {}
+    return decoded
 
-    Handles rows with either a full ``url`` or ``host``/``port``/``protocol``,
-    decrypts stored credentials, and maps health/status metadata from SQLite.
 
-    Args:
-        row: Proxy dictionary from :meth:`SQLiteStorage.load` or similar queries.
+def _decode_json_tags(value: Any) -> set[str]:
+    """Decode stored tags while omitting malformed values without logging contents."""
+    if value is None:
+        return set()
+    if isinstance(value, (list, set, tuple)):
+        return {str(tag) for tag in value}
+    if not isinstance(value, str):
+        logger.warning("Stored proxy tags are not a JSON array; omitting them")
+        return set()
+    try:
+        decoded = json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        logger.warning("Stored proxy tags are malformed JSON; omitting them")
+        return set()
+    if not isinstance(decoded, list):
+        logger.warning("Stored proxy tags are not a JSON array; omitting them")
+        return set()
+    return {str(tag) for tag in decoded}
 
-    Returns:
-        Validated Proxy instance ready for the rotator pool.
 
-    Raises:
-        ValueError: If the row lacks sufficient identity fields.
-    """
+_PROXY_ROW_FIELDS = (
+    "requests_started",
+    "requests_completed",
+    "requests_active",
+    "total_requests",
+    "total_successes",
+    "total_failures",
+    "last_success_at",
+    "last_failure_at",
+    "ema_response_time_ms",
+    "ema_alpha",
+    "window_start",
+    "window_duration_seconds",
+    "country_code",
+    "region",
+    "consecutive_failures",
+    "consecutive_successes",
+    "recovery_attempt",
+    "next_check_time",
+    "last_health_error",
+    "total_checks",
+    "total_health_failures",
+    "updated_at",
+    "ttl",
+    "expires_at",
+)
+
+
+def _dict_to_proxy(
+    row: dict[str, Any],
+    encryptor: CredentialEncryptor | None = None,
+) -> Proxy:
+    """Internal row conversion with an optional configured credential decryptor."""
     url = row.get("url")
-    protocol = row.get("protocol") or "http"
+    protocol = row.get("protocol")
 
     if not url:
         host = row.get("host")
         port = row.get("port")
         if not host or port is None:
             raise ValueError("Row must include 'url' or both 'host' and 'port'")
+        protocol = protocol or "http"
         url = f"{protocol}://{host}:{port}"
 
-    username_plain = _decrypt_stored_credential(row.get("username"))
-    password_plain = _decrypt_stored_credential(row.get("password"))
+    username_plain = _decrypt_stored_credential(row.get("username"), encryptor)
+    password_plain = _decrypt_stored_credential(row.get("password"), encryptor)
 
     health_raw = row.get("health_status", HealthStatus.UNKNOWN.value)
     try:
@@ -115,10 +177,18 @@ def dict_to_proxy(row: dict[str, Any]) -> Proxy:
 
     proxy_kwargs: dict[str, Any] = {
         "url": url,
-        "protocol": protocol,
         "health_status": health_status,
         "source": source,
     }
+    if protocol is not None:
+        proxy_kwargs["protocol"] = protocol
+
+    raw_id = row.get("id")
+    if raw_id is not None:
+        try:
+            proxy_kwargs["id"] = UUID(str(raw_id))
+        except (TypeError, ValueError, AttributeError):
+            logger.warning("Stored proxy ID is invalid; generating a replacement")
 
     if (username_plain is None) != (password_plain is None):
         logger.warning("Stored proxy credentials are incomplete; omitting secret fields")
@@ -130,28 +200,72 @@ def dict_to_proxy(row: dict[str, Any]) -> Proxy:
     if password_plain is not None:
         proxy_kwargs["password"] = SecretStr(password_plain)
 
-    if row.get("country_code") is not None:
-        proxy_kwargs["country_code"] = row["country_code"]
-    if row.get("source_url") is not None:
-        proxy_kwargs["source_url"] = row["source_url"]
-    if row.get("discovered_at") is not None:
-        proxy_kwargs["created_at"] = row["discovered_at"]
-    if row.get("last_success_at") is not None:
-        proxy_kwargs["last_success_at"] = row["last_success_at"]
-    if row.get("last_failure_at") is not None:
-        proxy_kwargs["last_failure_at"] = row["last_failure_at"]
-    if row.get("last_check_at") is not None:
-        proxy_kwargs["last_health_check"] = row["last_check_at"]
-    if row.get("expires_at") is not None:
-        proxy_kwargs["expires_at"] = row["expires_at"]
-    if row.get("avg_response_time_ms") is not None:
-        proxy_kwargs["average_response_time_ms"] = row["avg_response_time_ms"]
-    if row.get("total_checks") is not None:
-        proxy_kwargs["total_checks"] = row["total_checks"]
-    if row.get("total_successes") is not None:
-        proxy_kwargs["total_successes"] = row["total_successes"]
+    for field_name in _PROXY_ROW_FIELDS:
+        if row.get(field_name) is not None:
+            proxy_kwargs[field_name] = row[field_name]
 
-    return Proxy(**proxy_kwargs)
+    aliases = {
+        "created_at": (
+            row.get("discovered_at")
+            if row.get("discovered_at") is not None
+            else row.get("created_at")
+        ),
+        "last_health_check": (
+            row.get("last_check_at")
+            if row.get("last_check_at") is not None
+            else row.get("last_health_check")
+        ),
+        "average_response_time_ms": (
+            row.get("avg_response_time_ms")
+            if row.get("avg_response_time_ms") is not None
+            else row.get("average_response_time_ms")
+        ),
+        "source_url": row.get("source_url"),
+    }
+    for field_name, value in aliases.items():
+        if value is not None:
+            proxy_kwargs[field_name] = value
+
+    raw_metadata = row.get("metadata", row.get("metadata_json"))
+    proxy_kwargs["metadata"] = _decode_json_object(raw_metadata, "metadata")
+    proxy_kwargs["tags"] = _decode_json_tags(row.get("tags", row.get("tags_json")))
+
+    for field_name in (
+        "created_at",
+        "updated_at",
+        "last_success_at",
+        "last_failure_at",
+        "last_health_check",
+        "next_check_time",
+        "window_start",
+        "expires_at",
+    ):
+        value = proxy_kwargs.get(field_name)
+        if isinstance(value, datetime) and value.tzinfo is None:
+            proxy_kwargs[field_name] = value.replace(tzinfo=timezone.utc)
+
+    try:
+        return Proxy(**proxy_kwargs)
+    except ValueError as exc:
+        raise ValueError("Stored proxy row failed validation") from exc
+
+
+def dict_to_proxy(row: dict[str, Any]) -> Proxy:
+    """Convert a storage row dictionary to a :class:`~proxywhirl.models.Proxy`.
+
+    Handles rows with either a full ``url`` or ``host``/``port``/``protocol``,
+    decrypts stored credentials, and maps health/status metadata from SQLite.
+
+    Args:
+        row: Proxy dictionary from :meth:`SQLiteStorage.load` or similar queries.
+
+    Returns:
+        Validated Proxy instance ready for the rotator pool.
+
+    Raises:
+        ValueError: If the row lacks sufficient identity fields.
+    """
+    return _dict_to_proxy(row)
 
 
 class ProxyIdentityTable(SQLModel, table=True):
@@ -171,6 +285,7 @@ class ProxyIdentityTable(SQLModel, table=True):
     """
 
     __tablename__: str = "proxy_identities"  # type: ignore[misc]
+    __table_args__ = (UniqueConstraint("host", "port", name="uq_proxy_identities_host_port"),)
 
     url: str = Field(primary_key=True)
     protocol: str = Field(index=True)  # http, https, socks4, socks5
@@ -280,12 +395,111 @@ class ProxyAuditTable(SQLModel, table=True):
     )
 
 
+_LEGACY_PROXY_COLUMNS = (
+    "id",
+    "url",
+    "protocol",
+    "username",
+    "password",
+    "health_status",
+    "last_success_at",
+    "last_failure_at",
+    "total_requests",
+    "total_successes",
+    "total_failures",
+    "average_response_time_ms",
+    "consecutive_failures",
+    "source",
+    "source_url",
+    "metadata_json",
+    "created_at",
+    "updated_at",
+    "requests_started",
+    "requests_completed",
+    "requests_active",
+    "ema_response_time_ms",
+    "ema_alpha",
+    "window_start",
+    "window_duration_seconds",
+    "consecutive_successes",
+    "recovery_attempt",
+    "next_check_time",
+    "last_health_error",
+    "total_checks",
+    "total_health_failures",
+    "last_health_check",
+    "tags_json",
+    "region",
+    "ttl",
+    "expires_at",
+    "country_code",
+)
+_LEGACY_PROXY_INSERT = text(
+    """
+    INSERT INTO proxies (
+        id, url, protocol, username, password, health_status, last_success_at,
+        last_failure_at, total_requests, total_successes, total_failures,
+        average_response_time_ms, consecutive_failures, source, source_url,
+        metadata_json, created_at, updated_at, requests_started, requests_completed,
+        requests_active, ema_response_time_ms, ema_alpha, window_start,
+        window_duration_seconds, consecutive_successes, recovery_attempt, next_check_time,
+        last_health_error, total_checks, total_health_failures, last_health_check, tags_json,
+        region, ttl, expires_at, country_code
+    ) VALUES (
+        :id, :url, :protocol, :username, :password, :health_status, :last_success_at,
+        :last_failure_at, :total_requests, :total_successes, :total_failures,
+        :average_response_time_ms, :consecutive_failures, :source, :source_url,
+        :metadata_json, :created_at, :updated_at, :requests_started, :requests_completed,
+        :requests_active, :ema_response_time_ms, :ema_alpha, :window_start,
+        :window_duration_seconds, :consecutive_successes, :recovery_attempt, :next_check_time,
+        :last_health_error, :total_checks, :total_health_failures, :last_health_check,
+        :tags_json, :region, :ttl, :expires_at, :country_code
+    )
+    """
+)
+_LEGACY_PROXY_SELECT = text(
+    """
+    SELECT
+        id, url, protocol, username, password, health_status, last_success_at,
+        last_failure_at, total_requests, total_successes, total_failures,
+        average_response_time_ms, consecutive_failures, source, source_url,
+        metadata_json, created_at, updated_at, requests_started, requests_completed,
+        requests_active, ema_response_time_ms, ema_alpha, window_start,
+        window_duration_seconds, consecutive_successes, recovery_attempt, next_check_time,
+        last_health_error, total_checks, total_health_failures, last_health_check, tags_json,
+        region, ttl, expires_at, country_code
+    FROM proxies
+    """
+)
+_LEGACY_IDENTITY_UPDATE = text(
+    """
+    UPDATE proxies SET
+        protocol = :protocol,
+        username = :username,
+        password = :password,
+        source = :source,
+        source_url = :source_url,
+        region = :region,
+        ttl = :ttl,
+        expires_at = :expires_at,
+        country_code = :country_code
+    WHERE url = :url
+    """
+)
+
+
 class FileStorage:
     """File-based storage backend using JSON with optional encryption.
 
     Stores proxies in a JSON file with atomic writes to prevent corruption.
-    Supports optional Fernet encryption for sensitive credential data.
-    All writes are atomic using temp files to ensure data consistency.
+    Credential-free files may remain plaintext JSON. Saving username/password
+    fields requires whole-file Fernet encryption through the explicit
+    ``encryption_key`` constructor argument. Unlike :class:`SQLiteStorage`, this
+    backend does not discover an encryption key from environment variables.
+
+    Existing plaintext files remain readable by an unkeyed instance. To migrate
+    legacy credentials, load them with an unkeyed instance and save the resulting
+    proxies with a second instance configured with ``encryption_key``.
 
     Attributes:
         filepath: Path to the JSON storage file
@@ -297,43 +511,66 @@ class FileStorage:
         """
         Initialize file storage with optional encryption.
 
-        Creates a new file storage instance. If encryption_key is provided,
-        all data is encrypted at rest using Fernet symmetric encryption.
+        Creates a new file storage instance. If ``encryption_key`` is provided,
+        the entire file is encrypted at rest using Fernet symmetric encryption.
+        ``FileStorage`` never reads ``PROXYWHIRL_CACHE_ENCRYPTION_KEY`` or its
+        deprecated alias; those environment variables configure
+        :class:`SQLiteStorage` credential encryption.
 
         Args:
             filepath : str | Path
                 Path to the JSON file for storage. Parent directories are
                 created automatically on first save.
             encryption_key : bytes | None
-                Optional Fernet encryption key for encrypting credentials.
-                If provided, all data is encrypted at rest. To generate:
-                `key = Fernet.generate_key()`. Default: None (no encryption).
+                Explicit Fernet encryption key for the whole file. It is required
+                when any saved proxy contains a username or password. Generate a
+                key once with ``Fernet.generate_key()`` and retain it securely for
+                subsequent loads. Default: None (credential-free plaintext only).
 
         Returns:
             None
 
         Raises:
-            cryptography.fernet.InvalidToken
-                If encryption_key is invalid Fernet key format.
+            ValueError
+                If ``encryption_key`` is not a valid Fernet key.
 
         Example:
             >>> from cryptography.fernet import Fernet
             >>> key = Fernet.generate_key()
             >>> storage = FileStorage("proxies.json", encryption_key=key)
-            >>> # Or without encryption:
+            >>> # Credential-free files may remain plaintext:
             >>> storage = FileStorage("proxies.json")
         """
         self.filepath = Path(filepath)
         self.encryption_key = encryption_key
         self._cipher = Fernet(encryption_key) if encryption_key else None
 
+    def _require_encryption_for_credentials(self, proxies: list[Proxy]) -> None:
+        """Reject plaintext credential persistence when no encryption key is configured."""
+        for proxy in proxies:
+            if (proxy.username or proxy.password) and self._cipher is None:
+                raise ProxyStorageError(
+                    "FileStorage requires encryption_key when storing proxy credentials. "
+                    "Provide a Fernet key or omit username/password fields."
+                )
+
+    @staticmethod
+    async def _fsync_path(path: Path) -> None:
+        """Ensure file data is flushed to stable storage."""
+        fd = await asyncio.to_thread(os.open, str(path), os.O_RDONLY)
+        try:
+            await asyncio.to_thread(os.fsync, fd)
+        finally:
+            await asyncio.to_thread(os.close, fd)
+
     async def save(self, proxies: list[Proxy]) -> None:
         """
         Save proxies to JSON file with atomic writes and optional encryption.
 
         Serializes proxy list to JSON and writes atomically using a temp file.
-        Credentials (username/password) are revealed and stored as strings.
-        If encryption is configured, the entire JSON is encrypted before writing.
+        Credentials (username/password) are revealed only for serialization and
+        may be persisted only when whole-file encryption is configured. If no
+        credentials are present, the file may be saved as plaintext JSON.
 
         Args:
             proxies : list[Proxy]
@@ -343,6 +580,9 @@ class FileStorage:
             None
 
         Raises:
+            ProxyStorageError
+                If any proxy has credentials but this instance has no explicit
+                ``encryption_key``.
             OSError
                 If file write fails or parent directory cannot be created.
 
@@ -350,19 +590,20 @@ class FileStorage:
             >>> from proxywhirl.models import Proxy
             >>> proxies = [
             ...     Proxy(url="http://1.2.3.4:8080"),
-            ...     Proxy(url="http://5.6.7.8:9090", username="user", password="pass"),
+            ...     Proxy(url="http://5.6.7.8:9090"),
             ... ]
             >>> storage = FileStorage("proxies.json")
             >>> await storage.save(proxies)
 
         Note:
             - Atomic writes prevent corruption on concurrent writes
-            - SecretStr credentials are revealed for storage
-            - Encryption is applied at the entire file level
+            - Credential writes require the explicit constructor key
+            - Encryption, when configured, is applied at the entire file level
             - Parent directories are created automatically
         """
         # Ensure parent directory exists
         self.filepath.parent.mkdir(parents=True, exist_ok=True)
+        self._require_encryption_for_credentials(proxies)
 
         # Serialize proxies - use model_dump with context to reveal secrets for storage
         data = []
@@ -395,10 +636,12 @@ class FileStorage:
         try:
             async with aiofiles.open(temp_path, write_mode) as f:
                 await f.write(content)
-                # Ensure file is flushed to disk before renaming
                 await f.flush()
-            # File is now closed and flushed, safe to rename
+                if hasattr(f, "fileno"):
+                    await asyncio.to_thread(os.fsync, f.fileno())
             temp_path.replace(self.filepath)
+            await self._fsync_path(self.filepath)
+            os.chmod(self.filepath, stat.S_IMODE(0o600))
         except OSError as e:
             # Clean up temp file if it exists
             if temp_path.exists():
@@ -409,8 +652,10 @@ class FileStorage:
         """
         Load proxies from JSON file with optional decryption.
 
-        Reads JSON file, decrypts if encryption is configured, and deserializes
-        to Proxy objects. Validates all proxy data during deserialization.
+        Reads JSON file, decrypts if this instance has an ``encryption_key``, and
+        deserializes to Proxy objects. Validates all proxy data during
+        deserialization. Legacy plaintext files, including trusted files with
+        credentials, remain readable through an unkeyed instance for migration.
 
         Args:
             None
@@ -436,6 +681,8 @@ class FileStorage:
         Note:
             - Validates all proxy data during deserialization
             - Credentials are loaded as SecretStr (redacted in logs)
+            - A keyed instance expects ciphertext; use an unkeyed instance to load
+              a legacy plaintext file before rewriting it with a keyed instance
             - Empty file raises FileNotFoundError
         """
         from cryptography.fernet import InvalidToken
@@ -582,10 +829,11 @@ class SQLiteStorage:
         )
 
         @event.listens_for(self.engine.sync_engine, "connect")
-        def _enable_sqlite_foreign_keys(dbapi_connection: Any, connection_record: Any) -> None:
+        def _configure_sqlite_connection(dbapi_connection: Any, connection_record: Any) -> None:
             cursor = dbapi_connection.cursor()
             try:
                 cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.execute("PRAGMA busy_timeout=5000")
             finally:
                 cursor.close()
 
@@ -605,16 +853,32 @@ class SQLiteStorage:
         """Initialize the credential encryptor.
 
         Creates a CredentialEncryptor using environment-based keys.
-        Logs a warning if encryption is not configured (credentials will be stored unencrypted).
+        Logs a warning if encryption is not configured; credential writes will
+        be rejected until ``PROXYWHIRL_CACHE_ENCRYPTION_KEY`` (or deprecated
+        ``PROXYWHIRL_ENCRYPTION_KEY``) is set.
         """
         try:
             self._encryptor = CredentialEncryptor()
             logger.debug("Credential encryption initialized for SQLite storage")
         except ValueError as e:
             logger.warning(
-                f"Credential encryption not available, storing credentials unencrypted: {e}"
+                "Credential encryption not available; "
+                "proxy username/password writes will be rejected: {}",
+                e,
             )
             self._encryptor = None
+
+    def _require_encryption_for_credentials(self, proxies: list[Proxy]) -> None:
+        """Reject plaintext credential persistence when encryption is unavailable."""
+        if self._encryptor is not None:
+            return
+        for proxy in proxies:
+            if proxy.username or proxy.password:
+                raise ProxyStorageError(
+                    "SQLiteStorage requires PROXYWHIRL_CACHE_ENCRYPTION_KEY "
+                    "(or deprecated PROXYWHIRL_ENCRYPTION_KEY) when storing proxy "
+                    "credentials. Provide a Fernet key or omit username/password."
+                )
 
     def _invalidate_stats_cache(self) -> None:
         """Invalidate cached aggregate stats after a successful write."""
@@ -647,14 +911,18 @@ class SQLiteStorage:
 
         Returns:
             Encrypted credential as prefixed base64 string, or None if input is None.
-            If encryption is not configured, returns plaintext value.
+
+        Raises:
+            ProxyStorageError: If encryption is not configured or encryption fails.
         """
         if value is None:
             return None
 
         if self._encryptor is None:
-            # Encryption not configured, store plaintext (with warning logged at init)
-            return value
+            raise ProxyStorageError(
+                "SQLiteStorage refuses plaintext credential writes. "
+                "Set PROXYWHIRL_CACHE_ENCRYPTION_KEY before storing username/password."
+            )
 
         try:
             encrypted_bytes = self._encryptor.encrypt(SecretStr(value))
@@ -685,16 +953,32 @@ class SQLiteStorage:
         status: ProxyStatusTable,
         *,
         include_updated_at: bool = False,
+        decrypt_credentials: bool = True,
     ) -> dict[str, Any]:
         """Build a canonical proxy row dict from normalized identity/status tables."""
+        username = identity.username
+        password = identity.password
+        if decrypt_credentials:
+            username = self._decrypt_credential(username)
+            password = self._decrypt_credential(password)
+
         row: dict[str, Any] = {
             "url": identity.url,
             "protocol": identity.protocol,
             "host": identity.host,
             "port": identity.port,
-            "username": self._decrypt_credential(identity.username),
-            "password": self._decrypt_credential(identity.password),
+            "username": username,
+            "password": password,
             "country_code": identity.country_code,
+            "country_name": identity.country_name,
+            "region": identity.region,
+            "city": identity.city,
+            "latitude": identity.latitude,
+            "longitude": identity.longitude,
+            "asn": identity.asn,
+            "isp_name": identity.isp_name,
+            "is_residential": identity.is_residential,
+            "is_datacenter": identity.is_datacenter,
             "source": identity.source,
             "source_url": identity.source_url,
             "discovered_at": identity.discovered_at,
@@ -703,132 +987,52 @@ class SQLiteStorage:
             "last_check_at": status.last_check_at,
             "last_success_at": status.last_success_at,
             "last_failure_at": status.last_failure_at,
+            "consecutive_successes": status.consecutive_successes,
+            "consecutive_failures": status.consecutive_failures,
             "avg_response_time_ms": status.avg_response_time_ms,
             "total_checks": status.total_checks,
             "total_successes": status.total_successes,
+            "success_rate_7d": status.success_rate_7d,
         }
         if include_updated_at:
             row["updated_at"] = status.updated_at
         return row
 
     async def initialize(self) -> None:
-        """Create normalized database tables if they don't exist.
+        """Apply Alembic migrations and SQLite pragmas for normalized storage.
 
-        Should be called once before any other operations. Creates the normalized
-        identity, status, and validation tables. Safe to call multiple times:
-        existing tables, including legacy application tables, are preserved.
-
-        Optimizations:
-            - Enable WAL mode for concurrent read/write access
-            - Enable FOREIGN_KEYS for referential integrity
-            - Optimize PRAGMA settings (synchronous, cache_size, temp_store)
-            - Create composite and single-column indexes for hot queries
+        Schema SSOT is ``alembic/versions/``. This method runs
+        :func:`proxywhirl.migrations.run_migrations` to head, then applies
+        connection pragmas only (no runtime ``ALTER TABLE`` / ad-hoc DDL).
+        Safe to call multiple times; legacy tables (e.g. ``proxies``) are
+        preserved by the Alembic revision.
 
         Raises:
             Exception: If database initialization fails
         """
-        from sqlmodel import SQLModel
+        from proxywhirl.migrations import run_migrations
+
+        self.filepath.parent.mkdir(parents=True, exist_ok=True)
+        db_url = f"sqlite+aiosqlite:///{self.filepath.resolve()}"
+        await run_migrations(db_url, "head")
 
         async with self.engine.begin() as conn:
-            # Enable WAL mode for concurrent reads/writes
-            await self._timed_conn_execute(conn, text("PRAGMA journal_mode = WAL"))
+            await self._apply_sqlite_pragmas(conn)
 
-            # Enable FOREIGN_KEYS constraint enforcement
-            await self._timed_conn_execute(conn, text("PRAGMA foreign_keys = ON"))
+        logger.info("Database initialized via Alembic migrations")
 
-            # Optimize synchronous mode: NORMAL balances safety and performance
-            await self._timed_conn_execute(conn, text("PRAGMA synchronous = NORMAL"))
-
-            # Increase cache_size to reduce disk I/O (negative = MB)
-            await self._timed_conn_execute(conn, text("PRAGMA cache_size = -65536"))  # 64MB cache
-
-            # Use memory for temporary tables (faster)
-            await self._timed_conn_execute(conn, text("PRAGMA temp_store = MEMORY"))
-
-            # Create all tables
-            await conn.run_sync(SQLModel.metadata.create_all)
-
-            # SQLModel creates missing tables but does not alter existing ones.
-            await self._migrate_normalized_schema(conn)
-
-            # Create composite and specialized indexes for hot queries
-            # Index on (proxy_id, timestamp) for metrics queries
-            await self._timed_conn_execute(
-                conn,
-                text(
-                    "CREATE INDEX IF NOT EXISTS idx_validation_proxy_time "
-                    "ON validation_results(proxy_url, validated_at)"
-                ),
-            )
-
-            # Index on cache expiration for TTL cleanup
-            # This is for future cache TTL table if implemented
-
-            # Index on health_status for filtering healthy/unhealthy proxies
-            await self._timed_conn_execute(
-                conn,
-                text(
-                    "CREATE INDEX IF NOT EXISTS idx_proxy_status_health "
-                    "ON proxy_statuses(health_status, last_success_at DESC)"
-                ),
-            )
-
-            # Index on URL for duplicate detection
-            await self._timed_conn_execute(
-                conn,
-                text(
-                    "CREATE UNIQUE INDEX IF NOT EXISTS idx_proxy_identity_url "
-                    "ON proxy_identities(url)"
-                ),
-            )
-
-            # Index on success_rate_7d for performance-based sorting
-            await self._timed_conn_execute(
-                conn,
-                text(
-                    "CREATE INDEX IF NOT EXISTS idx_proxy_status_success_rate "
-                    "ON proxy_statuses(success_rate_7d DESC)"
-                ),
-            )
-
-            # Index on validation results by validity and recency
-            await self._timed_conn_execute(
-                conn,
-                text(
-                    "CREATE INDEX IF NOT EXISTS idx_validation_recent_valid "
-                    "ON validation_results(is_valid, validated_at DESC)"
-                ),
-            )
-
-            # Index on last_success_at for finding recently working proxies
-            await self._timed_conn_execute(
-                conn,
-                text(
-                    "CREATE INDEX IF NOT EXISTS idx_proxy_status_recent_success "
-                    "ON proxy_statuses(last_success_at DESC)"
-                ),
-            )
-
-            logger.info("Database initialized with WAL mode and optimized indexes")
-
-    async def _migrate_normalized_schema(self, conn: Any) -> None:
-        """Apply idempotent migrations for existing normalized SQLite databases."""
-        result = await self._timed_conn_execute(conn, text("PRAGMA table_info(proxy_identities)"))
-        columns = {row[1] for row in result}
-        if "expires_at" not in columns:
-            await self._timed_conn_execute(
-                conn,
-                text("ALTER TABLE proxy_identities ADD COLUMN expires_at DATETIME"),
-            )
-            logger.info("Migrated proxy_identities schema: added expires_at column")
-
-        await self._timed_conn_execute(
-            conn,
-            text(
-                "CREATE INDEX IF NOT EXISTS ix_proxy_identities_expires_at "
-                "ON proxy_identities(expires_at)"
-            ),
+    async def _apply_sqlite_pragmas(self, conn: Any) -> None:
+        """Apply SQLite performance and concurrency pragmas."""
+        pragmas = (
+            "PRAGMA journal_mode = WAL",
+            "PRAGMA foreign_keys = ON",
+            "PRAGMA synchronous = NORMAL",
+            "PRAGMA cache_size = -65536",
+            "PRAGMA temp_store = MEMORY",
+            "PRAGMA busy_timeout = 5000",
         )
+        for pragma in pragmas:
+            await self._timed_conn_execute(conn, text(pragma))
 
     async def close(self) -> None:
         """Close database connection and release resources.
@@ -838,6 +1042,268 @@ class SQLiteStorage:
         """
         await self.engine.dispose()
 
+    def _build_identity_row(self, proxy: Proxy) -> ProxyIdentityTable:
+        """Build a normalized identity row from a :class:`~proxywhirl.models.Proxy`."""
+        parsed = urlparse(proxy.url)
+        metadata = proxy.metadata
+        latitude = metadata.get("latitude")
+        longitude = metadata.get("longitude")
+        asn = metadata.get("asn")
+        return ProxyIdentityTable(
+            url=proxy.url,
+            protocol=proxy.protocol or "http",
+            host=parsed.hostname or "",
+            port=parsed.port or 80,
+            username=self._encrypt_credential(
+                proxy.username.get_secret_value() if proxy.username else None
+            ),
+            password=self._encrypt_credential(
+                proxy.password.get_secret_value() if proxy.password else None
+            ),
+            country_code=proxy.country_code,
+            country_name=(
+                metadata.get("country_name")
+                if isinstance(metadata.get("country_name"), str)
+                else None
+            ),
+            region=proxy.region,
+            city=metadata.get("city") if isinstance(metadata.get("city"), str) else None,
+            latitude=float(latitude) if isinstance(latitude, (int, float)) else None,
+            longitude=float(longitude) if isinstance(longitude, (int, float)) else None,
+            asn=asn if isinstance(asn, int) and not isinstance(asn, bool) else None,
+            isp_name=(
+                metadata.get("isp_name") if isinstance(metadata.get("isp_name"), str) else None
+            ),
+            is_residential=metadata.get("is_residential") is True,
+            is_datacenter=metadata.get("is_datacenter") is True,
+            source=proxy.source.value if proxy.source else "fetched",
+            source_url=str(proxy.source_url) if proxy.source_url else None,
+            discovered_at=proxy.created_at,
+            expires_at=proxy.expires_at,
+        )
+
+    @staticmethod
+    def _build_status_row(proxy: Proxy, *, validated: bool = False) -> ProxyStatusTable:
+        """Build current normalized status without discarding model state."""
+        now = datetime.now(timezone.utc)
+        health_status = HealthStatus.HEALTHY if validated else proxy.health_status
+        last_success_at = proxy.last_success_at
+        last_check_at = proxy.last_health_check
+        consecutive_successes = proxy.consecutive_successes
+        total_checks = proxy.total_checks
+        total_successes = proxy.total_successes
+        if validated:
+            last_success_at = last_success_at or now
+            last_check_at = last_check_at or now
+            consecutive_successes = max(consecutive_successes, 1)
+            total_checks = max(total_checks, 1)
+            total_successes = max(total_successes, 1)
+
+        return ProxyStatusTable(
+            proxy_url=proxy.url,
+            health_status=health_status.value,
+            last_success_at=last_success_at,
+            last_failure_at=proxy.last_failure_at,
+            last_check_at=last_check_at,
+            consecutive_successes=consecutive_successes,
+            consecutive_failures=proxy.consecutive_failures,
+            total_checks=total_checks,
+            total_successes=total_successes,
+            avg_response_time_ms=proxy.average_response_time_ms,
+            updated_at=proxy.updated_at,
+        )
+
+    @staticmethod
+    def _legacy_proxy_values(
+        proxy: Proxy,
+        identity: ProxyIdentityTable,
+    ) -> dict[str, Any]:
+        """Serialize fields represented by the retained compatibility table."""
+        json_model = proxy.model_dump(mode="json")
+        return {
+            "id": str(proxy.id),
+            "url": proxy.url,
+            "protocol": proxy.protocol,
+            "username": identity.username,
+            "password": identity.password,
+            "health_status": proxy.health_status.value,
+            "last_success_at": proxy.last_success_at,
+            "last_failure_at": proxy.last_failure_at,
+            "total_requests": proxy.total_requests,
+            "total_successes": proxy.total_successes,
+            "total_failures": proxy.total_failures,
+            "average_response_time_ms": proxy.average_response_time_ms,
+            "consecutive_failures": proxy.consecutive_failures,
+            "source": proxy.source.value,
+            "source_url": str(proxy.source_url) if proxy.source_url else None,
+            "metadata_json": json.dumps(json_model["metadata"], sort_keys=True),
+            "created_at": proxy.created_at,
+            "updated_at": proxy.updated_at,
+            "requests_started": proxy.requests_started,
+            "requests_completed": proxy.requests_completed,
+            "requests_active": proxy.requests_active,
+            "ema_response_time_ms": proxy.ema_response_time_ms,
+            "ema_alpha": proxy.ema_alpha,
+            "window_start": proxy.window_start,
+            "window_duration_seconds": proxy.window_duration_seconds,
+            "consecutive_successes": proxy.consecutive_successes,
+            "recovery_attempt": proxy.recovery_attempt,
+            "next_check_time": proxy.next_check_time,
+            "last_health_error": proxy.last_health_error,
+            "total_checks": proxy.total_checks,
+            "total_health_failures": proxy.total_health_failures,
+            "last_health_check": proxy.last_health_check,
+            "tags_json": json.dumps(sorted(proxy.tags)),
+            "region": proxy.region,
+            "ttl": proxy.ttl,
+            "expires_at": proxy.expires_at,
+            "country_code": proxy.country_code,
+        }
+
+    async def _insert_legacy_proxy(
+        self,
+        session: AsyncSession,
+        proxy: Proxy,
+        identity: ProxyIdentityTable,
+    ) -> None:
+        """Persist rich compatibility fields in the existing legacy table."""
+        await session.exec(
+            _LEGACY_PROXY_INSERT,
+            params=self._legacy_proxy_values(proxy, identity),
+        )
+
+    async def _update_legacy_proxy(
+        self,
+        session: AsyncSession,
+        proxy: Proxy,
+        identity: ProxyIdentityTable,
+    ) -> None:
+        """Keep an existing compatibility row aligned with explicit updates."""
+        await session.exec(
+            _LEGACY_IDENTITY_UPDATE,
+            params=self._legacy_proxy_values(proxy, identity),
+        )
+
+    @staticmethod
+    async def _delete_legacy_proxies(session: AsyncSession, proxy_urls: list[str]) -> None:
+        """Delete compatibility rows without interpolating URL values into SQL."""
+        for proxy_url in proxy_urls:
+            await session.exec(
+                text("DELETE FROM proxies WHERE url = :url"),
+                params={"url": proxy_url},
+            )
+
+    async def _load_legacy_proxy_rows(
+        self,
+        session: AsyncSession,
+    ) -> dict[str, dict[str, Any]]:
+        """Load compatibility rows keyed by URL for full-fidelity reconstruction."""
+        result = await session.exec(_LEGACY_PROXY_SELECT)
+        return {
+            str(row["url"]): dict(row)
+            for row in result.mappings().all()
+            if row.get("url") is not None
+        }
+
+    def _proxy_from_rows(
+        self,
+        identity: ProxyIdentityTable,
+        status: ProxyStatusTable,
+        legacy_row: dict[str, Any] | None,
+    ) -> Proxy:
+        """Merge rich compatibility data with authoritative normalized status."""
+        row = dict(legacy_row or {})
+        row.update(
+            self._identity_status_row_dict(
+                identity,
+                status,
+                include_updated_at=True,
+                decrypt_credentials=False,
+            )
+        )
+
+        metadata = _decode_json_object(row.get("metadata_json"), "metadata")
+        extended_metadata = {
+            "country_name": identity.country_name,
+            "city": identity.city,
+            "latitude": identity.latitude,
+            "longitude": identity.longitude,
+            "asn": identity.asn,
+            "isp_name": identity.isp_name,
+            "success_rate_7d": status.success_rate_7d,
+        }
+        for field_name, value in extended_metadata.items():
+            if value is not None and field_name not in metadata:
+                metadata[field_name] = value
+        if identity.is_residential and "is_residential" not in metadata:
+            metadata["is_residential"] = True
+        if identity.is_datacenter and "is_datacenter" not in metadata:
+            metadata["is_datacenter"] = True
+        row["metadata"] = metadata
+        return _dict_to_proxy(row, self._encryptor)
+
+    async def update_identity(self, proxy: Proxy) -> bool:
+        """Update mutable identity fields for an existing proxy URL (upsert).
+
+        Append-only inserts remain :meth:`add_proxy` / :meth:`add_proxies_batch`.
+        This updates credentials, geo, source metadata, and ``expires_at`` when
+        the URL already exists.
+
+        Returns:
+            True if a row was updated, False if the URL was not found.
+
+        Raises:
+            ProxyStorageError: If credentials are present without encryption configured.
+        """
+        self._require_encryption_for_credentials([proxy])
+        async with AsyncSession(self.engine) as session:
+            row = await session.get(ProxyIdentityTable, proxy.url)
+            if row is None:
+                return False
+
+            parsed = urlparse(proxy.url)
+            row.protocol = proxy.protocol or "http"
+            row.host = parsed.hostname or ""
+            row.port = parsed.port or 80
+            row.username = self._encrypt_credential(
+                proxy.username.get_secret_value() if proxy.username else None
+            )
+            row.password = self._encrypt_credential(
+                proxy.password.get_secret_value() if proxy.password else None
+            )
+            row.country_code = proxy.country_code
+            row.region = proxy.region
+            row.source = proxy.source.value if proxy.source else "fetched"
+            row.source_url = str(proxy.source_url) if proxy.source_url else None
+            row.expires_at = proxy.expires_at
+            session.add(row)
+            await self._update_legacy_proxy(session, proxy, row)
+            try:
+                await session.commit()
+            except IntegrityError:
+                await session.rollback()
+                return False
+            self._invalidate_stats_cache()
+            return True
+
+    async def _refresh_success_rate_7d(self, session: AsyncSession, proxy_url: str) -> None:
+        """Recompute rolling 7-day success rate for a proxy status row."""
+        result = await session.exec(
+            text("""
+                SELECT CAST(SUM(CASE WHEN is_valid THEN 1 ELSE 0 END) AS REAL)
+                    / NULLIF(COUNT(*), 0)
+                FROM validation_results
+                WHERE proxy_url = :url
+                  AND validated_at > datetime('now', '-7 days')
+            """),
+            params={"url": proxy_url},
+        )
+        rate = result.scalar()
+        status = await session.get(ProxyStatusTable, proxy_url)
+        if status is not None:
+            status.success_rate_7d = rate
+            session.add(status)
+
     async def add_proxy(self, proxy: Proxy) -> bool:
         """Add a new proxy if not exists.
 
@@ -846,37 +1312,26 @@ class SQLiteStorage:
 
         Returns:
             True if added, False if already exists
+
+        Raises:
+            ProxyStorageError: If credentials are present without encryption configured.
         """
+        self._require_encryption_for_credentials([proxy])
         async with AsyncSession(self.engine) as session:
             existing = await session.get(ProxyIdentityTable, proxy.url)
             if existing:
                 return False
 
-            # Parse URL for host:port
-            parsed = urlparse(proxy.url)
+            identity = self._build_identity_row(proxy)
+            session.add(identity)
+            session.add(self._build_status_row(proxy))
+            await self._insert_legacy_proxy(session, proxy, identity)
 
-            row = ProxyIdentityTable(
-                url=proxy.url,
-                protocol=proxy.protocol or "http",
-                host=parsed.hostname or "",
-                port=parsed.port or 80,
-                username=self._encrypt_credential(
-                    proxy.username.get_secret_value() if proxy.username else None
-                ),
-                password=self._encrypt_credential(
-                    proxy.password.get_secret_value() if proxy.password else None
-                ),
-                country_code=proxy.country_code,
-                source=proxy.source.value if proxy.source else "fetched",
-                source_url=str(proxy.source_url) if proxy.source_url else None,
-            )
-            session.add(row)
-
-            # Initialize status
-            status = ProxyStatusTable(proxy_url=proxy.url)
-            session.add(status)
-
-            await session.commit()
+            try:
+                await session.commit()
+            except IntegrityError:
+                await session.rollback()
+                return False
             self._invalidate_stats_cache()
             return True
 
@@ -893,13 +1348,17 @@ class SQLiteStorage:
 
         Returns:
             Tuple of (added_count, skipped_count)
+
+        Raises:
+            ProxyStorageError: If any proxy has credentials without encryption configured.
         """
         if not proxies:
             return 0, 0
 
+        self._require_encryption_for_credentials(proxies)
+
         added = 0
         skipped = 0
-        now = datetime.now(timezone.utc)
 
         async with AsyncSession(self.engine) as session:
             # Batch check existing proxies
@@ -926,51 +1385,27 @@ class SQLiteStorage:
             new_proxies = deduped_proxies
 
             # Batch insert identities and statuses
-            identity_rows = []
-            status_rows = []
+            identity_rows: list[ProxyIdentityTable] = []
+            status_rows: list[ProxyStatusTable] = []
 
             for proxy in new_proxies:
-                parsed = urlparse(proxy.url)
-                identity_rows.append(
-                    ProxyIdentityTable(
-                        url=proxy.url,
-                        protocol=proxy.protocol or "http",
-                        host=parsed.hostname or "",
-                        port=parsed.port or 80,
-                        username=self._encrypt_credential(
-                            proxy.username.get_secret_value() if proxy.username else None
-                        ),
-                        password=self._encrypt_credential(
-                            proxy.password.get_secret_value() if proxy.password else None
-                        ),
-                        country_code=proxy.country_code,
-                        source=proxy.source.value if proxy.source else "fetched",
-                        source_url=str(proxy.source_url) if proxy.source_url else None,
-                    )
-                )
+                identity_rows.append(self._build_identity_row(proxy))
+                status_rows.append(self._build_status_row(proxy, validated=validated))
 
-                # Create status - mark as validated if proxies passed validation
-                if validated:
-                    status_rows.append(
-                        ProxyStatusTable(
-                            proxy_url=proxy.url,
-                            health_status="healthy",
-                            last_success_at=now,
-                            last_check_at=now,
-                            total_checks=1,
-                            total_successes=1,
-                            consecutive_successes=1,
-                            avg_response_time_ms=proxy.average_response_time_ms,
-                        )
-                    )
-                else:
-                    status_rows.append(ProxyStatusTable(proxy_url=proxy.url))
-
-            # Bulk insert
             session.add_all(identity_rows)
             session.add_all(status_rows)
-            await session.commit()
-            added = len(new_proxies)
+            for proxy, identity in zip(new_proxies, identity_rows, strict=True):
+                await self._insert_legacy_proxy(session, proxy, identity)
+            try:
+                await session.commit()
+                added = len(new_proxies)
+            except IntegrityError:
+                await session.rollback()
+                added = 0
+                for proxy in new_proxies:
+                    if await self.add_proxy(proxy):
+                        added += 1
+                skipped = len(proxies) - added
 
         if added:
             self._invalidate_stats_cache()
@@ -1030,10 +1465,15 @@ class SQLiteStorage:
             # Delete from identity table
             del_identity = delete(ProxyIdentityTable).where(ProxyIdentityTable.url == proxy_url)
             result = await session.exec(del_identity)  # type: ignore[arg-type]
+            deleted = result.rowcount or 0
+            await session.exec(
+                text("DELETE FROM proxies WHERE url = :url"),
+                params={"url": proxy_url},
+            )
             await session.commit()
             self._invalidate_stats_cache()
 
-            return result.rowcount > 0 if hasattr(result, "rowcount") else True
+            return deleted > 0
 
     async def clear(self) -> None:
         """Clear all proxies from database."""
@@ -1044,6 +1484,8 @@ class SQLiteStorage:
             await session.exec(delete(ProxyStatusTable))  # type: ignore[arg-type]
             # Delete all identities
             await session.exec(delete(ProxyIdentityTable))  # type: ignore[arg-type]
+            # Remove rich compatibility rows as well, including encrypted credentials.
+            await session.exec(text("DELETE FROM proxies"))
             await session.commit()
             self._invalidate_stats_cache()
 
@@ -1139,6 +1581,7 @@ class SQLiteStorage:
                         status.health_status = "unhealthy"
 
                 session.add(status)
+                await self._refresh_success_rate_7d(session, proxy_url)
 
             await session.commit()
             self._invalidate_stats_cache()
@@ -1290,23 +1733,81 @@ class SQLiteStorage:
             return proxies
 
     async def load(self) -> list[dict[str, Any]]:
-        """Load all proxies from the database.
+        """Load all proxies using the released SQLite row contract.
+
+        ``SQLiteStorage.load()`` returned dictionaries in 0.3.3, unlike the
+        file backend. Keep that observable contract stable for direct callers;
+        application adapters that need complete domain state use
+        :meth:`load_models`.
 
         Returns:
-            List of proxy dictionaries with identity and status fields
+            List of dictionaries with the 18 released identity/status keys.
+
+        Raises:
+            ProxyStorageError: If stored rows cannot be queried or decrypted.
         """
         stmt = select(ProxyIdentityTable, ProxyStatusTable).join(
             ProxyStatusTable, ProxyIdentityTable.url == ProxyStatusTable.proxy_url
         )
 
-        async with AsyncSession(self.engine) as session:
-            result = await self._timed_exec(session, stmt)  # type: ignore[arg-type]
-            rows = result.all()
+        released_keys = (
+            "url",
+            "protocol",
+            "host",
+            "port",
+            "username",
+            "password",
+            "country_code",
+            "source",
+            "source_url",
+            "discovered_at",
+            "expires_at",
+            "health_status",
+            "last_check_at",
+            "last_success_at",
+            "last_failure_at",
+            "avg_response_time_ms",
+            "total_checks",
+            "total_successes",
+        )
 
-            proxies = []
-            for identity, status in rows:
-                proxies.append(self._identity_status_row_dict(identity, status))
-            return proxies
+        try:
+            async with AsyncSession(self.engine) as session:
+                result = await self._timed_exec(session, stmt)  # type: ignore[arg-type]
+                rows: list[dict[str, Any]] = []
+                for identity, status in result.all():
+                    row = self._identity_status_row_dict(identity, status)
+                    rows.append({key: row[key] for key in released_keys})
+                return rows
+        except Exception as exc:
+            raise ProxyStorageError("Failed to load proxies from SQLite storage") from exc
+
+    async def load_models(self) -> list[Proxy]:
+        """Load all proxies as validated, full-fidelity domain models.
+
+        Returns:
+            List of Proxy models for runtime hydration.
+
+        Raises:
+            ProxyStorageError: If stored rows cannot be queried or reconstructed.
+        """
+        stmt = (
+            select(ProxyIdentityTable, ProxyStatusTable)
+            .join(ProxyStatusTable, ProxyIdentityTable.url == ProxyStatusTable.proxy_url)
+            .order_by(ProxyIdentityTable.url.asc())
+        )
+
+        try:
+            async with AsyncSession(self.engine) as session:
+                result = await self._timed_exec(session, stmt)  # type: ignore[arg-type]
+                rows = result.all()
+                legacy_rows = await self._load_legacy_proxy_rows(session)
+                return [
+                    self._proxy_from_rows(identity, status, legacy_rows.get(identity.url))
+                    for identity, status in rows
+                ]
+        except Exception as exc:
+            raise ProxyStorageError("Failed to load proxies from SQLite storage") from exc
 
     async def load_revalidation_candidates(self, limit: int | None = None) -> list[dict[str, Any]]:
         """Load proxies for oldest-first revalidation.
@@ -1425,6 +1926,7 @@ class SQLiteStorage:
                         ProxyIdentityTable.url.in_(dead_urls)  # type: ignore[attr-defined]
                     )
                     await session.exec(del_stmt)  # type: ignore[arg-type]
+                    await self._delete_legacy_proxies(session, dead_urls)
                     counts["dead"] = len(dead_urls)
                 else:
                     counts["dead"] = 0
@@ -1455,6 +1957,7 @@ class SQLiteStorage:
                         ProxyIdentityTable.url.in_(stale_urls)  # type: ignore[attr-defined]
                     )
                     await session.exec(del_stmt)  # type: ignore[arg-type]
+                    await self._delete_legacy_proxies(session, stale_urls)
                     counts["stale"] = len(stale_urls)
                 else:
                     counts["stale"] = 0
@@ -1484,6 +1987,7 @@ class SQLiteStorage:
                         ProxyIdentityTable.url.in_(never_urls)  # type: ignore[attr-defined]
                     )
                     await session.exec(del_stmt)  # type: ignore[arg-type]
+                    await self._delete_legacy_proxies(session, never_urls)
                     counts["never_validated"] = len(never_urls)
                 else:
                     counts["never_validated"] = 0
@@ -1499,12 +2003,16 @@ class SQLiteStorage:
             await session.commit()
             self._invalidate_stats_cache()
 
-        # Vacuum to reclaim space
         if vacuum:
-            async with self.engine.begin() as conn:
-                await conn.execute(text("VACUUM"))
+            await self._vacuum_database()
 
         return counts
+
+    async def _vacuum_database(self) -> None:
+        """Run VACUUM outside an explicit transaction (SQLite requirement)."""
+        async with self.engine.connect() as conn:
+            autocommit = await conn.execution_options(isolation_level="AUTOCOMMIT")
+            await autocommit.execute(text("VACUUM"))
 
     async def get_stats(self) -> dict[str, Any]:
         """Get database statistics.
@@ -1716,152 +2224,22 @@ class SQLiteStorage:
             await session.commit()
 
 
-# ============================================================================
-# SCHEMA VERSIONING (integrated from schema_versioning.py)
-# ============================================================================
+# Re-export in-memory registry types; production schema SSOT is Alembic.
+from proxywhirl.migrations import (  # noqa: E402
+    Migration,
+    MigrationStatus,
+    SchemaVersioningManager,
+)
 
-
-class MigrationStatus(str, Enum):
-    """Status of a schema migration."""
-
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    ROLLED_BACK = "rolled_back"
-
-
-@dataclass
-class _SchemaVersion:
-    """Represents a database schema version."""
-
-    version: int
-    description: str
-    created_at: datetime
-    applied_at: datetime | None = None
-    status: MigrationStatus = MigrationStatus.PENDING
-
-    def __repr__(self) -> str:
-        return f"v{self.version}: {self.description}"
-
-
-class Migration:
-    """Represents a database migration."""
-
-    def __init__(
-        self,
-        version: int,
-        description: str,
-        up_script: str,
-        down_script: str | None = None,
-    ) -> None:
-        """Initialize migration."""
-        self.version = version
-        self.description = description
-        self.up_script = up_script
-        self.down_script = down_script or f"-- Rollback for v{version}"
-        self.created_at = datetime.now(timezone.utc)
-
-    def validate(self) -> bool:
-        """Validate migration."""
-        if not self.version or self.version < 1:
-            logger.error(f"Invalid version: {self.version}")
-            return False
-        if not self.description:
-            logger.error("Migration missing description")
-            return False
-        if not self.up_script:
-            logger.error("Migration missing up script")
-            return False
-        return True
-
-
-class SchemaVersioningManager:
-    """Manages database schema versioning and migrations."""
-
-    def __init__(self) -> None:
-        """Initialize schema versioning manager."""
-        self._versions: dict[int, _SchemaVersion] = {}
-        self._migrations: dict[int, Migration] = {}
-        self._current_version = 0
-        logger.debug("SchemaVersioningManager initialized")
-
-    def register_migration(self, migration: Migration) -> bool:
-        """Register a migration."""
-        if not migration.validate():
-            return False
-        if migration.version in self._migrations:
-            logger.warning(f"Migration v{migration.version} already registered")
-            return False
-        self._migrations[migration.version] = migration
-        logger.debug(f"Migration registered: {migration}")
-        return True
-
-    def apply_migration(self, version: int) -> bool:
-        """Apply a migration."""
-        if version not in self._migrations:
-            logger.error(f"Migration v{version} not found")
-            return False
-        migration = self._migrations[version]
-        schema_version = _SchemaVersion(
-            version=version,
-            description=migration.description,
-            created_at=migration.created_at,
-            applied_at=datetime.now(timezone.utc),
-            status=MigrationStatus.COMPLETED,
-        )
-        self._versions[version] = schema_version
-        self._current_version = version
-        logger.info(f"Migration applied: {schema_version}")
-        return True
-
-    def rollback_migration(self, version: int) -> bool:
-        """Rollback a migration."""
-        if version not in self._versions:
-            logger.error(f"Migration v{version} not found")
-            return False
-        if version not in self._migrations:
-            logger.error(f"Migration script v{version} not found")
-            return False
-        schema_version = self._versions[version]
-        schema_version.status = MigrationStatus.ROLLED_BACK
-        self._current_version = version - 1
-        logger.info(f"Migration rolled back: v{version}")
-        return True
-
-    def get_current_version(self) -> int:
-        """Get current schema version."""
-        return self._current_version
-
-    def get_migration(self, version: int) -> Migration | None:
-        """Get a migration."""
-        return self._migrations.get(version)
-
-    def get_pending_migrations(self) -> list[Migration]:
-        """Get pending migrations."""
-        pending = []
-        for version in sorted(self._migrations.keys()):
-            if version > self._current_version:
-                pending.append(self._migrations[version])
-        return pending
-
-    def get_applied_migrations(self) -> list[_SchemaVersion]:
-        """Get applied migrations."""
-        return sorted(self._versions.values(), key=lambda x: x.version)
-
-    def export_status(self) -> dict[str, Any]:
-        """Export migration status."""
-        return {
-            "current_version": self._current_version,
-            "total_migrations": len(self._migrations),
-            "applied_migrations": len(self._versions),
-            "pending_migrations": len(self.get_pending_migrations()),
-            "applied": [
-                {
-                    "version": v.version,
-                    "description": v.description,
-                    "applied_at": v.applied_at.isoformat() if v.applied_at else None,
-                }
-                for v in self.get_applied_migrations()
-            ],
-        }
+__all__ = [
+    "Migration",
+    "MigrationStatus",
+    "SchemaVersioningManager",
+    "FileStorage",
+    "SQLiteStorage",
+    "dict_to_proxy",
+    "ProxyIdentityTable",
+    "ProxyStatusTable",
+    "ValidationResultTable",
+    "ProxyAuditTable",
+]

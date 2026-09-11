@@ -25,6 +25,14 @@ from pydantic import (
     field_validator,
 )
 
+from proxywhirl.config_core import (
+    DEFAULT_CORS_ORIGINS,
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_RATE_LIMIT_DEFAULT,
+    DEFAULT_RATE_LIMIT_REQUEST_ENDPOINT,
+    DEFAULT_ROTATION_STRATEGY,
+    DEFAULT_TIMEOUT,
+)
 from proxywhirl.strategies import BUILTIN_STRATEGY_CLASSES
 
 # Generic type variable for response data
@@ -341,8 +349,8 @@ class ProxiedRequest(BaseModel):
         Raises:
             ValueError: If body exceeds length limit
         """
-        if v is not None and len(v) > 1048576:  # 1MB limit
-            raise ValueError("Request body must be 1MB (1,048,576 characters) or less")
+        if v is not None and len(v.encode("utf-8")) > 1_048_576:  # 1 MiB limit
+            raise ValueError("Request body must be 1MB (1,048,576 bytes) or less")
         return v
 
 
@@ -419,7 +427,7 @@ class CreateProxyRequest(BaseModel):
         try:
             parsed = urlparse(v)
         except Exception as e:
-            raise ValueError(f"Invalid proxy URL format: {e}") from e
+            raise ValueError("Invalid proxy URL format") from e
 
         # Check scheme (http/https/socks4/socks5/socks5h allowed for proxies)
         scheme = parsed.scheme
@@ -688,35 +696,55 @@ class MetricsResponse(BaseModel):
 class RateLimitConfig(BaseModel):
     """Rate limiting configuration."""
 
-    default_limit: int = 100
-    request_endpoint_limit: int = 50
+    default_limit: int = DEFAULT_RATE_LIMIT_DEFAULT
+    request_endpoint_limit: int = DEFAULT_RATE_LIMIT_REQUEST_ENDPOINT
 
 
 class ConfigurationSettings(BaseModel):
-    """API configuration settings."""
+    """API configuration settings (defaults from ``config_core`` SSOT)."""
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "rotation_strategy": "round-robin",
-                "timeout": 30,
-                "max_retries": 3,
+                "rotation_strategy": DEFAULT_ROTATION_STRATEGY,
+                "timeout": DEFAULT_TIMEOUT,
+                "max_retries": DEFAULT_MAX_RETRIES,
                 "rate_limits": {
-                    "default_limit": 100,
-                    "request_endpoint_limit": 50,
+                    "default_limit": DEFAULT_RATE_LIMIT_DEFAULT,
+                    "request_endpoint_limit": DEFAULT_RATE_LIMIT_REQUEST_ENDPOINT,
                 },
                 "auth_enabled": False,
-                "cors_origins": ["*"],
+                "cors_origins": list(DEFAULT_CORS_ORIGINS),
             }
         }
     )
 
-    rotation_strategy: str = "round-robin"
-    timeout: PositiveInt = Field(default=30, le=300)
-    max_retries: PositiveInt = Field(default=3, le=10)
+    rotation_strategy: str = DEFAULT_ROTATION_STRATEGY
+    timeout: PositiveInt = Field(default=DEFAULT_TIMEOUT, le=300)
+    max_retries: PositiveInt = Field(default=DEFAULT_MAX_RETRIES, le=10)
     rate_limits: RateLimitConfig = Field(default_factory=RateLimitConfig)
     auth_enabled: bool = False
-    cors_origins: list[str] = Field(default_factory=lambda: ["*"])
+    cors_origins: list[str] = Field(default_factory=lambda: list(DEFAULT_CORS_ORIGINS))
+
+    @classmethod
+    def from_defaults(cls, **overrides: Any) -> ConfigurationSettings:
+        """Build settings from the config_core SSOT, applying optional overrides."""
+        from proxywhirl.config_core import configuration_settings_defaults
+
+        payload = configuration_settings_defaults()
+        if "rate_limits" in overrides and overrides["rate_limits"] is not None:
+            rate_limits = overrides.pop("rate_limits")
+            if isinstance(rate_limits, RateLimitConfig):
+                payload["rate_limits"] = rate_limits.model_dump()
+            elif isinstance(rate_limits, dict):
+                payload["rate_limits"] = {
+                    **payload["rate_limits"],
+                    **rate_limits,
+                }
+            else:
+                payload["rate_limits"] = rate_limits
+        payload.update(overrides)
+        return cls.model_validate(payload)
 
 
 class UpdateConfigRequest(BaseModel):

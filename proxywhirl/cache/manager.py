@@ -10,6 +10,8 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
+from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -32,6 +34,14 @@ from .tiers import (
 )
 
 __all__ = ["CacheManager", "TTLManager"]
+
+
+@dataclass
+class _LoadFlight:
+    """In-flight cache load coalesced across concurrent missers for one key."""
+
+    event: threading.Event = field(default_factory=threading.Event)
+    error: BaseException | None = None
 
 
 class TTLManager:
@@ -129,13 +139,18 @@ class TTLManager:
         Example:
             >>> ttl.stop()  # Stops cleanup thread
         """
-        if not self.enabled:
+        if not self.enabled and self.cleanup_thread is None:
             return
 
         self.enabled = False
         self._stop_event.set()
-        if self.cleanup_thread:
-            self.cleanup_thread.join(timeout=5)
+        thread = self.cleanup_thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=5)
+        if thread is None or not thread.is_alive():
+            self.cleanup_thread = None
+        else:
+            logger.warning("TTL background cleanup did not stop within 5 seconds")
         logger.info("TTL background cleanup stopped")
 
     def _cleanup_loop(self) -> None:
@@ -275,6 +290,7 @@ class CacheManager:
             - TTL manager runs as daemon thread if enabled
             - All tiers are initialized even if parent fails
         """
+        self._closed = False
         self.config = config
         self.statistics = CacheStatistics()
 
@@ -284,6 +300,8 @@ class CacheManager:
         # - Tier promotions while deletes are happening
         # - Concurrent puts/gets/deletes across multiple threads
         self._lock = threading.RLock()
+        self._singleflight_guard = threading.Lock()
+        self._singleflight: dict[str, _LoadFlight] = {}
 
         # Shared encryptor for credential encryption across tiers
         encryption_key = None
@@ -350,10 +368,49 @@ class CacheManager:
             self.ttl_manager.start()
             logger.info("TTL background cleanup enabled")
 
+    def close(self) -> None:
+        """Stop background work and close every owned closeable tier.
+
+        The operation is idempotent. Cleanup failures are logged by type while
+        remaining resources are still given a chance to close.
+        """
+        if getattr(self, "_closed", False):
+            return
+        self._closed = True
+
+        ttl_manager = getattr(self, "ttl_manager", None)
+        if ttl_manager is not None:
+            ttl_manager.stop()
+
+        for tier_name in ("l2_tier", "l3_tier"):
+            tier = getattr(self, tier_name, None)
+            close = getattr(tier, "close", None)
+            if not callable(close):
+                continue
+            try:
+                close()
+            except Exception as exc:
+                logger.bind(tier=tier_name, error_type=type(exc).__name__).warning(
+                    "Cache tier cleanup failed"
+                )
+
+    def _ensure_open(self) -> None:
+        """Reject use after deterministic resource shutdown."""
+        if self._closed:
+            raise RuntimeError("CacheManager is closed")
+
+    def __enter__(self) -> CacheManager:
+        """Return this manager for deterministic synchronous use."""
+        self._ensure_open()
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, traceback: object) -> None:
+        """Close resources when leaving a synchronous context."""
+        self.close()
+
     def __del__(self) -> None:
-        """Cleanup resources on deletion."""
-        if hasattr(self, "ttl_manager") and self.ttl_manager:
-            self.ttl_manager.stop()
+        """Best-effort fallback for callers that did not close explicitly."""
+        self.close()
 
     def _on_l1_eviction(self, key: str, entry: CacheEntry) -> None:
         """Handle L1 eviction by marking entry as evicted in L2/L3.
@@ -398,6 +455,7 @@ class CacheManager:
         Returns:
             CacheEntry if found and not expired, None otherwise
         """
+        self._ensure_open()
         with self._lock:
             # Try L1 first
             if self.l1_tier.enabled:
@@ -480,6 +538,59 @@ class CacheManager:
             logger.debug(f"Cache miss (all tiers): {key}")
             return None
 
+    def get_or_load(self, key: str, loader: Callable[[], CacheEntry]) -> CacheEntry:
+        """Return a cached entry or load it once under concurrent miss (singleflight).
+
+        On a cache hit, returns the stored entry without calling ``loader``.
+        On a miss, the first waiter runs ``loader``, stores the result with ``put``,
+        and concurrent waiters for the same key share that single load.
+
+        Args:
+            key: Cache key to resolve.
+            loader: Callable that produces a ``CacheEntry`` when the key is absent.
+
+        Returns:
+            The cached or freshly loaded entry.
+
+        Raises:
+            BaseException: Re-raises any exception raised by ``loader`` after
+                releasing waiters so they can retry or propagate.
+        """
+        self._ensure_open()
+        cached = self.get(key)
+        if cached is not None:
+            return cached
+
+        with self._singleflight_guard:
+            flight = self._singleflight.get(key)
+            if flight is None:
+                flight = _LoadFlight()
+                self._singleflight[key] = flight
+                leader = True
+            else:
+                leader = False
+
+        if not leader:
+            flight.event.wait()
+            if flight.error is not None:
+                raise flight.error
+            cached = self.get(key)
+            if cached is not None:
+                return cached
+            raise RuntimeError(f"Cache load completed without entry for key: {key}")
+
+        try:
+            entry = loader()
+            self.put(key, entry)
+            return entry
+        except BaseException as exc:
+            flight.error = exc
+            raise
+        finally:
+            flight.event.set()
+            with self._singleflight_guard:
+                self._singleflight.pop(key, None)
+
     def put(self, key: str, entry: CacheEntry) -> bool:
         """Store entry in all enabled tiers.
 
@@ -495,6 +606,7 @@ class CacheManager:
         Returns:
             True if stored in at least one tier, False otherwise
         """
+        self._ensure_open()
         with self._lock:
             success = False
 
@@ -556,6 +668,7 @@ class CacheManager:
         Returns:
             True if deleted from at least one tier, False if not found
         """
+        self._ensure_open()
         with self._lock:
             return self._delete_internal(key)
 
@@ -693,6 +806,7 @@ class CacheManager:
             - RACE-001 fix: Holds lock throughout entire operation to prevent race between
               get and update/delete operations
         """
+        self._ensure_open()
         with self._lock:
             # Get current entry using internal lock-free method (RACE-001 fix)
             entry = self._get_internal(key)
@@ -751,6 +865,7 @@ class CacheManager:
         Returns:
             Total number of entries cleared
         """
+        self._ensure_open()
         with self._lock:
             total = 0
 
@@ -778,6 +893,7 @@ class CacheManager:
         Returns:
             Dict with 'exported' and 'failed' counts
         """
+        self._ensure_open()
         exported = 0
         failed = 0
 
@@ -834,6 +950,7 @@ class CacheManager:
         Returns:
             CacheStatistics with hit rates, sizes, and tier status
         """
+        self._ensure_open()
         # Update current sizes
         if self.l1_tier.enabled:
             self.statistics.l1_stats.current_size = self.l1_tier.size()
@@ -862,6 +979,7 @@ class CacheManager:
         Returns:
             dict[str, int]: Counts for loaded, skipped, and failed entries.
         """
+        self._ensure_open()
         import csv
         import json
 

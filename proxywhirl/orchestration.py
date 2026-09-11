@@ -8,6 +8,7 @@ for backward compatibility with single-proxy + inner-retry behavior.
 
 from __future__ import annotations
 
+import asyncio
 import os
 import time
 import uuid
@@ -20,13 +21,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from proxywhirl.circuit_breaker import CircuitBreaker
 from proxywhirl.exceptions import (
-    ProxyAuthenticationError,
     ProxyConnectionError,
     ProxyPoolEmptyError,
-    RateLimitExceededError,
 )
 from proxywhirl.models import Proxy, ProxyPool, SelectionContext
-from proxywhirl.retry import NonRetryableError, RetryExecutor, RetryPolicy
+from proxywhirl.retry import RetryExecutor, RetryPolicy
 from proxywhirl.strategies import RotationStrategy
 
 
@@ -96,6 +95,11 @@ class RequestOrchestration:
 
     When failover is disabled, behavior matches the legacy path: select one proxy
     and delegate to ``RetryExecutor`` for inner retries only.
+
+    Concurrency: sync paths may touch ``ProxyPool`` / strategy locks directly.
+    Async paths offload selection and pool snapshots via ``asyncio.to_thread``
+    so thread locks do not block the event loop. Circuit selection uses
+    ``is_eligible()`` (non-mutating); probe acquisition stays in RetryExecutor.
     """
 
     def __init__(
@@ -220,23 +224,33 @@ class RequestOrchestration:
         on_proxy_selected: ProxySelectedCallback | None = None,
         pinned_proxy: Proxy | None = None,
     ) -> OrchestrationResult:
-        proxy = pinned_proxy or self._select_initial_proxy(rotation_ctx)
-        if on_proxy_selected is not None:
-            on_proxy_selected(proxy)
+        proxy = self._select_or_start_pinned(rotation_ctx, pinned_proxy)
         rotation_ctx.current_proxy_id = str(proxy.id)
         start_time = time.time()
-        response = executor.execute_with_retry(
-            request_fn_factory(proxy),
+        try:
+            if on_proxy_selected is not None:
+                on_proxy_selected(proxy)
+            response = executor.execute_with_retry(
+                request_fn_factory(proxy),
+                proxy,
+                method,
+                url,
+                request_id=rotation_ctx.request_id,
+                failover_round=failover_round,
+            )
+        except BaseException:
+            self._record_terminal_result(proxy, success=False, response_time_ms=0.0)
+            raise
+        response_time_ms = (time.time() - start_time) * 1000
+        self._record_terminal_result(
             proxy,
-            method,
-            url,
-            request_id=rotation_ctx.request_id,
-            failover_round=failover_round,
+            success=True,
+            response_time_ms=response_time_ms,
         )
         return OrchestrationResult(
             response=response,
             proxy=proxy,
-            response_time_ms=(time.time() - start_time) * 1000,
+            response_time_ms=response_time_ms,
         )
 
     async def _execute_single_proxy_async(
@@ -252,25 +266,39 @@ class RequestOrchestration:
         on_proxy_selected_async: AsyncProxySelectedCallback | None = None,
         pinned_proxy: Proxy | None = None,
     ) -> OrchestrationResult:
-        proxy = pinned_proxy or self._select_initial_proxy(rotation_ctx)
-        if on_proxy_selected_async is not None:
-            await on_proxy_selected_async(proxy)
-        elif on_proxy_selected is not None:
-            on_proxy_selected(proxy)
+        if pinned_proxy is None:
+            proxy = await self._select_initial_proxy_async(rotation_ctx)
+        else:
+            proxy = pinned_proxy
+            proxy.start_request()
         rotation_ctx.current_proxy_id = str(proxy.id)
         start_time = time.time()
-        response = await executor.execute_with_retry_async(
-            request_fn_factory(proxy),
+        try:
+            if on_proxy_selected_async is not None:
+                await on_proxy_selected_async(proxy)
+            elif on_proxy_selected is not None:
+                on_proxy_selected(proxy)
+            response = await executor.execute_with_retry_async(
+                request_fn_factory(proxy),
+                proxy,
+                method,
+                url,
+                request_id=rotation_ctx.request_id,
+                failover_round=failover_round,
+            )
+        except BaseException:
+            self._record_terminal_result(proxy, success=False, response_time_ms=0.0)
+            raise
+        response_time_ms = (time.time() - start_time) * 1000
+        self._record_terminal_result(
             proxy,
-            method,
-            url,
-            request_id=rotation_ctx.request_id,
-            failover_round=failover_round,
+            success=True,
+            response_time_ms=response_time_ms,
         )
         return OrchestrationResult(
             response=response,
             proxy=proxy,
-            response_time_ms=(time.time() - start_time) * 1000,
+            response_time_ms=response_time_ms,
         )
 
     def _execute_failover_sync(
@@ -292,23 +320,25 @@ class RequestOrchestration:
             rotation_ctx.failover_round = failover_round
             try:
                 if failover_round == 0:
-                    proxy = pinned_proxy or self._select_initial_proxy(rotation_ctx)
+                    proxy = self._select_or_start_pinned(rotation_ctx, pinned_proxy)
                 else:
                     assert previous_proxy is not None
                     proxy = self._rotate_proxy(rotation_ctx, previous_proxy)
                     if proxy is None:
                         last_error = self._pool_exhausted_error(rotation_ctx)
                         break
-                    self._notify_rotation(rotation_ctx, previous_proxy, proxy)
             except ProxyPoolEmptyError as exc:
                 last_error = exc
                 break
 
-            if on_proxy_selected is not None:
-                on_proxy_selected(proxy)
             rotation_ctx.current_proxy_id = str(proxy.id)
             start_time = time.time()
             try:
+                if failover_round > 0:
+                    assert previous_proxy is not None
+                    self._notify_rotation(rotation_ctx, previous_proxy, proxy)
+                if on_proxy_selected is not None:
+                    on_proxy_selected(proxy)
                 response = executor.execute_with_retry(
                     request_fn_factory(proxy),
                     proxy,
@@ -317,14 +347,8 @@ class RequestOrchestration:
                     request_id=rotation_ctx.request_id,
                     failover_round=failover_round,
                 )
-                return OrchestrationResult(
-                    response=response,
-                    proxy=proxy,
-                    response_time_ms=(time.time() - start_time) * 1000,
-                )
-            except (NonRetryableError, ProxyAuthenticationError, RateLimitExceededError):
-                raise
             except ProxyConnectionError as exc:
+                self._record_terminal_result(proxy, success=False, response_time_ms=0.0)
                 last_error = exc
                 rotation_ctx.failed_proxy_ids.append(str(proxy.id))
                 previous_proxy = proxy
@@ -335,6 +359,20 @@ class RequestOrchestration:
                     failed_proxy_count=len(rotation_ctx.failed_proxy_ids),
                 )
                 continue
+            except BaseException:
+                self._record_terminal_result(proxy, success=False, response_time_ms=0.0)
+                raise
+            response_time_ms = (time.time() - start_time) * 1000
+            self._record_terminal_result(
+                proxy,
+                success=True,
+                response_time_ms=response_time_ms,
+            )
+            return OrchestrationResult(
+                response=response,
+                proxy=proxy,
+                response_time_ms=response_time_ms,
+            )
 
         raise self._failover_terminal_error(rotation_ctx, last_error)
 
@@ -350,7 +388,7 @@ class RequestOrchestration:
         on_proxy_selected_async: AsyncProxySelectedCallback | None = None,
         pinned_proxy: Proxy | None = None,
     ) -> OrchestrationResult:
-        max_rounds = self._max_failover_rounds()
+        max_rounds = await asyncio.to_thread(self._max_failover_rounds)
         last_error: Exception | None = None
         previous_proxy: Proxy | None = None
 
@@ -358,25 +396,34 @@ class RequestOrchestration:
             rotation_ctx.failover_round = failover_round
             try:
                 if failover_round == 0:
-                    proxy = pinned_proxy or self._select_initial_proxy(rotation_ctx)
+                    if pinned_proxy is None:
+                        proxy = await self._select_initial_proxy_async(rotation_ctx)
+                    else:
+                        proxy = pinned_proxy
+                        proxy.start_request()
                 else:
                     assert previous_proxy is not None
-                    proxy = self._rotate_proxy(rotation_ctx, previous_proxy)
+                    proxy = await self._rotate_proxy_async(
+                        rotation_ctx,
+                        previous_proxy,
+                    )
                     if proxy is None:
                         last_error = self._pool_exhausted_error(rotation_ctx)
                         break
-                    self._notify_rotation(rotation_ctx, previous_proxy, proxy)
             except ProxyPoolEmptyError as exc:
                 last_error = exc
                 break
 
-            if on_proxy_selected_async is not None:
-                await on_proxy_selected_async(proxy)
-            elif on_proxy_selected is not None:
-                on_proxy_selected(proxy)
             rotation_ctx.current_proxy_id = str(proxy.id)
             start_time = time.time()
             try:
+                if failover_round > 0:
+                    assert previous_proxy is not None
+                    self._notify_rotation(rotation_ctx, previous_proxy, proxy)
+                if on_proxy_selected_async is not None:
+                    await on_proxy_selected_async(proxy)
+                elif on_proxy_selected is not None:
+                    on_proxy_selected(proxy)
                 response = await executor.execute_with_retry_async(
                     request_fn_factory(proxy),
                     proxy,
@@ -385,14 +432,8 @@ class RequestOrchestration:
                     request_id=rotation_ctx.request_id,
                     failover_round=failover_round,
                 )
-                return OrchestrationResult(
-                    response=response,
-                    proxy=proxy,
-                    response_time_ms=(time.time() - start_time) * 1000,
-                )
-            except (NonRetryableError, ProxyAuthenticationError, RateLimitExceededError):
-                raise
             except ProxyConnectionError as exc:
+                self._record_terminal_result(proxy, success=False, response_time_ms=0.0)
                 last_error = exc
                 rotation_ctx.failed_proxy_ids.append(str(proxy.id))
                 previous_proxy = proxy
@@ -403,6 +444,20 @@ class RequestOrchestration:
                     failed_proxy_count=len(rotation_ctx.failed_proxy_ids),
                 )
                 continue
+            except BaseException:
+                self._record_terminal_result(proxy, success=False, response_time_ms=0.0)
+                raise
+            response_time_ms = (time.time() - start_time) * 1000
+            self._record_terminal_result(
+                proxy,
+                success=True,
+                response_time_ms=response_time_ms,
+            )
+            return OrchestrationResult(
+                response=response,
+                proxy=proxy,
+                response_time_ms=response_time_ms,
+            )
 
         raise self._failover_terminal_error(rotation_ctx, last_error)
 
@@ -441,6 +496,79 @@ class RequestOrchestration:
         selection_context = self._build_selection_context(rotation_ctx)
         return self.select_proxy(selection_context)
 
+    async def _select_initial_proxy_async(
+        self,
+        rotation_ctx: ProxyRotationContext,
+    ) -> Proxy:
+        """Await thread-offloaded selection without leaking a cancelled selection."""
+        selection_task = asyncio.create_task(
+            asyncio.to_thread(self._select_initial_proxy, rotation_ctx)
+        )
+        try:
+            return await asyncio.shield(selection_task)
+        except asyncio.CancelledError:
+            try:
+                selected = await selection_task
+            except Exception:
+                pass
+            else:
+                self._record_terminal_result(
+                    selected,
+                    success=False,
+                    response_time_ms=0.0,
+                )
+            raise
+
+    async def _rotate_proxy_async(
+        self,
+        rotation_ctx: ProxyRotationContext,
+        failed_proxy: Proxy,
+    ) -> Proxy | None:
+        """Await failover selection without leaking a cancelled proxy lifecycle."""
+        selection_task = asyncio.create_task(
+            asyncio.to_thread(self._rotate_proxy, rotation_ctx, failed_proxy)
+        )
+        try:
+            return await asyncio.shield(selection_task)
+        except asyncio.CancelledError:
+            try:
+                selected = await selection_task
+            except Exception:
+                pass
+            else:
+                if selected is not None:
+                    self._record_terminal_result(
+                        selected,
+                        success=False,
+                        response_time_ms=0.0,
+                    )
+            raise
+
+    def _select_or_start_pinned(
+        self,
+        rotation_ctx: ProxyRotationContext,
+        pinned_proxy: Proxy | None,
+    ) -> Proxy:
+        """Select a proxy, starting lifecycle tracking for explicit pinned proxies."""
+        if pinned_proxy is None:
+            return self._select_initial_proxy(rotation_ctx)
+        pinned_proxy.start_request()
+        return pinned_proxy
+
+    def _record_terminal_result(
+        self,
+        proxy: Proxy,
+        *,
+        success: bool,
+        response_time_ms: float,
+    ) -> None:
+        """Settle one selected proxy attempt exactly once at its terminal boundary."""
+        self.strategy.record_result(
+            proxy,
+            success=success,
+            response_time_ms=response_time_ms,
+        )
+
     def _rotate_proxy(
         self,
         rotation_ctx: ProxyRotationContext,
@@ -461,6 +589,7 @@ class RequestOrchestration:
                 target_region=target_region,
             )
             if selected is not None:
+                selected.start_request()
                 return selected
 
         selection_context = self._build_selection_context(rotation_ctx)
@@ -468,7 +597,11 @@ class RequestOrchestration:
         return self.strategy.select(temp_pool, selection_context)
 
     def _get_available_proxies(self, failed_proxy_ids: list[str]) -> list[Proxy]:
-        """Return non-expired proxies with closed/half-open circuits, excluding failures."""
+        """Return non-expired proxies with eligible circuits, excluding failures.
+
+        Uses ``is_eligible()`` (non-mutating). Half-open probe slots are reserved
+        later at request time so selection does not consume the single probe.
+        """
         available: list[Proxy] = []
         for proxy in self.get_all_proxies():
             if proxy.is_expired:
@@ -477,7 +610,7 @@ class RequestOrchestration:
                 continue
 
             circuit_breaker = self.circuit_breakers.get(str(proxy.id))
-            if circuit_breaker is None or circuit_breaker.should_attempt_request():
+            if circuit_breaker is None or circuit_breaker.is_eligible():
                 available.append(proxy)
         return available
 

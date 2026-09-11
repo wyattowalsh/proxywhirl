@@ -182,7 +182,11 @@ class TestProxyValidatorClientPool:
                 mock_writer.wait_closed = AsyncMock()
                 mock_open_conn.return_value = (AsyncMock(), mock_writer)
 
-                await validator.validate_batch(proxies)
+                with patch(
+                    "proxywhirl.fetchers.validate_proxy_url_safety",
+                    return_value=(True, None),
+                ):
+                    await validator.validate_batch(proxies)
 
                 # Each proxy validation creates its own client (httpx proxy requirement)
                 assert mock_client_class.call_count == 3
@@ -255,7 +259,11 @@ class TestProxyValidatorIntegrationWithClientPool:
                 mock_writer.wait_closed = AsyncMock()
                 mock_open_conn.return_value = (AsyncMock(), mock_writer)
 
-                result = await validator.validate(proxy)
+                with patch(
+                    "proxywhirl.fetchers.validate_proxy_url_safety",
+                    return_value=(True, None),
+                ):
+                    result = await validator.validate(proxy)
 
                 # Should have created one client for this proxy
                 assert mock_client_class.call_count == 1
@@ -328,12 +336,12 @@ class TestProxyValidatorIntegrationWithClientPool:
 
         proxy = {"url": "socks5://proxy.example.com:1080"}
 
-        # Patch the imported AsyncProxyTransport in fetchers module, not httpx_socks
-        with patch("proxywhirl.fetchers.AsyncProxyTransport") as mock_transport:
+        # Patch the transport used by the validator module (direct import binding)
+        with patch("proxywhirl.fetchers.validator.AsyncProxyTransport") as mock_transport:
             mock_transport.from_url.return_value = MagicMock()
 
             # Ensure SOCKS_AVAILABLE is True for this test
-            with patch("proxywhirl.fetchers.SOCKS_AVAILABLE", True):
+            with patch("proxywhirl.fetchers.validator.SOCKS_AVAILABLE", True):
                 with patch.object(httpx, "AsyncClient") as mock_client_class:
                     mock_client = AsyncMock()
                     mock_client.get = AsyncMock(return_value=MagicMock(status_code=200))
@@ -348,7 +356,11 @@ class TestProxyValidatorIntegrationWithClientPool:
                         mock_writer.wait_closed = AsyncMock()
                         mock_open_conn.return_value = (AsyncMock(), mock_writer)
 
-                        result = await validator.validate(proxy)
+                        with patch(
+                            "proxywhirl.fetchers.validate_proxy_url_safety",
+                            return_value=(True, None),
+                        ):
+                            result = await validator.validate(proxy)
 
                         # Should have created SOCKS transport from URL
                         assert mock_transport.from_url.called
