@@ -2,6 +2,7 @@
 	"buildCommand": "pnpm run build",
 	"installCommand": "pnpm install --frozen-lockfile",
 	"framework": "nextjs",
+	"ignoreCommand": "P=${VERCEL_GIT_PREVIOUS_SHA:-HEAD^}; git cat-file -e $P^{commit} >/dev/null 2>&1 || git fetch -q --depth=100 origin ${VERCEL_GIT_COMMIT_REF:-main}; git diff --quiet $P HEAD -- . ':(exclude)public/proxy-lists'; e=$?; [ $e -eq 0 ]",
 	"headers": [
 		{
 			"source": "/assets/(.*)",

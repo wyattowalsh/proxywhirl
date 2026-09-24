@@ -4,6 +4,8 @@ description: Public proxy-list assets at /proxy-lists/, file formats, freshness,
 ---
 The docs site publishes a **generated proxy-list bundle** at `/proxy-lists/`. Files are mirrored from `docs/proxy-lists/` into `web/public/proxy-lists/` during `pnpm --dir web run docs:generate`.
 
+Production requests for `/proxy-lists/*` are served from `docs/proxy-lists/` on the `main` branch of GitHub, so the scheduled list update does not need a Vercel rebuild. The Ignored Build Step skips a production build when a push only changes `web/public/proxy-lists/`.
+
 Do not hand-edit generated proxy data to fake freshness. Regenerate through the CLI export workflow and validate sources separately.
 
 ## Public URLs
