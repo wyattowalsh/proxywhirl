@@ -1023,28 +1023,48 @@ class ProxyWhirl(ProxyRotatorBase):
         """
         if self._request_queue is None:
             return
-        if not self._queue_drain_lock.acquire(blocking=False):
+        while True:
+            if not self._queue_drain_lock.acquire(blocking=False):
+                return
+            progressed = False
+            try:
+                while True:
+                    try:
+                        request_data = self._request_queue.get_nowait()
+                    except queue.Empty:
+                        break
+                    progressed = True
+                    self._deliver_queued_request(request_data)
+            finally:
+                self._queue_drain_lock.release()
+            # An item can arrive after the empty check and before the unlock.
+            # Loop while this thread actually drained work so that item is not
+            # left for a caller that already failed to take the lock.
+            if not progressed:
+                return
+
+    def _deliver_queued_request(self, request_data: Any) -> None:
+        """Run one queued item and hand the result to the caller that queued it."""
+        done = request_data.get("done") if isinstance(request_data, dict) else None
+        if not isinstance(done, queue.Queue) or "method" not in request_data:
+            logger.warning("Dropping queued item that is not a proxy request")
+            if isinstance(done, queue.Queue):
+                self._finish_queued(done, ProxyConnectionError("Dropped malformed queued request"))
             return
         try:
-            while True:
-                try:
-                    request_data = self._request_queue.get_nowait()
-                except queue.Empty:
-                    return
-                done = request_data.get("done") if isinstance(request_data, dict) else None
-                if not isinstance(done, queue.Queue) or "method" not in request_data:
-                    logger.warning("Dropping queued item that is not a proxy request")
-                    if isinstance(done, queue.Queue):
-                        done.put(ProxyConnectionError("Dropped malformed queued request"))
-                    continue
-                try:
-                    response = self._execute_queued_request(request_data)
-                except BaseException as exc:
-                    done.put(exc)
-                else:
-                    done.put(response)
-        finally:
-            self._queue_drain_lock.release()
+            response = self._execute_queued_request(request_data)
+        except BaseException as exc:
+            self._finish_queued(done, exc)
+        else:
+            self._finish_queued(done, response)
+
+    @staticmethod
+    def _finish_queued(done: queue.Queue[Any], result: httpx.Response | BaseException) -> None:
+        """Deliver one result without blocking the drainer on a full waiter slot."""
+        try:
+            done.put_nowait(result)
+        except queue.Full:
+            logger.warning("Queued caller already has a result")
 
     def _execute_queued_request(self, request_data: dict[str, Any]) -> httpx.Response:
         """Execute one already-dequeued request and return its response.

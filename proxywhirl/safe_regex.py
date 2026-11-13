@@ -166,11 +166,37 @@ def _count_repetitions(pattern: str) -> int:
     return count
 
 
+def _quantifier_end(pattern: str, index: int) -> int | None:
+    """Return the index after one quantifier, including a lazy or possessive suffix.
+
+    Accepts ``*``, ``+``, ``?``, ``{n}``, ``{n,}``, ``{,m}``, and ``{n,m}``.
+    A following ``?`` (lazy) or ``+`` (possessive) is part of that quantifier.
+    """
+    if index >= len(pattern):
+        return None
+    char = pattern[index]
+    end = index + 1
+    if char == "{":
+        close = pattern.find("}", index + 1)
+        if close == -1:
+            return None
+        body = pattern[index + 1 : close]
+        if re.fullmatch(r"\d+(?:,\d*)?|,\d+", body) is None:
+            return None
+        end = close + 1
+    elif char not in "*+?":
+        return None
+    if end < len(pattern) and pattern[end] in "?+":
+        end += 1
+    return end
+
+
 def _static_has_nested_quantifiers(pattern: str) -> bool:
     """Detect nested quantifiers, including quantifiers inside character classes.
 
-    A ``)`` inside ``[]`` does not close a group. ``([)]+)+`` is the same shape
-    as ``(a+)+``. A quantified group that contains ``|`` stays refused as well.
+    A ``)`` inside ``[]`` does not close a group. ``([)]+)+`` and ``(a+){,2}``
+    are the same shape as ``(a+)+``. A quantified group that contains ``|``
+    stays refused as well. Possessive ``++`` is one quantifier, not two.
     """
     group_stack: list[dict[str, bool]] = []
     last_quantified = False
@@ -194,10 +220,12 @@ def _static_has_nested_quantifiers(pattern: str) -> bool:
         if in_class:
             if class_first:
                 class_first = False
-                if char == "^":
-                    index += 1
+                if char == "^" and index + 1 < len(pattern) and pattern[index + 1] == "]":
+                    index += 2
                     continue
-            elif char == "]":
+                index += 1
+                continue
+            if char == "]":
                 in_class = False
                 last_quantified = False
                 last_alternation = False
@@ -230,29 +258,15 @@ def _static_has_nested_quantifiers(pattern: str) -> bool:
             last_alternation = False
             index += 1
             continue
-        if char in "*+?{":
-            if char == "?" and index > 0 and pattern[index - 1] in "*+?}":
-                index += 1
-                continue
-            quantifier_end = index
-            if char == "{":
-                close = pattern.find("}", index + 1)
-                body = pattern[index + 1 : close] if close != -1 else ""
-                if close == -1 or re.fullmatch(r"\d+,?\d*", body) is None:
-                    last_quantified = False
-                    last_alternation = False
-                    index += 1
-                    continue
-                quantifier_end = close
+        quantifier_end = _quantifier_end(pattern, index)
+        if quantifier_end is not None:
             if last_quantified or last_alternation:
-                return True
-            if char in "*+" and index + 1 < len(pattern) and pattern[index + 1] in "*+":
                 return True
             if group_stack:
                 group_stack[-1]["quant"] = True
-            last_quantified = False
+            last_quantified = True
             last_alternation = False
-            index = quantifier_end + 1
+            index = quantifier_end
             continue
         last_quantified = False
         last_alternation = False

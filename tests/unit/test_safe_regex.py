@@ -59,8 +59,13 @@ class TestRegexValidation:
             r"(a*)*",  # Nested * quantifiers
             r"(a+)*",  # Mixed nested quantifiers
             r"(a?)+",  # Nested ? quantifiers
+            r"(a|b)+",  # Quantified alternation stays refused
             r"([)]+)+",  # Nested quantifier hidden by a character class
             r"([)]{1,}){1,}",
+            r"(a+){,2}",  # Open lower bound is still a quantifier
+            r"([)]{,5}){,5}",
+            r"(a+)+?",  # Lazy suffix does not make the nest safe
+            r"(a++)++",  # Possessive suffix does not make the nest safe
         ]
 
         for pattern in dangerous_patterns:
@@ -75,6 +80,11 @@ class TestRegexValidation:
             r"a{1,3}b{2,5}",  # Bounded repetitions
             r"(abc)+",  # Group with single quantifier
             r"[)]+",  # Quantified character class, not a nested group
+            r"[^]]+",  # ] is literal after a negated class opening
+            r"a{,2}",  # Single open-lower quantifier
+            r"a++",  # Possessive, one quantifier
+            r"a+?",  # Lazy, one quantifier
+            r"(abc)++",
         ]
 
         for pattern in safe_patterns:

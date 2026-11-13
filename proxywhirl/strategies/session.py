@@ -67,11 +67,23 @@ class SessionManager:
 
             # Evict only when inserting a new id. Refreshing an existing
             # session at capacity must not drop some other live session.
-            if session_id not in self._sessions and len(self._sessions) >= self._max_sessions:
+            existing = self._sessions.get(session_id)
+            if existing is None and len(self._sessions) >= self._max_sessions:
                 self._evict_lru_session()
 
             now = datetime.now(timezone.utc)
             expires_at = now + timedelta(seconds=timeout_seconds)
+            if existing is not None:
+                session = Session(
+                    session_id=session_id,
+                    proxy_id=str(proxy.id),
+                    created_at=existing.created_at,
+                    expires_at=expires_at,
+                    last_used_at=now,
+                    request_count=existing.request_count,
+                )
+                self._sessions[session_id] = session
+                return session
 
             session = Session(
                 session_id=session_id,

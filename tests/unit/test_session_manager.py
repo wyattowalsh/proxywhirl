@@ -559,6 +559,25 @@ class TestSessionManagerLRUEviction:
         assert manager.get_session("refresh") is not None
         assert len(manager.get_all_sessions()) == 2
 
+    def test_refresh_keeps_request_count_and_created_at(self):
+        """Updating a session replaces the proxy without resetting its history."""
+        manager = SessionManager(max_sessions=2)
+        first = ProxyFactory.healthy()
+        second = ProxyFactory.healthy()
+        created = manager.create_session("sticky", first)
+        created.request_count = 4
+        created_at = created.created_at
+        original_proxy_id = created.proxy_id
+
+        refreshed = manager.create_session("sticky", second, timeout_seconds=60)
+
+        assert refreshed is not created
+        assert created.proxy_id == original_proxy_id
+        assert refreshed.proxy_id == str(second.id)
+        assert refreshed.request_count == 4
+        assert refreshed.created_at == created_at
+        assert refreshed.expires_at > created_at
+
     def test_lru_eviction_respects_access_order(self):
         """Test that LRU eviction respects access order, not creation order."""
         # Arrange
