@@ -1,8 +1,18 @@
 """Safe regex pattern matching with ReDoS protection.
 
-This module provides utilities for safely compiling and matching user-provided
-regex patterns with timeout protection to prevent Regular Expression Denial of
-Service (ReDoS) attacks.
+Untrusted patterns are executed under real bounds:
+
+- Nested quantifiers are refused by a static detector before compile/match.
+- Process isolation (killable child, hard timeout) is opt-in via
+  ``PROXYWHIRL_REGEX_PROCESS_ISOLATION=1``. Isolation is the only way to
+  interrupt CPython ``re`` mid-match.
+- When isolation is off (the default), nested quantifiers are refused
+  in-process and match/search return the native ``re.Match``. Residual
+  risk: non-nested polynomial patterns can still be expensive; CPython
+  ``re`` cannot be interrupted in-process.
+- When isolation is on, the worker returns a picklable payload rebuilt as
+  ``BoundedRegexMatch``. The default path returns the native ``re.Match``
+  from that single in-process search.
 """
 
 from __future__ import annotations
@@ -27,6 +37,9 @@ MAX_PATTERN_LENGTH = 1000
 
 # Maximum number of repetition quantifiers to limit backtracking
 MAX_REPETITIONS = 10
+
+# In-process matching accepts long haystacks. Nested quantifiers are refused
+# statically because CPython ``re`` cannot be interrupted mid-match.
 
 
 class RegexTimeoutError(typer.Exit):
@@ -56,12 +69,83 @@ class RegexComplexityError(typer.Exit):
         self.args = args
 
 
-_NESTED_QUANTIFIER_PATTERNS = (
-    r"\([^)]*[*+?{][^)]*\)[*+?{]",  # (...)+ or (...)*
-    r"\([^)]*[*+?]\)[*+?]",  # Simpler nested quantifier detection
-    r"[*+]{2,}",  # **, ++, etc.
-    r"\(.*\|.*\)[*+]",  # (a|a)* or similar
-)
+class BoundedRegexMatch:
+    """Picklable match-like object built from a bounded worker payload.
+
+    Exposes the ``re.Match`` methods callers use (``group``, ``groups``,
+    ``start``, ``end``, ``span``) without requiring a second in-process search.
+    """
+
+    __slots__ = ("_group", "_groups", "_start", "_end")
+
+    def __init__(
+        self,
+        group: str,
+        groups: tuple[str | None, ...],
+        start: int,
+        end: int,
+    ) -> None:
+        self._group = group
+        self._groups = groups
+        self._start = start
+        self._end = end
+
+    def group(self, *indices: int) -> str | None | tuple[str | None, ...]:
+        if not indices:
+            return self._group
+        if len(indices) == 1:
+            idx = indices[0]
+            if idx == 0:
+                return self._group
+            return self._groups[idx - 1]
+        values: list[str | None] = []
+        for idx in indices:
+            if idx == 0:
+                values.append(self._group)
+            else:
+                values.append(self._groups[idx - 1])
+        return tuple(values)
+
+    def groups(self) -> tuple[str | None, ...]:
+        return self._groups
+
+    def start(self, group: int = 0) -> int:
+        del group
+        return self._start
+
+    def end(self, group: int = 0) -> int:
+        del group
+        return self._end
+
+    def span(self, group: int = 0) -> tuple[int, int]:
+        return (self.start(group), self.end(group))
+
+    def __bool__(self) -> bool:
+        return True
+
+
+def _search_payload(match: re.Match[str] | None) -> dict[str, Any] | None:
+    """Serialize a match into a picklable payload (or None)."""
+    if match is None:
+        return None
+    return {
+        "group": match.group(0),
+        "groups": match.groups(),
+        "start": match.start(),
+        "end": match.end(),
+    }
+
+
+def _match_from_payload(payload: dict[str, Any] | None) -> BoundedRegexMatch | None:
+    """Rebuild a match-like object from a bounded worker payload."""
+    if not payload:
+        return None
+    return BoundedRegexMatch(
+        group=str(payload["group"]),
+        groups=tuple(payload.get("groups") or ()),
+        start=int(payload["start"]),
+        end=int(payload["end"]),
+    )
 
 
 def _count_repetitions(pattern: str) -> int:
@@ -83,18 +167,96 @@ def _count_repetitions(pattern: str) -> int:
 
 
 def _static_has_nested_quantifiers(pattern: str) -> bool:
-    """Detect nested quantifiers with trusted, fixed detector patterns.
+    """Detect nested quantifiers, including quantifiers inside character classes.
 
-    Detectors are constant and simple; the *user* pattern is only the haystack.
-    This stays in-process so validation never depends on process isolation
-    (which is flaky under pytest-cov / multi-threaded parents).
+    A ``)`` inside ``[]`` does not close a group. ``([)]+)+`` is the same shape
+    as ``(a+)+``. A quantified group that contains ``|`` stays refused as well.
     """
-    for dangerous_pattern in _NESTED_QUANTIFIER_PATTERNS:
-        try:
-            if re.search(dangerous_pattern, pattern) is not None:
-                return True
-        except re.error:
+    group_stack: list[dict[str, bool]] = []
+    last_quantified = False
+    last_alternation = False
+    in_class = False
+    class_first = False
+    escape = False
+    index = 0
+    while index < len(pattern):
+        char = pattern[index]
+        if escape:
+            escape = False
+            last_quantified = False
+            last_alternation = False
+            index += 1
             continue
+        if char == "\\":
+            escape = True
+            index += 1
+            continue
+        if in_class:
+            if class_first:
+                class_first = False
+                if char == "^":
+                    index += 1
+                    continue
+            elif char == "]":
+                in_class = False
+                last_quantified = False
+                last_alternation = False
+            index += 1
+            continue
+        if char == "[":
+            in_class = True
+            class_first = True
+            last_quantified = False
+            last_alternation = False
+            index += 1
+            continue
+        if char == "(":
+            group_stack.append({"quant": False, "alt": False})
+            last_quantified = False
+            last_alternation = False
+            index += 1
+            continue
+        if char == ")":
+            if group_stack:
+                frame = group_stack.pop()
+                last_quantified = frame["quant"]
+                last_alternation = frame["alt"]
+            index += 1
+            continue
+        if char == "|":
+            if group_stack:
+                group_stack[-1]["alt"] = True
+            last_quantified = False
+            last_alternation = False
+            index += 1
+            continue
+        if char in "*+?{":
+            if char == "?" and index > 0 and pattern[index - 1] in "*+?}":
+                index += 1
+                continue
+            quantifier_end = index
+            if char == "{":
+                close = pattern.find("}", index + 1)
+                body = pattern[index + 1 : close] if close != -1 else ""
+                if close == -1 or re.fullmatch(r"\d+,?\d*", body) is None:
+                    last_quantified = False
+                    last_alternation = False
+                    index += 1
+                    continue
+                quantifier_end = close
+            if last_quantified or last_alternation:
+                return True
+            if char in "*+" and index + 1 < len(pattern) and pattern[index + 1] in "*+":
+                return True
+            if group_stack:
+                group_stack[-1]["quant"] = True
+            last_quantified = False
+            last_alternation = False
+            index = quantifier_end + 1
+            continue
+        last_quantified = False
+        last_alternation = False
+        index += 1
     return False
 
 
@@ -170,7 +332,7 @@ def _regex_worker(
         if operation == "compile":
             payload: Any = True
         elif operation == "search":
-            payload = compiled_pattern.search(text) is not None
+            payload = _search_payload(compiled_pattern.search(text))
         elif operation == "findall":
             payload = _findall_limited(compiled_pattern, text, max_results)
         else:
@@ -248,7 +410,8 @@ def _process_isolation_enabled() -> bool:
     macOS and is flaky under multi-threaded parents. Opt in with
     ``PROXYWHIRL_REGEX_PROCESS_ISOLATION=1``. When isolation is off, nested
     quantifiers are refused in-process (cannot interrupt CPython ``re``)
-    instead of hanging the caller.
+    and the native ``re.Match`` is returned. Residual risk: non-nested
+    polynomial patterns can still be expensive in-process.
     """
     flag = os.environ.get("PROXYWHIRL_REGEX_PROCESS_ISOLATION", "").strip().lower()
     if flag in {"0", "false", "no", "off"}:
@@ -272,6 +435,8 @@ def _run_regex_inprocess(
 
     CPython ``re`` cannot be interrupted mid-match from another thread, so
     nested-quantifier patterns are refused here rather than allowed to hang.
+    Search and match return the native ``re.Match`` so callers can use
+    ``groupdict``, ``span(name)``, and ``isinstance(..., re.Match)``.
     """
     if operation != "compile" and _static_has_nested_quantifiers(pattern):
         raise RegexTimeoutError(
@@ -282,9 +447,9 @@ def _run_regex_inprocess(
     if operation == "compile":
         return True
     if operation == "match":
-        return compiled.match(text) is not None
+        return compiled.match(text)
     if operation == "search":
-        return compiled.search(text) is not None
+        return compiled.search(text)
     if operation == "findall":
         return _findall_limited(compiled, text, max_results if max_results > 0 else 10000)
     raise ValueError(f"Unknown regex operation: {operation}")
@@ -371,7 +536,7 @@ def _match_with_timeout(
     pattern: Pattern[str],
     text: str,
     timeout: float,
-) -> re.Match[str] | None:
+) -> re.Match[str] | BoundedRegexMatch | None:
     """Search regex with timeout using a killable worker process.
 
     Args:
@@ -384,28 +549,29 @@ def _match_with_timeout(
 
     Raises:
         RegexTimeoutError: If matching exceeds timeout
+        RegexComplexityError: If pattern validation rejects the pattern
     """
     try:
-        matched = cast(
-            bool,
-            _run_regex_operation(
-                "search",
-                pattern.pattern,
-                pattern.flags,
-                text,
-                timeout,
-                max_results=0,
-            ),
+        payload = _run_regex_operation(
+            "search",
+            pattern.pattern,
+            pattern.flags,
+            text,
+            timeout,
+            max_results=0,
         )
     except RegexTimeoutError as e:
         raise RegexTimeoutError(f"Regex matching timed out after {timeout}s") from e
 
-    if not matched:
-        return None
-    # The bounded worker has proved the deterministic pattern/text pair
-    # completes. Re-run it to return the native, non-picklable Match object
-    # exposed by the released API.
-    return pattern.search(text)
+    if payload is None or isinstance(payload, re.Match):
+        return payload
+    if isinstance(payload, dict):
+        return _match_from_payload(payload)
+    # Legacy bool payload from an older worker: treat truthy as a match
+    # without a second in-process search (group text unavailable).
+    if payload:
+        return BoundedRegexMatch(group="", groups=(), start=0, end=0)
+    return None
 
 
 def safe_regex_compile(
@@ -441,7 +607,7 @@ def safe_regex_match(
     flags: int = 0,
     timeout: float = DEFAULT_REGEX_TIMEOUT,
     validate: bool = True,
-) -> re.Match[str] | None:
+) -> re.Match[str] | BoundedRegexMatch | None:
     """Safely match a regex pattern against text with timeout protection.
 
     Args:
@@ -472,7 +638,7 @@ def safe_regex_search(
     flags: int = 0,
     timeout: float = DEFAULT_REGEX_TIMEOUT,
     validate: bool = True,
-) -> re.Match[str] | None:
+) -> re.Match[str] | BoundedRegexMatch | None:
     """Safely search for a regex pattern in text with timeout protection.
 
     This is an alias for safe_regex_match for API compatibility.

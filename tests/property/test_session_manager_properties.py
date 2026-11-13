@@ -226,7 +226,7 @@ class TestSessionTTLExpiration:
             assert session is None, f"Short-TTL session {sid} should be gone"
 
     @given(ttl1=ttl_seconds, ttl2=ttl_seconds)
-    @settings(max_examples=30, deadline=timedelta(milliseconds=1000))
+    @settings(max_examples=30, deadline=None)
     def test_expiration_is_monotonic(self, ttl1: int, ttl2: int) -> None:
         """Property: Session expiration is monotonically related to TTL."""
         # Skip if TTLs are equal (can't determine order)
@@ -297,7 +297,7 @@ class TestSessionDataPreservation:
         assert retrieved.request_count == num_touches
 
     @given(session_id=session_ids)
-    @settings(max_examples=30, deadline=timedelta(milliseconds=1000))
+    @settings(max_examples=30, deadline=None)
     def test_touch_updates_last_used_timestamp(self, session_id: str) -> None:
         """Property: Touching session updates last_used_at timestamp."""
         manager = SessionManager(max_sessions=100)

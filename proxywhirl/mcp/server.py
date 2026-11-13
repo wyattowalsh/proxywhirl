@@ -30,7 +30,7 @@ from proxywhirl._proxy_views import (
 from proxywhirl.mcp.auth import MCPAuth
 from proxywhirl.models import HealthStatus
 from proxywhirl.rotator import AsyncProxyWhirl
-from proxywhirl.security import redact_url
+from proxywhirl.security import pin_outbound_url, redact_url, validate_proxy_url_safety
 from proxywhirl.settings import MCPSettings
 from proxywhirl.strategies import BUILTIN_STRATEGY_CLASSES
 from proxywhirl.utils import _redact_sensitive_text, public_proxy_url
@@ -893,6 +893,9 @@ async def _add_proxy_impl(proxy_url: str, ctx: object | None = None) -> dict[str
     """
     from uuid import uuid4
 
+    from pydantic import ValidationError
+
+    from proxywhirl.api.models import CreateProxyRequest
     from proxywhirl.models import Proxy, ProxySource
 
     if not proxy_url:
@@ -912,6 +915,22 @@ async def _add_proxy_impl(proxy_url: str, ctx: object | None = None) -> dict[str
             if not proxy_url.startswith("http://"):
                 proxy_url = f"http://{proxy_url}"
 
+        CreateProxyRequest(url=proxy_url)
+    except (ValidationError, ValueError, Exception) as e:
+        return {"error": f"Invalid proxy URL: {_sanitize_error_text(e)}", "code": 400}
+
+    safe, reason = validate_proxy_url_safety(proxy_url)
+    if not safe:
+        return {"error": f"Proxy URL blocked by security policy: {reason}", "code": 400}
+
+    rotator = await get_rotator()
+    if await find_proxy_view_async(rotator, proxy_url) is not None:
+        return {
+            "error": f"Proxy already exists: {public_proxy_url(proxy_url)}",
+            "code": 409,
+        }
+
+    try:
         proxy = Proxy(
             id=uuid4(),
             url=proxy_url,
@@ -919,12 +938,6 @@ async def _add_proxy_impl(proxy_url: str, ctx: object | None = None) -> dict[str
             source=ProxySource.USER,
             health_status=HealthStatus.UNKNOWN,
         )
-    except Exception as e:
-        return {"error": f"Invalid proxy URL: {_sanitize_error_text(e)}", "code": 400}
-
-    rotator = await get_rotator()
-
-    try:
         view = await add_proxy_to_rotator_async(rotator, proxy)
         return {
             "success": True,
@@ -970,6 +983,9 @@ async def _remove_proxy_impl(proxy_id: str, ctx: object | None = None) -> dict[s
 
     try:
         await remove_proxy_from_rotator_async(rotator, proxy_id)
+        from proxywhirl.api.runtime import clear_proxy_metrics
+
+        clear_proxy_metrics(proxy_id)
         return {
             "success": True,
             "proxy_id": proxy_id,
@@ -1086,9 +1102,33 @@ async def _validate_proxy_impl(
             except Exception:
                 pass
 
+        safe, reason = validate_proxy_url_safety(str(proxy.url))
+        if not safe:
+            results.append(
+                {
+                    "proxy_id": str(proxy.id),
+                    "url": public_proxy_url(str(proxy.url)),
+                    "valid": False,
+                    "error": reason,
+                }
+            )
+            continue
+
+        pin, pin_reason = pin_outbound_url(str(proxy.url), purpose="proxy")
+        if pin is None:
+            results.append(
+                {
+                    "proxy_id": str(proxy.id),
+                    "url": public_proxy_url(str(proxy.url)),
+                    "valid": False,
+                    "error": pin_reason,
+                }
+            )
+            continue
+
         try:
             async with httpx.AsyncClient(
-                proxy=str(proxy.url),
+                proxy=pin.pinned_url,
                 timeout=timeout,
                 verify=True,
             ) as client:

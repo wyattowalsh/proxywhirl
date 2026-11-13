@@ -536,8 +536,15 @@ def _apply_protocol_override(url: str, protocol: str) -> str:
         return url
     host = _format_proxy_host(parsed.hostname)
     port = parsed.port
-    netloc = f"{host}:{port}" if port else host
-    return f"{protocol}://{netloc}"
+    hostport = f"{host}:{port}" if port else host
+    if parsed.username is None and parsed.password is None:
+        return f"{protocol}://{hostport}"
+    from urllib.parse import quote
+
+    userinfo = quote(parsed.username or "", safe="")
+    if parsed.password is not None:
+        userinfo = f"{userinfo}:{quote(parsed.password, safe='')}"
+    return f"{protocol}://{userinfo}@{hostport}"
 
 
 def normalize_parsed_proxy_rows(

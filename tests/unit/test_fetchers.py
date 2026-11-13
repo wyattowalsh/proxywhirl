@@ -13,10 +13,12 @@ Tests cover:
 import json
 from collections.abc import AsyncIterator
 from unittest.mock import AsyncMock, MagicMock
+from urllib.parse import urlparse
 
 import pytest
 
 from proxywhirl.exceptions import ProxyFetchError, ProxyValidationError
+from proxywhirl.security import PinnedOutbound
 
 
 def _mock_httpx_stream_client(
@@ -48,6 +50,24 @@ def _mock_httpx_stream_client(
     mock_client = MagicMock()
     mock_client.stream = MagicMock(return_value=stream_cm)
     return mock_client
+
+
+def _identity_pin(url: str, *, purpose: str = "url") -> tuple[PinnedOutbound, str]:
+    """Keep the original URL as ``pinned_url`` so existing HTTP mocks still match."""
+    parsed = urlparse(url)
+    hostname = parsed.hostname or ""
+    return (
+        PinnedOutbound(
+            url=url,
+            hostname=hostname,
+            ip="8.8.8.8",
+            port=parsed.port,
+            scheme=(parsed.scheme or "").lower(),
+            pinned_url=url,
+            host_header=hostname,
+        ),
+        "",
+    )
 
 
 # T088: JSON Parser Tests
@@ -1252,7 +1272,10 @@ class TestProxyValidatorMethods:
             {"url": "http://proxy3.com:8888", "protocol": "http"},
         ]
 
-        with patch("httpx.AsyncClient", side_effect=make_client):
+        with (
+            patch("httpx.AsyncClient", side_effect=make_client),
+            patch("proxywhirl.fetchers.validator.pin_outbound_url", side_effect=_identity_pin),
+        ):
             result = await validator.validate_https_capability_batch(proxies)
 
         # proxy1 and proxy3 pass (204), proxy2 fails (403 on all URLs)
@@ -1281,7 +1304,10 @@ class TestProxyValidatorMethods:
 
         proxies = [{"url": f"http://proxy{i}.com:8080", "protocol": "http"} for i in range(10)]
 
-        with patch("httpx.AsyncClient", return_value=mock_client):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch("proxywhirl.fetchers.validator.pin_outbound_url", side_effect=_identity_pin),
+        ):
             result = await validator.validate_https_capability_batch(proxies, max_results=2)
 
         assert len(result) <= 2
@@ -1314,7 +1340,10 @@ class TestProxyValidatorMethods:
             {"url": "http://proxy2.com:3128", "protocol": "http"},
         ]
 
-        with patch("httpx.AsyncClient", return_value=mock_client):
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client),
+            patch("proxywhirl.fetchers.validator.pin_outbound_url", side_effect=_identity_pin),
+        ):
             result = await validator.validate_https_capability_batch(proxies)
 
         # Only 2 unique proxies should be tested
@@ -1341,7 +1370,10 @@ class TestProxyValidatorMethods:
             {"url": "http://proxy4.com:8080", "protocol": "http"},
         ]
 
-        with patch("httpx.AsyncClient", return_value=mock_client) as mock_client_class:
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client) as mock_client_class,
+            patch("proxywhirl.fetchers.validator.pin_outbound_url", side_effect=_identity_pin),
+        ):
             result = await validator.validate_https_capability_batch(proxies)
 
         assert [proxy["url"] for proxy in result] == ["https://proxy4.com:8080"]

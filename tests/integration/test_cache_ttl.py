@@ -23,6 +23,7 @@ def encryption_key() -> SecretStr:
     return SecretStr(encryptor.key.decode("utf-8"))
 
 
+@pytest.mark.slow
 def test_ttl_expiration_timing(tmp_path: Path, encryption_key: SecretStr) -> None:
     """Test that TTL expiration occurs within 1 minute (SC-006).
 

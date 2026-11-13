@@ -506,6 +506,7 @@ class TestCredentialEncryption:
             # Verify decrypted values match original
             assert decrypted.proxies[0].username.get_secret_value() == "testuser"
             assert decrypted.proxies[0].password.get_secret_value() == "testpass"
+            assert config.proxies[0].password.get_secret_value() == "testpass"
 
     def test_decrypt_handles_unencrypted_values(self) -> None:
         """Test that decryption gracefully handles unencrypted values when not strict."""

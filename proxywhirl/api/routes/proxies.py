@@ -42,6 +42,7 @@ from proxywhirl.api.models import (
     ProxyResource,
 )
 from proxywhirl.api.runtime import (
+    clear_proxy_metrics,
     get_rotator,
     get_storage,
     limiter,
@@ -700,6 +701,12 @@ async def delete_proxy(
         if storage:
             storage_url = str(stored_proxy.url) if stored_proxy is not None else str(removed.url)
             await storage.delete(storage_url)
+        # Drop per-proxy Prometheus series so proxy-id labels cannot grow unbounded.
+        metric_source = stored_proxy if stored_proxy is not None else removed
+        stable_id = _get_proxy_id(metric_source)
+        clear_proxy_metrics(stable_id)
+        if proxy_id != stable_id:
+            clear_proxy_metrics(proxy_id)
         return
 
     raise HTTPException(

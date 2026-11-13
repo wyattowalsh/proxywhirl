@@ -212,6 +212,21 @@ async def setup_test_rotator(mock_rotator, monkeypatch, tmp_path):
     monkeypatch.setenv("PROXYWHIRL_MCP_ALLOW_UNAUTHENTICATED_WRITES", "1")
     monkeypatch.setenv("PROXYWHIRL_MCP_DB", str(tmp_path / "mcp-test.db"))
     mcp_server._mcp_db_path = None
+
+    import ipaddress
+    from urllib.parse import urlparse
+
+    from proxywhirl.security import validate_proxy_url_safety as real_proxy_url_safety
+
+    def _test_proxy_url_safety(url: str) -> tuple[bool, str]:
+        hostname = urlparse(url).hostname
+        try:
+            ipaddress.ip_address(hostname or "")
+        except ValueError:
+            return True, ""
+        return real_proxy_url_safety(url)
+
+    monkeypatch.setattr(mcp_server, "validate_proxy_url_safety", _test_proxy_url_safety)
     await set_rotator(mock_rotator)
     # Reset auth to default (no authentication required)
     set_auth(MCPAuth())
@@ -1492,6 +1507,19 @@ class TestRemoveProxyAction:
         finally:
             await cleanup_rotator()
 
+    async def test_remove_proxy_clears_metrics(self, mock_rotator: AsyncProxyWhirl) -> None:
+        """Successful MCP remove must drop per-proxy Prometheus series."""
+        await set_rotator(mock_rotator)
+        try:
+            proxies = await mock_rotator.pool.aget_all_proxies()
+            proxy_id = str(proxies[0].id)
+            with patch("proxywhirl.api.runtime.clear_proxy_metrics") as mock_clear:
+                result = await _proxywhirl_tool(action="remove", proxy_id=proxy_id)
+            assert result.get("success") is True
+            mock_clear.assert_called_once_with(proxy_id)
+        finally:
+            await cleanup_rotator()
+
     async def test_remove_proxy_missing_id(self, mock_rotator: AsyncProxyWhirl) -> None:
         """Test remove proxy with missing ID."""
         await set_rotator(mock_rotator)
@@ -1942,7 +1970,24 @@ class TestEdgeCases:
             proxies = await mock_rotator.pool.aget_all_proxies()
             proxy_id = str(proxies[0].id)
 
-            with patch("httpx.AsyncClient") as mock_client:
+            from proxywhirl.security import PinnedOutbound
+
+            pin = PinnedOutbound(
+                url=str(proxies[0].url),
+                hostname="proxy.example.test",
+                ip="8.8.8.8",
+                port=8080,
+                scheme="http",
+                pinned_url="http://8.8.8.8:8080",
+                host_header="proxy.example.test:8080",
+            )
+            with (
+                patch(
+                    "proxywhirl.mcp.server.pin_outbound_url",
+                    return_value=(pin, ""),
+                ),
+                patch("httpx.AsyncClient") as mock_client,
+            ):
                 mock_instance = MagicMock()
                 mock_response = MagicMock()
                 mock_response.status_code = 200
@@ -1955,6 +2000,7 @@ class TestEdgeCases:
 
                 _, kwargs = mock_client.call_args
                 assert kwargs.get("verify") is True
+                assert kwargs.get("proxy") == "http://8.8.8.8:8080"
         finally:
             await cleanup_rotator()
 
@@ -2416,3 +2462,92 @@ class TestDirectToolCallAuth:
 
         assert "error" not in result
         assert "pool_status" in result
+
+
+class TestMcpSsrfParity:
+    """MCP add/validate must use the REST SSRF chain (f03)."""
+
+    async def test_add_loopback_rejected(self, mock_rotator) -> None:
+        from proxywhirl.mcp.server import _add_proxy_impl
+
+        result = await _add_proxy_impl("http://127.0.0.1:8080")
+        assert result.get("code") == 400
+        assert "blocked" in result["error"].lower() or "security" in result["error"].lower()
+        urls = [str(p.url) for p in await mock_rotator.pool.aget_all_proxies()]
+        assert not any("127.0.0.1" in url for url in urls)
+
+    async def test_add_metadata_ip_rejected(self, mock_rotator) -> None:
+        from proxywhirl.mcp.server import _add_proxy_impl
+
+        result = await _add_proxy_impl("http://169.254.169.254:80")
+        assert result.get("code") == 400
+
+    async def test_add_private_ip_rejected(self, mock_rotator) -> None:
+        from proxywhirl.mcp.server import _add_proxy_impl
+
+        result = await _add_proxy_impl("http://10.0.0.1:8080")
+        assert result.get("code") == 400
+
+    async def test_duplicate_add_returns_409(self, mock_rotator) -> None:
+        from proxywhirl.mcp.server import _add_proxy_impl
+
+        url = "http://unique-ssrf-parity.example.com:8080"
+        first = await _add_proxy_impl(url)
+        assert first.get("success") is True
+        second = await _add_proxy_impl(url)
+        assert second.get("code") == 409
+
+    async def test_validate_loopback_does_not_connect(self, mock_rotator) -> None:
+        from proxywhirl.mcp.server import _validate_proxy_impl
+
+        loopback = Proxy(
+            id=uuid4(),
+            url="http://127.0.0.1:8080",
+            protocol="http",
+            health_status=HealthStatus.UNKNOWN,
+            source=ProxySource.USER,
+            allow_local=True,
+        )
+        await mock_rotator.pool.aadd_proxy(loopback)
+        with patch("httpx.AsyncClient") as mock_client:
+            result = await _validate_proxy_impl(proxy_id=str(loopback.id))
+            mock_client.assert_not_called()
+        assert result["valid"] == 0
+        assert result["results"][0]["valid"] is False
+
+    async def test_validate_uses_pinned_ip_url(self, mock_rotator, monkeypatch) -> None:
+        """MCP validate must connect via the pinned IP, not the hostname."""
+        from proxywhirl.mcp.server import _validate_proxy_impl
+        from proxywhirl.security import PinnedOutbound
+
+        proxy = Proxy(
+            id=uuid4(),
+            url="http://public.example.test:8080",
+            protocol="http",
+            health_status=HealthStatus.UNKNOWN,
+            source=ProxySource.USER,
+        )
+        await mock_rotator.pool.aadd_proxy(proxy)
+        pin = PinnedOutbound(
+            url=str(proxy.url),
+            hostname="public.example.test",
+            ip="8.8.8.8",
+            port=8080,
+            scheme="http",
+            pinned_url="http://8.8.8.8:8080",
+            host_header="public.example.test:8080",
+        )
+        monkeypatch.setattr(
+            "proxywhirl.mcp.server.pin_outbound_url",
+            lambda *_args, **_kwargs: (pin, ""),
+        )
+        mock_client = AsyncMock()
+        mock_resp = MagicMock(status_code=200)
+        mock_client.get = AsyncMock(return_value=mock_resp)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        with patch("httpx.AsyncClient", return_value=mock_client) as mock_cls:
+            result = await _validate_proxy_impl(proxy_id=str(proxy.id))
+        mock_cls.assert_called()
+        assert mock_cls.call_args.kwargs["proxy"] == "http://8.8.8.8:8080"
+        assert result["results"][0]["valid"] is True

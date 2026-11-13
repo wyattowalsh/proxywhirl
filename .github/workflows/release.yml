@@ -41,14 +41,9 @@ jobs:
         with:
           version: "0.12.3"
 
-      - name: Install dependencies
-        run: uv sync --locked --python 3.11 --group dev
-
-      - name: Validate immutable release candidate
-        id: release_metadata
+      - name: Validate release SHA before install
         env:
           EXPECTED_SHA: ${{ inputs.candidate_sha }}
-          EXPECTED_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           if ! [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]; then
@@ -65,6 +60,15 @@ jobs:
             exit 1
           fi
 
+      - name: Install dependencies
+        run: uv sync --locked --python 3.11 --group dev
+
+      - name: Validate immutable release candidate
+        id: release_metadata
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
           uv run python - <<'PY'
           import os
           import sys

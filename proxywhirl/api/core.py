@@ -47,6 +47,8 @@ from proxywhirl.api.runtime import (
     get_rotator,
     get_storage,
     limiter,
+    metric_endpoint_label,
+    metric_method_label,
     proxywhirl_request_duration_seconds,
     proxywhirl_requests_total,
     record_rotation,
@@ -563,15 +565,17 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
             # Record Prometheus metrics (skip exposition endpoint to avoid recursion)
             if path != "/api/metrics":
+                endpoint = metric_endpoint_label(request)
+                method_label = metric_method_label(request.method)
                 proxywhirl_requests_total.labels(
-                    endpoint=path,
-                    method=request.method,
+                    endpoint=endpoint,
+                    method=method_label,
                     status=str(response.status_code),
                 ).inc()
 
                 proxywhirl_request_duration_seconds.labels(
-                    endpoint=path,
-                    method=request.method,
+                    endpoint=endpoint,
+                    method=method_label,
                 ).observe(duration_seconds)
 
             # Log successful request
@@ -593,15 +597,17 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             # Record Prometheus metrics for failed requests (skip exposition endpoint)
             if path != "/api/metrics":
                 # Use 5xx for uncaught exceptions
+                endpoint = metric_endpoint_label(request)
+                method_label = metric_method_label(request.method)
                 proxywhirl_requests_total.labels(
-                    endpoint=path,
-                    method=request.method,
+                    endpoint=endpoint,
+                    method=method_label,
                     status="500",
                 ).inc()
 
                 proxywhirl_request_duration_seconds.labels(
-                    endpoint=path,
-                    method=request.method,
+                    endpoint=endpoint,
+                    method=method_label,
                 ).observe(duration_seconds)
 
             # Log failed request

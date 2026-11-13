@@ -65,8 +65,9 @@ class SessionManager:
             # Auto-cleanup check
             self._maybe_auto_cleanup()
 
-            # Check if we need to evict old sessions (LRU)
-            if len(self._sessions) >= self._max_sessions:
+            # Evict only when inserting a new id. Refreshing an existing
+            # session at capacity must not drop some other live session.
+            if session_id not in self._sessions and len(self._sessions) >= self._max_sessions:
                 self._evict_lru_session()
 
             now = datetime.now(timezone.utc)

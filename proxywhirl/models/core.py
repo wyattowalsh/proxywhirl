@@ -429,8 +429,11 @@ class Proxy(BaseModel):
         # Extract scheme from URL
         scheme_match = re.match(r"^([a-z0-9]+)://", v.lower())
         if not scheme_match:
+            from proxywhirl.security import redact_url
+
             raise ValueError(
-                f"URL must have a scheme (http://, https://, socks4://, socks5://, or socks5h://): {v}"
+                "URL must have a scheme (http://, https://, socks4://, socks5://, "
+                f"or socks5h://): {redact_url(v)}"
             )
 
         scheme = scheme_match.group(1)
@@ -471,7 +474,9 @@ class Proxy(BaseModel):
         try:
             parse_proxy_url(v)
         except ValueError as exc:
-            raise ValueError(f"Invalid proxy URL: {v}") from exc
+            from proxywhirl.security import redact_url
+
+            raise ValueError(f"Invalid proxy URL: {redact_url(v)}") from exc
 
         return v
 
@@ -1746,7 +1751,9 @@ class HealthMonitor:
             username = quote(proxy.username.get_secret_value(), safe="")
             password = quote(proxy.password.get_secret_value(), safe="")
             scheme, remainder = proxy_url.split("://", 1)
-            proxy_url = f"{scheme}://{username}:{password}@{remainder}"
+            host_part = remainder.split("/", 1)[0]
+            if "@" not in host_part:
+                proxy_url = f"{scheme}://{username}:{password}@{remainder}"
 
         return {"url": proxy_url, "protocol": proxy.protocol}
 

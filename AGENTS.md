@@ -16,8 +16,8 @@
 | Task          | Command                                                                               |
 | ------------- | ------------------------------------------------------------------------------------- |
 | Install       | `uv sync`                                                                             |
-| Test          | `just test-fast` / `uv run pytest tests/unit/ tests/integration/ tests/property/ -m "not slow and not stress" --timeout=120 -q` |
-| Lint          | `just lint` / `uv run ruff check proxywhirl/ tests/`                                  |
+| Test          | `just test-fast` / `uv run pytest tests/ --ignore=tests/benchmarks -m "not slow and not stress and not network" --timeout=120 -q` |
+| Lint          | `just lint` / `uv run ruff check .`                                                   |
 | Format        | `just format` / `uv run ruff format proxywhirl/ tests/`                               |
 | Type check    | `just type-check` / `uv run ty check proxywhirl/`                                     |
 | Quality gates | `just quality-gates`                                                                  |
@@ -46,7 +46,7 @@ Use `uvx` only for intentionally isolated tools such as `uvx pip-audit` or `uvx 
 | `models/`              | Pydantic models: `Proxy`, `ProxyPool`, `Session`, `*Config`                |
 | `strategies/`          | `RoundRobinStrategy`, `WeightedStrategy`, `PerformanceBasedStrategy`       |
 | `rotator/`             | `ProxyWhirl` (sync), `AsyncProxyWhirl` (async)                             |
-| `storage.py`           | `SQLiteStorage`, `FileStorage`, `ProxyTable` (SQLModel)                    |
+| `storage.py`           | `SQLiteStorage`, `FileStorage`, SQLModel proxy tables                      |
 | `fetchers/`            | `ProxyFetcher`, `ProxyValidator`, parsers (`JSON/CSV/PlainText/HTMLTable`) |
 | `sources.py`           | `ALL_SOURCES`, `RECOMMENDED_SOURCES`, predefined proxy endpoints           |
 | `cache/`               | `CacheManager`, multi-tier caching                                         |
@@ -94,7 +94,7 @@ Use the same tiers as CI:
 | ----- | ------- | ----- |
 | Focused regression | `uv run pytest tests/unit/test_<module>.py -q --no-cov -n0` | Keeps local probes free of coverage/xdist noise. |
 | CI parity | `just quality-gates` | Runs lint, type check, non-slow unit/integration tests, and coverage. |
-| Expanded non-slow | `uv run pytest tests/ -q -m "not slow" --ignore=tests/benchmarks --timeout=120` | Covers API, contract, property, unit, and integration surfaces without real-network slow/browser tests or benchmarks. |
+| Expanded non-slow | `uv run pytest tests/ -q -m "not slow" --ignore=tests/benchmarks --timeout=120` | Broader than `just test-fast`: excludes slow tests and benchmarks, and still runs tests marked `network`. |
 | Full raw suite | `uv run pytest tests/ -q` | Intentional stress run only; includes slow real-browser/network tests and benchmarks that are not the CI parity gate. |
 
 When manually testing CLI fixes, use `uv run proxywhirl --no-lock --help` plus a temporary config path and cover `pool add/list/remove`, `config set/get`, `import-proxies`, `validate-proxy`, strict `sources --validate`, and credential redaction. When API/runtime behavior changes, start `uv run uvicorn proxywhirl.api:app --host 127.0.0.1 --port <port>` with a temporary `PROXYWHIRL_STORAGE_PATH` and verify `/api/health` plus `/api/ready`.
@@ -113,7 +113,7 @@ When manually testing CLI fixes, use `uv run proxywhirl --no-lock --help` plus a
 
 **Pre-commit:** ruff lint/format, commitizen, private key detection, large file check
 
-**CI Workflows** (`.github/workflows/`): `ci.yml` (main), `security.yml`, `generate-proxies.yml` (3h cron), `validate-sources.yml`, `update-readme-stats.yml`, `release.yml`, `cd.yml`
+**CI Workflows** (`.github/workflows/`): `ci.yml`, `security.yml`, `generate-proxies.yml` (3h cron), `validate-sources.yml`, `release.yml`, `deploy-validate.yml`
 
 For remote assurance, monitor at least `CI`, `Security Scan`, and manually dispatched `Validate Proxy Sources` on the pushed SHA. Treat GitHub log markers as actionable if they include `##[warning]`, `##[error]`, `::warning::`, `::error::`, Python warning classes, tracebacks, or Codecov upload token errors. Literal environment assignments such as `PYTHONWARNINGS="ignore::UserWarning"` are not emitted warnings.
 

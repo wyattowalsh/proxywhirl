@@ -14,6 +14,7 @@ from typing import Any
 from loguru import logger
 
 from proxywhirl.models import Proxy
+from proxywhirl.storage import strip_proxy_url_userinfo
 
 
 class PoolSnapshot:
@@ -39,7 +40,7 @@ class PoolSnapshot:
         self.proxies.append(
             {
                 "id": str(proxy.id),
-                "url": proxy.url,
+                "url": strip_proxy_url_userinfo(proxy.url),
                 "health_status": proxy.health_status.value,
                 "last_checked": last_checked.isoformat() if last_checked else None,
                 "total_failures": proxy.total_failures,
@@ -99,6 +100,22 @@ class SnapshotManager:
         self.storage_dir.mkdir(parents=True, exist_ok=True)
         self.snapshots: dict[str, PoolSnapshot] = {}
 
+    def _snapshot_file(self, snapshot_id: str) -> Path:
+        """Return the snapshot path inside storage_dir, or reject an escaping id."""
+        if (
+            not snapshot_id
+            or snapshot_id in {".", ".."}
+            or "/" in snapshot_id
+            or "\\" in snapshot_id
+            or "\x00" in snapshot_id
+        ):
+            raise ValueError(f"Invalid snapshot identifier: {snapshot_id}")
+        root = self.storage_dir.resolve()
+        snapshot_file = (root / f"{snapshot_id}.json").resolve()
+        if snapshot_file.parent != root:
+            raise ValueError(f"Invalid snapshot identifier: {snapshot_id}")
+        return snapshot_file
+
     def create_snapshot(
         self,
         pool_id: str,
@@ -116,6 +133,7 @@ class SnapshotManager:
             Created PoolSnapshot
         """
         snapshot_id = f"{pool_id}_{datetime.now().isoformat()}"
+        self._snapshot_file(snapshot_id)
         snapshot = PoolSnapshot(pool_id, snapshot_id, datetime.now())
 
         for proxy in proxies:
@@ -143,7 +161,7 @@ class SnapshotManager:
             return self.snapshots[snapshot_id]
 
         # Try loading from disk
-        snapshot_file = self.storage_dir / f"{snapshot_id}.json"
+        snapshot_file = self._snapshot_file(snapshot_id)
         if snapshot_file.exists():
             try:
                 with open(snapshot_file) as f:
@@ -179,10 +197,9 @@ class SnapshotManager:
         Returns:
             True if deleted, False if not found
         """
+        snapshot_file = self._snapshot_file(snapshot_id)
         if snapshot_id in self.snapshots:
             del self.snapshots[snapshot_id]
-
-        snapshot_file = self.storage_dir / f"{snapshot_id}.json"
         if snapshot_file.exists():
             snapshot_file.unlink()
             logger.info(f"Deleted snapshot: {snapshot_id}")
@@ -213,7 +230,7 @@ class SnapshotManager:
 
     def _save_snapshot(self, snapshot: PoolSnapshot) -> None:
         """Save snapshot to disk."""
-        snapshot_file = self.storage_dir / f"{snapshot.snapshot_id}.json"
+        snapshot_file = self._snapshot_file(snapshot.snapshot_id)
         try:
             with open(snapshot_file, "w") as f:
                 f.write(snapshot.to_json())

@@ -10,6 +10,7 @@ Tests cover:
 - Integration with rate limiting
 """
 
+import queue
 from unittest.mock import MagicMock, Mock, patch
 
 import httpx
@@ -335,6 +336,101 @@ class TestQueueIntegrationWithRateLimiting:
         assert attempted_ids[0] == limit_checks[0]
         mock_client.request.assert_called_once()
 
+    @patch("httpx.Client")
+    def test_queued_request_returns_the_caller_response(self, mock_client_class: MagicMock) -> None:
+        """A caller must receive its own response when another request is already queued."""
+        config = ProxyConfiguration(queue_enabled=True, queue_size=10)
+        mock_rate_limiter = MagicMock(spec=RateLimiter)
+        mock_rate_limiter.check_limit.return_value = False
+
+        rotator = ProxyWhirl(config=config, rate_limiter=mock_rate_limiter)
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
+        rotator.add_proxy(proxy)
+
+        def fake_request(method: str, url: str, **kwargs: object) -> Mock:
+            del method, kwargs
+            response = Mock(spec=httpx.Response)
+            response.status_code = 200
+            response.text = url
+            return response
+
+        mock_client = MagicMock()
+        mock_client.request.side_effect = fake_request
+        mock_client_class.return_value = mock_client
+
+        other_url = "https://other.example/queued-first"
+        caller_url = "https://caller.example/mine"
+        other_done: queue.Queue[httpx.Response] = queue.Queue(maxsize=1)
+        assert rotator._request_queue is not None
+        rotator._request_queue.put(
+            {
+                "method": "GET",
+                "url": other_url,
+                "proxy": proxy,
+                "retry_policy": None,
+                "response_body_limit_bytes": None,
+                "kwargs": {},
+                "done": other_done,
+            }
+        )
+
+        response = rotator.get(caller_url)
+
+        assert response.text == caller_url
+        other_response = other_done.get_nowait()
+        assert other_response.text == other_url
+
+    @patch("httpx.Client")
+    def test_queued_request_survives_drainer_exit(self, mock_client_class: MagicMock) -> None:
+        """A caller that loses the drain lock must still receive its own response."""
+        import threading
+        import time
+
+        config = ProxyConfiguration(queue_enabled=True, queue_size=10)
+        mock_rate_limiter = MagicMock(spec=RateLimiter)
+        mock_rate_limiter.check_limit.return_value = False
+
+        rotator = ProxyWhirl(config=config, rate_limiter=mock_rate_limiter)
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
+        rotator.add_proxy(proxy)
+
+        caller_url = "https://caller.example/after-drainer-exit"
+
+        def fake_request(method: str, url: str, **kwargs: object) -> Mock:
+            del method, kwargs
+            response = Mock(spec=httpx.Response)
+            response.status_code = 200
+            response.text = url
+            return response
+
+        mock_client = MagicMock()
+        mock_client.request.side_effect = fake_request
+        mock_client_class.return_value = mock_client
+
+        assert rotator._queue_drain_lock.acquire(blocking=False)
+        outcome: dict[str, object] = {}
+
+        def run_get() -> None:
+            try:
+                outcome["response"] = rotator.get(caller_url)
+            except BaseException as exc:
+                outcome["error"] = exc
+
+        worker = threading.Thread(target=run_get)
+        worker.start()
+        assert rotator._request_queue is not None
+        deadline = time.monotonic() + 2
+        while rotator._request_queue.qsize() == 0 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        rotator._queue_drain_lock.release()
+        worker.join(timeout=2)
+
+        assert not worker.is_alive()
+        assert "error" not in outcome
+        response = outcome["response"]
+        assert isinstance(response, Mock)
+        assert response.text == caller_url
+
     def test_request_not_queued_when_queue_disabled(self) -> None:
         """Test that requests raise error when queue is disabled and rate limited."""
         config = ProxyConfiguration(queue_enabled=False)
@@ -354,29 +450,51 @@ class TestQueueIntegrationWithRateLimiting:
 class TestQueueEdgeCases:
     """Test edge cases and error conditions."""
 
-    def test_queue_operations_thread_safe(self) -> None:
-        """Test that queue operations are thread-safe."""
-        import asyncio
+    @patch("httpx.Client")
+    def test_concurrent_queued_gets_return_own_responses(
+        self, mock_client_class: MagicMock
+    ) -> None:
+        """Two queued callers must each receive the response for their own URL."""
         import threading
 
-        config = ProxyConfiguration(queue_enabled=True, queue_size=100)
-        rotator = ProxyWhirl(config=config)
+        config = ProxyConfiguration(queue_enabled=True, queue_size=10)
+        mock_rate_limiter = MagicMock(spec=RateLimiter)
+        mock_rate_limiter.check_limit.return_value = False
+        rotator = ProxyWhirl(config=config, rate_limiter=mock_rate_limiter)
+        proxy = Proxy(url="http://proxy.example.com:8080", health_status=HealthStatus.HEALTHY)
+        rotator.add_proxy(proxy)
 
-        def add_items():
-            import contextlib
+        def fake_request(method: str, url: str, **kwargs: object) -> Mock:
+            del method, kwargs
+            response = Mock(spec=httpx.Response)
+            response.status_code = 200
+            response.text = url
+            return response
 
-            for i in range(10):
-                with contextlib.suppress(Exception):
-                    asyncio.run(rotator._request_queue.put({"item": i}))
+        mock_client = MagicMock()
+        mock_client.request.side_effect = fake_request
+        mock_client_class.return_value = mock_client
 
-        threads = [threading.Thread(target=add_items) for _ in range(5)]
-        for t in threads:
-            t.start()
-        for t in threads:
-            t.join()
+        urls = ("https://a.example/one", "https://b.example/two")
+        outcome: dict[str, object] = {}
 
-        stats = rotator.get_queue_stats()
-        assert stats["size"] <= 100  # Should not exceed max size
+        def run_get(url: str) -> None:
+            try:
+                outcome[url] = rotator.get(url)
+            except BaseException as exc:
+                outcome[url] = exc
+
+        workers = [threading.Thread(target=run_get, args=(url,)) for url in urls]
+        for worker in workers:
+            worker.start()
+        for worker in workers:
+            worker.join(timeout=5)
+
+        assert all(not worker.is_alive() for worker in workers)
+        for url in urls:
+            response = outcome[url]
+            assert isinstance(response, Mock)
+            assert response.text == url
 
     def test_queue_timeout_handling(self) -> None:
         """A full queue rejects locally before any HTTP request is attempted."""

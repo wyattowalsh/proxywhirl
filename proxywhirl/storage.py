@@ -11,7 +11,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, cast
-from urllib.parse import urlparse
+from urllib.parse import quote, unquote, urlparse, urlunparse
 from uuid import UUID
 
 import aiofiles
@@ -27,12 +27,130 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from proxywhirl.cache.crypto import CredentialEncryptor
 from proxywhirl.exceptions import ProxyStorageError
 from proxywhirl.models import HealthStatus, Proxy, ProxySource
+from proxywhirl.security import redact_dict
 
 # Prefix for encrypted credentials stored as strings
 _ENCRYPTED_PREFIX = "encrypted:"
 
 # Consecutive failures before a proxy is marked dead (record_validation + batch)
 _CONSECUTIVE_FAILURES_DEAD_THRESHOLD = 3
+
+
+def _format_netloc_host(hostname: str | None, port: int | None) -> str:
+    """Build a netloc host[:port], bracketing IPv6 literals."""
+    host = hostname or ""
+    if ":" in host and not host.startswith("["):
+        host = f"[{host}]"
+    if port is not None:
+        return f"{host}:{port}"
+    return host
+
+
+def strip_proxy_url_userinfo(url: str) -> str:
+    """Return ``url`` with userinfo removed so it is safe to persist as an identity key."""
+    parsed = urlparse(url)
+    if parsed.username is None and parsed.password is None:
+        return url
+    netloc = _format_netloc_host(parsed.hostname, parsed.port)
+    return urlunparse(
+        (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)
+    )
+
+
+def proxy_url_has_userinfo(url: str) -> bool:
+    """True when ``url`` embeds username or password in its netloc."""
+    parsed = urlparse(url)
+    return parsed.username is not None or parsed.password is not None
+
+
+def _extract_url_userinfo(url: str) -> tuple[str | None, str | None]:
+    """Return URL-decoded (username, password) from ``url``, or (None, None)."""
+    parsed = urlparse(url)
+    username = unquote(parsed.username) if parsed.username is not None else None
+    password = unquote(parsed.password) if parsed.password is not None else None
+    return username, password
+
+
+def rebuild_proxy_url_with_credentials(
+    url: str,
+    username: str | None,
+    password: str | None,
+) -> str:
+    """Re-attach credentials to a stripped identity URL."""
+    if not username and not password:
+        return strip_proxy_url_userinfo(url)
+    parsed = urlparse(url)
+    hostport = _format_netloc_host(parsed.hostname, parsed.port)
+    userinfo = quote(username or "", safe="")
+    if password is not None:
+        userinfo = f"{userinfo}:{quote(password, safe='')}"
+    netloc = f"{userinfo}@{hostport}"
+    return urlunparse(
+        (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)
+    )
+
+
+def _identity_url(url: str) -> str:
+    """Canonical persisted identity URL (userinfo stripped)."""
+    return strip_proxy_url_userinfo(url)
+
+
+_AUDIT_SENSITIVE_KEY_FRAGMENTS = (
+    "username",
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "api_key",
+    "apikey",
+    "credential",
+)
+
+
+def _is_audit_sensitive_key(key: object) -> bool:
+    """True when an audit JSON key looks like a credential field."""
+    lowered = str(key).lower()
+    return any(fragment in lowered for fragment in _AUDIT_SENSITIVE_KEY_FRAGMENTS)
+
+
+def _redact_audit_sensitive_keys(data: Any) -> Any:
+    """Force credential keys to ``***``, including username and list values.
+
+    ``redact_dict`` already redacts URL userinfo and most secret keys, but it
+    leaves ``username`` intact and recurses into list-valued secrets.
+    """
+    if isinstance(data, dict):
+        redacted: dict[Any, Any] = {}
+        for key, value in data.items():
+            if _is_audit_sensitive_key(key) and not isinstance(value, dict):
+                redacted[key] = "***"
+            else:
+                redacted[key] = _redact_audit_sensitive_keys(value)
+        return redacted
+    if isinstance(data, (list, tuple)):
+        return [_redact_audit_sensitive_keys(item) for item in data]
+    return data
+
+
+def _sanitize_audit_values(values: dict[str, Any]) -> dict[str, Any]:
+    """Recursively redact credentials before persisting audit JSON."""
+    sanitized = _redact_audit_sensitive_keys(redact_dict(values))
+    return sanitized if isinstance(sanitized, dict) else {}
+
+
+def _proxy_has_credentials(proxy: Proxy) -> bool:
+    """True when credentials are present as fields or embedded in the URL."""
+    if proxy.username or proxy.password:
+        return True
+    return proxy_url_has_userinfo(proxy.url)
+
+
+def _credential_pair_from_proxy(proxy: Proxy) -> tuple[str | None, str | None]:
+    """Prefer explicit username/password fields, else URL userinfo."""
+    url_user, url_pass = _extract_url_userinfo(proxy.url)
+    username = proxy.username.get_secret_value() if proxy.username else url_user
+    password = proxy.password.get_secret_value() if proxy.password else url_pass
+    return username, password
 
 
 def _decrypt_stored_credential(
@@ -199,6 +317,11 @@ def _dict_to_proxy(
         proxy_kwargs["username"] = SecretStr(username_plain)
     if password_plain is not None:
         proxy_kwargs["password"] = SecretStr(password_plain)
+    if username_plain and password_plain:
+        url = rebuild_proxy_url_with_credentials(
+            strip_proxy_url_userinfo(url), username_plain, password_plain
+        )
+        proxy_kwargs["url"] = url
 
     for field_name in _PROXY_ROW_FIELDS:
         if row.get(field_name) is not None:
@@ -548,7 +671,7 @@ class FileStorage:
     def _require_encryption_for_credentials(self, proxies: list[Proxy]) -> None:
         """Reject plaintext credential persistence when no encryption key is configured."""
         for proxy in proxies:
-            if (proxy.username or proxy.password) and self._cipher is None:
+            if _proxy_has_credentials(proxy) and self._cipher is None:
                 raise ProxyStorageError(
                     "FileStorage requires encryption_key when storing proxy credentials. "
                     "Provide a Fernet key or omit username/password fields."
@@ -609,11 +732,12 @@ class FileStorage:
         data = []
         for proxy in proxies:
             proxy_dict = proxy.model_dump(mode="json")
-            # Reveal SecretStr values for storage
-            if proxy.username:
-                proxy_dict["username"] = proxy.username.get_secret_value()
-            if proxy.password:
-                proxy_dict["password"] = proxy.password.get_secret_value()
+            username, password = _credential_pair_from_proxy(proxy)
+            if username:
+                proxy_dict["username"] = username
+            if password:
+                proxy_dict["password"] = password
+            proxy_dict["url"] = strip_proxy_url_userinfo(proxy.url)
             data.append(proxy_dict)
 
         json_str = json.dumps(data, indent=2)
@@ -703,8 +827,18 @@ class FileStorage:
                     content = await f.read()
                     data = json.loads(content)
 
-            # Deserialize to Proxy objects
-            proxies = [Proxy.model_validate(item) for item in data]
+            # Deserialize to Proxy objects; reattach credentials onto the URL.
+            proxies = []
+            for item in data:
+                username = item.get("username")
+                password = item.get("password")
+                url = item.get("url")
+                if isinstance(url, str) and username and password:
+                    item = dict(item)
+                    item["url"] = rebuild_proxy_url_with_credentials(
+                        url, str(username), str(password)
+                    )
+                proxies.append(Proxy.model_validate(item))
             return proxies
         except InvalidToken:
             # Re-raise InvalidToken without wrapping it
@@ -873,7 +1007,7 @@ class SQLiteStorage:
         if self._encryptor is not None:
             return
         for proxy in proxies:
-            if proxy.username or proxy.password:
+            if _proxy_has_credentials(proxy):
                 raise ProxyStorageError(
                     "SQLiteStorage requires PROXYWHIRL_CACHE_ENCRYPTION_KEY "
                     "(or deprecated PROXYWHIRL_ENCRYPTION_KEY) when storing proxy "
@@ -962,8 +1096,11 @@ class SQLiteStorage:
             username = self._decrypt_credential(username)
             password = self._decrypt_credential(password)
 
+        persisted_url = identity.url
+        if decrypt_credentials and username and password:
+            persisted_url = rebuild_proxy_url_with_credentials(identity.url, username, password)
         row: dict[str, Any] = {
-            "url": identity.url,
+            "url": persisted_url,
             "protocol": identity.protocol,
             "host": identity.host,
             "port": identity.port,
@@ -1044,22 +1181,20 @@ class SQLiteStorage:
 
     def _build_identity_row(self, proxy: Proxy) -> ProxyIdentityTable:
         """Build a normalized identity row from a :class:`~proxywhirl.models.Proxy`."""
-        parsed = urlparse(proxy.url)
+        identity_url = _identity_url(proxy.url)
+        parsed = urlparse(identity_url)
         metadata = proxy.metadata
         latitude = metadata.get("latitude")
         longitude = metadata.get("longitude")
         asn = metadata.get("asn")
+        username, password = _credential_pair_from_proxy(proxy)
         return ProxyIdentityTable(
-            url=proxy.url,
+            url=identity_url,
             protocol=proxy.protocol or "http",
             host=parsed.hostname or "",
             port=parsed.port or 80,
-            username=self._encrypt_credential(
-                proxy.username.get_secret_value() if proxy.username else None
-            ),
-            password=self._encrypt_credential(
-                proxy.password.get_secret_value() if proxy.password else None
-            ),
+            username=self._encrypt_credential(username),
+            password=self._encrypt_credential(password),
             country_code=proxy.country_code,
             country_name=(
                 metadata.get("country_name")
@@ -1100,7 +1235,7 @@ class SQLiteStorage:
             total_successes = max(total_successes, 1)
 
         return ProxyStatusTable(
-            proxy_url=proxy.url,
+            proxy_url=_identity_url(proxy.url),
             health_status=health_status.value,
             last_success_at=last_success_at,
             last_failure_at=proxy.last_failure_at,
@@ -1122,7 +1257,7 @@ class SQLiteStorage:
         json_model = proxy.model_dump(mode="json")
         return {
             "id": str(proxy.id),
-            "url": proxy.url,
+            "url": identity.url,
             "protocol": proxy.protocol,
             "username": identity.username,
             "password": identity.password,
@@ -1256,21 +1391,19 @@ class SQLiteStorage:
             ProxyStorageError: If credentials are present without encryption configured.
         """
         self._require_encryption_for_credentials([proxy])
+        identity_url = _identity_url(proxy.url)
         async with AsyncSession(self.engine) as session:
-            row = await session.get(ProxyIdentityTable, proxy.url)
+            row = await session.get(ProxyIdentityTable, identity_url)
             if row is None:
                 return False
 
-            parsed = urlparse(proxy.url)
+            parsed = urlparse(identity_url)
+            username, password = _credential_pair_from_proxy(proxy)
             row.protocol = proxy.protocol or "http"
             row.host = parsed.hostname or ""
             row.port = parsed.port or 80
-            row.username = self._encrypt_credential(
-                proxy.username.get_secret_value() if proxy.username else None
-            )
-            row.password = self._encrypt_credential(
-                proxy.password.get_secret_value() if proxy.password else None
-            )
+            row.username = self._encrypt_credential(username)
+            row.password = self._encrypt_credential(password)
             row.country_code = proxy.country_code
             row.region = proxy.region
             row.source = proxy.source.value if proxy.source else "fetched"
@@ -1318,7 +1451,7 @@ class SQLiteStorage:
         """
         self._require_encryption_for_credentials([proxy])
         async with AsyncSession(self.engine) as session:
-            existing = await session.get(ProxyIdentityTable, proxy.url)
+            existing = await session.get(ProxyIdentityTable, _identity_url(proxy.url))
             if existing:
                 return False
 
@@ -1362,13 +1495,13 @@ class SQLiteStorage:
 
         async with AsyncSession(self.engine) as session:
             # Batch check existing proxies
-            urls = [p.url for p in proxies]
+            urls = [_identity_url(p.url) for p in proxies]
             existing_stmt = select(ProxyIdentityTable.url).where(ProxyIdentityTable.url.in_(urls))
             existing_results = await session.exec(existing_stmt)
             existing_urls = set(existing_results.all())
 
             # Separate new and existing
-            new_proxies = [p for p in proxies if p.url not in existing_urls]
+            new_proxies = [p for p in proxies if _identity_url(p.url) not in existing_urls]
             skipped = len(proxies) - len(new_proxies)
 
             if not new_proxies:
@@ -1378,8 +1511,9 @@ class SQLiteStorage:
             seen_urls: set[str] = set()
             deduped_proxies: list[Proxy] = []
             for p in new_proxies:
-                if p.url not in seen_urls:
-                    seen_urls.add(p.url)
+                identity_url = _identity_url(p.url)
+                if identity_url not in seen_urls:
+                    seen_urls.add(identity_url)
                     deduped_proxies.append(p)
             skipped += len(new_proxies) - len(deduped_proxies)
             new_proxies = deduped_proxies
@@ -1451,24 +1585,25 @@ class SQLiteStorage:
         Returns:
             True if deleted, False if not found
         """
+        identity_url = _identity_url(proxy_url)
         async with AsyncSession(self.engine) as session:
             # Delete child rows before identity to avoid relying on FK cascade support.
             del_validation = delete(ValidationResultTable).where(
-                ValidationResultTable.proxy_url == proxy_url
+                ValidationResultTable.proxy_url == identity_url
             )
             await session.exec(del_validation)  # type: ignore[arg-type]
 
             # Delete from status table
-            del_status = delete(ProxyStatusTable).where(ProxyStatusTable.proxy_url == proxy_url)
+            del_status = delete(ProxyStatusTable).where(ProxyStatusTable.proxy_url == identity_url)
             await session.exec(del_status)  # type: ignore[arg-type]
 
             # Delete from identity table
-            del_identity = delete(ProxyIdentityTable).where(ProxyIdentityTable.url == proxy_url)
+            del_identity = delete(ProxyIdentityTable).where(ProxyIdentityTable.url == identity_url)
             result = await session.exec(del_identity)  # type: ignore[arg-type]
             deleted = result.rowcount or 0
             await session.exec(
                 text("DELETE FROM proxies WHERE url = :url"),
-                params={"url": proxy_url},
+                params={"url": identity_url},
             )
             await session.commit()
             self._invalidate_stats_cache()
@@ -1534,6 +1669,7 @@ class SQLiteStorage:
             error_message: Error message (if failed)
         """
         now = datetime.now(timezone.utc)
+        proxy_url = _identity_url(proxy_url)
 
         async with AsyncSession(self.engine) as session:
             # Insert validation record
@@ -1602,6 +1738,7 @@ class SQLiteStorage:
 
         async with AsyncSession(self.engine) as session:
             for proxy_url, is_valid, response_time_ms, error_type in results:
+                proxy_url = _identity_url(proxy_url)
                 # Insert validation record
                 validation = ValidationResultTable(
                     proxy_url=proxy_url,
@@ -1625,6 +1762,7 @@ class SQLiteStorage:
                             consecutive_failures = 0,
                             health_status = 'healthy',
                             avg_response_time_ms = CASE
+                                WHEN :response_time IS NULL THEN avg_response_time_ms
                                 WHEN avg_response_time_ms IS NULL THEN :response_time
                                 ELSE 0.2 * :response_time + 0.8 * avg_response_time_ms
                             END,
@@ -2118,10 +2256,11 @@ class SQLiteStorage:
         if not proxy_urls:
             return {}
 
+        identity_urls = [_identity_url(url) for url in proxy_urls]
         stmt = (
             select(ProxyIdentityTable, ProxyStatusTable)
             .join(ProxyStatusTable, ProxyIdentityTable.url == ProxyStatusTable.proxy_url)
-            .where(ProxyIdentityTable.url.in_(proxy_urls))  # type: ignore[attr-defined]
+            .where(ProxyIdentityTable.url.in_(identity_urls))  # type: ignore[attr-defined]
         )
 
         result_map: dict[str, dict[str, Any]] = {}
@@ -2207,18 +2346,24 @@ class SQLiteStorage:
     ) -> None:
         """Log a change to the audit trail.
 
+        ``proxy_url`` is persisted as an identity URL. ``old_values`` /
+        ``new_values`` are recursively redacted before JSON persist.
+
         Args:
             proxy_url: URL of the proxy that changed
             action: Type of change (INSERT, UPDATE, DELETE)
             old_values: Previous values (for UPDATE/DELETE)
             new_values: New values (for INSERT/UPDATE)
         """
+        identity_url = _identity_url(proxy_url)
+        sanitized_old = _sanitize_audit_values(old_values) if old_values else None
+        sanitized_new = _sanitize_audit_values(new_values) if new_values else None
         async with AsyncSession(self.engine) as session:
             audit = ProxyAuditTable(
-                proxy_url=proxy_url,
+                proxy_url=identity_url,
                 action=action,
-                old_values=json.dumps(old_values) if old_values else None,
-                new_values=json.dumps(new_values) if new_values else None,
+                old_values=json.dumps(sanitized_old) if sanitized_old else None,
+                new_values=json.dumps(sanitized_new) if sanitized_new else None,
             )
             session.add(audit)
             await session.commit()

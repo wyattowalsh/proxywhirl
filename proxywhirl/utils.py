@@ -735,7 +735,7 @@ def create_proxy_from_url(
         proxy = Proxy(url=url, source=source, tags=tags or set())
         return proxy
     except ValidationError as e:
-        raise ValueError(f"Invalid proxy URL: {url}") from e
+        raise ValueError(f"Invalid proxy URL: {mask_proxy_url(url)}") from e
 
 
 # ============================================================================
@@ -814,22 +814,27 @@ class CLILock:
 
         try:
             self.lock.acquire()
-            # Write PID to lock data file
-            lock_data = {"pid": os.getpid(), "command": " ".join(sys.argv)}
+            from proxywhirl.exceptions import _redact_text
+
+            redacted_argv = [_redact_text(token) if "://" in token else token for token in sys.argv]
+            lock_data = {"pid": os.getpid(), "command": " ".join(redacted_argv)}
             with open(self._lock_data_path, "w") as f:
                 json.dump(lock_data, f)
             return self
         except Timeout:
+            from proxywhirl.exceptions import _redact_text
+
             # Read existing lock
             lock_data = {}
             if self._lock_data_path.exists():
                 with open(self._lock_data_path) as f:
                     lock_data = json.load(f)
 
+            command = _redact_text(str(lock_data.get("command", "unknown")))
             typer.secho(
                 f"Another proxywhirl process is running (PID {lock_data.get('pid', 'unknown')})\n"
-                f"Command: {lock_data.get('command', 'unknown')}\n"
-                f"Wait for it to finish, or use --force to override (unsafe).",
+                f"Command: {command}\n"
+                f"Wait for it to finish, or use --no-lock to override (unsafe).",
                 err=True,
                 fg="red",
             )

@@ -884,8 +884,9 @@ class AsyncProxyWhirl(ProxyRotatorBase):
         ) -> Callable[[], Awaitable[httpx.Response]]:
             proxy_dict = self._get_proxy_dict(proxy)
             masked_url = mask_proxy_url(str(proxy.url))
+            safe_target_url = redact_url(url)
             logger.info(
-                f"Making {method} request to {url}",
+                f"Making {method} request to {safe_target_url}",
                 proxy_id=str(proxy.id),
                 proxy_url=masked_url,
             )

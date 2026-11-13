@@ -546,6 +546,19 @@ class TestSessionManagerLRUEviction:
         assert manager.get_session("session-3") is not None
         assert manager.get_session("session-4") is not None
 
+    def test_refresh_at_capacity_keeps_other_sessions(self):
+        """Updating an existing session at the cap must not evict another one."""
+        manager = SessionManager(max_sessions=2)
+        proxy = ProxyFactory.healthy()
+        manager.create_session("keep", proxy)
+        manager.create_session("refresh", proxy)
+
+        manager.create_session("refresh", proxy)
+
+        assert manager.get_session("keep") is not None
+        assert manager.get_session("refresh") is not None
+        assert len(manager.get_all_sessions()) == 2
+
     def test_lru_eviction_respects_access_order(self):
         """Test that LRU eviction respects access order, not creation order."""
         # Arrange

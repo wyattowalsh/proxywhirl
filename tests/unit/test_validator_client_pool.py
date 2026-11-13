@@ -1,10 +1,18 @@
 """Tests for ProxyValidator client pool implementation."""
 
+import socket
 from unittest.mock import AsyncMock, MagicMock, patch
+from urllib.parse import urlsplit
 
 import httpx
 
 from proxywhirl.fetchers import ProxyValidator
+
+
+def _public_getaddrinfo(*args: object, **kwargs: object) -> list[tuple[object, ...]]:
+    """Resolve test hostnames to a documentation IPv4 so pin_outbound_url can succeed."""
+    del args, kwargs
+    return [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("8.8.8.8", 0))]
 
 
 class TestProxyValidatorClientPool:
@@ -182,9 +190,12 @@ class TestProxyValidatorClientPool:
                 mock_writer.wait_closed = AsyncMock()
                 mock_open_conn.return_value = (AsyncMock(), mock_writer)
 
-                with patch(
-                    "proxywhirl.fetchers.validate_proxy_url_safety",
-                    return_value=(True, None),
+                with (
+                    patch(
+                        "proxywhirl.fetchers.validate_proxy_url_safety",
+                        return_value=(True, None),
+                    ),
+                    patch("proxywhirl.security.socket.getaddrinfo", _public_getaddrinfo),
                 ):
                     await validator.validate_batch(proxies)
 
@@ -259,9 +270,12 @@ class TestProxyValidatorIntegrationWithClientPool:
                 mock_writer.wait_closed = AsyncMock()
                 mock_open_conn.return_value = (AsyncMock(), mock_writer)
 
-                with patch(
-                    "proxywhirl.fetchers.validate_proxy_url_safety",
-                    return_value=(True, None),
+                with (
+                    patch(
+                        "proxywhirl.fetchers.validate_proxy_url_safety",
+                        return_value=(True, None),
+                    ),
+                    patch("proxywhirl.security.socket.getaddrinfo", _public_getaddrinfo),
                 ):
                     result = await validator.validate(proxy)
 
@@ -356,15 +370,21 @@ class TestProxyValidatorIntegrationWithClientPool:
                         mock_writer.wait_closed = AsyncMock()
                         mock_open_conn.return_value = (AsyncMock(), mock_writer)
 
-                        with patch(
-                            "proxywhirl.fetchers.validate_proxy_url_safety",
-                            return_value=(True, None),
+                        with (
+                            patch(
+                                "proxywhirl.fetchers.validate_proxy_url_safety",
+                                return_value=(True, None),
+                            ),
+                            patch("proxywhirl.security.socket.getaddrinfo", _public_getaddrinfo),
                         ):
                             result = await validator.validate(proxy)
 
-                        # Should have created SOCKS transport from URL
+                        # SOCKS transport must use the pinned IP URL, not a second DNS lookup.
                         assert mock_transport.from_url.called
-                        mock_transport.from_url.assert_called_with(proxy["url"])
+                        pinned_socks = mock_transport.from_url.call_args[0][0]
+                        assert urlsplit(pinned_socks).hostname == "8.8.8.8"
+                        assert urlsplit(pinned_socks).scheme == "socks5"
+                        assert urlsplit(pinned_socks).port == 1080
 
                         # Should have created client with transport
                         assert mock_client_class.call_count == 1

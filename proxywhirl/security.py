@@ -23,8 +23,8 @@ import socket
 import threading
 import time
 from enum import Enum
-from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlparse
+from typing import Any, NamedTuple
+from urllib.parse import parse_qsl, urlencode, urlparse, urlsplit, urlunsplit
 
 from loguru import logger
 
@@ -183,6 +183,166 @@ def _resolve_hostname_addresses_with_timeout(hostname: str, timeout: float = 2.0
 
 
 # ============================================================================
+# CONNECT-TIME DNS PIN (true pin, not a second lookup / post-connect check)
+# ============================================================================
+
+_INTERNAL_TLDS = (".local", ".internal", ".lan", ".corp", ".localhost")
+_METADATA_HOSTNAMES = {
+    "metadata.google.internal",
+    "gce-metadata.appspot.com",
+    "instance-data",
+    "instance-metadata",
+    "169.254.169.254",
+    "100.100.100.200",
+    "127.0.0.11",
+    "docker.host",
+    "host.docker.internal",
+}
+_DEFAULT_PORTS = {
+    "http": 80,
+    "ws": 80,
+    "https": 443,
+    "wss": 443,
+}
+
+
+class PinnedOutbound(NamedTuple):
+    """Connect-time DNS pin for outbound proxy/source requests.
+
+    True pin: connect to ``ip`` via ``pinned_url`` so httpx does not resolve
+    the hostname again. Host and TLS SNI keep the original hostname.
+    This is not a second DNS lookup and not a post-connect peer-IP check.
+    """
+
+    url: str
+    hostname: str
+    ip: str
+    port: int | None
+    scheme: str
+    pinned_url: str
+    host_header: str
+
+    @property
+    def extensions(self) -> dict[str, str]:
+        """httpx extensions so TLS SNI uses the original hostname."""
+        return {"sni_hostname": self.hostname}
+
+
+def _ip_literal_for_url(ip: str) -> str:
+    """Bracket IPv6 literals for URL netloc; leave IPv4 unchanged."""
+    return f"[{ip}]" if ":" in ip else ip
+
+
+def _host_header_value(hostname: str, scheme: str, port: int | None) -> str:
+    """Build a Host header: original hostname, plus port if non-default."""
+    host = _ip_literal_for_url(hostname)
+    default_port = _DEFAULT_PORTS.get(scheme.lower())
+    if port is None or (default_port is not None and port == default_port):
+        return host
+    return f"{host}:{port}"
+
+
+def _replace_url_hostname_with_ip(url: str, ip: str) -> str:
+    """Rewrite URL hostname to ``ip``, preserving userinfo/path/query/fragment/port."""
+    parsed = urlsplit(url)
+    userinfo, sep, _hostport = parsed.netloc.rpartition("@")
+    prefix = f"{userinfo}@" if sep else ""
+    ip_literal = _ip_literal_for_url(ip)
+    hostport = f"{ip_literal}:{parsed.port}" if parsed.port is not None else ip_literal
+    return urlunsplit(
+        (parsed.scheme, f"{prefix}{hostport}", parsed.path, parsed.query, parsed.fragment)
+    )
+
+
+def _blocked_hostname_reason(hostname: str) -> str | None:
+    """Return a block reason for internal/metadata hostnames, else None."""
+    hostname_lower = hostname.lower()
+    if any(hostname_lower.endswith(tld) for tld in _INTERNAL_TLDS):
+        return f"Internal domain name blocked: {hostname}"
+    if hostname_lower in _METADATA_HOSTNAMES or any(
+        hostname_lower.endswith("." + metadata_host) for metadata_host in _METADATA_HOSTNAMES
+    ):
+        return f"Metadata service hostname blocked: {hostname}"
+    return None
+
+
+def _build_pinned_outbound(
+    url: str, hostname: str, ip: str, port: int | None, scheme: str
+) -> PinnedOutbound:
+    return PinnedOutbound(
+        url=url,
+        hostname=hostname,
+        ip=ip,
+        port=port,
+        scheme=scheme,
+        pinned_url=_replace_url_hostname_with_ip(url, ip),
+        host_header=_host_header_value(hostname, scheme, port),
+    )
+
+
+def pin_outbound_url(url: str, *, purpose: str = "url") -> tuple[PinnedOutbound | None, str]:
+    """Resolve once and pin the connect target to that IP.
+
+    Connect-time primitive: callers must use ``PinnedOutbound.pinned_url`` (plus
+    Host / SNI) instead of the original hostname so httpx cannot re-resolve.
+
+    True DNS pin — not ``recheck_outbound_url_safety`` (a second lookup) and not
+    a post-connect peer-IP check.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception as exc:
+        return None, f"Invalid URL format: {exc}"
+
+    scheme = (parsed.scheme or "").lower()
+    if purpose == "source" and scheme not in {"http", "https"}:
+        return None, f"Source URL scheme must be http or https, got {scheme!r}"
+
+    hostname = parsed.hostname
+    if not hostname:
+        return None, f"{purpose.capitalize()} URL must include a valid hostname"
+
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        return None, f"Invalid URL format: {exc}"
+
+    try:
+        ip_obj = ipaddress.ip_address(hostname)
+    except ValueError:
+        ip_obj = None
+
+    if ip_obj is not None:
+        blocked, reason = is_ip_blocked(ip_obj)
+        if blocked:
+            return None, reason
+        return _build_pinned_outbound(url, hostname, str(ip_obj), port, scheme), ""
+
+    blocked_reason = _blocked_hostname_reason(hostname)
+    if blocked_reason is not None:
+        return None, blocked_reason
+
+    try:
+        ip_strings = _resolve_hostname_addresses_with_timeout(hostname, timeout=2.0)
+        if not ip_strings:
+            return None, f"DNS resolution returned no addresses for {hostname}"
+
+        # Fail closed if *any* resolved address is blocked (same as preflight).
+        for ip_str in ip_strings:
+            blocked, reason = is_ip_blocked(ipaddress.ip_address(ip_str))
+            if blocked:
+                return None, reason
+
+        # Stable choice from the single resolution; do not call getaddrinfo again.
+        chosen_ip = sorted(ip_strings)[0]
+        return _build_pinned_outbound(url, hostname, chosen_ip, port, scheme), ""
+    except (TimeoutError, socket.gaierror, OSError) as exc:
+        return None, f"DNS resolution failed for {hostname}: {exc}"
+    except Exception as exc:
+        return None, f"DNS safety validation failed for {hostname}: {exc}"
+
+
+# ============================================================================
 # BIND / SECRET FOOTGUN HELPERS
 # ============================================================================
 
@@ -288,62 +448,18 @@ def validate_source_url_safety(url: str) -> tuple[bool, str]:
 
 def _validate_outbound_url_safety(url: str, *, purpose: str = "url") -> tuple[bool, str]:
     """Shared host/DNS/IP blocklist checks for proxy and source URLs."""
-    try:
-        parsed = urlparse(url)
-    except Exception as e:
-        return False, f"Invalid URL format: {e}"
+    pin, reason = pin_outbound_url(url, purpose=purpose)
+    return pin is not None, reason
 
-    if not parsed.hostname:
-        return False, f"{purpose.capitalize()} URL must include a valid hostname"
 
-    # Try to parse as IP first (faster path)
-    try:
-        ip = ipaddress.ip_address(parsed.hostname)
-        blocked, reason = is_ip_blocked(ip)
-        return not blocked, reason if blocked else ""
-    except ValueError:
-        # Not an IP, try DNS resolution with blocklist check
-        pass
+def recheck_outbound_url_safety(url: str, *, purpose: str = "url") -> tuple[bool, str]:
+    """Re-run SSRF host/DNS checks (a second lookup — not a connect-time pin).
 
-    # Skip resolution for known internal TLDs
-    internal_tlds = {".local", ".internal", ".lan", ".corp", ".localhost"}
-    hostname_lower = parsed.hostname.lower()
-    if any(hostname_lower.endswith(tld) for tld in internal_tlds):
-        return False, f"Internal domain name blocked: {parsed.hostname}"
-
-    # Check for common metadata service hostnames
-    metadata_hostnames = {
-        "metadata.google.internal",
-        "gce-metadata.appspot.com",
-        "instance-data",
-        "instance-metadata",
-        "169.254.169.254",
-        "100.100.100.200",
-        "127.0.0.11",
-        "docker.host",
-        "host.docker.internal",
-    }
-    if hostname_lower in metadata_hostnames or any(
-        hostname_lower.endswith("." + m) for m in metadata_hostnames
-    ):
-        return False, f"Metadata service hostname blocked: {parsed.hostname}"
-
-    # Try DNS resolution (with timeout to prevent DoS; no global socket mutation)
-    try:
-        ip_strings = _resolve_hostname_addresses_with_timeout(parsed.hostname, timeout=2.0)
-        if not ip_strings:
-            return False, f"DNS resolution returned no addresses for {parsed.hostname}"
-
-        for ip_str in ip_strings:
-            ip = ipaddress.ip_address(ip_str)
-            blocked, reason = is_ip_blocked(ip)
-            if blocked:
-                return False, reason
-        return True, ""
-    except (TimeoutError, socket.gaierror, OSError) as exc:
-        return False, f"DNS resolution failed for {parsed.hostname}: {exc}"
-    except Exception as exc:
-        return False, f"DNS safety validation failed for {parsed.hostname}: {exc}"
+    Kept for API compatibility. Connect paths must use :func:`pin_outbound_url`
+    and connect to ``PinnedOutbound.pinned_url``; a second DNS lookup alone
+    does not pin the peer address.
+    """
+    return _validate_outbound_url_safety(url, purpose=purpose)
 
 
 # ============================================================================
@@ -709,9 +825,12 @@ def verify_pbkdf2_key(
 
 __all__ = [
     "BlocklistCategory",
+    "PinnedOutbound",
     "is_ip_blocked",
+    "pin_outbound_url",
     "validate_proxy_url_safety",
     "validate_source_url_safety",
+    "recheck_outbound_url_safety",
     "redact_url",
     "redact_dict",
     "RedactionFilter",

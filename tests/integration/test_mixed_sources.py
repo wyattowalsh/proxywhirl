@@ -8,7 +8,9 @@ Tests cover:
 """
 
 import random
+from contextlib import contextmanager
 from unittest.mock import patch
+from urllib.parse import urlparse
 
 import httpx
 import respx
@@ -16,13 +18,40 @@ import respx
 from proxywhirl.fetchers import ProxyFetcher, ProxySourceConfig
 from proxywhirl.models import HealthStatus, Proxy, ProxySource, StrategyConfig
 from proxywhirl.rotator import AsyncProxyWhirl, ProxyWhirl
+from proxywhirl.security import PinnedOutbound
 from proxywhirl.strategies import WeightedStrategy
 
-# Integration fixtures use example hostnames that must not require real DNS.
-_SSRF_ALLOW = patch(
-    "proxywhirl.fetchers.fetcher.validate_source_url_safety",
-    return_value=(True, ""),
-)
+
+def _identity_pin(url: str, *, purpose: str = "url") -> tuple[PinnedOutbound, str]:
+    """Keep the mocked URL so respx matches and example hosts skip live DNS."""
+    del purpose
+    parsed = urlparse(url)
+    hostname = parsed.hostname or ""
+    return (
+        PinnedOutbound(
+            url=url,
+            hostname=hostname,
+            ip="8.8.8.8",
+            port=parsed.port,
+            scheme=(parsed.scheme or "").lower(),
+            pinned_url=url,
+            host_header=hostname,
+        ),
+        "",
+    )
+
+
+@contextmanager
+def _allow_mocked_source_fetch():
+    """Stub SSRF preflight and the connect-time pin for mocked source URLs."""
+    with (
+        patch(
+            "proxywhirl.fetchers.fetcher.validate_source_url_safety",
+            return_value=(True, ""),
+        ),
+        patch("proxywhirl.fetchers.fetcher.pin_outbound_url", side_effect=_identity_pin),
+    ):
+        yield
 
 
 class TestMixedProxySources:
@@ -53,7 +82,7 @@ class TestMixedProxySources:
             format="json",
         )
         fetcher = ProxyFetcher(sources=[source])
-        with _SSRF_ALLOW:
+        with _allow_mocked_source_fetch():
             fetched_proxies = await fetcher.fetch_all(validate=False)
 
         # Add fetched proxies to rotator
@@ -193,7 +222,7 @@ class TestMixedProxySources:
         # Fetch initial proxies
         source = ProxySourceConfig(url="https://proxy-source.example.com/api", format="json")
         fetcher = ProxyFetcher(sources=[source])
-        with _SSRF_ALLOW:
+        with _allow_mocked_source_fetch():
             initial_proxies = await fetcher.fetch_all(validate=False)
 
         for proxy_dict in initial_proxies:

@@ -2937,6 +2937,22 @@ class TestNormalizedSchema:
         assert len(healthy) == 1
         assert healthy[0]["url"] == "http://1.2.3.4:8080"
 
+    async def test_record_validations_batch_untimed_success_keeps_latency_ema(self, storage):
+        """A successful batch row without timing must not null out the stored EMA."""
+        proxy = Proxy(url="http://1.2.3.4:8080", protocol="http", allow_local=True)
+        await storage.add_proxy(proxy)
+        await storage.record_validation(
+            proxy_url="http://1.2.3.4:8080",
+            is_valid=True,
+            response_time_ms=100.0,
+        )
+
+        await storage.record_validations_batch([("http://1.2.3.4:8080", True, None, None)])
+
+        healthy = await storage.get_healthy_proxies(max_age_hours=24)
+        assert len(healthy) == 1
+        assert healthy[0]["avg_response_time_ms"] == 100.0
+
     async def test_load_revalidation_candidates_orders_oldest_first(self, storage):
         """Test oldest-first ordering for incremental re-validation batches."""
         proxies = [
@@ -3268,3 +3284,45 @@ class TestDictToProxy:
 
         assert restored.username is None
         assert restored.password is None
+
+
+class TestCredentialUserinfoPersistence:
+    """f01/f02: FileStorage and snapshots strip URL userinfo."""
+
+    async def test_file_storage_strips_url_userinfo_and_roundtrips(self, tmp_path: Path) -> None:
+        from cryptography.fernet import Fernet
+
+        from proxywhirl.storage import FileStorage
+
+        key = Fernet.generate_key()
+        storage = FileStorage(tmp_path / "proxies.json", encryption_key=key)
+        await storage.save([Proxy(url="http://user:secret@proxy.example.com:8080")])
+        loaded = await storage.load()
+        assert loaded[0].username is not None
+        assert loaded[0].password is not None
+        assert loaded[0].username.get_secret_value() == "user"
+        assert loaded[0].password.get_secret_value() == "secret"
+        plaintext = Fernet(key).decrypt((tmp_path / "proxies.json").read_bytes()).decode()
+        assert "user:secret@" not in plaintext
+        assert "http://proxy.example.com:8080" in plaintext
+
+    async def test_file_storage_refuses_url_only_credentials_without_key(
+        self, tmp_path: Path
+    ) -> None:
+        from proxywhirl.exceptions import ProxyStorageError
+        from proxywhirl.storage import FileStorage
+
+        storage = FileStorage(tmp_path / "proxies.json")
+        with pytest.raises(ProxyStorageError, match="encryption_key"):
+            await storage.save([Proxy(url="http://user:secret@proxy.example.com:8080")])
+
+    def test_pool_snapshot_strips_url_userinfo(self) -> None:
+        from datetime import datetime, timezone
+
+        from proxywhirl.pool_snapshot import PoolSnapshot
+
+        snapshot = PoolSnapshot("pool", "snap-1", datetime.now(timezone.utc))
+        snapshot.add_proxy_state(Proxy(url="http://user:secret@proxy.example.com:8080"))
+        payload = snapshot.to_json()
+        assert "user:secret@" not in payload
+        assert "http://proxy.example.com:8080" in payload

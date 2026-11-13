@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import socket
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import httpx
@@ -19,6 +20,14 @@ from proxywhirl.fetchers import (
     ProxyValidator,
 )
 from proxywhirl.fetchers.parsers import GeonodeParser
+
+
+def _public_getaddrinfo(host: str, *args: object, **kwargs: object) -> list[tuple[object, ...]]:
+    """Pin helper for tests: resolve example hosts to a documentation IPv4."""
+    del args, kwargs
+    if str(host).startswith("127.") or str(host) in {"localhost", "::1"}:
+        return [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("127.0.0.1", 0))]
+    return [(socket.AF_INET, socket.SOCK_STREAM, 0, "", ("8.8.8.8", 0))]
 
 
 async def _ready_renderer(page: AsyncMock) -> BrowserRenderer:
@@ -188,6 +197,7 @@ class TestFetcherRedirectBoundaries:
                 "proxywhirl.fetchers.fetcher.validate_source_url_safety",
                 side_effect=safety,
             ) as validate,
+            patch("proxywhirl.security.socket.getaddrinfo", _public_getaddrinfo),
             pytest.raises(ProxyFetchError, match="redirect blocked.*Loopback"),
         ):
             await fetcher.fetch_from_source(source)
@@ -234,6 +244,7 @@ class TestFetcherRedirectBoundaries:
                 "proxywhirl.fetchers.fetcher.validate_source_url_safety",
                 return_value=(True, ""),
             ) as validate,
+            patch("proxywhirl.security.socket.getaddrinfo", _public_getaddrinfo),
         ):
             result = await fetcher.fetch_from_source(source)
 
@@ -252,8 +263,11 @@ class TestFetcherRedirectBoundaries:
         first_request, second_request = client.stream.call_args_list
         assert first_request.kwargs["auth"] == ("source-user", "source-password")
         assert first_request.kwargs["headers"]["Authorization"] == "Bearer source-secret"
+        assert first_request.kwargs["headers"]["Host"] == "public.example"
         assert second_request.kwargs["auth"] is None
-        assert second_request.kwargs["headers"] == {"Accept": "application/json"}
+        assert second_request.kwargs["headers"]["Accept"] == "application/json"
+        assert "Authorization" not in second_request.kwargs["headers"]
+        assert second_request.kwargs["headers"]["Host"] == "cdn.example"
 
 
 class TestParserInputBoundaries:

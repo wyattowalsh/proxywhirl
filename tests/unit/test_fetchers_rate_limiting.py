@@ -10,7 +10,38 @@ Tests cover:
 - Retry-After header parsing and capping
 """
 
+from unittest.mock import patch
+from urllib.parse import urlparse
+
 import pytest
+
+from proxywhirl.security import PinnedOutbound
+
+
+def _identity_pin(url: str, *, purpose: str = "url") -> tuple[PinnedOutbound, str]:
+    """Keep the mocked URL so respx matches and example hosts skip live DNS."""
+    del purpose
+    parsed = urlparse(url)
+    hostname = parsed.hostname or ""
+    return (
+        PinnedOutbound(
+            url=url,
+            hostname=hostname,
+            ip="8.8.8.8",
+            port=parsed.port,
+            scheme=(parsed.scheme or "").lower(),
+            pinned_url=url,
+            host_header=hostname,
+        ),
+        "",
+    )
+
+
+@pytest.fixture(autouse=True)
+def _pin_mocked_source_urls():
+    """Fetcher tests mock httpx by URL; the connect-time pin must not rewrite it."""
+    with patch("proxywhirl.fetchers.fetcher.pin_outbound_url", side_effect=_identity_pin):
+        yield
 
 
 class TestRateLimitingRetry:

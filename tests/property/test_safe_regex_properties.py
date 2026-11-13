@@ -385,3 +385,29 @@ class TestValidationConsistency:
                 assert result is None or hasattr(result, "group")
             except RegexTimeoutError:
                 pass  # Acceptable - timeout is a valid safety mechanism
+
+
+class TestBoundedWorkerReuse:
+    """The default in-process path returns the native match object."""
+
+    def test_match_returns_native_re_match(self) -> None:
+        compiled = _compile_with_timeout(r"ab(c+)", 0, timeout=1.0)
+        result = _match_with_timeout(compiled, "xxabccc yy", timeout=1.0)
+        assert isinstance(result, re.Match)
+        assert result.group() == "abccc"
+        assert result.groups() == ("ccc",)
+        assert result.span() == (2, 7)
+
+    def test_non_nested_polynomial_pattern_on_moderate_haystack_terminates(self) -> None:
+        """r'a*b*c*' is polynomial, not nested; must not hang under the 1s deadline."""
+        compiled = _compile_with_timeout(r"a*b*c*", 0, timeout=1.0)
+        haystack = ("a" * 200) + ("b" * 200) + ("c" * 200)
+        result = _match_with_timeout(compiled, haystack, timeout=1.0)
+        assert result is None or hasattr(result, "group")
+
+    def test_inprocess_long_haystack_still_matches(self) -> None:
+        compiled = _compile_with_timeout(r"a+", 0, timeout=1.0)
+        text = "a" * 10001
+        result = _match_with_timeout(compiled, text, timeout=1.0)
+        assert isinstance(result, re.Match)
+        assert result.group() == text

@@ -17,7 +17,7 @@
 
 `@pytest.mark.slow` (>5s), `@pytest.mark.integration`, `@pytest.mark.network`, `@pytest.mark.benchmark`, `@pytest.mark.snapshot`, `@pytest.mark.flaky` (pytest-rerunfailures `reruns=N`)
 
-CI fast gate (`just test-fast`): `tests/unit/`, `tests/integration/`, `tests/property/`, `tests/api/`, `tests/contract/` with `-m "not slow and not stress and not network"`.
+CI fast gate (`just test-fast`): `tests/ --ignore=tests/benchmarks` with `-m "not slow and not stress and not network"`.
 
 ## Key Fixtures (conftest.py)
 

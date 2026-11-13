@@ -109,7 +109,7 @@ def redact_url(url: str) -> str:
 
 def _redact_text(text: str) -> str:
     """Redact embedded URL credentials and token-like values from free-form text."""
-    text = re.sub(r"([a-z][a-z0-9+.-]*://)[^/@\s?#]+@", r"\1***:***@", text)
+    text = re.sub(r"(?i)([a-z][a-z0-9+.-]*://)[^/@\s?#]+@", r"\1***:***@", text)
     return re.sub(
         r"(?i)(password|token|api_?key|secret|credential)([\"']?\s*[:=]\s*[\"']?)([^\"'\s&,}]+)",
         r"\1\2***",
@@ -189,8 +189,10 @@ class ProxyWhirlError(Exception):
         self.error_code = error_code or self.__class__.error_code
         self.retry_recommended = retry_recommended
         self.attempt_count = attempt_count
-        self.operation = operation
-        self.recovery_hint = recovery_hint
+        self.operation = _redact_text(operation) if isinstance(operation, str) else operation
+        self.recovery_hint = (
+            _redact_text(recovery_hint) if isinstance(recovery_hint, str) else recovery_hint
+        )
         self.file_path = file_path
         self.line_number = line_number
         self.metadata = _redact_metadata_value(metadata)

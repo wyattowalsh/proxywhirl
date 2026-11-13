@@ -42,6 +42,7 @@ class _LoadFlight:
 
     event: threading.Event = field(default_factory=threading.Event)
     error: BaseException | None = None
+    owner: int = field(default_factory=threading.get_ident)
 
 
 class TTLManager:
@@ -571,6 +572,8 @@ class CacheManager:
                 leader = False
 
         if not leader:
+            if flight.owner == threading.get_ident():
+                raise RuntimeError(f"Re-entrant cache load for key: {key}")
             flight.event.wait()
             if flight.error is not None:
                 raise flight.error

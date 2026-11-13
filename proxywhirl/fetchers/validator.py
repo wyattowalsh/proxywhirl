@@ -20,6 +20,7 @@ from proxywhirl.fetchers.shared import (
     SOCKS_AVAILABLE,
     AsyncProxyTransport,
 )
+from proxywhirl.security import pin_outbound_url, redact_url
 from proxywhirl.settings import TLSSettings
 from proxywhirl.utils import mask_proxy_url
 
@@ -376,7 +377,7 @@ class ProxyValidator:
         if cache_key in self._validation_cache:
             result, timestamp = self._validation_cache[cache_key]
             if time.time() - timestamp < self._cache_ttl_seconds:
-                logger.debug(f"Validation cache hit for {proxy.get('url')}")
+                logger.debug(f"Validation cache hit for {redact_url(str(proxy.get('url') or ''))}")
                 return result
             else:
                 # Cache expired - remove it
@@ -591,8 +592,19 @@ class ProxyValidator:
         if not safe:
             logger.debug(
                 "Skipping validation for unsafe proxy URL {}: {}",
-                proxy_url,
+                redact_url(str(proxy_url)),
                 safety_reason,
+            )
+            result = ValidationResult(is_valid=False, response_time_ms=None)
+            self._set_cached_result(proxy, result)
+            return result
+
+        pin, pin_reason = pin_outbound_url(str(proxy_url), purpose="proxy")
+        if pin is None:
+            logger.debug(
+                "Skipping validation for unsafe proxy URL {}: {}",
+                redact_url(str(proxy_url)),
+                pin_reason,
             )
             result = ValidationResult(is_valid=False, response_time_ms=None)
             self._set_cached_result(proxy, result)
@@ -605,21 +617,16 @@ class ProxyValidator:
             return cached_result
 
         try:
-            # Parse host:port from URL
-            parsed = urlparse(proxy_url)
-            host = parsed.hostname
-            port = parsed.port
-
-            if not host or not port:
+            if not pin.hostname or pin.port is None:
                 result = ValidationResult(is_valid=False, response_time_ms=None)
                 self._set_cached_result(proxy, result, cache_target_url)
                 return result
 
-            # Fast TCP pre-check (async) - skip HTTP if port isn't even open
+            # Fast TCP pre-check (async) against the pinned IP — never the hostname.
             # Use very short timeout for TCP (1s) - if port isn't open, fail fast
             try:
                 _, writer = await asyncio.wait_for(
-                    asyncio.open_connection(host, port),
+                    asyncio.open_connection(pin.ip, pin.port),
                     timeout=min(1.0, self.timeout),
                 )
                 writer.close()
@@ -636,7 +643,7 @@ class ProxyValidator:
 
             # TCP passed - now test actual proxy functionality with timing
             # httpx requires proxy at client initialization, not per-request
-            is_socks = proxy_url.startswith(("socks4://", "socks5://"))
+            is_socks = str(proxy_url).startswith(("socks4://", "socks5://"))
             target_url = self._get_test_url_for_protocol(proxy_protocol)
             start_time = time.perf_counter()
 
@@ -644,8 +651,9 @@ class ProxyValidator:
                 # Create SOCKS client with transport
                 if not SOCKS_AVAILABLE:
                     logger.warning(
-                        f"Skipping SOCKS validation for {proxy_url}: httpx-socks library not installed. "
-                        "Install with: uv sync or add httpx-socks to your dependencies"
+                        "Skipping SOCKS validation for {}: httpx-socks library not installed. "
+                        "Install with: uv sync or add httpx-socks to your dependencies",
+                        redact_url(str(proxy_url)),
                     )
                     # Return invalid rather than error - graceful degradation
                     # SOCKS proxies cannot be validated without the library
@@ -660,7 +668,7 @@ class ProxyValidator:
                     self._set_cached_result(proxy, result, target_url)
                     return result
 
-                transport = AsyncProxyTransport.from_url(proxy_url)
+                transport = AsyncProxyTransport.from_url(pin.pinned_url)
                 async with httpx.AsyncClient(
                     transport=transport,
                     timeout=self.timeout,
@@ -683,10 +691,11 @@ class ProxyValidator:
                 # Free HTTP-CONNECT proxies don't speak TLS themselves — httpx with
                 # proxy="https://..." would attempt a TLS handshake to the proxy and fail.
                 # The HTTPS target_url verifies CONNECT tunneling capability.
+                # Pin the proxy host to the preflight IP (origin test URLs are not attacker-controlled).
                 effective_proxy_url = (
-                    proxy_url.replace("https://", "http://", 1)
-                    if proxy_url.startswith("https://")
-                    else proxy_url
+                    pin.pinned_url.replace("https://", "http://", 1)
+                    if pin.scheme == "https" or str(proxy_url).startswith("https://")
+                    else pin.pinned_url
                 )
                 async with httpx.AsyncClient(
                     proxy=effective_proxy_url,
@@ -871,7 +880,10 @@ class ProxyValidator:
                 or not url.startswith("http://")
                 or (normalized_protocol is not None and normalized_protocol != "http")
             ):
-                logger.debug(f"Skipping HTTPS capability validation for non-HTTP proxy: {url}")
+                logger.debug(
+                    "Skipping HTTPS capability validation for non-HTTP proxy: {}",
+                    redact_url(url),
+                )
                 continue
             if url not in seen:
                 seen.add(url)
@@ -913,7 +925,23 @@ class ProxyValidator:
                 completed += 1
                 return (proxy, ValidationResult(is_valid=False, response_time_ms=None))
             async with semaphore:
-                http_url = proxy["url"]  # always http://ip:port here
+                http_url = proxy["url"]  # typically http://ip:port; pin if hostname
+                pin, pin_reason = pin_outbound_url(str(http_url), purpose="proxy")
+                if pin is None:
+                    logger.debug(
+                        "Skipping HTTPS capability validation for unsafe proxy URL {}: {}",
+                        redact_url(str(http_url)),
+                        pin_reason,
+                    )
+                    completed += 1
+                    if progress_callback:
+                        progress_callback(completed, total, valid_count)
+                    return (proxy, ValidationResult(is_valid=False, response_time_ms=None))
+                effective_proxy_url = (
+                    pin.pinned_url.replace("https://", "http://", 1)
+                    if pin.scheme == "https"
+                    else pin.pinned_url
+                )
                 is_valid = False
                 elapsed_ms: float | None = None
 
@@ -924,7 +952,7 @@ class ProxyValidator:
                     try:
                         start = time.perf_counter()
                         async with httpx.AsyncClient(
-                            proxy=http_url,
+                            proxy=effective_proxy_url,
                             timeout=https_timeout,
                             verify=_get_tls_verify(),
                             headers={

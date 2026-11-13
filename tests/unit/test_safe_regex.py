@@ -59,6 +59,8 @@ class TestRegexValidation:
             r"(a*)*",  # Nested * quantifiers
             r"(a+)*",  # Mixed nested quantifiers
             r"(a?)+",  # Nested ? quantifiers
+            r"([)]+)+",  # Nested quantifier hidden by a character class
+            r"([)]{1,}){1,}",
         ]
 
         for pattern in dangerous_patterns:
@@ -72,6 +74,7 @@ class TestRegexValidation:
             r"a*b*",  # Sequential, not nested
             r"a{1,3}b{2,5}",  # Bounded repetitions
             r"(abc)+",  # Group with single quantifier
+            r"[)]+",  # Quantified character class, not a nested group
         ]
 
         for pattern in safe_patterns:

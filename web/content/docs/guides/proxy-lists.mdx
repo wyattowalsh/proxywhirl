@@ -4,6 +4,8 @@ description: Public proxy-list assets at /proxy-lists/, file formats, freshness,
 ---
 The docs site publishes a **generated proxy-list bundle** at `/proxy-lists/`. Files are mirrored from `docs/proxy-lists/` into `web/public/proxy-lists/` during `pnpm --dir web run docs:generate`.
 
+Production requests for `/proxy-lists/*` are served from `docs/proxy-lists/` on the `main` branch of GitHub, so the scheduled list update does not need a Vercel rebuild. The Ignored Build Step skips a production build when a push only changes `web/public/proxy-lists/`.
+
 Do not hand-edit generated proxy data to fake freshness. Regenerate through the CLI export workflow and validate sources separately.
 
 ## Public URLs
@@ -30,9 +32,10 @@ Production examples:
 
 | File | Format | Contents |
 | ---- | ------ | -------- |
-| `*.txt` | Plain text, one proxy per line | `host:port` or full proxy URLs |
-| `proxies.json` | JSON array | Compact proxy records |
-| `proxies-rich.json` | JSON array | Records with validation and source metadata |
+| `http.txt`, `https.txt`, `socks4.txt`, `socks5.txt` | Plain text, one `host:port` per line | Protocol files have no headers |
+| `all.txt` | Plain text | Same addresses, split by `# HTTP Proxies` style section headers |
+| `proxies.json` | JSON object | `metadata` plus `proxies`, a map of protocol to `host:port` arrays |
+| `proxies-rich.json` | JSON object | `generated_at`, `total`, and `proxies` as an array of records |
 | `stats.json` | JSON object | Export counts, protocol breakdown, dashboard fields |
 | `metadata.json` | JSON object | `generated_at`, source counts, bundle provenance |
 

@@ -151,3 +151,15 @@ class TestCacheStampedePrevention:
         result = cache_manager.get_or_load(key, loader2)
         assert result.key == key
         assert calls == 1
+
+    def test_reentrant_load_raises_instead_of_deadlock(self, cache_manager: CacheManager) -> None:
+        """A loader that asks for its own key must fail fast, not wait on itself."""
+        key = "reentrant-key"
+
+        def loader() -> CacheEntry:
+            return cache_manager.get_or_load(key, loader)
+
+        with pytest.raises(RuntimeError, match="Re-entrant cache load"):
+            cache_manager.get_or_load(key, loader)
+
+        assert cache_manager.get(key) is None

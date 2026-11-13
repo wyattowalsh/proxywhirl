@@ -529,3 +529,154 @@ class TestSQLiteStorageWave2:
             assert rows[0]["url"] == "http://open.example.com:8080"
 
             await storage.close()
+
+    async def test_url_embedded_credentials_stripped_and_roundtrip(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """f01: persisted URLs never contain userinfo; load reconstructs credentials."""
+        from cryptography.fernet import Fernet
+        from sqlalchemy import text
+
+        from proxywhirl.storage import SQLiteStorage
+
+        key = Fernet.generate_key()
+        monkeypatch.setenv("PROXYWHIRL_CACHE_ENCRYPTION_KEY", key.decode())
+        credentialed = "http://user:secret@proxy.example.com:8080"
+        identity = "http://proxy.example.com:8080"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+            await storage.save([Proxy(url=credentialed)])
+
+            async with storage.engine.connect() as conn:
+                identity_url = (
+                    await conn.execute(text("SELECT url FROM proxy_identities"))
+                ).scalar_one()
+                status_url = (
+                    await conn.execute(text("SELECT proxy_url FROM proxy_statuses"))
+                ).scalar_one()
+                legacy_url = (await conn.execute(text("SELECT url FROM proxies"))).scalar_one()
+                username, password = (
+                    await conn.execute(text("SELECT username, password FROM proxy_identities"))
+                ).one()
+
+            assert identity_url == identity
+            assert status_url == identity
+            assert legacy_url == identity
+            assert "user:secret" not in identity_url
+            assert username != "user"
+            assert password != "secret"
+            assert username is not None and password is not None
+
+            loaded = await storage.load_models()
+            assert len(loaded) == 1
+            assert loaded[0].username is not None
+            assert loaded[0].password is not None
+            assert loaded[0].username.get_secret_value() == "user"
+            assert loaded[0].password.get_secret_value() == "secret"
+            assert "user:secret@" in loaded[0].url
+
+            await storage.audit_log_change(credentialed, "INSERT", new_values={"url": credentialed})
+            async with storage.engine.connect() as conn:
+                audit_url = (
+                    await conn.execute(text("SELECT proxy_url FROM proxies_audit"))
+                ).scalar_one()
+            assert audit_url == identity
+
+            await storage.close()
+
+    async def test_audit_json_redacts_credentialed_values(self) -> None:
+        """Audit JSON old/new values must not persist userinfo or plaintext credentials."""
+        import json
+
+        from sqlalchemy import text
+
+        from proxywhirl.storage import SQLiteStorage
+
+        credentialed = "http://user:secret@proxy.example.com:8080"
+        identity = "http://proxy.example.com:8080"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+
+            await storage.audit_log_change(
+                credentialed,
+                "UPDATE",
+                old_values={
+                    "url": credentialed,
+                    "username": "user",
+                    "password": "secret",
+                },
+                new_values={
+                    "url": credentialed,
+                    "username": "user",
+                    "password": "secret",
+                    "passwd": "secret",
+                    "usernames": ["user"],
+                    "nested": {
+                        "username": "user",
+                        "password": "secret",
+                        "token": "secret-token",
+                        "api_key": "secret",
+                    },
+                    "items": [
+                        {
+                            "credentials": "secret",
+                            "url": credentialed,
+                        }
+                    ],
+                },
+            )
+
+            async with storage.engine.connect() as conn:
+                audit_url, old_json, new_json = (
+                    await conn.execute(
+                        text("SELECT proxy_url, old_values, new_values FROM proxies_audit")
+                    )
+                ).one()
+
+            assert audit_url == identity
+            blob = f"{old_json}\n{new_json}"
+            assert "user:secret@" not in blob
+            assert "user:pass@" not in blob
+            assert "secret" not in blob
+
+            old_payload = json.loads(old_json)
+            new_payload = json.loads(new_json)
+            assert old_payload["username"] == "***"
+            assert old_payload["password"] == "***"
+            assert new_payload["username"] == "***"
+            assert new_payload["password"] == "***"
+            assert new_payload["passwd"] == "***"
+            assert new_payload["usernames"] == "***"
+            assert new_payload["nested"]["username"] == "***"
+            assert new_payload["nested"]["password"] == "***"
+            assert new_payload["nested"]["token"] == "***"
+            assert new_payload["nested"]["api_key"] == "***"
+            assert new_payload["items"][0]["credentials"] == "***"
+
+            await storage.close()
+
+    async def test_url_only_credentials_refused_without_encryption_key(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """f02: URL-embedded creds cannot bypass the plaintext-refusal gate."""
+        from proxywhirl.exceptions import ProxyStorageError
+        from proxywhirl.storage import SQLiteStorage
+
+        monkeypatch.delenv("PROXYWHIRL_CACHE_ENCRYPTION_KEY", raising=False)
+        monkeypatch.delenv("PROXYWHIRL_ENCRYPTION_KEY", raising=False)
+        monkeypatch.delenv("PROXYWHIRL_KEY", raising=False)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "proxies.db"
+            storage = SQLiteStorage(db_path)
+            await storage.initialize()
+            proxy = Proxy(url="http://user:secret@proxy.example.com:8080")
+            with pytest.raises(ProxyStorageError, match="ENCRYPTION_KEY|Fernet key"):
+                await storage.add_proxy(proxy)
+            await storage.close()

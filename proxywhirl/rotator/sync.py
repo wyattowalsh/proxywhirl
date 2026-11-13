@@ -41,6 +41,11 @@ from proxywhirl.settings import ProxyConfiguration
 from proxywhirl.strategies import RotationStrategy
 from proxywhirl.utils import mask_proxy_url
 
+# Callers poll this long when another thread still holds the drain lock.
+# A non-blocking drain that then waits forever loses the wakeup if the holder
+# observed an empty queue and released the lock after this request was queued.
+_QUEUE_RESULT_POLL_SECONDS = 0.05
+
 if TYPE_CHECKING:
     from proxywhirl.rate_limiting import SyncRateLimiter
 
@@ -185,6 +190,7 @@ class ProxyWhirl(ProxyRotatorBase):
 
         # Request queuing (optional, disabled by default)
         self._request_queue: queue.Queue[Any] | None = None
+        self._queue_drain_lock = threading.Lock()
         if self.config.queue_enabled:
             self._request_queue = queue.Queue(maxsize=self.config.queue_size)
             logger.info("Request queuing enabled", queue_size=self.config.queue_size)
@@ -974,6 +980,10 @@ class ProxyWhirl(ProxyRotatorBase):
             "kwargs": kwargs,
         }
 
+        # Deliver this caller's response even if another thread dequeues it.
+        done: queue.Queue[httpx.Response | BaseException] = queue.Queue(maxsize=1)
+        request_data["done"] = done
+
         # Queue the request (blocking put)
         try:
             # Use put_nowait to avoid blocking (raises QueueFull if full)
@@ -986,36 +996,67 @@ class ProxyWhirl(ProxyRotatorBase):
                 queue_size=self._request_queue.qsize(),
                 proxy_id=str(proxy.id),
             )
-
-            # Process the queue and execute the request
-            return self._process_queue_sync()
-
         except queue.Full as e:
             logger.error("Queue is full - cannot add request")
             raise RequestQueueFullError(
                 "Queue is full - cannot add request", queue_size=self.config.queue_size
             ) from e
 
-    def _process_queue_sync(self) -> httpx.Response:
-        """
-        Process queued requests synchronously.
+        while True:
+            self._drain_request_queue()
+            try:
+                result = done.get(timeout=_QUEUE_RESULT_POLL_SECONDS)
+            except queue.Empty:
+                # The drainer may have exited between our enqueue and its empty
+                # check. Retry until this caller's result is delivered.
+                continue
+            if isinstance(result, BaseException):
+                raise result
+            return result
 
-        Returns:
-            HTTP response from processed request
+    def _drain_request_queue(self) -> None:
+        """Execute queued requests and hand each response back to its caller.
+
+        ``queue.Queue.get_nowait`` is atomic, but returning the popped item to
+        whichever thread happened to drain it mixes responses across callers.
+        One drainer runs at a time; every other caller waits on its own result.
+        """
+        if self._request_queue is None:
+            return
+        if not self._queue_drain_lock.acquire(blocking=False):
+            return
+        try:
+            while True:
+                try:
+                    request_data = self._request_queue.get_nowait()
+                except queue.Empty:
+                    return
+                done = request_data.get("done") if isinstance(request_data, dict) else None
+                if not isinstance(done, queue.Queue) or "method" not in request_data:
+                    logger.warning("Dropping queued item that is not a proxy request")
+                    if isinstance(done, queue.Queue):
+                        done.put(ProxyConnectionError("Dropped malformed queued request"))
+                    continue
+                try:
+                    response = self._execute_queued_request(request_data)
+                except BaseException as exc:
+                    done.put(exc)
+                else:
+                    done.put(response)
+        finally:
+            self._queue_drain_lock.release()
+
+    def _execute_queued_request(self, request_data: dict[str, Any]) -> httpx.Response:
+        """Execute one already-dequeued request and return its response.
 
         Raises:
             ProxyConnectionError: If request processing fails
         """
-        if self._request_queue is None or self._request_queue.empty():
-            raise RuntimeError("No requests in queue to process")
-
-        # Get next request from queue (non-blocking)
-        try:
-            request_data = self._request_queue.get_nowait()
-        except queue.Empty as e:
-            raise ProxyConnectionError("No requests in queue") from e
-
         # Extract request parameters
+        request_queue = self._request_queue
+        if request_queue is None:
+            raise RuntimeError("Request queue not initialized")
+
         method = request_data["method"]
         url = request_data["url"]
         proxy = request_data["proxy"]
@@ -1027,7 +1068,7 @@ class ProxyWhirl(ProxyRotatorBase):
             "Processing queued request",
             method=method,
             url=redact_url(url),
-            remaining_queue_size=self._request_queue.qsize(),
+            remaining_queue_size=request_queue.qsize(),
         )
 
         masked_url = mask_proxy_url(str(proxy.url))
@@ -1479,10 +1520,16 @@ class ProxyWhirl(ProxyRotatorBase):
         count = 0
         while not self._request_queue.empty():
             try:
-                self._request_queue.get_nowait()
-                count += 1
+                item = self._request_queue.get_nowait()
             except queue.Empty:
                 break
+            done = item.get("done") if isinstance(item, dict) else None
+            if isinstance(done, queue.Queue):
+                try:
+                    done.put_nowait(ProxyConnectionError("Request queue was cleared"))
+                except queue.Full:
+                    pass
+            count += 1
 
         logger.info(f"Cleared {count} requests from queue")
         return count

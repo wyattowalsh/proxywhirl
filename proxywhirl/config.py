@@ -680,8 +680,9 @@ def encrypt_credentials(config: CLIConfig) -> CLIConfig:
             encrypted_proxy.password = SecretStr(encrypted_password)
         encrypted_proxies.append(encrypted_proxy)
 
-    config.proxies = encrypted_proxies
-    return config
+    saved = config.model_copy(deep=True)
+    saved.proxies = encrypted_proxies
+    return saved
 
 
 def decrypt_credentials(config: CLIConfig) -> CLIConfig:

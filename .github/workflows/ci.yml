@@ -241,7 +241,7 @@ jobs:
         run: uv run pytest tests/unit/ tests/integration/ tests/property/ tests/api/ tests/contract/ -m "not slow and not stress and not network" --timeout=120 -v
 
   benchmark:
-    name: Benchmark Performance Regression
+    name: Benchmark Report (non-blocking)
     runs-on: ubuntu-latest
     # Only run benchmarks on PRs and main, not feature branches
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'

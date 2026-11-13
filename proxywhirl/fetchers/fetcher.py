@@ -34,7 +34,7 @@ from proxywhirl.fetchers.shared import (
 )
 from proxywhirl.fetchers.validator import ProxyValidator, _get_tls_verify
 from proxywhirl.models import ProxySourceConfig, RenderMode
-from proxywhirl.security import validate_source_url_safety
+from proxywhirl.security import pin_outbound_url, redact_url, validate_source_url_safety
 
 RETRYABLE_STATUS_CODES = {
     429,  # Too Many Requests
@@ -298,12 +298,18 @@ class ProxyFetcher:
             safe, safety_reason = validate_source_url_safety(current_url)
             if not safe:
                 raise ProxyFetchError(f"Source URL blocked by SSRF protection: {safety_reason}")
+            pin, pin_reason = pin_outbound_url(current_url, purpose="source")
+            if pin is None:
+                raise ProxyFetchError(f"Source URL blocked by SSRF protection: {pin_reason}")
 
+            request_headers = dict(current_headers) if current_headers else {}
+            request_headers["Host"] = pin.host_header
             async with client.stream(
                 "GET",
-                current_url,
-                headers=current_headers,
+                pin.pinned_url,
+                headers=request_headers,
                 auth=current_auth,
+                extensions=pin.extensions,
             ) as response:
                 if response.status_code not in _REDIRECT_STATUS_CODES:
                     response.raise_for_status()
@@ -360,7 +366,7 @@ class ProxyFetcher:
         if cache_key in self._request_cache:
             content, timestamp = self._request_cache[cache_key]
             if time.time() - timestamp < self._dedup_cache_ttl:
-                logger.debug(f"Request cache hit for {url}")
+                logger.debug(f"Request cache hit for {redact_url(url)}")
                 return content
             else:
                 # Cache expired - remove it

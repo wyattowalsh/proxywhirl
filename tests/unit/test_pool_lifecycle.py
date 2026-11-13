@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from proxywhirl.models import Proxy, ProxyPool
+from proxywhirl.models import HealthMonitor, Proxy, ProxyPool
 
 
 class TestProxyPoolDynamicOperations:
@@ -239,3 +239,24 @@ class TestProxyPoolValidation:
 
         pool.remove_proxy(proxy.id)
         assert pool.updated_at > initial_updated
+
+
+def test_health_payload_does_not_double_prefix_credentials() -> None:
+    """Storage already puts userinfo in the URL; health checks must not add it again."""
+    from pydantic import SecretStr
+
+    embedded = Proxy(
+        url="http://alice:secret@proxy.example.com:8080",
+        username=SecretStr("alice"),
+        password=SecretStr("secret"),
+    )
+    payload = HealthMonitor._validation_payload(embedded)
+    assert payload["url"] == "http://alice:secret@proxy.example.com:8080"
+
+    bare = Proxy(
+        url="http://proxy.example.com:8080",
+        username=SecretStr("alice"),
+        password=SecretStr("secret"),
+    )
+    prefixed = HealthMonitor._validation_payload(bare)
+    assert prefixed["url"] == "http://alice:secret@proxy.example.com:8080"
