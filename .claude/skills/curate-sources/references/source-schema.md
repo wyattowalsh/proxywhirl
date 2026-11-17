@@ -20,9 +20,9 @@ class ProxySourceConfig(BaseModel):
     enabled: bool = True                  # Whether source is active
     priority: int = 0                     # Fetch priority
     trusted: bool = False                 # Source pre-validates proxies
-    headers: dict[str, str] = {}          # Custom HTTP headers
+    headers: dict[str, str] = Field(default_factory=dict)
     auth: tuple[str, str] | None = None   # Basic auth credentials
-    metadata: dict[str, Any] = {}         # Arbitrary metadata
+    metadata: dict[str, Any] = Field(default_factory=dict)
 ```
 
 ## ProxyFormat Enum
@@ -75,12 +75,12 @@ Pattern: `{DOMAIN}_{PROTOCOL}`
 | SOCKS4 sources | `ALL_SOCKS4_SOURCES` | All SOCKS4 proxy sources |
 | SOCKS5 sources | `ALL_SOCKS5_SOURCES` | All SOCKS5 proxy sources |
 | All sources | `ALL_SOURCES` | `ALL_HTTP_SOURCES + ALL_SOCKS4_SOURCES + ALL_SOCKS5_SOURCES` |
-| Recommended | `RECOMMENDED_SOURCES` | Hand-picked reliable sources (4 currently: iplocate, monosans, proxifly, komutan) |
-| API only | `API_SOURCES` | API-based sources (ProxyScrape HTTP/SOCKS4) |
+| Recommended | `RECOMMENDED_SOURCES` | `GITHUB_MONOSANS_HTTP`, `JSDELIVR_PROXIFLY_ALL`, `GITHUB_PROXIFLY_HTTP`, `GITHUB_KOMUTAN_HTTP` |
+| API only | `API_SOURCES` | Enabled API sources. `PROXY_SCRAPE_HTTP` and `PROXY_SCRAPE_SOCKS4` are defined and disabled, so this collection is empty. |
 
 ## `_get_source_name()` Patterns
 
-The helper at `proxywhirl/sources.py:1040` extracts readable names:
+The helper at `proxywhirl/sources.py:1239` extracts readable names:
 - GitHub raw URLs → `{owner}/{repo} ({FILENAME})`
 - GeoNode API → `GeoNode ({PROTOCOL})`
 - ProxyScrape API → `ProxyScrape ({PROTOCOL})`

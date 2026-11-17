@@ -1,10 +1,9 @@
 ---
 name: curate-sources
 description: >
-  Curate proxywhirl proxy sources — prune broken/stale/duplicate sources and discover
-  new high-quality ones via web research. Syncs all downstream files: sources.py, tests,
-  docs, and reference inventories. Use when asked to update, clean up, audit, curate,
-  or refresh proxy sources.
+  Curate proxywhirl proxy sources. Use when asked to audit, prune, or add sources
+  in proxywhirl/sources.py. NOT for routine `proxywhirl sources --validate`.
+  Empty requests and health checks stay read-only. Prune and add require an explicit yes.
 triggers:
   - curate sources
   - update sources
@@ -20,33 +19,44 @@ triggers:
 
 Maintain the proxy source list in `proxywhirl/sources.py` and keep all downstream files in sync: tests, docs, reference inventories, and exports.
 
+## Dispatch
+
+| Request | Action |
+| --- | --- |
+| Empty, "audit", "health", "what sources" | Local census only. No network and no edits. |
+| "validate" or "check this URL" | Live fetch only after the user says yes. |
+| "prune" or "add" | Recommend first. Edit `sources.py` only after an explicit yes. |
+
 ## Quick Start
 
-Invoke the `source-curator` agent:
-```
-/agent source-curator
+Local census, no network:
+
+```bash
+uv run python -c "from proxywhirl.sources import ALL_SOURCES, RECOMMENDED_SOURCES, API_SOURCES; print(len(ALL_SOURCES), len(RECOMMENDED_SOURCES), len(API_SOURCES))"
 ```
 
-Or run the validation script directly:
+Live checks, only after confirmation:
+
 ```bash
-uv run python scripts/curate_sources.py validate          # Full validation report (JSON)
-uv run python scripts/curate_sources.py check-candidate URL  # Check a candidate source
+uv run python scripts/curate_sources.py validate
+uv run python scripts/curate_sources.py check-candidate URL
 ```
+
+The curator agent is [`.claude/agents/source-curator.md`](../../agents/source-curator.md).
 
 ## Workflow
 
-1. **Validate** — Run `scripts/curate_sources.py validate` to get health status of all sources
-2. **Prune** — Remove or disable sources that are broken, stale, or duplicates
-3. **Discover** — Search GitHub and the web for new proxy list repos/APIs
-4. **Integrate** — Add new sources and remove pruned ones in `sources.py`
-5. **Sync downstream** — Update reference inventory, tests, and docs
-6. **Verify** — Run lint + all source-related tests to ensure nothing is broken
+1. **Census** — Read `proxywhirl/sources.py` and `references/known-sources.md`. Do not fetch.
+2. **Recommend** — List prune or add candidates. Stop unless the user asked to change the registry.
+3. **Edit** — After an explicit yes, change `sources.py`. Never prune `RECOMMENDED_SOURCES` without a separate yes.
+4. **Sync** — Update the inventory, tests, and docs in the same change.
+5. **Verify** — Run the source unit tests. Do not run the live validator as the default check.
 
 ## Files That Must Stay in Sync
 
 See the full file inventory in [`.claude/agents/source-curator.md`](../../agents/source-curator.md#files-affected-by-source-changes).
 
-Key files: `proxywhirl/sources.py` (primary), `references/known-sources.md` (inventory), `tests/unit/test_sources.py`, `tests/contract/test_proxy_sources.py`, `tests/unit/test_sources_audit.py`, `README.md` (feature card count), and all code that imports sources (`cli.py`, `exports.py`, `__init__.py`).
+Key files: `proxywhirl/sources.py` (primary), `references/known-sources.md` (inventory), `tests/unit/test_sources.py`, `tests/contract/test_proxy_sources.py`, `tests/unit/test_sources_audit.py`, `README.md` (feature card count), and importers in `proxywhirl/cli/_impl.py`, `proxywhirl/exports.py`, and `proxywhirl/__init__.py`.
 
 ## References
 
@@ -91,8 +101,8 @@ New sources must meet ALL criteria:
 | `ALL_SOCKS4_SOURCES` | Any source providing SOCKS4 proxies |
 | `ALL_SOCKS5_SOURCES` | Any source providing SOCKS5 proxies |
 | `ALL_SOURCES` | Auto-computed: HTTP + SOCKS4 + SOCKS5 |
-| `RECOMMENDED_SOURCES` | Only the most reliable, fast, pre-validated sources (user approval required) |
-| `API_SOURCES` | Only API-based sources (GeoNode, etc.) |
+| `RECOMMENDED_SOURCES` | `GITHUB_MONOSANS_HTTP`, `JSDELIVR_PROXIFLY_ALL`, `GITHUB_PROXIFLY_HTTP`, `GITHUB_KOMUTAN_HTTP` |
+| `API_SOURCES` | Enabled API sources only. The definitions are `PROXY_SCRAPE_HTTP` and `PROXY_SCRAPE_SOCKS4`; both are disabled, so the enabled collection is empty. |
 
 ### Code Style for New Definitions
 

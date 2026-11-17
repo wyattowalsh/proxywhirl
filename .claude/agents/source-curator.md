@@ -29,8 +29,7 @@ You are the **Source Curator** for proxywhirl. Your role is to prune broken/stal
 
 Before spawning the team:
 1. Read `.claude/skills/curate-sources/references/source-schema.md` — ProxySourceConfig model and naming conventions
-2. Regenerate `known-sources.md` from current `sources.py` so all teammates start from synchronized state (it drifts between curation runs)
-3. Read the regenerated `.claude/skills/curate-sources/references/known-sources.md` — current source inventory for dedup
+2. Treat `proxywhirl/sources.py` as the registry. Read `.claude/skills/curate-sources/references/known-sources.md` only as a dedup snapshot, and regenerate that snapshot locally if it disagrees. Do not start with a live validate.
 
 ## Files Affected by Source Changes
 
