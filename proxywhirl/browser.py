@@ -82,9 +82,25 @@ import asyncio
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlparse
 
+import httpx
 from loguru import logger
 
-from proxywhirl.security import validate_source_url_safety
+from proxywhirl.security import pin_outbound_url, validate_source_url_safety
+
+_HOP_BY_HOP_HEADERS = frozenset(
+    {
+        "connection",
+        "content-encoding",
+        "content-length",
+        "keep-alive",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailers",
+        "transfer-encoding",
+        "upgrade",
+    }
+)
 
 if TYPE_CHECKING:
     from playwright.async_api import Browser, BrowserContext, Page
@@ -463,6 +479,35 @@ class BrowserRenderer:
         if parsed.scheme not in {"http", "https"}:
             raise ValueError(f"Browser rendering only supports http/https URLs, got: {url!r}")
 
+    async def _fulfill_pinned_route(self, route: Any, request: Any, pin: Any) -> None:
+        """Fetch the pinned address with httpx so Chromium does not resolve the name.
+
+        Playwright cannot set TLS SNI separately from the request URL. Doing the
+        connect here keeps SNI on the original hostname and gives the browser
+        the response.
+        """
+        headers = {str(key): str(value) for key, value in dict(request.headers).items()}
+        headers["host"] = pin.host_header
+        timeout = httpx.Timeout(max(self.timeout / 1000, 0.001))
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+            response = await client.request(
+                request.method,
+                pin.pinned_url,
+                headers=headers,
+                content=getattr(request, "post_data", None),
+                extensions=pin.extensions,
+            )
+        response_headers = {
+            key: value
+            for key, value in response.headers.items()
+            if key.lower() not in _HOP_BY_HOP_HEADERS
+        }
+        await route.fulfill(
+            status=response.status_code,
+            headers=response_headers,
+            body=response.content,
+        )
+
     async def render(
         self,
         url: str,
@@ -591,7 +636,16 @@ class BrowserRenderer:
                     blocked_reason = reason
                     await route.abort("blockedbyclient")
                     return
-                await route.continue_()
+                pin, pin_reason = await asyncio.to_thread(
+                    pin_outbound_url,
+                    request_url,
+                    purpose="source",
+                )
+                if pin is None:
+                    blocked_reason = pin_reason
+                    await route.abort("blockedbyclient")
+                    return
+                await self._fulfill_pinned_route(route, request, pin)
 
             await page.route("**/*", enforce_outbound_policy)
 

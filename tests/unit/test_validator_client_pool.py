@@ -7,6 +7,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from proxywhirl.fetchers import ProxyValidator
+from proxywhirl.security import PinnedOutbound
 
 
 def _public_getaddrinfo(*args: object, **kwargs: object) -> list[tuple[object, ...]]:
@@ -332,7 +333,22 @@ class TestProxyValidatorIntegrationWithClientPool:
             mock_client.__aexit__ = AsyncMock(return_value=None)
             mock_client_class.return_value = mock_client
 
-            result = await validator.check_anonymity("http://proxy.example.com:8080")
+            with patch(
+                "proxywhirl.fetchers.validator.pin_outbound_url",
+                return_value=(
+                    PinnedOutbound(
+                        url="http://proxy.example.com:8080",
+                        hostname="proxy.example.com",
+                        ip="203.0.113.10",
+                        port=8080,
+                        scheme="http",
+                        pinned_url="http://203.0.113.10:8080",
+                        host_header="proxy.example.com:8080",
+                    ),
+                    "",
+                ),
+            ):
+                result = await validator.check_anonymity("http://proxy.example.com:8080")
 
             # Should have created one per-proxy client
             assert mock_client_class.call_count == 1

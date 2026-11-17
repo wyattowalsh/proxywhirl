@@ -9,7 +9,7 @@ import threading
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
 
 import httpx
 from loguru import logger
@@ -29,12 +29,16 @@ from proxywhirl.retry import NonRetryableError, RetryExecutor, RetryMetrics, Ret
 from proxywhirl.rotator._bootstrap import bootstrap_pool_if_empty_async
 from proxywhirl.rotator._wiring import resolve_strategy
 from proxywhirl.rotator.base import CircuitBreakerSnapshot, ProxyRotatorBase
+from proxywhirl.security import prepare_pinned_request
 from proxywhirl.settings import ProxyConfiguration
 from proxywhirl.strategies import RotationStrategy
 from proxywhirl.utils import mask_proxy_url
 
 if TYPE_CHECKING:
     from proxywhirl.rate_limiting import AsyncRateLimiter
+
+_REDIRECT_STATUS_CODES = frozenset({301, 302, 303, 307, 308})
+_MAX_PINNED_REDIRECTS = 5
 
 
 class LRUAsyncClientPool:
@@ -892,8 +896,49 @@ class AsyncProxyWhirl(ProxyRotatorBase):
             )
 
             async def request_fn() -> httpx.Response:
+                follow_redirects = bool(
+                    kwargs.get("follow_redirects", self.config.follow_redirects)
+                )
+                current_url = url
+                current_method = method
+                request_kwargs = dict(kwargs)
+                request_kwargs["follow_redirects"] = False
+                response: httpx.Response | None = None
                 client = await self._get_or_create_client(proxy, proxy_dict)
-                response = await client.request(method, url, **kwargs)
+                for hop in range(_MAX_PINNED_REDIRECTS + 1):
+                    try:
+                        target, headers, extensions = prepare_pinned_request(
+                            current_url,
+                            headers=request_kwargs.get("headers"),
+                            extensions=request_kwargs.get("extensions"),
+                        )
+                    except ValueError as exc:
+                        raise ProxyConnectionError(f"Target URL blocked: {exc}") from exc
+                    request_kwargs["headers"] = headers
+                    request_kwargs["extensions"] = extensions
+                    response = await client.request(current_method, target, **request_kwargs)
+                    if response.status_code in (401, 407):
+                        break
+                    if (
+                        not follow_redirects
+                        or response.status_code not in _REDIRECT_STATUS_CODES
+                        or hop >= _MAX_PINNED_REDIRECTS
+                    ):
+                        break
+                    location = response.headers.get("location") or response.headers.get("Location")
+                    if not location:
+                        break
+                    current_url = urljoin(current_url, location)
+                    if response.status_code in {301, 302, 303} and current_method not in {
+                        "GET",
+                        "HEAD",
+                    }:
+                        current_method = "GET"
+                        request_kwargs.pop("content", None)
+                        request_kwargs.pop("data", None)
+                        request_kwargs.pop("json", None)
+                if response is None:
+                    raise ProxyConnectionError("Pinned request produced no response")
                 if response.status_code in (401, 407):
                     logger.error(
                         f"Proxy authentication failed: {masked_url}",

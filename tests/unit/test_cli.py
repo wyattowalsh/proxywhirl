@@ -1132,12 +1132,30 @@ class TestHealthCommandAdvanced:
 class TestValidateProxyCommand:
     """Regression tests for validate-proxy command execution."""
 
+    @patch("proxywhirl.cli._impl.validate_target_url")
+    @patch("proxywhirl.cli._impl.pin_outbound_url")
     @patch("httpx.get")
-    def test_validate_proxy_uses_current_httpx_proxy_argument(self, mock_get: Mock) -> None:
+    def test_validate_proxy_uses_current_httpx_proxy_argument(
+        self, mock_get: Mock, mock_pin: Mock, _mock_validate: Mock
+    ) -> None:
         """Validate-proxy should use httpx's current single proxy argument."""
         mock_response = Mock()
         mock_response.status_code = 200
         mock_get.return_value = mock_response
+        from proxywhirl.security import PinnedOutbound
+
+        mock_pin.return_value = (
+            PinnedOutbound(
+                url="http://proxy.com:8080",
+                hostname="proxy.com",
+                ip="203.0.113.10",
+                port=8080,
+                scheme="http",
+                pinned_url="http://203.0.113.10:8080",
+                host_header="proxy.com:8080",
+            ),
+            "",
+        )
 
         result = runner.invoke(
             app,
@@ -1163,17 +1181,35 @@ class TestValidateProxyCommand:
         mock_get.assert_called_once()
         call_kwargs = mock_get.call_args.kwargs
         assert mock_get.call_args.args == ("https://api.example.com/health",)
-        assert call_kwargs["proxy"] == "http://proxy.com:8080"
+        assert call_kwargs["proxy"] == "http://203.0.113.10:8080"
         assert call_kwargs["timeout"] == 1.0
-        assert call_kwargs["follow_redirects"] is True
+        assert call_kwargs["follow_redirects"] is False
         assert "proxies" not in call_kwargs
 
+    @patch("proxywhirl.cli._impl.validate_target_url")
+    @patch("proxywhirl.cli._impl.pin_outbound_url")
     @patch("httpx.get")
-    def test_validate_proxy_preserves_credentials_without_output_leak(self, mock_get: Mock) -> None:
+    def test_validate_proxy_preserves_credentials_without_output_leak(
+        self, mock_get: Mock, mock_pin: Mock, _mock_validate: Mock
+    ) -> None:
         """Validate-proxy should use credentials for httpx without exposing them in output."""
         mock_response = Mock()
         mock_response.status_code = 200
         mock_get.return_value = mock_response
+        from proxywhirl.security import PinnedOutbound
+
+        mock_pin.return_value = (
+            PinnedOutbound(
+                url="http://user:pass@proxy.com:8080",
+                hostname="proxy.com",
+                ip="203.0.113.10",
+                port=8080,
+                scheme="http",
+                pinned_url="http://user:pass@203.0.113.10:8080",
+                host_header="proxy.com:8080",
+            ),
+            "",
+        )
 
         result = runner.invoke(
             app,
@@ -1189,7 +1225,7 @@ class TestValidateProxyCommand:
         )
 
         assert result.exit_code == 0
-        assert mock_get.call_args.kwargs["proxy"] == "http://user:pass@proxy.com:8080"
+        assert mock_get.call_args.kwargs["proxy"] == "http://user:pass@203.0.113.10:8080"
         output_data = json.loads(result.stdout)
         assert output_data["proxy"] == "http://proxy.com:8080"
         assert "user" not in result.stdout

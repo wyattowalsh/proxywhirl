@@ -342,6 +342,28 @@ def pin_outbound_url(url: str, *, purpose: str = "url") -> tuple[PinnedOutbound 
         return None, f"DNS safety validation failed for {hostname}: {exc}"
 
 
+def prepare_pinned_request(
+    url: str,
+    *,
+    purpose: str = "url",
+    headers: dict[str, Any] | None = None,
+    extensions: dict[str, Any] | None = None,
+) -> tuple[str, dict[str, str], dict[str, Any]]:
+    """Return the pinned URL plus Host and SNI for one connect.
+
+    Raises:
+        ValueError: When the URL fails the blocklist or DNS pin.
+    """
+    pin, reason = pin_outbound_url(url, purpose=purpose)
+    if pin is None:
+        raise ValueError(reason)
+    merged_headers = {str(key): str(value) for key, value in (headers or {}).items()}
+    merged_headers["Host"] = pin.host_header
+    merged_extensions = dict(extensions or {})
+    merged_extensions["sni_hostname"] = pin.hostname
+    return pin.pinned_url, merged_headers, merged_extensions
+
+
 # ============================================================================
 # BIND / SECRET FOOTGUN HELPERS
 # ============================================================================
@@ -828,6 +850,7 @@ __all__ = [
     "PinnedOutbound",
     "is_ip_blocked",
     "pin_outbound_url",
+    "prepare_pinned_request",
     "validate_proxy_url_safety",
     "validate_source_url_safety",
     "recheck_outbound_url_safety",

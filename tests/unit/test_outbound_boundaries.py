@@ -309,11 +309,15 @@ class TestBrowserOutboundBoundaries:
         safe_route = MagicMock()
         safe_route.continue_ = AsyncMock()
         safe_route.abort = AsyncMock()
+        safe_route.fulfill = AsyncMock()
         blocked_route = MagicMock()
         blocked_route.continue_ = AsyncMock()
         blocked_route.abort = AsyncMock()
         safe_request = MagicMock()
         safe_request.url = "https://public.example/proxies"
+        safe_request.method = "GET"
+        safe_request.headers = {}
+        safe_request.post_data = None
         safe_request.is_navigation_request.return_value = True
         blocked_request = MagicMock()
         blocked_request.url = "http://127.0.0.1/admin"
@@ -328,10 +332,33 @@ class TestBrowserOutboundBoundaries:
         page.goto = AsyncMock(side_effect=navigate)
         renderer = await _ready_renderer(page)
 
-        with patch(
-            "proxywhirl.browser.validate_source_url_safety",
-            side_effect=[(True, ""), (False, "Loopback address blocked")],
-        ) as validate:
+        from proxywhirl.security import PinnedOutbound
+
+        pin = PinnedOutbound(
+            url="https://public.example/proxies",
+            hostname="public.example",
+            ip="203.0.113.10",
+            port=443,
+            scheme="https",
+            pinned_url="https://203.0.113.10/proxies",
+            host_header="public.example",
+        )
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.content = b"<html></html>"
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=mock_response)
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        with (
+            patch(
+                "proxywhirl.browser.validate_source_url_safety",
+                side_effect=[(True, ""), (False, "Loopback address blocked")],
+            ) as validate,
+            patch("proxywhirl.browser.pin_outbound_url", return_value=(pin, "")),
+            patch("proxywhirl.browser.httpx.AsyncClient", return_value=mock_client),
+        ):
             with pytest.raises(ValueError, match="SSRF protection.*Loopback"):
                 await renderer.render("https://public.example/proxies")
 
@@ -339,7 +366,9 @@ class TestBrowserOutboundBoundaries:
             call("https://public.example/proxies"),
             call("http://127.0.0.1/admin"),
         ]
-        safe_route.continue_.assert_awaited_once()
+        safe_route.fulfill.assert_awaited_once()
+        assert mock_client.request.await_args.args[1] == "https://203.0.113.10/proxies"
+        safe_route.continue_.assert_not_awaited()
         safe_route.abort.assert_not_awaited()
         blocked_route.abort.assert_awaited_once()
         blocked_route.continue_.assert_not_awaited()

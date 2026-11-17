@@ -12,7 +12,7 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import click
 import httpx
@@ -24,8 +24,12 @@ from typer.core import TyperGroup
 from proxywhirl.config import CLIConfig, discover_config
 from proxywhirl.formatters import OutputFormat as FormatterOutputFormat
 from proxywhirl.models import RequestResult
+from proxywhirl.security import pin_outbound_url
 from proxywhirl.types import ConfigAction, PoolAction
 from proxywhirl.utils import CLILock, _redact_sensitive_text, mask_proxy_url, public_proxy_url
+
+_CLI_REDIRECT_STATUS_CODES = frozenset({301, 302, 303, 307, 308})
+_CLI_MAX_REDIRECTS = 5
 
 
 def _cli_getaddrinfo(*args, **kwargs):
@@ -332,6 +336,51 @@ def validate_target_url(url: str, allow_private: bool = False) -> None:
                     continue
                 checked_addresses.add(resolved_address)
                 _reject_forbidden_target_address(resolved_address, parsed.hostname)
+
+
+def _send_cli_request(
+    client: httpx.Client,
+    *,
+    method: str,
+    url: str,
+    headers: dict[str, str],
+    content: bytes | str | None,
+    allow_private: bool,
+    follow_redirects: bool,
+) -> httpx.Response:
+    """Send a CLI request to the pinned address and re-check every redirect."""
+    current_url = url
+    current_method = method
+    body = content
+    for hop in range(_CLI_MAX_REDIRECTS + 1):
+        validate_target_url(current_url, allow_private=allow_private)
+        pin, reason = pin_outbound_url(current_url, purpose="url")
+        if pin is None:
+            typer.secho(f"Error: {reason}", err=True, fg="red")
+            raise typer.Exit(code=1)
+        request_headers = dict(headers)
+        request_headers["Host"] = pin.host_header
+        response = client.request(
+            method=current_method,
+            url=pin.pinned_url,
+            headers=request_headers,
+            content=body,
+            extensions=pin.extensions,
+        )
+        if not follow_redirects or response.status_code not in _CLI_REDIRECT_STATUS_CODES:
+            return response
+        if hop >= _CLI_MAX_REDIRECTS:
+            typer.secho("Error: Too many redirects", err=True, fg="red")
+            raise typer.Exit(code=1)
+        location = response.headers.get("location") or response.headers.get("Location")
+        if not location:
+            return response
+        current_url = urljoin(current_url, location)
+        if response.status_code in {301, 302, 303} and current_method not in {"GET", "HEAD"}:
+            current_method = "GET"
+            body = None
+    typer.secho("Error: Too many redirects", err=True, fg="red")
+    raise typer.Exit(code=1)
 
 
 def get_context() -> CommandContext:
@@ -724,15 +773,31 @@ def request(
         try:
             start_time = time.time()
 
-            # Create httpx client with proxy
+            pinned_proxy: str | None = None
+            if proxy_url:
+                proxy_pin, proxy_reason = pin_outbound_url(proxy_url, purpose="proxy")
+                if proxy_pin is None:
+                    typer.secho(f"Error: {proxy_reason}", err=True, fg="red")
+                    raise typer.Exit(code=1)
+                pinned_proxy = proxy_pin.pinned_url
+
+            # Create httpx client with proxy. Redirects are followed manually
+            # so each hop is checked and the connect uses the pinned address.
             with httpx.Client(
-                proxy=proxy_url,
+                proxy=pinned_proxy,
                 timeout=ctx.config.timeout,
-                follow_redirects=ctx.config.follow_redirects,
+                follow_redirects=False,
                 verify=ctx.config.verify_ssl,
             ) as client:
-                # Make request
-                response = client.request(method=method, url=url, headers=header_dict, content=data)
+                response = _send_cli_request(
+                    client,
+                    method=method,
+                    url=url,
+                    headers=header_dict,
+                    content=data,
+                    allow_private=allow_private,
+                    follow_redirects=ctx.config.follow_redirects,
+                )
 
             elapsed_ms = (time.time() - start_time) * 1000
 
@@ -2361,14 +2426,24 @@ def validate_proxy(
 
         proxy_string = f"{parsed.scheme}://{parsed.netloc}"
         display_proxy = public_proxy_url(proxy_string)
+        if target_url:
+            validate_target_url(target_url)
+        proxy_pin, proxy_reason = pin_outbound_url(proxy_string, purpose="proxy")
+        if proxy_pin is None:
+            command_ctx.console.print(f"[red]{proxy_reason}[/red]")
+            raise typer.Exit(code=1)
 
-        # Test proxy
+        # Test proxy. Do not follow redirects: a public target can redirect
+        # the probe at an internal address.
         try:
             import time
 
             start_time = time.time()
             response = httpx.get(
-                target_url, proxy=proxy_string, timeout=timeout, follow_redirects=True
+                target_url,
+                proxy=proxy_pin.pinned_url,
+                timeout=timeout,
+                follow_redirects=False,
             )
             elapsed_ms = (time.time() - start_time) * 1000
 

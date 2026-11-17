@@ -197,6 +197,54 @@ class TestFetcherConnectsToPinnedIp:
         assert kwargs["extensions"]["sni_hostname"] == "public.example.test"
 
 
+class TestSourceValidationConnectsToPinnedIp:
+    """Source-list validation must stream the pinned IP, not the hostname."""
+
+    @pytest.mark.asyncio
+    async def test_validation_stream_uses_pinned_ip(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from proxywhirl.models import ProxyFormat, ProxySourceConfig
+        from proxywhirl.sources import _fetch_validation_content
+
+        fake = _rebinding_getaddrinfo()
+        monkeypatch.setattr("proxywhirl.security.socket.getaddrinfo", fake)
+        monkeypatch.setattr(
+            "proxywhirl.sources.validate_source_url_safety",
+            lambda _url: (True, ""),
+        )
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {}
+        mock_response.url = "http://8.8.8.8/list"
+        mock_response.encoding = "utf-8"
+        mock_response.aiter_bytes = MagicMock()
+        stream_cm = AsyncMock()
+        stream_cm.__aenter__.return_value = mock_response
+        stream_cm.__aexit__.return_value = None
+        client = MagicMock()
+        client.stream = MagicMock(return_value=stream_cm)
+
+        async def _empty_read(*_args: object, **_kwargs: object) -> tuple[str, int, None]:
+            return "", 0, None
+
+        monkeypatch.setattr("proxywhirl.sources._read_validation_content", _empty_read)
+        monkeypatch.setattr(
+            "proxywhirl.sources._count_parseable_proxies",
+            lambda *_args, **_kwargs: 0,
+        )
+
+        source = ProxySourceConfig(
+            url="https://public.example.test/list",
+            format=ProxyFormat.PLAIN_TEXT,
+        )
+        await _fetch_validation_content(source, timeout=1.0, client=client)
+        streamed_url = client.stream.call_args.args[1]
+        assert urlsplit(streamed_url).hostname == "8.8.8.8"
+        assert "public.example.test" not in streamed_url
+        assert client.stream.call_args.kwargs["headers"]["Host"] == "public.example.test"
+        assert client.stream.call_args.kwargs["extensions"]["sni_hostname"] == "public.example.test"
+
+
 class TestValidatorConnectsToPinnedIp:
     """Validator TCP and HTTP clients must target the pinned IP."""
 

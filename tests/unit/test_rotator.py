@@ -59,7 +59,9 @@ class TestProxyWhirlHTTPMethods:
             mock_client.request.assert_called_once()
             args, kwargs = mock_client.request.call_args
             assert args[0] == "GET"
-            assert args[1] == "https://httpbin.org/get"
+            assert args[1] != "https://httpbin.org/get"
+            assert kwargs["headers"]["Host"] == "httpbin.org"
+            assert kwargs["extensions"]["sni_hostname"] == "httpbin.org"
 
     @respx.mock
     def test_post_method(self) -> None:

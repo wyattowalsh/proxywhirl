@@ -28,7 +28,7 @@ from proxywhirl.fetchers import (
     PlainTextParser,
 )
 from proxywhirl.models import ProxySourceConfig
-from proxywhirl.security import validate_source_url_safety
+from proxywhirl.security import pin_outbound_url, validate_source_url_safety
 from proxywhirl.utils import parse_proxy_url
 
 SOURCE_VALIDATION_PARSERS: dict[str, type[Any]] = {
@@ -1183,23 +1183,30 @@ async def _fetch_validation_content(
     )
 
     current_url = str(source.url)
-    safe, reason = validate_source_url_safety(current_url)
-    if not safe:
-        return 0, 0, 0, f"Source URL blocked: {reason}"[:100]
 
-    # Manual redirect following so each hop is SSRF-checked before the request.
+    # Manual redirect following so each hop is pinned to the address that passed
+    # the SSRF check. A boolean check followed by the original hostname lets DNS
+    # rebind between the check and the connect.
     for _ in range(SOURCE_VALIDATION_MAX_REDIRECTS + 1):
+        safe, reason = validate_source_url_safety(current_url)
+        if not safe:
+            return 0, 0, 0, f"Source URL blocked: {reason}"[:100]
+        pin, pin_reason = pin_outbound_url(current_url, purpose="source")
+        if pin is None:
+            return 0, 0, 0, f"Source URL blocked: {pin_reason}"[:100]
         async with client.stream(
             "GET",
-            current_url,
+            pin.pinned_url,
+            headers={"Host": pin.host_header},
             timeout=request_timeout,
             follow_redirects=False,
+            extensions=pin.extensions,
         ) as response:
             if response.status_code in _REDIRECT_STATUS_CODES:
                 location = response.headers.get("location")
                 if not location:
                     return response.status_code, 0, 0, "Redirect missing Location header"
-                next_url = urljoin(str(response.url), location)
+                next_url = urljoin(current_url, location)
                 safe, reason = validate_source_url_safety(next_url)
                 if not safe:
                     return (

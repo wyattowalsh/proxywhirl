@@ -59,7 +59,7 @@ from proxywhirl.exceptions import (
 )
 from proxywhirl.models import HealthStatus, Proxy
 from proxywhirl.rotator import ProxyWhirl
-from proxywhirl.security import validate_proxy_url_safety
+from proxywhirl.security import prepare_pinned_request, validate_proxy_url_safety
 from proxywhirl.settings import APISettings
 from proxywhirl.utils import public_proxy_url
 
@@ -529,13 +529,21 @@ async def _check_proxy_health(
     """
     start_time = time.time()
     try:
-        # Create client with proxy configuration
-        # Note: httpx requires proxy to be set at client creation time
+        proxy_target, _proxy_headers, _proxy_extensions = prepare_pinned_request(
+            str(proxy.url),
+            purpose="proxy",
+        )
+        pinned_test_url, test_headers, test_extensions = prepare_pinned_request(test_url)
         async with httpx.AsyncClient(
-            proxy=str(proxy.url),
+            proxy=proxy_target,
             timeout=timeout,
         ) as client:
-            async with client.stream("GET", test_url) as response:
+            async with client.stream(
+                "GET",
+                pinned_test_url,
+                headers=test_headers,
+                extensions=test_extensions,
+            ) as response:
                 response_status = response.status_code
 
         latency_ms = int((time.time() - start_time) * 1000)

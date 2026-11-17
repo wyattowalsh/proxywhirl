@@ -638,7 +638,19 @@ class ProxyFetcher:
             all_proxies = deduplicate_proxies(all_proxies)
 
         if validate:
-            trusted_proxies = [p for p in all_proxies if p.get("from_trusted_source")]
+            trusted_proxies = []
+            for proxy in all_proxies:
+                if not proxy.get("from_trusted_source"):
+                    continue
+                proxy_url = str(proxy.get("url") or "")
+                pin, pin_reason = pin_outbound_url(proxy_url, purpose="proxy")
+                if pin is None:
+                    logger.debug(
+                        "Dropping trusted proxy that failed connect pin: {}",
+                        pin_reason,
+                    )
+                    continue
+                trusted_proxies.append(proxy)
             to_validate = [p for p in all_proxies if not p.get("from_trusted_source")]
             if not to_validate:
                 return trusted_proxies

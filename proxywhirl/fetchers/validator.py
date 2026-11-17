@@ -494,8 +494,16 @@ class ProxyValidator:
             # httpx requires proxy at client initialization, not per-request
             target_url = self._anonymity_test_url
             if proxy_url:
+                pin, pin_reason = pin_outbound_url(str(proxy_url), purpose="proxy")
+                if pin is None:
+                    logger.debug(
+                        "Anonymity check refused unpinnable proxy {}: {}",
+                        redact_url(str(proxy_url)),
+                        pin_reason,
+                    )
+                    return "unknown"
                 async with httpx.AsyncClient(
-                    proxy=proxy_url,
+                    proxy=pin.pinned_url,
                     timeout=self.timeout,
                     verify=_get_tls_verify(),
                 ) as client:

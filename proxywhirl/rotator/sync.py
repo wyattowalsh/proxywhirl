@@ -9,7 +9,7 @@ import threading
 import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
 
 import httpx
 from loguru import logger
@@ -37,6 +37,7 @@ from proxywhirl.rotator.base import CircuitBreakerSnapshot, ProxyRotatorBase
 from proxywhirl.rotator.client_pool import (
     LRUClientPool,  # noqa: F401 - re-export for backward compatibility
 )
+from proxywhirl.security import prepare_pinned_request
 from proxywhirl.settings import ProxyConfiguration
 from proxywhirl.strategies import RotationStrategy
 from proxywhirl.utils import mask_proxy_url
@@ -45,6 +46,8 @@ from proxywhirl.utils import mask_proxy_url
 # A non-blocking drain that then waits forever loses the wakeup if the holder
 # observed an empty queue and released the lock after this request was queued.
 _QUEUE_RESULT_POLL_SECONDS = 0.05
+_REDIRECT_STATUS_CODES = frozenset({301, 302, 303, 307, 308})
+_MAX_PINNED_REDIRECTS = 5
 
 if TYPE_CHECKING:
     from proxywhirl.rate_limiting import SyncRateLimiter
@@ -855,16 +858,57 @@ class ProxyWhirl(ProxyRotatorBase):
             client = self._get_or_create_client(proxy, proxy_dict)
 
             def request_fn() -> httpx.Response:
-                if _response_body_limit_bytes is None:
-                    response = client.request(method, url, **kwargs)
-                else:
-                    response = _request_with_bounded_response(
-                        client,
-                        method,
-                        url,
-                        _response_body_limit_bytes,
-                        kwargs,
-                    )
+                follow_redirects = bool(
+                    kwargs.get("follow_redirects", self.config.follow_redirects)
+                )
+                current_url = url
+                current_method = method
+                request_kwargs = dict(kwargs)
+                request_kwargs["follow_redirects"] = False
+                response: httpx.Response | None = None
+                for hop in range(_MAX_PINNED_REDIRECTS + 1):
+                    try:
+                        target, headers, extensions = prepare_pinned_request(
+                            current_url,
+                            headers=request_kwargs.get("headers"),
+                            extensions=request_kwargs.get("extensions"),
+                        )
+                    except ValueError as exc:
+                        raise ProxyConnectionError(f"Target URL blocked: {exc}") from exc
+                    request_kwargs["headers"] = headers
+                    request_kwargs["extensions"] = extensions
+                    if _response_body_limit_bytes is None:
+                        response = client.request(current_method, target, **request_kwargs)
+                    else:
+                        response = _request_with_bounded_response(
+                            client,
+                            current_method,
+                            target,
+                            _response_body_limit_bytes,
+                            request_kwargs,
+                        )
+                    if response.status_code in (401, 407):
+                        break
+                    if (
+                        not follow_redirects
+                        or response.status_code not in _REDIRECT_STATUS_CODES
+                        or hop >= _MAX_PINNED_REDIRECTS
+                    ):
+                        break
+                    location = response.headers.get("location") or response.headers.get("Location")
+                    if not location:
+                        break
+                    current_url = urljoin(current_url, location)
+                    if response.status_code in {301, 302, 303} and current_method not in {
+                        "GET",
+                        "HEAD",
+                    }:
+                        current_method = "GET"
+                        request_kwargs.pop("content", None)
+                        request_kwargs.pop("data", None)
+                        request_kwargs.pop("json", None)
+                if response is None:
+                    raise ProxyConnectionError("Pinned request produced no response")
                 if response.status_code in (401, 407):
                     logger.error(
                         f"Proxy authentication failed: {masked_url}",
